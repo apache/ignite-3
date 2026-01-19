@@ -158,14 +158,14 @@ class TableTruncatorTest {
         Object[][] content = {
                 {"very long content 1", "very long content 2", "very long content 3"}
         };
-        // Terminal width = 50, with overhead for borders (1 + 3*3 = 10)
+        // Terminal width = 50, with overhead for borders (3*3 = 9)
         TruncationConfig config = new TruncationConfig(true, 100, 50);
 
         int[] widths = new TableTruncator(config).calculateColumnWidths(header, content);
 
         // Total width should fit within terminal width
         int totalWidth = Arrays.stream(widths).sum();
-        assertThat(totalWidth <= 50 - 10, is(true));
+        assertThat(totalWidth <= 50 - 9, is(true));
 
         // Each column should have reasonable width (at least minimum of 3 for ellipsis)
         for (int width : widths) {
@@ -182,6 +182,38 @@ class TableTruncatorTest {
             String cell = (String) result.content()[0][i];
             assertThat(cell.length() <= widths[i], is(true));
         }
+    }
+
+    @Test
+    void calculateColumnWidthsUsesExactAvailableWidth() {
+        // Single column with content larger than terminal
+        String[] header = {"header"};
+        Object[][] content = {{"12345678901234567890"}}; // 20 chars
+
+        // Terminal = 20, overhead for 1 column = 3*1 = 3, available = 17
+        TruncationConfig config = new TruncationConfig(true, 100, 20);
+
+        int[] widths = new TableTruncator(config).calculateColumnWidths(header, content);
+
+        // Content (20) exceeds available (17), so should be shrunk to exactly 17
+        assertThat(widths[0], is(17));
+    }
+
+    @Test
+    void calculateColumnWidthsExactFitWhenResizedByOne() {
+        // Simulate: content fits at width W, then terminal resized to W-1
+        String[] header = {"col"};
+        Object[][] content = {{"1234567890"}}; // 10 chars
+
+        // At terminal = 13: overhead = 3, available = 10, content = 10 -> fits exactly
+        TruncationConfig configFits = new TruncationConfig(true, 100, 13);
+        int[] widthsFits = new TableTruncator(configFits).calculateColumnWidths(header, content);
+        assertThat(widthsFits[0], is(10)); // No truncation needed
+
+        // At terminal = 12: overhead = 3, available = 9, content = 10 -> need to shrink by 1
+        TruncationConfig configShrink = new TruncationConfig(true, 100, 12);
+        int[] widthsShrink = new TableTruncator(configShrink).calculateColumnWidths(header, content);
+        assertThat(widthsShrink[0], is(9)); // Should shrink to exactly 9, not less
     }
 
     @Test

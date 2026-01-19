@@ -40,10 +40,11 @@ public class TableTruncator {
 
     /**
      * Fixed table border overhead.
-     * Total overhead formula: 1 + 3*N where N is column count.
-     * This accounts for: left border (1) + right border (1) + per-column (3*N) - last separator (1) = 1 + 3*N.
+     * Total overhead formula: 3*N where N is column count.
+     * Per-column overhead includes: left padding (1) + right padding (1) + border/separator (1) = 3.
+     * The borders at table edges are already counted in per-column overhead.
      */
-    private static final int TABLE_BORDER_OVERHEAD = 1;
+    private static final int TABLE_BORDER_OVERHEAD = 0;
 
     private final TruncationConfig config;
 
@@ -159,12 +160,23 @@ public class TableTruncator {
             return;
         }
 
-        // Shrink proportionally
+        // Shrink proportionally using integer division to avoid over-shrinking
+        int totalReduction = 0;
         for (int col = 0; col < columnCount; col++) {
             if (shrinkableWidth[col] > 0) {
-                int reduction = (int) Math.ceil((double) excessWidth * shrinkableWidth[col] / totalShrinkable);
+                int reduction = excessWidth * shrinkableWidth[col] / totalShrinkable;
                 reduction = Math.min(reduction, shrinkableWidth[col]);
                 columnWidths[col] -= reduction;
+                totalReduction += reduction;
+            }
+        }
+
+        // Distribute any remaining excess (due to integer truncation) one column at a time
+        int remaining = excessWidth - totalReduction;
+        for (int col = 0; col < columnCount && remaining > 0; col++) {
+            if (columnWidths[col] > MIN_COLUMN_WIDTH) {
+                columnWidths[col]--;
+                remaining--;
             }
         }
     }
