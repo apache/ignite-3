@@ -2906,7 +2906,7 @@ INPUT= \
     ignite/common \
     docs/index.dox
 
-PROJECT_NUMBER = $(IGNITE_VERISON)
+PROJECT_NUMBER = $(IGNITE_VERSION)
 
 STRIP_FROM_PATH=
 
