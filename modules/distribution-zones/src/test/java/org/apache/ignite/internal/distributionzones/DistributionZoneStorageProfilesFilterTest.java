@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.UUID.randomUUID;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.junit.jupiter.api.Test;
 
 /** Tests storage profiles filtering. */
@@ -37,7 +39,7 @@ public class DistributionZoneStorageProfilesFilterTest {
 
         String zoneStorageProfiles = "qwe,asd";
 
-        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, storageProfilesFromParams(parseStorageProfiles(zoneStorageProfiles))));
     }
 
     @Test
@@ -47,7 +49,7 @@ public class DistributionZoneStorageProfilesFilterTest {
 
         String zoneStorageProfiles = "qwe,asd";
 
-        assertFalse(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertFalse(filterStorageProfiles(node, storageProfilesFromParams(parseStorageProfiles(zoneStorageProfiles))));
     }
 
     @Test
@@ -57,7 +59,7 @@ public class DistributionZoneStorageProfilesFilterTest {
 
         String zoneStorageProfiles = "zxc,asd";
 
-        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, storageProfilesFromParams(parseStorageProfiles(zoneStorageProfiles))));
     }
 
     @Test
@@ -67,6 +69,11 @@ public class DistributionZoneStorageProfilesFilterTest {
 
         String zoneStorageProfiles = "zxc,   asd";
 
-        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, storageProfilesFromParams(parseStorageProfiles(zoneStorageProfiles))));
+    }
+
+    private static List<String> storageProfilesFromParams(List<StorageProfileParams> params) {
+        return params.stream().map(StorageProfileParams::storageProfile).collect(toList());
+
     }
 }

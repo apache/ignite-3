@@ -68,6 +68,8 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.DataNodesDependentPartitionCountProvider;
+import org.apache.ignite.internal.catalog.EstimatedDataNodesNumberProvider;
 import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
@@ -1010,6 +1012,11 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 lowWatermark
         );
+
+        DataNodesDependentPartitionCountProvider partitionCountProvider = new DataNodesDependentPartitionCountProvider(
+                distributionZoneManager::estimatedDataNodesCount
+        );
+        partitionCountProviderWrapper.setPartitionCountProvider(partitionCountProvider);
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
