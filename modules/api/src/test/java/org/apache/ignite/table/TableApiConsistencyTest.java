@@ -44,8 +44,8 @@ public class TableApiConsistencyTest {
     }
 
     /**
-     * Test validates that if method public method requires {@link Transaction} parameter then overloaded
-     * method without such parameter should exists.
+     * Test validates that if method requires {@link Transaction} parameter then overloaded
+     * method without such parameter should exist.
      */
     @ParameterizedTest
     @ValueSource(classes = {KeyValueView.class, RecordView.class})
