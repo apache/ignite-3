@@ -22,13 +22,13 @@ import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
-import static org.apache.ignite.internal.util.GridUnsafe.incrementAndGetInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLongVolatile;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.util.GridUnsafe;
 
 /**
  * Helper class for working with the page header that is stored in memory for {@link PersistentPageMemory}.
@@ -198,10 +198,10 @@ public class PageHeader {
      * Acquires a page.
      *
      * @param absPtr Absolute pointer.
-     * @return Number of acquires for the page.
+     * @return Previous number of acquires for the page.
      */
     public static int acquirePage(long absPtr) {
-        return incrementAndGetInt(absPtr + PAGE_PIN_CNT_OFFSET);
+        return GridUnsafe.getAndIncrementInt(absPtr + PAGE_PIN_CNT_OFFSET);
     }
 
     /**

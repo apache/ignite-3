@@ -1510,9 +1510,9 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         protected void acquirePage(long absPtr) {
-            int newPinCount = PageHeader.acquirePage(absPtr);
+            int oldPinCount = PageHeader.acquirePage(absPtr);
 
-            if (newPinCount == 1) {
+            if (oldPinCount == 0) {
                 acquiredPages.increment();
             }
         }
