@@ -81,6 +81,7 @@ def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
 
 def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
     workingDir "$projectDir/cpp"
+    environment("IGNITE_VERISON", "${project.version}")
 
     commandLine "doxygen"
 }
