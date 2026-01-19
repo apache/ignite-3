@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog;
 
 import static java.lang.Math.max;
 
+import org.apache.ignite.internal.system.CpuInformationProvider;
+
 /**
  * Primary to use partition count provider. It calculates the number of partitions using the formula:
  * dataNodesCount * max(cores, 8) * scaleFactor / replicas. Data nodes count is the estimated number of data nodes for the given
@@ -26,21 +28,35 @@ import static java.lang.Math.max;
  * scale up.
  */
 public class DataNodesDependentPartitionCountProvider implements PartitionCountProvider {
-    private static final int SCALE_FACTOR = 3;
+    static final int SCALE_FACTOR = 3;
 
-    private final EstimatedDataNodesNumberProvider estimatedDataNodesCountProvider;
+    static final int MINIMUM_CPU_COUNT = 8;
 
-    public DataNodesDependentPartitionCountProvider(EstimatedDataNodesNumberProvider estimatedDataNodesCountProvider) {
+    private final EstimatedDataNodeCountProvider estimatedDataNodesCountProvider;
+
+    private final CpuInformationProvider cpuInfoProvider;
+
+    /**
+     * Constructor.
+     *
+     * @param estimatedDataNodesCountProvider Provides estimated data nodes count based on given zone filter and storage profile list.
+     * @param cpuInfoProvider Provides CPU information for local node hardware cores calculation.
+     */
+    public DataNodesDependentPartitionCountProvider(
+            EstimatedDataNodeCountProvider estimatedDataNodesCountProvider,
+            CpuInformationProvider cpuInfoProvider
+    ) {
         this.estimatedDataNodesCountProvider = estimatedDataNodesCountProvider;
+        this.cpuInfoProvider = cpuInfoProvider;
     }
 
     @Override
     public int calculate(PartitionCountCalculationParameters params) {
-        int dataNodesCount = estimatedDataNodesCountProvider.estimatedDataNodesNumber(
+        int dataNodesCount = estimatedDataNodesCountProvider.estimatedDataNodeCount(
                 params.dataNodesFilter(),
                 params.storageProfiles()
         );
-        int cores = max(Runtime.getRuntime().availableProcessors(), 8);
+        int cores = max(cpuInfoProvider.availableProcessors(), MINIMUM_CPU_COUNT);
         int replicas = params.replicaFactor();
 
         return dataNodesCount * cores * SCALE_FACTOR / replicas;

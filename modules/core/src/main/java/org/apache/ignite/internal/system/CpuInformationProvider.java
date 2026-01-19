@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
-
-import java.util.List;
+package org.apache.ignite.internal.system;
 
 /**
- * Provides an estimated number of data nodes.
+ * Provides information about local node CPU hardware.
  */
-@FunctionalInterface
-public interface EstimatedDataNodesNumberProvider {
+public interface CpuInformationProvider {
     /**
-     * Provides an estimated number of data nodes.
+     * Calculates and returns available number of hardware CPU cores of the local node machine.
      *
-     * @return Estimated number of data nodes.
+     * @return CPU count of the local node.
      */
-    int estimatedDataNodesNumber(String dataNodesFilter, List<String> storageProfiles);
+    int availableProcessors();
 }

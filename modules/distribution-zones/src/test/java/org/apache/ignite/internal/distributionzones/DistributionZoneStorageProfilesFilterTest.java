@@ -19,7 +19,6 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.junit.jupiter.api.Assertions.assertFalse;
