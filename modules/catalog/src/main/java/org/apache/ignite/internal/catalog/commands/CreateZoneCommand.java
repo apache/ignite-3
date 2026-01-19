@@ -144,23 +144,26 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private CatalogZoneDescriptor descriptor(PartitionCountProvider partitionCountProvider, int objectId) {
         String filter = requireNonNullElse(this.filter, DEFAULT_FILTER);
+
         int replicas = requireNonNullElse(this.replicas, DEFAULT_REPLICA_COUNT);
+
         CatalogStorageProfilesDescriptor storageProfilesDescriptor = fromParams(storageProfileParams);
+
         List<String> storageProfiles = storageProfilesDescriptor.profiles()
                 .stream()
                 .map(CatalogStorageProfileDescriptor::storageProfile)
                 .collect(toList());
 
+        PartitionCountCalculationParameters partitionCountCalculationParameters = PartitionCountCalculationParameters.builder()
+                .dataNodesFilter(filter)
+                .storageProfiles(storageProfiles)
+                .replicaFactor(replicas)
+                .build();
+
         return new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
-                requireNonNullElse(partitions, partitionCountProvider.calculate(
-                        PartitionCountCalculationParameters.builder()
-                                .dataNodesFilter(filter)
-                                .storageProfiles(storageProfiles)
-                                .replicaFactor(replicas)
-                                .build()
-                )),
+                requireNonNullElse(partitions, partitionCountProvider.calculate(partitionCountCalculationParameters)),
                 replicas,
                 requireNonNullElse(quorumSize, defaultQuorumSize(replicas)),
                 requireNonNullElse(
