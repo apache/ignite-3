@@ -828,6 +828,16 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT16);
         }
 
+        {
+            Tuple val = Tuple.copy(key).set(valName, (short) Byte.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (short) (Byte.MIN_VALUE - 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT16);
+        }
+
         // Put int value.
         {
             Tuple val = Tuple.copy(key).set(valName, (int) Byte.MAX_VALUE);
@@ -839,6 +849,16 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT32);
         }
 
+        {
+            Tuple val = Tuple.copy(key).set(valName, (int) Byte.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Byte.MIN_VALUE - 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT32);
+        }
+
         // Put long value.
         {
             Tuple val = Tuple.copy(key).set(valName, (long) Byte.MAX_VALUE);
@@ -847,6 +867,16 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
 
             Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Byte.MAX_VALUE + 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT64);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Byte.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Byte.MIN_VALUE - 1));
             expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT64);
         }
 
@@ -895,6 +925,16 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT32);
         }
 
+        {
+            Tuple val = Tuple.copy(key).set(valName, (int) Short.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Short.MIN_VALUE - 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT32);
+        }
+
         // Put long value.
         {
             Tuple val = Tuple.copy(key).set(valName, (long) Short.MAX_VALUE);
@@ -903,6 +943,16 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             assertThat(recordView.get(null, key).shortValue(valName), is(Short.MAX_VALUE));
 
             Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Short.MAX_VALUE + 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT64);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Short.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Short.MIN_VALUE - 1));
             expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT64);
         }
 
@@ -956,6 +1006,16 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
             assertThat(recordView.get(null, key).intValue(valName), is(Integer.MAX_VALUE));
 
             Tuple outOfRange = Tuple.copy(key).set(valName, ((long) Integer.MAX_VALUE) + 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT64);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Integer.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).intValue(valName), is(Integer.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, ((long) Integer.MIN_VALUE) - 1);
             expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.INT64);
         }
 
@@ -1045,6 +1105,40 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
             Tuple outOfRange = Tuple.copy(key).set(valName, Double.MAX_VALUE);
             expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.DOUBLE);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (double) Float.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Double.MIN_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, ColumnType.DOUBLE);
+        }
+
+        // NaN value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Double.NaN);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.NaN));
+        }
+
+        // Positive infinity value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Double.POSITIVE_INFINITY);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.POSITIVE_INFINITY));
+        }
+
+        // Negative infinity value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Double.NEGATIVE_INFINITY);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.NEGATIVE_INFINITY));
         }
 
         // Wrong (integer) types

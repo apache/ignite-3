@@ -289,12 +289,12 @@ public class ClientBinaryTupleUtils {
     }
 
     private static void appendByteValue(BinaryTupleBuilder builder, Object val) {
-        if (val.getClass() == Byte.class) {
+        if (val instanceof Byte) {
             builder.appendByte((byte) val);
             return;
         }
 
-        if (val.getClass() == Short.class) {
+        if (val instanceof Short) {
             short shortVal = (short) val;
             byte byteVal = (byte) shortVal;
 
@@ -304,7 +304,7 @@ public class ClientBinaryTupleUtils {
             }
         }
 
-        if (val.getClass() == Integer.class) {
+        if (val instanceof Integer) {
             int intVal = (int) val;
             byte byteVal = (byte) intVal;
 
@@ -314,7 +314,7 @@ public class ClientBinaryTupleUtils {
             }
         }
 
-        if (val.getClass() == Long.class) {
+        if (val instanceof Long) {
             long longVal = (long) val;
             byte byteVal = (byte) longVal;
 
@@ -328,17 +328,17 @@ public class ClientBinaryTupleUtils {
     }
 
     private static void appendShortValue(BinaryTupleBuilder builder, Object val) {
-        if (val.getClass() == Short.class) {
+        if (val instanceof Short) {
             builder.appendShort((short) val);
             return;
         }
 
-        if (val.getClass() == Byte.class) {
+        if (val instanceof Byte) {
             builder.appendShort((byte) val);
             return;
         }
 
-        if (val.getClass() == Integer.class) {
+        if (val instanceof Integer) {
             int intVal = (int) val;
             short shortVal = (short) intVal;
 
@@ -348,7 +348,7 @@ public class ClientBinaryTupleUtils {
             }
         }
 
-        if (val.getClass() == Long.class) {
+        if (val instanceof Long) {
             long longVal = (long) val;
             short shortVal = (short) longVal;
 
@@ -362,22 +362,22 @@ public class ClientBinaryTupleUtils {
     }
 
     private static void appendIntValue(BinaryTupleBuilder builder, Object val) {
-        if (val.getClass() == Integer.class) {
+        if (val instanceof Integer) {
             builder.appendInt((int) val);
             return;
         }
 
-        if (val.getClass() == Short.class) {
+        if (val instanceof Short) {
             builder.appendInt((short) val);
             return;
         }
 
-        if (val.getClass() == Byte.class) {
+        if (val instanceof Byte) {
             builder.appendInt((byte) val);
             return;
         }
 
-        if (val.getClass() == Long.class) {
+        if (val instanceof Long) {
             long longVal = (long) val;
             int intVal = (int) longVal;
 
@@ -391,22 +391,22 @@ public class ClientBinaryTupleUtils {
     }
 
     private static void appendLongValue(BinaryTupleBuilder builder, Object val) {
-        if (val.getClass() == Integer.class) {
+        if (val instanceof Integer) {
             builder.appendLong((int) val);
             return;
         }
 
-        if (val.getClass() == Short.class) {
+        if (val instanceof Short) {
             builder.appendLong((short) val);
             return;
         }
 
-        if (val.getClass() == Byte.class) {
+        if (val instanceof Byte) {
             builder.appendLong((byte) val);
             return;
         }
 
-        if (val.getClass() == Long.class) {
+        if (val instanceof Long) {
             builder.appendLong((long) val);
             return;
         }
@@ -415,16 +415,16 @@ public class ClientBinaryTupleUtils {
     }
 
     private static void appendFloatValue(BinaryTupleBuilder builder, Object val) {
-        if (val.getClass() == Float.class) {
+        if (val instanceof Float) {
             builder.appendFloat((float) val);
             return;
         }
 
-        if (val.getClass() == Double.class) {
+        if (val instanceof Double) {
             double doubleVal = (double) val;
             float floatVal = (float) doubleVal;
 
-            if (doubleVal == floatVal) {
+            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
                 builder.appendFloat(floatVal);
                 return;
             }
@@ -434,12 +434,12 @@ public class ClientBinaryTupleUtils {
     }
 
     private static void appendDoubleValue(BinaryTupleBuilder builder, Object val) {
-        if (val.getClass() == Double.class) {
+        if (val instanceof Double) {
             builder.appendDouble((double) val);
             return;
         }
 
-        if (val.getClass() == Float.class) {
+        if (val instanceof Float) {
             builder.appendDouble((float) val);
             return;
         }

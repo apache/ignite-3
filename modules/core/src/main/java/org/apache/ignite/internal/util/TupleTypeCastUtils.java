@@ -21,7 +21,7 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.sql.ColumnType;
 
 /**
- * Helper methods for reading values from {@link InternalTuple} with allowed numeric type conversions.
+ * Helper methods for validating numeric type conversions when writing values to {@link InternalTuple}.
  *
  * <p>The following conversions are supported:
  * <ul>
@@ -66,12 +66,16 @@ public class TupleTypeCastUtils {
             case INT64:
                 return integerType(from);
             case FLOAT:
-                return from == ColumnType.DOUBLE && number.floatValue() == number.doubleValue();
+                if (from == ColumnType.DOUBLE) {
+                    double doubleValue = number.doubleValue();
+                    return number.floatValue() == doubleValue || Double.isNaN(doubleValue);
+                }
+                return false;
             case DOUBLE:
                 return from == ColumnType.FLOAT;
 
             default:
-                throw new UnsupportedOperationException(from.name() + " -> " + to.name());
+                return false;
         }
     }
 

@@ -618,6 +618,16 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT16);
         }
 
+        {
+            Tuple val = Tuple.create().set(valName, (short) Byte.MIN_VALUE);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.create().set(valName, (short) (Byte.MIN_VALUE - 1));
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT16);
+        }
+
         // Put int value.
         {
             Tuple val = Tuple.create().set(valName, (int) Byte.MAX_VALUE);
@@ -629,6 +639,16 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
         }
 
+        {
+            Tuple val = Tuple.create().set(valName, (short) Byte.MIN_VALUE);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.create().set(valName, (short) (Byte.MIN_VALUE - 1));
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT16);
+        }
+
         // Put long value.
         {
             Tuple val = Tuple.create().set(valName, (long) Byte.MAX_VALUE);
@@ -637,6 +657,16 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (long) (Byte.MAX_VALUE + 1));
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+        }
+
+        {
+            Tuple val = Tuple.create().set(valName, (long) Byte.MIN_VALUE);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.create().set(valName, (long) (Byte.MIN_VALUE - 1));
             expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
         }
 
@@ -684,6 +714,16 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
         }
 
+        {
+            Tuple val = Tuple.create().set(valName, (int) Short.MIN_VALUE);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.create().set(valName, Short.MIN_VALUE - 1);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
+        }
+
         // Put long value.
         {
             Tuple val = Tuple.create().set(valName, (long) Short.MAX_VALUE);
@@ -692,6 +732,16 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).shortValue(valName), is(Short.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (long) (Short.MAX_VALUE + 1));
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+        }
+
+        {
+            Tuple val = Tuple.create().set(valName, (long) Short.MIN_VALUE);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.create().set(valName, (long) (Short.MIN_VALUE - 1));
             expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
         }
 
@@ -744,6 +794,16 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).intValue(valName), is(Integer.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, ((long) Integer.MAX_VALUE) + 1);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+        }
+
+        {
+            Tuple val = Tuple.create().set(valName, (long) Integer.MIN_VALUE);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).intValue(valName), is(Integer.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.create().set(valName, ((long) Integer.MIN_VALUE) - 1);
             expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
         }
 
@@ -831,6 +891,40 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
             Tuple outOfRange = Tuple.create().set(valName, Double.MAX_VALUE);
             expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.DOUBLE);
+        }
+
+        {
+            Tuple val = Tuple.create().set(valName, (double) Float.MIN_VALUE);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).floatValue(valName), is(Float.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.create().set(valName, Double.MIN_VALUE);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.DOUBLE);
+        }
+
+        // NaN value.
+        {
+            Tuple val = Tuple.create().set(valName, Double.NaN);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).floatValue(valName), is(Float.NaN));
+        }
+
+        // Positive infinity value.
+        {
+            Tuple val = Tuple.create().set(valName, Double.POSITIVE_INFINITY);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).floatValue(valName), is(Float.POSITIVE_INFINITY));
+        }
+
+        // Negative infinity value.
+        {
+            Tuple val = Tuple.create().set(valName, Double.NEGATIVE_INFINITY);
+
+            tbl.put(null, key, val);
+            assertThat(tbl.get(null, key).floatValue(valName), is(Float.NEGATIVE_INFINITY));
         }
 
         // Wrong (integer) types
