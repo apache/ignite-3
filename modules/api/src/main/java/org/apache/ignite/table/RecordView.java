@@ -432,7 +432,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
     default boolean replaceExact(@Nullable Transaction tx, R oldRec, R newRec) {
-        return replace(null, oldRec, newRec);
+        return replace(tx, oldRec, newRec);
     }
 
     /**
@@ -462,7 +462,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @return Future that represents the pending completion of the operation.
      */
     default CompletableFuture<Boolean> replaceAsync(R rec) {
-        return replaceAsync((Transaction) null, rec);
+        return replaceAsync(null, rec);
     }
 
     /**
@@ -601,7 +601,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx  Transaction or {@code null} for implicit transaction.
      * @param rec Record to delete. The record cannot be {@code null}.
-     * @return Future tha represents the pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      */
     CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R rec);
 
@@ -609,7 +609,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * Asynchronously deletes the given record from a table.
      *
      * @param rec Record to delete. The record cannot be {@code null}.
-     * @return Future tha represents the pending completion of the operation.
+     * @return Future that represents the pending completion of the operation.
      */
     default CompletableFuture<Boolean> deleteExactAsync(R rec) {
         return deleteExactAsync(null, rec);

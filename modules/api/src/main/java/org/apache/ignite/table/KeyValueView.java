@@ -608,7 +608,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
     default boolean removeExact(@Nullable Transaction tx, K key, V val) {
-        return remove(null, key, val);
+        return remove(tx, key, val);
     }
 
     /**
