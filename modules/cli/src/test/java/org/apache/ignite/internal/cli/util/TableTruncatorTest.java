@@ -150,7 +150,7 @@ class TableTruncatorTest {
 
         int[] widths = new TableTruncator(config).calculateColumnWidths(header, content);
 
-        assertThat(widths[0], is(3)); // "..." minimum or actual length
+        assertThat(widths[0], is(4)); // minimum column width (1 char + ellipsis)
         assertThat(widths[1], is(15)); // capped at max column width
     }
 
@@ -169,9 +169,9 @@ class TableTruncatorTest {
         int totalWidth = Arrays.stream(widths).sum();
         assertThat(totalWidth <= 50 - 10, is(true));
 
-        // Each column should have reasonable width (at least minimum of 3 for ellipsis)
+        // Each column should have reasonable width (at least minimum of 4: 1 char + ellipsis)
         for (int width : widths) {
-            assertThat(width >= 3, is(true));
+            assertThat(width >= 4, is(true));
         }
 
         // Verify actual truncation result

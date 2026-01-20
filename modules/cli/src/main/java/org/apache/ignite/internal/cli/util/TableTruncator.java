@@ -29,8 +29,8 @@ import org.apache.ignite.internal.cli.sql.table.Table;
  * Truncates table columns to fit terminal width.
  */
 public class TableTruncator {
-    /** Minimum column width to display at least ellipsis. */
-    private static final int MIN_COLUMN_WIDTH = ELLIPSIS.length();
+    /** Minimum column width to display at least one character plus ellipsis. */
+    private static final int MIN_COLUMN_WIDTH = ELLIPSIS.length() + 1;
 
     /**
      * Per-column overhead in FlipTables: space before + space after + separator.
