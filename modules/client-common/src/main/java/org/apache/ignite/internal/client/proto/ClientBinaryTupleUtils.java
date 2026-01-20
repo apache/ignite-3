@@ -32,6 +32,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.TupleTypeCastUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnType;
@@ -204,27 +205,27 @@ public class ClientBinaryTupleUtils {
                     return;
 
                 case INT8:
-                    appendByteValue(builder, v);
+                    builder.appendByte(TupleTypeCastUtils.castToByte(v));
                     return;
 
                 case INT16:
-                    appendShortValue(builder, v);
+                    builder.appendShort(TupleTypeCastUtils.castToShort(v));
                     return;
 
                 case INT32:
-                    appendIntValue(builder, v);
+                    builder.appendInt(TupleTypeCastUtils.castToInt(v));
                     return;
 
                 case INT64:
-                    appendLongValue(builder, v);
+                    builder.appendLong(TupleTypeCastUtils.castToLong(v));
                     return;
 
                 case FLOAT:
-                    appendFloatValue(builder, v);
+                    builder.appendFloat(TupleTypeCastUtils.castToFloat(v));
                     return;
 
                 case DOUBLE:
-                    appendDoubleValue(builder, v);
+                    builder.appendDouble(TupleTypeCastUtils.castToDouble(v));
                     return;
 
                 case DECIMAL:
@@ -262,7 +263,7 @@ public class ClientBinaryTupleUtils {
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
-        } catch (ClassCastException e) {
+        } catch (ArithmeticException | ClassCastException e) {
             NativeType nativeType = NativeTypes.fromObject(v);
 
             if (nativeType == null) {
@@ -286,165 +287,6 @@ public class ClientBinaryTupleUtils {
 
             throw new MarshallerException(error, e);
         }
-    }
-
-    private static void appendByteValue(BinaryTupleBuilder builder, Object val) {
-        if (val instanceof Byte) {
-            builder.appendByte((byte) val);
-            return;
-        }
-
-        if (val instanceof Short) {
-            short shortVal = (short) val;
-            byte byteVal = (byte) shortVal;
-
-            if (shortVal == byteVal) {
-                builder.appendByte(byteVal);
-                return;
-            }
-        }
-
-        if (val instanceof Integer) {
-            int intVal = (int) val;
-            byte byteVal = (byte) intVal;
-
-            if (intVal == byteVal) {
-                builder.appendByte(byteVal);
-                return;
-            }
-        }
-
-        if (val instanceof Long) {
-            long longVal = (long) val;
-            byte byteVal = (byte) longVal;
-
-            if (longVal == byteVal) {
-                builder.appendByte(byteVal);
-                return;
-            }
-        }
-
-        throw new ClassCastException(val.getClass() + " cannot be cast to " + Byte.class);
-    }
-
-    private static void appendShortValue(BinaryTupleBuilder builder, Object val) {
-        if (val instanceof Short) {
-            builder.appendShort((short) val);
-            return;
-        }
-
-        if (val instanceof Byte) {
-            builder.appendShort((byte) val);
-            return;
-        }
-
-        if (val instanceof Integer) {
-            int intVal = (int) val;
-            short shortVal = (short) intVal;
-
-            if (intVal == shortVal) {
-                builder.appendShort(shortVal);
-                return;
-            }
-        }
-
-        if (val instanceof Long) {
-            long longVal = (long) val;
-            short shortVal = (short) longVal;
-
-            if (longVal == shortVal) {
-                builder.appendShort(shortVal);
-                return;
-            }
-        }
-
-        throw new ClassCastException(val.getClass() + " cannot be cast to " + Short.class);
-    }
-
-    private static void appendIntValue(BinaryTupleBuilder builder, Object val) {
-        if (val instanceof Integer) {
-            builder.appendInt((int) val);
-            return;
-        }
-
-        if (val instanceof Short) {
-            builder.appendInt((short) val);
-            return;
-        }
-
-        if (val instanceof Byte) {
-            builder.appendInt((byte) val);
-            return;
-        }
-
-        if (val instanceof Long) {
-            long longVal = (long) val;
-            int intVal = (int) longVal;
-
-            if (longVal == intVal) {
-                builder.appendInt(intVal);
-                return;
-            }
-        }
-
-        throw new ClassCastException(val.getClass() + " cannot be cast to " + Integer.class);
-    }
-
-    private static void appendLongValue(BinaryTupleBuilder builder, Object val) {
-        if (val instanceof Integer) {
-            builder.appendLong((int) val);
-            return;
-        }
-
-        if (val instanceof Short) {
-            builder.appendLong((short) val);
-            return;
-        }
-
-        if (val instanceof Byte) {
-            builder.appendLong((byte) val);
-            return;
-        }
-
-        if (val instanceof Long) {
-            builder.appendLong((long) val);
-            return;
-        }
-
-        throw new ClassCastException(val.getClass() + " cannot be cast to " + Long.class);
-    }
-
-    private static void appendFloatValue(BinaryTupleBuilder builder, Object val) {
-        if (val instanceof Float) {
-            builder.appendFloat((float) val);
-            return;
-        }
-
-        if (val instanceof Double) {
-            double doubleVal = (double) val;
-            float floatVal = (float) doubleVal;
-
-            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
-                builder.appendFloat(floatVal);
-                return;
-            }
-        }
-
-        throw new ClassCastException(val.getClass() + " cannot be cast to " + Float.class);
-    }
-
-    private static void appendDoubleValue(BinaryTupleBuilder builder, Object val) {
-        if (val instanceof Double) {
-            builder.appendDouble((double) val);
-            return;
-        }
-
-        if (val instanceof Float) {
-            builder.appendDouble((float) val);
-            return;
-        }
-
-        throw new ClassCastException(val.getClass() + " cannot be cast to " + Double.class);
     }
 
     private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type, int scale) {

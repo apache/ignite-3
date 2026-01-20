@@ -38,6 +38,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -132,11 +133,14 @@ abstract class ItTableViewApiUnifiedBaseTest extends ClusterPerClassIntegrationT
         }
     }
 
-    static void expectTypeMismatch(Executable executable, String columnName, ColumnType expected, ColumnType actual) {
+    static void expectTypeMismatch(Executable executable, String columnName, ColumnType expected, NativeType actual, boolean thin) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client message must use native type display name.
+        String actualTypeName = thin ? actual.spec().name() : actual.displayName();
+
         //noinspection ThrowableNotThrown
         assertThrows(MarshallerException.class, executable,
-                IgniteStringFormatter.format("Value type does not match [column='{}', expected={}, actual={}",
-                        columnName.toUpperCase(), expected.name(), actual.name()));
+                IgniteStringFormatter.format("Value type does not match [column='{}', expected={}, actual={}]",
+                        columnName.toUpperCase(), expected.name(), actualTypeName));
     }
 
     private static List<String> getClientAddresses(List<Ignite> nodes) {

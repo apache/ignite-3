@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.util;
 
-import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Helper methods for validating numeric type conversions when writing values to {@link InternalTuple}.
+ * Helper methods that perform conversions between numeric types. These methods
+ * are used when writing the primitive numeric values to a {@link Tuple tuple}.
  *
  * <p>The following conversions are supported:
  * <ul>
@@ -35,6 +36,105 @@ import org.apache.ignite.sql.ColumnType;
 public class TupleTypeCastUtils {
     /** Integer column types bitmask. */
     private static final int INT_COLUMN_TYPES_BITMASK = buildIntegerTypesBitMask();
+
+    /** Casts an object to {@code byte} if possible. */
+    public static byte castToByte(Object number) {
+        if (number instanceof Byte) {
+            return (byte) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Short) {
+            long longVal = ((Number) number).longValue();
+            byte byteVal = ((Number) number).byteValue();
+
+            if (longVal == byteVal) {
+                return byteVal;
+            }
+
+            throw new ArithmeticException("Byte value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + byte.class);
+    }
+
+    /** Casts an object to {@code short} if possible. */
+    public static short castToShort(Object number) {
+        if (number instanceof Short) {
+            return (short) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            short shortVal = ((Number) number).shortValue();
+
+            if (longVal == shortVal) {
+                return shortVal;
+            }
+
+            throw new ArithmeticException("Short value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + short.class);
+    }
+
+    /** Casts an object to {@code int} if possible. */
+    public static int castToInt(Object number) {
+        if (number instanceof Integer) {
+            return (int) number;
+        }
+
+        if (number instanceof Long || number instanceof Short || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            int intVal = ((Number) number).intValue();
+
+            if (longVal == intVal) {
+                return intVal;
+            }
+
+            throw new ArithmeticException("Int value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + int.class);
+    }
+
+    /** Casts an object to {@code long} if possible. */
+    public static long castToLong(Object number) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
+            return ((Number) number).longValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + long.class);
+    }
+
+    /** Casts an object to {@code float} if possible. */
+    public static float castToFloat(Object number) {
+        if (number instanceof Float) {
+            return (float) number;
+        }
+
+        if (number instanceof Double) {
+            double doubleVal = ((Number) number).doubleValue();
+            float floatVal = ((Number) number).floatValue();
+
+            //noinspection FloatingPointEquality
+            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
+                return floatVal;
+            }
+
+            throw new ArithmeticException("Float value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + float.class);
+    }
+
+    /** Casts an object to {@code double} if possible. */
+    public static double castToDouble(Object number) {
+        if (number instanceof Double || number instanceof Float) {
+            return ((Number) number).doubleValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + double.class);
+    }
 
     /**
      * Checks whether a cast is possible between two types for the given value.

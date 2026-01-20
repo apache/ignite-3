@@ -40,6 +40,7 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
@@ -615,7 +616,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (short) (Byte.MAX_VALUE + 1));
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT16);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT16, testCase.thin);
         }
 
         {
@@ -625,7 +626,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (short) (Byte.MIN_VALUE - 1));
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT16);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT16, testCase.thin);
         }
 
         // Put int value.
@@ -636,7 +637,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, Byte.MAX_VALUE + 1);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
         }
 
         {
@@ -646,7 +647,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, Byte.MIN_VALUE - 1);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
         }
 
         // Put long value.
@@ -657,7 +658,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (long) (Byte.MAX_VALUE + 1));
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         {
@@ -667,22 +668,24 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (long) (Byte.MIN_VALUE - 1));
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         // Wrong (floating point) types
         {
             Tuple floatValue = Tuple.create().set(valName, Float.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, ColumnType.FLOAT);
+            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
 
             Tuple doubleValue = Tuple.create().set(valName, Double.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, ColumnType.DOUBLE);
+            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
         }
 
         // Wrong (decimal) type
         {
-            Tuple decimalValue = Tuple.create().set(valName, new BigDecimal(1));
-            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, ColumnType.DECIMAL);
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.create().set(valName, decimal);
+            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, valueType, testCase.thin);
         }
     }
 
@@ -711,7 +714,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).shortValue(valName), is(Short.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, Short.MAX_VALUE + 1);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
         }
 
         {
@@ -721,7 +724,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, Short.MIN_VALUE - 1);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
         }
 
         // Put long value.
@@ -732,7 +735,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).shortValue(valName), is(Short.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (long) (Short.MAX_VALUE + 1));
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         {
@@ -742,22 +745,24 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, (long) (Short.MIN_VALUE - 1));
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         // Wrong (floating point) types
         {
             Tuple floatValue = Tuple.create().set(valName, Float.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, ColumnType.FLOAT);
+            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
 
             Tuple doubleValue = Tuple.create().set(valName, Double.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, ColumnType.DOUBLE);
+            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
         }
 
         // Wrong (decimal) type
         {
-            Tuple decimalValue = Tuple.create().set(valName, new BigDecimal(1));
-            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, ColumnType.DECIMAL);
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.create().set(valName, decimal);
+            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, valueType, testCase.thin);
         }
     }
 
@@ -794,7 +799,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).intValue(valName), is(Integer.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, ((long) Integer.MAX_VALUE) + 1);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         {
@@ -804,22 +809,24 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).intValue(valName), is(Integer.MIN_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, ((long) Integer.MIN_VALUE) - 1);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         // Wrong (floating point) types
         {
             Tuple floatValue = Tuple.create().set(valName, Float.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, ColumnType.FLOAT);
+            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
 
             Tuple doubleValue = Tuple.create().set(valName, Double.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, ColumnType.DOUBLE);
+            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
         }
 
         // Wrong (decimal) type
         {
-            Tuple decimalValue = Tuple.create().set(valName, new BigDecimal(1));
-            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, ColumnType.DECIMAL);
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.create().set(valName, decimal);
+            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, valueType, testCase.thin);
         }
     }
 
@@ -860,16 +867,18 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         // Wrong (floating point) types
         {
             Tuple floatValue = Tuple.create().set(valName, Float.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, ColumnType.FLOAT);
+            expectTypeMismatch(() -> tbl.put(null, key, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
 
             Tuple doubleValue = Tuple.create().set(valName, Double.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, ColumnType.DOUBLE);
+            expectTypeMismatch(() -> tbl.put(null, key, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
         }
 
         // Wrong (decimal) type
         {
-            Tuple decimalValue = Tuple.create().set(valName, new BigDecimal(1));
-            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, ColumnType.DECIMAL);
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.create().set(valName, decimal);
+            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, valueType, testCase.thin);
         }
     }
 
@@ -890,7 +899,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).floatValue(valName), is(Float.MAX_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, Double.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.DOUBLE);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
         }
 
         {
@@ -900,7 +909,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             assertThat(tbl.get(null, key).floatValue(valName), is(Float.MIN_VALUE));
 
             Tuple outOfRange = Tuple.create().set(valName, Double.MIN_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.DOUBLE);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
         }
 
         // NaN value.
@@ -930,22 +939,24 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         // Wrong (integer) types
         {
             Tuple byteValue = Tuple.create().set(valName, Byte.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, byteValue), valName, targetType, ColumnType.INT8);
+            expectTypeMismatch(() -> tbl.put(null, key, byteValue), valName, targetType, NativeTypes.INT8, testCase.thin);
 
             Tuple shortValue = Tuple.create().set(valName, Short.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, shortValue), valName, targetType, ColumnType.INT16);
+            expectTypeMismatch(() -> tbl.put(null, key, shortValue), valName, targetType, NativeTypes.INT16, testCase.thin);
 
             Tuple intValue = Tuple.create().set(valName, Integer.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, intValue), valName, targetType, ColumnType.INT32);
+            expectTypeMismatch(() -> tbl.put(null, key, intValue), valName, targetType, NativeTypes.INT32, testCase.thin);
 
             Tuple longValue = Tuple.create().set(valName, Long.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, longValue), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, longValue), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         // Wrong (decimal) type
         {
-            Tuple decimalValue = Tuple.create().set(valName, new BigDecimal(1));
-            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, ColumnType.DECIMAL);
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.create().set(valName, decimal);
+            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, valueType, testCase.thin);
         }
     }
 
@@ -969,22 +980,24 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         // Wrong (integer) types
         {
             Tuple byteValue = Tuple.create().set(valName, Byte.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, byteValue), valName, targetType, ColumnType.INT8);
+            expectTypeMismatch(() -> tbl.put(null, key, byteValue), valName, targetType, NativeTypes.INT8, testCase.thin);
 
             Tuple shortValue = Tuple.create().set(valName, Short.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, shortValue), valName, targetType, ColumnType.INT16);
+            expectTypeMismatch(() -> tbl.put(null, key, shortValue), valName, targetType, NativeTypes.INT16, testCase.thin);
 
             Tuple intValue = Tuple.create().set(valName, Integer.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, intValue), valName, targetType, ColumnType.INT32);
+            expectTypeMismatch(() -> tbl.put(null, key, intValue), valName, targetType, NativeTypes.INT32, testCase.thin);
 
             Tuple longValue = Tuple.create().set(valName, Long.MAX_VALUE);
-            expectTypeMismatch(() -> tbl.put(null, key, longValue), valName, targetType, ColumnType.INT64);
+            expectTypeMismatch(() -> tbl.put(null, key, longValue), valName, targetType, NativeTypes.INT64, testCase.thin);
         }
 
         // Wrong (decimal) type
         {
-            Tuple decimalValue = Tuple.create().set(valName, new BigDecimal(1));
-            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, ColumnType.DECIMAL);
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.create().set(valName, decimal);
+            expectTypeMismatch(() -> tbl.put(null, key, decimalValue), valName, targetType, valueType, testCase.thin);
         }
     }
 
