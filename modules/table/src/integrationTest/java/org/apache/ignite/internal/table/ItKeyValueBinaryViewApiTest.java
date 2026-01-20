@@ -640,13 +640,13 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         }
 
         {
-            Tuple val = Tuple.create().set(valName, (short) Byte.MIN_VALUE);
+            Tuple val = Tuple.create().set(valName, (int) Byte.MIN_VALUE);
 
             tbl.put(null, key, val);
             assertThat(tbl.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
 
-            Tuple outOfRange = Tuple.create().set(valName, (short) (Byte.MIN_VALUE - 1));
-            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT16);
+            Tuple outOfRange = Tuple.create().set(valName, Byte.MIN_VALUE - 1);
+            expectTypeMismatch(() -> tbl.put(null, key, outOfRange), valName, targetType, ColumnType.INT32);
         }
 
         // Put long value.

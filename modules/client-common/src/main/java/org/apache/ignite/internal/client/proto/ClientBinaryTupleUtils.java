@@ -324,7 +324,7 @@ public class ClientBinaryTupleUtils {
             }
         }
 
-        throw new ClassCastException("Cannot cast to byte: " + val.getClass());
+        throw new ClassCastException(val.getClass() + " cannot be cast to " + Byte.class);
     }
 
     private static void appendShortValue(BinaryTupleBuilder builder, Object val) {
@@ -358,7 +358,7 @@ public class ClientBinaryTupleUtils {
             }
         }
 
-        throw new ClassCastException("Cannot cast to short: " + val.getClass());
+        throw new ClassCastException(val.getClass() + " cannot be cast to " + Short.class);
     }
 
     private static void appendIntValue(BinaryTupleBuilder builder, Object val) {
@@ -387,7 +387,7 @@ public class ClientBinaryTupleUtils {
             }
         }
 
-        throw new ClassCastException("Cannot cast to int: " + val.getClass());
+        throw new ClassCastException(val.getClass() + " cannot be cast to " + Integer.class);
     }
 
     private static void appendLongValue(BinaryTupleBuilder builder, Object val) {
@@ -411,7 +411,7 @@ public class ClientBinaryTupleUtils {
             return;
         }
 
-        throw new ClassCastException("Cannot cast to long: " + val.getClass());
+        throw new ClassCastException(val.getClass() + " cannot be cast to " + Long.class);
     }
 
     private static void appendFloatValue(BinaryTupleBuilder builder, Object val) {
@@ -430,7 +430,7 @@ public class ClientBinaryTupleUtils {
             }
         }
 
-        throw new ClassCastException("Cannot cast to float: " + val.getClass());
+        throw new ClassCastException(val.getClass() + " cannot be cast to " + Float.class);
     }
 
     private static void appendDoubleValue(BinaryTupleBuilder builder, Object val) {
@@ -444,7 +444,7 @@ public class ClientBinaryTupleUtils {
             return;
         }
 
-        throw new ClassCastException("Cannot cast to double: " + val.getClass());
+        throw new ClassCastException(val.getClass() + " cannot be cast to " + Double.class);
     }
 
     private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type, int scale) {

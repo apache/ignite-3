@@ -109,6 +109,9 @@ public class RowAssembler {
     /**
      * Helper method.
      *
+     * <p>This method performs implicit conversion of numeric types without range checking,
+     * it assumes that the check has already been performed (see {@link Column#validate(Object)}).
+     *
      * @param val    Value.
      * @throws SchemaMismatchException If a value doesn't match the current column type.
      */
