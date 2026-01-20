@@ -60,7 +60,7 @@ class TableTruncatorTest {
     void truncateCellExceedsLimit() {
         String result = TableTruncator.truncateCell("very long text that exceeds the limit", 10);
 
-        assertThat(result, equalTo("very lo..."));
+        assertThat(result, equalTo("very long…"));
     }
 
     @Test
@@ -79,16 +79,18 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellMinimumWidth() {
-        String result = TableTruncator.truncateCell("hello", 3);
+        // With 1-char ellipsis, width 2 = 1 char content + ellipsis
+        String result = TableTruncator.truncateCell("hello", 2);
 
-        assertThat(result, equalTo("..."));
+        assertThat(result, equalTo("h…"));
     }
 
     @Test
-    void truncateCellWidthLessThanEllipsis() {
-        String result = TableTruncator.truncateCell("hello", 2);
+    void truncateCellWidthEqualToEllipsis() {
+        // With 1-char ellipsis, width 1 = just the ellipsis
+        String result = TableTruncator.truncateCell("hello", 1);
 
-        assertThat(result, equalTo(".."));
+        assertThat(result, equalTo("…"));
     }
 
     @Test
@@ -102,7 +104,7 @@ class TableTruncatorTest {
         Table<String> result = new TableTruncator(config).truncate(table);
 
         assertThat(result.header()[1], equalTo("description"));
-        assertThat(result.content()[0][1], equalTo("This is a very lo..."));
+        assertThat(result.content()[0][1], equalTo("This is a very long…"));
     }
 
     @Test
@@ -139,7 +141,7 @@ class TableTruncatorTest {
 
         int[] widths = new TableTruncator(config).calculateColumnWidths(header, content);
 
-        assertThat(widths[0], is(4)); // minimum column width (1 char + ellipsis)
+        assertThat(widths[0], is(2)); // minimum column width (1 char + 1-char ellipsis)
         assertThat(widths[1], is(15)); // capped at max column width
     }
 
@@ -158,9 +160,9 @@ class TableTruncatorTest {
         int totalWidth = Arrays.stream(widths).sum();
         assertThat(totalWidth, lessThanOrEqualTo(50 - 10));
 
-        // Each column should have reasonable width (at least minimum of 4: 1 char + ellipsis)
+        // Each column should have reasonable width (at least minimum of 2: 1 char + 1-char ellipsis)
         for (int width : widths) {
-            assertThat(width, greaterThanOrEqualTo(4));
+            assertThat(width, greaterThanOrEqualTo(2));
         }
 
         // Verify actual truncation result
@@ -221,9 +223,9 @@ class TableTruncatorTest {
 
         Table<String> result = new TableTruncator(config).truncate(table);
 
-        assertThat(result.content()[0][1], equalTo("Alice w..."));
+        assertThat(result.content()[0][1], equalTo("Alice wit…"));
         assertThat(result.content()[1][1], equalTo("Bob"));
-        assertThat(result.content()[2][1], equalTo("Charlie..."));
+        assertThat(result.content()[2][1], equalTo("Charlie w…"));
     }
 
     @Test
@@ -236,7 +238,7 @@ class TableTruncatorTest {
 
         Table<String> result = new TableTruncator(config).truncate(table);
 
-        assertThat(result.header()[0], equalTo("very_lo..."));
+        assertThat(result.header()[0], equalTo("very_long…"));
     }
 
     @Test
@@ -253,7 +255,7 @@ class TableTruncatorTest {
 
         String truncatedContent = (String) result.content()[0][1];
         assertThat(truncatedContent.length(), is(50));
-        assertThat(truncatedContent, equalTo("This is a very long string that exceeds the def..."));
+        assertThat(truncatedContent, equalTo("This is a very long string that exceeds the defau…"));
     }
 
     /**

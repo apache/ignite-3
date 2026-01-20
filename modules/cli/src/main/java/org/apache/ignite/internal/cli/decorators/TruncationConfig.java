@@ -28,8 +28,8 @@ public class TruncationConfig {
     /** Default maximum column width. */
     public static final int DEFAULT_MAX_COLUMN_WIDTH = 50;
 
-    /** Truncation indicator. */
-    public static final String ELLIPSIS = "...";
+    /** Truncation indicator (Unicode horizontal ellipsis U+2026). */
+    public static final String ELLIPSIS = "…";
 
     /** Disabled truncation config instance. */
     private static final TruncationConfig DISABLED = new TruncationConfig(false, DEFAULT_MAX_COLUMN_WIDTH, () -> 0);
