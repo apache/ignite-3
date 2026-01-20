@@ -101,8 +101,8 @@ public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, V oldRec, V newRec) {
-        return await(delegate.replaceAsync(tx, oldRec, newRec));
+    public boolean replaceExact(@Nullable Transaction tx, V oldRec, V newRec) {
+        return await(delegate.replaceExactAsync(tx, oldRec, newRec));
     }
 
     @Override
@@ -191,7 +191,7 @@ public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, V oldRec, V newRec) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, V oldRec, V newRec) {
         throw new UnsupportedOperationException("Must not be called");
     }
 

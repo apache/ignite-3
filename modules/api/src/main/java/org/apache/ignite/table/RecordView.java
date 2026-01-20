@@ -422,7 +422,9 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
     @Deprecated(forRemoval = true)
-    boolean replace(@Nullable Transaction tx, R oldRec, R newRec);
+    default boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
+        return replaceExact(tx, oldRec, newRec);
+    }
 
     /**
      * Replaces an expected record in the table with the given new one.
@@ -431,9 +433,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
-    default boolean replaceExact(@Nullable Transaction tx, R oldRec, R newRec) {
-        return replace(tx, oldRec, newRec);
-    }
+    boolean replaceExact(@Nullable Transaction tx, R oldRec, R newRec);
 
     /**
      * Replaces an expected record in the table with the given new one.
@@ -475,7 +475,9 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @return Future that represents the pending completion of the operation.
      */
     @Deprecated(forRemoval = true)
-    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec);
+    default CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec) {
+        return replaceExactAsync(tx, oldRec, newRec);
+    }
 
     /**
      * Asynchronously replaces an existing record in the table with the given new one.
@@ -484,9 +486,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    default CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx,  R oldRec, R newRec) {
-        return replaceAsync(tx, oldRec, newRec);
-    }
+    CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx,  R oldRec, R newRec);
 
     /**
      * Asynchronously replaces an existing record in the table with the given new one.

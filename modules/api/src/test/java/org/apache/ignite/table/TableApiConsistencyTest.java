@@ -116,7 +116,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetAsync() {
+    void testKvGetAsync() {
         Object key = new Object();
 
         kvViewMock.getAsync(key);
@@ -125,7 +125,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetNullable() {
+    void testKvGetNullable() {
         Object key = new Object();
 
         kvViewMock.getNullable(key);
@@ -134,7 +134,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetNullableAsync() {
+    void testKvGetNullableAsync() {
         Object key = new Object();
 
         kvViewMock.getNullableAsync(key);
@@ -143,7 +143,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetOrDefault() {
+    void testKvGetOrDefault() {
         Object key = new Object();
         Object def = new Object();
 
@@ -153,7 +153,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetOrDefaultAsync() {
+    void testKvGetOrDefaultAsync() {
         Object key = new Object();
         Object def = new Object();
 
@@ -163,7 +163,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetAll() {
+    void testKvGetAll() {
         Collection<Object> keys = new ArrayList<>();
 
         kvViewMock.getAll(keys);
@@ -172,7 +172,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetAllAsync() {
+    void testKvGetAllAsync() {
         Collection<Object> keys = new ArrayList<>();
 
         kvViewMock.getAllAsync(keys);
@@ -181,7 +181,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testContains() {
+    void testKvContains() {
         Object key = new Object();
 
         kvViewMock.contains(key);
@@ -190,7 +190,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testContainsAsync() {
+    void testKvContainsAsync() {
         Object key = new Object();
 
         kvViewMock.containsAsync(key);
@@ -199,7 +199,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testContainsAll() {
+    void testKvContainsAll() {
         Collection<Object> keys = new ArrayList<>();
 
         kvViewMock.containsAll(keys);
@@ -208,7 +208,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testContainsAllAsync() {
+    void testKvContainsAllAsync() {
         Collection<Object> keys = new ArrayList<>();
 
         kvViewMock.containsAllAsync(keys);
@@ -217,7 +217,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testPut() {
+    void testKvPut() {
         Object key = new Object();
         Object val = new Object();
 
@@ -227,7 +227,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testPutAsync() {
+    void testKvPutAsync() {
         Object key = new Object();
         Object val = new Object();
 
@@ -237,7 +237,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testPutAll() {
+    void testKvPutAll() {
         Map<Object, Object> map = new HashMap<>();
 
         kvViewMock.putAll(map);
@@ -246,7 +246,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testPutAllAsync() {
+    void testKvPutAllAsync() {
         Map<Object, Object> map = new HashMap<>();
 
         kvViewMock.putAllAsync(map);
@@ -255,7 +255,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testRemove() {
+    void testKvRemove() {
         Object key = new Object();
 
         kvViewMock.remove(key);
@@ -264,7 +264,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testRemoveAsync() {
+    void testKvRemoveAsync() {
         Object key = new Object();
 
         kvViewMock.removeAsync(key);
@@ -273,7 +273,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testRemoveExact() {
+    void testKvRemoveExact() {
         Object key = new Object();
         Object val = new Object();
 
@@ -283,7 +283,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testRemoveExactAsync() {
+    void testKvRemoveExactAsync() {
         Object key = new Object();
         Object val = new Object();
 
@@ -293,21 +293,21 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testRemoveAll() {
+    void testKvRemoveAll() {
         kvViewMock.removeAll();
 
         verify(kvViewMock).removeAll(eq(null));
     }
 
     @Test
-    void testRemoveAllAsync() {
+    void testKvRemoveAllAsync() {
         kvViewMock.removeAllAsync();
 
         verify(kvViewMock).removeAllAsync(eq(null));
     }
 
     @Test
-    void testGetAndRemove() {
+    void testKvGetAndRemove() {
         Object key = new Object();
 
         kvViewMock.getAndRemove(key);
@@ -316,7 +316,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testGetAndRemoveAsync() {
+    void testKvGetAndRemoveAsync() {
         Object key = new Object();
 
         kvViewMock.getAndRemoveAsync(key);
@@ -325,7 +325,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testReplace() {
+    void testKvReplace() {
         Object key = new Object();
         Object val = new Object();
 
@@ -335,7 +335,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testReplaceAsync() {
+    void testKvReplaceAsync() {
         Object key = new Object();
         Object val = new Object();
 
@@ -345,7 +345,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testReplaceExact() {
+    void testKvReplaceExact() {
         Object key = new Object();
         Object oldVal = new Object();
         Object newVal = new Object();
@@ -356,7 +356,7 @@ public class TableApiConsistencyTest {
     }
 
     @Test
-    void testReplaceExactAsync() {
+    void testKvReplaceExactAsync() {
         Object key = new Object();
         Object oldVal = new Object();
         Object newVal = new Object();
@@ -364,5 +364,309 @@ public class TableApiConsistencyTest {
         kvViewMock.replaceExactAsync(key, oldVal, newVal);
 
         verify(kvViewMock).replaceExactAsync(eq(null), eq(key), eq(oldVal), eq(newVal));
+    }
+
+    @Test
+    void testRecGet() {
+        Object rec = new Object();
+
+        recViewMock.get(rec);
+
+        verify(recViewMock).get(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecGetAsync() {
+        Object rec = new Object();
+
+        recViewMock.getAsync(rec);
+
+        verify(recViewMock).getAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecGetAll() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.getAll(recs);
+
+        verify(recViewMock).getAll(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecGetAllAsync() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.getAllAsync(recs);
+
+        verify(recViewMock).getAllAsync(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecContains() {
+        Object rec = new Object();
+
+        recViewMock.contains(rec);
+
+        verify(recViewMock).contains(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecContainsAsync() {
+        Object rec = new Object();
+
+        recViewMock.containsAsync(rec);
+
+        verify(recViewMock).containsAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecContainsAll() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.containsAll(recs);
+
+        verify(recViewMock).containsAll(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecContainsAllAsync() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.containsAllAsync(recs);
+
+        verify(recViewMock).containsAllAsync(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecUpsert() {
+        Object rec = new Object();
+
+        recViewMock.upsert(rec);
+
+        verify(recViewMock).upsert(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecUpsertAsync() {
+        Object rec = new Object();
+
+        recViewMock.upsertAsync(rec);
+
+        verify(recViewMock).upsertAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecUpsertAll() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.upsertAll(recs);
+
+        verify(recViewMock).upsertAll(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecUpsertAllAsync() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.upsertAllAsync(recs);
+
+        verify(recViewMock).upsertAllAsync(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecGetAndUpsert() {
+        Object rec = new Object();
+
+        recViewMock.getAndUpsert(rec);
+
+        verify(recViewMock).getAndUpsert(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecGetAndUpsertAsync() {
+        Object rec = new Object();
+
+        recViewMock.getAndUpsertAsync(rec);
+
+        verify(recViewMock).getAndUpsertAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecInsert() {
+        Object rec = new Object();
+
+        recViewMock.insert(rec);
+
+        verify(recViewMock).insert(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecInsertAsync() {
+        Object rec = new Object();
+
+        recViewMock.insertAsync(rec);
+
+        verify(recViewMock).insertAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecInsertAll() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.insertAll(recs);
+
+        verify(recViewMock).insertAll(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecInsertAllAsync() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.insertAllAsync(recs);
+
+        verify(recViewMock).insertAllAsync(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecReplace() {
+        Object rec = new Object();
+
+        recViewMock.replace(rec);
+
+        verify(recViewMock).replace(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecReplaceExact() {
+        Object oldRec = new Object();
+        Object newRec = new Object();
+
+        recViewMock.replaceExact(oldRec, newRec);
+
+        verify(recViewMock).replaceExact(eq(null), eq(oldRec), eq(newRec));
+    }
+
+    @Test
+    void testRecReplaceAsync() {
+        Object rec = new Object();
+
+        recViewMock.replaceAsync(rec);
+
+        verify(recViewMock).replaceAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecReplaceExactAsync() {
+        Object oldRec = new Object();
+        Object newRec = new Object();
+
+        recViewMock.replaceExactAsync(oldRec, newRec);
+
+        verify(recViewMock).replaceExactAsync(eq(null), eq(oldRec), eq(newRec));
+    }
+
+    @Test
+    void testRecGetAndReplace() {
+        Object rec = new Object();
+
+        recViewMock.getAndReplace(rec);
+
+        verify(recViewMock).getAndReplace(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecGetAndReplaceAsync() {
+        Object rec = new Object();
+
+        recViewMock.getAndReplaceAsync(rec);
+
+        verify(recViewMock).getAndReplaceAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecDelete() {
+        Object rec = new Object();
+
+        recViewMock.delete(rec);
+
+        verify(recViewMock).delete(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecDeleteAsync() {
+        Object rec = new Object();
+
+        recViewMock.deleteAsync(rec);
+
+        verify(recViewMock).deleteAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecDeleteExact() {
+        Object rec = new Object();
+
+        recViewMock.deleteExact(rec);
+
+        verify(recViewMock).deleteExact(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecDeleteExactAsync() {
+        Object rec = new Object();
+
+        recViewMock.deleteExactAsync(rec);
+
+        verify(recViewMock).deleteExactAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecGetAndDelete() {
+        Object rec = new Object();
+
+        recViewMock.getAndDelete(rec);
+
+        verify(recViewMock).getAndDelete(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecGetAndDeleteAsync() {
+        Object rec = new Object();
+
+        recViewMock.getAndDeleteAsync(rec);
+
+        verify(recViewMock).getAndDeleteAsync(eq(null), eq(rec));
+    }
+
+    @Test
+    void testRecDeleteAll() {
+        recViewMock.deleteAll();
+
+        verify(recViewMock).deleteAll(eq(null));
+    }
+
+    @Test
+    void testRecDeleteAllAsync() {
+        recViewMock.deleteAllAsync();
+
+        verify(recViewMock).deleteAllAsync(eq(null));
+    }
+
+    @Test
+    void testRecDeleteAllExact() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.deleteAllExact(recs);
+
+        verify(recViewMock).deleteAllExact(eq(null), eq(recs));
+    }
+
+    @Test
+    void testRecDeleteAllExactAsync() {
+        Collection<Object> recs = mock(Collection.class);
+
+        recViewMock.deleteAllExactAsync(recs);
+
+        verify(recViewMock).deleteAllExactAsync(eq(null), eq(recs));
     }
 }
