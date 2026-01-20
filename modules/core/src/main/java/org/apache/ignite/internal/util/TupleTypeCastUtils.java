@@ -20,9 +20,11 @@ package org.apache.ignite.internal.util;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Helper methods for reading values from {@link InternalTuple} with allowed numeric type conversions.
+ * Helper methods that perform conversions between numeric types. These methods are used when reading
+ * and writing the primitive numeric values of a {@link Tuple tuple}.
  *
  * <p>The following conversions are supported:
  * <ul>
@@ -48,7 +50,7 @@ public class TupleTypeCastUtils {
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
 
-        return castToByte(binaryTuple, binaryTupleIndex, actualType);
+        return toByte(binaryTuple, binaryTupleIndex, actualType);
     }
 
     /** Reads a value from the tuple and converts it to a byte if possible. */
@@ -59,7 +61,7 @@ public class TupleTypeCastUtils {
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
 
-        return castToByte(binaryTuple, binaryTupleIndex, actualType);
+        return toByte(binaryTuple, binaryTupleIndex, actualType);
     }
 
     /** Reads a value from the tuple and converts it to a short if possible. */
@@ -70,7 +72,7 @@ public class TupleTypeCastUtils {
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
 
-        return castToShort(binaryTuple, binaryTupleIndex, actualType);
+        return toShort(binaryTuple, binaryTupleIndex, actualType);
     }
 
     /** Reads a value from the tuple and converts it to a short if possible. */
@@ -81,7 +83,7 @@ public class TupleTypeCastUtils {
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
 
-        return castToShort(binaryTuple, binaryTupleIndex, actualType);
+        return toShort(binaryTuple, binaryTupleIndex, actualType);
     }
 
     /** Reads a value from the tuple and converts it to an int if possible. */
@@ -92,7 +94,7 @@ public class TupleTypeCastUtils {
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
 
-        return castToInt(binaryTuple, binaryTupleIndex, actualType);
+        return toInt(binaryTuple, binaryTupleIndex, actualType);
     }
 
     /** Reads a value from the tuple and converts it to an int if possible. */
@@ -103,7 +105,7 @@ public class TupleTypeCastUtils {
 
         IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
 
-        return castToInt(binaryTuple, binaryTupleIndex, actualType);
+        return toInt(binaryTuple, binaryTupleIndex, actualType);
     }
 
     /** Reads a value from the tuple and returns it as a long. Only integer column types are allowed. */
@@ -133,7 +135,7 @@ public class TupleTypeCastUtils {
         if (actualType == ColumnType.FLOAT || actualType == ColumnType.DOUBLE) {
             IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnIndex);
 
-            return castToFloat(binaryTuple, binaryTupleIndex, actualType);
+            return toFloat(binaryTuple, binaryTupleIndex, actualType);
         }
 
         throw newClassCastException(ColumnType.FLOAT, actualType, columnIndex);
@@ -144,7 +146,7 @@ public class TupleTypeCastUtils {
         if (actualType == ColumnType.FLOAT || actualType == ColumnType.DOUBLE) {
             IgniteUtils.ensureNotNull(binaryTuple, binaryTupleIndex, columnName);
 
-            return castToFloat(binaryTuple, binaryTupleIndex, actualType);
+            return toFloat(binaryTuple, binaryTupleIndex, actualType);
         }
 
         throw newClassCastException(ColumnType.FLOAT, actualType, columnName);
@@ -192,8 +194,108 @@ public class TupleTypeCastUtils {
         }
     }
 
+    /** Casts an object to {@code byte} if possible. */
+    public static byte castToByte(Object number) {
+        if (number instanceof Byte) {
+            return (byte) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Short) {
+            long longVal = ((Number) number).longValue();
+            byte byteVal = ((Number) number).byteValue();
+
+            if (longVal == byteVal) {
+                return byteVal;
+            }
+
+            throw new ArithmeticException("Byte value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + byte.class);
+    }
+
+    /** Casts an object to {@code short} if possible. */
+    public static short castToShort(Object number) {
+        if (number instanceof Short) {
+            return (short) number;
+        }
+
+        if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            short shortVal = ((Number) number).shortValue();
+
+            if (longVal == shortVal) {
+                return shortVal;
+            }
+
+            throw new ArithmeticException("Short value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + short.class);
+    }
+
+    /** Casts an object to {@code int} if possible. */
+    public static int castToInt(Object number) {
+        if (number instanceof Integer) {
+            return (int) number;
+        }
+
+        if (number instanceof Long || number instanceof Short || number instanceof Byte) {
+            long longVal = ((Number) number).longValue();
+            int intVal = ((Number) number).intValue();
+
+            if (longVal == intVal) {
+                return intVal;
+            }
+
+            throw new ArithmeticException("Int value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + int.class);
+    }
+
+    /** Casts an object to {@code long} if possible. */
+    public static long castToLong(Object number) {
+        if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
+            return ((Number) number).longValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + long.class);
+    }
+
+    /** Casts an object to {@code float} if possible. */
+    public static float castToFloat(Object number) {
+        if (number instanceof Float) {
+            return (float) number;
+        }
+
+        if (number instanceof Double) {
+            double doubleVal = ((Number) number).doubleValue();
+            float floatVal = ((Number) number).floatValue();
+
+            //noinspection FloatingPointEquality
+            if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
+                return floatVal;
+            }
+
+            throw new ArithmeticException("Float value overflow: " + number);
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + float.class);
+    }
+
+    /** Casts an object to {@code double} if possible. */
+    public static double castToDouble(Object number) {
+        if (number instanceof Double || number instanceof Float) {
+            return ((Number) number).doubleValue();
+        }
+
+        throw new ClassCastException(number.getClass() + " cannot be cast to " + double.class);
+    }
+
     /** Casts an integer value from the tuple to {@code byte} performing range checks. */
-    private static byte castToByte(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType valueType) {
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static byte toByte(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType valueType) {
         switch (valueType) {
             case INT8:
                 return binaryTuple.byteValue(binaryTupleIndex);
@@ -236,7 +338,8 @@ public class TupleTypeCastUtils {
     }
 
     /** Casts an integer value from the tuple to {@code short} performing range checks. */
-    private static short castToShort(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType valueType) {
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static short toShort(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType valueType) {
         switch (valueType) {
             case INT16:
             case INT8:
@@ -270,7 +373,8 @@ public class TupleTypeCastUtils {
     }
 
     /** Casts an integer value from the tuple to {@code int} performing range checks. */
-    private static int castToInt(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType valueType) {
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static int toInt(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType valueType) {
         switch (valueType) {
             case INT32:
             case INT16:
@@ -296,7 +400,8 @@ public class TupleTypeCastUtils {
     }
 
     /** Casts a floating-point value from the tuple to {@code float} performing precision checks. */
-    private static float castToFloat(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType actualType) {
+    @SuppressWarnings({"NumericCastThatLosesPrecision", "FloatingPointEquality"})
+    private static float toFloat(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType actualType) {
         if (actualType == ColumnType.FLOAT) {
             return binaryTuple.floatValue(binaryTupleIndex);
         }

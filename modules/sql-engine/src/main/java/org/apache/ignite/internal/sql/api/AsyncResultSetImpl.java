@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.internal.util.TupleTypeCastUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -260,7 +261,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public byte byteValue(String columnName) {
             Object number = getValueNotNull(columnName);
 
-            return castToByte(number);
+            return TupleTypeCastUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
@@ -268,7 +269,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public byte byteValue(int columnIndex) {
             Object number = getValueNotNull(columnIndex);
 
-            return castToByte(number);
+            return TupleTypeCastUtils.castToByte(number);
         }
 
         /** {@inheritDoc} */
@@ -276,7 +277,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public short shortValue(String columnName) {
             Object number = getValueNotNull(columnName);
 
-            return castToShort(number);
+            return TupleTypeCastUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
@@ -284,7 +285,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public short shortValue(int columnIndex) {
             Object number = getValueNotNull(columnIndex);
 
-            return castToShort(number);
+            return TupleTypeCastUtils.castToShort(number);
         }
 
         /** {@inheritDoc} */
@@ -292,7 +293,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public int intValue(String columnName) {
             Object number = getValueNotNull(columnName);
 
-            return castToInt(number);
+            return TupleTypeCastUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
@@ -300,7 +301,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public int intValue(int columnIndex) {
             Object number = getValueNotNull(columnIndex);
 
-            return castToInt(number);
+            return TupleTypeCastUtils.castToInt(number);
         }
 
         /** {@inheritDoc} */
@@ -308,7 +309,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public long longValue(String columnName) {
             Object number = getValueNotNull(columnName);
 
-            return castToLong(number);
+            return TupleTypeCastUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
@@ -316,7 +317,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public long longValue(int columnIndex) {
             Object number = getValueNotNull(columnIndex);
 
-            return castToLong(number);
+            return TupleTypeCastUtils.castToLong(number);
         }
 
         /** {@inheritDoc} */
@@ -324,7 +325,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public float floatValue(String columnName) {
             Object number = getValueNotNull(columnName);
 
-            return castToFloat(number);
+            return TupleTypeCastUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
@@ -332,7 +333,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public float floatValue(int columnIndex) {
             Object number = getValueNotNull(columnIndex);
 
-            return castToFloat(number);
+            return TupleTypeCastUtils.castToFloat(number);
         }
 
         /** {@inheritDoc} */
@@ -340,7 +341,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public double doubleValue(String columnName) {
             Object number = getValueNotNull(columnName);
 
-            return castToDouble(number);
+            return TupleTypeCastUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */
@@ -348,7 +349,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public double doubleValue(int columnIndex) {
             Object number = getValueNotNull(columnIndex);
 
-            return castToDouble(number);
+            return TupleTypeCastUtils.castToDouble(number);
         }
 
         /** {@inheritDoc} */
@@ -497,105 +498,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             }
 
             return (T) value;
-        }
-
-        /** Casts a {@link Number} to {@code byte}. */
-        private static byte castToByte(Object number) {
-            if (number instanceof Byte) {
-                return (byte) number;
-            }
-
-            if (number instanceof Long || number instanceof Integer || number instanceof Short) {
-                long longVal = ((Number) number).longValue();
-                byte byteVal = ((Number) number).byteValue();
-
-                if (longVal == byteVal) {
-                    return byteVal;
-                }
-
-                throw new ArithmeticException("Byte value overflow: " + number);
-            }
-
-            throw new ClassCastException(number.getClass() + " cannot be cast to " + byte.class);
-        }
-
-        /** Casts a {@link Number} to {@code short}. */
-        private static short castToShort(Object number) {
-            if (number instanceof Short) {
-                return (short) number;
-            }
-
-            if (number instanceof Long || number instanceof Integer || number instanceof Byte) {
-                long longVal = ((Number) number).longValue();
-                short shortVal = ((Number) number).shortValue();
-
-                if (longVal == shortVal) {
-                    return shortVal;
-                }
-
-                throw new ArithmeticException("Short value overflow: " + number);
-            }
-
-            throw new ClassCastException(number.getClass() + " cannot be cast to " + short.class);
-        }
-
-        /** Casts a {@link Number} to {@code int}. */
-        private static int castToInt(Object number) {
-            if (number instanceof Integer) {
-                return (int) number;
-            }
-
-            if (number instanceof Long || number instanceof Short || number instanceof Byte) {
-                long longVal = ((Number) number).longValue();
-                int intVal = ((Number) number).intValue();
-
-                if (longVal == intVal) {
-                    return intVal;
-                }
-
-                throw new ArithmeticException("Int value overflow: " + number);
-            }
-
-            throw new ClassCastException(number.getClass() + " cannot be cast to " + int.class);
-        }
-
-        /** Casts a {@link Number} to {@code long}. */
-        private static long castToLong(Object number) {
-            if (number instanceof Long || number instanceof Integer || number instanceof Short || number instanceof Byte) {
-                return ((Number) number).longValue();
-            }
-
-            throw new ClassCastException(number.getClass() + " cannot be cast to " + long.class);
-        }
-
-        /** Casts a {@link Number} to {@code float}. */
-        private static float castToFloat(Object number) {
-            if (number instanceof Float) {
-                return (float) number;
-            }
-
-            if (number instanceof Double) {
-                double doubleVal = ((Number) number).doubleValue();
-                float floatVal = ((Number) number).floatValue();
-
-                //noinspection FloatingPointEquality
-                if (doubleVal == floatVal || Double.isNaN(doubleVal)) {
-                    return floatVal;
-                }
-
-                throw new ArithmeticException("Float value overflow: " + number);
-            }
-
-            throw new ClassCastException(number.getClass() + " cannot be cast to " + float.class);
-        }
-
-        /** Casts a {@link Number} to {@code double}. */
-        private static double castToDouble(Object number) {
-            if (number instanceof Double || number instanceof Float) {
-                return ((Number) number).doubleValue();
-            }
-
-            throw new ClassCastException(number.getClass() + " cannot be cast to " + double.class);
         }
 
         /** {@inheritDoc} */
