@@ -37,6 +37,8 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
@@ -73,6 +75,8 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class TablePartitionProcessor implements RaftTableProcessor {
+    private static final IgniteLogger LOG = Loggers.forClass(TablePartitionProcessor.class);
+
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -500,8 +504,17 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long commandIndex,
             long commandTerm
     ) {
+        long storageLastAppliedIndex = storage.lastAppliedIndex();
+        LOG.debug("Handling PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, storageLastAppliedIndex={}, "
+                        + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
+                storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex,
+                cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+
         // Skips the write command because the storage has already executed it.
-        if (commandIndex <= storage.lastAppliedIndex()) {
+        if (commandIndex <= storageLastAppliedIndex) {
+            LOG.debug("Skipping PrimaryReplicaChangeCommand - already applied [tableId={}, partId={}, commandIndex={}, "
+                            + "storageLastAppliedIndex={}]",
+                    storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex);
             return EMPTY_NOT_APPLIED_RESULT;
         }
 
@@ -514,6 +527,9 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
             return null;
         });
+
+        LOG.debug("Successfully applied PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, leaseStartTime={}]",
+                storage.tableId(), storage.partitionId(), commandIndex, cmd.leaseStartTime());
 
         return EMPTY_APPLIED_RESULT;
     }
