@@ -18,6 +18,10 @@
 package org.apache.ignite.table;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -38,7 +42,10 @@ import java.time.Year;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -334,6 +341,386 @@ public abstract class AbstractImmutableTupleTest {
         assertEquals(String.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "VAL"), err.getMessage());
     }
 
+    @Test
+    void testReadAsByte() {
+        Tuple tuple = createTupleOfSingleColumn(ColumnType.INT8, "INT8", Byte.MAX_VALUE);
+
+        assertThat(tuple.byteValue("INT8"), is(Byte.MAX_VALUE));
+        assertThat(tuple.shortValue("INT8"), is((short) Byte.MAX_VALUE));
+        assertThat(tuple.intValue("INT8"), is((int) Byte.MAX_VALUE));
+        assertThat(tuple.longValue("INT8"), is((long) Byte.MAX_VALUE));
+
+        assertThat(tuple.byteValue(0), is(Byte.MAX_VALUE));
+        assertThat(tuple.shortValue(0), is((short) Byte.MAX_VALUE));
+        assertThat(tuple.intValue(0), is((int) Byte.MAX_VALUE));
+        assertThat(tuple.longValue(0), is((long) Byte.MAX_VALUE));
+    }
+
+    @Test
+    void testReadAsShort() {
+        // The field value is within the byte range
+        {
+            String columnName = "INT16";
+            short value = Byte.MAX_VALUE;
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT16, columnName, value);
+
+            assertThat(tuple.byteValue(columnName), is((byte) value));
+            assertThat(tuple.shortValue(columnName), is(value));
+            assertThat(tuple.intValue(columnName), is((int) value));
+            assertThat(tuple.longValue(columnName), is((long) value));
+
+            assertThat(tuple.byteValue(0), is((byte) value));
+            assertThat(tuple.shortValue(0), is(value));
+            assertThat(tuple.intValue(0), is((int) value));
+            assertThat(tuple.longValue(0), is((long) value));
+        }
+
+        // The field value is out of the byte range.
+        {
+            String columnName = "INT16";
+            short value = Byte.MAX_VALUE + 1;
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT16, columnName, value);
+
+            ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
+            assertThat(ex0.getMessage(), equalTo("Byte value overflow: " + value));
+
+            assertThat(tuple.shortValue(columnName), is(value));
+            assertThat(tuple.intValue(columnName), is((int) value));
+            assertThat(tuple.longValue(columnName), is((long) value));
+
+            ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
+            assertThat(ex1.getMessage(), equalTo("Byte value overflow: " + value));
+
+            assertThat(tuple.shortValue(0), is(value));
+            assertThat(tuple.intValue(0), is((int) value));
+            assertThat(tuple.longValue(0), is((long) value));
+        }
+    }
+
+    @Test
+    void testReadAsInt() {
+        {
+            int value = Byte.MAX_VALUE;
+            String columnName = "VALUE";
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT32, columnName, value);
+
+            assertThat(tuple.byteValue(columnName), is((byte) value));
+            assertThat(tuple.shortValue(columnName), is((short) value));
+            assertThat(tuple.intValue(columnName), is(value));
+            assertThat(tuple.longValue(columnName), is((long) value));
+
+            assertThat(tuple.byteValue(0), is((byte) value));
+            assertThat(tuple.shortValue(0), is((short) value));
+            assertThat(tuple.intValue(0), is(value));
+            assertThat(tuple.longValue(0), is((long) value));
+        }
+
+        {
+            int value = Byte.MAX_VALUE + 1;
+            String columnName = "VALUE";
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT32, columnName, value);
+
+            ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
+            assertThat(ex0.getMessage(), equalTo("Byte value overflow: " + value));
+
+            assertThat(tuple.shortValue(columnName), is((short) value));
+            assertThat(tuple.intValue(columnName), is(value));
+            assertThat(tuple.longValue(columnName), is((long) value));
+
+            ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
+            assertThat(ex1.getMessage(), equalTo("Byte value overflow: " + value));
+
+            assertThat(tuple.shortValue(0), is((short) value));
+            assertThat(tuple.intValue(0), is(value));
+            assertThat(tuple.longValue(0), is((long) value));
+        }
+
+        {
+            int value = Short.MAX_VALUE + 1;
+            String columnName = "VALUE";
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT32, columnName, value);
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(columnName));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
+            }
+
+            assertThat(tuple.intValue(columnName), is(value));
+            assertThat(tuple.longValue(columnName), is((long) value));
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(0));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
+            }
+
+            assertThat(tuple.intValue(0), is(value));
+            assertThat(tuple.longValue(0), is((long) value));
+        }
+    }
+
+    @Test
+    void testReadAsLong() {
+        {
+            long value = Byte.MAX_VALUE;
+            String columnName = "VALUE";
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT64, columnName, value);
+
+            assertThat(tuple.byteValue(columnName), is((byte) value));
+            assertThat(tuple.shortValue(columnName), is((short) value));
+            assertThat(tuple.intValue(columnName), is((int) value));
+            assertThat(tuple.longValue(columnName), is(value));
+
+            assertThat(tuple.byteValue(0), is((byte) value));
+            assertThat(tuple.shortValue(0), is((short) value));
+            assertThat(tuple.intValue(0), is((int) value));
+            assertThat(tuple.longValue(0), is(value));
+        }
+
+        {
+            long value = Byte.MAX_VALUE + 1;
+            String columnName = "VALUE";
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT64, columnName, value);
+
+            ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
+            assertThat(ex0.getMessage(), equalTo("Byte value overflow: " + value));
+
+            assertThat(tuple.shortValue(columnName), is((short) value));
+            assertThat(tuple.intValue(columnName), is((int) value));
+            assertThat(tuple.longValue(columnName), is(value));
+
+            ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
+            assertThat(ex1.getMessage(), equalTo("Byte value overflow: " + value));
+
+            assertThat(tuple.shortValue(0), is((short) value));
+            assertThat(tuple.intValue(0), is((int) value));
+            assertThat(tuple.longValue(0), is(value));
+        }
+
+        {
+            long value = Short.MAX_VALUE + 1;
+            String columnName = "VALUE";
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT64, columnName, value);
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(columnName));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
+            }
+
+            assertThat(tuple.intValue(columnName), is((int) value));
+            assertThat(tuple.longValue(columnName), is(value));
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(0));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
+            }
+
+            assertThat(tuple.intValue(0), is((int) value));
+            assertThat(tuple.longValue(0), is(value));
+        }
+
+        {
+            long value = Integer.MAX_VALUE + 1L;
+            String columnName = "VALUE";
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.INT64, columnName, value);
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(columnName));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(columnName));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.intValue(columnName));
+                assertThat(ex.getMessage(), equalTo("Int value overflow: " + value));
+            }
+
+            assertThat(tuple.longValue(columnName), is(value));
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.byteValue(0));
+                assertThat(ex.getMessage(), equalTo("Byte value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.shortValue(0));
+                assertThat(ex.getMessage(), equalTo("Short value overflow: " + value));
+            }
+
+            {
+                ArithmeticException ex = assertThrows(ArithmeticException.class, () -> tuple.intValue(0));
+                assertThat(ex.getMessage(), equalTo("Int value overflow: " + value));
+            }
+
+            assertThat(tuple.longValue(0), is(value));
+        }
+    }
+
+    @Test
+    void testReadAsFloat() {
+        {
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.FLOAT, "FLOAT", Float.MAX_VALUE);
+
+            assertThat(tuple.floatValue("FLOAT"), is(Float.MAX_VALUE));
+            assertThat(tuple.doubleValue("FLOAT"), is((double) Float.MAX_VALUE));
+
+            assertThat(tuple.floatValue(0), is(Float.MAX_VALUE));
+            assertThat(tuple.doubleValue(0), is((double) Float.MAX_VALUE));
+        }
+
+        // NaN
+        {
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.FLOAT, "FLOAT", Float.NaN);
+
+            assertThat(Float.isNaN(tuple.floatValue("FLOAT")), is(true));
+            assertThat(Double.isNaN(tuple.doubleValue("FLOAT")), is(true));
+
+            assertThat(Float.isNaN(tuple.floatValue(0)), is(true));
+            assertThat(Double.isNaN(tuple.doubleValue(0)), is(true));
+        }
+
+        // Positive infinity
+        {
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.FLOAT, "FLOAT", Float.POSITIVE_INFINITY);
+
+            assertThat(tuple.floatValue("FLOAT"), is(Float.POSITIVE_INFINITY));
+            assertThat(tuple.doubleValue("FLOAT"), is(Double.POSITIVE_INFINITY));
+
+            assertThat(tuple.floatValue(0), is(Float.POSITIVE_INFINITY));
+            assertThat(tuple.doubleValue(0), is(Double.POSITIVE_INFINITY));
+        }
+
+        // Negative infinity
+        {
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.FLOAT, "FLOAT", Float.NEGATIVE_INFINITY);
+
+            assertThat(tuple.floatValue("FLOAT"), is(Float.NEGATIVE_INFINITY));
+            assertThat(tuple.doubleValue("FLOAT"), is(Double.NEGATIVE_INFINITY));
+
+            assertThat(tuple.floatValue(0), is(Float.NEGATIVE_INFINITY));
+            assertThat(tuple.doubleValue(0), is(Double.NEGATIVE_INFINITY));
+        }
+    }
+
+    @Test
+    void testReadAsDouble() {
+        String columnName = "DOUBLE";
+
+        // The field value can be represented as float.
+        {
+            double value = Float.MAX_VALUE;
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, value);
+
+            assertThat(tuple.floatValue(columnName), is((float) value));
+            assertThat(tuple.floatValue(0), is((float) value));
+
+            assertThat(tuple.doubleValue(columnName), is(value));
+            assertThat(tuple.doubleValue(0), is(value));
+        }
+
+        // The field value cannot be represented as float.
+        {
+            double value = Double.MAX_VALUE;
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, value);
+
+            ArithmeticException ex0 = assertThrows(ArithmeticException.class, () -> tuple.floatValue(columnName));
+            assertThat(ex0.getMessage(), equalTo("Float value overflow: " + value));
+
+            ArithmeticException ex1 = assertThrows(ArithmeticException.class, () -> tuple.floatValue(0));
+            assertThat(ex1.getMessage(), equalTo("Float value overflow: " + value));
+
+            assertThat(tuple.doubleValue(columnName), is(value));
+            assertThat(tuple.doubleValue(0), is(value));
+        }
+
+        // NaN
+        {
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, Double.NaN);
+
+            assertThat(Float.isNaN(tuple.floatValue(columnName)), is(true));
+            assertThat(Double.isNaN(tuple.doubleValue(columnName)), is(true));
+
+            assertThat(Float.isNaN(tuple.floatValue(0)), is(true));
+            assertThat(Double.isNaN(tuple.doubleValue(0)), is(true));
+        }
+
+        // Positive infinity
+        {
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, Double.POSITIVE_INFINITY);
+
+            assertThat(tuple.floatValue(columnName), is(Float.POSITIVE_INFINITY));
+            assertThat(tuple.doubleValue(columnName), is(Double.POSITIVE_INFINITY));
+
+            assertThat(tuple.floatValue(0), is(Float.POSITIVE_INFINITY));
+            assertThat(tuple.doubleValue(0), is(Double.POSITIVE_INFINITY));
+        }
+
+        // Negative infinity
+        {
+            Tuple tuple = createTupleOfSingleColumn(ColumnType.DOUBLE, columnName, Double.NEGATIVE_INFINITY);
+
+            assertThat(tuple.floatValue(columnName), is(Float.NEGATIVE_INFINITY));
+            assertThat(tuple.doubleValue(columnName), is(Double.NEGATIVE_INFINITY));
+
+            assertThat(tuple.floatValue(0), is(Float.NEGATIVE_INFINITY));
+            assertThat(tuple.doubleValue(0), is(Double.NEGATIVE_INFINITY));
+        }
+    }
+
+    @ParameterizedTest(name = "{0} -> {1}")
+    @MethodSource("allTypesUnsupportedConversionArgs")
+    public void allTypesUnsupportedConversion(ColumnType from, ColumnType to) {
+        Object value = generateMaxValue(from);
+        String columnName = "VALUE";
+        Tuple tuple = createTupleOfSingleColumn(from, columnName, value);
+
+        {
+            ClassCastException ex = assertThrows(ClassCastException.class, () -> readValue(tuple, to, columnName, null));
+            String template = "Column with name '%s' has type %s but %s was requested";
+            assertThat(ex.getMessage(), containsString(String.format(template, columnName, from.name(), to.name())));
+        }
+
+        {
+            ClassCastException ex = assertThrows(ClassCastException.class, () -> readValue(tuple, to, null, 0));
+            String template = "Column with index %d has type %s but %s was requested";
+            assertThat(ex.getMessage(), containsString(String.format(template, 0, from.name(), to.name())));
+        }
+    }
+
+    @ParameterizedTest(name = "{0} -> {1}")
+    @MethodSource("allTypesDowncastOverflowArgs")
+    public void allTypesDowncastOverflow(ColumnType from, ColumnType to) {
+        Object value = generateMaxValue(from);
+        String columnName = "VALUE";
+        Tuple tuple = createTupleOfSingleColumn(from, columnName, value);
+
+        assertThrows(ArithmeticException.class, () -> readValue(tuple, to, columnName, null));
+        assertThrows(ArithmeticException.class, () -> readValue(tuple, to, null, 0));
+    }
+
     /**
      * Adds sample values for columns of default schema: id (long), simpleName (string), "QuotedName" (string), noValue (null).
      *
@@ -417,7 +804,7 @@ public abstract class AbstractImmutableTupleTest {
         return new BigInteger("10").pow(NANOS_IN_SECOND - precision).intValue();
     }
 
-    private static @Nullable Object generateValue(Random rnd, ColumnType type) {
+    protected @Nullable Object generateValue(Random rnd, ColumnType type) {
         switch (type) {
             case NULL:
                 return null;
@@ -475,6 +862,25 @@ public abstract class AbstractImmutableTupleTest {
         }
     }
 
+    private Object generateMaxValue(ColumnType type) {
+        switch (type) {
+            case INT8:
+                return Byte.MAX_VALUE;
+            case INT16:
+                return Short.MAX_VALUE;
+            case INT32:
+                return Integer.MAX_VALUE;
+            case INT64:
+                return Long.MAX_VALUE;
+            case FLOAT:
+                return Float.MAX_VALUE;
+            case DOUBLE:
+                return Double.MAX_VALUE;
+            default:
+                return Objects.requireNonNull(generateValue(ThreadLocalRandom.current(), type));
+        }
+    }
+
     private static Instant generateInstant(Random rnd) {
         long minTs = LocalDateTime.of(LocalDate.of(1, 1, 1), LocalTime.MIN)
                 .minusSeconds(ZoneOffset.MIN.getTotalSeconds()).toInstant(ZoneOffset.UTC).toEpochMilli();
@@ -506,5 +912,108 @@ public abstract class AbstractImmutableTupleTest {
                 Arguments.of(ColumnType.FLOAT, (BiConsumer<Tuple, String>) Tuple::floatValue),
                 Arguments.of(ColumnType.DOUBLE, (BiConsumer<Tuple, String>) Tuple::doubleValue)
         );
+    }
+
+    private static Object readValue(Tuple tuple, ColumnType type, @Nullable String colName, @Nullable Integer index) {
+        assert colName == null ^ index == null;
+
+        switch (type) {
+            case TIME:
+                return colName == null ? tuple.timeValue(index) : tuple.timeValue(colName);
+            case TIMESTAMP:
+                return colName == null ? tuple.timestampValue(index) : tuple.timestampValue(colName);
+            case DATE:
+                return colName == null ? tuple.dateValue(index) : tuple.dateValue(colName);
+            case DATETIME:
+                return colName == null ? tuple.datetimeValue(index) : tuple.datetimeValue(colName);
+            case INT8:
+                return colName == null ? tuple.byteValue(index) : tuple.byteValue(colName);
+            case INT16:
+                return colName == null ? tuple.shortValue(index) : tuple.shortValue(colName);
+            case INT32:
+                return colName == null ? tuple.intValue(index) : tuple.intValue(colName);
+            case INT64:
+                return colName == null ? tuple.longValue(index) : tuple.longValue(colName);
+            case FLOAT:
+                return colName == null ? tuple.floatValue(index) : tuple.floatValue(colName);
+            case DOUBLE:
+                return colName == null ? tuple.doubleValue(index) : tuple.doubleValue(colName);
+            case UUID:
+                return colName == null ? tuple.uuidValue(index) : tuple.uuidValue(colName);
+            case STRING:
+                return colName == null ? tuple.stringValue(index) : tuple.stringValue(colName);
+            case BOOLEAN:
+                return colName == null ? tuple.booleanValue(index) : tuple.booleanValue(colName);
+            case DECIMAL:
+                return colName == null ? tuple.decimalValue(index) : tuple.decimalValue(colName);
+            case BYTE_ARRAY:
+                return colName == null ? tuple.bytesValue(index) : tuple.bytesValue(colName);
+            default:
+                throw new UnsupportedOperationException("Unexpected type: " + type);
+        }
+    }
+
+    private static List<Arguments> allTypesUnsupportedConversionArgs() {
+        EnumSet<ColumnType> allTypes = EnumSet.complementOf(
+                EnumSet.of(ColumnType.NULL, ColumnType.STRUCT, ColumnType.PERIOD, ColumnType.DURATION));
+        List<Arguments> arguments = new ArrayList<>();
+
+        for (ColumnType from : allTypes) {
+            for (ColumnType to : allTypes) {
+                if (from == to || isSupportedUpcast(from, to) || isSupportedDowncast(from, to)) {
+                    continue;
+                }
+
+                arguments.add(Arguments.of(from, to));
+            }
+        }
+
+        return arguments;
+    }
+
+    private static List<Arguments> allTypesDowncastOverflowArgs() {
+        EnumSet<ColumnType> allTypes = EnumSet.complementOf(
+                EnumSet.of(ColumnType.NULL, ColumnType.STRUCT, ColumnType.PERIOD, ColumnType.DURATION));
+        List<Arguments> arguments = new ArrayList<>();
+
+        for (ColumnType from : allTypes) {
+            for (ColumnType to : allTypes) {
+                if (isSupportedDowncast(from, to)) {
+                    arguments.add(Arguments.of(from, to));
+                }
+            }
+        }
+
+        return arguments;
+    }
+
+    private static boolean isSupportedUpcast(ColumnType source, ColumnType target) {
+        switch (source) {
+            case INT8:
+                return target == ColumnType.INT16 || target == ColumnType.INT32 || target == ColumnType.INT64;
+            case INT16:
+                return target == ColumnType.INT32 || target == ColumnType.INT64;
+            case INT32:
+                return target == ColumnType.INT64;
+            case FLOAT:
+                return target == ColumnType.DOUBLE;
+            default:
+                return false;
+        }
+    }
+
+    private static boolean isSupportedDowncast(ColumnType source, ColumnType target) {
+        switch (source) {
+            case INT64:
+                return target == ColumnType.INT8 || target == ColumnType.INT16 || target == ColumnType.INT32;
+            case INT32:
+                return target == ColumnType.INT8 || target == ColumnType.INT16;
+            case INT16:
+                return target == ColumnType.INT8;
+            case DOUBLE:
+                return target == ColumnType.FLOAT;
+            default:
+                return false;
+        }
     }
 }
