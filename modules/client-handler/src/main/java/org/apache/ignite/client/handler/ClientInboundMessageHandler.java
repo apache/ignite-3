@@ -44,6 +44,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
+import java.net.SocketException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -1154,14 +1155,13 @@ public class ClientInboundMessageHandler
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         boolean logWarn = true;
+        boolean logThrowable = true;
 
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
             metrics.sessionsRejectedTlsIncrement();
 
             logWarn = false;
-        }
-
-        if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
+        } else if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
             var err = (IgniteException) cause.getCause();
 
             if (err.code() == HANDSHAKE_HEADER_ERR) {
@@ -1169,11 +1169,14 @@ public class ClientInboundMessageHandler
             }
 
             logWarn = false;
+        } else if (cause instanceof SocketException) {
+            // SocketExceptions seem to well known and have a nice messages. If a stranger exception happens we can always enable debug.
+            logThrowable = false;
         }
 
         if (logWarn) {
             LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
-                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
+                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), (logThrowable) ? cause : null);
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
