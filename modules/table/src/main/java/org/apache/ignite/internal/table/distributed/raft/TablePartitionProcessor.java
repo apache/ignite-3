@@ -505,7 +505,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long commandTerm
     ) {
         long storageLastAppliedIndex = storage.lastAppliedIndex();
-        LOG.info("Handling PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, storageLastAppliedIndex={}, "
+        LOG.debug("Handling PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, storageLastAppliedIndex={}, "
                         + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
                 storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex,
                 cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
