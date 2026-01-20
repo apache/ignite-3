@@ -597,18 +597,8 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
     @Deprecated(forRemoval = true)
-    boolean remove(@Nullable Transaction tx, K key, V val);
-
-    /**
-     * Removes from a table an expected value associated with the given key.
-     *
-     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
-     * @param val Expected value.
-     * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
-     * @throws MarshallerException if the key and/or the value doesn't match the schema.
-     */
-    default boolean removeExact(@Nullable Transaction tx, K key, V val) {
-        return remove(tx, key, val);
+    default boolean remove(@Nullable Transaction tx, K key, V val) {
+        return removeExact(tx, key, val);
     }
 
     /**
@@ -619,8 +609,18 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
+    boolean removeExact(@Nullable Transaction tx, K key, V val);
+
+    /**
+     * Removes from a table an expected value associated with the given key.
+     *
+     * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
+     * @param val Expected value.
+     * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
+     * @throws MarshallerException if the key and/or the value doesn't match the schema.
+     */
     default boolean removeExact(K key, V val) {
-        return remove(null, key, val);
+        return removeExact(null, key, val);
     }
 
     /**
@@ -655,7 +655,9 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
     @Deprecated(forRemoval = true)
-    CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val);
+    default CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
+        return removeExactAsync(tx, key, val);
+    }
 
     /**
      * Asynchronously removes from a table an expected value associated with the given key.
@@ -666,9 +668,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    default CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
-        return removeAsync(tx, key, val);
-    }
+    CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val);
 
     /**
      * Asynchronously removes from a table an expected value associated with the given key.
@@ -884,7 +884,9 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
     @Deprecated(forRemoval = true)
-    boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue);
+    default boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
+        return replaceExact(tx, key, oldValue, newValue);
+    }
 
     /**
      * Replaces an expected value for a key. This is equivalent to
@@ -905,9 +907,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    default boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
-        return replace(tx, key, oldValue, newValue);
-    }
+    boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue);
 
     /**
      * Replaces an expected value for a key. This is equivalent to
@@ -967,7 +967,9 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
     @Deprecated(forRemoval = true)
-    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal);
+    default CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+        return replaceExactAsync(tx, key, oldVal, newVal);
+    }
 
     /**
      * Asynchronously replaces an expected value for a key. See {@link #replaceExact(Transaction, Object, Object, Object)}
@@ -980,9 +982,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    default CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        return replaceAsync(tx, key, oldVal, newVal);
-    }
+    CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal);
 
     /**
      * Asynchronously replaces an expected value for a key. See {@link #replaceExact(Object, Object, Object)}
@@ -995,7 +995,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
     default CompletableFuture<Boolean> replaceExactAsync(K key, @Nullable V oldVal, @Nullable V newVal) {
-        return replaceAsync(null, key, oldVal, newVal);
+        return replaceExactAsync(null, key, oldVal, newVal);
     }
 
     /**

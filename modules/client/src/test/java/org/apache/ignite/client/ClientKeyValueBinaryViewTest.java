@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,23 +40,63 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Binary KeyValueView tests.
  */
 public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
-    @Test
-    public void testGetMissingRowReturnsNull() {
+    private static final String NO_TX = "noTx";
+    private static final String NULL_TX = "nullTx";
+
+    @ParameterizedTest
+    @ValueSource(strings = {NO_TX, NULL_TX})
+    public void testGetExistingValue(String mode) {
         Table table = defaultTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        assertNull(kvView.get(null, defaultTupleKey()));
+        kvView.put(defaultTupleKey(), tuple());
+
+        Tuple val = null;
+        if (NO_TX.equals(mode)) {
+            val = kvView.get(defaultTupleKey());
+        } else if (NULL_TX.equals(mode)) {
+            val = kvView.get(null, defaultTupleKey());
+        }
+
+        assertEquals(1, val.columnCount());
+        assertEquals(DEFAULT_NAME, val.stringValue("name"));
     }
 
-    @Test
-    public void testRecordUpsertKvGet() {
+    @ParameterizedTest
+    @ValueSource(strings = {NO_TX, NULL_TX})
+    public void testGetMissingRowReturnsNull(String mode) {
         Table table = defaultTable();
-        table.recordView().upsert(null, tuple());
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        Tuple val = null;
+        if (NO_TX.equals(mode)) {
+            val = kvView.get(defaultTupleKey());
+        } else if (NULL_TX.equals(mode)) {
+            val = kvView.get(null, defaultTupleKey());
+        } else {
+            fail("Incorrect mode: " + mode);
+        }
+
+        assertNull(val);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {NO_TX, NULL_TX})
+    public void testRecordUpsertKvGet(String mode) {
+        Table table = defaultTable();
+
+        if (NO_TX.equals(mode)) {
+            table.recordView().upsert(tuple());
+        } else if (NULL_TX.equals(mode)) {
+            table.recordView().upsert(null, tuple());
+        }
 
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
@@ -67,15 +108,20 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         assertEquals(1, val.columnCount());
     }
 
-    @Test
-    public void testKvPutRecordGet() {
+    @ParameterizedTest
+    @ValueSource(strings = {NO_TX, NULL_TX})
+    public void testKvPutRecordGet(String mode) {
         Table table = defaultTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         Tuple key = defaultTupleKey();
         Tuple val = Tuple.create().set("name", "bar");
 
-        kvView.put(null, key, val);
+        if (NO_TX.equals(mode)) {
+            kvView.put(key, val);
+        } else if (NULL_TX.equals(mode)) {
+            kvView.put(null, key, val);
+        }
         Tuple res = table.recordView().get(null, key);
 
         assertEquals("bar", res.stringValue("name"));

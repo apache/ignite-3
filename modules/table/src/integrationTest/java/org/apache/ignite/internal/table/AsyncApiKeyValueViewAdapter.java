@@ -113,8 +113,8 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return await(delegate.removeAsync(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return await(delegate.removeExactAsync(tx, key, val));
     }
 
     @Override
@@ -138,8 +138,8 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
-        return await(delegate.replaceAsync(tx, key, oldValue, newValue));
+    public boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
+        return await(delegate.replaceExactAsync(tx, key, oldValue, newValue));
     }
 
     @Override
@@ -213,7 +213,7 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
         throw new UnsupportedOperationException("Must not be called");
     }
 
@@ -248,7 +248,7 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
         throw new UnsupportedOperationException("Must not be called");
     }
 
