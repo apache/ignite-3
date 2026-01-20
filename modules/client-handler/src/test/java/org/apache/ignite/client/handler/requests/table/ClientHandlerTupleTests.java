@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
@@ -37,9 +38,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
+import java.util.IdentityHashMap;
 import java.util.Random;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -77,6 +81,7 @@ public class ClientHandlerTupleTests {
     private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
             new Column[]{new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, false)},
             new Column[]{
+                    new Column("valBooleanCol".toUpperCase(), BOOLEAN, true),
                     new Column("valByteCol".toUpperCase(), INT8, true),
                     new Column("valShortCol".toUpperCase(), INT16, true),
                     new Column("valIntCol".toUpperCase(), INT32, true),
@@ -136,8 +141,9 @@ public class ClientHandlerTupleTests {
     public void testValueReturnsValueByIndex() {
         Tuple tuple = createTuple();
 
-        assertEquals(1, (byte) tuple.value(0));
-        assertEquals(4L, tuple.longValue(3));
+        assertEquals(true, tuple.value(0));
+        assertEquals(1, (byte) tuple.value(1));
+        assertEquals(4L, tuple.longValue(4));
 
         assertThrows(IndexOutOfBoundsException.class, () -> tuple.value(123));
     }
@@ -153,7 +159,7 @@ public class ClientHandlerTupleTests {
 
     @Test
     public void testColumnCount() {
-        assertEquals(14, createTuple().columnCount());
+        assertEquals(15, createTuple().columnCount());
         assertEquals(1, createKeyTuple().columnCount());
     }
 
@@ -161,8 +167,9 @@ public class ClientHandlerTupleTests {
     public void testColumnIndex() {
         Tuple tuple = createTuple();
 
-        assertEquals(0, tuple.columnIndex("valByteCol"));
-        assertEquals(3, tuple.columnIndex("valLongCol"));
+        assertEquals(0, tuple.columnIndex("valBooleanCol"));
+        assertEquals(1, tuple.columnIndex("valByteCol"));
+        assertEquals(4, tuple.columnIndex("valLongCol"));
         assertEquals(-1, tuple.columnIndex("bad_name"));
     }
 
@@ -218,6 +225,7 @@ public class ClientHandlerTupleTests {
         Random rnd = new Random();
 
         return Tuple.create()
+                .set("valBooleanCol", true)
                 .set("valByteCol", (byte) 1)
                 .set("valShortCol", (short) 2)
                 .set("valIntCol", 3)
@@ -235,7 +243,27 @@ public class ClientHandlerTupleTests {
     }
 
     private static Stream<Arguments> primitiveAccessors() {
-        return SchemaTestUtils.PRIMITIVE_ACCESSORS.entrySet().stream()
+        IdentityHashMap<NativeType, BiConsumer<Tuple, Object>> map = new IdentityHashMap<>();
+
+        map.put(BOOLEAN, (tuple, index) -> invoke(index, tuple::booleanValue, tuple::booleanValue));
+        map.put(INT8, (tuple, index) -> invoke(index, tuple::byteValue, tuple::byteValue));
+        map.put(INT16, (tuple, index) -> invoke(index, tuple::shortValue, tuple::shortValue));
+        map.put(INT32, (tuple, index) -> invoke(index, tuple::intValue, tuple::intValue));
+        map.put(INT64, (tuple, index) -> invoke(index, tuple::longValue, tuple::longValue));
+        map.put(FLOAT, (tuple, index) -> invoke(index, tuple::floatValue, tuple::floatValue));
+        map.put(DOUBLE, (tuple, index) -> invoke(index, tuple::doubleValue, tuple::doubleValue));
+
+        return map.entrySet().stream()
                 .map(e -> Arguments.of(e.getKey(), e.getValue()));
+    }
+
+    private static void invoke(Object index, IntConsumer intConsumer, Consumer<String> strConsumer) {
+        if (index instanceof Integer) {
+            intConsumer.accept((int) index);
+        } else {
+            assert index instanceof String : index.getClass();
+
+            strConsumer.accept((String) index);
+        }
     }
 }
