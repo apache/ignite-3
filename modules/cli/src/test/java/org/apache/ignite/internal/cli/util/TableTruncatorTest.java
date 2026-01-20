@@ -20,8 +20,10 @@ package org.apache.ignite.internal.cli.util;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.sameInstance;
 
+import com.jakewharton.fliptables.FlipTableConverters;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.cli.decorators.TruncationConfig;
@@ -158,14 +160,14 @@ class TableTruncatorTest {
         Object[][] content = {
                 {"very long content 1", "very long content 2", "very long content 3"}
         };
-        // Terminal width = 50, with overhead for borders (3*3 = 9)
+        // Terminal width = 50, with overhead for borders (3*3 + 1 = 10)
         TruncationConfig config = new TruncationConfig(true, 100, 50);
 
         int[] widths = new TableTruncator(config).calculateColumnWidths(header, content);
 
-        // Total width should fit within terminal width
+        // Total width should fit within terminal width (available = 50 - 10 = 40)
         int totalWidth = Arrays.stream(widths).sum();
-        assertThat(totalWidth <= 50 - 9, is(true));
+        assertThat(totalWidth <= 50 - 10, is(true));
 
         // Each column should have reasonable width (at least minimum of 3 for ellipsis)
         for (int width : widths) {
@@ -190,13 +192,13 @@ class TableTruncatorTest {
         String[] header = {"header"};
         Object[][] content = {{"12345678901234567890"}}; // 20 chars
 
-        // Terminal = 20, overhead for 1 column = 3*1 = 3, available = 17
+        // Terminal = 20, overhead for 1 column = 3*1 + 1 = 4, available = 16
         TruncationConfig config = new TruncationConfig(true, 100, 20);
 
         int[] widths = new TableTruncator(config).calculateColumnWidths(header, content);
 
-        // Content (20) exceeds available (17), so should be shrunk to exactly 17
-        assertThat(widths[0], is(17));
+        // Content (20) exceeds available (16), so should be shrunk to exactly 16
+        assertThat(widths[0], is(16));
     }
 
     @Test
@@ -205,13 +207,13 @@ class TableTruncatorTest {
         String[] header = {"col"};
         Object[][] content = {{"1234567890"}}; // 10 chars
 
-        // At terminal = 13: overhead = 3, available = 10, content = 10 -> fits exactly
-        TruncationConfig configFits = new TruncationConfig(true, 100, 13);
+        // At terminal = 14: overhead = 3*1 + 1 = 4, available = 10, content = 10 -> fits exactly
+        TruncationConfig configFits = new TruncationConfig(true, 100, 14);
         int[] widthsFits = new TableTruncator(configFits).calculateColumnWidths(header, content);
         assertThat(widthsFits[0], is(10)); // No truncation needed
 
-        // At terminal = 12: overhead = 3, available = 9, content = 10 -> need to shrink by 1
-        TruncationConfig configShrink = new TruncationConfig(true, 100, 12);
+        // At terminal = 13: overhead = 4, available = 9, content = 10 -> need to shrink by 1
+        TruncationConfig configShrink = new TruncationConfig(true, 100, 13);
         int[] widthsShrink = new TableTruncator(configShrink).calculateColumnWidths(header, content);
         assertThat(widthsShrink[0], is(9)); // Should shrink to exactly 9, not less
     }
@@ -263,6 +265,79 @@ class TableTruncatorTest {
         String truncatedContent = (String) result.content()[0][1];
         assertThat(truncatedContent.length(), is(50));
         assertThat(truncatedContent, equalTo("This is a very long string that exceeds the def..."));
+    }
+
+    /**
+     * Tests that a truncated table with IDDDDD column fits exactly within the terminal width.
+     * This is a regression test for the off-by-1 bug in the overhead calculation.
+     *
+     * <p>The FlipTables overhead formula is: 3*N + 1 where N is the number of columns.
+     * - Left border: 1 char
+     * - Right border: 1 char
+     * - N-1 separators between columns: N-1 chars
+     * - 2*N padding (space before + space after each column): 2*N chars
+     * - Total: 1 + 1 + (N-1) + 2*N = 3*N + 1
+     */
+    @Test
+    void truncatedTableWithIdddddColumnFitsWithinTerminalWidth() {
+        // Simulate the user's table: IDDDDD, NAME, AGE, EMAIL
+        Table<String> table = createTable(
+                List.of("IDDDDD", "NAME", "AGE", "EMAIL"),
+                List.of("1", "Alice", "28", "alice@example.com")
+        );
+
+        // Set terminal width to a value that requires truncation
+        int terminalWidth = 50;
+        TruncationConfig config = new TruncationConfig(true, 100, terminalWidth);
+
+        Table<String> truncated = new TableTruncator(config).truncate(table);
+
+        // Render the table using FlipTables (same as TableDecorator does)
+        String rendered = FlipTableConverters.fromObjects(truncated.header(), truncated.content());
+
+        // Get the actual width of the rendered table (first line contains the top border)
+        int actualWidth = rendered.lines().findFirst().orElse("").length();
+
+        assertThat("Rendered table width should fit within terminal width",
+                actualWidth, lessThanOrEqualTo(terminalWidth));
+    }
+
+    /**
+     * Tests that a truncated table fits exactly within the terminal width when
+     * the content needs to be shrunk.
+     * This is a regression test for the off-by-1 bug in the overhead calculation.
+     *
+     * <p>For 4 columns:
+     * - FlipTables overhead = 3*N + 1 = 3*4 + 1 = 13
+     * - If we calculate overhead as 3*N = 12 (wrong), we'll allow 1 extra char
+     *   of content, causing the table to overflow by 1 character.
+     */
+    @Test
+    void truncatedTableFitsExactlyWhenContentNeedsShrinking() {
+        // Create a table with long content that requires truncation
+        // IDDDDD=6, NAME=7 (Charlie), AGE=3, EMAIL=19 (charlie@example.com)
+        // Total content = 35, Overhead = 13, Natural width = 48
+        Table<String> table = createTable(
+                List.of("IDDDDD", "NAME", "AGE", "EMAIL"),
+                List.of("1", "Charlie", "42", "charlie@example.com")
+        );
+
+        // Set terminal width smaller than natural width to force truncation
+        // Natural width = 48, so terminal = 40 forces shrinking
+        int terminalWidth = 40;
+        TruncationConfig config = new TruncationConfig(true, 100, terminalWidth);
+
+        Table<String> truncated = new TableTruncator(config).truncate(table);
+
+        // Render the table using FlipTables
+        String rendered = FlipTableConverters.fromObjects(truncated.header(), truncated.content());
+        int actualWidth = rendered.lines().findFirst().orElse("").length();
+
+        // The bug: if overhead is calculated as 12 instead of 13,
+        // the table will be 1 char wider than terminal
+        assertThat("Rendered table width should not exceed terminal width. "
+                        + "Actual width: " + actualWidth + ", terminal: " + terminalWidth,
+                actualWidth, lessThanOrEqualTo(terminalWidth));
     }
 
     private static Table<String> createTable(List<String> headers, List<String> content) {

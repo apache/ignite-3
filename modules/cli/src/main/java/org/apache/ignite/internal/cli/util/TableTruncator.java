@@ -40,11 +40,14 @@ public class TableTruncator {
 
     /**
      * Fixed table border overhead.
-     * Total overhead formula: 3*N where N is column count.
-     * Per-column overhead includes: left padding (1) + right padding (1) + border/separator (1) = 3.
-     * The borders at table edges are already counted in per-column overhead.
+     * Total overhead formula: 1 + 3*N where N is column count.
+     * - Left border: 1 char
+     * - Right border: 1 char
+     * - N-1 separators between columns
+     * - 2*N padding (1 space before + 1 space after each column)
+     * Total: 1 + 1 + (N-1) + 2*N = 3*N + 1
      */
-    private static final int TABLE_BORDER_OVERHEAD = 0;
+    private static final int TABLE_BORDER_OVERHEAD = 1;
 
     private final TruncationConfig config;
 
