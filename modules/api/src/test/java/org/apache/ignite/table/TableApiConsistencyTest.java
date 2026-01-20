@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ import org.mockito.Mockito;
 /**
  * Test class to verify various requirements to Table API.
  */
-public class TableApiConsistencyTest {
+public class TableApiConsistencyTest extends BaseIgniteAbstractTest {
 
     Set<Method> noTxParamExclusions = Set.of(
             KeyValueView.class.getDeclaredMethod("removeAll", Transaction.class, Collection.class),
@@ -386,7 +387,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecGetAll() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.getAll(recs);
 
@@ -395,7 +396,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecGetAllAsync() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.getAllAsync(recs);
 
@@ -422,7 +423,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecContainsAll() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.containsAll(recs);
 
@@ -431,7 +432,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecContainsAllAsync() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.containsAllAsync(recs);
 
@@ -458,7 +459,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecUpsertAll() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.upsertAll(recs);
 
@@ -467,7 +468,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecUpsertAllAsync() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.upsertAllAsync(recs);
 
@@ -512,7 +513,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecInsertAll() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.insertAll(recs);
 
@@ -521,7 +522,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecInsertAllAsync() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.insertAllAsync(recs);
 
@@ -654,7 +655,7 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecDeleteAllExact() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.deleteAllExact(recs);
 
@@ -663,10 +664,78 @@ public class TableApiConsistencyTest {
 
     @Test
     void testRecDeleteAllExactAsync() {
-        Collection<Object> recs = mock(Collection.class);
+        Collection<Object> recs = new ArrayList<>();
 
         recViewMock.deleteAllExactAsync(recs);
 
         verify(recViewMock).deleteAllExactAsync(eq(null), eq(recs));
+    }
+
+    @Test
+    void testKvRemoveTxKeyValue() {
+        Object key = new Object();
+        Object val = new Object();
+        Transaction tx = mock(Transaction.class);
+
+        kvViewMock.remove(tx, key, val);
+
+        verify(kvViewMock).removeExact(eq(tx), eq(key), eq(val));
+    }
+
+    @Test
+    void testKvReplaceTxKeyValue() {
+        Object key = new Object();
+        Object oldVal = new Object();
+        Object newVal = new Object();
+        Transaction tx = mock(Transaction.class);
+
+        kvViewMock.replace(tx, key, oldVal, newVal);
+
+        verify(kvViewMock).replaceExact(eq(tx), eq(key), eq(oldVal), eq(newVal));
+    }
+
+    @Test
+    void testKvRemoveAsyncTxKeyValue() {
+        Object key = new Object();
+        Object val = new Object();
+        Transaction tx = mock(Transaction.class);
+
+        kvViewMock.removeAsync(tx, key, val);
+
+        verify(kvViewMock).removeExactAsync(eq(tx), eq(key), eq(val));
+    }
+
+    @Test
+    void testKvReplaceAsyncTxKeyValue() {
+        Object key = new Object();
+        Object oldVal = new Object();
+        Object newVal = new Object();
+        Transaction tx = mock(Transaction.class);
+
+        kvViewMock.replaceAsync(tx, key, oldVal, newVal);
+
+        verify(kvViewMock).replaceExactAsync(eq(tx), eq(key), eq(oldVal), eq(newVal));
+    }
+
+    @Test
+    void testRecReplaceTxRecRec() {
+        Object oldRec = new Object();
+        Object newRec = new Object();
+        Transaction tx = mock(Transaction.class);
+
+        recViewMock.replace(tx, oldRec, newRec);
+
+        verify(recViewMock).replaceExact(eq(tx), eq(oldRec), eq(newRec));
+    }
+
+    @Test
+    void testRecReplaceAsyncTxRecRec() {
+        Object oldRec = new Object();
+        Object newRec = new Object();
+        Transaction tx = mock(Transaction.class);
+
+        recViewMock.replaceAsync(tx, oldRec, newRec);
+
+        verify(recViewMock).replaceExactAsync(eq(tx), eq(oldRec), eq(newRec));
     }
 }
