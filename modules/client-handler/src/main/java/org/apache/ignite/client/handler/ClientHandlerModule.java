@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
@@ -320,7 +321,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @return Channel future.
      */
     private CompletableFuture<Channel> startEndpoint(ClientConnectorView configuration) {
-        ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
+        ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap().channel(NioServerSocketChannel.class);
         CompletableFuture<Channel> result = new CompletableFuture<>();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.

@@ -28,6 +28,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
@@ -220,7 +221,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         var requestCounter = new AtomicInteger();
         var connectionIdGen = new AtomicLong();
 
-        ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
+        ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap().channel(NioServerSocketChannel.class);
 
         BitSet features;
 

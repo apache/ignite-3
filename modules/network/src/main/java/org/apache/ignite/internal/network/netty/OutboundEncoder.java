@@ -21,13 +21,13 @@ import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.stream.ChunkedInput;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -38,6 +38,7 @@ import org.apache.ignite.internal.network.serialization.MessageFormat;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An encoder for the outbound messages that uses the provided {@link MessageFormat}.
@@ -48,10 +49,10 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
     private static final int IO_BUFFER_CAPACITY = 16 * 1024;
 
-    private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
+    /** Max number of messages in a single chunk. */
+    private static final int MAX_MESSAGES_IN_CHUNK = 128;
 
-    /** Message writer channel attribute key. */
-    private static final AttributeKey<MessageWriter> WRITER_KEY = AttributeKey.valueOf("WRITER");
+    private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
     private final MessageFormat messageFormat;
 
@@ -70,39 +71,87 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, OutNetworkObject msg, List<Object> out) throws Exception {
-        Attribute<MessageWriter> writerAttr = ctx.channel().attr(WRITER_KEY);
-        MessageWriter writer = writerAttr.get();
+        Channel channel = ctx.channel();
+
+        MessageWriter writer = getOrInitWriter(channel);
+
+        appendMessage(msg, out, channel, writer);
+    }
+
+    /**
+     * Lazy message writer creator.
+     */
+    private MessageWriter getOrInitWriter(Channel channel) {
+        NioSocketChannelEx channelEx = (NioSocketChannelEx) channel;
+        MessageWriter writer = channelEx.getMessageWriter();
 
         if (writer == null) {
             writer = messageFormat.writer(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
-            writerAttr.set(writer);
+            channelEx.setMessageWriter(writer);
         }
 
-        out.add(new NetworkMessageChunkedInput(msg, serializationService, writer));
+        return writer;
+    }
+
+    /**
+     * Adds new message to the latest chunk if that's possible. Appends it to output list if it's not possible.
+     */
+    private void appendMessage(OutNetworkObject msg, List<Object> out, Channel channel, MessageWriter writer) {
+        NioSocketChannelEx channelEx = (NioSocketChannelEx) channel;
+        var chunkedInput = (NetworkMessageChunkedInput) channelEx.getChunkedInput();
+
+        if (chunkedInput == null) {
+            appendNewChunkedInput(msg, out, writer, channelEx);
+        } else {
+            if (chunkedInput.finished || chunkedInput.size >= MAX_MESSAGES_IN_CHUNK) {
+                appendNewChunkedInput(msg, out, writer, channelEx);
+            } else {
+                chunkedInput.append(msg);
+            }
+        }
+    }
+
+    private void appendNewChunkedInput(
+            OutNetworkObject msg,
+            List<Object> out,
+            MessageWriter writer,
+            NioSocketChannelEx channelEx
+    ) {
+        NetworkMessageChunkedInput chunkedInput = new NetworkMessageChunkedInput(msg, serializationService, writer);
+
+        channelEx.setChunkedInput(chunkedInput);
+        out.add(chunkedInput);
     }
 
     /**
      * Chunked input for network message.
      */
     private static class NetworkMessageChunkedInput implements ChunkedInput<ByteBuf> {
+        OutNetworkObject[] messages;
+        int size;
+        boolean finished;
+
         /** Network message. */
-        private final NetworkMessage msg;
+        private @Nullable NetworkMessage msg;
+
+        /** Class descriptors.*/
+        private @Nullable ClassDescriptorListMessage descriptors;
 
         /** Message serializer. */
-        private final MessageSerializer<NetworkMessage> serializer;
+        private @Nullable MessageSerializer<NetworkMessage> serializer;
 
-        private final MessageSerializer<ClassDescriptorListMessage> descriptorSerializer;
+        /** Descriptors message serializer. */
+        private @Nullable MessageSerializer<ClassDescriptorListMessage> descriptorSerializer;
+
+        /** Serialization service, attached to the channel. */
+        private final PerSessionSerializationService serializationService;
 
         /** Message writer. */
         private final MessageWriter writer;
 
-        private final ClassDescriptorListMessage descriptors;
-        private final PerSessionSerializationService serializationService;
-
         /** Whether the message was fully written. */
-        private boolean finished = false;
-        private boolean descriptorsFinished = false;
+        private int currentMessageIndex = 0;
 
         /**
          * Constructor.
@@ -116,6 +165,19 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                 MessageWriter writer
         ) {
             this.serializationService = serializationService;
+            this.writer = writer;
+
+            messages = new OutNetworkObject[8];
+            messages[0] = outObject;
+            size = 1;
+
+            prepareMessage();
+        }
+
+        private void prepareMessage() {
+            OutNetworkObject outObject = messages[currentMessageIndex];
+            messages[currentMessageIndex] = null;
+
             this.msg = outObject.networkMessage();
 
             List<ClassDescriptorMessage> outDescriptors = null;
@@ -139,11 +201,18 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             } else {
                 this.descriptors = null;
                 descriptorSerializer = null;
-                descriptorsFinished = true;
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
-            this.writer = writer;
+        }
+
+        private void cleanupMessage() {
+            // Help GC by not holding any of those references anymore.
+            this.msg = null;
+            this.serializer = null;
+
+            this.descriptors = null;
+            this.descriptorSerializer = null;
         }
 
         @Override
@@ -173,27 +242,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
             writer.setBuffer(byteBuffer);
 
-            while (byteBuffer.hasRemaining()) {
-                if (!descriptorsFinished) {
-                    descriptorsFinished = descriptorSerializer.writeMessage(descriptors, writer);
-                    if (descriptorsFinished) {
-                        for (ClassDescriptorMessage classDescriptorMessage : descriptors.messages()) {
-                            serializationService.addSentDescriptor(classDescriptorMessage.descriptorId());
-                        }
-                        writer.reset();
-                    } else {
-                        break;
-                    }
-                } else {
-                    finished = serializer.writeMessage(msg, writer);
-
-                    if (finished) {
-                        writer.reset();
-                    }
-
-                    break;
-                }
-            }
+            writeMessages();
 
             buffer.writerIndex(byteBuffer.position() - initialPosition);
 
@@ -201,6 +250,45 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             writer.setBuffer(EMPTY_BYTE_BUFFER);
 
             return buffer;
+        }
+
+        /**
+         * Tries to write as many messages from {@link #state} as possible, until either buffer exhaustion or messages exhaustion.
+         */
+        private void writeMessages() {
+            while (true) {
+                if (descriptors != null) {
+                    if (!descriptorSerializer.writeMessage(descriptors, writer)) {
+                        return;
+                    }
+
+                    for (ClassDescriptorMessage classDescriptorMessage : descriptors.messages()) {
+                        serializationService.addSentDescriptor(classDescriptorMessage.descriptorId());
+                    }
+
+                    descriptors = null;
+                    writer.reset();
+                }
+
+                if (!serializer.writeMessage(msg, writer)) {
+                    return;
+                }
+
+                writer.reset();
+
+                cleanupMessage();
+                currentMessageIndex++;
+
+                if (currentMessageIndex < size) {
+                    prepareMessage();
+
+                    break;
+                } else {
+                    finished = true;
+
+                    return;
+                }
+            }
         }
 
         @Override
@@ -213,6 +301,18 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         public long progress() {
             // Not really needed, as there won't be listeners for the write operation's progress.
             return 0;
+        }
+
+        void append(OutNetworkObject msg) {
+            assert size < MAX_MESSAGES_IN_CHUNK : "ChunkState size should be less than " + MAX_MESSAGES_IN_CHUNK + ", but was " + size;
+
+            if (size >= messages.length) {
+                messages = Arrays.copyOf(messages, Math.min(MAX_MESSAGES_IN_CHUNK, size + (size >> 1)));
+            }
+
+            messages[size] = msg;
+
+            size++;
         }
     }
 }
