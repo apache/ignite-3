@@ -33,19 +33,27 @@ public class TableTruncator {
     private static final int MIN_COLUMN_WIDTH = ELLIPSIS.length() + 1;
 
     /**
-     * Per-column overhead in FlipTables: space before + space after + separator.
-     * Example: " value │" = 3 chars overhead per column.
+     * Per-column overhead in FlipTables: left padding + right padding + separator/border.
+     *
+     * <p>Example for 2 columns (c1, c2):
+     * <pre>
+     * ║ c1 │ c2 ║
+     * </pre>
+     * Each column has: 1 space before + 1 space after + 1 border char = 3 chars overhead.
      */
     private static final int BORDER_OVERHEAD_PER_COLUMN = 3;
 
     /**
-     * Fixed table border overhead.
-     * Total overhead formula: 1 + 3*N where N is column count.
-     * - Left border: 1 char
-     * - Right border: 1 char
-     * - N-1 separators between columns
-     * - 2*N padding (1 space before + 1 space after each column)
-     * Total: 1 + 1 + (N-1) + 2*N = 3*N + 1
+     * Fixed table border overhead (the extra left border character).
+     *
+     * <p>Total overhead calculation for N columns:
+     * <pre>
+     * ║ c1 │ c2 │ ... │ cN ║
+     * ^    ^    ^          ^
+     * 1    3    3          3  (per-column overhead includes trailing separator)
+     * </pre>
+     * The left border (║) is not counted in per-column overhead, so we add 1.
+     * Total overhead = 1 + 3*N.
      */
     private static final int TABLE_BORDER_OVERHEAD = 1;
 
@@ -191,7 +199,7 @@ public class TableTruncator {
      * @param columnWidths column widths
      * @return truncated row values
      */
-    private String[] truncateRow(String[] row, int[] columnWidths) {
+    private static String[] truncateRow(String[] row, int[] columnWidths) {
         String[] result = new String[row.length];
         for (int i = 0; i < row.length; i++) {
             int maxWidth = i < columnWidths.length ? columnWidths[i] : Integer.MAX_VALUE;
@@ -207,7 +215,7 @@ public class TableTruncator {
      * @param columnWidths column widths
      * @return flat list of truncated values
      */
-    private List<String> truncateContent(Object[][] content, int[] columnWidths) {
+    private static List<String> truncateContent(Object[][] content, int[] columnWidths) {
         List<String> result = new ArrayList<>();
         for (Object[] row : content) {
             for (int col = 0; col < row.length; col++) {

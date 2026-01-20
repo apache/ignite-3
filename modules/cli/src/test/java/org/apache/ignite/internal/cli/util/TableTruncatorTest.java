@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.util;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.sameInstance;
@@ -50,54 +51,42 @@ class TableTruncatorTest {
 
     @Test
     void truncateCellWithinLimit() {
-        TableTruncator truncator = new TableTruncator(enabledConfig(50));
-
-        String result = truncator.truncateCell("short", 10);
+        String result = TableTruncator.truncateCell("short", 10);
 
         assertThat(result, equalTo("short"));
     }
 
     @Test
     void truncateCellExceedsLimit() {
-        TableTruncator truncator = new TableTruncator(enabledConfig(50));
-
-        String result = truncator.truncateCell("very long text that exceeds the limit", 10);
+        String result = TableTruncator.truncateCell("very long text that exceeds the limit", 10);
 
         assertThat(result, equalTo("very lo..."));
     }
 
     @Test
     void truncateCellExactlyAtLimit() {
-        TableTruncator truncator = new TableTruncator(enabledConfig(50));
-
-        String result = truncator.truncateCell("1234567890", 10);
+        String result = TableTruncator.truncateCell("1234567890", 10);
 
         assertThat(result, equalTo("1234567890"));
     }
 
     @Test
     void truncateCellNullValue() {
-        TableTruncator truncator = new TableTruncator(enabledConfig(50));
-
-        String result = truncator.truncateCell(null, 10);
+        String result = TableTruncator.truncateCell(null, 10);
 
         assertThat(result, equalTo("null"));
     }
 
     @Test
     void truncateCellMinimumWidth() {
-        TableTruncator truncator = new TableTruncator(enabledConfig(50));
-
-        String result = truncator.truncateCell("hello", 3);
+        String result = TableTruncator.truncateCell("hello", 3);
 
         assertThat(result, equalTo("..."));
     }
 
     @Test
     void truncateCellWidthLessThanEllipsis() {
-        TableTruncator truncator = new TableTruncator(enabledConfig(50));
-
-        String result = truncator.truncateCell("hello", 2);
+        String result = TableTruncator.truncateCell("hello", 2);
 
         assertThat(result, equalTo(".."));
     }
@@ -167,11 +156,11 @@ class TableTruncatorTest {
 
         // Total width should fit within terminal width (available = 50 - 10 = 40)
         int totalWidth = Arrays.stream(widths).sum();
-        assertThat(totalWidth <= 50 - 10, is(true));
+        assertThat(totalWidth, lessThanOrEqualTo(50 - 10));
 
         // Each column should have reasonable width (at least minimum of 4: 1 char + ellipsis)
         for (int width : widths) {
-            assertThat(width >= 4, is(true));
+            assertThat(width, greaterThanOrEqualTo(4));
         }
 
         // Verify actual truncation result
@@ -182,7 +171,7 @@ class TableTruncatorTest {
         // Content should be truncated to fit calculated widths
         for (int i = 0; i < 3; i++) {
             String cell = (String) result.content()[0][i];
-            assertThat(cell.length() <= widths[i], is(true));
+            assertThat(cell.length(), lessThanOrEqualTo(widths[i]));
         }
     }
 
