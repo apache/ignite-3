@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,7 +33,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
@@ -96,8 +99,15 @@ public class ItClientDirectMappingTest extends ClusterPerClassIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testReadOnCoordinatorWithDirectWrite(boolean commit) {
+    @ValueSource(ints = {0, 1, 2})
+    public void testReadOnCoordinatorWithDirectWrite(int testMode) {
+        TestMode mode = TestMode.values()[testMode];
+        boolean commit = mode == TestMode.COMMIT || mode == TestMode.COMPAT;
+        if (mode == TestMode.COMPAT) {
+            BitSet features = IgniteTestUtils.getFieldValue(null, TcpClientChannel.class, "SUPPORTED_FEATURES");
+            features.clear(ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES.featureId());
+        }
+
         try (IgniteClient client = clientConnectedToAllNodes()) {
             Table table1 = client.tables().table(TABLE_NAME);
             KeyValueView<Tuple, Tuple> view1 = table1.keyValueView();
@@ -162,6 +172,11 @@ public class ItClientDirectMappingTest extends ClusterPerClassIntegrationTest {
             } else {
                 assertNull(view1.get(null, key), "key=" + key);
             }
+        } finally {
+            if (mode == TestMode.COMPAT) {
+                BitSet features = IgniteTestUtils.getFieldValue(null, TcpClientChannel.class, "SUPPORTED_FEATURES");
+                features.set(ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES.featureId());
+            }
         }
     }
 
@@ -224,5 +239,11 @@ public class ItClientDirectMappingTest extends ClusterPerClassIntegrationTest {
 
     private static Tuple key(Integer k) {
         return Tuple.create().set(COLUMN_KEY, k);
+    }
+
+    enum TestMode {
+        COMMIT,
+        ROLLBACK,
+        COMPAT
     }
 }
