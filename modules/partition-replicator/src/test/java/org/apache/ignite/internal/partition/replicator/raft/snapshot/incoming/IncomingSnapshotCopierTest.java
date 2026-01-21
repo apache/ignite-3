@@ -508,8 +508,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
-            Integer commitTableOrZoneId = null;
+            Integer commitZoneId = null;
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             int j = 0;
@@ -523,7 +522,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
-                    commitTableOrZoneId = readResult.commitZoneId();
+                    commitZoneId = readResult.commitZoneId();
                     commitPartitionId = readResult.commitPartitionId();
                 } else {
                     timestamps[j++] = readResult.commitTimestamp().longValue();
@@ -536,7 +535,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                             .rowVersions(rowVersions)
                             .timestamps(timestamps)
                             .txId(txId)
-                            .commitTableOrZoneId(commitTableOrZoneId)
+                            .commitZoneId(commitZoneId)
                             .commitPartitionId(commitPartitionId)
                             .tableId(TABLE_ID)
                             .build()
