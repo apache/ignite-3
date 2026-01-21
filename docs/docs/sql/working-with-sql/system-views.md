@@ -63,3 +63,16 @@ Describes available system view columns.
 | DATA_NODES_AUTO_ADJUST_SCALE_DOWN | INT32 | The delay in seconds between the node leaving the cluster and the start of data zone adjustment. |
 | DATA_NODES_FILTER | STRING | The filter that specifies what nodes will be used by the distribution zone. |
 | IS_DEFAULT_ZONE | BOOLEAN | Defines if the data zone is used by default. |
+
+### SQL_CACHED_QUERY_PLANS
+
+| Column | Data Type | Description |
+|--------|-----------|-------------|
+| NODE_ID | STRING | ID of the node where the plan is cached. |
+| PLAN_ID | STRING | Internal identifier of the prepared plan. |
+| CATALOG_VERSION | INT32 | Catalog version used when the query was prepared. |
+| QUERY_DEFAULT_SCHEMA | STRING | Default schema applied during query preparation. |
+| SQL | STRING | Normalized SQL text of the query. |
+| QUERY_TYPE | STRING | Query type. |
+| QUERY_PLAN | STRING | Serialized or explain representation of the chosen query plan. |
+| QUERY_PREPARE_TIME | TIMESTAMP WITH LOCAL TIME ZONE | Time the plan was prepared on the node. |
