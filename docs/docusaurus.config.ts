@@ -18,7 +18,8 @@ const config: Config = {
   url: 'https://ignite.apache.org',
   // Set the /<baseUrl>/ pathname under which your site is served
   // Serves Ignite 3 docs at /docs/ignite3/ on the main website
-  baseUrl: '/docs/ignite3/',
+  // Can be overridden with BASE_URL environment variable for staging builds
+  baseUrl: process.env.BASE_URL || '/docs/ignite3/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -43,9 +44,8 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          // Edit URL points to Apache Ignite 3 repository
-          editUrl:
-            'https://github.com/apache/ignite-3/tree/main/docs/',
+          // Edit link disabled - docs not yet in upstream repository
+          editUrl: undefined,
           routeBasePath: '/', // Serve docs at the site root
           // Versioning configuration
           includeCurrentVersion: true, // Include the current (unversioned) docs
