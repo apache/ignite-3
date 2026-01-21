@@ -28,6 +28,7 @@ const sidebars: SidebarsConfig = {
         "getting-started/embedded-mode",
         "getting-started/best-practices",
         "getting-started/migrate-from-ignite-2",
+        "getting-started/migrate-from-3-0-to-3-1",
       ],
     },
 
