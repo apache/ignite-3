@@ -50,18 +50,450 @@ bin/ignite3 node config show > node-config.conf
 
 ## Configuration Parameters
 
-The following sections detail all available node configuration parameters:
+### Client Connector Configuration
 
-- [Client Connector Configuration](/3.1.0/develop/ignite-clients/)
-- Compute Configuration
-- Code Deployment Configuration
-- Failure Handler Configuration
-- Network Configuration
-- Node Attributes
-- RAFT Configuration
-- REST Configuration
-- SQL Configuration
-- Storage Configuration
-- System Configuration
+See the [Clients](/3.1.0/develop/ignite-clients/) section for information on configuring client connector.
 
-For complete configuration reference including all parameters, defaults, descriptions, and acceptable values, consult the Apache Ignite 3 documentation.
+### Compute Configuration
+
+```json
+{
+  "ignite" : {
+    "compute" : {
+      "queueMaxSize" : 2147483647,
+      "statesLifetimeMillis" : 60000,
+      "threadPoolSize" : 10
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| queueMaxSize | 2147483647 | Maximum number of compute tasks in queue. | Yes | Yes | 1 - Integer.MAX_VALUE |
+| statesLifetimeMillis | 60000 | The lifetime of job states after the job finishes, in milliseconds. | Yes | Yes | 0 - inf |
+| threadPoolSize | 10 | The number of threads available to compute jobs. | Yes | Yes | 1 - Integer.MAX_VALUE |
+
+### Code Deployment Configuration
+
+```json
+{
+  "ignite" : {
+    "deployment" : {
+      "location" : "deployment"
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| location | deployment | Relative path to folder in the working directory. All deployment units content will be stored there. | Yes | No | A valid path |
+
+### Failure Handler Configuration
+
+```json
+{
+  "ignite" : {
+    "failureHandler" : {
+      "dumpThreadsOnFailure" : true,
+      "dumpThreadsThrottlingTimeoutMillis" : 10000,
+      "handler" : {
+        "ignoredFailureTypes" : [
+          "systemWorkerBlocked", "systemCriticalOperationTimeout"
+        ],
+        "type" : "noop"
+      },
+      "oomBufferSizeBytes" : 16384
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| dumpThreadsOnFailure | true | The number of items that can be expired at once. | Yes | No | true, false |
+| dumpThreadsThrottlingTimeoutMillis | 10000 | Throttling timeout for thread dump generation during failure handling, in milliseconds. | Yes | No | 1 - inf |
+| handler.ignoredFailureTypes | [systemWorkerBlocked, systemCriticalOperationTimeout] | Types of failures that will be ignored. | Yes | No | 1 - inf |
+| handler.type | noop | Failure handler configuration type. | Yes | No | noop, stop, stopOrHalt |
+| oomBufferSizeBytes | 16384 | Amount of memory reserved in the heap at node start, in bytes. | Yes | No | 1 - inf |
+
+### Network Configuration
+
+In Apache Ignite 3, you can choose between two node discovery types. With `STATIC` type, you manually specify the node addresses, while `MULTICAST` type automatically detects nodes on your network, making setup simpler.
+
+Example configuration with a `STATIC` node finder:
+
+```json
+{
+  "ignite" : {
+    "network" : {
+      "fileTransfer" : {
+        "chunkSizeBytes" : 1048576,
+        "maxConcurrentRequests" : 4,
+        "responseTimeoutMillis" : 10000,
+        "threadPoolSize" : 8
+      },
+      "inbound" : {
+        "soBacklog" : 128,
+        "soKeepAlive" : true,
+        "soLinger" : 0,
+        "soReuseAddr" : true,
+        "tcpNoDelay" : true
+      },
+      "listenAddresses" : [],
+      "membership" : {
+        "failurePingIntervalMillis" : 1000,
+        "membershipSyncIntervalMillis" : 30000,
+        "scaleCube" : {
+          "failurePingRequestMembers" : 3,
+          "gossipIntervalMillis" : 200,
+          "gossipRepeatMult" : 3,
+          "membershipSuspicionMultiplier" : 5,
+          "metadataTimeoutMillis" : 3000
+        }
+      },
+      "nodeFinder" : {
+        "netClusterNodes" : [ "localhost:3344" ],
+        "type" : "STATIC"
+      },
+      "outbound" : {
+        "soKeepAlive" : true,
+        "soLinger" : 0,
+        "tcpNoDelay" : true
+      },
+      "port" : 3344,
+      "shutdownQuietPeriodMillis" : 0,
+      "shutdownTimeoutMillis" : 15000,
+      "ssl" : {
+        "ciphers" : "",
+        "clientAuth" : "none",
+        "enabled" : false,
+        "keyStore" : {
+          "password" : "********",
+          "path" : "",
+          "type" : "PKCS12"
+        },
+        "trustStore" : {
+          "password" : "********",
+          "path" : "",
+          "type" : "PKCS12"
+        }
+      }
+    }
+  }
+}
+```
+
+To switch to a `MULTICAST` node finder, update the `nodeFinder` section in your configuration file to the following:
+
+```json
+{
+  "ignite" : {
+    "nodeFinder": {
+      "type": "MULTICAST",
+      "multicast" : {
+        "group": "239.192.0.0",
+        "port": 47401,
+        "resultWaitTime": 500,
+        "ttl": -1
+      }
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| fileTransfer | | File transfer configuration. | | | |
+| fileTransfer.chunkSizeBytes | 1048576 | Chunk size in bytes. | Yes | Yes | 1 - Integer.MAX_VALUE |
+| fileTransfer.maxConcurrentRequests | 4 | Maximum number of concurrent requests. | Yes | Yes | 1 - Integer.MAX_VALUE |
+| fileTransfer.responseTimeoutMillis | 10000 | Node response timeout during file transfer. | Yes | Yes | 0 - inf |
+| fileTransfer.threadPoolSize | 8 | File sender thread pool size. | Yes | Yes | 1 - Integer.MAX_VALUE |
+| inbound | | Server socket configuration. See [TCP documentation](https://man7.org/linux/man-pages/man7/tcp.7.html) and [socket documentation](https://man7.org/linux/man-pages/man7/socket.7.html) for more information. | | | |
+| inbound.soBacklog | 128 | The size of the backlog. | Yes | Yes | 0 - Integer.MAX_VALUE |
+| inbound.soKeepAlive | true | Defines if the keep-alive packets are allowed. | Yes | Yes | true, false |
+| inbound.soLinger | 0 | Defines how long the closed socket should linger. | Yes | Yes | 0 - 65535 |
+| inbound.soReuseAddr | true | Defines if the address can be reused. | Yes | Yes | true, false |
+| inbound.tcpNoDelay | true | Defines if the TCP no delay option is used. | Yes | Yes | true, false |
+| listenAddresses | | List of addresses (IPs or hostnames) to listen on. If empty, listens on all interfaces. Currently, only a single address is supported. | Yes | Yes | A list of valid addresses separated by comma |
+| membership | | Node membership configuration. | | | |
+| membership.failurePingIntervalMillis | 1000 | Failure detector ping interval. | Yes | Yes | 0 - inf |
+| membership.membershipSyncIntervalMillis | 30000 | Periodic membership data synchronization interval. | Yes | Yes | 0 - inf |
+| membership.scaleCube | | ScaleCube-specific configuration. | | | |
+| scaleCube.failurePingRequestMembers | 3 | Number of members that are randomly selected by a cluster node for an indirect ping request. | Yes | Yes | 1 - inf |
+| scaleCube.gossipIntervalMillis | 200 | [Gossip](https://en.wikipedia.org/wiki/Gossip_protocol) spreading interval. | Yes | Yes | 1 - inf |
+| scaleCube.gossipRepeatMult | 3 | Gossip repeat multiplier. | Yes | Yes | 1 - inf |
+| scaleCube.membershipSuspicionMultiplier | 5 | The multiplier that is used to calculate the timeout after which the node is considered dead. | Yes | Yes | 1 - inf |
+| scaleCube.metadataTimeoutMillis | 3000 | The timeout on metadata update operation, in milliseconds. | Yes | Yes | 1 - inf |
+| nodeFinder | | Configuration for how the node finds other nodes in the cluster. | | | |
+| nodeFinder.netClusterNodes | | Addresses of all nodes in the cluster in the host:port format. Applicable when `STATIC` node finder type is used. | Yes | Yes | Addresses in a valid format |
+| nodeFinder.type | STATIC | Node finder type. Use `STATIC` to manually configure node addresses. | Yes | Yes | STATIC |
+| nodeFinder.type | MULTICAST | Node finder type. Use `MULTICAST` to automatically detect nodes on your network. When using this type, you must also specify a multicast group address. | Yes | Yes | MULTICAST |
+| nodeFinder.multicast.group | 239.192.0.0 | The multicast group address for node discovery. | Yes | Yes | Multicast address in a valid format |
+| nodeFinder.multicast.port | 47401 | The port used for multicast. | Yes | Yes | 0 - 65535 |
+| nodeFinder.multicast.resultWaitTime | 500 | The time in milliseconds a node waits for responses after a discovery request. | Yes | Yes | 1 - inf |
+| nodeFinder.multicast.ttl | -1 | Sets the maximum number of network hops for multicast packets. By default is set to -1 and uses the default system TTL. | Yes | Yes | -1 - 255 |
+| outbound | | Outbound request configuration. | | | |
+| outbound.soKeepAlive | true | Defines if the keep-alive packets are allowed. | Yes | Yes | true, false |
+| outbound.soLinger | 0 | Defines how long the closed socket should linger. | Yes | Yes | 0 - 65535 |
+| outbound.tcpNoDelay | true | Defines if the TCP no delay option is used. | Yes | Yes | true, false |
+| port | 3344 | Node port. | Yes | Yes | A valid port number |
+| shutdownQuietPeriodMillis | 0 | The period during node shutdown when Ignite ensures that no tasks are submitted before the node shuts itself down. If a task is submitted during this period, it is guaranteed to be accepted. | Yes | No | 0 - inf |
+| shutdownTimeoutMillis | 15000 | The maximum amount of time until the node is shut down regardless of if new network messages were submitted during `shutdownQuietPeriodMillis`. | Yes | No | 0 - inf |
+| ssl.ciphers | "" | List of ciphers to enable, comma-separated. Empty for automatic cipher selection. | Yes | Yes | TLS_AES_256_GCM_SHA384, etc. (standard cipher ids) |
+| ssl.clientAuth | | Whether the SSL client authentication is enabled and whether it is mandatory. | Yes | Yes | none, optional, require |
+| ssl.enabled | false | Defines if SSL is enabled for the node. | Yes | Yes | true, false |
+| ssl.keyStore | | SSL keystore configuration. | | | |
+| keyStore.password | ******** | Keystore password. | Yes | Yes | A valid password |
+| keyStore.path | | Path to the keystore. | Yes | Yes | A valid path |
+| keyStore.type | PKCS12 | Keystore type. | Yes | Yes | PKCS12, JKS |
+| ssl.trustStore | | SSL trustsore configuration. | | | |
+| trustStore.password | ******** | Truststore password. | Yes | Yes | A valid password |
+| trustStore.path | | Path to the truststore. | Yes | Yes | A valid path |
+| trustStore.type | PKCS12 | Truststore type. | Yes | Yes | PKCS12, JKS |
+
+### Node Attributes
+
+```json
+{
+  "ignite" : {
+    "nodeAttributes" : {
+      "nodeAttributes" : { }
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| nodeAttributes | | A collection of node attributes used for dynamically distributing data only to those nodes that have the specified attribute values. | Yes | Yes | A JSON-formatted object |
+
+### RAFT Configuration
+
+```json
+{
+  "ignite" : {
+    "raft" : {
+      "fsync" : false,
+      "installSnapshotTimeoutMillis" : 300000,
+      "logStripesCount" : 4,
+      "logYieldStrategy" : false,
+      "responseTimeoutMillis" : 3000,
+      "retryDelayMillis" : 200,
+      "retryTimeoutMillis" : 10000,
+      "stripes" : 10,
+      "volatileRaft" : {
+        "logStorageBudget" : {
+          "name" : "unlimited"
+        }
+      }
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| fsync | false | Specifies whether `fsync` is used to safely write Raft log entries to disk on table partition groups before confirming replication. If set to `false`, user data may be lost in the event of an OS crash, but an Ignite application crash will not result in data loss. | Yes | Yes | true, false |
+| installSnapshotTimeoutMillis | 300000 | The maximum period allowed for transferring a RAFT snapshot to a recipient and installing it. | Yes | Yes | 1 - inf |
+| logStripesCount | 4 | Amount of stripes in disruptors of log manager | Yes | Yes | 1 - inf |
+| logYieldStrategy | false | If true, the non-blocking strategy is used in the Disruptor of log manager. | Yes | Yes | true, false |
+| responseTimeoutMillis | 3000 | Period for which the RAFT client will try to receive a response from a remote peer. | Yes | No | 0 - inf |
+| retryDelayMillis | 200 | Delay between re-sends of a failed request by the RAFT client. | Yes | No | 0 - inf |
+| retryTimeoutMillis | 10000 | Period for which the RAFT client will try to receive a successful response from a remote peer. | Yes | No | 0 - inf |
+| volatileRaft.logStorageBudget.name | unlimited | The name of the log storage budget used by the node. | Yes | No, but the new values are only applied to new partitions | unlimited, entry-count |
+
+### REST Configuration
+
+```json
+{
+  "ignite" : {
+    "rest" : {
+      "dualProtocol" : false,
+      "httpToHttpsRedirection" : false,
+      "port" : 10300,
+      "ssl" : {
+        "ciphers" : "",
+        "clientAuth" : "none",
+        "enabled" : false,
+        "keyStore" : {
+          "password" : "********",
+          "path" : "",
+          "type" : "PKCS12"
+        },
+        "port" : 10400,
+        "trustStore" : {
+          "password" : "********",
+          "path" : "",
+          "type" : "PKCS12"
+        }
+      }
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| dualProtocol | false | Defines if both HTTP and HTTPS protocols are used by the endpoint. | Yes | Yes | true, false |
+| httpToHttpsRedirection | false | Defines if requests to HTTP endpoint will be redirected to HTTPS. | Yes | Yes | true, false |
+| port | 10300 | The port of the node's REST endpoint. | Yes | Yes | A valid port |
+| ssl.ciphers | | Explicitly set node SSL cipher. | Yes | Yes | See [acceptable values](https://www.java.com/en/configure_crypto.html) |
+| ssl.clientAuth | | Client authorization used by the node, if any. | Yes | Yes | none, optional, require |
+| ssl.enabled | false | Defines if SSL is enabled for the node. | Yes | Yes | true, false |
+| ssl.keyStore | | SSL keystore configuration. | | | |
+| keyStore.password | ******** | Keystore password. | Yes | Yes | A valid password |
+| keyStore.path | | Path to the keystore. | Yes | Yes | A valid path |
+| keyStore.type | PKCS12 | Keystore type. | Yes | Yes | PKCS12, JKS |
+| ssl.port | 10400 | Port used for SSL connections. | Yes | Yes | A valid port |
+| ssl.trustStore | | SSL trustsore configuration. | | | |
+| trustStore.password | ******** | Truststore password. | Yes | Yes | A valid password |
+| trustStore.path | | Path to the truststore. | Yes | Yes | A valid path |
+| trustStore.type | PKCS12 | Truststore type. | Yes | Yes | PKCS12, JKS |
+
+### SQL Configuration
+
+```json
+{
+  "ignite" : {
+    "sql" : {
+      "execution" : {
+        "threadCount" : 4
+      },
+      "planner" : {
+        "threadCount" : 4
+      }
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| execution.threadCount | 4 | Number of threads for query execution. | Yes | Yes | 1 - Integer.MAX_VALUE |
+| planner.threadCount | 4 | Number of threads for query planning. | Yes | Yes | 1 - Integer.MAX_VALUE |
+
+### Storage Configuration
+
+Ignite Persistence is designed to provide a quick and responsive persistent storage. When using the persistent storage, Ignite stores all the data on disk, and loads as much data as it can into RAM for processing. When persistence is enabled, Ignite stores each partition in a separate file on disk. In addition to data partitions, Ignite stores indexes and metadata.
+
+Each Ignite storage engine can have several storage _profiles_.
+
+_Checkpointing_ is the process of copying dirty pages from RAM to partition files on disk. A dirty page is a page that was updated in RAM but was not written to the respective partition file. After a checkpoint is created, all changes are persisted to disk and will be available if the node crashes and is restarted. Checkpointing is designed to ensure durability of data and recovery in case of a node failure. This process helps you utilize disk space frugally by keeping pages in the most up-to-date state on disk.
+
+```json
+{
+ "ignite" : {
+    "storage" : {
+      "engines" : {
+        "aimem" : {
+          "pageSizeBytes" : 16384
+        },
+        "aipersist" : {
+          "checkpoint" : {
+            "checkpointDelayMillis" : 200,
+            "checkpointThreads" : 4,
+            "compactionThreads" : 4,
+            "intervalMillis" : 180000,
+            "intervalDeviationPercent" : 40,
+            "logReadLockThresholdTimeout" : 0,
+            "readLockTimeoutMillis" : 10000,
+            "useAsyncFileIoFactory" : true
+          },
+          "pageSizeBytes" : 16384
+        },
+        "rocksdb" : {
+          "flushDelayMillis" : 100
+        }
+      },
+      "profiles" : [ {
+        "engine" : "aipersist",
+        "name" : "default",
+        "replacementMode" : "CLOCK",
+        "sizeBytes" : 268435456
+      },
+      {
+        "engine" : "aimem",
+        "name" : "default_aimem",
+        "emptyPagesPoolSize" : 100,
+        "initSizeBytes" : 268435456,
+        "maxSizeBytes" : 268435456
+      },
+      {
+        "engine" : "rocksdb",
+        "name" : "default_rocksdb",
+        "sizeBytes" : 268435456,
+        "writeBufferSizeBytes" : 67108864
+      } ]
+   }
+  }
+ }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| engines.aimem | | Aimem configuration. | | | |
+| aimem.pageSizeBytes | 16384 | The size of pages in the storage, in bytes. | Yes | Yes | 1024-16384 |
+| engines.aipersist | | Aipersist configuration. | | | |
+| aipersist.checkpoint.checkpointDelayMillis | 200 | Delay before staring a checkpoint after receiving the command. | Yes | No | 0 - inf |
+| aipersist.checkpoint.checkpointThreads | 4 | Number of CPU threads dedicated to checkpointing. | Yes | Yes | 1 - inf |
+| aipersist.checkpoint.compactionThreads | 4 | Number of CPU threads dedicated to data compaction. | Yes | Yes | 1 - inf |
+| aipersist.checkpoint.intervalMillis | 180000 | Interval between checkpoints in milliseconds. | Yes | No | 0 - inf |
+| aipersist.checkpoint.intervalDeviationPercent | 40 | Jitter that will be added or subtracted from time period till next scheduled checkpoint (percentage). | Yes | No | 0-100 |
+| aipersist.checkpoint.logReadLockThresholdTimeoutMillis | 0 | Threshold for logging long read locks, in milliseconds. | Yes | Yes | 0 - inf |
+| aipersist.checkpoint.readLockTimeoutMillis | 10000 | Timeout for checkpoint read lock acquisition, in milliseconds. | Yes | Yes | 0 - inf |
+| aipersist.checkpoint.useAsyncFileIoFactory | true | If Ignite uses asynchronous file I/O operations provider. | Yes | Yes | true, false |
+| aipersist.pageSizeBytes | 16384 | The size of pages in the storage, in bytes. | No | N/A | 1024-16384 |
+| engines.rocksdb | | Rocksdb configuration. | | | |
+| rocksdb.flushDelayMillis | 100 | Delay before executing a flush triggered by RAFT. | Yes | Refreshed on engine registration | 0 - inf |
+| profiles | | The list of available storage profiles. | | | |
+| engine | | The storage engine. | No | N/A | aimem, aipersist, rocksdb |
+| name | | User-defined profile name. | No | N/A | A valid name |
+| replacementMode | CLOCK | Sets the page replacement algorithm. | Yes | Yes | CLOCK, RANDOM_LRU, SEGMENTED_LRU |
+| size | 256Mb | Memory (RAM) region size. | Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS |
+| aipersist.sizeBytes | 268435456 | Memory (offheap) region size. | Yes | Yes | Min 268435456, max defined by the addressable memory limit of the OS |
+| aipersist.replacementMode | CLOCK | Sets the page replacement algorithm. | Yes | Yes | CLOCK, RANDOM_LRU, SEGMENTED_LRU |
+| aimem.initSizeBytes | 268435456 | Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated. | Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS |
+| aimem.maxSizeBytes | 268435456 | Maximum memory region size in bytes. | Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS |
+| rocksdb.sizeBytes | 268435456 | Size of the rocksdb offheap cache. | Yes | Yes | Min 0, max defined by the addressable memory limit of the OS |
+| rocksdb.writeBufferSizeBytes | 67108864 | Size of rocksdb write buffer. | Yes | Yes | Min 1, max defined by the addressable memory limit of the OS |
+
+### System Configuration
+
+This section describes internal properties used by Ignite components. Although you can edit these properties using the `node config update` CLI command, we suggest discussing proposed changes with the Ignite support team. These properties apply to a specific node. For cluster-wide properties, see [Cluster Configuration](/3.1.0/configure-and-operate/reference/cluster-configuration#system-configuration-internal).
+
+:::note
+Note that the property names are in `camelCase`.
+:::
+
+```json
+{
+  "ignite" : {
+    "system" : {
+      "cmgPath" : "",
+      "metastoragePath" : "",
+      "partitionsBasePath" : "",
+      "partitionsLogPath" : "",
+      "properties":[],
+      "criticalWorkers" : {
+        "livenessCheckIntervalMillis" : 2000,
+        "maxAllowedLagMillis" : 5000,
+        "nettyThreadsHeartbeatIntervalMillis" : 1000
+      }
+    }
+  }
+}
+```
+
+| Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
+|----------|---------|-------------|------------|------------------|-------------------|
+| system.cmgPath | | The path the cluster management group information is stored to. Only applicable if the node is part of CMG. By default, data is stored in `{IGNITE_HOME}/work/cmg`. It is recommended to only change this path on an empty node. | Yes | Yes | Valid absolute path. |
+| system.metastoragePath | | The path the cluster meta information is stored to. Only applicable if the node is part of the metastorage group. By default, data is stored in `{IGNITE_HOME}/work/metastorage`. It is recommended to only change this path on an empty node. | Yes | Yes | Valid absolute path. |
+| system.partitionsBasePath | | The path data partitions are saved to on the node. By default, partitions are stored in `{IGNITE_HOME}/work/partitions`. It is recommended to only change this path on an empty node. | Yes | Yes | Valid absolute path. |
+| system.partitionsLogPath | | The path RAFT log the partitions are stored at. By default, this log is stored in `{system.partitionsBasePath}/log`. It is recommended to only change this path on an empty node. | Yes | Yes | Valid absolute path. |
+| system.properties | | System properties used by the Ignite components. | Yes | Yes | A map of properties. |
+| system.criticalWorkers.livenessCheckIntervalMillis | 2000 | Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLagMillis) |
+| system.criticalWorkers.maxAllowedLagMillis | 5000 | Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked. | Yes | No | 1 - inf (should be at least twice livenessCheckInterval) |
+| system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis | 1000 | Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms). | Yes | Yes | 1 - inf |
