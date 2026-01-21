@@ -600,7 +600,7 @@ public class SqlDdlGenerator {
         }
 
         if (mapsPojo && allowExtraFields) {
-            // TODO: GG-40813 Use a default field value instead of nullable.
+            // TODO: IGNITE-27632 Use a default field value instead of nullable.
             qe.getFieldsPrecision().putIfAbsent(EXTRA_FIELDS_COLUMN_NAME, DEFAULT_BINARY_FIELD_LENGTH);
             qe.getFields().put(EXTRA_FIELDS_COLUMN_NAME, byte[].class.getName());
         }
