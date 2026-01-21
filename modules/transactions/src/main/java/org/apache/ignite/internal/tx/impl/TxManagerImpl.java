@@ -636,6 +636,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean commitIntent,
             boolean timeout,
             boolean recovery,
+            boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
@@ -700,7 +701,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         enlistedGroups,
                         txId,
                         finishingStateMeta.txFinishFuture(),
-                        txContext.isNoWrites() && !recovery
+                        txContext.isNoWrites() && noRemoteWrites && !recovery
                 )
         ).whenComplete((unused, throwable) -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {

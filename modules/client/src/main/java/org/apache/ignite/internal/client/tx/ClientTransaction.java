@@ -315,6 +315,9 @@ public class ClientTransaction implements Transaction {
         if (cnt > 0) {
             w.out().packLong(tracker.get().longValue());
         }
+
+        // Send information about directly mapped writes to ensure a proper cleanup algorithm is choosed.
+        w.out().packBoolean(!ch.inflights().contains(txId));
     }
 
     /** {@inheritDoc} */
