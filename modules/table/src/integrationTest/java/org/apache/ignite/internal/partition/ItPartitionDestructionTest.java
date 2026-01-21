@@ -40,8 +40,8 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.io.FileMatchers.anExistingFile;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
@@ -388,9 +388,10 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
         ignite = unwrapIgniteImpl(cluster.restartNode(0));
 
-        logStorage = createAndInitCustomLogStorage(ignite, groupId);
+        LogStorage logStorage0 = createAndInitCustomLogStorage(ignite, groupId);
 
-        assertNull(logStorage.getEntry(1));
+        // Destruction might be asynchronous.
+        await().timeout(2, SECONDS).until(() -> logStorage0.getEntry(1), is(nullValue()));
     }
 
     private static void raisePersistedLwm(Path workDir, HybridTimestamp newLwm) {
