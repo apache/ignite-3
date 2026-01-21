@@ -93,7 +93,7 @@ public class PendingRows {
      *
      * @return Total number of pending row IDs.
      */
-    public int getPendingRowAmount() {
+    public int getPendingRowCount() {
         return txsPendingRowIds.values().stream()
                 .mapToInt(Set::size)
                 .sum();

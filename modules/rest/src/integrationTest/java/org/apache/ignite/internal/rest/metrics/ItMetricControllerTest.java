@@ -71,7 +71,8 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("placement-driver", true),
             new MetricSource("clock.service", true),
             new MetricSource("index.builder", true),
-            new MetricSource("raft.snapshots", true)
+            new MetricSource("raft.snapshots", true),
+            new MetricSource("global.partition.statistics", true)
     };
 
     @Inject
