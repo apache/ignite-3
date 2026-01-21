@@ -328,7 +328,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     private void alterZoneSql(String filter, String zoneName) {
-        executeSql(String.format("ALTER ZONE \"%s\" SET (\"DATA_NODES_FILTER\" '%s')", zoneName, filter));
+        executeSql(String.format("ALTER ZONE \"%s\"  SET (NODES FILTER '%s')", zoneName, filter));
     }
 
     /**
@@ -344,7 +344,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *   <li>No data should be lost</li>
      * </ol>
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
     @Test
     void testResetAfterChangeFilters() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
