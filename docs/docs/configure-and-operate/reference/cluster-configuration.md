@@ -147,7 +147,7 @@ bin/ignite3 cluster config show > cluster-config.txt
 
 | Property | Default | Description | Changeable | Requires Restart | Acceptable Values |
 |----------|---------|-------------|------------|------------------|-------------------|
-| exporters | | The list of [metric](/3.1.0/configure-and-operate/monitoring/configuring-metrics) exporters currently used. | Yes | No | Valid exporters |
+| exporters | | The list of [metric](/3.1.0/configure-and-operate/monitoring/config-metrics) exporters currently used. | Yes | No | Valid exporters |
 
 ### Replication Configuration
 
