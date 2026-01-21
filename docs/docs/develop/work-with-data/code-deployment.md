@@ -63,7 +63,7 @@ public class MyJob implements ComputeJob<String, String> {
 }
 ```
 
-You can manage deployment units using either [CLI](/3.1.0/tools/cli-commands) commands or the [REST API](https://ignite.apache.org/releases/3.0.0/openapi.yaml). Both methods provide the same functionality for deploying, listing, and undeploying code.
+You can manage deployment units using either [CLI](/3.1.0/tools/cli-commands) commands or the [REST API](https://ignite.apache.org/releases/ignite3/3.1.0/openapi.yaml). Both methods provide the same functionality for deploying, listing, and undeploying code.
 
 ## Deploying Units with Folder Structures
 
@@ -144,7 +144,7 @@ curl -X POST 'http://localhost:10300/management/v1/deployment/units/unit/1.0.0?i
 ```
 
 - You can target nodes using either the `deployMode` or `initialNodes` parameter. These options serve the same purpose as the similar CLI parameters, ensuring the unit propagates as needed.
-- For additional details see the corresponding [API documentation](https://ignite.apache.org/releases/3.0.0/openapi.yaml).
+- For additional details see the corresponding [API documentation](https://ignite.apache.org/releases/ignite3/3.1.0/openapi.yaml).
 
 ### Deploy Manually
 
