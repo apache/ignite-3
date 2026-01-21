@@ -35,7 +35,7 @@
   --ignite-active-indicator-thickness: 3px;
 
   /* Background Colors - Jekyll uses gray sidebar, white content */
-  --ifm-background-color: #fcfcfc; /* Page background - light gray */
+  --ifm-background-color: #ececec; /* Page background - light gray */
   --ifm-navbar-background-color: #ffffff; /* Navbar - pure white */
 
   /* Content Links - Jekyll uses RED, not blue! */
@@ -94,29 +94,29 @@
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
-/* Dark Mode Color Palette - Design for dark mode (not in Jekyll) */
+/* Dark Mode Color Palette - OneDark-inspired, softer than default */
 [data-theme='dark'] {
-  --ifm-background-color: #1b1b1d;
-  --ifm-navbar-background-color: #1b1b1d;
+  --ifm-background-color: #252528;
+  --ifm-navbar-background-color: #252528;
 
-  /* Keep red as primary in dark mode */
-  --ifm-color-primary: #f35b60;
-  --ifm-color-primary-dark: #f14249;
-  --ifm-color-primary-darker: #f03338;
-  --ifm-color-primary-darkest: #ed1119;
-  --ifm-color-primary-light: #f57477;
-  --ifm-color-primary-lighter: #f68388;
-  --ifm-color-primary-lightest: #f9a1a4;
+  /* Softer red for dark mode - easier on eyes while still Ignite-branded */
+  --ifm-color-primary: #f07178;
+  --ifm-color-primary-dark: #ee5960;
+  --ifm-color-primary-darker: #ec4a52;
+  --ifm-color-primary-darkest: #e62d36;
+  --ifm-color-primary-light: #f28990;
+  --ifm-color-primary-lighter: #f4989e;
+  --ifm-color-primary-lightest: #f9c0c3;
 
-  /* Dark mode links - match left nav red */
-  --ifm-link-color: #ec1c24;
-  --ifm-link-hover-color: #f03d43;
+  /* Dark mode links - softer coral-red */
+  --ifm-link-color: #f07178;
+  --ifm-link-hover-color: #f9a8a8;
 
-  /* Dark mode text */
-  --ifm-color-content: #e3e3e3;
-  --ifm-color-content-secondary: #a0a0a0;
+  /* Dark mode text - brighter for better readability */
+  --ifm-color-content: #ebebeb;
+  --ifm-color-content-secondary: #b0b0b0;
   --ifm-heading-color: #ffffff;
-  --ifm-navbar-link-color: #e3e3e3;
+  --ifm-navbar-link-color: #ebebeb;
 
   /* Dark mode code blocks */
   --block-code-background: rgba(0, 0, 0, 0.4);
@@ -201,7 +201,7 @@ h1 {
 
 /* Dark mode navbar */
 [data-theme='dark'] .navbar {
-  background-color: #1b1b1d !important; /* Required: overrides inline style */
+  background-color: #252528 !important; /* Required: overrides inline style */
 }
 
 [data-theme='dark'] .navbar__title,
@@ -473,7 +473,7 @@ h1 {
 }
 
 [data-theme='dark'] .theme-doc-markdown {
-  background-color: #242526;
+  background-color: #2d2d30;
   border: 1px solid #404040;
 }
 
@@ -512,7 +512,7 @@ article.markdown strong {
 }
 
 [data-theme='dark'] .theme-doc-toc-desktop {
-  background-color: #242526;
+  background-color: #2d2d30;
 }
 
 .table-of-contents {
@@ -673,28 +673,28 @@ table tbody tr:nth-of-type(even) {
   border-left-color: #f5222d !important; /* Required - overrides default */
 }
 
-/* Dark mode admonitions - improved contrast */
+/* Dark mode admonitions - vibrant colors for visibility */
 [data-theme='dark'] .theme-admonition.theme-admonition-note.alert.alert--secondary {
-  --ifm-alert-background-color: rgba(0, 136, 204, 0.2) !important; /* Increased opacity */
-  --ifm-alert-foreground-color: #64b5f6 !important; /* Blue 400 - softer than 300 */
+  --ifm-alert-background-color: rgba(0, 136, 204, 0.28) !important;
+  --ifm-alert-foreground-color: #90caf9 !important; /* Blue 200 - brighter */
 }
 
 [data-theme='dark'] .theme-admonition.theme-admonition-tip.alert.alert--success {
-  --ifm-alert-background-color: rgba(0, 168, 84, 0.2) !important; /* Increased opacity */
-  --ifm-alert-foreground-color: #66bb6a !important; /* Green 400 - softer than 300 */
+  --ifm-alert-background-color: rgba(0, 168, 84, 0.28) !important;
+  --ifm-alert-foreground-color: #81c784 !important; /* Green 300 - brighter */
 }
 
 [data-theme='dark'] .theme-admonition.theme-admonition-caution.alert.alert--warning,
 [data-theme='dark'] .theme-admonition.theme-admonition-important.alert.alert--info {
-  --ifm-alert-background-color: rgba(250, 173, 20, 0.2) !important; /* Increased opacity */
-  --ifm-alert-foreground-color: #ffa726 !important; /* Orange 400 - softer than 300 */
+  --ifm-alert-background-color: rgba(250, 173, 20, 0.28) !important;
+  --ifm-alert-foreground-color: #ffcc80 !important; /* Orange 200 - brighter */
 }
 
 [data-theme='dark'] .theme-admonition.theme-admonition-warning.alert.alert--danger,
 [data-theme='dark'] .theme-admonition.theme-admonition-danger.alert.alert--danger,
 [data-theme='dark'] .theme-admonition.theme-admonition-warning.alert.alert--warning {
-  --ifm-alert-background-color: rgba(245, 34, 45, 0.2) !important; /* Increased opacity */
-  --ifm-alert-foreground-color: #e57373 !important; /* Red 300 - softer than 400 */
+  --ifm-alert-background-color: rgba(245, 34, 45, 0.28) !important;
+  --ifm-alert-foreground-color: #ef9a9a !important; /* Red 200 - brighter */
 }
 
 /* ============================================
@@ -711,8 +711,6 @@ article.markdown img {
    ============================================ */
 
 .footer {
-  border-top: 2px solid var(--ifm-hr-border-color);
-  background-color: var(--ifm-background-color);
   font-size: 16px;
   padding: 1rem 0;
   min-height: 104px;
@@ -721,21 +719,42 @@ article.markdown img {
 .footer__title {
   font-size: 14px;
   font-weight: 600;
+  color: #ffffff;
 }
 
 .footer__item {
   font-size: 14px;
 }
 
-/* Footer dark mode - match page background */
+/* Footer styling - dark background for contrast in both themes */
 .footer--dark {
-  background-color: var(--ifm-background-color) !important; /* Required - overrides theme inline */
-  color: #393939;
+  background-color: #242526 !important;
+  border-top: none;
 }
 
+.footer--dark .footer__link-item {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.footer--dark .footer__link-item:hover {
+  color: #ffffff;
+}
+
+.footer--dark .footer__copyright {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Dark mode footer - slightly darker than canvas */
 [data-theme='dark'] .footer--dark {
-  background-color: var(--ifm-background-color) !important; /* Required - overrides theme inline */
-  color: #a0a0a0;
+  background-color: #1e1e20 !important;
+}
+
+[data-theme='dark'] .footer--dark .footer__link-item {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='dark'] .footer--dark .footer__link-item:hover {
+  color: #ffffff;
 }
 
 /* ============================================
@@ -860,7 +879,7 @@ article.markdown img {
 }
 
 [data-theme='dark'] .railroad-diagram-container svg.railroad-diagram a text {
-  fill: #fb6b70 !important;
+  fill: #f07178 !important;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 14px;
 }
@@ -945,7 +964,7 @@ article.markdown img {
 }
 
 [data-theme='dark'] .railroad-modal-content {
-  background-color: #1b1b1d;
+  background-color: #252528;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
 }
 
@@ -1100,7 +1119,7 @@ article.markdown img {
 
 /* Dark mode card styling */
 [data-theme='dark'] .card {
-  background-color: #242526;
+  background-color: #2d2d30;
   border-color: var(--ifm-color-emphasis-200);
 }
 
