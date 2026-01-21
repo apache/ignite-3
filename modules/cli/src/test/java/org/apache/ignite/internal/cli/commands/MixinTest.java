@@ -45,6 +45,7 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitOptions;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
-import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -189,16 +189,23 @@ class MixinTest {
         ConnectCommand command = new ConnectCommand();
         CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
 
+        String nodeUrl = "http://test";
         String username = "username";
         String password = "password";
 
-        commandLine.parseArgs(USERNAME_OPTION, username, PASSWORD_OPTION, password);
-        assertThat(command.connectOptions.username(), is(username));
-        assertThat(command.connectOptions.password(), is(password));
+        commandLine.parseArgs(nodeUrl, USERNAME_OPTION, username, PASSWORD_OPTION, password);
+        ConnectCallInput callInput = command.connectOptions.buildCallInput();
 
-        commandLine.parseArgs();
-        assertThat(command.connectOptions.username(), is(nullValue()));
-        assertThat(command.connectOptions.password(), is(nullValue()));
+        assertThat(callInput.url(), is(nodeUrl));
+        assertThat(callInput.username(), is(username));
+        assertThat(callInput.password(), is(password));
+
+        commandLine.parseArgs(nodeUrl);
+        callInput = command.connectOptions.buildCallInput();
+
+        assertThat(callInput.url(), is(nodeUrl));
+        assertThat(callInput.username(), is(nullValue()));
+        assertThat(callInput.password(), is(nullValue()));
     }
 
     @Test
@@ -249,7 +256,7 @@ class MixinTest {
 
     @Command
     private static class ConnectCommand {
-        @ArgGroup(exclusive = false)
+        @Mixin
         private ConnectOptions connectOptions;
     }
 

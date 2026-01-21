@@ -17,34 +17,22 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
-
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
-import java.net.URL;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.ReplManager;
-import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
-import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Mixin;
 
 /**
  * Connects to the Ignite 3 node.
  */
 @Command(name = "connect", description = "Connects to Ignite 3 node")
 public class ConnectCommand extends BaseCommand implements Callable<Integer> {
-
-    /** Node URL option. */
-    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = RestEndpointUrlConverter.class)
-    private URL nodeUrl;
-
-    @ArgGroup(exclusive = false)
+    @Mixin
     private ConnectOptions connectOptions;
 
     @Inject
@@ -53,7 +41,6 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     @Inject
     private Provider<ReplManager> replManagerProvider;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         ReplManager replManager = replManagerProvider.get();
@@ -61,20 +48,11 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
         replManager.subscribe();
 
         int exitCode = runPipeline(CallExecutionPipeline.builder(connectCall)
-                .inputProvider(this::connectCallInput)
+                .inputProvider(connectOptions::buildCallInput)
         );
         if (exitCode == 0) {
             replManager.startReplMode();
         }
         return exitCode;
-    }
-
-    private ConnectCallInput connectCallInput() {
-        return ConnectCallInput.builder()
-                .url(nodeUrl.toString())
-                .username(connectOptions != null ? connectOptions.username() : null)
-                .password(connectOptions != null ? connectOptions.password() : null)
-                .checkClusterInit(true)
-                .build();
     }
 }
