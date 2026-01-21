@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.GlobalPartitionTableStatsMetricSource.SOURCE_NAME;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_COUNTER;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_NEXT_MILESTONE;
@@ -309,12 +310,71 @@ public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
         expectModsCount(tabName, inserts);
     }
 
+    @Test
+    void globalPendingWriteIntentsMetric() {
+        String tab1 = "test_table_pending_wi_1";
+        String tab2 = "test_table_pending_wi_2";
+
+        sqlScript(
+                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab1, ZONE_1_PART_NO_REPLICAS),
+                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab2, ZONE_1_PART_NO_REPLICAS)
+        );
+
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+
+        int tab1Inserts = 3;
+        int tab2Inserts = 5;
+
+        try {
+            for (int i = 0; i < tab1Inserts; i++) {
+                sql(tx, format("INSERT INTO {} VALUES(?, ?);", tab1), i, i);
+            }
+
+            for (int i = 0; i < tab2Inserts; i++) {
+                sql(tx, format("INSERT INTO {} VALUES(?, ?);", tab2), i, i);
+            }
+
+            expectGlobalPendingWriteIntents(tab1Inserts + tab2Inserts);
+        } finally {
+            tx.commit();
+        }
+
+        expectGlobalPendingWriteIntents(0);
+    }
+
     private void expectModsCount(String tableName, long value) {
         expectLongValue(tableName, value, METRIC_COUNTER);
     }
 
     private void expectPendingWriteIntents(String tableName, long value) {
         expectLongValue(tableName, value, METRIC_PENDING_WRITE_INTENTS);
+    }
+
+    private static void expectGlobalPendingWriteIntents(long value) {
+        Awaitility.await().untilAsserted(() -> {
+            long summaryValue = 0;
+
+            for (int i = 0; i < CLUSTER.nodes().size(); i++) {
+                summaryValue += globalMetricFromNode(i, METRIC_PENDING_WRITE_INTENTS);
+            }
+
+            assertThat(summaryValue, is(value));
+        });
+    }
+
+    private static long globalMetricFromNode(int nodeIdx, String metricName) {
+        MetricManager metricManager = unwrapIgniteImpl(node(nodeIdx)).metricManager();
+
+        MetricSet metrics = metricManager.metricSnapshot().metrics().get(SOURCE_NAME);
+
+        if (metrics != null) {
+            LongMetric metric = metrics.get(metricName);
+            Objects.requireNonNull(metric, "metric does not exist: " + metricName);
+
+            return metric.value();
+        }
+
+        return UNDEFINED_METRIC_VALUE;
     }
 
     static void expectNextMilestone(String tableName, long value) {
