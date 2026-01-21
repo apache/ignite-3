@@ -443,6 +443,6 @@ void execute_with_fallback(ignite_client& client,
 
 ## Reference
 
-- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/latest/cpp-api/)
+- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/cppdoc/)
 - [Compute API](./compute-api)
 - [Client API](./client-api)

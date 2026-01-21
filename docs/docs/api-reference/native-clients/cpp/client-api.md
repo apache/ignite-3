@@ -194,7 +194,7 @@ Connection management happens automatically based on operation distribution.
 
 ## Reference
 
-- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/latest/cpp-api/)
+- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/cppdoc/)
 - [Tables API](./tables-api)
 - [SQL API](./sql-api)
 - [Transactions API](./transactions-api)

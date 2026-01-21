@@ -450,7 +450,7 @@ sql.execute_async(nullptr, nullptr, stmt, params,
 
 ## Reference
 
-- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/latest/cpp-api/)
+- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/cppdoc/)
 - [SQL Reference](../../../sql/)
 - [Client API](./client-api)
 - [Tables API](./tables-api)

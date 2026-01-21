@@ -438,7 +438,7 @@ try {
 
 ## Reference
 
-- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/latest/cpp-api/)
+- [C++ API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/cppdoc/)
 - [Client API](./client-api)
 - [SQL API](./sql-api)
 - [Transactions API](./transactions-api)
