@@ -42,6 +42,15 @@ public class AssignmentsQueue implements Iterable<Assignments> {
     private final Deque<Assignments> queue;
 
     /** Constructor. */
+    public AssignmentsQueue(AssignmentsQueue... assignmentsQueues) {
+        LinkedList<Assignments> assigments = new LinkedList<>();
+        for (AssignmentsQueue assignmentsQueue : assignmentsQueues) {
+            assigments.addAll(assignmentsQueue.queue);
+        }
+        this.queue = assigments;
+    }
+
+    /** Constructor. */
     public AssignmentsQueue(Assignments... assignments) {
         this(Arrays.asList(assignments));
     }
