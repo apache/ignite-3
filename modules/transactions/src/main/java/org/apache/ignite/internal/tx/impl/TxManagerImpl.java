@@ -389,8 +389,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 writeIntentSwitchPool
         );
 
-        txCleanupRequestSender =
-                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
+        txCleanupRequestSender = new TxCleanupRequestSender(
+                txMessageSender,
+                placementDriverHelper,
+                txStateVolatileStorage,
+                writeIntentSwitchPool,
+                commonScheduler
+        );
 
         txMetrics = new TransactionMetricsSource(clockService);
     }
