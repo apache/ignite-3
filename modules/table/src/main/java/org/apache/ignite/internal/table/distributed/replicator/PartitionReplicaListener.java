@@ -1450,17 +1450,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
             // FuturesCleanupResult.hadUpdateFutures() returns false).
-            forceCleanup.set(txOps.futures.isEmpty());
+            forceCleanup.set(txOps.isEmpty());
 
-            txOps.futures.forEach((opType, futures) -> {
-                if (opType.isRwRead()) {
-                    txReadFutures.addAll(futures.values());
-                } else {
-                    txUpdateFutures.addAll(futures.values());
-                }
-            });
+            txReadFutures.addAll(txOps.readFutures);
+            txUpdateFutures.addAll(txOps.updateFutures);
 
-            txOps.futures.clear();
+            txOps.clear();
 
             return null;
         });
@@ -1612,7 +1607,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 txOps = new TxCleanupReadyFutureList();
             }
 
-            txOps.futures.computeIfAbsent(cmdType, type -> new HashMap<>()).put(opId, cleanupReadyFut);
+            txOps.addFuture(cmdType.isRwRead(), cleanupReadyFut);
 
             return txOps;
         });
@@ -3637,10 +3632,25 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * {@code state} that represents a transaction state.
      */
     private static class TxCleanupReadyFutureList {
-        /**
-         * Operation type is mapped operation futures.
-         */
-        final Map<RequestType, Map<OperationId, CompletableFuture<?>>> futures = new EnumMap<>(RequestType.class);
+        final List<CompletableFuture<?>> readFutures = new ArrayList<>();
+        final List<CompletableFuture<?>> updateFutures = new ArrayList<>();
+
+        boolean isEmpty() {
+            return readFutures.isEmpty() && updateFutures.isEmpty();
+        }
+
+        void clear() {
+            readFutures.clear();
+            updateFutures.clear();
+        }
+
+        void addFuture(boolean isRead, CompletableFuture<?> fut) {
+            if (isRead) {
+                readFutures.add(fut);
+            } else {
+                updateFutures.add(fut);
+            }
+        }
     }
 
     @Override
