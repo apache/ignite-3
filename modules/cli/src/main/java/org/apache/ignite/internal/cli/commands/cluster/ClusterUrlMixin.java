@@ -21,12 +21,19 @@ import static org.apache.ignite.internal.cli.commands.CommandConstants.CLUSTER_U
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION_DESC;
 
+import jakarta.inject.Inject;
 import java.net.URL;
+import org.apache.ignite.internal.cli.commands.ProfileMixin;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
+import org.jetbrains.annotations.Nullable;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
- * Mixin class for cluster URL option.
+ * Mixin class to combine cluster URL and profile options.
  */
 public class ClusterUrlMixin {
     /** Cluster endpoint URL option. */
@@ -38,7 +45,25 @@ public class ClusterUrlMixin {
     )
     private URL clusterUrl;
 
+    /** Profile to get default values from. */
+    @Mixin
+    private ProfileMixin profileName;
+
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
+    /**
+     * Gets cluster URL from either the command line or from the config with specified or default profile.
+     *
+     * @return cluster URL
+     */
+    @Nullable
     public String getClusterUrl() {
-        return clusterUrl != null ? clusterUrl.toString() : null;
+        if (clusterUrl != null) {
+            return clusterUrl.toString();
+        } else {
+            ConfigManager configManager = configManagerProvider.get();
+            return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName.getProfileName());
+        }
     }
 }

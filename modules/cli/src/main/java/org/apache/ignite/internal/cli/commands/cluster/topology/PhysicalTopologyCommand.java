@@ -24,7 +24,7 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.decorators.TopologyDecorator;
@@ -39,7 +39,7 @@ import picocli.CommandLine.Option;
 public class PhysicalTopologyCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
     private PhysicalTopologyCall call;

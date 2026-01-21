@@ -24,7 +24,7 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
@@ -38,7 +38,7 @@ import picocli.CommandLine.Option;
 public class NodeMetricSourceListCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
-    private NodeUrlProfileMixin nodeUrl;
+    private NodeUrlMixin nodeUrl;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;

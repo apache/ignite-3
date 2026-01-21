@@ -21,7 +21,7 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import picocli.CommandLine.Command;
@@ -34,7 +34,7 @@ import picocli.CommandLine.Mixin;
 public class NodeStatusCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
-    private NodeUrlProfileMixin nodeUrl;
+    private NodeUrlMixin nodeUrl;
 
     @Inject
     private NodeStatusCall call;

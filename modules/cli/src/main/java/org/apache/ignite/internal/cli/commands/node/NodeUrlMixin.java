@@ -25,29 +25,37 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL
 
 import jakarta.inject.Inject;
 import java.net.URL;
+import org.apache.ignite.internal.cli.commands.ProfileMixin;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
- * Mixin class for node URL option.
+ * Mixin class to combine node URL and profile options.
  */
 public class NodeUrlMixin {
-
     @ArgGroup
     private Options options;
+
+    /** Profile to get default values from. */
+    @Mixin
+    private ProfileMixin profileName;
+
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
 
     @Inject
     private NodeNameRegistry nodeNameRegistry;
 
     private static class Options {
-
-        /**
-         * Node URL option.
-         */
+        /** Node URL option. */
         @Option(
                 names = NODE_URL_OPTION,
                 description = NODE_URL_OPTION_DESC,
@@ -56,9 +64,7 @@ public class NodeUrlMixin {
         )
         private URL nodeUrl;
 
-        /**
-         * Node name option.
-         */
+        /** Node name option. */
         @Option(
                 names = {NODE_NAME_OPTION_SHORT, NODE_NAME_OPTION},
                 description = NODE_NAME_OPTION_DESC,
@@ -68,9 +74,9 @@ public class NodeUrlMixin {
     }
 
     /**
-     * Returns node URL.
+     * Gets node URL from either the command line or from the config with specified or default profile.
      *
-     * @return Node URL
+     * @return node URL
      */
     @Nullable
     public String getNodeUrl() {
@@ -84,6 +90,7 @@ public class NodeUrlMixin {
                                 + " not found. Provide a valid name or use a URL"));
             }
         }
-        return null;
+        ConfigManager configManager = configManagerProvider.get();
+        return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName.getProfileName());
     }
 }

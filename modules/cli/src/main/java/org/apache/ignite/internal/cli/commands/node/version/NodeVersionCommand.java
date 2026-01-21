@@ -21,7 +21,7 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.version.NodeVersionCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import picocli.CommandLine.Command;
@@ -31,7 +31,7 @@ import picocli.CommandLine.Mixin;
 @Command(name = "version", description = "Prints the node build version")
 public class NodeVersionCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
-    private NodeUrlProfileMixin nodeUrl;
+    private NodeUrlMixin nodeUrl;
 
     @Inject
     private NodeVersionCall call;

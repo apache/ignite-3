@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.commands.cliconfig;
 
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createEmptyConfig;
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createEmptySecretConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createEmptyWithCurrentProfileConfig;
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createNonExistingSecretConfig;
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createSectionWithDefaultProfileConfig;
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createSectionWithoutDefaultProfileConfig;
@@ -56,6 +57,15 @@ class ConfigManagerTest {
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("default");
         assertThat(configManager.getCurrentProperty(Constants.CLUSTER_URL)).isEqualTo("http://localhost:10300");
+        assertThat(configManager.getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME)).isNull();
+    }
+
+    @Test
+    public void testEmptyWithCurrentProfileConfigLoad() {
+        IniConfigManager configManager = new IniConfigManager(createEmptyWithCurrentProfileConfig(), createEmptySecretConfig());
+
+        assertThat(configManager.getCurrentProfile().getName()).isEqualTo("default");
+        assertThat(configManager.getCurrentProperty(Constants.CLUSTER_URL)).isNull();
         assertThat(configManager.getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME)).isNull();
     }
 

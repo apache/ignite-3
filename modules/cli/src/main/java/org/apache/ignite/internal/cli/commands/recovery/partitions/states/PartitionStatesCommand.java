@@ -22,7 +22,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCall;
 import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
@@ -34,7 +34,7 @@ import picocli.CommandLine.Mixin;
 public class PartitionStatesCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Mixin
     private PartitionStatesMixin options;

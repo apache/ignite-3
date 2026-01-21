@@ -40,6 +40,7 @@ import org.apache.ignite.internal.util.OperatingSystem;
  */
 public class TestConfigManagerHelper {
     private static final String EMPTY = "empty.ini";
+    private static final String EMPTY_WITH_CURRENT_PROFILE = "empty_with_current_profile.ini";
     private static final String EMPTY_SECRET = "empty_secret.ini";
     private static final String ONE_SECTION_WITH_DEFAULT_PROFILE = "one_section_with_default_profile.ini";
     private static final String TWO_SECTION_WITH_DEFAULT_PROFILE = "two_section_with_default_profile.ini";
@@ -59,6 +60,10 @@ public class TestConfigManagerHelper {
 
     public static File createEmptyConfig() {
         return copyResourceToTempFile(EMPTY);
+    }
+
+    public static File createEmptyWithCurrentProfileConfig() {
+        return copyResourceToTempFile(EMPTY_WITH_CURRENT_PROFILE);
     }
 
     /** Creates and returns the empty secret file config. */

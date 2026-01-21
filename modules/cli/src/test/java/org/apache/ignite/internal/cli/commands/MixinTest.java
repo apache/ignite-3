@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_GLOBAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.USERNAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createEmptyWithCurrentProfileConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createIntegrationTestsConfig;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -43,6 +45,7 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
+import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitOptions;
 import org.apache.ignite.internal.cli.commands.connect.ConnectOptions;
@@ -50,6 +53,7 @@ import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.recovery.cluster.reset.ResetClusterMixin;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.states.PartitionStatesMixin;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
@@ -61,6 +65,14 @@ import picocli.CommandLine.Mixin;
 class MixinTest {
     @Inject
     private ApplicationContext context;
+
+    @Inject
+    protected TestConfigManagerProvider configManagerProvider;
+
+    @BeforeEach
+    void resetConfigManager() {
+        configManagerProvider.setConfigFile(createEmptyWithCurrentProfileConfig());
+    }
 
     @Test
     void doubleInvocationNodeName() {
@@ -102,6 +114,30 @@ class MixinTest {
 
         commandLine.parseArgs();
         assertThat(command.clusterUrl.getClusterUrl(), is(nullValue()));
+    }
+
+    @Test
+    void clusterUrlDefaultValue() {
+        ClusterCommand command = new ClusterCommand();
+        CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+
+        // Default value is taken from the config
+        commandLine.parseArgs();
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10300"));
+    }
+
+    @Test
+    void nodeUrlDefaultValue() {
+        NodeCommand command = new NodeCommand();
+        CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig());
+
+        // Default value is taken from the config
+        commandLine.parseArgs();
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10300"));
     }
 
     @Test

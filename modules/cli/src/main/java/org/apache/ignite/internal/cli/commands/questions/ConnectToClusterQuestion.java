@@ -75,7 +75,7 @@ public class ConnectToClusterQuestion {
      * @param clusterUrl cluster url.
      * @return {@link FlowBuilder} instance which returns a URL.
      */
-    public FlowBuilder<Void, String> askQuestionIfNotConnected(String clusterUrl) {
+    public FlowBuilder<Void, String> askQuestionIfNotConnected(@Nullable String clusterUrl) {
         String url = clusterUrlOrSessionNode(clusterUrl);
         if (url != null) {
             return Flows.from(url);
@@ -98,7 +98,7 @@ public class ConnectToClusterQuestion {
     }
 
     @Nullable
-    private String clusterUrlOrSessionNode(String clusterUrl) {
+    private String clusterUrlOrSessionNode(@Nullable String clusterUrl) {
         return clusterUrl != null ? clusterUrl : sessionNodeUrl();
     }
 

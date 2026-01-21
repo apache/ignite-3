@@ -23,7 +23,7 @@ import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.FormatMixin;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -36,7 +36,7 @@ import picocli.CommandLine.Parameters;
 public class NodeConfigShowCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
-    private NodeUrlProfileMixin nodeUrl;
+    private NodeUrlMixin nodeUrl;
 
     /** Configuration selector option. */
     @Parameters(arity = "0..1", description = "Configuration path selector")

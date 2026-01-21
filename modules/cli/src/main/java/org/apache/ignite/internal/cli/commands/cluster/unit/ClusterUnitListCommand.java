@@ -25,7 +25,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.UnitListOptionsMixin;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
@@ -41,7 +41,7 @@ public class ClusterUnitListCommand extends BaseCommand implements Callable<Inte
     private UnitListOptionsMixin listOptions;
 
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;

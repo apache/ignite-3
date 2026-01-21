@@ -27,7 +27,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.unit.NodeUnitInspectCall;
 import org.apache.ignite.internal.cli.call.unit.UnitInspectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.UnitInspectDecorator;
@@ -47,7 +47,7 @@ public class NodeUnitInspectCommand extends BaseCommand implements Callable<Inte
     private String version;
 
     @Mixin
-    private NodeUrlProfileMixin nodeUrl;
+    private NodeUrlMixin nodeUrl;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;

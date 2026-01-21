@@ -24,7 +24,7 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.metric.ClusterMetricSourceListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
@@ -37,7 +37,7 @@ import picocli.CommandLine.Option;
 @Command(name = "list", description = "Lists cluster metric sources")
 public class ClusterMetricSourceListCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;

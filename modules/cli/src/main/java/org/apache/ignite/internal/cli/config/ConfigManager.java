@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.config;
 
 import java.util.Collection;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Manager of CLI config.
@@ -41,15 +42,15 @@ public interface ConfigManager {
         getCurrentProfile().setProperty(key, value);
     }
 
-    default String getProperty(String key, String profileName) {
+    default String getProperty(String key, @Nullable String profileName) {
         return getConfig(profileName).getProperty(key);
     }
 
-    default String getProperty(String key, String profileName, String defaultValue) {
+    default String getProperty(String key, @Nullable String profileName, String defaultValue) {
         return getConfig(profileName).getProperty(key, defaultValue);
     }
 
-    default String removeProperty(String key, String profileName) {
+    default String removeProperty(String key, @Nullable String profileName) {
         return getConfig(profileName).removeProperty(key);
     }
 
@@ -57,7 +58,7 @@ public interface ConfigManager {
         return getConfig(getCurrentProfile().getName()).removeProperty(key);
     }
 
-    private Profile getConfig(String profileName) {
+    private Profile getConfig(@Nullable String profileName) {
         return profileName == null ? getCurrentProfile() : getProfile(profileName);
     }
 }
