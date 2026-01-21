@@ -54,14 +54,14 @@ export default function RailroadDiagram({ children }: RailroadDiagramProps): JSX
         targetRef.current.innerHTML = '';
         const svgElement = diagram.toSVG();
 
-        // Process links to convert relative paths to Docusaurus routes
+        // Process links - relative paths like ./grammar-reference/#anchor
+        // work correctly as-is since pages are in the same directory
         const links = svgElement.querySelectorAll('a[*|href]');
         links.forEach((link) => {
           const href = link.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
-          if (href && href.startsWith('./')) {
-            // Convert ./file#anchor to ../current-dir/file#anchor format
-            const converted = href.replace(/^\.\//, '../sql-reference/');
-            link.setAttributeNS('http://www.w3.org/1999/xlink', 'href', converted);
+          if (href) {
+            // Convert xlink:href to standard href for Docusaurus router compatibility
+            link.setAttribute('href', href);
           }
         });
 

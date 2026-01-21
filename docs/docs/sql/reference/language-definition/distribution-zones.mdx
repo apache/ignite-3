@@ -22,12 +22,12 @@ This can also be done via the [Java API](/3.1.0/develop/work-with-data/java-to-t
 Diagram(
 Terminal("CREATE ZONE"),
 Optional(Terminal("IF NOT EXISTS")),
-NonTerminal("qualified_zone_name", { href: "./grammar-reference/#qualified-zone-name" }),
+NonTerminal("qualified_zone_name"),
 Optional(
 Sequence(
 Terminal("("),
 OneOrMore(
-NonTerminal("zone_parameter", { href: "./grammar-reference/#zone-parameter" }),
+NonTerminal("zone_parameter"),
 Terminal(",")
 ),
 Terminal(")")
@@ -43,7 +43,7 @@ Start({ type: "complex" }),
 Terminal("STORAGE PROFILES"),
 Terminal("["),
 OneOrMore(
-NonTerminal("storage_profile", { href: "./grammar-reference/#storage-profile" }),
+NonTerminal("storage_profile"),
 Terminal(",")
 ),
 Terminal("]"),
