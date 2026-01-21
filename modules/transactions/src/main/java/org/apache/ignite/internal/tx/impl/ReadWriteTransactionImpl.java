@@ -67,7 +67,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /**
      * {@code True} if a remote(directly mapped) part of this transaction has no writes.
      */
-    private boolean noRemoteWrites;
+    private boolean noRemoteWrites = true;
 
     /**
      * Constructs an explicit read-write transaction.

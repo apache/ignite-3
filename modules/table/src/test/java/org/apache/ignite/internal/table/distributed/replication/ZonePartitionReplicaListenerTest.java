@@ -1345,7 +1345,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(6);
+            UUID txId = invocation.getArgument(7);
 
             txManager.updateTxMeta(txId, old -> TxStateMeta.builder(ABORTED)
                     .txCoordinatorId(localNode.id())

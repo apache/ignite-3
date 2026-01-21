@@ -316,7 +316,7 @@ public class ClientTransaction implements Transaction {
             w.out().packLong(tracker.get().longValue());
         }
 
-        // Send information about directly mapped writes to ensure a proper cleanup algorithm is choosed.
+        // Send information about directly mapped writes to ensure a proper cleanup algorithm is chosen.
         w.out().packBoolean(!ch.inflights().contains(txId));
     }
 
