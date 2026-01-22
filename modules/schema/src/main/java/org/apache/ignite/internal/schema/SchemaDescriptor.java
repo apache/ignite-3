@@ -19,11 +19,12 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -93,89 +94,89 @@ public class SchemaDescriptor {
     }
 
     /** Constructor. */
+    @TestOnly
     public SchemaDescriptor(
             int ver,
             List<Column> columns,
             List<String> keyColumns,
             @Nullable List<String> colocationColumns
     ) {
+        this(
+                ver,
+                columns,
+                IntArrayList.toList(keyColumns.stream()
+                        .map(colName -> columns.stream().filter(c -> colName.equals(c.name())).findAny().get())
+                        .mapToInt(columns::indexOf)),
+                colocationColumns == null ? null
+                        : IntArrayList.toList(colocationColumns.stream()
+                                .map(colName -> columns.stream().filter(c -> colName.equals(c.name())).findAny().get())
+                                .mapToInt(columns::indexOf))
+                );
+    }
+
+    public SchemaDescriptor(int ver, List<Column> columns, IntList keyColumnIndexes, @Nullable IntList colocationColumnIndexes) {
         assert !nullOrEmpty(columns) : "Schema should have at least one column";
+        assert colocationColumnIndexes == null || keyColumnIndexes.containsAll(colocationColumnIndexes);
+
+        boolean hasColocationKey = colocationColumnIndexes != null;
 
         Map<String, Column> columnsByName = new HashMap<>();
-        List<Column> orderedColumns = new ArrayList<>(columns.size());
-
-        Object2IntMap<String> columnNameToPositionInKey = toElementToPositionMap(keyColumns);
-
-        Object2IntMap<String> columnNameToPositionInColocation;
-        if (colocationColumns == null) {
-            columnNameToPositionInColocation = columnNameToPositionInKey;
-        } else {
-            columnNameToPositionInColocation = toElementToPositionMap(colocationColumns);
-
-            assert columnNameToPositionInKey.keySet().containsAll(colocationColumns)
-                    : "Colocation column must be part of the key: keyCols="
-                    + keyColumns + ", colocationCols=" + colocationColumns;
-        }
+        Column[] orderedColumns = new Column[columns.size()];
+        Column[] keyColumns = new Column[keyColumnIndexes.size()];
+        Column[] colocationColumns = hasColocationKey ? new Column[colocationColumnIndexes.size()] : null;
+        Column[] valueColumns = new Column[columns.size() - keyColumnIndexes.size()];
 
         boolean hasTemporalColumns = false;
-        int rowPosition = 0;
-        int valuePosition = 0;
-        for (Column column : columns) {
+
+        IntList effectiveColocationColumns = hasColocationKey ? colocationColumnIndexes : keyColumnIndexes;
+
+        for (int valueIndex = 0, rowPosition = 0; rowPosition < columns.size(); rowPosition++) {
+            Column column = columns.get(rowPosition);
+
+            int keyPosition = keyColumnIndexes.indexOf(rowPosition);
+            int colocationPosition = effectiveColocationColumns.indexOf(rowPosition);
+            int valuePosition = keyPosition == -1 ? valueIndex++ : -1;
+
             Column orderedColumn = column.copy(
-                    rowPosition++,
-                    columnNameToPositionInKey.getOrDefault(column.name(), -1),
-                    columnNameToPositionInKey.containsKey(column.name()) ? -1 : valuePosition++,
-                    columnNameToPositionInColocation.getOrDefault(column.name(), -1)
+                    rowPosition,
+                    keyPosition,
+                    valuePosition,
+                    colocationPosition
             );
 
             Column old = columnsByName.put(orderedColumn.name(), orderedColumn);
 
             assert old == null : "Columns with similar names are not allowed: " + old.name();
 
-            orderedColumns.add(orderedColumn);
+            orderedColumns[rowPosition] = orderedColumn;
 
-            if (column.type() instanceof TemporalNativeType) {
-                hasTemporalColumns = true;
+            if (keyPosition == -1) {
+                assert colocationPosition == -1 : "Non key column cannot be colocation column: " + orderedColumn.name();
+
+                valueColumns[valuePosition] = orderedColumn;
+            } else {
+                assert !orderedColumn.nullable() : "Primary key cannot contain nullable column: " + orderedColumn.name();
+
+                keyColumns[keyPosition] = orderedColumn;
+
+                if (hasColocationKey && colocationPosition != -1) {
+                    colocationColumns[colocationPosition] = orderedColumn;
+                }
             }
+
+            hasTemporalColumns = hasTemporalColumns || (column.type() instanceof TemporalNativeType);
         }
 
         this.ver = ver;
-        this.columns = List.copyOf(orderedColumns);
+        this.columns = List.of(orderedColumns);
         this.columnsByName = Map.copyOf(columnsByName);
         this.hasTemporalColumns = hasTemporalColumns;
 
-        List<Column> tmpKeyColumns = new ArrayList<>(keyColumns.size());
-
-        BitSet keyColumnsBitSet = new BitSet(columns.size());
-        for (String name : keyColumns) {
-            Column column = columnsByName.get(name);
-
-            assert column != null : name;
-            assert !column.nullable() : "Primary key cannot contain nullable column: " + name;
-
-            tmpKeyColumns.add(column);
-
-            assert !keyColumnsBitSet.get(column.positionInRow()) : column.name();
-
-            keyColumnsBitSet.set(column.positionInRow());
-        }
-
-        this.keyCols = List.copyOf(tmpKeyColumns);
-
-        this.colocationCols = colocationColumns == null
-                ? this.keyCols
-                : colocationColumns.stream()
-                        .map(columnsByName::get)
-                        .collect(Collectors.toList());
-
-        List<Column> tmpValueColumns = new ArrayList<>(columns.size() - keyColumnsBitSet.cardinality());
-        for (Column column : orderedColumns) {
-            if (!keyColumnsBitSet.get(column.positionInRow())) {
-                tmpValueColumns.add(column);
-            }
-        }
-
-        this.valCols = List.copyOf(tmpValueColumns);
+        this.keyCols = List.of(keyColumns);
+        this.valCols = List.of(valueColumns);
+        this.colocationCols = hasColocationKey
+                ? List.of(colocationColumns)
+                : this.keyCols;
     }
 
     private static List<Column> mergeColumns(Column[] keyColumns, Column[] valueColumns) {

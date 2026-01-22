@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.catalog;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -172,13 +173,14 @@ public final class CatalogToSchemaDescriptorConverter {
             columns.add(convert(column));
         }
 
-        List<String> colocationColumns = tableDescriptor.primaryKeyColumns() == tableDescriptor.colocationColumns()
-                ? null : CatalogUtils.resolveColumnNames(tableDescriptor, tableDescriptor.colocationColumns());
+        IntList pkColumns = IntList.of(CatalogUtils.resolveColumnIndexesByIds(tableDescriptor, tableDescriptor.primaryKeyColumns()));
+        IntList colocationColumns = tableDescriptor.primaryKeyColumns() == tableDescriptor.colocationColumns()
+                ? null : IntList.of(CatalogUtils.resolveColumnIndexesByIds(tableDescriptor, tableDescriptor.colocationColumns()));
 
         return new SchemaDescriptor(
                 tableVersion,
                 columns,
-                CatalogUtils.resolveColumnNames(tableDescriptor, tableDescriptor.primaryKeyColumns()),
+                pkColumns,
                 colocationColumns
         );
     }
