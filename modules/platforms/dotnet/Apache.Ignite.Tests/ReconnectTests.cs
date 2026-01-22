@@ -86,10 +86,13 @@ public class ReconnectTests
     }
 
     [Test]
+    [Category(TestUtils.CategoryIntensive)]
     [Timeout(30_000)]
     public async Task TestDroppedConnectionsAreRestoredInBackground()
     {
         const int serverCount = 8;
+
+        using var loggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
 
         var cfg = new IgniteClientConfiguration
         {
@@ -97,7 +100,7 @@ public class ReconnectTests
             OperationTimeout = TimeSpan.FromSeconds(1),
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             ReconnectInterval = TimeSpan.FromMilliseconds(300),
-            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+            LoggerFactory = loggerFactory
         };
 
         using var servers = FakeServerGroup.Create(serverCount);
@@ -144,7 +147,7 @@ public class ReconnectTests
     [SuppressMessage("Performance", "CA1848:Use the LoggerMessage delegates", Justification = "Test")]
     public async Task TestReconnectAfterFullClusterRestart()
     {
-        var loggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+        using var loggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
         var logger = loggerFactory.CreateLogger("test");
 
         var cfg = new IgniteClientConfiguration
