@@ -401,7 +401,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *   <li>No data should be lost</li>
      * </ol>
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27643")
     @Test
     void testResetAfterChangeStorageProfiles() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
