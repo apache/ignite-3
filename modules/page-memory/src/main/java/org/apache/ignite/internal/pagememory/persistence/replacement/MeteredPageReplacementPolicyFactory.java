@@ -59,7 +59,6 @@ public class MeteredPageReplacementPolicyFactory implements PageReplacementPolic
 
         @Override
         public void onHit(long relPtr) {
-            metrics.incrementPageCacheHit();
             delegate.onHit(relPtr);
         }
 
