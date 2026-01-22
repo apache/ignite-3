@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
@@ -171,11 +172,14 @@ public final class CatalogToSchemaDescriptorConverter {
             columns.add(convert(column));
         }
 
+        List<String> colocationColumns = tableDescriptor.primaryKeyColumns() == tableDescriptor.colocationColumns()
+                ? null : CatalogUtils.resolveColumnNames(tableDescriptor, tableDescriptor.colocationColumns());
+
         return new SchemaDescriptor(
                 tableVersion,
                 columns,
-                tableDescriptor.primaryKeyColumnNames(),
-                tableDescriptor.colocationColumnNames()
+                CatalogUtils.resolveColumnNames(tableDescriptor, tableDescriptor.primaryKeyColumns()),
+                colocationColumns
         );
     }
 
