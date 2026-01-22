@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.message;
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
 
 import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.sql.engine.message.field.IntFieldMessage;
 
 /**
  * Message types for the sql query processing module.
@@ -46,4 +47,33 @@ public final class SqlQueryMessageGroup {
 
     /** See {@link CancelOperationResponse} for the details. */
     public static final short OPERATION_CANCEL_RESPONSE = 7;
+
+    /** See {@link SharedStateMessage} for the details. */
+    public static final short SHARED_STATE_MESSAGE = 8;
+
+    public static final short BOOLEAN_FIELD_MESSAGE = 9;
+
+    public static final short BYTE_FIELD_MESSAGE = 10;
+
+    public static final short SHORT_FIELD_MESSAGE = 11;
+
+    /** See {@link IntFieldMessage} for the details. */
+    public static final short INT_FIELD_MESSAGE = 12;
+
+    public static final short LONG_FIELD_MESSAGE = 13;
+
+    public static final short FLOAT_FIELD_MESSAGE = 14;
+
+    public static final short DOUBLE_FIELD_MESSAGE = 15;
+
+    public static final short DECIMAL_FIELD_MESSAGE = 16;
+
+    public static final short UUID_FIELD_MESSAGE = 17;
+
+    public static final short STRING_FIELD_MESSAGE = 18;
+
+    public static final short NULL_FIELD_MESSAGE = 19;
+
+    // TODO
+     public static final short BYTE_ARRAY_FIELD_MESSAGE = 20;
 }

@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
+package org.apache.ignite.internal.sql.engine.message.field;
 
+import java.math.BigDecimal;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message to notify remote fragment (aka remote source) that more batches required to fulfil the result.
+ * A message that contains a single {@link BigDecimal} field in byte array representation.
  */
-@Transferable(SqlQueryMessageGroup.QUERY_BATCH_REQUEST)
-public interface QueryBatchRequestMessage extends ExecutionContextAwareMessage {
-    /** Returns an identifier of the exchange to request batches from. */
-    long exchangeId();
-
-    /** Returns amount of batches to request. */
-    int amountOfBatches();
-
-    /** Returns a state that has should be propagated to the target fragment. */
-    @Nullable SharedStateMessage sharedStateMessage();
+@Transferable(SqlQueryMessageGroup.DECIMAL_FIELD_MESSAGE)
+public interface DecimalFieldMessage extends SingleFieldMessage<byte[]> {
+    @Override
+    byte[] field();
 }

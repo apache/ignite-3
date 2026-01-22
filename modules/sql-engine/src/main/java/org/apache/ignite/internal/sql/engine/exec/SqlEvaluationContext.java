@@ -38,6 +38,6 @@ public interface SqlEvaluationContext<RowT> extends DataContext {
     /** Returns a factory capable of producing {@link RowFactory} instances for the {@code RowT} row representation. */
     RowFactoryFactory<RowT> rowFactoryFactory();
 
-    /** Returns row representing correlation source by given correlation id. */
-    RowT correlatedVariable(int id);
+    /** Returns the value of a correlated variable identified by the given correlation id and field index. */
+    Object correlatedVariable(int corrId, int fieldIndex);
 }
