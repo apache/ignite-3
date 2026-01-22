@@ -139,6 +139,8 @@ public class ReconnectTests
     }
 
     [Test]
+    [Category(TestUtils.CategoryIntensive)]
+    [Timeout(30_000)]
     [SuppressMessage("Performance", "CA1848:Use the LoggerMessage delegates", Justification = "Test")]
     public async Task TestReconnectAfterFullClusterRestart()
     {
