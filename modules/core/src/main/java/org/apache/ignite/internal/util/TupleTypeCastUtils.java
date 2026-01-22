@@ -23,8 +23,8 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 
 /**
- * Helper methods that perform conversions between numeric types. These methods are used when reading
- * and writing the primitive numeric values of a {@link Tuple tuple}.
+ * Helper methods that perform conversions between numeric types. These methods are
+ * used when reading and writing the primitive numeric values to a {@link Tuple tuple}.
  *
  * <p>The following conversions are supported:
  * <ul>
@@ -40,7 +40,51 @@ public class TupleTypeCastUtils {
 
     private static final String TYPE_CAST_ERROR_COLUMN_INDEX = "Column with index {} has type {} but {} was requested";
 
+    /** Integer column types bitmask. */
     private static final int INT_COLUMN_TYPES_BITMASK = buildIntegerTypesBitMask();
+
+    /**
+     * Checks whether a cast is possible between two types for the given value.
+     *
+     * <p>Widening casts between integer types and between floating-point types are always allowed.
+     *
+     * <p>Narrowing casts between integer types and between floating-point types are allowed only
+     * when the provided value can be represented in the target type.
+     *
+     * @param from Source column type
+     * @param to Target column type
+     * @param val The value to be cast
+     * @return {@code True} if the cast is possible without data loss, {@code false} otherwise.
+     */
+    public static boolean isCastAllowed(ColumnType from, ColumnType to, Object val) {
+        if (!(val instanceof Number)) {
+            return false;
+        }
+
+        Number number = (Number) val;
+
+        switch (to) {
+            case INT8:
+                return integerType(from) && number.byteValue() == number.longValue();
+            case INT16:
+                return integerType(from) && number.shortValue() == number.longValue();
+            case INT32:
+                return integerType(from) && number.intValue() == number.longValue();
+            case INT64:
+                return integerType(from);
+            case FLOAT:
+                if (from == ColumnType.DOUBLE) {
+                    double doubleValue = number.doubleValue();
+                    return number.floatValue() == doubleValue || Double.isNaN(doubleValue);
+                }
+                return false;
+            case DOUBLE:
+                return from == ColumnType.FLOAT;
+
+            default:
+                return false;
+        }
+    }
 
     /** Reads a value from the tuple and converts it to a byte if possible. */
     public static byte readByteValue(InternalTuple binaryTuple, int binaryTupleIndex, ColumnType actualType, int columnIndex) {
