@@ -39,6 +39,8 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.tools.RelBuilder;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableBitSet.Builder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 
@@ -73,6 +75,8 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
         final Set<CorrelationId> correlationIds = new HashSet<>();
         final ArrayList<RexNode> corrVar = new ArrayList<>();
 
+        Builder corrRequiredColumnsBuilder = ImmutableBitSet.builder();
+
         for (int i = 0; i < batchSize; i++) {
             CorrelationId correlationId = cluster.createCorrel();
             correlationIds.add(correlationId);
@@ -87,6 +91,8 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
                 if (field >= leftFieldCount) {
                     return rexBuilder.makeInputRef(input.getType(), input.getIndex() - leftFieldCount);
                 }
+
+                corrRequiredColumnsBuilder.set(field);
 
                 return rexBuilder.makeFieldAccess(corrVar.get(0), field);
             }
@@ -132,7 +138,8 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
                 right,
                 rel.getCondition(),
                 correlationIds,
-                joinType
+                joinType,
+                corrRequiredColumnsBuilder.build()
         );
     }
 

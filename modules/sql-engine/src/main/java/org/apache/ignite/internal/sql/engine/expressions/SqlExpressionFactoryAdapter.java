@@ -303,7 +303,7 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         }
 
         @Override
-        public @Nullable RowT correlatedVariable(int id) {
+        public @Nullable RowT correlatedVariable(int corrId, int fieldIndex) {
             return null;
         }
 

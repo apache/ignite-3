@@ -17,41 +17,57 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.checkRange;
-
-import java.io.Serializable;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents the volatile state that may be propagated from parent to its children
  * during rewind.
  */
-public class SharedState implements Serializable {
-    private static final long serialVersionUID = 42L;
+public class SharedState {
+    private final Long2ObjectMap<Object> correlations;
 
-    private Object[] correlations = new Object[16];
+    public SharedState() {
+        this(new Long2ObjectOpenHashMap<>());
+    }
+
+    SharedState(Long2ObjectMap<Object> correlations) {
+        this.correlations = correlations;
+    }
 
     /**
      * Gets correlated value.
      *
-     * @param id Correlation ID.
+     * @param corrId Correlation ID.
+     * @param fieldIndex Field index.
      * @return Correlated value.
      */
-    public Object correlatedVariable(int id) {
-        checkRange(correlations, id);
+    public @Nullable Object correlatedVariable(int corrId, int fieldIndex) {
+        long key = packToLong(corrId, fieldIndex);
 
-        return correlations[id];
+        return correlations.get(key);
     }
 
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param corrId Correlation ID.
+     * @param fieldIndex Field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(int id, Object value) {
-        correlations = Commons.ensureCapacity(correlations, id + 1);
+    public void correlatedVariable(int corrId, int fieldIndex, @Nullable Object value) {
+        long key = packToLong(corrId, fieldIndex);
 
-        correlations[id] = value;
+        correlations.put(key, value);
+    }
+
+    Long2ObjectMap<Object> correlations() {
+        return Long2ObjectMaps.unmodifiable(correlations);
+    }
+
+    private static long packToLong(int corrId, int fieldIdx) {
+        return ((long) corrId << 32) | (fieldIdx & 0xFFFF_FFFFL);
     }
 }
