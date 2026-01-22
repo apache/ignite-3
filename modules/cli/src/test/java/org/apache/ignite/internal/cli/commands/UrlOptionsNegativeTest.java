@@ -297,13 +297,18 @@ public class UrlOptionsNegativeTest extends BaseIgniteAbstractTest {
 
     @Test
     void testConnectCommandWithoutParametersWithEmptyConfig() {
-        configManagerProvider.setConfigFile(TestConfigManagerHelper.createEmptyConfig());
         setUp(ConnectReplCommand.class);
         cmd.execute();
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required parameter: '<nodeUrl>'")
+                () -> assertErrOutputContains("Node URL is not found in the default profile")
+        );
+
+        cmd.execute("--profile=owner");
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Node URL is not found in the specified profile")
         );
     }
 

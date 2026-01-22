@@ -17,14 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
-import static org.apache.ignite.internal.cli.commands.CommandConstants.PROFILE_OPTION_ORDER;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PASSWORD_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PASSWORD_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PASSWORD_OPTION_SHORT;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.USERNAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.USERNAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.USERNAME_OPTION_SHORT;
@@ -33,35 +29,34 @@ import jakarta.inject.Inject;
 import java.net.URL;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput.ConnectCallInputBuilder;
+import org.apache.ignite.internal.cli.commands.ProfileMixin;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
 
 /**
  * Mixin class for connect command options.
  */
 public class ConnectOptions {
-    // Required mutually exclusive group: either URL parameter, or profile option.
-    @ArgGroup(multiplicity = "1")
-    private UrlOptions urlOptions;
+    /** Node URL option. */
+    @Parameters(description = NODE_URL_OPTION_DESC, converter = RestEndpointUrlConverter.class, arity = "0..1")
+    private URL nodeUrl;
+
+    /** Profile to get default values from. */
+    @Mixin
+    private ProfileMixin profile;
 
     @ArgGroup(exclusive = false)
     private AuthOptions authOptions;
-
-    private static class UrlOptions {
-        /** Node URL option. */
-        @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = RestEndpointUrlConverter.class)
-        private URL nodeUrl;
-
-        /** Profile to get default values from. Mixins are not supported in ArgGroup so copy-paste from ProfileMixin. */
-        @Option(names = PROFILE_OPTION, description = PROFILE_OPTION_DESC, order = PROFILE_OPTION_ORDER)
-        private String profileName;
-    }
 
     private static class AuthOptions {
         @Option(names = {USERNAME_OPTION, USERNAME_OPTION_SHORT}, description = USERNAME_OPTION_DESC,
@@ -75,6 +70,9 @@ public class ConnectOptions {
 
     @Inject
     private ConfigManagerProvider configManagerProvider;
+
+    @Spec
+    private CommandSpec spec;
 
     public ConnectCallInput buildCallInput() {
         ConnectCallInputBuilder builder = ConnectCallInput.builder()
@@ -90,15 +88,19 @@ public class ConnectOptions {
 
     @Nullable
     private String getNodeUrl() {
-        // Sanity check required mutually exclusive group.
-        assert urlOptions != null;
-        assert urlOptions.nodeUrl != null || urlOptions.profileName != null;
-
-        if (urlOptions.nodeUrl != null) {
-            return urlOptions.nodeUrl.toString();
+        if (nodeUrl != null) {
+            return nodeUrl.toString();
         } else {
             ConfigManager configManager = configManagerProvider.get();
-            return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), urlOptions.profileName);
+            String profileName = profile.getProfileName();
+            String url = configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName);
+            if (url == null) {
+                if (profileName != null) {
+                    throw new ParameterException(spec.commandLine(), "Node URL is not found in the specified profile");
+                }
+                throw new ParameterException(spec.commandLine(), "Node URL is not found in the default profile");
+            }
+            return url;
         }
     }
 }
