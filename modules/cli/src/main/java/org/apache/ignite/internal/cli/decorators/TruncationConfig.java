@@ -28,6 +28,9 @@ public class TruncationConfig {
     /** Default maximum column width. */
     public static final int DEFAULT_MAX_COLUMN_WIDTH = 50;
 
+    /** Default terminal width used when actual width cannot be detected. */
+    public static final int DEFAULT_TERMINAL_WIDTH = 80;
+
     /** Truncation indicator (Unicode horizontal ellipsis U+2026). */
     public static final String ELLIPSIS = "…";
 
@@ -102,7 +105,28 @@ public class TruncationConfig {
                 ? maxColWidthOverride
                 : readMaxColumnWidth(configManagerProvider);
 
-        return new TruncationConfig(true, maxColumnWidth, terminalWidthSupplier);
+        // Wrap the terminal width supplier with fallback logic
+        IntSupplier widthWithFallback = () -> {
+            int width = terminalWidthSupplier.getAsInt();
+            if (width > 0) {
+                return width;
+            }
+            // Try COLUMNS environment variable as fallback
+            String columnsEnv = System.getenv("COLUMNS");
+            if (columnsEnv != null && !columnsEnv.isEmpty()) {
+                try {
+                    int envWidth = Integer.parseInt(columnsEnv);
+                    if (envWidth > 0) {
+                        return envWidth;
+                    }
+                } catch (NumberFormatException ignored) {
+                    // Fall through to default
+                }
+            }
+            return DEFAULT_TERMINAL_WIDTH;
+        };
+
+        return new TruncationConfig(true, maxColumnWidth, widthWithFallback);
     }
 
     /**
