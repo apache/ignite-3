@@ -154,7 +154,10 @@ public class ReconnectTests
             LoggerFactory = loggerFactory
         };
 
-        using var servers = FakeServerGroup.Create(10);
+        using var servers = FakeServerGroup.Create(
+            count: 10,
+            factory: id => new FakeServer(nodeName: "srv-" + id) { AllowMultipleConnections = true });
+
         using var client = await servers.ConnectClientAsync(cfg);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
