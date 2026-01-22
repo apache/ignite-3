@@ -34,21 +34,11 @@ class ConnectCommandTest extends CliCommandTestBase {
     void invalidNodeUrl() {
         execute("nodeName");
 
-        assertParseError("Invalid URL 'nodeName' (no protocol: nodeName)");
-    }
-
-    @Test
-    void missingUrl() {
-        execute();
-
-        assertParseError("Error: Missing required argument (specify one of these): (--profile=<profileName> | <nodeUrl>)");
-    }
-
-    @Test
-    void mutuallyExclusiveUrlOptions() {
-        execute("http://localhost --profile test");
-
-        assertParseError("Error: <nodeUrl>, --profile=<profileName> are mutually exclusive (specify only one)");
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Invalid URL 'nodeName' (no protocol: nodeName)")
+        );
     }
 
     @Test
@@ -56,7 +46,11 @@ class ConnectCommandTest extends CliCommandTestBase {
     void usernameOnly() {
         execute("http://localhost:1111 --username user ");
 
-        assertParseError("Error: Missing required argument(s): --password=<password>");
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Error: Missing required argument(s): --password=<password>")
+        );
     }
 
     @Test
@@ -64,7 +58,11 @@ class ConnectCommandTest extends CliCommandTestBase {
     void shortUsernameOnly() {
         execute("http://localhost:1111 -u user ");
 
-        assertParseError("Error: Missing required argument(s): --password=<password>");
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Error: Missing required argument(s): --password=<password>")
+        );
     }
 
     @Test
@@ -72,7 +70,11 @@ class ConnectCommandTest extends CliCommandTestBase {
     void passwordOnly() {
         execute("http://localhost:1111 --password password");
 
-        assertParseError("Error: Missing required argument(s): --username=<username>");
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Error: Missing required argument(s): --username=<username>")
+        );
     }
 
     @Test
@@ -80,14 +82,10 @@ class ConnectCommandTest extends CliCommandTestBase {
     void shortPasswordOnly() {
         execute("http://localhost:1111 -p password");
 
-        assertParseError("Error: Missing required argument(s): --username=<username>");
-    }
-
-    private void assertParseError(String expectedErrOutput) {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains(expectedErrOutput)
+                () -> assertErrOutputContains("Error: Missing required argument(s): --username=<username>")
         );
     }
 }

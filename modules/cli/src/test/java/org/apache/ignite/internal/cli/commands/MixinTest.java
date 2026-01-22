@@ -200,7 +200,7 @@ class MixinTest {
         assertThat(callInput.username(), is(username));
         assertThat(callInput.password(), is(password));
 
-        commandLine.parseArgs();
+        commandLine.parseArgs(nodeUrl);
         callInput = command.connectOptions.buildCallInput();
 
         assertThat(callInput.url(), is(nullValue()));

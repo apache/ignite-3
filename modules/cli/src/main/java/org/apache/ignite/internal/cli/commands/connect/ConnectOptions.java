@@ -74,6 +74,11 @@ public class ConnectOptions {
     @Spec
     private CommandSpec spec;
 
+    /**
+     * Builds input for the connect call.
+     *
+     * @return Created call input.
+     */
     public ConnectCallInput buildCallInput() {
         ConnectCallInputBuilder builder = ConnectCallInput.builder()
                 .url(getNodeUrl())
