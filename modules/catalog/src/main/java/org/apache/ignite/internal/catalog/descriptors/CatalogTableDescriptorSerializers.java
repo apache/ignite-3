@@ -125,7 +125,7 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.primaryKeyIndexId());
             output.writeVarInt(descriptor.zoneId());
 
-            int[] pkIndexes = resolvePkColumnIndexes(descriptor);
+            int[] pkIndexes = resolveColumnIndexesByIds(descriptor, descriptor.primaryKeyColumns());
 
             output.writeVarInt(pkIndexes.length);
             output.writeIntArray(pkIndexes);
@@ -133,7 +133,7 @@ public class CatalogTableDescriptorSerializers {
             if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
                 output.writeVarInt(-1);
             } else {
-                int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
+                int[] colocationIndexes = resolveColumnIndexesByIds(descriptor, descriptor.colocationColumns());
 
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
@@ -212,7 +212,7 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.primaryKeyIndexId());
             output.writeVarInt(descriptor.zoneId());
 
-            int[] pkIndexes = resolvePkColumnIndexes(descriptor);
+            int[] pkIndexes = resolveColumnIndexesByIds(descriptor, descriptor.primaryKeyColumns());
 
             output.writeVarInt(pkIndexes.length);
             output.writeIntArray(pkIndexes);
@@ -220,7 +220,7 @@ public class CatalogTableDescriptorSerializers {
             if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
                 output.writeVarInt(-1);
             } else {
-                int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
+                int[] colocationIndexes = resolveColumnIndexesByIds(descriptor, descriptor.colocationColumns());
 
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
@@ -299,7 +299,7 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.primaryKeyIndexId());
             output.writeVarInt(descriptor.zoneId());
 
-            int[] pkIndexes = resolvePkColumnIndexes(descriptor);
+            int[] pkIndexes = resolveColumnIndexesByIds(descriptor, descriptor.primaryKeyColumns());
 
             output.writeVarInt(pkIndexes.length);
             output.writeIntArray(pkIndexes);
@@ -307,7 +307,7 @@ public class CatalogTableDescriptorSerializers {
             if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
                 output.writeVarInt(-1);
             } else {
-                int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
+                int[] colocationIndexes = resolveColumnIndexesByIds(descriptor, descriptor.colocationColumns());
 
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
@@ -319,7 +319,7 @@ public class CatalogTableDescriptorSerializers {
     }
 
     /**
-     * Return column ids for given column indexes.
+     * Return column IDs for the given column positions in columns list.
      */
     private static IntList resolveColumnIdsByIndexes(List<CatalogTableColumnDescriptor> columns, int[] indexes) {
         IntList columnIds = new IntArrayList(indexes.length);
@@ -332,61 +332,17 @@ public class CatalogTableDescriptorSerializers {
     }
 
     /**
-     * Return colocation key column positions in the column's list from given table descriptor.
-     *
-     * <p>Note: The methods accepts (precalculated) primary key column indexes as an optimization relying on the fact that
-     * the colocation columns are a subset of primary key columns.
+     * Return column positions in the table descriptor for the given column IDs.
      */
-    private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {
-        List<CatalogTableColumnDescriptor> columns = descriptor.columns();
-        IntList colocationIds = descriptor.colocationColumns();
+    private static int[] resolveColumnIndexesByIds(CatalogTableDescriptor descriptor, IntList columnIds) {
+        int[] columnIdxs = new int[columnIds.size()];
 
-        assert pkColumnIndexes.length >= colocationIds.size();
-
-        int[] colocationColumnIndexes = new int[colocationIds.size()];
-        int foundCount = 0;
-
-        // Walk through PK columns as colocation columns are a subset of PK columns.
-        for (int i = 0; i < pkColumnIndexes.length && foundCount < colocationColumnIndexes.length; i++) {
-            int colIdx = pkColumnIndexes[i];
-            int colId = columns.get(colIdx).id();
-
-            int pos = colocationIds.indexOf(colId);
-            if (pos != -1) {
-                colocationColumnIndexes[pos] = colIdx;
-                foundCount++;
-            }
+        for (int i = 0; i < columnIds.size(); i++) {
+            int colId = columnIds.getInt(i);
+            int colIdx = descriptor.columnIndexById(colId);
+            columnIdxs[i] = colIdx;
         }
 
-        assert foundCount == colocationColumnIndexes.length;
-
-        return colocationColumnIndexes;
-    }
-
-    /**
-     * Return primary key column positions in the column list from given table descriptor.
-     */
-    private static int[] resolvePkColumnIndexes(CatalogTableDescriptor descriptor) {
-        List<CatalogTableColumnDescriptor> columns = descriptor.columns();
-        IntList pkColumnIds = descriptor.primaryKeyColumns();
-
-        assert columns.size() >= pkColumnIds.size();
-
-        int[] pkColumnIndexes = new int[pkColumnIds.size()];
-        int foundCount = 0;
-
-        for (int colIdx = 0; colIdx < columns.size() && foundCount < pkColumnIndexes.length; colIdx++) {
-            int colId = columns.get(colIdx).id();
-
-            int pos = pkColumnIds.indexOf(colId);
-            if (pos != -1) {
-                pkColumnIndexes[pos] = colIdx;
-                foundCount++;
-            }
-        }
-
-        assert foundCount == pkColumnIndexes.length;
-
-        return pkColumnIndexes;
+        return columnIdxs;
     }
 }
