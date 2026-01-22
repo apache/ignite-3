@@ -202,9 +202,9 @@ Choice(0,
 Sequence(
 Terminal('USING'),
 Choice (0,
-Sequence(Terminal('SORTED'), NonTerminal('sorted_column_list', {href:'./grammar-reference/#sorted_column_list'})
+Sequence(Terminal('SORTED'), NonTerminal('sorted_column_list', {href:'#sorted_column_list'})
 ),
-Sequence('HASH', NonTerminal('column_list', {href:'./grammar-reference/#column_list'})))
+Sequence('HASH', NonTerminal('column_list', {href:'#column_list'})))
 ))
 )))
 `}</RailroadDiagram>
@@ -253,7 +253,7 @@ Choice(0,
 Sequence(
 Terminal('ON'), NonTerminal('boolean_expression'),
 ),
-Sequence(Terminal('USING'), NonTerminal('column_list', {href:'./grammar-reference/#column_list'})),
+Sequence(Terminal('USING'), NonTerminal('column_list', {href:'#column_list'})),
 ))
 `}</RailroadDiagram>
 
@@ -346,7 +346,7 @@ Diagram(
 Choice(0,Sequence(
 NonTerminal('expression'),
 Optional('AS'),
-NonTerminal('column_definition', {href:'./grammar-reference/#column_definition'})
+NonTerminal('column_definition', {href:'#column_definition'})
 ),
 Sequence(NonTerminal('table_alias'), Terminal('.'), Terminal('\\*')),
 Terminal('*')
@@ -403,16 +403,16 @@ Diagram(
 Choice(0,
 Sequence(Terminal('WITH'),
 OneOrMore(
-NonTerminal('with_item', {href:'./grammar-reference/#with_item'}), Terminal(',')), NonTerminal('query', {href:'./grammar-reference/#query'})),
+NonTerminal('with_item', {href:'#with_item'}), Terminal(',')), NonTerminal('query', {href:'#query'})),
 Sequence(
 Choice(1,
 Terminal('SELECT', {href:'../data-types-and-functions/operational-commands/#select'}),
-Terminal('select_without_from', {href:'./grammar-reference/#select_without_from'}),
-Sequence(NonTerminal('query', {href:'./grammar-reference/#query'}), Choice(0, Terminal('UNION'), Terminal('EXCEPT'),Terminal('MINUS'),  Terminal('INTERSECT')), Optional(Choice(0, Terminal('ALL'), Terminal('DISTINCT'))),NonTerminal('query', {href:'./grammar-reference/#query'}))
+Terminal('select_without_from', {href:'#select_without_from'}),
+Sequence(NonTerminal('query', {href:'#query'}), Choice(0, Terminal('UNION'), Terminal('EXCEPT'),Terminal('MINUS'),  Terminal('INTERSECT')), Optional(Choice(0, Terminal('ALL'), Terminal('DISTINCT'))),NonTerminal('query', {href:'#query'}))
 ),
 Optional(Sequence(
 Terminal('ORDER BY'),
-OneOrMore(NonTerminal('order_item', {href:'./grammar-reference/#order_item'}), Terminal(',')),
+OneOrMore(NonTerminal('order_item', {href:'#order_item'}), Terminal(',')),
 )),
 Optional(Sequence(
 Terminal('LIMIT'),
@@ -463,7 +463,7 @@ Terminal('ALL'),
 Terminal('DISTINCT'),
 )),
 OneOrMore(Sequence(
-NonTerminal('project_item', {href:'./grammar-reference/#project_item'})),
+NonTerminal('project_item', {href:'#project_item'})),
 Terminal(',')
 ),
 )
@@ -522,7 +522,7 @@ Sequence(
 Choice(0,
 Sequence(
 Choice(0,Sequence(
-NonTerminal('table_expression', {href:'./grammar-reference/#table_expression'}),
+NonTerminal('table_expression', {href:'#table_expression'}),
 Optional('NATURAL'),
 Optional(Sequence(Choice(0,
 Terminal('LEFT'),
@@ -532,19 +532,19 @@ Terminal('FULL')
 Optional('OUTER')
 )),
 Terminal('JOIN'),
-NonTerminal('table_expression', {href:'./grammar-reference/#table_expression'}),
-Optional(NonTerminal('join_condition', {href:'./grammar-reference/#join_condition'}))
+NonTerminal('table_expression', {href:'#table_expression'}),
+Optional(NonTerminal('join_condition', {href:'#join_condition'}))
 ),
 )),
 Sequence(
 Choice(0,Sequence(
-NonTerminal('table_expression', {href:'./grammar-reference/#table_expression'}),
+NonTerminal('table_expression', {href:'#table_expression'}),
 Terminal('CROSS JOIN'),
-NonTerminal('table_expression', {href:'./grammar-reference/#table_expression'}))
+NonTerminal('table_expression', {href:'#table_expression'}))
 )),
 Sequence(
 OneOrMore(Sequence(
-NonTerminal('table_reference', {href:'./grammar-reference/#table_reference'})),
+NonTerminal('table_reference', {href:'#table_reference'})),
 Terminal(',')
 )
 )))))
@@ -563,10 +563,10 @@ Referenced by:
 
 <RailroadDiagram>{`
 Diagram(
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'#qualified_table_name'}),
 Terminal('('),
 Terminal('TABLE'),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'#qualified_table_name'}),
 Terminal(')')
 ,
 End({type:'complex'})
@@ -579,9 +579,9 @@ Diagram(
 Start({type:'complex'}),
 Choice(0,
 Sequence(
-NonTerminal('table_primary', {href:'./grammar-reference/#table_primary'}), Optional(NonTerminal('hint_comment'))),
+NonTerminal('table_primary', {href:'#table_primary'}), Optional(NonTerminal('hint_comment'))),
 Sequence(
-Terminal('('), NonTerminal('query', {href:'./grammar-reference/#query'}), Terminal(')')
+Terminal('('), NonTerminal('query', {href:'#query'}), Terminal(')')
 ),
 Sequence(
 Terminal('TABLE'), Terminal('('), NonTerminal('function_name'), Terminal('('), OneOrMore('expression', Terminal(',')),  Terminal(')'),  Terminal(')')
@@ -603,7 +603,7 @@ Referenced by:
 
 <RailroadDiagram>{`
 Diagram(
-NonTerminal('table_primary', {href:'./grammar-reference/#table_primary'}),
+NonTerminal('table_primary', {href:'#table_primary'}),
 Optional(Sequence(
 Optional('AS'), NonTerminal('alias'), Optional(Sequence(Terminal('('), OneOrMore('column_alias', Terminal(',')),  Terminal(')')))
 ))
@@ -627,10 +627,10 @@ Referenced by:
 <RailroadDiagram>{`
 Diagram(
 NonTerminal('item_name'),
-Optional(NonTerminal('column_list', {href:'./grammar-reference/#column_list'})),
+Optional(NonTerminal('column_list', {href:'#column_list'})),
 Terminal('AS'),
 Terminal('('),
-NonTerminal('query', {href:'./grammar-reference/#query'}),
+NonTerminal('query', {href:'#query'}),
 Terminal(')'),
 )
 `}</RailroadDiagram>
