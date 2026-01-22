@@ -162,16 +162,16 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         }
 
         int columnOrdinal() {
-            return tableDescriptor.columnIndex(columnDescriptor.name());
+            return tableDescriptor.columnIndexById(columnDescriptor.id());
         }
 
         @Nullable Integer pkColumnOrdinal() {
-            int idx = tableDescriptor.primaryKeyColumnNames().indexOf(columnDescriptor.name());
+            int idx = tableDescriptor.primaryKeyColumns().indexOf(columnDescriptor.id());
             return idx >= 0 ? idx : null;
         }
 
         @Nullable Integer colocationColumnOrdinal() {
-            int idx = tableDescriptor.colocationColumnNames().indexOf(columnDescriptor.name());
+            int idx = tableDescriptor.colocationColumns().indexOf(columnDescriptor.id());
             return idx >= 0 ? idx : null;
         }
     }
