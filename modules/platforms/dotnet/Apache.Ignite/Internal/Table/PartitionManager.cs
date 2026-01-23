@@ -78,7 +78,7 @@ internal sealed class PartitionManager : IPartitionDistribution, IPartitionManag
             throw new ArgumentException("Unsupported partition type: " + partition.GetType());
         }
 
-        if (hashPartition.PartitionId < 0)
+        if (hashPartition.Id < 0)
         {
             throw new ArgumentException("Partition id can't be negative: " + partition);
         }
@@ -86,12 +86,12 @@ internal sealed class PartitionManager : IPartitionDistribution, IPartitionManag
         var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
         var nodes = replicas.Nodes;
 
-        if (hashPartition.PartitionId >= nodes.Length)
+        if (hashPartition.Id >= nodes.Length)
         {
             throw new ArgumentException($"Partition id can't be greater than {nodes.Length - 1}: {partition}");
         }
 
-        return nodes[hashPartition.PartitionId];
+        return nodes[hashPartition.Id];
     }
 
     /// <inheritdoc/>

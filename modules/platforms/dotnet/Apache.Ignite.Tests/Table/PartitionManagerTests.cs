@@ -41,7 +41,7 @@ public class PartitionManagerTests : IgniteTestsBase
     {
         var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
         var replicasNodes = replicas.Values.Distinct().OrderBy(x => ((IPEndPoint)x.Address).Port).ToList();
-        var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).PartitionId).OrderBy(x => x).ToList();
+        var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).Id).OrderBy(x => x).ToList();
 
         var expectedNodes = (await Client.GetClusterNodesAsync())
             .OrderBy(x => ((IPEndPoint)x.Address).Port)
@@ -69,7 +69,7 @@ public class PartitionManagerTests : IgniteTestsBase
         async Task<List<HashPartition>> GetPartitions()
         {
             var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
-            return replicas.Keys.Cast<HashPartition>().OrderBy(x => x.PartitionId).ToList();
+            return replicas.Keys.Cast<HashPartition>().OrderBy(x => x.Id).ToList();
         }
     }
 
@@ -130,7 +130,7 @@ public class PartitionManagerTests : IgniteTestsBase
             var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.PartitionJob, id);
             var expectedPartition = await partitionJobExec.GetResultAsync();
 
-            Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
+            Assert.AreEqual(expectedPartition, ((HashPartition)partition).Id);
         }
     }
 
