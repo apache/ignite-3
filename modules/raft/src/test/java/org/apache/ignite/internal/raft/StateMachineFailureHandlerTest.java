@@ -36,7 +36,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
@@ -87,7 +87,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
-                getMockRaftNodeId(),
+                nodeId(),
                 List.of(TEST_LISTENER),
                 mock(NodeOptions.class),
                 testFailureManager(reached)
@@ -103,7 +103,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
-                getMockRaftNodeId(),
+                nodeId(),
                 List.of(TEST_LISTENER),
                 mock(NodeOptions.class),
                 testFailureManager(reached)
@@ -123,7 +123,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
-                getMockRaftNodeId(),
+                nodeId(),
                 List.of(TEST_LISTENER),
                 mock(NodeOptions.class),
                 testFailureManager(reached)
@@ -155,10 +155,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         });
     }
 
-    private static RaftNodeId getMockRaftNodeId() {
-        RaftNodeId mockRaftNodeId = mock(RaftNodeId.class);
-        when(mockRaftNodeId.groupId()).thenReturn(mock(ReplicationGroupId.class));
-
-        return mockRaftNodeId;
+    private static RaftNodeId nodeId() {
+        return new RaftNodeId(new ZonePartitionId(0, 0), new Peer("test"));
     }
 }

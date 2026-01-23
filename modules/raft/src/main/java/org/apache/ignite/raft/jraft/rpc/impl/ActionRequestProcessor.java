@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.Iterator;import java.util.List;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -27,7 +27,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;

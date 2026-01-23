@@ -58,5 +58,4 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
                 .mapToInt(node -> unwrapIgniteImpl(node).raftManager().localNodes().size())
                 .sum();
     }
-
 }
