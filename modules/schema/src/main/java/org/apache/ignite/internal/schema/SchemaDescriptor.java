@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -111,9 +109,10 @@ public class SchemaDescriptor {
                         : IntArrayList.toList(colocationColumns.stream()
                                 .map(colName -> columns.stream().filter(c -> colName.equals(c.name())).findAny().get())
                                 .mapToInt(columns::indexOf))
-                );
+        );
     }
 
+    /** Constructor. */
     public SchemaDescriptor(int ver, List<Column> columns, IntList keyColumnIndexes, @Nullable IntList colocationColumnIndexes) {
         assert !nullOrEmpty(columns) : "Schema should have at least one column";
         assert colocationColumnIndexes == null || keyColumnIndexes.containsAll(colocationColumnIndexes);
@@ -352,18 +351,5 @@ public class SchemaDescriptor {
             }
             return row;
         }
-    }
-
-    private static Object2IntMap<String> toElementToPositionMap(List<String> elements) {
-        Object2IntMap<String> result = new Object2IntOpenHashMap<>();
-        int idx = 0;
-        for (String element : elements) {
-            assert !result.containsKey(element)
-                    : "Elements should not have duplicates: " + element;
-
-            result.put(element, idx++);
-        }
-
-        return result;
     }
 }

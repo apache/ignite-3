@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -334,17 +332,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return IgniteDistributions.affinity(colocationColumns, tableId, zoneId, label);
     }
 
-    private static Object2IntMap<String> buildColumnToIndexMap(List<CatalogTableColumnDescriptor> columns) {
-        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(columns.size() + 2);
-
-        for (int i = 0; i < columns.size(); i++) {
-            CatalogTableColumnDescriptor col = columns.get(i);
-            columnToIndex.put(col.name(), i);
-        }
-
-        return columnToIndex;
-    }
-
     private static ColumnDescriptorImpl createPartitionVirtualColumn(int logicalIndex, String partColName, NativeType type) {
         return new ColumnDescriptorImpl(
                 partColName,
@@ -486,7 +473,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             IgniteIndex schemaIndex = indexCache.get(indexKey, (x) -> {
                 RelCollation outputCollation = IgniteIndex.createIndexCollation(indexDescriptor, table);
-                Object2IntMap<String> columnToIndex = buildColumnToIndexMap(table.columns());
 
                 CatalogZoneDescriptor zoneDescriptor = Objects.requireNonNull(catalog.zone(table.zoneId()));
                 CatalogSchemaDescriptor schemaDescriptor = Objects.requireNonNull(catalog.schema(table.schemaId()));
