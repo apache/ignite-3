@@ -24,7 +24,6 @@ using System.Net;
 using System.Threading.Tasks;
 using Common.Compute;
 using Common.Table;
-using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Table;
@@ -202,19 +201,6 @@ public class PartitionDistributionTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestGetPartitions()
-    {
-        var partitions = Table.PartitionDistribution.GetPartitions();
-
-        Assert.AreEqual(TablePartitionCount, partitions.Count);
-
-        for (int i = 0; i < TablePartitionCount; i++)
-        {
-            Assert.AreEqual(i, partitions[i].Id);
-        }
-    }
-
-    [Test]
     public async Task TestGetPrimaryReplicasForNodeAsync()
     {
         var allReplicas = await Table.PartitionDistribution.GetPrimaryReplicasAsync();
@@ -230,50 +216,6 @@ public class PartitionDistributionTests : IgniteTestsBase
             Assert.IsTrue(allReplicas.TryGetValue(partition, out var replicaNode));
             Assert.AreEqual(node.Name, replicaNode!.Name);
         }
-    }
-
-    [Test]
-    public void TestGetPrimaryReplicasForNode()
-    {
-        var allReplicas = Table.PartitionDistribution.GetPrimaryReplicas();
-        var nodes = Client.GetClusterNodesAsync().GetAwaiter().GetResult();
-        var node = nodes.First();
-
-        var nodePartitions = Table.PartitionDistribution.GetPrimaryReplicas(node);
-
-        Assert.IsNotEmpty(nodePartitions);
-
-        foreach (var partition in nodePartitions)
-        {
-            Assert.IsTrue(allReplicas.TryGetValue(partition, out var replicaNode));
-            Assert.AreEqual(node.Name, replicaNode!.Name);
-        }
-    }
-
-    [Test]
-    public void TestGetPrimaryReplicasSync()
-    {
-        var replicas = Table.PartitionDistribution.GetPrimaryReplicas();
-
-        Assert.AreEqual(TablePartitionCount, replicas.Count);
-    }
-
-    [Test]
-    public void TestGetPrimaryReplicaSync()
-    {
-        var partition = new HashPartition(0);
-        var replica = Table.PartitionDistribution.GetPrimaryReplica(partition);
-
-        Assert.IsNotNull(replica);
-    }
-
-    [Test]
-    public void TestGetPartitionSync()
-    {
-        var partition = Table.PartitionDistribution.GetPartition(GetTuple(1));
-
-        Assert.IsNotNull(partition);
-        Assert.GreaterOrEqual(partition.Id, 0);
     }
 
     private class MyPartition : IPartition
