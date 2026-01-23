@@ -92,7 +92,7 @@ public class PartitionDistributionTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.PartitionDistribution.GetPrimaryReplicaAsync(new HashPartition(-1)));
 
-        Assert.AreEqual("Partition id can't be negative: HashPartition { PartitionId = -1 }", ex.Message);
+        Assert.AreEqual("Partition id can't be negative: HashPartition { Id = -1 }", ex.Message);
     }
 
     [Test]
@@ -101,7 +101,7 @@ public class PartitionDistributionTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.PartitionDistribution.GetPrimaryReplicaAsync(new HashPartition(10)));
 
-        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { PartitionId = 10 }", ex.Message);
+        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { Id = 10 }", ex.Message);
     }
 
     [Test]
