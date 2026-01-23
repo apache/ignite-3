@@ -52,7 +52,7 @@ public class SharedStateMessageConverter {
         Map<Long, NetworkMessage> result = IgniteUtils.newHashMap(correlations.size());
 
         for (Long2ObjectMap.Entry<Object> entry : correlations.long2ObjectEntrySet()) {
-            SingleValueMessage<?> msg = toSingleFieldMessage(entry.getValue());
+            SingleValueMessage<?> msg = toSingleValueMessage(entry.getValue());
 
             result.put(entry.getLongKey(), msg);
         }
@@ -88,7 +88,7 @@ public class SharedStateMessageConverter {
     }
 
     private static @Nullable Object extractFieldValue(SingleValueMessage<Object> msg) {
-        Object value = msg.field();
+        Object value = msg.value();
 
         if (value == null) {
             return null;
@@ -132,45 +132,45 @@ public class SharedStateMessageConverter {
         return buffer.array();
     }
 
-    private static SingleValueMessage<?> toSingleFieldMessage(Object value) {
+    private static SingleValueMessage<?> toSingleValueMessage(Object value) {
         if (value == null) {
             return MESSAGE_FACTORY.nullValueMessage().build();
         }
 
         if (value instanceof Boolean) {
-            return MESSAGE_FACTORY.booleanValueMessage().field((Boolean) value).build();
+            return MESSAGE_FACTORY.booleanValueMessage().value((Boolean) value).build();
         }
         if (value instanceof Byte) {
-            return MESSAGE_FACTORY.byteValueMessage().field((Byte) value).build();
+            return MESSAGE_FACTORY.byteValueMessage().value((Byte) value).build();
         }
         if (value instanceof Short) {
-            return MESSAGE_FACTORY.shortValueMessage().field((Short) value).build();
+            return MESSAGE_FACTORY.shortValueMessage().value((Short) value).build();
         }
         if (value instanceof Integer) {
-            return MESSAGE_FACTORY.intValueMessage().field((Integer) value).build();
+            return MESSAGE_FACTORY.intValueMessage().value((Integer) value).build();
         }
         if (value instanceof Long) {
-            return MESSAGE_FACTORY.longValueMessage().field((Long) value).build();
+            return MESSAGE_FACTORY.longValueMessage().value((Long) value).build();
         }
         if (value instanceof Float) {
-            return MESSAGE_FACTORY.floatValueMessage().field((Float) value).build();
+            return MESSAGE_FACTORY.floatValueMessage().value((Float) value).build();
         }
         if (value instanceof Double) {
-            return MESSAGE_FACTORY.doublValueMessage().field((Double) value).build();
+            return MESSAGE_FACTORY.doubleValueMessage().value((Double) value).build();
         }
         if (value instanceof BigDecimal) {
-            return MESSAGE_FACTORY.decimalValueMessage().field(decimalToBytes((BigDecimal) value)).build();
+            return MESSAGE_FACTORY.decimalValueMessage().value(decimalToBytes((BigDecimal) value)).build();
         }
         if (value instanceof UUID) {
-            return MESSAGE_FACTORY.uuidValueMessage().field((UUID) value).build();
+            return MESSAGE_FACTORY.uuidValueMessage().value((UUID) value).build();
         }
         if (value instanceof String) {
-            return MESSAGE_FACTORY.stringValueMessage().field((String) value).build();
+            return MESSAGE_FACTORY.stringValueMessage().value((String) value).build();
         }
         if (value instanceof ByteString) {
             ByteString byteString = (ByteString) value;
 
-            return MESSAGE_FACTORY.byteArrayValueMessage().field(byteString.getBytes()).build();
+            return MESSAGE_FACTORY.byteArrayValueMessage().value(byteString.getBytes()).build();
         }
 
         throw new IllegalArgumentException("Unsupported type: " + value.getClass());

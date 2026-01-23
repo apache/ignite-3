@@ -21,10 +21,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Double} field.
+ * A message that contains a single {@link Double} value.
  */
 @Transferable(SqlQueryMessageGroup.DOUBLE_FIELD_MESSAGE)
-public interface DoublValueMessage extends SingleValueMessage<Double> {
+public interface DoubleValueMessage extends SingleValueMessage<Double> {
     @Override
-    Double field();
+    Double value();
 }

@@ -21,10 +21,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Integer} field.
+ * A message that contains a single {@link Integer} value.
  */
 @Transferable(SqlQueryMessageGroup.INT_FIELD_MESSAGE)
 public interface IntValueMessage extends SingleValueMessage<Integer> {
     @Override
-    Integer field();
+    Integer value();
 }

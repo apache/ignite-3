@@ -21,10 +21,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link String} field.
+ * A message that contains a single {@link String} value.
  */
 @Transferable(SqlQueryMessageGroup.STRING_FIELD_MESSAGE)
 public interface StringValueMessage extends SingleValueMessage<String> {
     @Override
-    String field();
+    String value();
 }

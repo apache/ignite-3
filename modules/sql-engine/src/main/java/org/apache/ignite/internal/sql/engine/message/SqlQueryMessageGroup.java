@@ -24,7 +24,7 @@ import org.apache.ignite.internal.sql.engine.message.field.BooleanValueMessage;
 import org.apache.ignite.internal.sql.engine.message.field.ByteArrayValueMessage;
 import org.apache.ignite.internal.sql.engine.message.field.ByteValueMessage;
 import org.apache.ignite.internal.sql.engine.message.field.DecimalValueMessage;
-import org.apache.ignite.internal.sql.engine.message.field.DoublValueMessage;
+import org.apache.ignite.internal.sql.engine.message.field.DoubleValueMessage;
 import org.apache.ignite.internal.sql.engine.message.field.FloatValueMessage;
 import org.apache.ignite.internal.sql.engine.message.field.IntValueMessage;
 import org.apache.ignite.internal.sql.engine.message.field.LongValueMessage;
@@ -80,7 +80,7 @@ public final class SqlQueryMessageGroup {
     /** See {@link FloatValueMessage} for the details. */
     public static final short FLOAT_FIELD_MESSAGE = 14;
 
-    /** See {@link DoublValueMessage} for the details. */
+    /** See {@link DoubleValueMessage} for the details. */
     public static final short DOUBLE_FIELD_MESSAGE = 15;
 
     /** See {@link DecimalValueMessage} for the details. */

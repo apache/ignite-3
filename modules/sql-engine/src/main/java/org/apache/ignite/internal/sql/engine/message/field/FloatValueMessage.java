@@ -21,10 +21,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Float} field.
+ * A message that contains a single {@link Float} value.
  */
 @Transferable(SqlQueryMessageGroup.FLOAT_FIELD_MESSAGE)
 public interface FloatValueMessage extends SingleValueMessage<Float> {
     @Override
-    Float field();
+    Float value();
 }

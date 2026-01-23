@@ -22,10 +22,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link UUID} field.
+ * A message that contains a single {@link UUID} value.
  */
 @Transferable(SqlQueryMessageGroup.UUID_FIELD_MESSAGE)
 public interface UuidValueMessage extends SingleValueMessage<UUID> {
     @Override
-    UUID field();
+    UUID value();
 }

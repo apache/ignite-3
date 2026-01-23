@@ -22,10 +22,10 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A message that contains a single {@code null} field value.
+ * A message that contains a single {@code null} value.
  */
 @Transferable(SqlQueryMessageGroup.NULL_FIELD_MESSAGE)
 public interface NullValueMessage extends SingleValueMessage<Boolean> {
     @Override
-    @Nullable Boolean field();
+    @Nullable Boolean value();
 }

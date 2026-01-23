@@ -21,10 +21,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Boolean} field.
+ * A message that contains a single {@link Boolean} value.
  */
 @Transferable(SqlQueryMessageGroup.BOOLEAN_FIELD_MESSAGE)
 public interface BooleanValueMessage extends SingleValueMessage<Boolean> {
     @Override
-    Boolean field();
+    Boolean value();
 }

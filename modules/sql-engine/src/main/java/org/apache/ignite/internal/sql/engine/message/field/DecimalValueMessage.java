@@ -22,10 +22,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link BigDecimal} field in byte array representation.
+ * A message that contains a single {@link BigDecimal} value in a byte array representation.
  */
 @Transferable(SqlQueryMessageGroup.DECIMAL_FIELD_MESSAGE)
 public interface DecimalValueMessage extends SingleValueMessage<byte[]> {
     @Override
-    byte[] field();
+    byte[] value();
 }

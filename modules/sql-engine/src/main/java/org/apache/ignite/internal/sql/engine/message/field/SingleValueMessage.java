@@ -22,8 +22,8 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A message that contains a single field.
+ * A message that contains a single value.
  */
 public interface SingleValueMessage<T> extends NetworkMessage, Serializable {
-    @Nullable T field();
+    @Nullable T value();
 }
