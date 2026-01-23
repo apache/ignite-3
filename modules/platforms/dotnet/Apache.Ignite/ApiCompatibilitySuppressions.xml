@@ -147,4 +147,18 @@
     <Right>lib/net8.0/Apache.Ignite.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0006</DiagnosticId>
+    <Target>P:Apache.Ignite.Table.IPartition.Id</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0006</DiagnosticId>
+    <Target>P:Apache.Ignite.Table.ITable.PartitionDistribution</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
 </Suppressions>
