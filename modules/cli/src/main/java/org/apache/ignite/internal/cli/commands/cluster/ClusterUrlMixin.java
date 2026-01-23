@@ -50,7 +50,7 @@ public class ClusterUrlMixin {
     private ProfileMixin profile;
 
     @Inject
-    protected ConfigManagerProvider configManagerProvider;
+    private ConfigManagerProvider configManagerProvider;
 
     /**
      * Gets cluster URL from either the command line or from the specified profile in the config.
