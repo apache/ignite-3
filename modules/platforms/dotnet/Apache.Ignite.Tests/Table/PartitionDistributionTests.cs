@@ -27,6 +27,7 @@ using Common.Table;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Table;
+using Network;
 using NUnit.Framework;
 using static Common.Table.TestTables;
 
@@ -183,7 +184,7 @@ public class PartitionDistributionTests : IgniteTestsBase
     [Test]
     public async Task TestGetPartitionsAsync()
     {
-        var partitions = await Table.PartitionDistribution.GetPartitionsAsync();
+        IReadOnlyList<IPartition> partitions = await Table.PartitionDistribution.GetPartitionsAsync();
 
         Assert.AreEqual(TablePartitionCount, partitions.Count);
 
@@ -196,11 +197,11 @@ public class PartitionDistributionTests : IgniteTestsBase
     [Test]
     public async Task TestGetPrimaryReplicasForNodeAsync()
     {
-        var allReplicas = await Table.PartitionDistribution.GetPrimaryReplicasAsync();
-        var nodes = await Client.GetClusterNodesAsync();
-        var node = nodes.First();
+        IReadOnlyDictionary<IPartition, IClusterNode> allReplicas = await Table.PartitionDistribution.GetPrimaryReplicasAsync();
 
-        var nodePartitions = await Table.PartitionDistribution.GetPrimaryReplicasAsync(node);
+        IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
+        IClusterNode node = nodes.First();
+        IReadOnlyList<IPartition> nodePartitions = await Table.PartitionDistribution.GetPrimaryReplicasAsync(node);
 
         Assert.IsNotEmpty(nodePartitions);
 
