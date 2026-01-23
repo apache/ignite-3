@@ -35,7 +35,7 @@ using Serialization;
 /// Table partition manager.
 /// </summary>
 #pragma warning disable CS0618 // Type or member is obsolete
-internal sealed class PartitionManager : IPartitionManager
+internal sealed class PartitionManager : IPartitionDistribution, IPartitionManager
 #pragma warning restore CS0618 // Type or member is obsolete
 {
     private static readonly object PartitionsLock = new();

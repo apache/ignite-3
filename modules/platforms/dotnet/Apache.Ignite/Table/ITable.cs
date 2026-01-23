@@ -52,7 +52,7 @@ namespace Apache.Ignite.Table
         /// Gets the partition manager.
         /// </summary>
         [Obsolete("Replaced by PartitionDistribution property.")]
-        public IPartitionManager PartitionManager { get; }
+        public IPartitionManager PartitionManager => (IPartitionManager)PartitionDistribution;
 
         /// <summary>
         /// Gets the partition distribution.
