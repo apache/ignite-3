@@ -88,7 +88,6 @@ public class CorrelatedNestedLoopJoinRule extends AbstractIgniteConverterRule<Lo
             @Override
             public RexNode visitInputRef(RexInputRef input) {
                 int field = input.getIndex();
-
                 if (field >= leftFieldCount) {
                     return rexBuilder.makeInputRef(input.getType(), input.getIndex() - leftFieldCount);
                 }

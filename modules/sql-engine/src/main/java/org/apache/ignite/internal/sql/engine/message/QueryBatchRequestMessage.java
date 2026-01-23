@@ -31,6 +31,6 @@ public interface QueryBatchRequestMessage extends ExecutionContextAwareMessage {
     /** Returns amount of batches to request. */
     int amountOfBatches();
 
-    /** Returns a state that has should be propagated to the target fragment. */
+    /** Returns a state that should be propagated to the target fragment. */
     @Nullable SharedStateMessage sharedStateMessage();
 }

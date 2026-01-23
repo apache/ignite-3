@@ -158,16 +158,8 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
     }
 
     @Override public RelWriter explainTerms(RelWriter pw) {
-        // TODO use super.explainTerms(...)
         return super.explainTerms(pw)
-                .item("condition", condition)
-                .item("joinType", joinType.lowerName)
-                .itemIf("correlationColumns", correlationColumns, !correlationColumns.isEmpty())
-                .itemIf("variablesSet", variablesSet, !variablesSet.isEmpty())
-                .itemIf(
-                        "systemFields",
-                        getSystemFieldList(),
-                        !getSystemFieldList().isEmpty());
+                .itemIf("correlationColumns", correlationColumns, !correlationColumns.isEmpty());
     }
 
     /** {@inheritDoc} */
