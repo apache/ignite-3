@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.message.field;
 
+import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link String} field.
+ * A message that contains a single {@link UUID} field.
  */
-@Transferable(SqlQueryMessageGroup.STRING_FIELD_MESSAGE)
-public interface StringFieldMessage extends SingleFieldMessage<String> {
+@Transferable(SqlQueryMessageGroup.UUID_FIELD_MESSAGE)
+public interface UuidValueMessage extends SingleValueMessage<UUID> {
     @Override
-    String field();
+    UUID field();
 }

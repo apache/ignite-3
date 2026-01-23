@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.message.field;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single field.
+ * A message that contains a single {@code byte[]} field.
  */
-public interface SingleFieldMessage<T> extends NetworkMessage, Serializable {
-    @Nullable T field();
+@Transferable(SqlQueryMessageGroup.BYTE_ARRAY_FIELD_MESSAGE)
+public interface ByteArrayValueMessage extends SingleValueMessage<byte[]> {
+    @Override
+    byte[] field();
 }

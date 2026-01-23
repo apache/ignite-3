@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.message.field;
 
+import java.math.BigDecimal;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Short} field.
+ * A message that contains a single {@link BigDecimal} field in byte array representation.
  */
-@Transferable(SqlQueryMessageGroup.SHORT_FIELD_MESSAGE)
-public interface ShortFieldMessage extends SingleFieldMessage<Short> {
+@Transferable(SqlQueryMessageGroup.DECIMAL_FIELD_MESSAGE)
+public interface DecimalValueMessage extends SingleValueMessage<byte[]> {
     @Override
-    Short field();
+    byte[] field();
 }

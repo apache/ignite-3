@@ -19,13 +19,12 @@ package org.apache.ignite.internal.sql.engine.message.field;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * A message that contains a single {@code null} field value.
+ * A message that contains a single {@link Double} field.
  */
-@Transferable(SqlQueryMessageGroup.NULL_FIELD_MESSAGE)
-public interface NullFieldMessage extends SingleFieldMessage<Boolean> {
+@Transferable(SqlQueryMessageGroup.DOUBLE_FIELD_MESSAGE)
+public interface DoublValueMessage extends SingleValueMessage<Double> {
     @Override
-    @Nullable Boolean field();
+    Double field();
 }

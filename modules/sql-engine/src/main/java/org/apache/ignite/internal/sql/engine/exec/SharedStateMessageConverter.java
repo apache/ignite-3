@@ -30,7 +30,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.message.SharedStateMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.message.field.SingleFieldMessage;
+import org.apache.ignite.internal.sql.engine.message.field.SingleValueMessage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -52,7 +52,7 @@ public class SharedStateMessageConverter {
         Map<Long, NetworkMessage> result = IgniteUtils.newHashMap(correlations.size());
 
         for (Long2ObjectMap.Entry<Object> entry : correlations.long2ObjectEntrySet()) {
-            SingleFieldMessage<?> msg = toSingleFieldMessage(entry.getValue());
+            SingleValueMessage<?> msg = toSingleFieldMessage(entry.getValue());
 
             result.put(entry.getLongKey(), msg);
         }
@@ -74,20 +74,20 @@ public class SharedStateMessageConverter {
         for (Map.Entry<Long, NetworkMessage> e : sharedStateMessage.sharedState().entrySet()) {
             NetworkMessage networkMessage = e.getValue();
 
-            if (!(networkMessage instanceof SingleFieldMessage)) {
+            if (!(networkMessage instanceof SingleValueMessage)) {
                 throw new IllegalArgumentException("Unexpected message type "
-                        + "[type=" + networkMessage.messageType() + ", class=" + networkMessage.getClass());
+                        + "[type=" + networkMessage.messageType() + ", class=" + networkMessage.getClass() + ']');
             }
 
-            SingleFieldMessage<Object> msg = ((SingleFieldMessage<Object>) e.getValue());
+            SingleValueMessage<Object> singleFieldMessage = ((SingleValueMessage<Object>) networkMessage);
 
-            correlations.put(e.getKey().longValue(), extractFieldValue(msg));
+            correlations.put(e.getKey().longValue(), extractFieldValue(singleFieldMessage));
         }
 
         return new SharedState(correlations);
     }
 
-    private static @Nullable Object extractFieldValue(SingleFieldMessage<Object> msg) {
+    private static @Nullable Object extractFieldValue(SingleValueMessage<Object> msg) {
         Object value = msg.field();
 
         if (value == null) {
@@ -132,45 +132,45 @@ public class SharedStateMessageConverter {
         return buffer.array();
     }
 
-    private static SingleFieldMessage<?> toSingleFieldMessage(Object value) {
+    private static SingleValueMessage<?> toSingleFieldMessage(Object value) {
         if (value == null) {
-            return MESSAGE_FACTORY.nullFieldMessage().build();
+            return MESSAGE_FACTORY.nullValueMessage().build();
         }
 
         if (value instanceof Boolean) {
-            return MESSAGE_FACTORY.booleanFieldMessage().field((Boolean) value).build();
+            return MESSAGE_FACTORY.booleanValueMessage().field((Boolean) value).build();
         }
         if (value instanceof Byte) {
-            return MESSAGE_FACTORY.byteFieldMessage().field((Byte) value).build();
+            return MESSAGE_FACTORY.byteValueMessage().field((Byte) value).build();
         }
         if (value instanceof Short) {
-            return MESSAGE_FACTORY.shortFieldMessage().field((Short) value).build();
+            return MESSAGE_FACTORY.shortValueMessage().field((Short) value).build();
         }
         if (value instanceof Integer) {
-            return MESSAGE_FACTORY.intFieldMessage().field((Integer) value).build();
+            return MESSAGE_FACTORY.intValueMessage().field((Integer) value).build();
         }
         if (value instanceof Long) {
-            return MESSAGE_FACTORY.longFieldMessage().field((Long) value).build();
+            return MESSAGE_FACTORY.longValueMessage().field((Long) value).build();
         }
         if (value instanceof Float) {
-            return MESSAGE_FACTORY.floatFieldMessage().field((Float) value).build();
+            return MESSAGE_FACTORY.floatValueMessage().field((Float) value).build();
         }
         if (value instanceof Double) {
-            return MESSAGE_FACTORY.doubleFieldMessage().field((Double) value).build();
+            return MESSAGE_FACTORY.doublValueMessage().field((Double) value).build();
         }
         if (value instanceof BigDecimal) {
-            return MESSAGE_FACTORY.decimalFieldMessage().field(decimalToBytes((BigDecimal) value)).build();
+            return MESSAGE_FACTORY.decimalValueMessage().field(decimalToBytes((BigDecimal) value)).build();
         }
         if (value instanceof UUID) {
-            return MESSAGE_FACTORY.uuidFieldMessage().field((UUID) value).build();
+            return MESSAGE_FACTORY.uuidValueMessage().field((UUID) value).build();
         }
         if (value instanceof String) {
-            return MESSAGE_FACTORY.stringFieldMessage().field((String) value).build();
+            return MESSAGE_FACTORY.stringValueMessage().field((String) value).build();
         }
         if (value instanceof ByteString) {
             ByteString byteString = (ByteString) value;
 
-            return MESSAGE_FACTORY.byteArrayFieldMessage().field(byteString.getBytes()).build();
+            return MESSAGE_FACTORY.byteArrayValueMessage().field(byteString.getBytes()).build();
         }
 
         throw new IllegalArgumentException("Unsupported type: " + value.getClass());

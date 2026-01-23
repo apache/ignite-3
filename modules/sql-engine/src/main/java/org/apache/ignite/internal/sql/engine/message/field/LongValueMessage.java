@@ -21,10 +21,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Byte} field.
+ * A message that contains a single {@link Long} field.
  */
-@Transferable(SqlQueryMessageGroup.BYTE_FIELD_MESSAGE)
-public interface ByteFieldMessage extends SingleFieldMessage<Byte> {
+@Transferable(SqlQueryMessageGroup.LONG_FIELD_MESSAGE)
+public interface LongValueMessage extends SingleValueMessage<Long> {
     @Override
-    Byte field();
+    Long field();
 }

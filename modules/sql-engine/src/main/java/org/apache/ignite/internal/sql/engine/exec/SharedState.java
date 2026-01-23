@@ -41,6 +41,7 @@ public class SharedState {
      * Gets correlated value.
      *
      * @param corrId Correlation ID.
+     * @param fieldIndex Field index.
      * @return Correlated value.
      */
     public @Nullable Object correlatedVariable(int corrId, int fieldIndex) {
@@ -67,8 +68,6 @@ public class SharedState {
     }
 
     private static long packToLong(int corrId, int fieldIdx) {
-        assert fieldIdx >= 0 : "fieldIdx=" + fieldIdx;
-
-        return (((corrId & 0xFFFF_FFFFL) << 32 | fieldIdx));
+        return ((long) corrId << 32) | (fieldIdx & 0xFFFF_FFFFL);
     }
 }
