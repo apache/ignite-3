@@ -23,11 +23,11 @@ import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
-class CorrelatedValueGetter extends CommonFieldGetter {
+class CorrelationValueGetter extends CommonFieldGetter {
     private final Expression ctx;
     private final RexCorrelVariable variable;
 
-    CorrelatedValueGetter(Expression ctx, RexCorrelVariable variable) {
+    CorrelationValueGetter(Expression ctx, RexCorrelVariable variable) {
         super(null, null, variable.getType());
 
         this.ctx = ctx;

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.calcite.linq4j.function.Function1;
-import org.apache.calcite.linq4j.tree.BlockBuilder;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexNode;
@@ -32,7 +31,7 @@ class CorrelatesBuilder extends RexShuttle {
 
     private Map<String, InputGetter> correlates;
 
-    CorrelatesBuilder(BlockBuilder builder, Expression ctx, Expression hnd) {
+    CorrelatesBuilder(Expression ctx) {
         this.ctx = ctx;
     }
 
@@ -57,7 +56,7 @@ class CorrelatesBuilder extends RexShuttle {
             correlates = new HashMap<>();
         }
 
-        InputGetter inputGetter = new CorrelatedValueGetter(ctx, variable);
+        InputGetter inputGetter = new CorrelationValueGetter(ctx, variable);
 
         correlates.put(variable.getName(), inputGetter);
 

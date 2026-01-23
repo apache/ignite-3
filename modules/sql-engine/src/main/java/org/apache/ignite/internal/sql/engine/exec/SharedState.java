@@ -43,8 +43,8 @@ public class SharedState {
      * @param corrId Correlation ID.
      * @return Correlated value.
      */
-    public @Nullable Object correlatedVariable(int corrId, int fieldIdx) {
-        long key = packToLong(corrId, fieldIdx);
+    public @Nullable Object correlatedVariable(int corrId, int fieldIndex) {
+        long key = packToLong(corrId, fieldIndex);
 
         return correlations.get(key);
     }
@@ -53,11 +53,11 @@ public class SharedState {
      * Sets correlated value.
      *
      * @param corrId Correlation ID.
-     * @param fieldIdx Field index.
+     * @param fieldIndex Field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(int corrId, int fieldIdx, @Nullable Object value) {
-        long key = packToLong(corrId, fieldIdx);
+    public void correlatedVariable(int corrId, int fieldIndex, @Nullable Object value) {
+        long key = packToLong(corrId, fieldIndex);
 
         correlations.put(key, value);
     }
@@ -67,8 +67,8 @@ public class SharedState {
     }
 
     private static long packToLong(int corrId, int fieldIdx) {
-        assert corrId >= 0 && fieldIdx >= 0 : "corrId=" + corrId + " fieldIdx=" + fieldIdx;
+        assert fieldIdx >= 0 : "fieldIdx=" + fieldIdx;
 
-        return ((((long) corrId) << 32 | fieldIdx));
+        return (((corrId & 0xFFFF_FFFFL) << 32 | fieldIdx));
     }
 }

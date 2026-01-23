@@ -367,11 +367,11 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
      * Sets correlated value.
      *
      * @param corrId Correlation ID.
-     * @param fieldIdx Field index.
+     * @param fieldIndex Field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(int corrId, int fieldIdx, @Nullable Object value) {
-        sharedState.correlatedVariable(corrId, fieldIdx, value);
+    public void correlatedVariable(int corrId, int fieldIndex, @Nullable Object value) {
+        sharedState.correlatedVariable(corrId, fieldIndex, value);
     }
 
     /**
