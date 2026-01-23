@@ -32,19 +32,11 @@ using Network;
 public interface IPartitionDistribution
 {
     /// <summary>
-    /// Gets a list with all partitions.
-    /// </summary>
-    /// <returns>A task representing the asynchronous operation with a list of all partitions.</returns>
-    ValueTask<IReadOnlyList<IPartition>> GetPartitionsAsync();
-
-    /// <summary>
-    /// Gets map with all partitions and their locations as of the time of the call.
+    /// Gets the primary replicas for all partitions.
     /// <para />
     /// NOTE: Prefer <see cref="GetPrimaryReplicaAsync"/> for performance-critical code.
-    /// <para />
-    /// NOTE: This assignment may become outdated if a re-assignment happens on the cluster.
     /// </summary>
-    /// <returns>Map of partition to primary replica node.</returns>
+    /// <returns>Map of partition to the primary replica node.</returns>
     ValueTask<IReadOnlyDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync();
 
     /// <summary>
@@ -61,8 +53,6 @@ public interface IPartitionDistribution
     /// Gets the primary replica for the specified partition.
     /// <para />
     /// NOTE: Prefer this method over <see cref="GetPrimaryReplicasAsync()"/> for performance-critical code.
-    /// <para />
-    /// NOTE: This assignment may become outdated if a re-assignment happens on the cluster.
     /// </summary>
     /// <param name="partition">Partition.</param>
     /// <returns>Primary replica.</returns>
@@ -94,4 +84,10 @@ public interface IPartitionDistribution
     /// <typeparam name="TK">Key type.</typeparam>
     ValueTask<IPartition> GetPartitionAsync<TK>(TK key, IMapper<TK> mapper)
         where TK : notnull;
+
+    /// <summary>
+    /// Gets a list with all partitions.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation with a list of all partitions.</returns>
+    ValueTask<IReadOnlyList<IPartition>> GetPartitionsAsync();
 }
