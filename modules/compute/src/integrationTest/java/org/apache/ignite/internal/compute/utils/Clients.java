@@ -32,16 +32,24 @@ public class Clients {
     private final Map<String, IgniteClient> clients = new HashMap<>();
 
     /**
+     * Gets thin client referenced by the embedded node.
+     *
+     * @param node Node to get the client for.
+     * @return Thin client.
+     */
+    public Ignite client(Ignite node) {
+        String address = "127.0.0.1:" + unwrapIgniteImpl(node).clientAddress().port();
+        return clients.computeIfAbsent(address, addr -> IgniteClient.builder().addresses(addr).build());
+    }
+
+    /**
      * Gets compute API for the thin client referenced by the embedded node.
      *
      * @param node Node to get the client for.
      * @return Compute API.
      */
     public IgniteCompute compute(Ignite node) {
-        String address = "127.0.0.1:" + unwrapIgniteImpl(node).clientAddress().port();
-        //noinspection resource
-        IgniteClient client = clients.computeIfAbsent(address, addr -> IgniteClient.builder().addresses(addr).build());
-        return client.compute();
+        return client(node).compute();
     }
 
     /**

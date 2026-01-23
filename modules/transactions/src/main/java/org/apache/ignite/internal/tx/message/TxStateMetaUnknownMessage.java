@@ -15,15 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.tx.message;
 
-/** Interface for collecting page cache metrics. */
-public interface PageCacheMetrics {
-    /** Increases the page cache hit metric by one. */
-    void incrementPageCacheHit();
+import static org.apache.ignite.internal.tx.message.TxMessageGroup.TX_STATE_META_UNKNOWN_MESSAGE;
 
-    /** Increases the page cache miss metric by one. */
-    void incrementPageCacheMiss();
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TxStateMetaUnknown;
 
-    void incrementPageReplacement();
+/**
+ * Message for transferring a {@link TxStateMetaUnknown}.
+ */
+@Transferable(TX_STATE_META_UNKNOWN_MESSAGE)
+public interface TxStateMetaUnknownMessage extends TxStateMetaMessage {
+    default TransactionMeta asTxStateMetaUnknown() {
+        return new TxStateMetaUnknown();
+    }
+
+    @Override
+    default TransactionMeta asTransactionMeta() {
+        return asTxStateMetaUnknown();
+    }
 }

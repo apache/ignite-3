@@ -28,6 +28,7 @@ import java.lang.management.RuntimeMXBean;
 import java.util.List;
 import java.util.Map;
 import javax.management.ObjectName;
+import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.junit.jupiter.api.Test;
 
@@ -47,6 +48,8 @@ public class JvmMetricSourceTest {
         assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.Used").value());
         assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.Committed").value());
         assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.Max").value());
+        // Expected free percent: (90 - 15) / 90 * 100 = 83.33%
+        assertEquals(83.33, metricSet.<DoubleMetric>get("memory.heap.FreePercent").value(), 0.01);
 
         assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.Init").value());
         assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.Used").value());
@@ -71,6 +74,8 @@ public class JvmMetricSourceTest {
         assertEquals(memoryBean.heapUsed, metricSet.<LongMetric>get("memory.heap.Used").value());
         assertEquals(memoryBean.heapCommitted, metricSet.<LongMetric>get("memory.heap.Committed").value());
         assertEquals(memoryBean.heapMax, metricSet.<LongMetric>get("memory.heap.Max").value());
+        // Expected free percent after update: (90 - 16) / 90 * 100 = 82.22%.
+        assertEquals(82.22, metricSet.<DoubleMetric>get("memory.heap.FreePercent").value(), 0.01);
 
         assertEquals(memoryBean.nonHeapInit, metricSet.<LongMetric>get("memory.non-heap.Init").value());
         assertEquals(memoryBean.nonHeapUsed, metricSet.<LongMetric>get("memory.non-heap.Used").value());
@@ -90,11 +95,13 @@ public class JvmMetricSourceTest {
         var metricSet = metricSource.enable();
 
         assertEquals(300, metricSet.<LongMetric>get("gc.CollectionTime").value());
+        assertEquals(30.0, metricSet.<DoubleMetric>get("gc.CollectionTimePercent").value(), 0.01);
 
         gcBean1.changeCollectionMetrics(1, 10);
         gcBean2.changeCollectionMetrics(1, 15);
 
         assertEquals(325, metricSet.<LongMetric>get("gc.CollectionTime").value());
+        assertEquals(32.5, metricSet.<DoubleMetric>get("gc.CollectionTimePercent").value(), 0.01);
     }
 
     @Test

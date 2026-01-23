@@ -105,7 +105,7 @@ public abstract class AbstractSchemaColumnsProcessor
 
         // Preprocess schema
         {
-            // TODO: GG-41598; Optimize; Seems to have a bit of duplicated code, or at least very similar code.
+            // TODO: IGNITE-27629; Optimize; Seems to have a bit of duplicated code, or at least very similar code.
             ClientColumn[] columns = schema.columns();
             int extraFieldsColumnIdx = -1;
             this.keyColumnMappings = new ArrayList<>(columns.length);
@@ -184,7 +184,7 @@ public abstract class AbstractSchemaColumnsProcessor
     }
 
     private static TypeProcessingResult processBinaryType(BinaryType type, List<ColumnMapping> columnMappings, boolean withExtraFields) {
-        // TODO: GG-41598 Optimize stuff with the lowercase names
+        // TODO: IGNITE-27629 Optimize stuff with the lowercase names
         var fieldNames = type.fieldNames();
         Map<String, String> lowerCaseFieldNames = new HashMap<>(fieldNames.size());
         for (var fieldName : fieldNames) {
@@ -286,10 +286,10 @@ public abstract class AbstractSchemaColumnsProcessor
         for (ColumnMapping columnMapping : typeMappingInfo.availableMappings) {
             Object val = cacheObject.field(columnMapping.objectFieldName);
             if (val != null) {
-                // TODO: GG-41598; I'm sure there's a better way to do this. Probably look at the types directly.
-                // TODO: GG-41598; Raise an exception on else. We cannot allow Binary Objects after this point.
-                // TODO: GG-41598; Create a test with Enum.
-                // TODO: GG-41598; Add option to serialize enum to ordinal as well. Enums should be printed as NAME or ORDINAL probably.
+                // TODO: IGNITE-27629; I'm sure there's a better way to do this. Probably look at the types directly.
+                // TODO: IGNITE-27629; Raise an exception on else. We cannot allow Binary Objects after this point.
+                // TODO: IGNITE-27629; Create a test with Enum.
+                // TODO: IGNITE-27629; Add option to serialize enum to ordinal as well. Enums should be printed as NAME or ORDINAL probably.
                 if (val instanceof BinaryObject) {
                     BinaryObject bo = (BinaryObject) val;
                     if (bo.type().isEnum()) {
@@ -319,8 +319,8 @@ public abstract class AbstractSchemaColumnsProcessor
 
         Collection<String> additionalFieldOnType;
         if (packExtraFields) {
-            // TODO: GG-41598 Optimize with a custom serializer, without wrapping the cache Object in a wrapper class.
-            // TODO: GG-41598 Add test for the serialization
+            // TODO: IGNITE-27629 Optimize with a custom serializer, without wrapping the cache Object in a wrapper class.
+            // TODO: IGNITE-27629 Add test for the serialization
             if (!typeMappingInfo.additionalFieldsOnType.isEmpty()) {
                 byte[] data = jsonMapper.writeValueAsBytes(new WrapperClass(cacheObject, typeMappingInfo.additionalFieldsOnType));
                 ret.set(EXTRA_FIELDS_COLUMN_NAME, data);

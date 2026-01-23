@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -172,7 +175,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         }
     }
 
-    private static class SqlRowImpl implements SqlRow, BinaryTupleContainer {
+    static class SqlRowImpl implements SqlRow, BinaryTupleContainer {
         private final InternalSqlRow row;
 
         private final ResultSetMetadata meta;
@@ -239,85 +242,85 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public boolean booleanValue(String columnName) {
-            return (boolean) row.get(columnIndexChecked(columnName));
+            return (boolean) getValueNotNull(columnName);
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean booleanValue(int columnIndex) {
-            return (boolean) row.get(columnIndex);
+            return (boolean) getValueNotNull(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
         public byte byteValue(String columnName) {
-            return (byte) row.get(columnIndexChecked(columnName));
+            return (byte) getValueNotNull(columnName);
         }
 
         /** {@inheritDoc} */
         @Override
         public byte byteValue(int columnIndex) {
-            return (byte) row.get(columnIndex);
+            return (byte) getValueNotNull(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
         public short shortValue(String columnName) {
-            return (short) row.get(columnIndexChecked(columnName));
+            return (short) getValueNotNull(columnName);
         }
 
         /** {@inheritDoc} */
         @Override
         public short shortValue(int columnIndex) {
-            return (short) row.get(columnIndex);
+            return (short) getValueNotNull(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
         public int intValue(String columnName) {
-            return (int) row.get(columnIndexChecked(columnName));
+            return (int) getValueNotNull(columnName);
         }
 
         /** {@inheritDoc} */
         @Override
         public int intValue(int columnIndex) {
-            return (int) row.get(columnIndex);
+            return (int) getValueNotNull(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
         public long longValue(String columnName) {
-            return (long) row.get(columnIndexChecked(columnName));
+            return (long) getValueNotNull(columnName);
         }
 
         /** {@inheritDoc} */
         @Override
         public long longValue(int columnIndex) {
-            return (long) row.get(columnIndex);
+            return (long) getValueNotNull(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
         public float floatValue(String columnName) {
-            return (float) row.get(columnIndexChecked(columnName));
+            return (float) getValueNotNull(columnName);
         }
 
         /** {@inheritDoc} */
         @Override
         public float floatValue(int columnIndex) {
-            return (float) row.get(columnIndex);
+            return (float) getValueNotNull(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
         public double doubleValue(String columnName) {
-            return (double) row.get(columnIndexChecked(columnName));
+            return (double) getValueNotNull(columnName);
         }
 
         /** {@inheritDoc} */
         @Override
         public double doubleValue(int columnIndex) {
-            return (double) row.get(columnIndex);
+            return (double) getValueNotNull(columnIndex);
         }
 
         /** {@inheritDoc} */
@@ -431,6 +434,26 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public String toString() {
             return S.tupleToString(this);
+        }
+
+        private Object getValueNotNull(int columnIndex) {
+            Object value = row.get(columnIndex);
+
+            if (value == null) {
+                throw new NullPointerException(format(IgniteUtils.NULL_TO_PRIMITIVE_ERROR_MESSAGE, columnIndex));
+            }
+
+            return value;
+        }
+
+        private Object getValueNotNull(String columnName) {
+            Object value = row.get(columnIndexChecked(columnName));
+
+            if (value == null) {
+                throw new NullPointerException(format(IgniteUtils.NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, columnName));
+            }
+
+            return value;
         }
     }
 }

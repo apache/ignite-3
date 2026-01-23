@@ -115,6 +115,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -563,11 +564,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static int defaultZoneId(CatalogManager catalog) {
-        return catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id();
+        return catalog.latestCatalog().defaultZone().id();
     }
 
     private static boolean hasDefaultZone(CatalogManager catalog) {
-        return catalog.catalog(catalog.latestCatalogVersion()).defaultZone() != null;
+        return catalog.latestCatalog().defaultZone() != null;
     }
 
     @Test
@@ -781,8 +782,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         {
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partitionGroupId);
 
-            int catalogVersion = node.catalogManager.latestCatalogVersion();
-            long timestamp = node.catalogManager.catalog(catalogVersion).time();
+            long timestamp = node.catalogManager.latestCatalog().time();
 
             byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(newAssignment, timestamp));
 
@@ -848,8 +848,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         // Write the new assignments to metastore as a pending assignments.
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
 
-        int catalogVersion = node.catalogManager.latestCatalogVersion();
-        long timestamp = node.catalogManager.catalog(catalogVersion).time();
+        long timestamp = node.catalogManager.latestCatalog().time();
 
         byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(newAssignment, timestamp));
 
@@ -968,8 +967,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         TableViewInternal table = unwrapTableViewInternal(node0.tableManager.table(TABLE_NAME));
         ZonePartitionId partitionGroupId = new ZonePartitionId(table.zoneId(), 0);
 
-        int catalogVersion = node0.catalogManager.latestCatalogVersion();
-        long timestamp = node0.catalogManager.catalog(catalogVersion).time();
+        long timestamp = node0.catalogManager.latestCatalog().time();
 
         byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, timestamp));
         byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments, timestamp);
@@ -1270,6 +1268,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsBasePath.raftLogPath());
 
+            LogSyncer partitionsLogSyncer = logStorageFactory.logSyncer();
+
             RaftGroupOptionsConfigurer partitionRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(logStorageFactory, partitionsBasePath.metaPath());
 
@@ -1430,7 +1430,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureManager,
-                            logStorageFactory,
+                            partitionsLogSyncer,
                             hybridClock,
                             commonScheduledExecutorService
                     ),
@@ -1526,7 +1526,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     storagePath.resolve("tx-state"),
                     threadPoolsManager.commonScheduler(),
                     threadPoolsManager.tableIoExecutor(),
-                    logStorageFactory,
+                    partitionsLogSyncer,
                     failureManager
             );
 
@@ -1589,7 +1589,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    logStorageFactory,
+                    partitionsLogSyncer,
                     partitionReplicaLifecycleManager,
                     minTimeCollectorService,
                     systemDistributedConfiguration,

@@ -19,13 +19,13 @@ package org.apache.ignite.internal.raft.storage;
 
 import java.util.Set;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 /** Log storage factory interface. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22766
-public interface LogStorageFactory extends LogSyncer, IgniteComponent {
+public interface LogStorageFactory extends IgniteComponent {
     /**
      * Creates a log storage.
      *
@@ -49,4 +49,11 @@ public interface LogStorageFactory extends LogSyncer, IgniteComponent {
      * in parallel with this call).
      */
     Set<String> raftNodeStorageIdsOnDisk();
+
+    /**
+     * Returns an instance of {@link LogSyncer} for synchronizing the write-ahead log shared between the storages created by this factory.
+     */
+    default LogSyncer logSyncer() {
+        return new NoOpLogSyncer();
+    }
 }

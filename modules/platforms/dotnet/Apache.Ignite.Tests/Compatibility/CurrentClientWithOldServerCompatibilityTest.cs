@@ -35,7 +35,7 @@ using NUnit.Framework;
 using TestHelpers;
 
 [TestFixture("3.0.0")]
-[Platform("Linux", Reason = "Faster runs on CI")]
+[Category(TestUtils.CategoryIntensive)]
 public class CurrentClientWithOldServerCompatibilityTest
 {
     private const string TableNameTest = "TEST";

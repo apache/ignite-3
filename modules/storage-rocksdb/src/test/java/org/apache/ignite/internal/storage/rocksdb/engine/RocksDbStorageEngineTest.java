@@ -88,5 +88,7 @@ public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTes
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((RocksDbProfileView) view).sizeBytes(), is(12345L));
         }
+
+        assertThat(anotherEngine.requiredOffHeapMemorySize(), is(12345L));
     }
 }

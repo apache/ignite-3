@@ -45,6 +45,8 @@ public class RocksDbStorageProfile {
     /** Write buffer manager instance. */
     private WriteBufferManager writeBufferManager;
 
+    private volatile long regionSize;
+
     /**
      * Constructor.
      *
@@ -59,6 +61,8 @@ public class RocksDbStorageProfile {
      */
     public void start() {
         long writeBufferSize = storageProfileConfig.writeBufferSizeBytes().value();
+
+        regionSize = sizeBytes();
 
         long totalCacheSize = sizeBytes() + writeBufferSize;
 
@@ -81,6 +85,10 @@ public class RocksDbStorageProfile {
         }
 
         return dataRegionSize;
+    }
+
+    long regionSize() {
+        return regionSize;
     }
 
     /**

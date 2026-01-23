@@ -415,7 +415,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                         "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
                         nodeId, type, addr, connectionManager.localBindAddress()
                 );
-            } else if (!hasCause(ex, NodeStoppingException.class) && LOG.isInfoEnabled()) {
+            } else if (!ignorableHandshakeException(ex) && LOG.isInfoEnabled()) {
                 // TODO IGNITE-25802 Detect a LOOP rejection reason and retry the connection.
                 LOG.info(
                         "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",
@@ -423,6 +423,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 );
             }
         }
+    }
+
+    private static boolean ignorableHandshakeException(Throwable ex) {
+        return hasCause(ex, NodeStoppingException.class, RecipientLeftException.class);
     }
 
     private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {
@@ -763,7 +767,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /**
      * Timeout object wrapper for the completable future.
      */
-    private static class TimeoutObjectImpl implements TimeoutObject<CompletableFuture<NetworkMessage>> {
+    private static class TimeoutObjectImpl implements TimeoutObject<NetworkMessage> {
         /** End time (milliseconds since Unix epoch). */
         private final long endTime;
 

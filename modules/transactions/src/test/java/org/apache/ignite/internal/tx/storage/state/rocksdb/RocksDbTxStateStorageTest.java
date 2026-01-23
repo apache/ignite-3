@@ -54,7 +54,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     private ExecutorService executor;
 
     @Override
-    protected TxStateRocksDbStorage createTableOrZoneStorage() {
+    protected TxStateRocksDbStorage createZoneStorage() {
         return new TxStateRocksDbStorage(
                 ZONE_ID,
                 3,

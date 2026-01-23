@@ -98,7 +98,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
             ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
             ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
-            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT
+            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
+            ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS,
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -925,7 +927,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     void checkTimeouts(long now) {
         for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
-            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
+            TimeoutObject<ClientMessageUnpacker> timeoutObject = req.getValue();
 
             if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
                 // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
@@ -939,7 +941,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /**
      * Timeout object wrapper for the completable future.
      */
-    private static class TimeoutObjectImpl implements TimeoutObject<CompletableFuture<ClientMessageUnpacker>> {
+    private static class TimeoutObjectImpl implements TimeoutObject<ClientMessageUnpacker> {
         /** End time (milliseconds since Unix epoch). */
         private final long endTime;
 
