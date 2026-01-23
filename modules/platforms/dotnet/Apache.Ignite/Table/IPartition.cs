@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Table;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Table partition.
