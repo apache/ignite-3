@@ -82,7 +82,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
      *
      * @param ctx Execution context.
      * @param cond Join expression.
-     * @param correlationIds Set of collections ids.
+     * @param correlationIds Set of correlation ids.
      * @param joinType Join rel type.
      * @param rightRowFactory Right row factory.
      * @param joinProjection Output row factory.
