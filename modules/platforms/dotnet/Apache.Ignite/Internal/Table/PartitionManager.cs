@@ -129,12 +129,13 @@ internal sealed class PartitionManager : IPartitionDistribution, IPartitionManag
 
         var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
         var result = new List<IPartition>();
-        var nodes = replicas.Nodes;
-        var partitions = GetCachedPartitionArray(nodes.Length);
+        var nodesByPartition = replicas.Nodes;
+        var partitions = GetCachedPartitionArray(nodesByPartition.Length);
 
-        for (var i = 0; i < nodes.Length; i++)
+        for (var i = 0; i < nodesByPartition.Length; i++)
         {
-            if (nodes[i].Equals(node))
+            // Compare only by name (consistent id).
+            if (nodesByPartition[i].Name == node.Name)
             {
                 result.Add(partitions[i]);
             }
