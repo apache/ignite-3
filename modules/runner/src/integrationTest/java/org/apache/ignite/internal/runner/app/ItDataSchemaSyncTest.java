@@ -166,7 +166,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         IgniteSql sql = ignite1.sql();
 
-        ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
+        ResultSet<SqlRow> res = sql.execute("SELECT valint2 FROM tbl1");
 
         for (int i = 0; i < 10; ++i) {
             assertNotNull(res.next().iterator().next());
@@ -182,7 +182,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         res.close();
 
-        res = sql.execute(null, "SELECT sum(valint4) FROM tbl1");
+        res = sql.execute("SELECT sum(valint4) FROM tbl1");
 
         assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
 

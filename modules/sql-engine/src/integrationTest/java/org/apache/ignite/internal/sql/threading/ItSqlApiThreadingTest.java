@@ -43,6 +43,7 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -128,7 +129,7 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
         // cursor even after we call its second page.
         Statement statement = igniteSql.statementBuilder().query(SELECT_QUERY).pageSize(1).build();
 
-        return igniteSql.executeAsync(null, statement).get(10, SECONDS);
+        return igniteSql.executeAsync((Transaction) null, statement).get(10, SECONDS);
     }
 
     @ParameterizedTest
@@ -190,8 +191,8 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum SqlAsyncOperation {
-        EXECUTE_QUERY_ASYNC(sql -> sql.executeAsync(null, SELECT_QUERY)),
-        EXECUTE_STATEMENT_ASYNC(sql -> sql.executeAsync(null, sql.createStatement(SELECT_QUERY))),
+        EXECUTE_QUERY_ASYNC(sql -> sql.executeAsync(SELECT_QUERY)),
+        EXECUTE_STATEMENT_ASYNC(sql -> sql.executeAsync((Transaction) null, sql.createStatement(SELECT_QUERY))),
         // TODO: IGNITE-18695 - uncomment 2 following lines.
         // EXECUTE_QUERY_WITH_MAPPER_ASYNC(sql -> sql.executeAsync(null, (Mapper<?>) null, SELECT_QUERY)),
         // EXECUTE_STATEMENT_WITH_MAPPER_ASYNC(sql -> sql.executeAsync(null, (Mapper<?>) null, sql.createStatement(SELECT_QUERY))),

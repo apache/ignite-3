@@ -411,7 +411,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     public void testCurrentUser() {
         IgniteSql sql = igniteSql();
 
-        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT CURRENT_USER")) {
+        try (ResultSet<SqlRow> rs = sql.execute("SELECT CURRENT_USER")) {
             assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
             assertTrue(rs.hasNext());
             assertEquals(Commons.SYSTEM_USER_NAME, rs.next().stringValue(0));
@@ -421,7 +421,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)");
         sql("INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)");
 
-        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+        try (ResultSet<SqlRow> rs = sql.execute("SELECT val FROM t1 WHERE val = CURRENT_USER")) {
             assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
             assertTrue(rs.hasNext());
             assertEquals(Commons.SYSTEM_USER_NAME, rs.next().stringValue(0));

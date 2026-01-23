@@ -29,6 +29,8 @@ dependencies {
 
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
+
+    testImplementation testFixtures(project(':ignite-core'))
 }
 
 def platformsHeadersDir = file("${buildDir}/platforms/")

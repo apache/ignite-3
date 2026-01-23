@@ -825,7 +825,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteColocatedEscapedTableName() {
         var tableName = "\"TBL ABC\"";
-        client().sql().execute(null, "CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
+        client().sql().execute("CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
 
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
         TestPojo pojoKey = new TestPojo(1);

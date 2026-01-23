@@ -143,8 +143,8 @@ public class PublicApiClientRecordView<R> extends PublicApiClientViewBase<R> imp
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
-        return executeSyncOp(() -> view.replace(tx, oldRec, newRec));
+    public boolean replaceExact(@Nullable Transaction tx, R oldRec, R newRec) {
+        return executeSyncOp(() -> view.replaceExact(tx, oldRec, newRec));
     }
 
     @Override
@@ -153,8 +153,8 @@ public class PublicApiClientRecordView<R> extends PublicApiClientViewBase<R> imp
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec) {
-        return executeAsyncOp(() -> view.replaceAsync(tx, oldRec, newRec));
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, R oldRec, R newRec) {
+        return executeAsyncOp(() -> view.replaceExactAsync(tx, oldRec, newRec));
     }
 
     @Override

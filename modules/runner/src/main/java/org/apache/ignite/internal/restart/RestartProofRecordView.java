@@ -145,8 +145,8 @@ class RestartProofRecordView<R> extends RestartProofApiObject<RecordView<R>> imp
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
-        return attached(view -> view.replace(tx, oldRec, newRec));
+    public boolean replaceExact(@Nullable Transaction tx, R oldRec, R newRec) {
+        return attached(view -> view.replaceExact(tx, oldRec, newRec));
     }
 
     @Override
@@ -155,8 +155,8 @@ class RestartProofRecordView<R> extends RestartProofApiObject<RecordView<R>> imp
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec) {
-        return attachedAsync(view -> view.replaceAsync(tx, oldRec, newRec));
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, R oldRec, R newRec) {
+        return attachedAsync(view -> view.replaceExactAsync(tx, oldRec, newRec));
     }
 
     @Override

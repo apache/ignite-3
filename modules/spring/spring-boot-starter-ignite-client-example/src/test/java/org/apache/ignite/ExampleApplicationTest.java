@@ -100,7 +100,7 @@ public class ExampleApplicationTest {
 
     private void verifyApplicationRun() {
         boolean tableExists = cluster.aliveNode().tables().tables().stream().anyMatch(t -> t.qualifiedName().objectName().equals("PERSON"));
-        ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute(null, "SELECT COUNT(*) FROM PERSON");
+        ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute("SELECT COUNT(*) FROM PERSON");
         long rowsCount = resultSet.next().longValue(0);
 
         assertTrue(tableExists);

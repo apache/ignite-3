@@ -70,7 +70,7 @@ public class IgniteClientWithConfigExample {
             // You can use the client here.
             //
             //--------------------------------------------------------------------------------------
-            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
+            client.sql().execute("CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
         }
     }
 }
