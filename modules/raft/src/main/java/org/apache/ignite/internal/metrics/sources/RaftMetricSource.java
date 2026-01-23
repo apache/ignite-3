@@ -45,8 +45,9 @@ import org.jetbrains.annotations.Nullable;
 public class RaftMetricSource implements MetricSource, RaftGroupListener {
     public static final String SOURCE_NAME = "raft";
 
-    private static final VarHandle ENABLED;
     public static final String RAFT_GROUP_LEADERS = "raft.group.leaders";
+
+    private static final VarHandle ENABLED;
 
     static {
         try {

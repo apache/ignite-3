@@ -1,0 +1,83 @@
+package org.apache.ignite.internal.metrics;
+
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.internal.Cluster;
+
+/** Utility class for testing metrics. */
+public class TestMetricUtils {
+
+    /**
+     * Tests that the given operation increases the specified metrics by the expected values.
+     *
+     * @param cluster Cluster instance.
+     * @param sourceName Name of the source to get metric set from.
+     * @param metricNames Metric names to be checked.
+     * @param expectedValues Expected values to increase the metrics.
+     * @param op Operation to be executed.
+     */
+    public static void testMetricChangeAfterOperation(
+            Cluster cluster,
+            String sourceName,
+            List<String> metricNames,
+            List<Long> expectedValues,
+            Runnable op
+    ) {
+        Map<String, Long> before = metricValues(cluster, sourceName, metricNames);
+
+        op.run();
+
+        Map<String, Long> after = metricValues(cluster, sourceName, metricNames);
+
+        for (int i = 0; i < metricNames.size(); i++) {
+            String metricName = metricNames.get(i);
+            long expected = expectedValues.get(i);
+            long actual = after.get(metricName) - before.get(metricName);
+
+            assertThat("Metric " + metricName + " value mismatch", actual, is(expected));
+        }
+    }
+
+    /**
+     * Returns the sum of the specified metrics on all nodes.
+     *
+     * @param metricNames Metric names.
+     * @return Map of metric names to their values.
+     */
+    private static Map<String, Long> metricValues(Cluster cluster, String sourceName, List<String> metricNames) {
+        Map<String, Long> values = new HashMap<>(metricNames.size());
+
+        for (int i = 0; i < cluster.runningNodes().count(); i++) {
+            MetricSet metricSet = unwrapIgniteImpl(cluster.node(i)).metricManager().metricSnapshot().metrics()
+                    .get(sourceName);
+
+            assertThat(metricSet, is(notNullValue()));
+
+            for (String metricName : metricNames) {
+                Metric metric = metricSet.get(metricName);
+
+                assertThat(metric, is(notNullValue()));
+
+                if (metric instanceof IntMetric) {
+                    values.merge(metricName, (long) ((IntMetric) metric).value(), Long::sum);
+                } else {
+                    assertThat(
+                            "Not a LongMetric / IntMetric [name=" + metricName + ", class=" + metric.getClass().getSimpleName() + ']',
+                            metric,
+                            instanceOf(LongMetric.class));
+
+                    values.merge(metricName, ((LongMetric) metric).value(), Long::sum);
+                }
+            }
+        }
+
+        return values;
+    }
+}
