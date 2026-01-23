@@ -114,9 +114,12 @@ internal sealed class PartitionManager : IPartitionDistribution, IPartitionManag
     public async ValueTask<IReadOnlyList<IPartition>> GetPartitionsAsync()
     {
         var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
-        var partitionCount = replicas.Nodes.Length;
+        var partitionsCount = replicas.Nodes.Length;
+        var cached = GetCachedPartitionArray(partitionsCount);
 
-        return GetPartitionList(partitionCount);
+        return cached.Length == partitionsCount
+            ? cached
+            : cached[..partitionsCount];
     }
 
     /// <inheritdoc/>
@@ -171,19 +174,6 @@ internal sealed class PartitionManager : IPartitionDistribution, IPartitionManag
             _partitions = parts;
             return parts;
         }
-    }
-
-    private static IReadOnlyList<IPartition> GetPartitionList(int count)
-    {
-        var parts = GetCachedPartitionArray(count);
-        var result = new List<IPartition>(count);
-
-        for (var i = 0; i < count; i++)
-        {
-            result.Add(parts[i]);
-        }
-
-        return result;
     }
 
     private async ValueTask<PrimaryReplicas> GetPrimaryReplicasInternalAsync()
