@@ -19,10 +19,13 @@ package org.apache.ignite.internal.metrics.sources;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
@@ -30,15 +33,20 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Metrics of striped disruptor.
  */
-public class RaftMetricSource implements MetricSource {
-    private static final String SOURCE_NAME = "raft";
+public class RaftMetricSource implements MetricSource, RaftGroupListener {
+    public static final String SOURCE_NAME = "raft";
 
     private static final VarHandle ENABLED;
+    public static final String RAFT_GROUP_LEADERS = "raft.group.leaders";
 
     static {
         try {
@@ -75,20 +83,39 @@ public class RaftMetricSource implements MetricSource {
         this.metrics = createMetrics();
     }
 
-    /** Called when the node becomes leader for a partition.
-     *
-     * @param raftNodeId Raft node ID.
-     */
-    public void onLeaderStarted(RaftNodeId raftNodeId) {
+    @Override
+    public void onLeaderStart(RaftNodeId raftNodeId) {
         leaderNodeIds.add(raftNodeId);
     }
 
-    /** Called when the node steps down as leader for a partition or is shutdown.
-     *
-     * @param raftNodeId Raft node ID.
-     */
-    public void onLeaderStopped(RaftNodeId raftNodeId) {
+    @Override
+    public void onLeaderStop(RaftNodeId raftNodeId) {
         leaderNodeIds.remove(raftNodeId);
+    }
+
+    @Override
+    public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
+        // No-op.
+    }
+
+    @Override
+    public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+        // No-op.
+    }
+
+    @Override
+    public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
+        // No-op.
+    }
+
+    @Override
+    public boolean onSnapshotLoad(Path path) {
+        return true;
+    }
+
+    @Override
+    public void onShutdown() {
+        // No-op.
     }
 
     @Override
@@ -166,7 +193,7 @@ public class RaftMetricSource implements MetricSource {
                         LongStream.range(0, logStripeCount).toArray()
                 ));
 
-        metrics.put("raft.group.leaders",
+        metrics.put(RAFT_GROUP_LEADERS,
                 new IntGauge("Number of raft groups node is a leader of",
                         "Number of raft groups where this node is the leader",
                         leaderNodeIds::size
@@ -196,10 +223,6 @@ public class RaftMetricSource implements MetricSource {
     @Override
     public boolean enabled() {
         return enabled;
-    }
-
-    public int leaderMetric() {
-        return ((IntGauge) metrics.get("raft.group.leaders")).value();
     }
 
     /**

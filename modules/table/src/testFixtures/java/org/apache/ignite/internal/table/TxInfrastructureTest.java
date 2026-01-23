@@ -296,10 +296,14 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-            TablePartitionProcessor listener = (TablePartitionProcessor) ((ZonePartitionRaftListener) fsm.getListener())
-                    .tableProcessor(table.tableId());
+            TablePartitionProcessor tableProcessor = fsm.getListeners().stream()
+                    .filter(ZonePartitionRaftListener.class::isInstance)
+                    .map(ZonePartitionRaftListener.class::cast)
+                    .map(listener -> (TablePartitionProcessor) listener.tableProcessor(table.tableId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("ZonePartitionRaftListener not found"));
 
-            MvPartitionStorage storage = listener.getMvStorage();
+            MvPartitionStorage storage = tableProcessor.getMvStorage();
 
             if (storageIdx == 0) {
                 storageIdx = storage.lastAppliedIndex();

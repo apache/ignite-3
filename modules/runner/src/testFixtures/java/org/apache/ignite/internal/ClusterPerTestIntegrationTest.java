@@ -257,7 +257,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
     }
 
-    protected static String aggressiveLowWatermarkIncreaseClusterConfig() {
+    public static String aggressiveLowWatermarkIncreaseClusterConfig() {
         return "{\n"
                 + "  ignite.gc.lowWatermark {\n"
                 + "    dataAvailabilityTimeMillis: 1000,\n"

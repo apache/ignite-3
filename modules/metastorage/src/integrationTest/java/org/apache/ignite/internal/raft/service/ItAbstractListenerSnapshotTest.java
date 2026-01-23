@@ -388,7 +388,14 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         JraftServerImpl.DelegatingStateMachine fsm =
                 (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-        return (T) fsm.getListener();
+        for (RaftGroupListener listener : fsm.getListeners()) {
+            if (listener.getClass().isAssignableFrom(listener.getClass())) {
+                return (T) listener;
+            }
+        }
+
+        // Shouldn't happen.
+        return null;
     }
 
     /**

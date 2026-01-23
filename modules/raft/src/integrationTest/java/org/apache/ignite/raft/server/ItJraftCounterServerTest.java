@@ -973,7 +973,9 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         var fsm0 = (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-        return expected == ((CounterListener) fsm0.getListener()).value();
+        return fsm0.getListeners().stream()
+                .filter(CounterListener.class::isInstance)
+                .anyMatch(listener -> ((CounterListener) listener).value() == expected);
     }
 
     @Test

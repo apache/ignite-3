@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -87,7 +88,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
                 getMockRaftNodeId(),
-                TEST_LISTENER,
+                List.of(TEST_LISTENER),
                 mock(NodeOptions.class),
                 testFailureManager(reached)
         );
@@ -103,7 +104,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
                 getMockRaftNodeId(),
-                TEST_LISTENER,
+                List.of(TEST_LISTENER),
                 mock(NodeOptions.class),
                 testFailureManager(reached)
         );
@@ -123,7 +124,7 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
                 getMockRaftNodeId(),
-                TEST_LISTENER,
+                List.of(TEST_LISTENER),
                 mock(NodeOptions.class),
                 testFailureManager(reached)
         );

@@ -168,7 +168,11 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
     }
 
     private static HybridTimestamp currentSafeTime(DelegatingStateMachine fsm) {
-        ZonePartitionRaftListener zonePartitionRaftListener = (ZonePartitionRaftListener) fsm.getListener();
-        return zonePartitionRaftListener.currentSafeTime();
+        return fsm.getListeners().stream()
+                .filter(ZonePartitionRaftListener.class::isInstance)
+                .map(ZonePartitionRaftListener.class::cast)
+                .map(ZonePartitionRaftListener::currentSafeTime)
+                .findAny()
+                .get();
     }
 }

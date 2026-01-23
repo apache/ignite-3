@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Iterator;import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -100,7 +100,6 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      */
     protected void handleRequestInternal(RpcContext rpcCtx, Node node, ActionRequest request, Marshaller commandsMarshaller) {
         DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
-        RaftGroupListener listener = fsm.getListener();
 
         if (request instanceof WriteActionRequest) {
             WriteActionRequest writeRequest = (WriteActionRequest)request;
@@ -111,26 +110,33 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 command = commandsMarshaller.unmarshall(writeRequest.command());
             }
 
-            if (listener instanceof BeforeApplyHandler) {
-                synchronized (groupIdSyncMonitor(request.groupId())) {
-                    Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
+            for (RaftGroupListener listener : fsm.getListeners()) {
+                if (listener instanceof BeforeApplyHandler) {
+                    synchronized (groupIdSyncMonitor(request.groupId())) {
+                        Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
 
-                    writeRequest = patchRequest(writeRequest, command, patchedCommand, commandsMarshaller);
+                        writeRequest = patchRequest(writeRequest, command, patchedCommand, commandsMarshaller);
 
-                    applyWrite(node, writeRequest, (WriteCommand) patchedCommand, rpcCtx);
+                        command = (WriteCommand) patchedCommand;
+                    }
+                    break;
                 }
-            } else {
-                applyWrite(node, writeRequest, command, rpcCtx);
             }
+
+            applyWrite(node, writeRequest, command, rpcCtx);
         } else {
             ReadActionRequest readRequest = (ReadActionRequest) request;
 
-            if (listener instanceof BeforeApplyHandler) {
-                ReadCommand command = readRequest.command();
+            for (RaftGroupListener listener : fsm.getListeners()) {
+                if (listener instanceof BeforeApplyHandler) {
+                    ReadCommand command = readRequest.command();
 
-                Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
+                    Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
 
-                readRequest = patchRequest(readRequest, command, patchedCommand, commandsMarshaller);
+                    readRequest = patchRequest(readRequest, command, patchedCommand, commandsMarshaller);
+
+                    break;
+                }
             }
 
             applyRead(node, readRequest, rpcCtx);
@@ -227,47 +233,36 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             node.readIndex(BytesUtil.EMPTY_BYTES, new ReadIndexClosure() {
                 @Override public void run(Status status, long index, byte[] reqCtx) {
                     if (status.isOk()) {
-                        JraftServerImpl.DelegatingStateMachine fsm =
-                                (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
-
-                        try {
-                            fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
-                                @Override public ReadCommand command() {
-                                    return request.command();
-                                }
-
-                                @Override public void result(Serializable res) {
-                                    sendResponse(res, rpcCtx);
-                                }
-                            }).iterator());
-                        }
-                        catch (Exception e) {
-                            sendRaftError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
-                        }
+                        applyReadInternal(node, request, rpcCtx);
                     }
                     else
                         sendRaftError(rpcCtx, status, node);
                 }
             });
         } else {
-            // TODO asch remove copy paste, batching https://issues.apache.org/jira/browse/IGNITE-14832
-            JraftServerImpl.DelegatingStateMachine fsm =
-                    (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
+            // TODO asch batching https://issues.apache.org/jira/browse/IGNITE-14832
+            applyReadInternal(node, request, rpcCtx);
+        }
+    }
+    private void applyReadInternal(Node node, ReadActionRequest request, RpcContext rpcCtx) {
+        DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
 
-            try {
-                fsm.getListener().onRead(List.<CommandClosure<ReadCommand>>of(new CommandClosure<>() {
-                    @Override public ReadCommand command() {
-                        return request.command();
-                    }
+        try {
+            List<CommandClosure<ReadCommand>> list = List.of(new CommandClosure<>() {
+                @Override public ReadCommand command() {
+                    return request.command();
+                }
 
-                    @Override public void result(Serializable res) {
-                        sendResponse(res, rpcCtx);
-                    }
-                }).iterator());
+                @Override public void result(Serializable res) {
+                    sendResponse(res, rpcCtx);
+                }
+            });
+
+            for (RaftGroupListener listener : fsm.getListeners()) {
+                listener.onRead(list.iterator());
             }
-            catch (Exception e) {
-                sendRaftError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
-            }
+        } catch (Exception e) {
+            sendRaftError(rpcCtx, RaftError.ESTATEMACHINE, e.getMessage());
         }
     }
 
