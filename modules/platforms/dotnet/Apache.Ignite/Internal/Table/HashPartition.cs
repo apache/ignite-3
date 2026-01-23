@@ -23,8 +23,11 @@ using Ignite.Table;
 /// Hash partition.
 /// </summary>
 /// <param name="PartitionId">Partition id.</param>
-internal sealed record HashPartition(int PartitionId) : IPartition // Not a struct to avoid interface boxing.
+internal sealed record HashPartition(long PartitionId) : IPartition // Not a struct to avoid interface boxing.
 {
+    /// <inheritdoc/>
+    public long Id => PartitionId;
+
     /// <inheritdoc/>
     public bool Equals(IPartition? other) =>
         other is HashPartition hashPart && Equals(hashPart);

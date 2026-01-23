@@ -34,7 +34,9 @@ using Serialization;
 /// <summary>
 /// Table partition manager.
 /// </summary>
+#pragma warning disable CS0618 // Type or member is obsolete
 internal sealed class PartitionManager : IPartitionManager
+#pragma warning restore CS0618 // Type or member is obsolete
 {
     private static readonly object PartitionsLock = new();
 
@@ -108,6 +110,36 @@ internal sealed class PartitionManager : IPartitionManager
         GetPartitionInternalAsync(key, new MapperSerializerHandler<TK>(mapper));
 
     /// <inheritdoc/>
+    public async ValueTask<IReadOnlyList<IPartition>> GetPartitionsAsync()
+    {
+        var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
+        var partitionCount = replicas.Nodes.Length;
+
+        return GetPartitionList(partitionCount);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<IReadOnlyList<IPartition>> GetPrimaryReplicasAsync(IClusterNode node)
+    {
+        IgniteArgumentCheck.NotNull(node);
+
+        var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
+        var result = new List<IPartition>();
+        var nodes = replicas.Nodes;
+        var partitions = GetCachedPartitionArray(nodes.Length);
+
+        for (var i = 0; i < nodes.Length; i++)
+        {
+            if (nodes[i].Equals(node))
+            {
+                result.Add(partitions[i]);
+            }
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
     public override string ToString() =>
         new IgniteToStringBuilder(GetType())
             .Append(_table, "Table")
@@ -140,6 +172,19 @@ internal sealed class PartitionManager : IPartitionManager
         }
     }
 
+    private static IReadOnlyList<IPartition> GetPartitionList(int count)
+    {
+        var parts = GetCachedPartitionArray(count);
+        var result = new List<IPartition>(count);
+
+        for (var i = 0; i < count; i++)
+        {
+            result.Add(parts[i]);
+        }
+
+        return result;
+    }
+
     private async ValueTask<PrimaryReplicas> GetPrimaryReplicasInternalAsync()
     {
         // Socket.PartitionAssignmentTimestamp is updated on every response, including heartbeats,
@@ -165,7 +210,7 @@ internal sealed class PartitionManager : IPartitionManager
 
             for (var i = 0; i < count; i++)
             {
-                var id = r.ReadInt32();
+                var id = r.ReadInt64();
                 var node = ClusterNode.Read(ref r);
 
                 primaryReplicas[id] = node;

@@ -402,7 +402,7 @@ namespace Apache.Ignite.Tests
                     case ClientOp.StreamerWithReceiverBatchSend:
                     {
                         reader.ReadInt32(); // table
-                        reader.ReadInt32(); // partition
+                        reader.ReadInt64(); // partition
                         var unitCount = reader.ReadInt32();
                         reader.Skip(unitCount);
                         reader.ReadBoolean(); // returnResults.
@@ -431,7 +431,7 @@ namespace Apache.Ignite.Tests
                         {
                             var nodeId = PartitionAssignment[index];
 
-                            writer.Write(index); // Partition id.
+                            writer.Write((long)index); // Partition id.
                             writer.Write(4); // Prop count.
                             writer.Write(Guid.NewGuid()); // Id.
                             writer.Write(nodeId); // Name.

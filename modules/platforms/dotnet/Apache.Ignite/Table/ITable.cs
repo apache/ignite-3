@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Table
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using Internal.Table.Serialization;
@@ -50,7 +51,13 @@ namespace Apache.Ignite.Table
         /// <summary>
         /// Gets the partition manager.
         /// </summary>
+        [Obsolete("Replaced by PartitionDistribution property.")]
         public IPartitionManager PartitionManager { get; }
+
+        /// <summary>
+        /// Gets the partition distribution.
+        /// </summary>
+        public IPartitionDistribution PartitionDistribution { get; }
 
         /// <summary>
         /// Gets the record view mapped to specified type <typeparamref name="T"/>.

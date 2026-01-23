@@ -17,59 +17,14 @@
 
 namespace Apache.Ignite.Table;
 
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Threading.Tasks;
-using Internal.Table.Serialization;
-using Mapper;
-using Network;
+using System;
 
 /// <summary>
 /// Partition manager provides table partition information.
+/// This interface can be used to get all partitions of a table, the location of the primary replica of a partition,
+/// the partition for a specific table key.
 /// </summary>
-public interface IPartitionManager
+[Obsolete("Replaced by IPartitionDistribution. Use PartitionDistribution property instead.")]
+public interface IPartitionManager : IPartitionDistribution
 {
-    /// <summary>
-    /// Gets the primary replicas for all partitions.
-    /// <para />
-    /// NOTE: Prefer <see cref="GetPrimaryReplicaAsync"/> for performance-critical code.
-    /// </summary>
-    /// <returns>Map of partition to primary replica node.</returns>
-    ValueTask<IReadOnlyDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync();
-
-    /// <summary>
-    /// Gets the primary replica for the specified partition.
-    /// <para />
-    /// NOTE: Prefer this method over <see cref="GetPrimaryReplicasAsync"/> for performance-critical code.
-    /// </summary>
-    /// <param name="partition">Partition.</param>
-    /// <returns>Primary replica.</returns>
-    ValueTask<IClusterNode> GetPrimaryReplicaAsync(IPartition partition);
-
-    /// <summary>
-    /// Gets the partition for the specified table key.
-    /// </summary>
-    /// <param name="tuple">Table key tuple.</param>
-    /// <returns>Partition that contains the specified key.</returns>
-    ValueTask<IPartition> GetPartitionAsync(IIgniteTuple tuple);
-
-    /// <summary>
-    /// Gets the partition for the specified table key.
-    /// </summary>
-    /// <param name="key">Table key.</param>
-    /// <returns>Partition that contains the specified key.</returns>
-    /// <typeparam name="TK">Key type.</typeparam>
-    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
-    ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
-        where TK : notnull;
-
-    /// <summary>
-    /// Gets the partition for the specified table key.
-    /// </summary>
-    /// <param name="key">Table key.</param>
-    /// <param name="mapper">Mapper for the key.</param>
-    /// <returns>Partition that contains the specified key.</returns>
-    /// <typeparam name="TK">Key type.</typeparam>
-    ValueTask<IPartition> GetPartitionAsync<TK>(TK key, IMapper<TK> mapper)
-        where TK : notnull;
 }

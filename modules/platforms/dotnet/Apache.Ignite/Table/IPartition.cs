@@ -23,7 +23,10 @@ using System.Diagnostics.CodeAnalysis;
 /// <summary>
 /// Table partition.
 /// </summary>
-[SuppressMessage("Design", "CA1040:Avoid empty interfaces", Justification = "Reviewed.")]
 public interface IPartition : IEquatable<IPartition>
 {
+    /// <summary>
+    /// Gets the identifier of the partition. The identifier is only guaranteed to be unique in the context of a table.
+    /// </summary>
+    long Id { get; }
 }

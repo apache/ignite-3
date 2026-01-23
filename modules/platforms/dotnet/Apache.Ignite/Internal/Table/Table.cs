@@ -133,7 +133,12 @@ namespace Apache.Ignite.Internal.Table
         public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
 
         /// <inheritdoc/>
+#pragma warning disable CS0618 // Type or member is obsolete
         public IPartitionManager PartitionManager { get; }
+#pragma warning restore CS0618 // Type or member is obsolete
+
+        /// <inheritdoc/>
+        public IPartitionDistribution PartitionDistribution => PartitionManager;
 
         /// <summary>
         /// Gets the associated socket.
