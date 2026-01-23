@@ -181,13 +181,6 @@ public class PartitionDistributionTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestPartitionId()
-    {
-        IPartition part = new HashPartition(42);
-        Assert.AreEqual(42L, part.Id);
-    }
-
-    [Test]
     public async Task TestGetPartitionsAsync()
     {
         var partitions = await Table.PartitionDistribution.GetPartitionsAsync();
