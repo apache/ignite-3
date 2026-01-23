@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// ReSharper disable InheritdocInvalidUsage
 namespace Apache.Ignite.Internal.Table;
 
 using System;
