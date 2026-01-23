@@ -26,11 +26,12 @@ import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.jline.terminal.Terminal;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 /**
  * Tests for {@link PagerSupport}.
@@ -206,67 +207,37 @@ class PagerSupportTest {
     @DisplayName("default pager enabled based on OS")
     class DefaultPagerEnabledByOsTest {
 
-        private String originalOsName;
-
-        @BeforeEach
-        void saveOsName() {
-            originalOsName = System.getProperty("os.name");
-        }
-
-        @AfterEach
-        void restoreOsName() {
-            if (originalOsName != null) {
-                System.setProperty("os.name", originalOsName);
-            } else {
-                System.clearProperty("os.name");
-            }
-        }
-
         @Test
+        @EnabledOnOs(OS.WINDOWS)
         @DisplayName("returns false on Windows when not configured")
         void disabledByDefaultOnWindows() {
-            System.setProperty("os.name", "Windows 10");
-
             PagerSupport pager = createPagerSupportWithConfig(null);
 
             assertThat(pager.isPagerEnabled(), is(false));
         }
 
         @Test
-        @DisplayName("returns true on Linux when not configured")
-        void enabledByDefaultOnLinux() {
-            System.setProperty("os.name", "Linux");
-
+        @DisabledOnOs(OS.WINDOWS)
+        @DisplayName("returns true on non-Windows when not configured")
+        void enabledByDefaultOnNonWindows() {
             PagerSupport pager = createPagerSupportWithConfig(null);
 
             assertThat(pager.isPagerEnabled(), is(true));
         }
 
         @Test
-        @DisplayName("returns true on macOS when not configured")
-        void enabledByDefaultOnMacOs() {
-            System.setProperty("os.name", "Mac OS X");
-
-            PagerSupport pager = createPagerSupportWithConfig(null);
-
-            assertThat(pager.isPagerEnabled(), is(true));
-        }
-
-        @Test
+        @EnabledOnOs(OS.WINDOWS)
         @DisplayName("respects explicit true config on Windows")
         void explicitTrueOnWindows() {
-            System.setProperty("os.name", "Windows 10");
-
             PagerSupport pager = createPagerSupportWithConfig("true");
 
             assertThat(pager.isPagerEnabled(), is(true));
         }
 
         @Test
-        @DisplayName("respects explicit false config on Linux")
-        void explicitFalseOnLinux() {
-            System.setProperty("os.name", "Linux");
-
+        @DisabledOnOs(OS.WINDOWS)
+        @DisplayName("respects explicit false config on non-Windows")
+        void explicitFalseOnNonWindows() {
             PagerSupport pager = createPagerSupportWithConfig("false");
 
             assertThat(pager.isPagerEnabled(), is(false));
