@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -89,7 +89,7 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
     void testMultiThread(int pageSize, boolean batched) throws Exception {
         FreeList freeList = createFreeList(pageSize);
 
-        Map<Long, TestDataRow> stored = new ConcurrentHashMap<>();
+        Map<Long, TestDataRow> stored = new ConcurrentSkipListMap<>();
 
         AtomicBoolean grow = new AtomicBoolean(true);
 
