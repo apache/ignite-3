@@ -44,9 +44,12 @@ public class TempStorageImpl implements TempStorage {
 
     private final Executor executor;
 
-    public TempStorageImpl(Path storageDir, Executor executor) {
+    private final boolean caseInsensitiveFileSystem;
+
+    public TempStorageImpl(Path storageDir, Executor executor, boolean caseInsensitiveFileSystem) {
         this.storageDir = storageDir;
         this.executor = executor;
+        this.caseInsensitiveFileSystem = caseInsensitiveFileSystem;
     }
 
     @Override
@@ -79,5 +82,10 @@ public class TempStorageImpl implements TempStorage {
     @Override
     public void close() {
         IgniteUtils.deleteIfExists(storageDir);
+    }
+
+    @Override
+    public boolean isCaseInsensitiveFileSystem() {
+        return caseInsensitiveFileSystem;
     }
 }

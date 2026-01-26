@@ -33,6 +33,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -62,6 +63,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
@@ -113,12 +115,13 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
             fillDummyFile(bigFile, BIG_IN_BYTES);
         }
         if (!Files.exists(zipFile)) {
+            // Assign identical filenames to the files in different directories to test duplicate filenames detection
             createZipFile(Map.of(
-                    "a1/a2", SIZE_IN_BYTES,
-                    "b1", SIZE_IN_BYTES,
-                    "c1/c2/c3/c4", BIG_IN_BYTES,
-                    "d1/d2", SIZE_IN_BYTES,
-                    "d1/a2", SIZE_IN_BYTES
+                    "file1", SIZE_IN_BYTES,
+                    "dir1/file", SIZE_IN_BYTES,
+                    "dir2/dir/dir/file", BIG_IN_BYTES,
+                    "dir3/file1", SIZE_IN_BYTES,
+                    "dir3/file2", SIZE_IN_BYTES
             ), zipFile);
         }
     }
@@ -193,6 +196,73 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
                 () -> deploy(UNIT_ID, VERSION, false, smallFile, smallFile),
                 isProblem().withStatus(BAD_REQUEST).withDetail("Duplicate filename: small.txt")
         );
+    }
+
+    @Test
+    public void testDeployFailedWithCaseInsensitiveDuplicateFilenames() throws IOException {
+        // Create files with names that differ only in case.
+        Path file1 = createDummyFileInDir("case_test_1", "TestFile.txt");
+        Path file2 = createDummyFileInDir("case_test_2", "testfile.txt");
+
+        if (isCaseInsensitiveFileSystem()) {
+            assertThrowsProblem(
+                    () -> deploy(UNIT_ID, VERSION, false, file1, file2),
+                    isProblem().withStatus(BAD_REQUEST).withDetail(containsString("Duplicate filename: testfile.txt"))
+            );
+        } else {
+            assertThat(deploy(UNIT_ID, VERSION, false, file1, file2), hasStatus(OK));
+        }
+    }
+
+    @Test
+    public void testZipDeployFailedWithCaseInsensitiveDuplicates() throws IOException {
+        Path zipFileWithDuplicates = WORK_DIR.resolve("zipWithDuplicates.zip");
+
+        createZipWithCaseVariantEntries(zipFileWithDuplicates);
+
+        if (isCaseInsensitiveFileSystem()) {
+            assertThrowsProblem(
+                    () -> deploy(UNIT_ID, VERSION, true, zipFileWithDuplicates),
+                    isProblem().withStatus(BAD_REQUEST).withDetail(containsString("ZIP contains case-insensitive duplicate: testfile.txt"))
+            );
+        } else {
+            assertThat(deploy(UNIT_ID, VERSION, true, zipFileWithDuplicates), hasStatus(OK));
+        }
+    }
+
+    private static Path createDummyFileInDir(String dirName, String fileName) throws IOException {
+        Path file = WORK_DIR.resolve(dirName).resolve(fileName);
+        Files.createDirectories(file.getParent());
+        fillDummyFile(file, SIZE_IN_BYTES);
+        return file;
+    }
+
+    private static void createZipWithCaseVariantEntries(Path zipPath) throws IOException {
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipPath))) {
+            // Add first entry
+            ZipEntry entry1 = new ZipEntry("TestFile.txt");
+            zos.putNextEntry(entry1);
+            zos.write("content1".getBytes());
+            zos.closeEntry();
+
+            // Add second entry with same name but different case
+            ZipEntry entry2 = new ZipEntry("testfile.txt");
+            zos.putNextEntry(entry2);
+            zos.write("content2".getBytes());
+            zos.closeEntry();
+        }
+    }
+
+    private static boolean isCaseInsensitiveFileSystem() throws IOException {
+        // Check if filesystem is case-insensitive by testing if we can detect the case variation
+        Path probeFile = WORK_DIR.resolve("CaseSensitivityProbe");
+        Files.deleteIfExists(probeFile);
+        Files.createFile(probeFile);
+        try {
+            return Files.exists(WORK_DIR.resolve("casesensitivityprobe"));
+        } finally {
+            Files.deleteIfExists(probeFile);
+        }
     }
 
     @Test
