@@ -35,7 +35,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Implementation of {@link TempStorage} that stores files in a local file system directory.
  */
-public class TempStorageImpl implements TempStorage {
+class TempStorageImpl implements TempStorage {
     private static final IgniteLogger LOG = Loggers.forClass(TempStorageImpl.class);
 
     private final Path storageDir;
@@ -44,9 +44,12 @@ public class TempStorageImpl implements TempStorage {
 
     private final Executor executor;
 
-    public TempStorageImpl(Path storageDir, Executor executor) {
+    private final boolean caseInsensitiveFileSystem;
+
+    TempStorageImpl(Path storageDir, Executor executor, boolean caseInsensitiveFileSystem) {
         this.storageDir = storageDir;
         this.executor = executor;
+        this.caseInsensitiveFileSystem = caseInsensitiveFileSystem;
     }
 
     @Override
@@ -79,5 +82,10 @@ public class TempStorageImpl implements TempStorage {
     @Override
     public void close() {
         IgniteUtils.deleteIfExists(storageDir);
+    }
+
+    @Override
+    public boolean isCaseInsensitiveFileSystem() {
+        return caseInsensitiveFileSystem;
     }
 }
