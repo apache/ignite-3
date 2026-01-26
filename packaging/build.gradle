@@ -83,6 +83,36 @@ def tokens = [
         ADD_OPENS           : project.addOpens.join(' ')
 ]
 
+def defaultJreModules = [
+        'java.base',
+        'java.logging',
+        'java.naming',
+        'java.net.http',
+        'java.sql',
+        'java.xml',
+        'java.management',
+        'java.rmi',
+        'java.instrument',
+        'java.desktop',
+        'java.prefs',
+        'java.scripting',
+        'jdk.unsupported',
+        'jdk.zipfs',
+        'jdk.crypto.ec',
+        'jdk.security.auth'
+]
+
+def jreModules = new HashSet<>(defaultJreModules)
+project.addOpens.each { openArg ->
+    def normalized = openArg.replaceFirst(/^--add-opens=/, '')
+    def moduleName = normalized.split('/')[0]
+    if (moduleName) {
+        jreModules.add(moduleName)
+    }
+}
+
+ext.docker_jre_modules = jreModules.toList()
+
 def replaceVars = tasks.register('replaceVars', Copy) {
     from "$rootDir/packaging/common/linux/$tokens.SETUP_JAVA_FILE_NAME"
     from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
@@ -155,6 +185,11 @@ def dockerCliPush = tasks.register('dockerCliPush', Exec) {
 docker {
     name project.docker_image_name
     dockerfile file('docker/Dockerfile')
+    buildArgs(
+        [
+            JRE_MODULES: project.docker_jre_modules.join(',')
+        ]
+    )
 
     if (project.hasProperty('target_platform')) {
         platform project.properties["target_platform"]
