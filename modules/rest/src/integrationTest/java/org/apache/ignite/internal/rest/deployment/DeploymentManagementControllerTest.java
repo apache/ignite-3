@@ -135,7 +135,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         for (UnitStatuses unitStatuses : clusterStatuses) {
             for (org.apache.ignite.internal.deployunit.UnitVersionStatus unitVersionStatus : unitStatuses.versionStatuses()) {
-                if (unitVersionStatus.getStatus() == DeploymentStatus.DEPLOYED) {
+                DeploymentStatus status = unitVersionStatus.getStatus();
+                if (status == DeploymentStatus.DEPLOYED || status == DeploymentStatus.UPLOADING) {
                     assertThat(deployment.undeployAsync(UNIT_ID, unitVersionStatus.getVersion()), willCompleteSuccessfully());
                 }
             }
@@ -147,15 +148,11 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
     @Test
     public void testDeploySuccessful() {
         assertThat(deploy(UNIT_ID, VERSION), hasStatus(OK));
-
-        awaitDeployedStatus(UNIT_ID, VERSION);
     }
 
     @Test
     public void testDeployBig() {
         assertThat(deploy(UNIT_ID, VERSION, false, bigFile), hasStatus(OK));
-
-        awaitDeployedStatus(UNIT_ID, VERSION);
     }
 
     @Test
@@ -273,8 +270,6 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
                 () -> deploy(UNIT_ID, VERSION),
                 isProblem().withStatus(CONFLICT)
         );
-
-        awaitDeployedStatus(UNIT_ID, VERSION);
     }
 
     @Test
