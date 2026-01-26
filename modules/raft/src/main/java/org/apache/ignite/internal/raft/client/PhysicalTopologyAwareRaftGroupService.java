@@ -462,7 +462,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         var resultFuture = new CompletableFuture<R>();
 
         if (!busyLock.enterBusy()) {
-            resultFuture.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId() + "]."));
+            resultFuture.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
 
             return resultFuture;
         }
@@ -534,7 +534,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             }
 
             if (!busyLock.enterBusy()) {
-                resultFuture.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId() + "]."));
+                resultFuture.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
                 return;
             }
 
@@ -611,7 +611,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             RetryContext retryContext
     ) {
         if (!busyLock.enterBusy()) {
-            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId() + "]."));
+            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
             return;
         }
 
@@ -625,7 +625,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                     .thenCompose(node -> clusterService.messagingService().invoke(node, retryContext.request(), responseTimeout))
                     .whenComplete((resp, err) -> {
                         if (!busyLock.enterBusy()) {
-                            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId() + "]."));
+                            fut.completeExceptionally(
+                                    stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "].")
+                            );
                             return;
                         }
 
@@ -759,7 +761,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             long termWhenStarted
     ) {
         if (!busyLock.enterBusy()) {
-            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId() + "]."));
+            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
             return;
         }
 
@@ -792,7 +794,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                         peerThrottlingContextHolder.afterRequest(requestStartTime, retriableError(err, resp));
 
                         if (!busyLock.enterBusy()) {
-                            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId() + "]."));
+                            fut.completeExceptionally(
+                                    stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "].")
+                            );
                             return;
                         }
 
@@ -1301,7 +1305,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         busyLock.block();
 
         // Stop the leader availability state to cancel waiters and reject future requests.
-        leaderAvailabilityState.stop(stoppingExceptionFactory.create("Raft client is stopping [" + groupId() + "]."));
+        leaderAvailabilityState.stop(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
 
         finishSubscriptions();
 
