@@ -33,9 +33,6 @@ public:
 
     void start() {
         m_fd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (m_fd < 0) {
-            throw ignite_error("socket failed");
-        }
     }
 
     bool is_valid() const {
@@ -62,12 +59,8 @@ public:
         return ::bind(m_fd, reinterpret_cast<sockaddr*>(&srv_addr), sizeof(srv_addr));
     }
 
-    void listen() const {
-        int listen_res = ::listen(m_fd, 1);
-
-        if (listen_res < 0) {
-            throw std::runtime_error("listen failed");
-        }
+    int listen() const {
+        return ::listen(m_fd, 1);
     }
 
     void close() {

@@ -47,6 +47,10 @@ void fake_server::start() {
 
 void fake_server::start_socket() {
     m_srv_sock.start();
+
+    if (!m_srv_sock.is_valid()) {
+        throw ignite_error("socket failed");
+    }
 }
 
 void fake_server::bind_address_port() const {
@@ -60,7 +64,11 @@ void fake_server::bind_address_port() const {
 }
 
 void fake_server::start_socket_listen() const {
-    m_srv_sock.listen();
+    int listen_res = m_srv_sock.listen();
+
+    if (listen_res < 0) {
+        throw std::runtime_error("listen failed");
+    }
 
     m_logger->log_debug("fake server is listening on port=" + std::to_string(m_srv_port));
 }
