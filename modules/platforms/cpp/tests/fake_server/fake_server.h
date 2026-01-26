@@ -27,7 +27,11 @@
 
 #include <atomic>
 #include <thread>
+#ifdef _WIN32
+#include "socket_adapter/win/server_socket_adapter.h"
+#else
 #include <unistd.h>
+#endif
 
 using namespace ignite;
 
@@ -43,7 +47,18 @@ public:
         : m_srv_port(srv_port)
         , m_logger(std::move(logger))
         , m_op_type_handler(op_type_handler)
-    {}
+    {
+#ifdef _WIN32
+        static bool wsa_initialized = false;
+        if (!wsa_initialized) {
+            WSADATA wsaData;
+            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+                throw ignite_error("WSAStartup failed");
+            }
+            wsa_initialized = true;
+        }
+#endif
+    }
 
     ~fake_server() {
         m_stopped.store(true);
@@ -51,11 +66,12 @@ public:
         if (m_started)
             m_client_channel->stop();
 
-        if (m_srv_fd > 0) {
-            ::close(m_srv_fd);
-        }
-
+        m_srv_sock.closeIfValid();
         m_io_thread->join();
+
+#ifdef _WIN32
+        WSACleanup();
+#endif
     }
 
     /** Starts fake server. */
@@ -81,8 +97,9 @@ private:
 
     void handle_requests();
 
-    /** Server socket FD. */
-    int m_srv_fd = -1;
+    /** Server socket. */
+    server_socket_adapter m_srv_sock;
+
     /** Flag is up when server initialization was complete. */
     std::atomic_bool m_started{false};
 

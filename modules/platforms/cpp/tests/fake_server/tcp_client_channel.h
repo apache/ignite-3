@@ -24,6 +24,16 @@
 #include <ignite/common/ignite_error.h>
 #include <ignite/protocol/utils.h>
 
+#ifdef _WIN32
+#include "socket_adapter/win/server_socket_adapter.h"
+#include "socket_adapter/win/client_socket_adapter.h"
+
+#define LAST_SOCKET_ERROR() WSAGetLastError()
+#else
+#define LAST_SOCKET_ERROR() strerror(errno)
+#endif
+
+
 namespace ignite {
 
 /**
@@ -31,21 +41,21 @@ namespace ignite {
  */
 class tcp_client_channel {
 public:
-    explicit tcp_client_channel(int srv_socket_fd, std::shared_ptr<ignite_logger> logger)
-        : m_srv_fd(srv_socket_fd)
+    explicit tcp_client_channel(server_socket_adapter srv_sock, std::shared_ptr<ignite_logger> logger)
+        : m_srv_sock(srv_sock)
         , m_logger(std::move(logger)) {}
 
     void start();
     void stop();
     std::vector<std::byte> read_next_n_bytes(size_t n);
-    void send_message(std::vector<std::byte> msg);
+    void send_message(const std::vector<std::byte>& msg);
 
 private:
     void receive_next_packet();
-    /** Server FD. */
-    int m_srv_fd;
-    /** Client FD. */
-    int m_cl_fd = -1;
+    /** Server socket. */
+    server_socket_adapter m_srv_sock;
+    /** Client socket. */
+    client_socket_adapter m_cl_sock;
     /** Message buffer. */
     std::byte m_buf[1024];
     /** Pointer position. */

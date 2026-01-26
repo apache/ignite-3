@@ -1,0 +1,53 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+#include <winsock2.h>
+
+class  client_socket_adapter {
+public:
+    explicit client_socket_adapter(SOCKET m_fd)
+        : m_fd(m_fd) {}
+
+    client_socket_adapter() = default;
+
+    client_socket_adapter(const client_socket_adapter &other) = default;
+
+    client_socket_adapter &operator=(const client_socket_adapter &other) = default;
+
+    bool is_valid() const {
+        return m_fd != INVALID_SOCKET;
+    }
+
+    void send_message(const std::vector<std::byte> &msg) {
+        ::send(m_fd, reinterpret_cast<const char *>(msg.data()), msg.size(), 0);
+    }
+
+    int recieve_next_packet(std::byte* buf, size_t buf_size) {
+        return ::recv(m_fd,  reinterpret_cast<char*>(buf), buf_size, 0);
+    }
+
+    void closeIfValid() {
+        if (m_fd != INVALID_SOCKET) {
+            ::closesocket(m_fd);
+            m_fd = INVALID_SOCKET;
+        }
+    }
+
+private:
+    SOCKET m_fd = INVALID_SOCKET;
+};

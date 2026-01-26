@@ -1,5 +1,5 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one or more
+ * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
@@ -24,6 +24,14 @@
 #include <iostream>
 #include <queue>
 
+#ifdef _WIN32
+#else
+    #include <netinet/in.h>
+    #include <sys/socket.h>
+    #include <unistd.h>
+    #include <errno.h>
+#endif
+
 void fake_server::start() {
     start_socket();
 
@@ -47,41 +55,21 @@ void fake_server::start() {
 }
 
 void fake_server::start_socket() {
-    m_srv_fd = socket(AF_INET, SOCK_STREAM, 6);
-
-    if (m_srv_fd < 0) {
-        throw ignite_error("socket failed");
-    }
+    m_srv_sock.start();
 }
 
 void fake_server::bind_address_port() const {
-    sockaddr_in srv_addr{};
-
-    srv_addr.sin_family = AF_INET;
-    srv_addr.sin_addr.s_addr = INADDR_ANY;
-    srv_addr.sin_port = htons(m_srv_port);
-
-    int bind_res = bind(m_srv_fd, reinterpret_cast<sockaddr *>(&srv_addr), sizeof(srv_addr));
-
-    if (bind_res < 0) {
-        std::stringstream ss;
-        ss << "bind failed" << strerror(errno);
-        throw std::runtime_error(ss.str());
-    }
+    m_srv_sock.bind(m_srv_port);
 }
 
 void fake_server::start_socket_listen() const {
-    int listen_res = listen(m_srv_fd, 1);
-
-    if (listen_res < 0) {
-        throw std::runtime_error("listen failed");
-    }
+    m_srv_sock.listen();
 
     m_logger->log_debug("fake server is listening on port=" + std::to_string(m_srv_port));
 }
 
 void fake_server::accept_client_connection() {
-    m_client_channel = std::make_unique<tcp_client_channel>(m_srv_fd, m_logger);
+    m_client_channel = std::make_unique<tcp_client_channel>(m_srv_sock, m_logger);
     m_client_channel->start();
 }
 
