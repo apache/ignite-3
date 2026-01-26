@@ -759,25 +759,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             ErrorResponse resp,
             RetryContext retryContext
     ) {
-        RetryExecutionStrategy strategy = new RetryExecutionStrategy() {
-            @Override
-            public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
-                // Single-attempt mode: ALWAYS mark current peer as unavailable, regardless of trackCurrentAs.
-                // This prevents retrying the same peer and matches original behavior where:
-                // - transient errors: would select new peer, mark current unavailable
-                // - peer unavailable: marks current unavailable
-                // - no leader: marks current unavailable (no NO_LEADER distinction needed)
-                // - leader redirect: marks current unavailable (to prevent redirect loops)
-                sendWithRetrySingleAttempt(fut, context.nextAttemptForUnavailablePeer(nextPeer, reason));
-            }
-
-            @Override
-            public void onAllPeersExhausted() {
-                fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId()));
-            }
-        };
-
-        handleErrorResponseCommon(fut, resp, retryContext, strategy, false);
+        handleErrorResponseCommon(fut, resp, retryContext, new SingleAttemptRetryStrategy(fut), false);
     }
 
     /**
@@ -896,35 +878,13 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             long deadline,
             long termWhenStarted
     ) {
-        RetryExecutionStrategy strategy = new RetryExecutionStrategy() {
-            @Override
-            public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
-                RetryContext nextContext;
-                switch (trackCurrentAs) {
-                    case COMMON:
-                        nextContext = context.nextAttempt(nextPeer, reason);
-                        break;
-                    case UNAVAILABLE:
-                        nextContext = context.nextAttemptForUnavailablePeer(nextPeer, reason);
-                        break;
-                    case NO_LEADER:
-                        nextContext = context.nextAttemptForNoLeaderPeer(nextPeer, reason);
-                        break;
-                    default:
-                        throw new AssertionError("Unexpected tracking: " + trackCurrentAs);
-                }
-                scheduleRetryWithLeaderWait(fut, nextContext, cmd, deadline, termWhenStarted);
-            }
-
-            @Override
-            public void onAllPeersExhausted() {
-                LOG.debug("All peers exhausted, waiting for leader [groupId={}, term={}]", groupId(), termWhenStarted);
-                leaderAvailabilityState.onGroupUnavailable(termWhenStarted);
-                waitForLeaderAndRetry(fut, cmd, deadline);
-            }
-        };
-
-        handleErrorResponseCommon(fut, resp, retryContext, strategy, true);
+        handleErrorResponseCommon(
+                fut,
+                resp,
+                retryContext,
+                new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted),
+                true
+        );
     }
 
     /**
@@ -1143,6 +1103,92 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
          * In single-attempt mode, this completes with {@link ReplicationGroupUnavailableException}.
          */
         void onAllPeersExhausted();
+    }
+
+    /**
+     * Retry strategy for single-attempt mode.
+     *
+     * <p>In single-attempt mode, each peer is tried at most once. All errors mark the peer
+     * as unavailable. When all peers have been tried, the request fails with
+     * {@link ReplicationGroupUnavailableException}.
+     */
+    private class SingleAttemptRetryStrategy implements RetryExecutionStrategy {
+        private final CompletableFuture<? extends NetworkMessage> fut;
+
+        SingleAttemptRetryStrategy(CompletableFuture<? extends NetworkMessage> fut) {
+            this.fut = fut;
+        }
+
+        @Override
+        public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
+            // Single-attempt mode: ALWAYS mark current peer as unavailable, regardless of trackCurrentAs.
+            // This prevents retrying the same peer and matches original behavior where:
+            // - transient errors: would select new peer, mark current unavailable
+            // - peer unavailable: marks current unavailable
+            // - no leader: marks current unavailable (no NO_LEADER distinction needed)
+            // - leader redirect: marks current unavailable (to prevent redirect loops)
+            sendWithRetrySingleAttempt(fut, context.nextAttemptForUnavailablePeer(nextPeer, reason));
+        }
+
+        @Override
+        public void onAllPeersExhausted() {
+            fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId()));
+        }
+    }
+
+    /**
+     * Retry strategy for leader-wait mode.
+     *
+     * <p>In leader-wait mode:
+     * <ul>
+     *     <li>Transient errors retry on the same peer after delay</li>
+     *     <li>"No leader" errors track peers separately and try each peer once</li>
+     *     <li>When all peers are exhausted, waits for leader notification</li>
+     * </ul>
+     */
+    private class LeaderWaitRetryStrategy implements RetryExecutionStrategy {
+        private final CompletableFuture<ActionResponse> fut;
+        private final Command cmd;
+        private final long deadline;
+        private final long termWhenStarted;
+
+        LeaderWaitRetryStrategy(
+                CompletableFuture<ActionResponse> fut,
+                Command cmd,
+                long deadline,
+                long termWhenStarted
+        ) {
+            this.fut = fut;
+            this.cmd = cmd;
+            this.deadline = deadline;
+            this.termWhenStarted = termWhenStarted;
+        }
+
+        @Override
+        public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
+            RetryContext nextContext;
+            switch (trackCurrentAs) {
+                case COMMON:
+                    nextContext = context.nextAttempt(nextPeer, reason);
+                    break;
+                case UNAVAILABLE:
+                    nextContext = context.nextAttemptForUnavailablePeer(nextPeer, reason);
+                    break;
+                case NO_LEADER:
+                    nextContext = context.nextAttemptForNoLeaderPeer(nextPeer, reason);
+                    break;
+                default:
+                    throw new AssertionError("Unexpected tracking: " + trackCurrentAs);
+            }
+            scheduleRetryWithLeaderWait(fut, nextContext, cmd, deadline, termWhenStarted);
+        }
+
+        @Override
+        public void onAllPeersExhausted() {
+            LOG.debug("All peers exhausted, waiting for leader [groupId={}, term={}]", groupId(), termWhenStarted);
+            leaderAvailabilityState.onGroupUnavailable(termWhenStarted);
+            waitForLeaderAndRetry(fut, cmd, deadline);
+        }
     }
 
     /**
