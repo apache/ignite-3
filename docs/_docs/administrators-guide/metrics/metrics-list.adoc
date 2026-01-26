@@ -113,6 +113,7 @@ The metrics for Ignite Java Virtual Machine resource use.
 | nodeimpl.disruptor.Stripes | The histogram of distribution data by stripes for node operations for partitions.
 | readonlyservice.disruptor.Stripes | The histogram of distribution data by stripes for read-only operations for partitions.
 | readonlyservice.disruptor.Batch | The histogram of the batch size to handle read-only operations for partitions.
+| groups.localLeadersCount | Number of raft groups where this node is the leader.
 |=======================================================================
 
 == resource.vacuum
