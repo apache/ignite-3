@@ -52,20 +52,14 @@ public:
         return cl_sock;
     }
 
-    void bind(int port) const {
+    int bind(int port) const {
         sockaddr_in srv_addr{};
 
         srv_addr.sin_family = AF_INET;
         srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
         srv_addr.sin_port = htons(port);
 
-        int bind_res = ::bind(m_fd, reinterpret_cast<sockaddr*>(&srv_addr), sizeof(srv_addr));
-
-        if (bind_res < 0) {
-            std::stringstream ss;
-            ss << "bind failed: " << strerror(errno);
-            throw std::runtime_error(ss.str());
-        }
+        return ::bind(m_fd, reinterpret_cast<sockaddr*>(&srv_addr), sizeof(srv_addr));
     }
 
     void listen() const {

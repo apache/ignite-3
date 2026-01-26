@@ -50,7 +50,13 @@ void fake_server::start_socket() {
 }
 
 void fake_server::bind_address_port() const {
-    m_srv_sock.bind(m_srv_port);
+    int bind_res = m_srv_sock.bind(m_srv_port);
+
+    if (bind_res < 0) {
+        std::stringstream ss;
+        ss << "bind failed: " << LAST_SOCKET_ERROR();
+        throw std::runtime_error(ss.str());
+    }
 }
 
 void fake_server::start_socket_listen() const {
