@@ -104,6 +104,23 @@ public class CatalogParamsValidationUtils {
     }
 
     /**
+     * Validates correctness of the storage profiles.
+     */
+    public static void validateStorageProfileNames(List<String> storageProfileNames) {
+        if (storageProfileNames == null) {
+            throw new CatalogValidationException(
+                    "Storage profile cannot be null."
+            );
+        }
+
+        if (storageProfileNames.isEmpty()) {
+            throw new CatalogValidationException(
+                    "Storage profile cannot be empty."
+            );
+        }
+    }
+
+    /**
      * Validates that given consistency mode is has only the expected values.
      *
      * @param consistencyMode Consistency mode to validate.

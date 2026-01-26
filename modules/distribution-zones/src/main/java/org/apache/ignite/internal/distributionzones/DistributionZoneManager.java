@@ -346,6 +346,17 @@ public class DistributionZoneManager extends
     }
 
     /**
+     * Returns estimated data nodes count for a zone with given profiles and filter based on a current nodes topology.
+     *
+     * @param dataNodeFilter Data nodes filter.
+     * @param storageProfiles Storage profiles.
+     * @return Filtered by given data nodes filter and profiles estimated data nodes size.
+     */
+    public int estimatedDataNodesCount(String dataNodeFilter, List<String> storageProfiles) {
+        return filterDataNodes(dataNodesManager.topologyNodes(), dataNodeFilter, storageProfiles).size();
+    }
+
+    /**
      * Returns data nodes at the current time.
      *
      * @param zoneId Zone id.

@@ -68,6 +68,8 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.DataNodesDependentPartitionCountProvider;
+import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
@@ -259,6 +261,8 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
+import org.apache.ignite.internal.system.CpuInformationProvider;
+import org.apache.ignite.internal.system.JvmCpuInformationProvider;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
@@ -516,6 +520,8 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
 
+    private final PartitionCountProviderWrapper partitionCountProviderWrapper;
+
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
 
@@ -551,6 +557,8 @@ public class IgniteImpl implements Ignite {
         vaultMgr = new VaultManager(new PersistentVaultService(vaultPath(workDir)));
 
         nodeProperties = new NodePropertiesImpl(vaultMgr);
+
+        CpuInformationProvider cpuInformationProvider = new JvmCpuInformationProvider();
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
@@ -868,11 +876,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
+        partitionCountProviderWrapper = new PartitionCountProviderWrapper();
+
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                partitionCountProviderWrapper
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry
@@ -1007,6 +1018,12 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 lowWatermark
         );
+
+        DataNodesDependentPartitionCountProvider partitionCountProvider = new DataNodesDependentPartitionCountProvider(
+                distributionZoneManager::estimatedDataNodesCount,
+                cpuInformationProvider
+        );
+        partitionCountProviderWrapper.setPartitionCountProvider(partitionCountProvider);
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
