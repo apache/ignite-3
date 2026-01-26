@@ -633,7 +633,13 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                             if (err != null) {
                                 handleThrowableSingleAttempt(fut, err, retryContext);
                             } else if (resp instanceof ErrorResponse) {
-                                handleErrorResponseSingleAttempt(fut, (ErrorResponse) resp, retryContext);
+                                handleErrorResponseCommon(
+                                        fut,
+                                        (ErrorResponse) resp,
+                                        retryContext,
+                                        new SingleAttemptRetryStrategy(fut),
+                                        false
+                                );
                             } else if (resp instanceof SMErrorResponse) {
                                 handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
                             } else {
@@ -747,21 +753,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     }
 
     /**
-     * Handles error response in single attempt mode.
-     *
-     * <p>In single-attempt mode, each peer is tried at most once. All errors mark the peer
-     * as tried and move to the next peer. When all peers have been tried, the request fails
-     * with {@link ReplicationGroupUnavailableException}.
-     */
-    private void handleErrorResponseSingleAttempt(
-            CompletableFuture<? extends NetworkMessage> fut,
-            ErrorResponse resp,
-            RetryContext retryContext
-    ) {
-        handleErrorResponseCommon(fut, resp, retryContext, new SingleAttemptRetryStrategy(fut), false);
-    }
-
-    /**
      * Sends a request with retry and waits for leader on leader absence.
      */
     private void sendWithRetryWaitingForLeader(
@@ -815,7 +806,13 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                             if (err != null) {
                                 handleThrowableWithLeaderWait(fut, err, retryContext, cmd, deadline, termWhenStarted);
                             } else if (resp instanceof ErrorResponse) {
-                                handleErrorResponseWithLeaderWait(fut, (ErrorResponse) resp, retryContext, cmd, deadline, termWhenStarted);
+                                handleErrorResponseCommon(
+                                        fut,
+                                        (ErrorResponse) resp,
+                                        retryContext,
+                                        new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted),
+                                        true
+                                );
                             } else if (resp instanceof SMErrorResponse) {
                                 handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
                             } else {
@@ -857,33 +854,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         String shortReasonMessage = "Peer " + retryContext.targetPeer().consistentId()
                 + " threw " + unwrapCause(err).getClass().getSimpleName();
         scheduleRetryWithLeaderWait(fut, retryContext.nextAttempt(nextPeer, shortReasonMessage), cmd, deadline, termWhenStarted);
-    }
-
-    /**
-     * Handles error response in leader-wait mode.
-     *
-     * <p>In leader-wait mode:
-     * <ul>
-     *     <li>Transient errors (EBUSY/EAGAIN) retry on the same peer after delay</li>
-     *     <li>"No leader" errors try each peer once, then wait for leader notification</li>
-     *     <li>Peer unavailability errors cycle through peers until timeout</li>
-     * </ul>
-     */
-    private void handleErrorResponseWithLeaderWait(
-            CompletableFuture<ActionResponse> fut,
-            ErrorResponse resp,
-            RetryContext retryContext,
-            Command cmd,
-            long deadline,
-            long termWhenStarted
-    ) {
-        handleErrorResponseCommon(
-                fut,
-                resp,
-                retryContext,
-                new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted),
-                true
-        );
     }
 
     /**
