@@ -105,14 +105,14 @@ The metrics for Ignite Java Virtual Machine resource use.
 |=======================================================================
 | Metric name | Description
 
-| raft.fsmcaller.disruptor.Stripes | The histogram of distribution data by stripes in the state machine for partitions.
-| raft.fsmcaller.disruptor.Batch | The histogram of the batch size to handle in the state machine for partitions.
-| raft.logmanager.disruptor.Batch | The histogram of the batch size to handle in the log for partitions.
-| raft.logmanager.disruptor.Stripes | The histogram of distribution data by stripes in the log for partitions.
-| raft.nodeimpl.disruptor.Batch | The histogram of the batch size to handle node operations for partitions.
-| raft.nodeimpl.disruptor.Stripes | The histogram of distribution data by stripes for node operations for partitions.
-| raft.readonlyservice.disruptor.Stripes | The histogram of distribution data by stripes for read-only operations for partitions.
-| raft.readonlyservice.disruptor.Batch | The histogram of the batch size to handle read-only operations for partitions.
+| fsmcaller.disruptor.Stripes | The histogram of distribution data by stripes in the state machine for partitions.
+| fsmcaller.disruptor.Batch | The histogram of the batch size to handle in the state machine for partitions.
+| logmanager.disruptor.Batch | The histogram of the batch size to handle in the log for partitions.
+| logmanager.disruptor.Stripes | The histogram of distribution data by stripes in the log for partitions.
+| nodeimpl.disruptor.Batch | The histogram of the batch size to handle node operations for partitions.
+| nodeimpl.disruptor.Stripes | The histogram of distribution data by stripes for node operations for partitions.
+| readonlyservice.disruptor.Stripes | The histogram of distribution data by stripes for read-only operations for partitions.
+| readonlyservice.disruptor.Batch | The histogram of the batch size to handle read-only operations for partitions.
 |=======================================================================
 
 == resource.vacuum
