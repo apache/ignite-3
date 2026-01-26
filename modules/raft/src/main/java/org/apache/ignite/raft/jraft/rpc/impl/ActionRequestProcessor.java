@@ -29,7 +29,7 @@ import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -100,6 +100,14 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     protected void handleRequestInternal(RpcContext rpcCtx, Node node, ActionRequest request, Marshaller commandsMarshaller) {
         DelegatingStateMachine fsm = (DelegatingStateMachine) node.getOptions().getFsm();
 
+        BeforeApplyHandler beforeApplyHandler = null;
+        for (RaftGroupListener lsnr : fsm.getListeners()) {
+            if (lsnr instanceof BeforeApplyHandler) {
+                beforeApplyHandler = (BeforeApplyHandler) lsnr;
+                break;
+            }
+        }
+
         if (request instanceof WriteActionRequest) {
             WriteActionRequest writeRequest = (WriteActionRequest)request;
 
@@ -108,36 +116,22 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             if (command == null) {
                 command = commandsMarshaller.unmarshall(writeRequest.command());
             }
-
-            for (RaftGroupListener listener : fsm.getListeners()) {
-                if (listener instanceof BeforeApplyHandler) {
-                    synchronized (groupIdSyncMonitor(request.groupId())) {
-                        Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
-
-                        writeRequest = patchRequest(writeRequest, command, patchedCommand, commandsMarshaller);
-
-                        command = (WriteCommand) patchedCommand;
-                    }
-                    break;
+            if (beforeApplyHandler != null) {
+                synchronized (groupIdSyncMonitor(request.groupId())) {
+                    Command patchedCommand = beforeApplyHandler.onBeforeApply(command);
+                    writeRequest = patchRequest(writeRequest, command, patchedCommand, commandsMarshaller);
+                    applyWrite(node, writeRequest, (WriteCommand) patchedCommand, rpcCtx);
                 }
+            } else {
+                applyWrite(node, writeRequest, command, rpcCtx);
             }
-
-            applyWrite(node, writeRequest, command, rpcCtx);
         } else {
             ReadActionRequest readRequest = (ReadActionRequest) request;
-
-            for (RaftGroupListener listener : fsm.getListeners()) {
-                if (listener instanceof BeforeApplyHandler) {
-                    ReadCommand command = readRequest.command();
-
-                    Command patchedCommand = ((BeforeApplyHandler) listener).onBeforeApply(command);
-
-                    readRequest = patchRequest(readRequest, command, patchedCommand, commandsMarshaller);
-
-                    break;
-                }
+            if (beforeApplyHandler != null) {
+                ReadCommand command = readRequest.command();
+                Command patchedCommand = beforeApplyHandler.onBeforeApply(command);
+                readRequest = patchRequest(readRequest, command, patchedCommand, commandsMarshaller);
             }
-
             applyRead(node, readRequest, rpcCtx);
         }
     }
