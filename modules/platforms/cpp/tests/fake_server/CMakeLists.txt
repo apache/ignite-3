@@ -23,7 +23,7 @@ set(SOURCES
     main.cpp
     fake_server.cpp
     tcp_client_channel.cpp
-        connection_test.cpp
+    connection_test.cpp
 )
 
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client)
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client msgpack-c)

@@ -176,7 +176,10 @@ void set_error(const ignite::ignite_error &error) {
         case ignite::error::code::UNIT_NOT_FOUND:
         case ignite::error::code::UNIT_ALREADY_EXISTS:
         case ignite::error::code::UNIT_CONTENT_READ:
-        case ignite::error::code::UNIT_UNAVAILABLE: {
+        case ignite::error::code::UNIT_UNAVAILABLE:
+        case ignite::error::code::UNIT_ZIP:
+        case ignite::error::code::UNIT_WRITE:
+        case ignite::error::code::UNIT_NON_UNIQUE_FILENAMES: {
             error_class = py_get_module_database_error_class();
             break;
         }

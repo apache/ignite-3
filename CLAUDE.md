@@ -106,6 +106,22 @@ Run checkstyle and PMD on the modified module(s):
 ./gradlew :ignite-<module>:checkstyleMain :ignite-<module>:checkstyleTest :ignite-<module>:pmdMain :ignite-<module>:pmdTest
 ```
 
+Run IDEA inspections on the modified module(s):
+```bash
+idea inspect . .idea/inspectionProfiles/Project_Default.xml /tmp/results -d modules/<module>
+```
+Notes:
+- IntelliJ IDEA must be closed for command-line inspections to work.
+- If `idea` command is not available, ask the user to install it via: **Tools > Create Command-line Launcher** in IntelliJ IDEA.
+- Check results: `find /tmp/results -name "*.xml" ! -name ".descriptions.xml" -exec cat {} \;`
+
+### Before Every PR (MANDATORY)
+Run IDEA inspections on the modified module(s) and fix all issues:
+```bash
+idea inspect . .idea/inspectionProfiles/Project_Default.xml /tmp/results -d modules/<module>
+```
+**IMPORTANT**: Always run IDEA inspections before creating or updating a PR. The inspections catch issues that checkstyle/PMD miss (e.g., methods that can be static, redundant suppressions, etc.).
+
 ### Git Push
 **Never use `git push` without specifying the target branch.** Always push explicitly:
 ```bash

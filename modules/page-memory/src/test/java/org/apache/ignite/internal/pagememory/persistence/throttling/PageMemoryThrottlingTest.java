@@ -44,6 +44,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -153,7 +154,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 partitionMetaManager,
                 dataRegions,
                 ioRegistry,
-                () -> {},
+                new NoOpLogSyncer(),
                 executorService,
                 new CheckpointMetricSource("test"),
                 PAGE_SIZE

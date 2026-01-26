@@ -22,7 +22,7 @@ set(MBEDTLS_AS_SUBPROJECT ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_compile_definitions(TF_PSA_CRYPTO_USER_CONFIG_FILE="${CMAKE_CURRENT_SOURCE_DIR}/ignite/common/detail/ignite_mbedtls_config.h")
+add_compile_definitions(TF_PSA_CRYPTO_USER_CONFIG_FILE="${IGNITE_CMAKE_TOP_DIR}/ignite/common/detail/ignite_mbedtls_config.h")
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
     # Avoid warning about FetchContent_Populate:

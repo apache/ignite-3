@@ -119,6 +119,7 @@ public class ReplicaPrimacyEngine {
                     null,
                     enlistmentConsistencyToken,
                     null,
+                    replicationGroupId,
                     null
             );
         }
@@ -136,6 +137,7 @@ public class ReplicaPrimacyEngine {
                     primaryReplicaMeta.getLeaseholderId(),
                     enlistmentConsistencyToken,
                     currentEnlistmentConsistencyToken,
+                    replicationGroupId,
                     null);
         }
 

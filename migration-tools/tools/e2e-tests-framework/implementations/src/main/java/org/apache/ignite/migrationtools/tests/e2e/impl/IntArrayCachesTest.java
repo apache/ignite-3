@@ -67,13 +67,13 @@ public class IntArrayCachesTest {
 
         @Override
         public void testIgnite3(Table ignite3Table, int numGeneratedExamples) {
-            // TODO: There is currently no canonical way of mapping this to AI3.
+            // TODO: IGNITE-27618 Rollout native support.
             Assumptions.abort("There is currently no canonical way of mapping int[] cache to ignite 3");
         }
 
         @Override
         protected void assertResultSet(ResultSet rs, int[] expectedObj) throws SQLException {
-            // TODO: GG-40246
+            // TODO: IGNITE-27618
             Assumptions.abort("Currently the JDBC driver does not support adapting binary to concrete types");
             int[] actual = rs.getObject(VAL_COLUMN_NAME, int[].class);
             assertThat(actual).isEqualTo(expectedObj);
@@ -109,13 +109,13 @@ public class IntArrayCachesTest {
 
         @Override
         public void testIgnite3(Table ignite3Table, int numGeneratedExamples) {
-            // TODO: There is currently no canonical way of mapping this to AI3.
+            // TODO: IGNITE-27618 Rollout native support.
             Assumptions.abort("There is currently no canonical way of mapping List caches to ignite 3");
         }
 
         @Override
         protected void assertResultSet(ResultSet rs, List expectedObj) throws SQLException {
-            // TODO: GG-40246
+            // TODO: IGNITE-27618
             Assumptions.abort("Currently the JDBC driver does not support adapting binary to concrete types");
             List<Integer> actual = (List<Integer>) rs.getObject(VAL_COLUMN_NAME);
             assertThat(actual).isEqualTo(expectedObj);

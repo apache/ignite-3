@@ -553,12 +553,12 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         }
 
         List<Integer> colocationKeys() {
-            IgniteTable table = (IgniteTable) schema.getTable("T");
+            IgniteTable table = (IgniteTable) schema.tables().get("T");
             return table.distribution().getKeys();
         }
 
         List<String> columnNames() {
-            IgniteTable table = (IgniteTable) schema.getTable("T");
+            IgniteTable table = (IgniteTable) schema.tables().get("T");
             List<String> names = new ArrayList<>();
             TableDescriptor tableDescriptor = table.descriptor();
 

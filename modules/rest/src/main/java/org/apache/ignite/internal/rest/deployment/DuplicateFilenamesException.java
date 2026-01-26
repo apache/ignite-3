@@ -15,23 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Extensions.Caching.Ignite.Internal;
+package org.apache.ignite.internal.rest.deployment;
 
-using Apache.Ignite.Table;
-using Microsoft.Extensions.ObjectPool;
+import static org.apache.ignite.lang.ErrorGroups.CodeDeployment.UNIT_NON_UNIQUE_FILENAMES_ERR;
 
-/// <summary>
-/// Ignite tuple pooled object policy.
-/// </summary>
-internal sealed class IgniteTuplePooledObjectPolicy : PooledObjectPolicy<IgniteTuple>
-{
-    /// <inheritdoc/>
-    public override IgniteTuple Create() => new();
+import org.apache.ignite.lang.IgniteException;
 
-    /// <inheritdoc/>
-    public override bool Return(IgniteTuple obj)
-    {
-        obj.Clear();
-        return true;
+/**
+ * Thrown when trying to deploy non-zip unit with duplicate filenames.
+ */
+public class DuplicateFilenamesException extends IgniteException {
+    /**
+     * Constructor.
+     */
+    DuplicateFilenamesException(String message) {
+        super(UNIT_NON_UNIQUE_FILENAMES_ERR, message);
     }
 }
