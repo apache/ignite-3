@@ -653,33 +653,63 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     }
 
     /**
-     * Validates throwable and returns next peer for retry.
+     * Attempts to select a peer for retrying after a recoverable error.
      *
-     * <p>If the error is not recoverable or no peers are available, completes the future exceptionally and returns null.
+     * <p>This method combines error validation with peer selection for retry handling.
      *
-     * @param fut Future to complete exceptionally if retry is not possible.
-     * @param err The throwable to check.
+     * @param err The throwable to check (will be unwrapped).
      * @param retryContext Retry context for getting next peer.
-     * @return Next peer for retry, or null if the future was already completed with an error.
+     * @return Result containing the next peer, or the exception to complete the future with.
      */
-    private @Nullable Peer getNextPeerForRecoverableError(CompletableFuture<?> fut, Throwable err, RetryContext retryContext) {
-        err = unwrapCause(err);
+    private RetryPeerResult selectPeerForRetry(Throwable err, RetryContext retryContext) {
+        Throwable unwrappedErr = unwrapCause(err);
 
-        if (!recoverable(err)) {
-            fut.completeExceptionally(err);
-
-            return null;
+        if (!recoverable(unwrappedErr)) {
+            return RetryPeerResult.fail(unwrappedErr);
         }
 
         Peer nextPeer = randomNode(retryContext, false);
 
         if (nextPeer == null) {
-            fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId()));
-
-            return null;
+            return RetryPeerResult.fail(new ReplicationGroupUnavailableException(groupId()));
         }
 
-        return nextPeer;
+        return RetryPeerResult.success(nextPeer);
+    }
+
+    /**
+     * Result of attempting to select a peer for retry.
+     */
+    private static final class RetryPeerResult {
+        private final @Nullable Peer peer;
+        private final @Nullable Throwable error;
+
+        private RetryPeerResult(@Nullable Peer peer, @Nullable Throwable error) {
+            this.peer = peer;
+            this.error = error;
+        }
+
+        static RetryPeerResult success(Peer peer) {
+            return new RetryPeerResult(peer, null);
+        }
+
+        static RetryPeerResult fail(Throwable error) {
+            return new RetryPeerResult(null, error);
+        }
+
+        boolean isSuccess() {
+            return peer != null;
+        }
+
+        Peer peer() {
+            assert peer != null : "Check isSuccess() before calling peer()";
+            return peer;
+        }
+
+        Throwable error() {
+            assert error != null : "Check isSuccess() before calling error()";
+            return error;
+        }
     }
 
     private static void logRecoverableError(RetryContext retryContext, Peer nextPeer) {
@@ -702,12 +732,14 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             Throwable err,
             RetryContext retryContext
     ) {
-        Peer nextPeer = getNextPeerForRecoverableError(fut, err, retryContext);
+        RetryPeerResult result = selectPeerForRetry(err, retryContext);
 
-        if (nextPeer == null) {
+        if (!result.isSuccess()) {
+            fut.completeExceptionally(result.error());
             return;
         }
 
+        Peer nextPeer = result.peer();
         logRecoverableError(retryContext, nextPeer);
 
         String shortReasonMessage = "Peer " + retryContext.targetPeer().consistentId()
@@ -831,12 +863,14 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             long deadline,
             long termWhenStarted
     ) {
-        Peer nextPeer = getNextPeerForRecoverableError(fut, err, retryContext);
+        RetryPeerResult result = selectPeerForRetry(err, retryContext);
 
-        if (nextPeer == null) {
+        if (!result.isSuccess()) {
+            fut.completeExceptionally(result.error());
             return;
         }
 
+        Peer nextPeer = result.peer();
         logRecoverableError(retryContext, nextPeer);
 
         String shortReasonMessage = "Peer " + retryContext.targetPeer().consistentId()
