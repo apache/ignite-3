@@ -418,8 +418,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      *
      * @return Initial target peer, or {@code null}.
      */
-    @Nullable
-    private Peer resolveInitialPeer() {
+    private @Nullable Peer resolveInitialPeer() {
         Peer targetPeer = leader;
         if (targetPeer == null) {
             targetPeer = randomNode(null, false);
@@ -983,8 +982,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * @param peerId Peer ID string in format "consistentId:idx" or just "consistentId".
      * @return Parsed Peer object, or {@code null} if parsing fails.
      */
-    @Nullable
-    private static Peer parsePeer(@Nullable String peerId) {
+    private static @Nullable Peer parsePeer(@Nullable String peerId) {
         PeerId id = PeerId.parsePeer(peerId);
 
         return id == null ? null : new Peer(id.getConsistentId(), id.getIdx());
@@ -1006,8 +1004,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * @param excludeNoLeaderPeers Whether to exclude peers that returned "no leader" response.
      * @return A random available peer, or null if none available.
      */
-    @Nullable
-    private Peer randomNode(@Nullable RetryContext retryContext, boolean excludeNoLeaderPeers) {
+    private @Nullable Peer randomNode(@Nullable RetryContext retryContext, boolean excludeNoLeaderPeers) {
         List<Peer> localPeers = peers();
 
         if (localPeers == null || localPeers.isEmpty()) {
