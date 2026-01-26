@@ -44,9 +44,11 @@ import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitOptions;
 import org.apache.ignite.internal.cli.commands.connect.ConnectOptions;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
+import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.commands.recovery.cluster.reset.ResetClusterMixin;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.states.PartitionStatesMixin;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
@@ -64,7 +66,7 @@ class MixinTest {
 
     @Test
     void doubleInvocationNodeName() {
-        NodeCommand command = new NodeCommand();
+        NodeReplCommand command = new NodeReplCommand();
         CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
 
         String nodeName = "test";
@@ -78,7 +80,7 @@ class MixinTest {
 
     @Test
     void doubleInvocationNodeUrl() {
-        NodeCommand command = new NodeCommand();
+        NodeReplCommand command = new NodeReplCommand();
         CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
 
         String nodeUrl = "http://test";
@@ -92,7 +94,7 @@ class MixinTest {
 
     @Test
     void doubleInvocationClusterUrl() {
-        ClusterCommand command = new ClusterCommand();
+        ClusterReplCommand command = new ClusterReplCommand();
         CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
 
         String clusterUrl = "http://test";
@@ -102,6 +104,94 @@ class MixinTest {
 
         commandLine.parseArgs();
         assertThat(command.clusterUrl.getClusterUrl(), is(nullValue()));
+    }
+
+    @Test
+    void clusterUrlDefaultValue() {
+        ClusterCommand command = new ClusterCommand();
+        CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+        // Default value is taken from the config
+        commandLine.parseArgs();
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10300"));
+
+        // Value is taken from the option
+        commandLine.parseArgs("--url=http://test");
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://test"));
+
+        // Value is taken from the profile
+        commandLine.parseArgs("--profile=test");
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10301"));
+
+        // Option overrides profiles
+        commandLine.parseArgs("--url=http://test", "--profile=test");
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://test"));
+    }
+
+    @Test
+    void clusterUrlDefaultValueRepl() {
+        ClusterReplCommand command = new ClusterReplCommand();
+        CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+        // Default value is null
+        commandLine.parseArgs();
+        assertThat(command.clusterUrl.getClusterUrl(), is(nullValue()));
+
+        // Value is taken from the option
+        commandLine.parseArgs("--url=http://test");
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://test"));
+
+        // Value is taken from the profile
+        commandLine.parseArgs("--profile=test");
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://localhost:10301"));
+
+        // Option overrides profiles
+        commandLine.parseArgs("--url=http://test", "--profile=test");
+        assertThat(command.clusterUrl.getClusterUrl(), is("http://test"));
+    }
+
+    @Test
+    void nodeUrlDefaultValue() {
+        NodeCommand command = new NodeCommand();
+        CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+        // Default value is taken from the config
+        commandLine.parseArgs();
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10300"));
+
+        // Value is taken from the option
+        commandLine.parseArgs("--url=http://test");
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://test"));
+
+        // Value is taken from the profile
+        commandLine.parseArgs("--profile=test");
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10301"));
+
+        // Option overrides profiles
+        commandLine.parseArgs("--url=http://test", "--profile=test");
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://test"));
+    }
+
+    @Test
+    void nodeUrlDefaultValueRepl() {
+        NodeReplCommand command = new NodeReplCommand();
+        CommandLine commandLine = new CommandLine(command, new MicronautFactory(context));
+
+        // Default value is null
+        commandLine.parseArgs();
+        assertThat(command.nodeUrl.getNodeUrl(), is(nullValue()));
+
+        // Value is taken from the option
+        commandLine.parseArgs("--url=http://test");
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://test"));
+
+        // Value is taken from the profile
+        commandLine.parseArgs("--profile=test");
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://localhost:10301"));
+
+        // Option overrides profiles
+        commandLine.parseArgs("--url=http://test", "--profile=test");
+        assertThat(command.nodeUrl.getNodeUrl(), is("http://test"));
     }
 
     @Test
@@ -184,11 +274,23 @@ class MixinTest {
     @Command
     private static class NodeCommand {
         @Mixin
+        private NodeUrlProfileMixin nodeUrl;
+    }
+
+    @Command
+    private static class NodeReplCommand {
+        @Mixin
         private NodeUrlMixin nodeUrl;
     }
 
     @Command
     private static class ClusterCommand {
+        @Mixin
+        private ClusterUrlProfileMixin clusterUrl;
+    }
+
+    @Command
+    private static class ClusterReplCommand {
         @Mixin
         private ClusterUrlMixin clusterUrl;
     }
