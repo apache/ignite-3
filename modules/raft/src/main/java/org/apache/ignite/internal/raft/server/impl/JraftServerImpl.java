@@ -962,10 +962,10 @@ public class JraftServerImpl implements RaftServer {
         @Override
         public boolean onSnapshotLoad(SnapshotReader reader) {
             try {
-                boolean result = false;
+                boolean result = true;
 
                 for (RaftGroupListener listener : listeners) {
-                    result = listener.onSnapshotLoad(Path.of(reader.getPath()));
+                    result = listener.onSnapshotLoad(Path.of(reader.getPath())) && result;
                 }
 
                 return result;
