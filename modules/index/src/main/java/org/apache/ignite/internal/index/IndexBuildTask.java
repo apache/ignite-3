@@ -305,7 +305,7 @@ class IndexBuildTask {
         RowId nextRowIdToBuild = indexStorage.getNextRowIdToBuild();
 
         List<RowId> rowIds = new ArrayList<>(batchSize);
-        Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
+        Map<UUID, WriteIntentInfo> transactionsToResolve = new HashMap<>();
 
         List<RowMeta> rows = nextRowIdToBuild == null ? List.of()
                 : partitionStorage.rowsStartingWith(nextRowIdToBuild, highestRowId, batchSize);
@@ -323,7 +323,7 @@ class IndexBuildTask {
                 if (txBeginTs.compareTo(indexCreationTs) < 0) {
                     transactionsToResolve.put(
                             row.transactionId(),
-                            new CommitPartitionId(row.commitZoneId(), row.commitPartitionId())
+                            new WriteIntentInfo(row.commitZoneId(), row.commitPartitionId(), row.newestCommitTimestamp(), row.rowId())
                     );
                 }
             }
@@ -346,12 +346,19 @@ class IndexBuildTask {
                 });
     }
 
-    private CompletableFuture<TxState> resolveFinalTxStateIfNeeded(UUID transactionId, CommitPartitionId commitPartitionId) {
-        assert commitPartitionId.commitZoneId != null;
+    private CompletableFuture<TxState> resolveFinalTxStateIfNeeded(UUID transactionId, WriteIntentInfo writeIntentInfo) {
+        assert writeIntentInfo.commitZoneId != null;
 
-        ZonePartitionId commitGroupId = new ZonePartitionId(commitPartitionId.commitZoneId, commitPartitionId.commitPartitionId);
+        ZonePartitionId commitGroupId = new ZonePartitionId(writeIntentInfo.commitZoneId, writeIntentInfo.commitPartitionId);
+        ZonePartitionId senderGroupId = new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId());
 
-        return finalTransactionStateResolver.resolveFinalTxState(transactionId, commitGroupId)
+        return finalTransactionStateResolver.resolveFinalTxState(
+                        transactionId,
+                        commitGroupId,
+                        senderGroupId,
+                        writeIntentInfo.rowId,
+                        writeIntentInfo.newestCommitTimestamp
+                )
                 .thenApply(statisticsLoggingListener::onWriteIntentResolved);
     }
 
@@ -425,13 +432,22 @@ class IndexBuildTask {
         }
     }
 
-    private static class CommitPartitionId {
+    private static class WriteIntentInfo {
         private final @Nullable Integer commitZoneId;
         private final int commitPartitionId;
+        private final @Nullable HybridTimestamp newestCommitTimestamp;
+        private final RowId rowId;
 
-        private CommitPartitionId(@Nullable Integer commitZoneId, int commitPartitionId) {
+        private WriteIntentInfo(
+                @Nullable Integer commitZoneId,
+                int commitPartitionId,
+                @Nullable HybridTimestamp newestCommitTimestamp,
+                RowId rowId
+        ) {
             this.commitZoneId = commitZoneId;
             this.commitPartitionId = commitPartitionId;
+            this.newestCommitTimestamp = newestCommitTimestamp;
+            this.rowId = rowId;
         }
     }
 }

@@ -695,7 +695,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         VersionChain versionChain = entry.getValue();
 
-        return new RowMeta(versionChain.rowId, versionChain.txId, versionChain.commitZoneId, versionChain.commitPartitionId);
+        HybridTimestamp newestCommitTimestamp = null;
+
+        if (versionChain.isWriteIntent()) {
+            newestCommitTimestamp = versionChain.next.ts;
+        }
+
+        return new RowMeta(
+                versionChain.rowId,
+                versionChain.txId,
+                versionChain.commitZoneId,
+                versionChain.commitPartitionId,
+                newestCommitTimestamp
+        );
     }
 
     @Override

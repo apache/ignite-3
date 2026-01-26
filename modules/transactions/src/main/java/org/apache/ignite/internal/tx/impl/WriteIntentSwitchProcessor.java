@@ -99,7 +99,7 @@ public class WriteIntentSwitchProcessor {
                             return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
                         }
 
-                        LOG.info("Failed to switch write intents for Tx [txId={}].", txId, ex);
+                        LOG.info("Failed to switch write intents for Tx [txId={}].", ex, txId);
 
                         return CompletableFuture.<WriteIntentSwitchReplicatedInfo>failedFuture(ex);
                     }

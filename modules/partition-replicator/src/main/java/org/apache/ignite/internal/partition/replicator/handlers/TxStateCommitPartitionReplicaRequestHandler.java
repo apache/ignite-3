@@ -18,10 +18,15 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMeta.finalizeState;
+import static org.apache.ignite.internal.tx.impl.PlacementDriverHelper.AWAIT_PRIMARY_REPLICA_TIMEOUT;
+import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -32,11 +37,13 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
@@ -56,6 +63,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
 
     private final TxMessageSender txMessageSender;
 
+    private final PlacementDriverHelper placementDriverHelper;
+
     /** Constructor. */
     public TxStateCommitPartitionReplicaRequestHandler(
             TxStatePartitionStorage txStatePartitionStorage,
@@ -63,7 +72,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             ClusterNodeResolver clusterNodeResolver,
             InternalClusterNode localNode,
             TxRecoveryEngine txRecoveryEngine,
-            TxMessageSender txMessageSender
+            TxMessageSender txMessageSender,
+            PlacementDriverHelper placementDriverHelper
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.txManager = txManager;
@@ -71,6 +81,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
         this.localNode = localNode;
         this.txRecoveryEngine = txRecoveryEngine;
         this.txMessageSender = txMessageSender;
+        this.placementDriverHelper = placementDriverHelper;
     }
 
     /**
@@ -91,14 +102,16 @@ public class TxStateCommitPartitionReplicaRequestHandler {
         } else if (txMeta == null || !isFinalState(txMeta.txState())) {
             // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
             // in response.
-            ZonePartitionId zonePartitionId = request.senderGroupId() == null ? null : request.senderGroupId().asReplicationGroupId();
+            ZonePartitionId senderGroupId = request.senderGroupId().asReplicationGroupId();
 
             return triggerTxRecoveryOnTxStateResolutionIfNeeded(
                     txId,
                     txMeta,
                     request.readTimestamp(),
                     request.senderCurrentConsistencyToken(),
-                    zonePartitionId
+                    senderGroupId,
+                    request.rowId().asRowId(),
+                    request.newestCommitTimestamp()
             );
         } else {
             return completedFuture(txMeta);
@@ -114,6 +127,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
      *                     otherwise {@code null}.
      * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
      * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}.
+     * @param rowId Row id.
+     * @param newestCommitTimestamp Newest commit timestamp.
      * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
      */
     private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(
@@ -121,28 +136,40 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             @Nullable TxStateMeta txStateMeta,
             @Nullable HybridTimestamp readTimestamp,
             @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId
+            ZonePartitionId senderGroupId,
+            @Nullable RowId rowId,
+            @Nullable HybridTimestamp newestCommitTimestamp
     ) {
-        // The state is either null or PENDING or ABANDONED, other states have been filtered out previously.
+        // The state is either null or PENDING or ABANDONED, other states have been filtered out previously.lo
         assert txStateMeta == null || txStateMeta.txState() == PENDING || txStateMeta.txState() == ABANDONED
                 : "Unexpected transaction state: " + txStateMeta;
 
-        TxMeta txMeta = txStatePartitionStorage.get(txId);
+        TxMeta txMetaPersistent = txStatePartitionStorage.get(txId);
 
-        if (txMeta == null) {
+        if (txMetaPersistent == null) {
             InternalClusterNode coordinator = (txStateMeta == null || txStateMeta.txCoordinatorId() == null)
                     ? null
                     : clusterNodeResolver.getById(txStateMeta.txCoordinatorId());
 
-            // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
-            if (txStateMeta == null
-                    || txStateMeta.txState() == ABANDONED
+            if (txStateMeta == null) {
+                // This means one of two:
+                // - txn is not finished, volatile state is lost
+                // - txn was finished, state was vacuumized
+                // both mean primary replica resolution path.
+                return resolveTxStateFromPrimaryReplica(
+                        txId,
+                        senderGroupId,
+                        senderCurrentConsistencyToken,
+                        readTimestamp,
+                        rowId,
+                        newestCommitTimestamp
+                );
+            } else if (txStateMeta.txState() == ABANDONED
                     || txStateMeta.txCoordinatorId() == null
                     || coordinator == null) {
-                // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx
-                // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
-                // that as the coordinator (or information about it) is missing, there is no need to wait a finish request from
-                // tx coordinator, the transaction can't be committed at all.
+                // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
+                // We can assume that as the coordinator (or information about it) is missing, there is no need to wait for
+                // a finish request from tx coordinator, the transaction can't be committed at all.
                 return txRecoveryEngine.triggerTxRecovery(txId, localNode.id())
                         .handle((v, ex) ->
                                 CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
@@ -153,16 +180,17 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                 HybridTimestamp timestamp = readTimestamp == null ? HybridTimestamp.MIN_VALUE : readTimestamp;
 
                 return txMessageSender.resolveTxStateFromCoordinator(
-                                coordinator,
-                                txId,
-                                timestamp,
-                                senderCurrentConsistencyToken,
-                                senderGroupId
+                                txStateResolutionParameters().txId(txId)
+                                        .readTimestamp(timestamp)
+                                        .senderGroupId(senderGroupId)
+                                        .senderCurrentConsistencyToken(senderCurrentConsistencyToken)
+                                        .build(),
+                                coordinator
                         )
                         .handle((response, e) -> {
                             if (e == null) {
                                 if (response.txStateMeta() == null) {
-                                    // TODO https://issues.apache.org/jira/browse/IGNITE-21910 should be fixed correctly by
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-27494 should be fixed correctly by
                                     // TODO WI resolution primary replica path.
                                     // This may be possible if tx cleanup command was already committed in partition's replication group,
                                     // and tx state was vacuumized on coordinator. This transaction already had a final state,
@@ -190,12 +218,79 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                 return completedFuture(txStateMeta);
             }
         } else {
-            // Recovery is not needed.
+            // Recovery is not needed. Persistent meta always contains final state.
             // TODO https://issues.apache.org/jira/browse/IGNITE-27494 Add UNKNOWN state handling.
-            assert isFinalState(txMeta.txState()) : "Unexpected transaction state: " + txMeta;
+            assert isFinalState(txMetaPersistent.txState()) : "Unexpected transaction state: " + txMetaPersistent;
 
-            return completedFuture(txMeta);
+            return completedFuture(txMetaPersistent);
         }
+    }
+
+    private CompletableFuture<TransactionMeta> resolveTxStateFromPrimaryReplica(
+            UUID txId,
+            ZonePartitionId senderGroupId,
+            @Nullable Long senderCurrentConsistencyToken,
+            @Nullable HybridTimestamp readTimestamp,
+            RowId rowId,
+            @Nullable HybridTimestamp newestCommitTimestamp
+    ) {
+        return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(
+                        senderGroupId,
+                        AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                        SECONDS
+                )
+                .thenCompose(replicaMeta -> {
+                        long consistencyToken = replicaMeta.getStartTime().longValue();
+
+                        if (senderCurrentConsistencyToken != null) {
+                            if (consistencyToken == senderCurrentConsistencyToken) {
+                                // This is request from actual primary
+                                // (probably the primary was moved to the sender node after it did the request or whatever).
+                                if (readTimestamp == null || readTimestamp == HybridTimestamp.MIN_VALUE) {
+                                    // The request doesn't have read timestamp - this means it's from RW txn.
+                                    // Sender node is current primary, it has the most recent state of the row, and there is WI
+                                    // so it was not cleaned up on group majority - this means the txn was never finished
+                                    // and can be aborted.
+                                    return txRecoveryEngine.triggerTxRecovery(txId, localNode.id())
+                                            .handle((v, ex) ->
+                                                    CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
+                                            .thenCompose(Function.identity());
+                                }
+                            } else {
+                                // The primary replica that sent the request has already expired.
+                                if (readTimestamp == null || readTimestamp == HybridTimestamp.MIN_VALUE) {
+                                    // The request doesn't have read timestamp - this means it's from RW txn.
+                                    // Respond with error, sender must abort its operation and respond with error to client
+                                    // (primary changed, the current transaction will not be able to be committed).
+                                    // TODO
+                                    throw new RuntimeException();
+                                }
+                            }
+                        }
+
+                        String primaryNode = replicaMeta.getLeaseholder();
+
+                        return txMessageSender.resolveTxStateFromPrimaryReplica(
+                                txStateResolutionParameters()
+                                        .txId(txId)
+                                        .senderGroupId(senderGroupId)
+                                        .rowIdAndNewestCommitTimestamp(rowId, newestCommitTimestamp)
+                                        .build(),
+                                primaryNode,
+                                consistencyToken
+                        );
+                })
+                .whenComplete((txMeta, e) -> {
+                    if (e == null && isFinalState(txMeta.txState())) {
+                        // Cache tx state in case of other tx state resolution requests.
+                        // Cleanup completion timestamp is set because write intents were switched on majority,
+                        // so it can be vacuumized.
+                        txManager.updateTxMeta(
+                                txId,
+                                old -> finalizeState(old, txMeta.txState(), txMeta.commitTimestamp(), coarseCurrentTimeMillis())
+                        );
+                    }
+                });
     }
 
     /**

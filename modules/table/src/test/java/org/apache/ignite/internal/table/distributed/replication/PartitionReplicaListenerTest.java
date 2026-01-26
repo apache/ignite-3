@@ -233,6 +233,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -636,7 +637,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clockService,
                 clusterNodeResolver,
                 messagingService,
-                mock(PlacementDriver.class),
+                mock(PlacementDriverHelper.class),
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),

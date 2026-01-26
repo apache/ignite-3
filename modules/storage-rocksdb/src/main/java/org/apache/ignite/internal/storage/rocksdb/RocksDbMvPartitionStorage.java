@@ -800,13 +800,23 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private ReadResult readLatestVersion(RowId rowId, RocksIterator seekIterator) {
-        ByteBuffer dataIdKeyPrefix = prepareDirectDataIdKeyBuf(rowId)
-                .position(0)
-                .limit(ROW_PREFIX_SIZE);
+        return readVersion(rowId, seekIterator, true, true);
+    }
 
-        // Seek to the first appearance of row id if timestamp isn't set.
-        // Since timestamps are sorted from newest to oldest, first occurrence will always be the latest version.
-        seekIterator.seek(dataIdKeyPrefix);
+    private ReadResult readLatestCommittedVersion(RowId rowId, RocksIterator seekIterator) {
+        return readVersion(rowId, seekIterator, true, false);
+    }
+
+    private ReadResult readVersion(RowId rowId, RocksIterator seekIterator, boolean doSeek, boolean doReturnWriteIntent) {
+        if (doSeek) {
+            ByteBuffer dataIdKeyPrefix = prepareDirectDataIdKeyBuf(rowId)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
+
+            // Seek to the first appearance of row id if timestamp isn't set.
+            // Since timestamps are sorted from newest to oldest, first occurrence will always be the latest version.
+            seekIterator.seek(dataIdKeyPrefix);
+        }
 
         if (invalid(seekIterator)) {
             // No data at all.
@@ -825,6 +835,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
+
+        if (isWriteIntent && !doReturnWriteIntent) {
+            seekIterator.next();
+
+            return readVersion(rowId, seekIterator, false, false);
+        }
 
         ByteBuffer valueBytes = ByteBuffer.wrap(seekIterator.value());
 
@@ -1196,7 +1212,19 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         int commitZoneId = transactionState.getInt();
                         int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
 
-                        row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId);
+                        HybridTimestamp newestCommitTimestamp = null;
+
+                        try (
+                                RocksIterator seekIterator = wrapIterator(it, helper.partCf)
+                        ) {
+                            ReadResult rr = readLatestCommittedVersion(rowId, seekIterator);
+
+                            if (!rr.isEmpty()) {
+                                newestCommitTimestamp = rr.commitTimestamp();
+                            }
+                        }
+
+                        row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId, newestCommitTimestamp);
                     } else {
                         row = RowMeta.withoutWriteIntent(rowId);
                     }

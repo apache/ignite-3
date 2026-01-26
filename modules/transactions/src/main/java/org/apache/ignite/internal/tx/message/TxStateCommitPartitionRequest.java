@@ -48,4 +48,8 @@ public interface TxStateCommitPartitionRequest extends PrimaryReplicaRequest {
      * @return Group id of the sender partition, or {@code null} if the request is not caused by write intent resolution.
      */
     @Nullable ZonePartitionIdMessage senderGroupId();
+
+    @Nullable RowIdMessage rowId();
+
+    @Nullable HybridTimestamp newestCommitTimestamp();
 }

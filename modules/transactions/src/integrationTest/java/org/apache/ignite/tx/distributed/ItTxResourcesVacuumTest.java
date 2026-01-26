@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runInExecutor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
@@ -47,6 +48,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +61,7 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.InternalTable;
@@ -101,7 +104,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             .set("key", t.longValue("key") + 1)
             .set("val", "" + (t.longValue("key") + 1));
 
-    private static final int REPLICAS = 2;
+    private static final int REPLICAS = 3;
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
@@ -311,6 +314,84 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         Set<String> txNodes = partitionAssignment(anyNode(), groupId);
 
         IgniteImpl abandonedTxCoord = findNode(n -> !txNodes.contains(n.name()));
+
+        RecordView<Tuple> view = abandonedTxCoord.tables().table(TABLE_NAME).recordView();
+
+        Transaction abandonedTx = abandonedTxCoord.transactions().begin();
+        UUID abandonedTxId = txId(abandonedTx);
+        Transaction parallelTx = abandonedTxCoord.transactions().begin();
+        UUID parallelTxId = txId(parallelTx);
+
+        // Find a tuple hosted on the same partition.
+        Tuple tupleForParallelTx = tuple;
+        int partIdForParallelTx = -1;
+        while (partIdForParallelTx != partId) {
+            tupleForParallelTx = findTupleToBeHostedOnNode(leaseholder, TABLE_NAME, null, NEXT_TUPLE.apply(tupleForParallelTx), NEXT_TUPLE,
+                    true);
+
+            partIdForParallelTx = partitionIdForTuple(anyNode(), TABLE_NAME, tupleForParallelTx, parallelTx);
+        }
+
+        view.upsert(abandonedTx, tuple);
+        view.upsert(parallelTx, tupleForParallelTx);
+
+        parallelTx.commit();
+
+        stopNode(abandonedTxCoord.name());
+
+        waitForTxStateVacuum(txNodes, parallelTxId, partIdForParallelTx, true, 10_000);
+
+        // Check that the volatile state of the transaction is preserved.
+        assertTrue(checkVolatileTxStateOnNodes(txNodes, abandonedTxId));
+
+        // Try to read the value using another transaction, which starts the tx recovery.
+        RecordView<Tuple> viewLh = leaseholder.tables().table(TABLE_NAME).recordView();
+        Tuple value = viewLh.get(null, Tuple.create().set("key", tuple.longValue("key")));
+        // Check that abandoned tx is rolled back and thus the value is null.
+        assertNull(value);
+
+        // Check that the abandoned transaction is recovered; its volatile and persistent states are vacuumized.
+        // Wait for it, because we don't have the recovery completion future.
+        waitForTxStateVacuum(txNodes, abandonedTxId, partId, true, 10_000);
+    }
+
+    @Test
+    public void test1() throws InterruptedException, ExecutionException {
+        setTxResourceTtl(1);
+
+        Tuple tuple = INITIAL_TUPLE;
+
+        int partId = partitionIdForTuple(anyNode(), TABLE_NAME, tuple, null);
+
+        ZonePartitionId groupId = new ZonePartitionId(zoneId(anyNode(), TABLE_NAME), partId);
+
+        ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(anyNode(), groupId);
+        assertNotNull(replicaMeta);
+        assertNotNull(replicaMeta.getLeaseholder());
+
+        IgniteImpl leaseholder = unwrapIgniteImpl(cluster.node(cluster.nodeIndex(replicaMeta.getLeaseholder())));
+
+        IgniteImpl backupNode = findNode(n -> !n.id().equals(leaseholder.id()));
+        int backupNodeIndex = cluster.nodeIndex(backupNode.name());
+
+        RecordView<Tuple> view = leaseholder.tables().table(TABLE_NAME).recordView();
+        Transaction tx = leaseholder.transactions().begin();
+        UUID txId = txId(tx);
+        view.upsert(tx, tuple);
+
+        Thread.sleep(3000);
+
+        backupNode.stop();
+
+        tx.commit();
+
+        TxStateMeta committedMeta = leaseholder.txManager().stateMeta(txId);
+        assertEquals(COMMITTED, committedMeta.txState());
+        HybridTimestamp commitTs = committedMeta.commitTimestamp();
+
+        waitForTxStateVacuum(cluster.runningNodes().map(Ignite::name).collect(toSet()), txId, partId, true, 10_000);
+
+        backupNode.txManager().updateTxMeta(txId, old -> TxStateMeta.builder(COMMITTED).commitTimestamp(commitTs).build());
 
         RecordView<Tuple> view = abandonedTxCoord.tables().table(TABLE_NAME).recordView();
 

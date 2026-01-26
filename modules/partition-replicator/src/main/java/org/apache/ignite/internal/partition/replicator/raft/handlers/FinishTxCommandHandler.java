@@ -33,6 +33,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.FinishTxC
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -106,7 +107,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
         if (!txStateChangeRes) {
             assert txMetaBeforeCas != null : "txMetaBeforeCase is null, but CAS has failed for " + txId;
 
-            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
+            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet, this.replicationGroupId);
         }
 
         return new CommandResult(new TransactionResult(stateToSet, command.commitTimestamp()), true);
@@ -122,12 +123,13 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
         return list;
     }
 
-    private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
+    private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet, ReplicationGroupId groupId) {
         String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
-                        + " expected state = {}, state to set = {}",
+                        + " expected state = {}, state to set = {}, groupId = {}",
                 txId,
                 txMetaBeforeCas,
-                txMetaToSet
+                txMetaToSet,
+                groupId
         );
 
         IgniteInternalException stateChangeException =
