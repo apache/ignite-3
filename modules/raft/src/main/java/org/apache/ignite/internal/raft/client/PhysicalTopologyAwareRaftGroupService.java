@@ -663,8 +663,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * @param retryContext Retry context for getting next peer.
      * @return Next peer for retry, or null if the future was already completed with an error.
      */
-    @Nullable
-    private Peer getNextPeerForRecoverableError(CompletableFuture<?> fut, Throwable err, RetryContext retryContext) {
+    private @Nullable Peer getNextPeerForRecoverableError(CompletableFuture<?> fut, Throwable err, RetryContext retryContext) {
         err = unwrapCause(err);
 
         if (!recoverable(err)) {
@@ -731,7 +730,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     ) {
         RetryExecutionStrategy strategy = new RetryExecutionStrategy() {
             @Override
-            public void executeRetry(RetryContext context, Peer nextPeer, @Nullable PeerTracking trackCurrentAs, String reason) {
+            public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
                 // Single-attempt mode: ALWAYS mark current peer as unavailable, regardless of trackCurrentAs.
                 // This prevents retrying the same peer and matches original behavior where:
                 // - transient errors: would select new peer, mark current unavailable
@@ -866,18 +865,20 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     ) {
         RetryExecutionStrategy strategy = new RetryExecutionStrategy() {
             @Override
-            public void executeRetry(RetryContext context, Peer nextPeer, @Nullable PeerTracking trackCurrentAs, String reason) {
+            public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
                 RetryContext nextContext;
-                if (trackCurrentAs == null) {
-                    // Transient error or leader redirect - don't mark current peer.
-                    nextContext = context.nextAttempt(nextPeer, reason);
-                } else if (trackCurrentAs == PeerTracking.UNAVAILABLE) {
-                    // Peer is down - mark as unavailable.
-                    nextContext = context.nextAttemptForUnavailablePeer(nextPeer, reason);
-                } else {
-                    // No leader - mark as "no leader" (NOT unavailable).
-                    // This allows the peer to be retried once a leader is known.
-                    nextContext = context.nextAttemptForNoLeaderPeer(nextPeer, reason);
+                switch (trackCurrentAs) {
+                    case COMMON:
+                        nextContext = context.nextAttempt(nextPeer, reason);
+                        break;
+                    case UNAVAILABLE:
+                        nextContext = context.nextAttemptForUnavailablePeer(nextPeer, reason);
+                        break;
+                    case NO_LEADER:
+                        nextContext = context.nextAttemptForNoLeaderPeer(nextPeer, reason);
+                        break;
+                    default:
+                        throw new AssertionError("Unexpected tracking: " + trackCurrentAs);
                 }
                 scheduleRetryWithLeaderWait(fut, nextContext, cmd, deadline, termWhenStarted);
             }
@@ -1074,6 +1075,8 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * How to track the current peer when moving to a new one.
      */
     private enum PeerTracking {
+        /** Don't mark the current peer (transient errors, leader redirects). */
+        COMMON,
         /** Mark as unavailable (down, shutting down). */
         UNAVAILABLE,
         /** Mark as "no leader" (working but doesn't know leader). */
@@ -1097,10 +1100,10 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
          *
          * @param context Current retry context.
          * @param nextPeer Peer to retry on.
-         * @param trackCurrentAs How to track the current peer (may be null for "don't track").
+         * @param trackCurrentAs How to track the current peer ({@link PeerTracking#COMMON} for "don't track").
          * @param reason Human-readable reason for the retry.
          */
-        void executeRetry(RetryContext context, Peer nextPeer, @Nullable PeerTracking trackCurrentAs, String reason);
+        void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason);
 
         /**
          * Called when all peers have been exhausted.
@@ -1180,8 +1183,8 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             case UNKNOWN:
             case EINTERNAL:
             case ENOENT:
-                // Transient errors - retry on same peer (null tracking = don't mark current peer).
-                strategy.executeRetry(retryContext, retryContext.targetPeer(), null, reason);
+                // Transient errors - retry on same peer (COMMON = don't mark current peer).
+                strategy.executeRetry(retryContext, retryContext.targetPeer(), PeerTracking.COMMON, reason);
                 break;
 
             case EHOSTDOWN:
@@ -1198,7 +1201,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                     PeerTracking tracking = trackNoLeaderSeparately ? PeerTracking.NO_LEADER : PeerTracking.UNAVAILABLE;
                     selectPeerAndRetry(retryContext, trackNoLeaderSeparately, tracking, reason, strategy);
                 } else {
-                    // Redirect to known leader (null tracking = don't mark current peer as bad).
+                    // Redirect to known leader (COMMON = don't mark current peer as bad).
                     Peer leaderPeer = parsePeer(resp.leaderId());
 
                     if (leaderPeer == null) {
@@ -1206,7 +1209,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                     }
 
                     leader = leaderPeer;
-                    strategy.executeRetry(retryContext, leaderPeer, null, reason);
+                    strategy.executeRetry(retryContext, leaderPeer, PeerTracking.COMMON, reason);
                 }
                 break;
 
