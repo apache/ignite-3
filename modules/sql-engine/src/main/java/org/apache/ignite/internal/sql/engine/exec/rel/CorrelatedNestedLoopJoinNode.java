@@ -83,19 +83,19 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
      * @param ctx Execution context.
      * @param cond Join expression.
      * @param correlationIds Set of correlation ids.
+     * @param correlationColumns Set of columns that are used by correlation.
      * @param joinType Join rel type.
      * @param rightRowFactory Right row factory.
      * @param joinProjection Output row factory.
-     * @param correlationColumns Set of columns that are used by correlation.
      */
     public CorrelatedNestedLoopJoinNode(
             ExecutionContext<RowT> ctx,
             BiPredicate<RowT, RowT> cond,
             Set<CorrelationId> correlationIds,
+            ImmutableBitSet correlationColumns,
             JoinRelType joinType,
             RowFactory<RowT> rightRowFactory,
-            SqlJoinProjection joinProjection,
-            ImmutableBitSet correlationColumns
+            SqlJoinProjection joinProjection
     ) {
         super(ctx);
 

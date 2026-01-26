@@ -73,8 +73,8 @@ public class CorrelateToNestedLoopRule extends AbstractIgniteConverterRule<Logic
                 right,
                 cluster.getRexBuilder().makeLiteral(true),
                 correlationIds,
-                rel.getJoinType(),
-                rel.getRequiredColumns()
+                rel.getRequiredColumns(),
+                rel.getJoinType()
         );
     }
 

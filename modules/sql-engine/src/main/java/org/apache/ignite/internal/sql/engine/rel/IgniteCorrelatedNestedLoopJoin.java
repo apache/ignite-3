@@ -65,11 +65,11 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
      * @param condition Join condition
      * @param variablesSet Set variables that are set by the LHS and used by the RHS and are not available to nodes above this Join
      *         in the tree
-     * @param joinType Join type
      * @param correlationColumns Set of columns that are used by correlation.
+     * @param joinType Join type
      */
     public IgniteCorrelatedNestedLoopJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right,
-            RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType, ImmutableBitSet correlationColumns) {
+            RexNode condition, Set<CorrelationId> variablesSet, ImmutableBitSet correlationColumns, JoinRelType joinType) {
         super(cluster, traitSet, left, right, condition, variablesSet, joinType);
 
         this.correlationColumns = correlationColumns;
@@ -86,16 +86,17 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
                 input.getInputs().get(1),
                 input.getExpression("condition"),
                 Set.copyOf(Commons.transform(input.getIntegerList("variablesSet"), CorrelationId::new)),
-                input.getEnum("joinType", JoinRelType.class),
-                input.getBitSet("correlationColumns"));
+                input.getBitSet("correlationColumns"),
+                input.getEnum("joinType", JoinRelType.class)
+        );
     }
 
     /** {@inheritDoc} */
     @Override
     public Join copy(RelTraitSet traitSet, RexNode condition, RelNode left, RelNode right, JoinRelType joinType,
             boolean semiJoinDone) {
-        return new IgniteCorrelatedNestedLoopJoin(getCluster(), traitSet, left, right, condition, variablesSet, joinType,
-                correlationColumns);
+        return new IgniteCorrelatedNestedLoopJoin(getCluster(), traitSet, left, right, condition,
+                variablesSet, correlationColumns, joinType);
     }
 
     /** {@inheritDoc} */
@@ -189,7 +190,7 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteCorrelatedNestedLoopJoin(cluster, getTraitSet(), inputs.get(0), inputs.get(1), getCondition(),
-                getVariablesSet(), getJoinType(), getCorrelationColumns());
+                getVariablesSet(), getCorrelationColumns(), getJoinType());
     }
 
     public ImmutableBitSet getCorrelationColumns() {

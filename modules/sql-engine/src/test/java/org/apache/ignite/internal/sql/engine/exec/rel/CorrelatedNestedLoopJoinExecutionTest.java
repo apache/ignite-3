@@ -81,10 +81,10 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
                 ctx,
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
+                ImmutableBitSet.of(),
                 joinType,
                 ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
-                identityProjection(),
-                ImmutableBitSet.of()
+                identityProjection()
         );
 
         join.register(Arrays.asList(left, right));
@@ -238,10 +238,10 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
                 ctx,
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
+                ImmutableBitSet.of(),
                 joinType,
                 ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
-                identityProjection(),
-                ImmutableBitSet.of()
+                identityProjection()
         );
     }
 

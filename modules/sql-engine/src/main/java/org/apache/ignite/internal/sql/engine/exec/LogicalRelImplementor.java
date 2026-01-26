@@ -370,7 +370,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(convertStructuredType(rightType));
 
         Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, cond, rel.getVariablesSet(),
-                rel.getJoinType(), rightRowFactory, joinProjection, rel.getCorrelationColumns());
+                rel.getCorrelationColumns(), rel.getJoinType(), rightRowFactory, joinProjection);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());

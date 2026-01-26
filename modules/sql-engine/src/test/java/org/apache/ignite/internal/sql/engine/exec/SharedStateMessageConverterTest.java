@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -107,12 +108,25 @@ public class SharedStateMessageConverterTest {
 
         SharedState converted = doConversions(state);
 
+        assertThat(converted, is(notNullValue()));
+
         assertThat(converted.correlations(), equalTo(state.correlations()));
     }
 
     @Test
     void nullState() {
         assertThat(doConversions(null), is(Matchers.nullValue()));
+    }
+
+    @Test
+    void emptyState() {
+        SharedState state = new SharedState();
+
+        SharedState converted = doConversions(state);
+
+        assertThat(converted, is(notNullValue()));
+
+        assertThat(converted.correlations(), is(state.correlations()));
     }
 
     private static @Nullable SharedState doConversions(@Nullable SharedState state) {
