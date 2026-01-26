@@ -195,7 +195,7 @@ public class RaftMetricSource implements MetricSource, RaftGroupListener {
                 ));
 
         metrics.put(RAFT_GROUP_LEADERS,
-                new IntGauge("Number of raft groups node is a leader of",
+                new IntGauge(RAFT_GROUP_LEADERS,
                         "Number of raft groups where this node is the leader",
                         leaderNodeIds::size
                 ));

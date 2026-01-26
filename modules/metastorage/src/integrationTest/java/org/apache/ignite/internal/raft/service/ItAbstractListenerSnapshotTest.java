@@ -395,6 +395,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         }
 
         // Shouldn't happen.
+        assert false : "Listener not found";
         return null;
     }
 
