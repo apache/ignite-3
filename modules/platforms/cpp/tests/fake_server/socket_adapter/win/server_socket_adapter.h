@@ -39,6 +39,10 @@ public:
         }
     }
 
+    bool is_valid() const {
+        return m_fd != INVALID_SOCKET;
+    }
+
     SOCKET accept() {
         sockaddr_in cl_addr{};
 
