@@ -388,15 +388,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         JraftServerImpl.DelegatingStateMachine fsm =
                 (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
-        for (RaftGroupListener listener : fsm.getListeners()) {
-            if (getListenerClass().isInstance(listener)) {
-                return (T) listener;
-            }
-        }
-
-        // Shouldn't happen.
-        assert false : "Listener not found";
-        return null;
+        return (T) fsm.getListener();
     }
 
     protected abstract Class<? extends RaftGroupListener> getListenerClass();
