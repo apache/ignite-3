@@ -447,7 +447,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 cmd::toStringForLightLogging,
                 createRequestFactory(cmd),
                 0,  // Single attempt - no retry timeout
-                RetryContext.USE_DEFAULT_RESPONSE_TIMEOUT
+                raftConfiguration.responseTimeoutMillis().value()
         );
 
         sendWithRetrySingleAttempt(resultFuture, context);
@@ -615,8 +615,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         }
 
         try {
-            long responseTimeout = retryContext.responseTimeoutMillis() == RetryContext.USE_DEFAULT_RESPONSE_TIMEOUT
-                    ? throttlingContextHolder.peerRequestTimeoutMillis() : retryContext.responseTimeoutMillis();
+            long responseTimeout = retryContext.responseTimeoutMillis();
 
             retryContext.onNewAttempt();
 
