@@ -391,8 +391,6 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         return (T) fsm.getListener();
     }
 
-    protected abstract Class<? extends RaftGroupListener> getListenerClass();
-
     /**
      * Wait for topology.
      *
