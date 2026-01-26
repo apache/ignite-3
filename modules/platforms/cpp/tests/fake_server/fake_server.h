@@ -27,11 +27,6 @@
 
 #include <atomic>
 #include <thread>
-#ifdef _WIN32
-#include "socket_adapter/win/server_socket_adapter.h"
-#else
-#include <unistd.h>
-#endif
 
 using namespace ignite;
 
