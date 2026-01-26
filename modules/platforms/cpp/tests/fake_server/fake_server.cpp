@@ -18,19 +18,10 @@
 #include "fake_server.h"
 #include "ignite/protocol/protocol_version.h"
 
-#include <cstring>
 #include <ignite/common/ignite_error.h>
 #include <ignite/protocol/utils.h>
-#include <iostream>
-#include <queue>
 
-#ifdef _WIN32
-#else
-    #include <netinet/in.h>
-    #include <sys/socket.h>
-    #include <unistd.h>
-    #include <errno.h>
-#endif
+#include <queue>
 
 void fake_server::start() {
     start_socket();
