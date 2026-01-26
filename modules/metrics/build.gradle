@@ -51,8 +51,6 @@ dependencies {
     integrationTestImplementation libs.auto.service.annotations
 
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation project(':ignite-api')
-    testFixturesImplementation testFixtures(project(':ignite-runner'))
 }
 
 description = 'ignite-metrics'

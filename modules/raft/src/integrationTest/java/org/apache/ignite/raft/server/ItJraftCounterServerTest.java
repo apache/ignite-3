@@ -975,7 +975,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         return fsm0.getListeners().stream()
                 .filter(CounterListener.class::isInstance)
-                .anyMatch(listener -> ((CounterListener) listener).value() == expected);
+                .map(CounterListener.class::cast)
+                .anyMatch(listener -> listener.value() == expected);
     }
 
     @Test

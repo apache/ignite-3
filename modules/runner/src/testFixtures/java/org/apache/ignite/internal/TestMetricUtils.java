@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,11 +26,13 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.metrics.IntMetric;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.MetricSet;
 
 /** Utility class for testing metrics. */
 public class TestMetricUtils {
-
     /**
      * Tests that the given operation increases the specified metrics by the expected values.
      *

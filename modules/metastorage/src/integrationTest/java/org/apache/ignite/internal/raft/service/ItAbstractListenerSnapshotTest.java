@@ -389,7 +389,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
         for (RaftGroupListener listener : fsm.getListeners()) {
-            if (listener.getClass().isAssignableFrom(listener.getClass())) {
+            if (getListenerClass().isInstance(listener)) {
                 return (T) listener;
             }
         }
@@ -397,6 +397,8 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Shouldn't happen.
         return null;
     }
+
+    protected abstract Class<? extends RaftGroupListener> getListenerClass();
 
     /**
      * Wait for topology.

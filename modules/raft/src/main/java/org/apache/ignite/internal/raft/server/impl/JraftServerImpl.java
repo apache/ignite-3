@@ -849,7 +849,12 @@ public class JraftServerImpl implements RaftServer {
          * @param opts Node options.
          * @param failureManager Failure processor that is used to handle critical errors.
          */
-        public DelegatingStateMachine(RaftNodeId nodeId, List<RaftGroupListener> listeners, NodeOptions opts, FailureManager failureManager) {
+        public DelegatingStateMachine(
+                RaftNodeId nodeId,
+                List<RaftGroupListener> listeners,
+                NodeOptions opts,
+                FailureManager failureManager
+        ) {
             super(nodeId.groupId().toString());
             this.nodeId = nodeId;
             this.listeners = listeners;

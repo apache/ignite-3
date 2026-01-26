@@ -257,6 +257,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
     }
 
+    /** Cluster configuration that aggressively increases low watermark to speed up data cleanup in tests. */
     public static String aggressiveLowWatermarkIncreaseClusterConfig() {
         return "{\n"
                 + "  ignite.gc.lowWatermark {\n"

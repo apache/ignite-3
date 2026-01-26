@@ -796,7 +796,8 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         return fsm.getListeners().stream()
                 .filter(ZonePartitionRaftListener.class::isInstance)
-                .anyMatch(listener -> ((ZonePartitionRaftListener) listener).tableProcessor(tableId) != null);
+                .map(ZonePartitionRaftListener.class::cast)
+                .anyMatch(listener -> listener.tableProcessor(tableId) != null);
     }
 
     private static InternalTable getInternalTable(Node node, String tableName) {

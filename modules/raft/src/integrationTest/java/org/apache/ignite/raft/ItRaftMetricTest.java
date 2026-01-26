@@ -19,38 +19,69 @@ package org.apache.ignite.raft;
 
 import static java.util.List.of;
 import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.aggressiveLowWatermarkIncreaseClusterConfig;
+import static org.apache.ignite.internal.TestMetricUtils.testMetricChangeAfterOperation;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.metrics.TestMetricUtils.testMetricChangeAfterOperation;
 import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.RAFT_GROUP_LEADERS;
 import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.SOURCE_NAME;
 import static org.awaitility.Awaitility.await;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/** Tests for {@link RaftMetricSource}. */
 public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
+    private static final String ZONE_NAME = "TEST_ZONE";
+
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
+        // To trigger zone's raft partitions destruction.
         builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
     }
 
+    @BeforeEach
+    void setUp() {
+        dropTableAndZone();
+    }
+
     @Test
-    void testLeaderCount() {
-        testMetricChangeAfterOperation(CLUSTER, SOURCE_NAME, of(RAFT_GROUP_LEADERS), of((long) DEFAULT_PARTITION_COUNT), () -> {
-            sql("CREATE ZONE TEST_ZONE WITH STORAGE_PROFILES='default'");
-            sql("CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR) ZONE TEST_ZONE");
-        });
+    void testLeaderCountIncreases() {
+        testMetricChangeAfterOperation(
+                CLUSTER,
+                SOURCE_NAME,
+                of(RAFT_GROUP_LEADERS),
+                of((long) DEFAULT_PARTITION_COUNT),
+                ItRaftMetricTest::createZoneAndTable
+        );
+    }
 
-        testMetricChangeAfterOperation(CLUSTER, SOURCE_NAME, of(RAFT_GROUP_LEADERS), of((long) -DEFAULT_PARTITION_COUNT), () -> {
-            int initialNodes = getRaftNodesCount();
+    @Test
+    void testLeaderCountDecreases() {
+        createZoneAndTable();
 
-            sql("DROP TABLE TEST");
-            sql("DROP ZONE TEST_ZONE");
+        testMetricChangeAfterOperation(
+                CLUSTER,
+                SOURCE_NAME,
+                of(RAFT_GROUP_LEADERS),
+                of((long) -DEFAULT_PARTITION_COUNT),
+                () -> {
+                    int initialNodes = getRaftNodesCount();
 
-            // Waiting for zone partitions to be destroyed.
-            await().until(() -> initialNodes - getRaftNodesCount() >= DEFAULT_PARTITION_COUNT);
-        });
+                    dropTableAndZone();
+
+                    // Waiting for zone partitions to be destroyed.
+                    await().until(() -> initialNodes - getRaftNodesCount() >= DEFAULT_PARTITION_COUNT);
+                });
+    }
+
+    private static void dropTableAndZone() {
+        sql("DROP ZONE IF EXISTS " + ZONE_NAME);
+    }
+
+    private static void createZoneAndTable() {
+        sql("CREATE ZONE " + ZONE_NAME + " WITH STORAGE_PROFILES='default'");
     }
 
     private static int getRaftNodesCount() {
