@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 
@@ -101,14 +100,14 @@ public interface RaftGroupListener {
     /**
      * Invoked when the belonging node becomes the leader of the group.
      */
-    default void onLeaderStart(RaftNodeId raftNodeId) {
+    default void onLeaderStart() {
         // No-op.
     }
 
     /**
      * Invoked when the belonging node stops being the leader of the group.
      */
-    default void onLeaderStop(RaftNodeId raftNodeId) {
+    default void onLeaderStop() {
         // No-op.
     }
 }

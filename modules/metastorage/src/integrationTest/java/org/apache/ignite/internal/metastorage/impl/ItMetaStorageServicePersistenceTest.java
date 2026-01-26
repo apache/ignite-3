@@ -174,11 +174,6 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     }
 
     @Override
-    protected Class<? extends RaftGroupListener> getListenerClass() {
-        return MetaStorageListener.class;
-    }
-
-    @Override
     protected Marshaller commandsMarshaller(ClusterService clusterService) {
         return new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry());
     }

@@ -19,13 +19,10 @@ package org.apache.ignite.internal.metrics.sources;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
@@ -33,16 +30,12 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Metrics of striped disruptor.
  */
-public class RaftMetricSource implements MetricSource, RaftGroupListener {
+public class RaftMetricSource implements MetricSource {
     public static final String SOURCE_NAME = "raft";
 
     public static final String RAFT_GROUP_LEADERS = "raft.groups.localLeadersCount";
@@ -84,39 +77,12 @@ public class RaftMetricSource implements MetricSource, RaftGroupListener {
         this.metrics = createMetrics();
     }
 
-    @Override
     public void onLeaderStart(RaftNodeId raftNodeId) {
         leaderNodeIds.add(raftNodeId);
     }
 
-    @Override
     public void onLeaderStop(RaftNodeId raftNodeId) {
         leaderNodeIds.remove(raftNodeId);
-    }
-
-    @Override
-    public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        // No-op.
-    }
-
-    @Override
-    public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        // No-op.
-    }
-
-    @Override
-    public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        // No-op.
-    }
-
-    @Override
-    public boolean onSnapshotLoad(Path path) {
-        return true;
-    }
-
-    @Override
-    public void onShutdown() {
-        // No-op.
     }
 
     @Override

@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -36,12 +35,10 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.raft.jraft.Closure;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.junit.jupiter.api.Test;
@@ -87,9 +84,9 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
-                nodeId(),
-                List.of(TEST_LISTENER),
-                mock(NodeOptions.class),
+                "test",
+                TEST_LISTENER,
+                mock(Marshaller.class),
                 testFailureManager(reached)
         );
 
@@ -103,9 +100,9 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
-                nodeId(),
-                List.of(TEST_LISTENER),
-                mock(NodeOptions.class),
+                "test",
+                TEST_LISTENER,
+                mock(Marshaller.class),
                 testFailureManager(reached)
         );
 
@@ -123,9 +120,9 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
         AtomicBoolean reached = new AtomicBoolean();
 
         DelegatingStateMachine sm = new JraftServerImpl.DelegatingStateMachine(
-                nodeId(),
-                List.of(TEST_LISTENER),
-                mock(NodeOptions.class),
+                "test",
+                TEST_LISTENER,
+                mock(Marshaller.class),
                 testFailureManager(reached)
         );
 
@@ -153,9 +150,5 @@ public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
                 return Set.of();
             }
         });
-    }
-
-    private static RaftNodeId nodeId() {
-        return new RaftNodeId(new ZonePartitionId(0, 0), new Peer("test"));
     }
 }

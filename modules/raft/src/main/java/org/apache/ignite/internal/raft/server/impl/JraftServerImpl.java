@@ -509,10 +509,8 @@ public class JraftServerImpl implements RaftServer {
                 nodeOptions.setCommandsMarshaller(groupOptions.commandsMarshaller());
             }
 
-            List<RaftGroupListener> listeners = opts.getRaftMetrics() == null ? List.of(lsnr) : List.of(lsnr, opts.getRaftMetrics());
-
             nodeOptions.setFsm(
-                    new DelegatingStateMachine(nodeId, listeners, nodeOptions, failureManager));
+                    new DelegatingStateMachine(nodeId, lsnr, nodeOptions, failureManager));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
@@ -833,7 +831,7 @@ public class JraftServerImpl implements RaftServer {
      * Wrapper of {@link StateMachineAdapter}.
      */
     public static class DelegatingStateMachine extends StateMachineAdapter {
-        private final List<RaftGroupListener> listeners;
+        private final RaftGroupListener listener;
 
         private final Marshaller marshaller;
 
@@ -841,29 +839,32 @@ public class JraftServerImpl implements RaftServer {
 
         private final RaftNodeId nodeId;
 
+        private final RaftMetricSource raftMetrics;
+
         /**
          * Constructor.
          *
          * @param nodeId Node ID.
-         * @param listeners Listeners.
+         * @param listener Listener.
          * @param opts Node options.
          * @param failureManager Failure processor that is used to handle critical errors.
          */
         public DelegatingStateMachine(
                 RaftNodeId nodeId,
-                List<RaftGroupListener> listeners,
+                RaftGroupListener listener,
                 NodeOptions opts,
                 FailureManager failureManager
         ) {
             super(nodeId.groupId().toString());
             this.nodeId = nodeId;
-            this.listeners = listeners;
+            this.listener = listener;
+            this.raftMetrics = opts.getRaftMetrics();
             this.marshaller = opts.getCommandsMarshaller();
             this.failureManager = failureManager;
         }
 
-        public List<RaftGroupListener> getListeners() {
-            return listeners;
+        public RaftGroupListener getListener() {
+            return listener;
         }
 
         @Override
@@ -871,9 +872,7 @@ public class JraftServerImpl implements RaftServer {
             var iterWrapper = new WriteCommandIterator(iter, marshaller);
 
             try {
-                for (RaftGroupListener listener : listeners) {
-                    listener.onWrite(iterWrapper);
-                }
+                listener.onWrite(iterWrapper);
             } catch (Throwable err) {
                 LOG.error("Unexpected error while processing command [label={}]", err, label);
 
@@ -915,9 +914,7 @@ public class JraftServerImpl implements RaftServer {
                     hasOldConf ? peersIdsToStrings(entry.getOldConf().getLearners()) : null
             );
 
-            for (RaftGroupListener listener : listeners) {
-                listener.onConfigurationCommitted(committedConf, lastAppliedIndex, lastAppliedTerm);
-            }
+            listener.onConfigurationCommitted(committedConf, lastAppliedIndex, lastAppliedTerm);
         }
 
         private static List<String> peersIdsToStrings(Collection<PeerId> peerIds) {
@@ -928,29 +925,27 @@ public class JraftServerImpl implements RaftServer {
         @Override
         public void onSnapshotSave(SnapshotWriter writer, Closure done) {
             try {
-                for (RaftGroupListener listener : listeners) {
-                    listener.onSnapshotSave(Path.of(writer.getPath()), res -> {
-                        if (res == null) {
-                            File file = new File(writer.getPath());
+                listener.onSnapshotSave(Path.of(writer.getPath()), res -> {
+                    if (res == null) {
+                        File file = new File(writer.getPath());
 
-                            File[] snapshotFiles = file.listFiles();
+                        File[] snapshotFiles = file.listFiles();
 
-                            // Files array can be null if shanpshot folder doesn't exist.
-                            if (snapshotFiles != null) {
-                                for (File file0 : snapshotFiles) {
-                                    if (file0.isFile()) {
-                                        writer.addFile(file0.getName(), null);
-                                    }
+                        // Files array can be null if shanpshot folder doesn't exist.
+                        if (snapshotFiles != null) {
+                            for (File file0 : snapshotFiles) {
+                                if (file0.isFile()) {
+                                    writer.addFile(file0.getName(), null);
                                 }
                             }
-
-                            done.run(Status.OK());
-                        } else {
-                            done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s, reason %s",
-                                    writer.getPath(), res.getMessage()));
                         }
-                    });
-                }
+
+                        done.run(Status.OK());
+                    } else {
+                        done.run(new Status(RaftError.EIO, "Fail to save snapshot to %s, reason %s",
+                                writer.getPath(), res.getMessage()));
+                    }
+                });
             } catch (Throwable e) {
                 done.run(new Status(RaftError.EIO, "Fail to save snapshot %s", e.getMessage()));
 
@@ -962,13 +957,7 @@ public class JraftServerImpl implements RaftServer {
         @Override
         public boolean onSnapshotLoad(SnapshotReader reader) {
             try {
-                boolean result = true;
-
-                for (RaftGroupListener listener : listeners) {
-                    result = listener.onSnapshotLoad(Path.of(reader.getPath())) && result;
-                }
-
-                return result;
+                return listener.onSnapshotLoad(Path.of(reader.getPath()));
             } catch (Throwable err) {
                 failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
 
@@ -979,17 +968,15 @@ public class JraftServerImpl implements RaftServer {
         /** {@inheritDoc} */
         @Override
         public void onShutdown() {
-            for (RaftGroupListener listener : listeners) {
-                listener.onShutdown();
-            }
+            listener.onShutdown();
         }
 
         @Override
         public void onLeaderStart(long term) {
             super.onLeaderStart(term);
 
-            for (RaftGroupListener listener : listeners) {
-                listener.onLeaderStart(nodeId);
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStart(nodeId);
             }
         }
 
@@ -997,8 +984,8 @@ public class JraftServerImpl implements RaftServer {
         public void onLeaderStop(Status status) {
             super.onLeaderStop(status);
 
-            for (RaftGroupListener listener : listeners) {
-                listener.onLeaderStop(nodeId);
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStop(nodeId);
             }
         }
     }
