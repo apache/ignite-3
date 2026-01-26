@@ -73,11 +73,9 @@ public:
         }
     }
 
-    void closeIfValid() {
-        if (m_fd != INVALID_SOCKET) {
-            ::closesocket(m_fd);
-            m_fd = INVALID_SOCKET;
-        }
+    void close() {
+        ::closesocket(m_fd);
+        m_fd = INVALID_SOCKET;
     }
 private:
     SOCKET m_fd = INVALID_SOCKET;

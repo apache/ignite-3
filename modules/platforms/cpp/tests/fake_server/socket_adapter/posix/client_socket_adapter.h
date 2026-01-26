@@ -16,12 +16,13 @@
  */
 
 #pragma once
-#include <winsock2.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 namespace ignite {
 class client_socket_adapter {
 public:
-    explicit client_socket_adapter(SOCKET m_fd)
+    explicit client_socket_adapter(int m_fd)
         : m_fd(m_fd) {}
 
     client_socket_adapter() = default;
@@ -30,22 +31,18 @@ public:
 
     client_socket_adapter &operator=(const client_socket_adapter &other) = default;
 
-    bool is_valid() const { return m_fd != INVALID_SOCKET; }
+    bool is_valid() const { return m_fd >= 0; }
 
-    void send_message(const std::vector<std::byte> &msg) {
-        ::send(m_fd, reinterpret_cast<const char *>(msg.data()), msg.size(), 0);
-    }
+    void send_message(const std::vector<std::byte> &msg) { ::send(m_fd, msg.data(), msg.size(), 0); }
 
-    int recieve_next_packet(std::byte *buf, size_t buf_size) {
-        return ::recv(m_fd, reinterpret_cast<char *>(buf), buf_size, 0);
-    }
+    int recieve_next_packet(std::byte *buf, size_t buf_size) { return ::recv(m_fd, buf, buf_size, 0); }
 
     void close() {
-        ::closesocket(m_fd);
-        m_fd = INVALID_SOCKET;
+        ::close(m_fd);
+        m_fd = -1;
     }
 
 private:
-    SOCKET m_fd = INVALID_SOCKET;
+    int m_fd = -1;
 };
 } // namespace ignite

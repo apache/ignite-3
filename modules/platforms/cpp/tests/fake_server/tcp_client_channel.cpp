@@ -20,9 +20,7 @@
 #include <algorithm>
 
 #ifndef _WIN32
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+
 #endif
 
 namespace ignite {
@@ -92,6 +90,8 @@ void tcp_client_channel::start() {
 void tcp_client_channel::stop() {
     m_stopped.store(true);
 
-    m_cl_sock.closeIfValid();
+    if (m_cl_sock.is_valid()) {
+        m_cl_sock.close();
+    }
 }
 }; // namespace ignite

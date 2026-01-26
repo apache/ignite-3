@@ -16,17 +16,69 @@
  */
 
 #pragma once
-
+#include <netinet/in.h>
 #include <unistd.h>
 
 namespace ignite {
 class server_socket_adapter {
 public:
-    void closeIfValid() {
-        if (m_fd > 0) {
-            ::close(m_fd);
-            m_fd = -1;
+    explicit server_socket_adapter(int m_fd)
+        : m_fd(m_fd) {}
+
+    server_socket_adapter() = default;
+
+    server_socket_adapter(const server_socket_adapter &other) = default;
+
+    server_socket_adapter &operator=(const server_socket_adapter &other) = default;
+
+    void start() {
+        m_fd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (m_fd < 0) {
+            throw ignite_error("socket failed");
         }
+    }
+
+    bool is_valid() const {
+        return m_fd >= 0;
+    }
+
+    int accept() {
+        sockaddr_in cl_addr{};
+
+        socklen_t addr_len = sizeof(cl_addr);
+
+        int cl_sock = ::accept(m_fd, reinterpret_cast<sockaddr *>(&cl_addr), &addr_len);
+
+        return cl_sock;
+    }
+
+    void bind(int port) const {
+        sockaddr_in srv_addr{};
+
+        srv_addr.sin_family = AF_INET;
+        srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        srv_addr.sin_port = htons(port);
+
+        int bind_res = ::bind(m_fd, reinterpret_cast<sockaddr*>(&srv_addr), sizeof(srv_addr));
+
+        if (bind_res < 0) {
+            std::stringstream ss;
+            ss << "bind failed: " << strerror(errno);
+            throw std::runtime_error(ss.str());
+        }
+    }
+
+    void listen() const {
+        int listen_res = ::listen(m_fd, 1);
+
+        if (listen_res < 0) {
+            throw std::runtime_error("listen failed");
+        }
+    }
+
+    void close() {
+        ::close(m_fd);
+        m_fd = -1;
     }
 private:
     int m_fd = -1;

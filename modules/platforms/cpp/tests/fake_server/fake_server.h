@@ -66,7 +66,9 @@ public:
         if (m_started)
             m_client_channel->stop();
 
-        m_srv_sock.closeIfValid();
+        if (m_srv_sock.is_valid()) {
+            m_srv_sock.close();
+        }
         m_io_thread->join();
 
 #ifdef _WIN32
