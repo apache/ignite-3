@@ -1697,28 +1697,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionModificationCounter counter
     ) {
         PartitionTableStatsMetricSource metricSource =
-                new PartitionTableStatsMetricSource(table.tableId(), partitionId);
-
-        metricSource.addMetric(new LongGauge(
-                METRIC_COUNTER,
-                "The value of the volatile counter of partition modifications. "
-                        + "This value is used to determine staleness of the related SQL statistics.",
-                counter::value
-        ));
-
-        metricSource.addMetric(new LongGauge(
-                METRIC_NEXT_MILESTONE,
-                "The value of the next milestone for the number of partition modifications. "
-                        + "This value is used to determine staleness of the related SQL statistics.",
-                counter::nextMilestone
-        ));
-
-        metricSource.addMetric(new LongGauge(
-                METRIC_LAST_MILESTONE_TIMESTAMP,
-                "The timestamp value representing the commit time of the last modification operation that "
-                        + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
-                () -> counter.lastMilestoneTimestamp().longValue()
-        ));
+                new PartitionTableStatsMetricSource(table.tableId(), partitionId, counter);
 
         try {
             metricManager.registerSource(metricSource);

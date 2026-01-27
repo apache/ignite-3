@@ -282,12 +282,12 @@ public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
 
     @Test
     void globalPendingWriteIntentsMetric() {
-        String tab1 = "test_table_pending_wi_1";
-        String tab2 = "test_table_pending_wi_2";
+        String table1 = "test_table_pending_wi_1";
+        String table2 = "test_table_pending_wi_2";
 
         sqlScript(
-                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab1, ZONE_1_PART_NO_REPLICAS),
-                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tab2, ZONE_1_PART_NO_REPLICAS)
+                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", table1, ZONE_1_PART_NO_REPLICAS),
+                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", table2, ZONE_1_PART_NO_REPLICAS)
         );
 
         Transaction tx = CLUSTER.aliveNode().transactions().begin();
@@ -297,11 +297,11 @@ public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
 
         try {
             for (int i = 0; i < tab1Inserts; i++) {
-                sql(tx, format("INSERT INTO {} VALUES(?, ?);", tab1), i, i);
+                sql(tx, format("INSERT INTO {} VALUES(?, ?);", table1), i, i);
             }
 
             for (int i = 0; i < tab2Inserts; i++) {
-                sql(tx, format("INSERT INTO {} VALUES(?, ?);", tab2), i, i);
+                sql(tx, format("INSERT INTO {} VALUES(?, ?);", table2), i, i);
             }
 
             expectGlobalPendingWriteIntents(tab1Inserts + tab2Inserts);
