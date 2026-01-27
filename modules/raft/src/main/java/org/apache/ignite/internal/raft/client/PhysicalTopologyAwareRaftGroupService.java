@@ -621,37 +621,16 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> clusterService.messagingService().invoke(node, retryContext.request(), responseTimeout))
-                    .whenComplete((resp, err) -> {
-                        if (!busyLock.enterBusy()) {
-                            fut.completeExceptionally(
-                                    stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "].")
-                            );
-                            return;
-                        }
-
-                        try {
-                            if (err != null) {
-                                handleThrowableSingleAttempt(fut, err, retryContext);
-                            } else if (resp instanceof ErrorResponse) {
-                                handleErrorResponseCommon(
-                                        fut,
-                                        (ErrorResponse) resp,
-                                        retryContext,
-                                        new SingleAttemptRetryStrategy(fut),
-                                        false
-                                );
-                            } else if (resp instanceof SMErrorResponse) {
-                                handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
-                            } else {
-                                leader = retryContext.targetPeer();
-                                fut.complete((R) resp);
-                            }
-                        } catch (Throwable e) {
-                            fut.completeExceptionally(e);
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
-                    });
+                    .whenComplete((resp, err) ->
+                            handleResponse(
+                                    fut,
+                                    resp,
+                                    err,
+                                    retryContext,
+                                    new SingleAttemptRetryStrategy(fut),
+                                    false
+                            )
+                    );
         } finally {
             busyLock.leaveBusy();
         }
@@ -730,12 +709,54 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     }
 
     /**
-     * Handles throwable in single attempt mode.
+     * Handles the response from a raft peer request.
+     *
+     * <p>Dispatches the response to the appropriate handler based on its type:
+     * throwable, error response, state machine error, or successful response.
+     *
+     * @param fut Future to complete with the result.
+     * @param resp Response message, or {@code null} if an error occurred.
+     * @param err Throwable if the request failed, or {@code null} on success.
+     * @param retryContext Retry context.
+     * @param strategy Strategy for executing retries.
+     * @param trackNoLeaderSeparately Whether to track "no leader" peers separately from unavailable peers.
      */
-    private void handleThrowableSingleAttempt(
+    private <R extends NetworkMessage> void handleResponse(
+            CompletableFuture<R> fut,
+            @Nullable NetworkMessage resp,
+            @Nullable Throwable err,
+            RetryContext retryContext,
+            RetryExecutionStrategy strategy,
+            boolean trackNoLeaderSeparately
+    ) {
+        if (!busyLock.enterBusy()) {
+            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
+            return;
+        }
+
+        try {
+            if (err != null) {
+                handleThrowableWithRetry(fut, err, retryContext, strategy);
+            } else if (resp instanceof ErrorResponse) {
+                handleErrorResponseCommon(fut, (ErrorResponse) resp, retryContext, strategy, trackNoLeaderSeparately);
+            } else if (resp instanceof SMErrorResponse) {
+                handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
+            } else {
+                leader = retryContext.targetPeer();
+                fut.complete((R) resp);
+            }
+        } catch (Throwable e) {
+            fut.completeExceptionally(e);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void handleThrowableWithRetry(
             CompletableFuture<? extends NetworkMessage> fut,
             Throwable err,
-            RetryContext retryContext
+            RetryContext retryContext,
+            RetryExecutionStrategy strategy
     ) {
         RetryPeerResult result = selectPeerForRetry(err, retryContext);
 
@@ -749,7 +770,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
         String shortReasonMessage = "Peer " + retryContext.targetPeer().consistentId()
                 + " threw " + unwrapCause(err).getClass().getSimpleName();
-        sendWithRetrySingleAttempt(fut, retryContext.nextAttemptForUnavailablePeer(nextPeer, shortReasonMessage));
+        strategy.executeRetry(retryContext, nextPeer, PeerTracking.COMMON, shortReasonMessage);
     }
 
     /**
@@ -795,65 +816,18 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                     .whenComplete((resp, err) -> {
                         peerThrottlingContextHolder.afterRequest(requestStartTime, retriableError(err, resp));
 
-                        if (!busyLock.enterBusy()) {
-                            fut.completeExceptionally(
-                                    stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "].")
-                            );
-                            return;
-                        }
-
-                        try {
-                            if (err != null) {
-                                handleThrowableWithLeaderWait(fut, err, retryContext, cmd, deadline, termWhenStarted);
-                            } else if (resp instanceof ErrorResponse) {
-                                handleErrorResponseCommon(
-                                        fut,
-                                        (ErrorResponse) resp,
-                                        retryContext,
-                                        new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted),
-                                        true
-                                );
-                            } else if (resp instanceof SMErrorResponse) {
-                                handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
-                            } else {
-                                leader = retryContext.targetPeer();
-                                fut.complete((ActionResponse) resp);
-                            }
-                        } catch (Throwable e) {
-                            fut.completeExceptionally(e);
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
+                        handleResponse(
+                                fut,
+                                resp,
+                                err,
+                                retryContext,
+                                new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted),
+                                true
+                        );
                     });
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * Handles throwable in leader-wait mode.
-     */
-    private void handleThrowableWithLeaderWait(
-            CompletableFuture<ActionResponse> fut,
-            Throwable err,
-            RetryContext retryContext,
-            Command cmd,
-            long deadline,
-            long termWhenStarted
-    ) {
-        RetryPeerResult result = selectPeerForRetry(err, retryContext);
-
-        if (!result.isSuccess()) {
-            fut.completeExceptionally(result.error());
-            return;
-        }
-
-        Peer nextPeer = result.peer();
-        logRecoverableError(retryContext, nextPeer);
-
-        String shortReasonMessage = "Peer " + retryContext.targetPeer().consistentId()
-                + " threw " + unwrapCause(err).getClass().getSimpleName();
-        scheduleRetryWithLeaderWait(fut, retryContext.nextAttempt(nextPeer, shortReasonMessage), cmd, deadline, termWhenStarted);
     }
 
     /**
