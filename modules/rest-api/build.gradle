@@ -26,6 +26,8 @@ dependencies {
     annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.micronaut.openapi
 
+    compileOnly libs.spotbugs.annotations
+
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')

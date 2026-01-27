@@ -17,6 +17,8 @@
 
 cmake_minimum_required(VERSION 3.18)
 
+include(CMakePackageConfigHelpers)
+
 file(READ _version.txt IGNITE_VERSION)
 if(NOT DEFINED IGNITE_VERSION)
   set(IGNITE_VERSION 3.0.0)
@@ -48,10 +50,9 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
+set(IGNITE_CMAKE_TOP_DIR ${CMAKE_CURRENT_LIST_DIR})
+
 include(dependencies)
-if(${INSTALL_IGNITE_FILES})
-    set(CMAKE_INSTALL_PREFIX ${IGNITE_INSTALL_DESTINATION})
-endif()
 
 if(ENABLE_IWYU)
     find_program(IWYU_PATH NAMES include-what-you-use iwyu)
@@ -191,3 +192,35 @@ if (CLANG_FORMAT_BIN)
 else()
     message(STATUS "Failed to find clang-format. So there is no 'format' target now.")
 endif()
+
+if (${ENABLE_CLIENT})
+    list(APPEND IGNITE_AVAILABLE_COMPONENTS client)
+endif()
+if (${ENABLE_ODBC})
+    list(APPEND IGNITE_AVAILABLE_COMPONENTS odbc)
+endif()
+
+configure_package_config_file(
+    "cmake/ignite-config.cmake.in"
+    "cmake/ignite-config.cmake"
+    INSTALL_DESTINATION "cmake"
+)
+
+add_subdirectory(pkgconfig)
+
+write_basic_package_version_file(
+    "cmake/ignite-config-version.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config-version.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+)
+
+# Do not export the package by default
+cmake_policy(SET CMP0090 NEW)
+
+# Make this package visible to the system
+export(PACKAGE ignite)

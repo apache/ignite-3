@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdSelectivity;
 import org.apache.calcite.rel.metadata.RelMdUtil;
@@ -36,7 +37,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
@@ -58,8 +58,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteMdSelectivity extends RelMdSelectivity {
     public static final RelMetadataProvider SOURCE =
-            ReflectiveRelMetadataProvider.reflectiveSource(
-                    BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
+            ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdSelectivity(), BuiltInMetadata.Selectivity.Handler.class);
 
     public static final double EQ_SELECTIVITY = 0.333;
     public static final double IS_NOT_NULL_SELECTIVITY = 0.9;

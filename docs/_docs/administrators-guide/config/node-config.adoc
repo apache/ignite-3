@@ -136,12 +136,11 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 
-|dumpThreadsOnFailure|true|The number of items that can be expired at once.| Yes | Yes | true, false
-|dumpThreadsThrottlingTimeoutMillis|10000|Throttling timeout for thread dump generation during failure handling, in milliseconds.| Yes | Yes | 1 - inf
-
-|handler.ignoredFailureTypes|[systemWorkerBlocked, systemCriticalOperationTimeout]|Types of failures that will be ignored.| Yes | Yes | 1 - inf
-|handler.type|noop|Failure handler configuration type.| Yes | Yes | noop, stop, stopOrHalt
-|oomBufferSizeBytes|16384|Amount of memory reserved in the heap at node start, in bytes.| Yes | Yes | 1 - inf
+|dumpThreadsOnFailure|true|The number of items that can be expired at once.| Yes | No | true, false
+|dumpThreadsThrottlingTimeoutMillis|10000|Throttling timeout for thread dump generation during failure handling, in milliseconds.| Yes | No | 1 - inf
+|handler.ignoredFailureTypes|[systemWorkerBlocked, systemCriticalOperationTimeout]|Types of failures that will be ignored.| Yes | No | 1 - inf
+|handler.type|noop|Failure handler configuration type.| Yes | No | noop, stop, stopOrHalt
+|oomBufferSizeBytes|16384|Amount of memory reserved in the heap at node start, in bytes.| Yes | No | 1 - inf
 
 |======
 

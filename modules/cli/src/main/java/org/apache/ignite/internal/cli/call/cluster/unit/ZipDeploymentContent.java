@@ -57,13 +57,21 @@ class ZipDeploymentContent implements DeploymentContent {
         try (OutputStream os = Files.newOutputStream(zipPath);
                 ZipOutputStream zos = new ZipOutputStream(os)) {
             try (Stream<Path> stream = Files.walk(sourceDir)) {
-                stream.filter(Files::isRegularFile).forEach(filePath -> {
-                    Path relativePath = sourceDir.relativize(filePath);
+                stream.filter(path -> !path.equals(sourceDir)).forEach(path -> {
+                    Path relativePath = sourceDir.relativize(path);
                     try {
-                        ZipEntry zipEntry = new ZipEntry(relativePath.toString().replace('\\', '/'));
-                        zos.putNextEntry(zipEntry);
-                        Files.copy(filePath, zos);
-                        zos.closeEntry();
+                        if (Files.isDirectory(path)) {
+                            // Add directory entry (with trailing slash)
+                            ZipEntry zipEntry = new ZipEntry(relativePath.toString().replace('\\', '/') + "/");
+                            zos.putNextEntry(zipEntry);
+                            zos.closeEntry();
+                        } else {
+                            // Add regular file entry
+                            ZipEntry zipEntry = new ZipEntry(relativePath.toString().replace('\\', '/'));
+                            zos.putNextEntry(zipEntry);
+                            Files.copy(path, zos);
+                            zos.closeEntry();
+                        }
                     } catch (IOException e) {
                         throw sneakyThrow(e);
                     }

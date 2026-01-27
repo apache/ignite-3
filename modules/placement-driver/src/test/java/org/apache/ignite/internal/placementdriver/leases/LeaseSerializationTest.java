@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +41,7 @@ public class LeaseSerializationTest {
                     i % 2 == 0,
                     i % 2 == 1,
                     i % 2 == 0 ? null : "node" + i,
-                    new TablePartitionId(1, i)
+                    new ZonePartitionId(1, i)
             ));
         }
 
@@ -75,9 +73,5 @@ public class LeaseSerializationTest {
 
     private static HybridTimestamp timestamp(long physical, int logical) {
         return new HybridTimestamp(physical, logical);
-    }
-
-    private static ByteBuffer wrap(byte[] bytes) {
-        return ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN);
     }
 }

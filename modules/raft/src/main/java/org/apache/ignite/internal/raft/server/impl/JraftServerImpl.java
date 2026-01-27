@@ -634,7 +634,7 @@ public class JraftServerImpl implements RaftServer {
         StorageDestructionIntent intent = groupStoragesContextResolver.getIntent(nodeId, groupOptions.volatileStores());
 
         if (durable) {
-            groupStoragesDestructionIntents.saveStorageDestructionIntent(nodeId.groupId(), intent);
+            groupStoragesDestructionIntents.saveStorageDestructionIntent(intent);
         }
 
         destroyStorages(

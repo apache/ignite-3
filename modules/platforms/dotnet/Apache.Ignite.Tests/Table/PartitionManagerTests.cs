@@ -24,7 +24,6 @@ using System.Net;
 using System.Threading.Tasks;
 using Common.Compute;
 using Common.Table;
-using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Table;
@@ -34,6 +33,7 @@ using static Common.Table.TestTables;
 /// <summary>
 /// Tests for <see cref="IPartitionManager"/>.
 /// </summary>
+[Obsolete("Obsolete. Replaced by PartitionDistributionTests.")]
 public class PartitionManagerTests : IgniteTestsBase
 {
     [Test]
@@ -41,7 +41,7 @@ public class PartitionManagerTests : IgniteTestsBase
     {
         var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
         var replicasNodes = replicas.Values.Distinct().OrderBy(x => ((IPEndPoint)x.Address).Port).ToList();
-        var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).PartitionId).OrderBy(x => x).ToList();
+        var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).Id).OrderBy(x => x).ToList();
 
         var expectedNodes = (await Client.GetClusterNodesAsync())
             .OrderBy(x => ((IPEndPoint)x.Address).Port)
@@ -69,7 +69,7 @@ public class PartitionManagerTests : IgniteTestsBase
         async Task<List<HashPartition>> GetPartitions()
         {
             var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
-            return replicas.Keys.Cast<HashPartition>().OrderBy(x => x.PartitionId).ToList();
+            return replicas.Keys.Cast<HashPartition>().OrderBy(x => x.Id).ToList();
         }
     }
 
@@ -93,7 +93,7 @@ public class PartitionManagerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(-1)));
 
-        Assert.AreEqual("Partition id can't be negative: HashPartition { PartitionId = -1 }", ex.Message);
+        Assert.AreEqual("Partition id can't be negative: HashPartition { Id = -1 }", ex.Message);
     }
 
     [Test]
@@ -102,7 +102,7 @@ public class PartitionManagerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(10)));
 
-        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { PartitionId = 10 }", ex.Message);
+        Assert.AreEqual("Partition id can't be greater than 9: HashPartition { Id = 10 }", ex.Message);
     }
 
     [Test]
@@ -130,7 +130,7 @@ public class PartitionManagerTests : IgniteTestsBase
             var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.PartitionJob, id);
             var expectedPartition = await partitionJobExec.GetResultAsync();
 
-            Assert.AreEqual(expectedPartition, ((HashPartition)partition).PartitionId);
+            Assert.AreEqual(expectedPartition, ((HashPartition)partition).Id);
         }
     }
 
@@ -183,6 +183,8 @@ public class PartitionManagerTests : IgniteTestsBase
 
     private class MyPartition : IPartition
     {
+        public long Id => -1;
+
         public bool Equals(IPartition? other) => false;
     }
 }

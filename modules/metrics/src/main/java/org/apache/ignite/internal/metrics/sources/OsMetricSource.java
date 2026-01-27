@@ -87,6 +87,12 @@ public class OsMetricSource implements MetricSource {
                 cpuLoadSupplier()
         );
 
+        metricSetBuilder.intGauge(
+                "AvailableProcessors",
+                "Number of processors available to the Java virtual machine.",
+                operatingSystemMxBean::getAvailableProcessors
+        );
+
         enabled = true;
 
         return metricSetBuilder.build();

@@ -209,7 +209,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) {
             return true;
         }

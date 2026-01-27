@@ -115,6 +115,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -1267,6 +1268,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsBasePath.raftLogPath());
 
+            LogSyncer partitionsLogSyncer = logStorageFactory.logSyncer();
+
             RaftGroupOptionsConfigurer partitionRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(logStorageFactory, partitionsBasePath.metaPath());
 
@@ -1427,7 +1430,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             dir.resolve("storage"),
                             null,
                             failureManager,
-                            logStorageFactory,
+                            partitionsLogSyncer,
                             hybridClock,
                             commonScheduledExecutorService
                     ),
@@ -1523,7 +1526,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     storagePath.resolve("tx-state"),
                     threadPoolsManager.commonScheduler(),
                     threadPoolsManager.tableIoExecutor(),
-                    logStorageFactory,
+                    partitionsLogSyncer,
                     failureManager
             );
 
@@ -1586,7 +1589,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    logStorageFactory,
+                    partitionsLogSyncer,
                     partitionReplicaLifecycleManager,
                     minTimeCollectorService,
                     systemDistributedConfiguration,

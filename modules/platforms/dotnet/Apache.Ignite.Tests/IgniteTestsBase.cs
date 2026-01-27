@@ -82,6 +82,8 @@ namespace Apache.Ignite.Tests
 
         protected bool UseMapper { get; }
 
+        protected ConsoleLogger Logger => _logger;
+
         [OneTimeSetUp]
         public async Task OneTimeSetUp()
         {
@@ -209,12 +211,17 @@ namespace Apache.Ignite.Tests
 
         protected List<IgniteProxy> GetProxies()
         {
+            // Ensure the client is connected to all configured endpoints.
+            Client.WaitForConnections(Client.Configuration.Endpoints.Count);
+
             var proxies = Client.GetConnections().Select(c => new IgniteProxy(c.Node.Address, c.Node.Name)).ToList();
 
             _disposables.AddRange(proxies);
 
             return proxies;
         }
+
+        protected void AddDisposable(IDisposable disposable) => _disposables.Add(disposable);
 
         private void CheckPooledBufferLeak()
         {

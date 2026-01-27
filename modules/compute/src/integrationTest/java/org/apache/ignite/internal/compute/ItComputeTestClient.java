@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.compute;
 
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.compute.utils.Clients;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 
 /**
@@ -41,5 +44,11 @@ public class ItComputeTestClient extends ItComputeTestEmbedded {
     @Override
     void cancelsNotCancellableJob(boolean local) {
         // No-op. Embedded-specific.
+    }
+
+    @Override
+    protected @Nullable HybridTimestamp currentObservableTimestamp() {
+        TcpIgniteClient client = (TcpIgniteClient) clients.client(node(0));
+        return client.channel().observableTimestamp().get();
     }
 }

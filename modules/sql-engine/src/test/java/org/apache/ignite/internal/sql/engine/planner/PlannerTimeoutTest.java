@@ -126,7 +126,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .plannerTimeout(plannerTimeout)
                 .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                        .defaultSchema(createRootSchema(List.of(schema)).getSubSchema(schema.getName()))
+                        .defaultSchema(createRootSchema(List.of(schema)).subSchemas().get(schema.getName()))
                         .build())
                 .defaultSchemaName(schema.getName())
                 .query(sql)

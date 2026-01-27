@@ -20,6 +20,10 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
@@ -65,6 +69,12 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
     private boolean timed;
 
+    @Option(names = MAX_COL_WIDTH_OPTION, description = MAX_COL_WIDTH_OPTION_DESC)
+    private Integer maxColWidth;
+
+    @Option(names = NO_TRUNCATE_OPTION, description = NO_TRUNCATE_OPTION_DESC)
+    private boolean noTruncate;
+
     @Option(names = SCRIPT_FILE_OPTION, description = SCRIPT_FILE_OPTION_DESC)
     private String file;
 
@@ -103,6 +113,12 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
         }
         if (timed) {
             result.add(TIMED_OPTION);
+        }
+        if (maxColWidth != null) {
+            result.add(MAX_COL_WIDTH_OPTION + "=" + maxColWidth);
+        }
+        if (noTruncate) {
+            result.add(NO_TRUNCATE_OPTION);
         }
         if (file != null) {
             result.add(SCRIPT_FILE_OPTION + "=" + file);

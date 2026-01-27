@@ -152,7 +152,7 @@ namespace Apache.Ignite
         ComputeChangePriority,
 
         /// <summary>
-        /// Get primary replicas (<see cref="IPartitionManager.GetPrimaryReplicasAsync"/>).
+        /// Get primary replicas (<see cref="IPartitionDistribution.GetPrimaryReplicasAsync()"/>).
         /// </summary>
         PrimaryReplicasGet,
 

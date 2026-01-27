@@ -210,9 +210,17 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 } else if (command instanceof SafeTimeSyncCommand) {
                     result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof PrimaryReplicaChangeCommand) {
+                    PrimaryReplicaChangeCommand cmd = (PrimaryReplicaChangeCommand) command;
+                    LOG.debug("Processing PrimaryReplicaChangeCommand [groupId={}, commandIndex={}, commandTerm={}, "
+                                    + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
+                            partitionKey.toReplicationGroupId(), commandIndex, commandTerm,
+                            cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+
                     result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
 
-                    if (updateLeaseInfoInTxStorage((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm)) {
+                    if (updateLeaseInfoInTxStorage(cmd, commandIndex, commandTerm)) {
+                        LOG.debug("Updated lease info in tx storage [groupId={}, commandIndex={}, leaseStartTime={}]",
+                                partitionKey.toReplicationGroupId(), commandIndex, cmd.leaseStartTime());
                         result = EMPTY_APPLIED_RESULT;
                     }
                 } else {

@@ -27,7 +27,6 @@ import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.util.BuiltInMethod;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 
 /**
@@ -36,7 +35,7 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMetadata.PercentageOriginalRows> {
     public static final RelMetadataProvider SOURCE = ReflectiveRelMetadataProvider.reflectiveSource(
-            BuiltInMethod.PERCENTAGE_ORIGINAL_ROWS.method, new IgniteMdPercentageOriginalRows());
+            new IgniteMdPercentageOriginalRows(), BuiltInMetadata.PercentageOriginalRows.Handler.class);
 
     /** {@inheritDoc} */
     @Override

@@ -87,12 +87,8 @@ dependencies {
     testImplementation libs.wiremock
     testImplementation libs.awaitility
 
-    testFixturesAnnotationProcessor libs.picocli.annotation.processor
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
-    testFixturesAnnotationProcessor libs.micronaut.validation.annotation.processor
     testFixturesImplementation libs.micronaut.inject
-    testFixturesImplementation libs.micronaut.picocli
-    testFixturesImplementation libs.micronaut.junit5
     testFixturesImplementation testFixtures(project(':ignite-core'))
 
     integrationTestAnnotationProcessor libs.picocli.annotation.processor
@@ -111,6 +107,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation libs.micronaut.runtime
     integrationTestImplementation libs.micronaut.picocli
     integrationTestImplementation libs.wiremock
     integrationTestImplementation libs.micronaut.junit5

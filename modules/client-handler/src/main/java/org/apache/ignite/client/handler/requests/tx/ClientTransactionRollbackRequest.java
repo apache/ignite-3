@@ -28,6 +28,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 
 /**
  * Client transaction rollback request.
@@ -41,6 +42,7 @@ public class ClientTransactionRollbackRequest {
      * @param metrics Metrics.
      * @param igniteTables Tables facade.
      * @param enableDirectMapping Enable direct mapping.
+     * @param sendRemoteWritesFlag Send remote writes flag.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -48,7 +50,8 @@ public class ClientTransactionRollbackRequest {
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             IgniteTablesInternal igniteTables,
-            boolean enableDirectMapping
+            boolean enableDirectMapping,
+            boolean sendRemoteWritesFlag
     )
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
@@ -69,6 +72,15 @@ public class ClientTransactionRollbackRequest {
                 if (table != null) {
                     merge(table.internalTable(), partId, consistentId, token, tx, false);
                 }
+            }
+
+            if (cnt > 0) {
+                in.unpackLong(); // Unpack causality.
+
+                ReadWriteTransactionImpl tx0 = (ReadWriteTransactionImpl) tx;
+
+                // Enforce cleanup.
+                tx0.noRemoteWrites(sendRemoteWritesFlag && in.unpackBoolean());
             }
         }
 

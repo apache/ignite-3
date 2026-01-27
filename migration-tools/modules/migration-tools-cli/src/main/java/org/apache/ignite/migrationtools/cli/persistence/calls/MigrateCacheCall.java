@@ -168,7 +168,7 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
 
     @Override
     public CallOutput<Ouput> execute(Input i) {
-        // TODO: GG-41365 This must be improved. Sometime picocli gets confused with the args.
+        // TODO: IGNITE-27619 This must be improved. Sometime picocli gets confused with the args.
         String cacheName = i.migrateCacheParams().cacheName();
         String[] addresses = i.migrateCacheParams().addresses();
         if (addresses[0].equals(cacheName)) {
@@ -254,7 +254,7 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
             var registry = new RegisterOnlyTableTypeRegistry(new PersistentTableTypeRegistryImpl(client));
             var sqlGenerator = new SqlDdlGenerator(registry, packExtraFields);
 
-            // TODO: GG-40802 Add validation. The cache must exist etc.
+            // TODO: IGNITE-27629 Add validation. The cache must exist etc.
             LOGGER.info("Starting the migration process");
             Ignite2PersistentCacheTools.migrateCache(client, sqlGenerator, persistentCtx, cacheName, processorFactory);
             LOGGER.info("Waiting for results to be persisted");

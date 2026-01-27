@@ -21,7 +21,9 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
 import java.util.UUID;
@@ -360,6 +362,8 @@ public class TxStateMeta implements TransactionMeta {
                 return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
             } else if (txState == ABANDONED) {
                 return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel);
+            } else if (txState == UNKNOWN) {
+                return txStateMetaUnknown();
             } else {
                 return new TxStateMeta(
                         txState,

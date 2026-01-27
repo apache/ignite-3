@@ -94,6 +94,7 @@ import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderContext;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -181,7 +182,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 unitsContextManager,
                 computeExecutor,
                 computeConfiguration,
-                EventLog.NOOP
+                EventLog.NOOP,
+                HybridTimestampTracker.emptyTracker()
         );
 
         assertThat(computeComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());

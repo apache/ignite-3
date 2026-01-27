@@ -36,6 +36,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.tx.TransactionException;
 
@@ -52,6 +53,7 @@ public class ClientTransactionCommitRequest {
      * @param clockService Clock service.
      * @param igniteTables Tables.
      * @param enableDirectMapping Enable direct mapping flag.
+     * @param sendRemoteWritesFlag Send remote writes flag.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -61,6 +63,7 @@ public class ClientTransactionCommitRequest {
             ClockService clockService,
             IgniteTablesInternal igniteTables,
             boolean enableDirectMapping,
+            boolean sendRemoteWritesFlag,
             HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
@@ -83,8 +86,13 @@ public class ClientTransactionCommitRequest {
             if (cnt > 0) {
                 long causality = in.unpackLong();
 
-                // Update causality.
+                // Update causality. Used to assign commit timestamp after all enlistments.
                 clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
+
+                ReadWriteTransactionImpl tx0 = (ReadWriteTransactionImpl) tx;
+
+                // Enforce cleanup.
+                tx0.noRemoteWrites(sendRemoteWritesFlag && in.unpackBoolean());
             }
 
             Exception ex = null;

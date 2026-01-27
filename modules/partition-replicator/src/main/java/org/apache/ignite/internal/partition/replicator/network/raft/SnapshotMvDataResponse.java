@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.network.raft;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.PropertyName;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
@@ -30,7 +31,6 @@ import org.jetbrains.annotations.Nullable;
  * Snapshot partition data response message.
  */
 @Transferable(PartitionReplicationMessageGroup.SNAPSHOT_MV_DATA_RESPONSE)
-// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
 public interface SnapshotMvDataResponse extends NetworkMessage {
     /** List of version chains. */
     List<ResponseEntry> rows();
@@ -63,7 +63,8 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         @Nullable UUID txId();
 
         /** Commit table/zone id for write-intent if it's present. */
-        @Nullable Integer commitTableOrZoneId();
+        @PropertyName("commitTableOrZoneId")
+        @Nullable Integer commitZoneId();
 
         /** Commit partition id for write-intent if it's present. {@link ReadResult#UNDEFINED_COMMIT_PARTITION_ID} otherwise. */
         int commitPartitionId();

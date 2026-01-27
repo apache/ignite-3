@@ -40,6 +40,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.io.FileMatchers.anExistingFile;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -47,6 +48,7 @@ import static org.mockito.Mockito.mock;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -69,6 +71,8 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
+import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
@@ -79,6 +83,12 @@ import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbPartitionStorage;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
+import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
+import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.LogId;
+import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
+import org.apache.ignite.raft.jraft.option.LogStorageOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
@@ -354,6 +364,34 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         IgniteImpl restartedIgnite0 = unwrapIgniteImpl(cluster.startNode(0));
 
         verifyPartitionMvDataGetsRemovedFromDisk(restartedIgnite0, tableId, replicationGroupId);
+    }
+
+    @Test
+    void testDurableLogDestruction() {
+        cluster.startAndInit(1);
+
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.node(0));
+
+        String groupId = "test-group";
+        String groupName = "partition"; // Copied from "org.apache.ignite.internal.app.IgniteImpl.PARTITION_GROUP_NAME".
+
+        var destructionIntents = new VaultGroupStoragesDestructionIntents(ignite.vault());
+        destructionIntents.saveStorageDestructionIntent(new StorageDestructionIntent(groupId, groupName, false));
+
+        LogStorage logStorage = createAndInitCustomLogStorage(ignite, groupId);
+
+        LogEntry entry = new LogEntry();
+        entry.setId(new LogId(1, 1));
+        entry.setType(EntryType.ENTRY_TYPE_NO_OP);
+
+        logStorage.appendEntries(List.of(entry));
+
+        ignite = unwrapIgniteImpl(cluster.restartNode(0));
+
+        LogStorage logStorage0 = createAndInitCustomLogStorage(ignite, groupId);
+
+        // Destruction might be asynchronous.
+        await().timeout(2, SECONDS).until(() -> logStorage0.getEntry(1), is(nullValue()));
     }
 
     private static void raisePersistedLwm(Path workDir, HybridTimestamp newLwm) {
@@ -780,5 +818,17 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
                             metaStorage.getLocally(zoneScaleDownTimerKey(zoneId)).tombstone()
                     );
                 });
+    }
+
+    private static LogStorage createAndInitCustomLogStorage(IgniteImpl ignite, String groupId) {
+        RaftOptions raftOptions = ignite.raftManager().server().options().getRaftOptions();
+        LogStorage logStorage = ignite.partitionsLogStorageFactory().createLogStorage(groupId, raftOptions);
+
+        LogStorageOptions logStorageOptions = new LogStorageOptions();
+        logStorageOptions.setConfigurationManager(new ConfigurationManager());
+        logStorageOptions.setLogEntryCodecFactory(DefaultLogEntryCodecFactory.getInstance());
+
+        logStorage.init(logStorageOptions);
+        return logStorage;
     }
 }

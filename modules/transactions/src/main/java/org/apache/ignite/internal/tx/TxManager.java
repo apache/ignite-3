@@ -183,6 +183,7 @@ public interface TxManager extends IgniteComponent {
      * @param commitIntent {@code true} if a commit requested.
      * @param timeoutExceeded {@code true} if a timeout exceeded.
      * @param recovery {@code true} if finished by recovery.
+     * @param noRemoteWrites {@code true} if remote(directly mapped) part of this transaction has no writes.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
@@ -192,6 +193,7 @@ public interface TxManager extends IgniteComponent {
             boolean commitIntent,
             boolean timeoutExceeded,
             boolean recovery,
+            boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );

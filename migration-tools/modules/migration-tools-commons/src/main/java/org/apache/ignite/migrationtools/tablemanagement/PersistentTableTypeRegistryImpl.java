@@ -46,8 +46,8 @@ public class PersistentTableTypeRegistryImpl implements TableTypeRegistry {
     }
 
     private CompletableFuture<Table> initTable() {
-        // TODO: GG-39800 Add logs
-        // TODO: GG-39801 Add a private schema if AI3 when supports it.
+        // TODO: IGNITE-27633 Add logs
+        // TODO: IGNITE-27634 Add a private schema if AI3 when supports it.
         TableDefinition def = TableDefinition.builder(TABLE_NAME)
                 .ifNotExists()
                 .columns(

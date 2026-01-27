@@ -453,7 +453,7 @@ public class OutgoingSnapshot {
         long[] commitTimestamps = new long[commitTimestampsCount];
 
         UUID transactionId = null;
-        Integer commitTableOrZoneId = null;
+        Integer commitZoneId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
         for (int i = count - 1, j = 0; i >= 0; i--) {
@@ -473,7 +473,7 @@ public class OutgoingSnapshot {
                 assert i == 0 : rowVersionsN2O;
 
                 transactionId = version.transactionId();
-                commitTableOrZoneId = version.commitZoneId();
+                commitZoneId = version.commitZoneId();
                 commitPartitionId = version.commitPartitionId();
             } else {
                 commitTimestamps[j++] = version.commitTimestamp().longValue();
@@ -486,7 +486,7 @@ public class OutgoingSnapshot {
                 .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
                 .txId(transactionId)
-                .commitTableOrZoneId(commitTableOrZoneId)
+                .commitZoneId(commitZoneId)
                 .commitPartitionId(commitPartitionId)
                 .build();
     }

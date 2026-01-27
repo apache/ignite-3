@@ -49,7 +49,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
     /**
      * Creates {@link TxStatePartitionStorage} to test.
      */
-    protected abstract TxStateStorage createTableOrZoneStorage();
+    protected abstract TxStateStorage createZoneStorage();
 
     @BeforeEach
     protected void beforeTest() {
@@ -57,7 +57,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
     }
 
     private void createAndStartStorage() {
-        txStateStorage = createTableOrZoneStorage();
+        txStateStorage = createZoneStorage();
 
         txStateStorage.start();
     }

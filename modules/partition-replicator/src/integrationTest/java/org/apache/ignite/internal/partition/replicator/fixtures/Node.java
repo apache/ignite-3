@@ -67,6 +67,7 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -389,6 +390,8 @@ public class Node {
 
         partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
 
+        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+
         RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
@@ -594,7 +597,7 @@ public class Node {
                         dir.resolve("storage"),
                         null,
                         failureManager,
-                        partitionsLogStorageFactory,
+                        partitionsLogSyncer,
                         hybridClock,
                         scheduledExecutorService
                 ),
@@ -712,7 +715,7 @@ public class Node {
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 failureManager
         );
 
@@ -787,7 +790,7 @@ public class Node {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration,

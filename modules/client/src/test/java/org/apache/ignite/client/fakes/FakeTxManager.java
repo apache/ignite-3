@@ -234,6 +234,7 @@ public class FakeTxManager implements TxManager {
             boolean commitIntent,
             boolean timeoutExceeded,
             boolean recovery,
+            boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {

@@ -178,7 +178,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
+ * Integration tests for raft cluster. TODO asch get rid of sleeps wherever possible IGNITE-14832
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeTest extends BaseIgniteAbstractTest {
@@ -4152,7 +4152,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     @Test
     public void testChangePeersAndLearnersChaosWithSnapshot() throws Exception {
         // start cluster
@@ -4199,7 +4198,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     public void testChangePeersAndLearnersChaosWithoutSnapshot() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
@@ -4247,7 +4245,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26249")
     public void testChangePeersAndLearnersChaosApplyTasks() throws Exception {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
