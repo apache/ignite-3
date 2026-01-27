@@ -201,8 +201,12 @@ public class PagerSupport {
     private static boolean readPagerEnabled(ConfigManagerProvider configManagerProvider) {
         String value = configManagerProvider.get()
                 .getCurrentProperty(CliConfigKeys.PAGER_ENABLED.value());
-        // Default to true if not set
-        return value == null || value.isEmpty() || Boolean.parseBoolean(value);
+        if (value == null || value.isEmpty()) {
+            // Default to false on Windows (more command doesn't support ANSI colors well)
+            // Default to true on other platforms
+            return !isWindows();
+        }
+        return Boolean.parseBoolean(value);
     }
 
     private static String readPagerCommand(ConfigManagerProvider configManagerProvider) {
