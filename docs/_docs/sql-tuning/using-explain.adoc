@@ -75,6 +75,7 @@ The operator name reflects the specific algorithm or strategy used. For example:
 - `Sort` – Explicit sorting step.
 - `HashJoin`, `MergeJoin`, `NestedLoopJoin` – Types of join algorithms.
 - `Limit`, `Project`, `Exchange` – Execution-related transformations and controls.
+- `SearchBounds` - Shows index lookup constraints: `searchBounds: <v1, v2, ...>` for an exact lookup, `[<l1, l2>..<u1, u2>)` for a range lookup.
 
 === Hierarchical Plan Structure
 
