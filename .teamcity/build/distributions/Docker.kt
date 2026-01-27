@@ -22,7 +22,7 @@ object Docker : BuildType({
         script {
             name = "Login to Harbor Registry"
             scriptContent = """
-                docker login docker.gridgain.com --username %GRIDGAIN_REGISTRY_USERNAME% --password %GRIDGAIN_REGISTRY_PASSWORD%
+                docker login docker.gridgain.com --username %DOCKERPROXY_USERNAME% --password %DOCKERPROXY_PASSWORD%
             """.trimIndent()
         }
         customGradle {
