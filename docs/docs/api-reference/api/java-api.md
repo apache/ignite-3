@@ -88,6 +88,6 @@ Ignite 3 uses a modular architecture. Key modules include:
 
 ## Next Steps
 
-- [Java API Documentation](../native-clients/java/) - Usage guides for each API area
+- [Java API Documentation](../native-clients/java) - Usage guides for each API area
 - [Java Client Guide](../../develop/ignite-clients/java-client) - Client setup and configuration
-- [Getting Started](../../getting-started/) - Tutorials and examples
+- [Getting Started](../../getting-started) - Tutorials and examples

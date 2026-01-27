@@ -105,6 +105,6 @@ Tested compilers:
 
 ## Next Steps
 
-- [C++ API Documentation](../native-clients/cpp/) - Usage guides for each API area
+- [C++ API Documentation](../native-clients/cpp) - Usage guides for each API area
 - [C++ Client Guide](../../develop/ignite-clients/cpp-client) - Build setup and configuration
-- [Getting Started](../../getting-started/) - Tutorials and examples
+- [Getting Started](../../getting-started) - Tutorials and examples

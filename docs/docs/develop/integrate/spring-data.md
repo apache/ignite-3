@@ -455,4 +455,4 @@ The Ignite dialect supports:
 
 - [Spring Boot Integration](./spring-boot) - Auto-configured IgniteClient
 - [JDBC Driver](../connect-to-ignite/jdbc) - JDBC connection details
-- [SQL Reference](../../sql/) - SQL syntax for table creation
+- [SQL Reference](../../sql) - SQL syntax for table creation
