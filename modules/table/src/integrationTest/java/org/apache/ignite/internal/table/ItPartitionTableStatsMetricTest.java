@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_COUNTER;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_NEXT_MILESTONE;
-import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_PENDING_WRITE_INTENTS;
+import static org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -51,8 +51,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for table partition statistics metrics exposed via {@link PartitionTableStatsMetricSource}.
  *
- * <p>Includes {@link PartitionModificationCounter partition modification counter} metrics
- * as well as {@link PartitionTableStatsMetricSource#METRIC_PENDING_WRITE_INTENTS pending write intents}.
+ * <p>Includes {@link PartitionModificationCounter partition modification counter} metrics.
  */
 public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
     private static final String ZONE_1_PART_NO_REPLICAS = "zone_single_partition_no_replicas";
@@ -282,35 +281,6 @@ public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void pendingWriteIntentsMetric() {
-        String tabName = "test_table_pending_wi";
-
-        sql(format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tabName, ZONE_1_PART_NO_REPLICAS));
-
-        Transaction tx = CLUSTER.aliveNode().transactions().begin();
-
-        int inserts = 3;
-
-        try {
-            for (int i = 0; i < inserts; i++) {
-                sql(tx, format("INSERT INTO {} VALUES(?, ?);", tabName), i, i);
-            }
-
-            expectPendingWriteIntents(tabName, inserts);
-
-            // The writes are still uncommitted, so the modification counter must not change yet.
-            expectModsCount(tabName, 0);
-        } finally {
-            tx.commit();
-        }
-
-        expectPendingWriteIntents(tabName, 0);
-
-        // After commit, the modification counter should reflect the committed writes.
-        expectModsCount(tabName, inserts);
-    }
-
-    @Test
     void globalPendingWriteIntentsMetric() {
         String tab1 = "test_table_pending_wi_1";
         String tab2 = "test_table_pending_wi_2";
@@ -344,10 +314,6 @@ public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
 
     private void expectModsCount(String tableName, long value) {
         expectLongValue(tableName, value, METRIC_COUNTER);
-    }
-
-    private void expectPendingWriteIntents(String tableName, long value) {
-        expectLongValue(tableName, value, METRIC_PENDING_WRITE_INTENTS);
     }
 
     private static void expectGlobalPendingWriteIntents(long value) {
