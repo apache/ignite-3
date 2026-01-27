@@ -17,67 +17,75 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.metrics.MetricSource;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Metrics related to table partition statistics.
  *
  * <p>This source includes {@link PartitionModificationCounter partition modification counter} metrics.
  */
-public class PartitionTableStatsMetricSource implements MetricSource {
+public class PartitionTableStatsMetricSource extends AbstractMetricSource<PartitionTableStatsMetricSource.Holder> {
     public static final String METRIC_COUNTER = "modificationCount";
     public static final String METRIC_NEXT_MILESTONE = "nextMilestone";
     public static final String METRIC_LAST_MILESTONE_TIMESTAMP = "lastMilestoneTimestamp";
 
-    private final Map<String, Metric> metrics = new HashMap<>();
-    private final String metricSourceName;
+    private final PartitionModificationCounter counter;
 
-    private boolean enabled;
+    public PartitionTableStatsMetricSource(int tableId, int partitionId, PartitionModificationCounter counter) {
+        super(formatSourceName(tableId, partitionId), "Metrics related to table partition statistics.");
 
-    public PartitionTableStatsMetricSource(int tableId, int partitionId) {
-        this.metricSourceName = formatSourceName(tableId, partitionId);
-    }
-
-    @Override
-    public String name() {
-        return metricSourceName;
-    }
-
-    @Override
-    public @Nullable MetricSet enable() {
-        if (enabled) {
-            return null;
-        }
-
-        enabled = true;
-
-        return new MetricSet(metricSourceName, Map.copyOf(metrics));
-    }
-
-    @Override
-    public void disable() {
-        enabled = false;
-    }
-
-    @Override
-    public boolean enabled() {
-        return enabled;
-    }
-
-    /** Adds a metric to the source. */
-    public void addMetric(Metric metric) {
-        assert !enabled : "Metrics can be added only before enabling the metric source";
-
-        metrics.put(metric.name(), metric);
+        this.counter = counter;
     }
 
     public static String formatSourceName(int tableId, int partitionId) {
         return IgniteStringFormatter.format("partition.statistics.table.{}.partition.{}", tableId, partitionId);
+    }
+
+    @Override
+    protected Holder createHolder() {
+        return new Holder(counter);
+    }
+
+    /** Holder. */
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final LongGauge counterValue;
+        private final LongGauge nextMilestone;
+        private final LongGauge lastMilestoneTimestamp;
+
+        private final List<Metric> metrics;
+
+        private Holder(PartitionModificationCounter counter) {
+            counterValue = new LongGauge(
+                    METRIC_COUNTER,
+                    "The value of the volatile counter of partition modifications. "
+                            + "This value is used to determine staleness of the related SQL statistics.",
+                    counter::value
+            );
+
+            nextMilestone = new LongGauge(
+                    METRIC_NEXT_MILESTONE,
+                    "The value of the next milestone for the number of partition modifications. "
+                            + "This value is used to determine staleness of the related SQL statistics.",
+                    counter::nextMilestone
+            );
+
+            lastMilestoneTimestamp = new LongGauge(
+                    METRIC_LAST_MILESTONE_TIMESTAMP,
+                    "The timestamp value representing the commit time of the last modification operation that "
+                            + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
+                    () -> counter.lastMilestoneTimestamp().longValue()
+            );
+
+            metrics = List.of(counterValue, nextMilestone, lastMilestoneTimestamp);
+        }
+
+        @Override
+        public Iterable<Metric> metrics() {
+            return metrics;
+        }
     }
 }
