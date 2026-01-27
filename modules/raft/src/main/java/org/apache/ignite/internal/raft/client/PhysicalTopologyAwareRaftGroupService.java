@@ -737,7 +737,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             } else if (resp instanceof ErrorResponse) {
                 handleErrorResponseCommon(fut, (ErrorResponse) resp, retryContext, strategy);
             } else if (resp instanceof SMErrorResponse) {
-                handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
+                fut.completeExceptionally(extractSmError((SMErrorResponse) resp, retryContext));
             } else {
                 leader = retryContext.targetPeer();
                 fut.complete((R) resp);
@@ -827,58 +827,39 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     }
 
     /**
-     * Schedules retry in leader-wait mode.
+     * Extracts the error from a state machine error response.
+     *
+     * @param resp State machine error response.
+     * @param retryContext Retry context (used for error trace ID).
+     * @return The throwable to complete the future with.
      */
-    private void scheduleRetryWithLeaderWait(
-            CompletableFuture<ActionResponse> fut,
-            RetryContext retryContext,
-            Command cmd,
-            long deadline,
-            long termWhenStarted
-    ) {
-        executor.schedule(
-                () -> sendWithRetryWaitingForLeader(fut, retryContext, cmd, deadline, termWhenStarted),
-                raftConfiguration.retryDelayMillis().value(),
-                TimeUnit.MILLISECONDS
-        );
-    }
-
-    /**
-     * Handles state machine error response.
-     */
-    private static void handleSmErrorResponse(
-            CompletableFuture<? extends NetworkMessage> fut,
-            SMErrorResponse resp,
-            RetryContext retryContext
-    ) {
+    private static Throwable extractSmError(SMErrorResponse resp, RetryContext retryContext) {
         SMThrowable th = resp.error();
 
         if (th instanceof SMCompactedThrowable) {
             SMCompactedThrowable compactedThrowable = (SMCompactedThrowable) th;
 
             try {
-                Throwable restoredTh = (Throwable) Class.forName(compactedThrowable.throwableClassName())
+                return (Throwable) Class.forName(compactedThrowable.throwableClassName())
                         .getConstructor(String.class)
                         .newInstance(compactedThrowable.throwableMessage());
-
-                fut.completeExceptionally(restoredTh);
             } catch (Exception e) {
                 LOG.warn("Cannot restore throwable from user's state machine. "
                         + "Check if throwable " + compactedThrowable.throwableClassName()
                         + " is present in the classpath.");
 
-                fut.completeExceptionally(new IgniteInternalException(
+                return new IgniteInternalException(
                         retryContext.errorTraceId(), INTERNAL_ERR, compactedThrowable.throwableMessage()
-                ));
+                );
             }
         } else if (th instanceof SMFullThrowable) {
-            fut.completeExceptionally(((SMFullThrowable) th).throwable());
+            return ((SMFullThrowable) th).throwable();
         } else {
-            fut.completeExceptionally(new IgniteInternalException(
+            return new IgniteInternalException(
                     retryContext.errorTraceId(),
                     INTERNAL_ERR,
                     "Unknown SMThrowable type: " + (th == null ? "null" : th.getClass().getName())
-            ));
+            );
         }
     }
 
@@ -1134,7 +1115,12 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 default:
                     throw new AssertionError("Unexpected tracking: " + trackCurrentAs);
             }
-            scheduleRetryWithLeaderWait(fut, nextContext, cmd, deadline, termWhenStarted);
+
+            executor.schedule(
+                    () -> sendWithRetryWaitingForLeader(fut, nextContext, cmd, deadline, termWhenStarted),
+                    raftConfiguration.retryDelayMillis().value(),
+                    TimeUnit.MILLISECONDS
+            );
         }
 
         @Override
