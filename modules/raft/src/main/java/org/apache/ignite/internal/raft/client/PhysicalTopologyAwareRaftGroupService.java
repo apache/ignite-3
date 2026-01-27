@@ -627,8 +627,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                                     resp,
                                     err,
                                     retryContext,
-                                    new SingleAttemptRetryStrategy(fut),
-                                    false
+                                    new SingleAttemptRetryStrategy(fut)
                             )
                     );
         } finally {
@@ -719,15 +718,13 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * @param err Throwable if the request failed, or {@code null} on success.
      * @param retryContext Retry context.
      * @param strategy Strategy for executing retries.
-     * @param trackNoLeaderSeparately Whether to track "no leader" peers separately from unavailable peers.
      */
     private <R extends NetworkMessage> void handleResponse(
             CompletableFuture<R> fut,
             @Nullable NetworkMessage resp,
             @Nullable Throwable err,
             RetryContext retryContext,
-            RetryExecutionStrategy strategy,
-            boolean trackNoLeaderSeparately
+            RetryExecutionStrategy strategy
     ) {
         if (!busyLock.enterBusy()) {
             fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
@@ -738,7 +735,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             if (err != null) {
                 handleThrowableWithRetry(fut, err, retryContext, strategy);
             } else if (resp instanceof ErrorResponse) {
-                handleErrorResponseCommon(fut, (ErrorResponse) resp, retryContext, strategy, trackNoLeaderSeparately);
+                handleErrorResponseCommon(fut, (ErrorResponse) resp, retryContext, strategy);
             } else if (resp instanceof SMErrorResponse) {
                 handleSmErrorResponse(fut, (SMErrorResponse) resp, retryContext);
             } else {
@@ -821,8 +818,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                                 resp,
                                 err,
                                 retryContext,
-                                new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted),
-                                true
+                                new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted)
                         );
                     });
         } finally {
@@ -1046,6 +1042,16 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
          * In single-attempt mode, this completes with {@link ReplicationGroupUnavailableException}.
          */
         void onAllPeersExhausted();
+
+        /**
+         * Whether to track "no leader" peers separately from unavailable peers.
+         *
+         * <p>In leader-wait mode, peers that return "no leader" are tracked separately so that
+         * when all peers are exhausted, the strategy can wait for a leader notification rather
+         * than failing immediately. In single-attempt mode, all errors are treated uniformly
+         * as unavailable.
+         */
+        boolean trackNoLeaderSeparately();
     }
 
     /**
@@ -1076,6 +1082,11 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         @Override
         public void onAllPeersExhausted() {
             fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId()));
+        }
+
+        @Override
+        public boolean trackNoLeaderSeparately() {
+            return false;
         }
     }
 
@@ -1132,6 +1143,11 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             leaderAvailabilityState.onGroupUnavailable(termWhenStarted);
             waitForLeaderAndRetry(fut, cmd, deadline);
         }
+
+        @Override
+        public boolean trackNoLeaderSeparately() {
+            return true;
+        }
     }
 
     /**
@@ -1180,15 +1196,14 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * @param resp Error response from the peer.
      * @param retryContext Retry context.
      * @param strategy Strategy for executing retries.
-     * @param trackNoLeaderSeparately Whether to track "no leader" peers separately from unavailable peers.
      */
     private void handleErrorResponseCommon(
             CompletableFuture<? extends NetworkMessage> fut,
             ErrorResponse resp,
             RetryContext retryContext,
-            RetryExecutionStrategy strategy,
-            boolean trackNoLeaderSeparately
+            RetryExecutionStrategy strategy
     ) {
+        boolean trackNoLeaderSeparately = strategy.trackNoLeaderSeparately();
         RaftError error = RaftError.forNumber(resp.errorCode());
         String reason = getShortReasonMessage(retryContext, error, resp);
 
