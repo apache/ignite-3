@@ -757,6 +757,8 @@ public class InternalTableImpl implements InternalTable {
             }
 
             if (e != null) {
+                tx0.recordAbortReason(e);
+
                 CompletableFuture<Void> rollbackFuture;
                 if (isFinishedDueToTimeout(e)) {
                     rollbackFuture = tx0.rollbackTimeoutExceededAsync();

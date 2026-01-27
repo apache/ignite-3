@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -582,7 +583,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
+            tx.recordAbortReason(new PrimaryReplicaExpiredException(senderGroupId, enlistment.consistencyToken(), null, null));
+
             return tx.rollbackAsync()
                     .thenApply(unused -> {
                         TxStateMeta newMeta = stateMeta(tx.id());
@@ -716,6 +718,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         txContext.isNoWrites() && !recovery
                 )
         ).whenComplete((unused, throwable) -> {
+            if (throwable != null) {
+                updateTxMeta(txId, old -> recordExceptionInfo(old, throwable));
+            }
+
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
                 txMetrics.onReadWriteTransactionFinished(txId, commitIntent && throwable == null);
 

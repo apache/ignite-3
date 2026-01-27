@@ -654,8 +654,11 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertThrowsWithCause(committedTransaction::commit, MismatchingTransactionOutcomeException.class);
 
-        assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());
+        TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
 
+        assertEquals(TxState.ABORTED, meta.txState());
+        assertNotNull(meta.exceptionInfo());
+        assertEquals(MismatchingTransactionOutcomeInternalException.class.getName(), meta.exceptionInfo().exceptionClassName());
         assertRollbackSucceeds();
     }
 
@@ -850,7 +853,14 @@ public class TxManagerTest extends IgniteAbstractTest {
         //noinspection NumericCastThatLosesPrecision
         assertEquals((short) TX_PRIMARY_REPLICA_EXPIRED_ERR, (short) ((TransactionException) throwable).code());
 
-        assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());
+        TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
+
+        assertEquals(TxState.ABORTED, meta.txState());
+        assertNotNull(meta.exceptionInfo());
+        assertEquals(PrimaryReplicaExpiredException.class.getName(), meta.exceptionInfo().exceptionClassName());
+        assertEquals(TX_PRIMARY_REPLICA_EXPIRED_ERR, meta.exceptionInfo().code());
+        assertNotNull(meta.exceptionInfo().traceId());
+        assertTrue(meta.exceptionInfo().message().contains("Primary replica has expired"));
     }
 
     private void assertRollbackSucceeds() {

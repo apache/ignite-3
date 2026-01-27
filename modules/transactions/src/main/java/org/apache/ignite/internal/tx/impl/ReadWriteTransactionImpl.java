@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
@@ -37,6 +38,8 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaExceptionInfo;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -310,6 +313,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param e Fail reason.
      */
     public void fail(TransactionException e) {
+        txManager.updateTxMeta(
+                id(), old -> recordExceptionInfo(old, e)
+        );
+
         // Thread safety is not needed.
         finishFuture = failedFuture(e);
     }
