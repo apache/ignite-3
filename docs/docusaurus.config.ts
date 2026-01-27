@@ -21,6 +21,9 @@ const config: Config = {
   // Can be overridden with BASE_URL environment variable for staging builds
   baseUrl: process.env.BASE_URL || '/docs/ignite3/',
 
+  // Enforce consistent trailing slash
+  trailingSlash: false,
+
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'apache', // Usually your GitHub org/user name.

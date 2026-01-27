@@ -37,11 +37,11 @@ Diagram(
 Terminal('CREATE'),
 Terminal('TABLE'),
 Optional(Terminal('IF NOT EXISTS')),
-NonTerminal('table_name', {href:'../grammar-reference/#qualified_table_name'}),
+NonTerminal('table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('('),
 Choice(1,
-NonTerminal('constraint', {href:'../grammar-reference/#constraint'}),
-NonTerminal('column_definition', {href:'../grammar-reference/#column_definition'}),
+NonTerminal('constraint', {href:'./grammar-reference/#constraint'}),
+NonTerminal('column_definition', {href:'./grammar-reference/#column_definition'}),
 Terminal(',')),
 Terminal(')'),
 Optional(
@@ -49,7 +49,7 @@ Sequence(
 Terminal('COLOCATE'),
 Optional('BY'),
 Terminal('('),
-NonTerminal('column_list', {href:'../grammar-reference/#column_list'}),
+NonTerminal('column_list', {href:'./grammar-reference/#column_list'}),
 Terminal(')'),
 )
 ),
@@ -144,7 +144,7 @@ Adds column(s) to an existing table.
 Diagram(
   Terminal('ALTER TABLE'),
   Optional(Terminal('IF EXISTS')),
-  NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+  NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
   Terminal('ADD'),
   Optional(Terminal('COLUMN')),
 End({type:'complex'})
@@ -154,7 +154,7 @@ End({type:'complex'})
 <RailroadDiagram>{`
 Diagram(
   Start({type:'complex'}),
-  NonTerminal('column_definition_or_list', {href:'../grammar-reference/#column_definition_or_list'})
+  NonTerminal('column_definition_or_list', {href:'./grammar-reference/#column_definition_or_list'})
 )
 `}</RailroadDiagram>
 
@@ -193,7 +193,7 @@ Removes column(s) from an existing table. Once a column is removed, it cannot be
 Diagram(
 Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('DROP'),
 Optional(Terminal('COLUMN')),
 End({type:'complex'})
@@ -203,7 +203,7 @@ End({type:'complex'})
 <RailroadDiagram>{`
 Diagram(
 Start({type:'complex'}),
-NonTerminal('column_list', {href:'../grammar-reference/#column_list'})
+NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
 )
 `}</RailroadDiagram>
 
@@ -239,9 +239,9 @@ Changes the data type for the column(s) in an existing table.
 Diagram(
 Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name_or_list', {href:'../grammar-reference/#column_name_or_list'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 `}</RailroadDiagram>
@@ -303,9 +303,9 @@ ALTER TABLE Person ALTER COLUMN Name SET DATA TYPE varchar(11)
 Diagram(
 Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name_or_list', {href:'../grammar-reference/#column_name_or_list'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 `}</RailroadDiagram>
@@ -334,9 +334,9 @@ Not all data type transitions are supported. The limitations are listed below:
 Diagram(
 Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name_or_list', {href:'../grammar-reference/#column_name_or_list'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 `}</RailroadDiagram>
@@ -365,9 +365,9 @@ Not all data type transitions are supported. The limitations are listed below:
 Diagram(
 Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name_or_list', {href:'../grammar-reference/#column_name_or_list'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 `}</RailroadDiagram>
@@ -399,9 +399,9 @@ Keywords and parameters:
 Diagram(
 Terminal('ALTER TABLE'),
 Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
 Terminal('ALTER COLUMN'),
-NonTerminal('column_name_or_list', {href:'../grammar-reference/#column_name_or_list'}),
+NonTerminal('column_name_or_list', {href:'./grammar-reference/#column_name_or_list'}),
 End({type:'complex'})
 )
 `}</RailroadDiagram>
@@ -430,7 +430,7 @@ This can also be done via the [Java API](../../../develop/work-with-data/java-to
 Diagram(
 Terminal('DROP TABLE'),
 Optional(Terminal('IF EXISTS')),
-NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'})
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'})
 )
 `}</RailroadDiagram>
 
@@ -468,7 +468,7 @@ Diagram(
   Optional(Terminal('IF NOT EXISTS')),
   NonTerminal('name'),
   Terminal('ON'),
-  NonTerminal('qualified_table_name', {href:'../grammar-reference/#qualified_table_name'}),
+  NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
   End({type:'complex'})
 )
 `}</RailroadDiagram>
@@ -481,11 +481,11 @@ Choice (0,
 Sequence(
 Terminal('USING'),
 Choice (0,
-Sequence('TREE',NonTerminal ('sorted_column_list', {href:'../grammar-reference/#sorted_column_list'})),
-Sequence('HASH',NonTerminal ('column_list', {href:'../grammar-reference/#column_list'}))
+Sequence('TREE',NonTerminal ('sorted_column_list', {href:'./grammar-reference/#sorted_column_list'})),
+Sequence('HASH',NonTerminal ('column_list', {href:'./grammar-reference/#column_list'}))
 ),
 ),
-NonTerminal ('sorted_column_list', {href:'../grammar-reference/#sorted_column_list'})
+NonTerminal ('sorted_column_list', {href:'./grammar-reference/#sorted_column_list'})
 )),
 End({type:'simple'})
 )
