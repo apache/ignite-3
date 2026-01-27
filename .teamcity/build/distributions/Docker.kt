@@ -19,12 +19,6 @@ object Docker : BuildType({
         customScript(type = "bash") {
             name = "Setup Docker Proxy"
         }
-        script {
-            name = "Login to Harbor Registry"
-            scriptContent = """
-                docker login docker.gridgain.com --username %DOCKERPROXY_USERNAME% --password %DOCKERPROXY_PASSWORD%
-            """.trimIndent()
-        }
         customGradle {
             name = "Build Docker Image (AMD64)"
             tasks = ":packaging:docker -Ptarget_platform=linux/amd64 -Pplatforms.enable"

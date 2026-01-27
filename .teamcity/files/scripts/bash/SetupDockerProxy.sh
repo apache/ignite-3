@@ -27,6 +27,7 @@ retry_docker_login() {
 }
 
 retry_docker_login "docker.gridgain.com/dockerhub-proxy/" '%DOCKERPROXY_USERNAME%' '%DOCKERPROXY_PASSWORD%' || exit 1
+retry_docker_login "docker.gridgain.com/ignite-3/" '%DOCKERPROXY_USERNAME%' '%DOCKERPROXY_PASSWORD%' || exit 1
 
 echo ""
 echo "========================================="
