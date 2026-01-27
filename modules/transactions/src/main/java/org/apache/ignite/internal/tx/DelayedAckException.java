@@ -36,7 +36,7 @@ public class DelayedAckException extends IgniteInternalException {
      *
      * @param txId The transaction id.
      * @param cause The cause.
-     * @param txManager Optional transaction manager to retrieve label for logging.
+     * @param txManager transaction manager to retrieve label for logging.
      */
     public DelayedAckException(UUID txId, Throwable cause, TxManager txManager) {
         super(

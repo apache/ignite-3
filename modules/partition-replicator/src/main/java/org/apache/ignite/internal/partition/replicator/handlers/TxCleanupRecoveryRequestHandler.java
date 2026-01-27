@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.*;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -156,7 +157,7 @@ public class TxCleanupRecoveryRequestHandler {
             LOG.warn(
                     "Failed to cleanup transaction {}.",
                     throwable,
-                    TransactionLogUtils.formatTxInfo(txId, txManager)
+                    formatTxInfo(txId, txManager)
             );
 
             return null;
