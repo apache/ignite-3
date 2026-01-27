@@ -62,6 +62,8 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
+import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetricSource;
+import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetrics;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -123,6 +125,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     /** For unspecified tasks, i.e. throttling log. */
     private final ExecutorService commonExecutorService;
+
+    private final StorageConsistencyMetricSource storageConsistencyMetricSource = new StorageConsistencyMetricSource(
+            "storage." + ENGINE_NAME + ".consistency"
+    );
+
+    private final StorageConsistencyMetrics consistencyMetrics = new StorageConsistencyMetrics(storageConsistencyMetricSource);
 
     /**
      * Constructor.
@@ -249,9 +257,11 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         metricManager.registerSource(checkpointMetricSource);
         metricManager.registerSource(storageMetricSource);
+        metricManager.registerSource(storageConsistencyMetricSource);
 
         metricManager.enable(checkpointMetricSource);
         metricManager.enable(storageMetricSource);
+        metricManager.enable(storageConsistencyMetricSource);
     }
 
     /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
@@ -309,7 +319,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 this,
                 dataRegion,
                 destructionExecutor,
-                failureManager
+                failureManager,
+                consistencyMetrics
         );
 
         dataRegion.addTableStorage(tableStorage);

@@ -234,7 +234,8 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
                 mockEngine,
                 dataRegion,
                 destructionExecutor,
-                mock(FailureManager.class)
+                mock(FailureManager.class),
+                mock(StorageConsistencyMetrics.class)
         );
 
         dataRegion.addTableStorage(tableStorage);
