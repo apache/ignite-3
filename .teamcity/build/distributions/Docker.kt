@@ -13,6 +13,8 @@ object Docker : BuildType({
         ignite-*-arm64.tar.gz => ignite-docker
     """.trimIndent()
 
+    val dockerRegistry = "docker.gridgain.com/ignite-3/ignite-3"
+
     steps {
         customScript(type = "bash") {
             name = "Setup Docker Proxy"
@@ -39,10 +41,10 @@ object Docker : BuildType({
                 fi
                 
                 # Tag the image for docker.gridgain.com
-                docker tag apacheignite/ignite:${'$'}{IMAGE_TAG} docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-amd64
+                docker tag apacheignite/ignite:${'$'}{IMAGE_TAG} ${dockerRegistry}:${'$'}{IMAGE_TAG}-amd64
                 
                 # Push to docker.gridgain.com
-                docker push docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-amd64
+                docker push ${dockerRegistry}:${'$'}{IMAGE_TAG}-amd64
                 
                 # Also save for artifacts
                 docker save apacheignite/ignite:${'$'}{IMAGE_TAG} -o ignite-${'$'}{IMAGE_TAG}-amd64.tar
@@ -75,10 +77,10 @@ object Docker : BuildType({
                 fi
                 
                 # Tag the image for docker.gridgain.com
-                docker tag apacheignite/ignite:${'$'}{IMAGE_TAG} docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-arm64
+                docker tag apacheignite/ignite:${'$'}{IMAGE_TAG} ${dockerRegistry}:${'$'}{IMAGE_TAG}-arm64
                 
                 # Push to docker.gridgain.com
-                docker push docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-arm64
+                docker push ${dockerRegistry}:${'$'}{IMAGE_TAG}-arm64
                 
                 # Also save for artifacts
                 docker save apacheignite/ignite:${'$'}{IMAGE_TAG} -o ignite-${'$'}{IMAGE_TAG}-arm64.tar
