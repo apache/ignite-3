@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.partition.replicator.LocalPartitionRepl
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_COUNTER;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_NEXT_MILESTONE;
-import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_PENDING_WRITE_INTENTS;
 import static org.apache.ignite.internal.table.distributed.TableUtils.aliveTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -1685,7 +1684,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         storageUpdateHandler.start(onNodeRecovery);
 
-        registerPartitionTableStatsMetrics(table, partitionId, modificationCounter, storageUpdateHandler::getPendingRowCount);
+        registerPartitionTableStatsMetrics(table, partitionId, modificationCounter);
+
+        pendingWriteIntentsSuppliers.put(new TablePartitionId(table.tableId(), partitionId), storageUpdateHandler::getPendingRowCount);
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }
@@ -1693,8 +1694,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void registerPartitionTableStatsMetrics(
             TableViewInternal table,
             int partitionId,
-            PartitionModificationCounter counter,
-            LongSupplier pendingWriteIntentSupplier
+            PartitionModificationCounter counter
     ) {
         PartitionTableStatsMetricSource metricSource =
                 new PartitionTableStatsMetricSource(table.tableId(), partitionId);
@@ -1720,12 +1720,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 () -> counter.lastMilestoneTimestamp().longValue()
         ));
 
-        metricSource.addMetric(new LongGauge(
-                METRIC_PENDING_WRITE_INTENTS,
-                "Current number of unresolved (uncommitted) write intents in this partition/table.",
-                pendingWriteIntentSupplier
-        ));
-
         try {
             metricManager.registerSource(metricSource);
             metricManager.enable(metricSource);
@@ -1733,7 +1727,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionId);
 
             partModCounterMetricSources.put(tablePartitionId, metricSource);
-            pendingWriteIntentsSuppliers.put(tablePartitionId, pendingWriteIntentSupplier);
         } catch (Exception e) {
             LOG.warn("Failed to register metrics source for table [name={}, partitionId={}].", e, table.name(), partitionId);
         }
