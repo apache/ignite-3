@@ -15,24 +15,4 @@
 # limitations under the License.
 #
 
-set(TARGET ignite-protocol)
-
-set(SOURCES
-    sql/column_meta.cpp sql/column_meta.h
-    bitset_span.h
-    buffer_adapter.cpp buffer_adapter.h
-    extension_types.h
-    heartbeat_timeout.h
-    messages.cpp messages.h
-    protocol_context.h
-    protocol_version.cpp protocol_version.h
-    reader.cpp reader.h
-    utils.cpp utils.h
-    writer.cpp writer.h
-)
-
-add_library(${TARGET} OBJECT ${SOURCES})
-target_link_libraries(${TARGET} PUBLIC ignite-common msgpack-c)
-
-set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
-set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+odbcinst -i -d -f /usr/share/ignite/ignite3-odbc.ini -v

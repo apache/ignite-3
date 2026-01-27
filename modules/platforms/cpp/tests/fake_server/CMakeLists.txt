@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-fake-server)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-fake-server)
 
 set(SOURCES
     main.cpp

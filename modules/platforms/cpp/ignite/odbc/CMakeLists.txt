@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite3-odbc)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ${PROJECT_NAME}-odbc)
 
 include(find_odbc)
 find_package(ODBC REQUIRED)
@@ -107,6 +105,7 @@ add_library(ignite::odbc ALIAS ${TARGET})
 
 install(TARGETS ${TARGET}
     EXPORT ignite-odbc-targets
+    COMPONENT odbc
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
