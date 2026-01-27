@@ -9,7 +9,7 @@ gradlew clean build -x test
 
 Install autocompletion script to your shell:
 ```bash 
-source build/ignite_completion.sh 
+source build/ignite3_completion.sh 
 ```
 
 Add `ignite` alias:
