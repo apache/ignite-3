@@ -174,7 +174,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 regionConfiguration(dataRegionConfigView, sizeBytes, pageSize),
                 metricSource,
                 ioRegistry,
-                calculateSegmentSizes(sizeBytes, Runtime.getRuntime().availableProcessors()),
+                calculateSegmentSizes(sizeBytes, Runtime.getRuntime().availableProcessors() * 4),
                 calculateCheckpointBufferSize(sizeBytes),
                 filePageStoreManager,
                 this::flushDirtyPageOnReplacement,
