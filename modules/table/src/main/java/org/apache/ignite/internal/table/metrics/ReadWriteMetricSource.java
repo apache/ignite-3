@@ -22,32 +22,20 @@ import org.apache.ignite.internal.metrics.MetricSource;
 /** Common interface for reads and writes to tables and caches. */
 public interface ReadWriteMetricSource extends MetricSource {
     /**
-     * Called when get request found a row.
+     * Called after get request.
      *
      * @param readOnly {@code true} if read operation is executed within read-only transaction, and {@code false} otherwise.
+     * @param hit {@code true} if row was found, {@code false} otherwise.
      */
-    void onReadHit(boolean readOnly);
+    void onRead(boolean readOnly, boolean hit);
 
     /**
-     * Called when multi row get request found rows.
+     * Called after get request for multiple rows.
      *
      * @param readOnly {@code true} if read operation is executed within read-only transaction, and {@code false} otherwise.
+     * @param hit {code true} if row was found, {@code false} otherwise.
      */
-    void onReadHit(int x, boolean readOnly);
-
-    /**
-     * Called when get request didn't find a row.
-     *
-     * @param readOnly {@code true} if read operation is executed within read-only transaction, and {@code false} otherwise.
-     */
-    void onReadMiss(boolean readOnly);
-
-    /**
-     * Called when multi row get request didn't find rows.
-     *
-     * @param readOnly {@code true} if read operation is executed within read-only transaction, and {@code false} otherwise.
-     */
-    void onReadMiss(int x, boolean readOnly);
+    void onRead(int x, boolean readOnly, boolean hit);
 
     /**
      * Increments a counter of writes.

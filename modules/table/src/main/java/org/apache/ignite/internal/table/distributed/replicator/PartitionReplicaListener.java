@@ -582,7 +582,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         } else {
                             return validateRwReadAgainstSchemaAfterTakingLocks(req.transactionId())
                                     .thenApply(ignored -> {
-                                        metrics.onReadHit(rows.size(), false);
+                                        metrics.onRead(rows.size(), false, true);
 
                                         return rows;
                                     });
@@ -651,7 +651,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 return safeReadFuture
                         .thenCompose(unused -> lookupIndex(request, indexStorage))
                         .thenApply(rows -> {
-                            metrics.onReadHit(rows.size(), true);
+                            metrics.onRead(rows.size(), true, true);
 
                             return rows;
                         });
@@ -662,7 +662,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return safeReadFuture
                     .thenCompose(unused -> scanSortedIndex(request, indexStorage))
                     .thenApply(rows -> {
-                        metrics.onReadHit(rows.size(), true);
+                        metrics.onRead(rows.size(), true, true);
 
                         return rows;
                     });
@@ -672,7 +672,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 .thenCompose(
                         unused -> retrieveExactEntriesUntilCursorEmpty(txId, request.coordinatorId(), readTimestamp, cursorId, batchCount))
                 .thenApply(rows -> {
-                    metrics.onReadHit(rows.size(), true);
+                    metrics.onRead(rows.size(), true, true);
 
                     return rows;
                 });
@@ -1683,13 +1683,13 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             // Nothing found in the storage, return null.
             if (writeIntents.isEmpty() && regularEntries.isEmpty()) {
-                metrics.onReadMiss(true);
+                metrics.onRead(true, false);
 
                 return nullCompletedFuture();
             }
 
             if (writeIntents.isEmpty()) {
-                metrics.onReadHit(true);
+                metrics.onRead(true, true);
 
                 // No write intents, then return the committed value. We already know that regularEntries is not empty.
                 return completedFuture(regularEntries.get(0).binaryRow());
@@ -1704,7 +1704,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         resolveWriteIntentReadability(writeIntent, ts)
                                 .thenApply(writeIntentReadable ->
                                         inBusyLock(busyLock, () -> {
-                                            metrics.onReadHit(true);
+                                            metrics.onRead(true, true);
 
                                             if (writeIntentReadable) {
                                                 return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow).orElse(null);
@@ -1861,7 +1861,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     }
 
                     if (rowIdsToDelete.isEmpty()) {
-                        metrics.onReadMiss(searchRows.size(), false);
+                        metrics.onRead(searchRows.size(), false, false);
 
                         return completedFuture(new ReplicaResult(result, null));
                     }
@@ -1877,7 +1877,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                             )
                             .thenApply(res -> {
-                                metrics.onReadHit(searchRows.size(), false);
+                                metrics.onRead(searchRows.size(), false, true);
                                 metrics.onRemoval(rowIdsToDelete.size());
 
                                 return new ReplicaResult(result, res);
@@ -1917,7 +1917,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     }
 
                     if (rowsToInsert.isEmpty()) {
-                        metrics.onReadMiss(searchRows.size(), false);
+                        metrics.onRead(searchRows.size(), false, false);
                         return completedFuture(new ReplicaResult(result, null));
                     }
 
@@ -1950,7 +1950,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                             )
                             .thenApply(res -> {
-                                metrics.onReadHit(searchRows.size(), false);
+                                metrics.onRead(searchRows.size(), false, true);
                                 metrics.onWrite(rowsToInsert.size());
 
                                 // Release short term locks.
@@ -2138,7 +2138,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             }
 
                             if (hits == 0) {
-                                metrics.onReadMiss(result.size(), false);
+                                metrics.onRead(result.size(), false, false);
 
                                 return completedFuture(new ReplicaResult(result, null));
                             }
@@ -2146,8 +2146,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             int finalHits = hits;
                             return validateRwReadAgainstSchemaAfterTakingLocks(txId)
                                     .thenApply(unused -> {
-                                        metrics.onReadMiss(result.size() - finalHits, false);
-                                        metrics.onReadHit(finalHits, false);
+                                        metrics.onRead(result.size() - finalHits, false, false);
+                                        metrics.onRead(finalHits, false, true);
 
                                         return new ReplicaResult(result, null);
                                     });
@@ -2752,7 +2752,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             case RW_DELETE_EXACT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
-                        metrics.onReadMiss(false);
+                        metrics.onRead(false, false);
 
                         return completedFuture(new ReplicaResult(false, null));
                     }
@@ -2760,7 +2760,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     return takeLocksForDeleteExact(searchRow, rowId, row, txId)
                             .thenCompose(validatedRowId -> {
                                 if (validatedRowId == null) {
-                                    metrics.onReadMiss(false);
+                                    metrics.onRead(false, false);
 
                                     return completedFuture(new ReplicaResult(false, null));
                                 }
@@ -2778,7 +2778,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                                 )
                                         )
                                         .thenApply(res -> {
-                                            metrics.onReadHit(false);
+                                            metrics.onRead(false, true);
                                             metrics.onRemoval();
 
                                             return new ReplicaResult(true, res);
@@ -2789,7 +2789,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             case RW_INSERT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId != null) {
-                        metrics.onReadHit(false);
+                        metrics.onRead(false, true);
 
                         return completedFuture(new ReplicaResult(false, null));
                     }
@@ -2810,7 +2810,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
-                                metrics.onReadHit(false);
+                                metrics.onRead(false, true);
                                 metrics.onWrite();
 
                                 // Release short term locks.
@@ -2879,7 +2879,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
-                                metrics.onReadHit(false);
+                                metrics.onRead(false, true);
                                 metrics.onWrite();
 
                                 // Release short term locks.
@@ -2892,7 +2892,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             case RW_GET_AND_REPLACE: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
-                        metrics.onReadMiss(false);
+                        metrics.onRead(false, false);
 
                         return completedFuture(new ReplicaResult(null, null));
                     }
@@ -2912,11 +2912,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
-                                if (rowId != null) {
-                                    metrics.onReadHit(false);
-                                } else {
-                                    metrics.onReadMiss(false);
-                                }
+                                metrics.onRead(false, rowId != null);
 
                                 metrics.onWrite();
 
@@ -2930,7 +2926,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             case RW_REPLACE_IF_EXIST: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
-                        metrics.onReadMiss(false);
+                        metrics.onRead(false, false);
 
                         return completedFuture(new ReplicaResult(false, null));
                     }
@@ -2950,7 +2946,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
-                                metrics.onReadMiss(false);
+                                metrics.onRead(false, false);
                                 metrics.onWrite();
 
                                 // Release short term locks.
@@ -2986,7 +2982,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             case RW_GET: {
                 return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
-                        metrics.onReadMiss(false);
+                        metrics.onRead(false, false);
 
                         return nullCompletedFuture();
                     }
@@ -2994,7 +2990,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     return takeLocksForGet(rowId, txId)
                             .thenCompose(ignored -> validateRwReadAgainstSchemaAfterTakingLocks(txId))
                             .thenApply(ignored -> {
-                                metrics.onReadHit(false);
+                                metrics.onRead(false, true);
 
                                 return new ReplicaResult(row, null);
                             });
@@ -3033,7 +3029,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             case RW_GET_AND_DELETE: {
                 return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
-                        metrics.onReadMiss(false);
+                        metrics.onRead(false, false);
 
                         return nullCompletedFuture();
                     }
@@ -3056,7 +3052,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                             )
                             .thenApply(res -> {
-                                metrics.onReadHit(false);
+                                metrics.onRead(false, true);
                                 metrics.onRemoval();
 
                                 return new ReplicaResult(row, res);
@@ -3275,7 +3271,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request.requestType() == RW_REPLACE) {
             return resolveRowByPk(extractPk(newRow), txId, (rowId, row, lastCommitTime) -> {
                 if (rowId == null) {
-                    metrics.onReadMiss(false);
+                    metrics.onRead(false, false);
 
                     return completedFuture(new ReplicaResult(false, null));
                 }
@@ -3283,7 +3279,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 return takeLocksForReplace(expectedRow, row, newRow, rowId, txId)
                         .thenCompose(rowIdLock -> {
                             if (rowIdLock == null) {
-                                metrics.onReadMiss(false);
+                                metrics.onRead(false, false);
 
                                 return completedFuture(new ReplicaResult(false, null));
                             }
@@ -3306,7 +3302,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                     )
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock))
                                     .thenApply(tuple -> {
-                                        metrics.onReadHit(false);
+                                        metrics.onRead(false, true);
                                         metrics.onWrite();
 
                                         // Release short term locks.

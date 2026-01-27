@@ -148,22 +148,12 @@ public class TableMetricSource extends AbstractMetricSource<Holder> implements R
     }
 
     @Override
-    public void onReadHit(boolean readOnly) {
+    public void onRead(boolean readOnly, boolean hit) {
         onRead(1, readOnly);
     }
 
     @Override
-    public void onReadHit(int x, boolean readOnly) {
-        onRead(x, readOnly);
-    }
-
-    @Override
-    public void onReadMiss(boolean readOnly) {
-        onRead(1, readOnly);
-    }
-
-    @Override
-    public void onReadMiss(int x, boolean readOnly) {
+    public void onRead(int x, boolean readOnly, boolean hit) {
         onRead(x, readOnly);
     }
 
