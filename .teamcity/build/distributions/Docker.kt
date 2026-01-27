@@ -17,13 +17,19 @@ object Docker : BuildType({
         customScript(type = "bash") {
             name = "Setup Docker Proxy"
         }
+        script {
+            name = "Login to Harbor Registry"
+            scriptContent = """
+                docker login docker.gridgain.com --username %GRIDGAIN_REGISTRY_USERNAME% --password %GRIDGAIN_REGISTRY_PASSWORD%
+            """.trimIndent()
+        }
         customGradle {
             name = "Build Docker Image (AMD64)"
             tasks = ":packaging:docker -Ptarget_platform=linux/amd64 -Pplatforms.enable"
             workingDir = "%VCSROOT__IGNITE3%"
         }
         script {
-            name = "Save AMD64 Image"
+            name = "Tag and Push AMD64 Image"
             scriptContent = """
                 # Get the image tag (version) by finding the apacheignite/ignite image
                 IMAGE_TAG=${'$'}(docker images --format "table {{.Repository}}:{{.Tag}}" | grep '^apacheignite/ignite:' | head -1 | cut -d':' -f2)
@@ -31,6 +37,14 @@ object Docker : BuildType({
                     echo "Error: Could not find apacheignite/ignite image"
                     exit 1
                 fi
+                
+                # Tag the image for docker.gridgain.com
+                docker tag apacheignite/ignite:${'$'}{IMAGE_TAG} docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-amd64
+                
+                # Push to docker.gridgain.com
+                docker push docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-amd64
+                
+                # Also save for artifacts
                 docker save apacheignite/ignite:${'$'}{IMAGE_TAG} -o ignite-${'$'}{IMAGE_TAG}-amd64.tar
                 gzip -f ignite-${'$'}{IMAGE_TAG}-amd64.tar
             """.trimIndent()
@@ -51,7 +65,7 @@ object Docker : BuildType({
             workingDir = "%VCSROOT__IGNITE3%"
         }
         script {
-            name = "Save ARM64 Image"
+            name = "Tag and Push ARM64 Image"
             scriptContent = """
                 # Get the image tag (version) by finding the apacheignite/ignite image
                 IMAGE_TAG=${'$'}(docker images --format "table {{.Repository}}:{{.Tag}}" | grep "apacheignite/ignite:" | head -1 | cut -d':' -f2)
@@ -59,6 +73,14 @@ object Docker : BuildType({
                     echo "Error: Could not find apacheignite/ignite image"
                     exit 1
                 fi
+                
+                # Tag the image for docker.gridgain.com
+                docker tag apacheignite/ignite:${'$'}{IMAGE_TAG} docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-arm64
+                
+                # Push to docker.gridgain.com
+                docker push docker.gridgain.com/apacheignite/ignite:${'$'}{IMAGE_TAG}-arm64
+                
+                # Also save for artifacts
                 docker save apacheignite/ignite:${'$'}{IMAGE_TAG} -o ignite-${'$'}{IMAGE_TAG}-arm64.tar
                 gzip -f ignite-${'$'}{IMAGE_TAG}-arm64.tar
             """.trimIndent()
