@@ -35,12 +35,26 @@ public class PartitionTableStatsMetricSource extends AbstractMetricSource<Partit
 
     private final PartitionModificationCounter counter;
 
+    /**
+     * Creates a new metric source for a specific table partition.
+     *
+     * @param tableId Table id.
+     * @param partitionId Partition id.
+     * @param counter Partition modification counter.
+     */
     public PartitionTableStatsMetricSource(int tableId, int partitionId, PartitionModificationCounter counter) {
         super(formatSourceName(tableId, partitionId), "Metrics related to table partition statistics.");
 
         this.counter = counter;
     }
 
+    /**
+     * Returns the metric source name for a given table partition.
+     *
+     * @param tableId Table id.
+     * @param partitionId Partition id.
+     * @return Metric source name.
+     */
     public static String formatSourceName(int tableId, int partitionId) {
         return IgniteStringFormatter.format("partition.statistics.table.{}.partition.{}", tableId, partitionId);
     }
