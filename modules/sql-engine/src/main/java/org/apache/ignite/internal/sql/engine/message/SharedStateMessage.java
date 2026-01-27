@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
-import java.io.Serializable;
 import java.util.Map;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
@@ -26,6 +25,6 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * A message that contains map with correlations.
  */
 @Transferable(SqlQueryMessageGroup.SHARED_STATE_MESSAGE)
-public interface SharedStateMessage extends NetworkMessage, Serializable {
+public interface SharedStateMessage extends NetworkMessage {
     Map<Long, NetworkMessage> sharedState();
 }

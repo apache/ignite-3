@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.message.field;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A message that contains a single value.
  */
-public interface SingleValueMessage<T> extends NetworkMessage, Serializable {
+public interface SingleValueMessage<T> extends NetworkMessage {
     @Nullable T value();
 }
