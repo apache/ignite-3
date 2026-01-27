@@ -319,7 +319,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("fsmcaller.disruptor")
             ));
         }
 
@@ -333,7 +333,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("nodeimpl.disruptor")
             ));
         }
 
@@ -347,7 +347,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("readonlyservice.disruptor")
             ));
         }
 
@@ -361,7 +361,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getLogStripesCount(),
                     true,
                     opts.isLogYieldStrategy(),
-                    opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("logmanager.disruptor")
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
@@ -510,7 +510,7 @@ public class JraftServerImpl implements RaftServer {
             }
 
             nodeOptions.setFsm(
-                    new DelegatingStateMachine(nodeId.groupId().toString(), lsnr, nodeOptions.getCommandsMarshaller(), failureManager));
+                    new DelegatingStateMachine(nodeId, lsnr, nodeOptions, failureManager));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
@@ -837,18 +837,29 @@ public class JraftServerImpl implements RaftServer {
 
         private final FailureManager failureManager;
 
+        private final RaftNodeId nodeId;
+
+        private final RaftMetricSource raftMetrics;
+
         /**
          * Constructor.
          *
-         * @param label State machine label.
-         * @param listener The listener.
-         * @param marshaller Marshaller.
+         * @param nodeId Node ID.
+         * @param listener Listener.
+         * @param opts Node options.
          * @param failureManager Failure processor that is used to handle critical errors.
          */
-        public DelegatingStateMachine(String label, RaftGroupListener listener, Marshaller marshaller, FailureManager failureManager) {
-            super(label);
+        public DelegatingStateMachine(
+                RaftNodeId nodeId,
+                RaftGroupListener listener,
+                NodeOptions opts,
+                FailureManager failureManager
+        ) {
+            super(nodeId.groupId().toString());
+            this.nodeId = nodeId;
             this.listener = listener;
-            this.marshaller = marshaller;
+            this.raftMetrics = opts.getRaftMetrics();
+            this.marshaller = opts.getCommandsMarshaller();
             this.failureManager = failureManager;
         }
 
@@ -964,14 +975,18 @@ public class JraftServerImpl implements RaftServer {
         public void onLeaderStart(long term) {
             super.onLeaderStart(term);
 
-            listener.onLeaderStart();
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStart(nodeId);
+            }
         }
 
         @Override
         public void onLeaderStop(Status status) {
             super.onLeaderStop(status);
 
-            listener.onLeaderStop();
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStop(nodeId);
+            }
         }
     }
 
