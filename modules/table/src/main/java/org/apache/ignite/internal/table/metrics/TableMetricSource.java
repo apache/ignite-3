@@ -107,7 +107,7 @@ import org.apache.ignite.table.QualifiedName;
  *
  * <i>Note: Only synchronous methods are listed. Asynchronous methods affect the same metrics.</i>
  */
-public class TableMetricSource extends AbstractMetricSource<Holder> {
+public class TableMetricSource extends AbstractMetricSource<Holder> implements ReadWriteMetricSource {
     /** Source name. */
     public static final String SOURCE_NAME = "tables";
 
@@ -147,29 +147,27 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
         return tableName;
     }
 
-    /**
-     * Increments a counter of reads.
-     *
-     * @param readOnly {@code true} if read operation is executed within read-only transaction, and {@code false} otherwise.
-     */
-    public void onRead(boolean readOnly) {
-        Holder holder = holder();
-
-        if (holder != null) {
-            if (readOnly) {
-                holder.roReads.increment();
-            } else {
-                holder.rwReads.increment();
-            }
-        }
+    @Override
+    public void onReadHit(boolean readOnly) {
+        onRead(1, readOnly);
     }
 
-    /**
-     * Adds the given {@code x} to a counter of reads.
-     *
-     * @param readOnly {@code true} if read operation is executed within read-only transaction, and {@code false} otherwise.
-     */
-    public void onRead(int x, boolean readOnly) {
+    @Override
+    public void onReadHit(int x, boolean readOnly) {
+        onRead(x, readOnly);
+    }
+
+    @Override
+    public void onReadMiss(boolean readOnly) {
+        onRead(1, readOnly);
+    }
+
+    @Override
+    public void onReadMiss(int x, boolean readOnly) {
+        onRead(x, readOnly);
+    }
+
+    private void onRead(int x, boolean readOnly) {
         Holder holder = holder();
 
         if (holder != null) {
@@ -181,9 +179,7 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
         }
     }
 
-    /**
-     * Increments a counter of writes.
-     */
+    @Override
     public void onWrite() {
         Holder holder = holder();
 
@@ -192,15 +188,23 @@ public class TableMetricSource extends AbstractMetricSource<Holder> {
         }
     }
 
-    /**
-     * Adds the given {@code x} to a counter of writes.
-     */
+    @Override
     public void onWrite(int x) {
         Holder holder = holder();
 
         if (holder != null) {
             holder.writes.add(x);
         }
+    }
+
+    @Override
+    public void onRemoval() {
+        onWrite();
+    }
+
+    @Override
+    public void onRemoval(int x) {
+        onWrite(x);
     }
 
     @Override

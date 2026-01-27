@@ -171,14 +171,14 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void put() {
-        testKeyValueViewOperation(WRITES, 1, view -> view.put(null, 42, "value_42"));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 1L), view -> view.put(null, 42, "value_42"));
     }
 
     @Test
     void putAll() {
         Map<Integer, String> values = Map.of(12, "12", 15, "15", 17, "17", 19, "19", 23, "23");
 
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.putAll(null, values));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, (long) values.size()), view -> view.putAll(null, values));
     }
 
     @Test
@@ -193,10 +193,10 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.put(null, key, "value_42");
 
         // Remove existing key.
-        testKeyValueViewOperation(WRITES, 1, view -> view.remove(null, key));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 1L), view -> view.remove(null, key));
 
         // Remove non existing key.
-        testKeyValueViewOperation(WRITES, 0, view -> view.remove(null, key));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 0L), view -> view.remove(null, key));
     }
 
     @Test
@@ -223,7 +223,12 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.removeAll(null);
         kvView.putAll(null, values);
 
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.removeAll(null));
+        // Reads happen when batch is retrieved, even though removeAll shouldn't update read metrics.
+        testKeyValueViewOperation(
+                of(RO_READS, RW_READS, WRITES),
+                of(0L, (long) values.size(), (long) values.size()),
+                view -> view.removeAll(null)
+        );
     }
 
     @Test
@@ -234,16 +239,24 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.putAll(null, values);
 
         // Remove existing keys.
-        testKeyValueViewOperation(WRITES, values.size(), view -> view.removeAll(null, values.keySet()));
+        testKeyValueViewOperation(
+                of(RO_READS, RW_READS, WRITES),
+                of(0L, 0L, (long) values.size()),
+                view -> view.removeAll(null, values.keySet())
+        );
 
         // Remove non-existing keys.
-        testKeyValueViewOperation(WRITES, 0, view -> view.removeAll(null, values.keySet()));
+        testKeyValueViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 0L), view -> view.removeAll(null, values.keySet()));
 
         kvView.putAll(null, values);
 
         // Remove non-unique keys.
         List<Integer> nonUniqueKeys = of(12, 15, 12, 17, 19, 23);
-        testKeyValueViewOperation(WRITES, nonUniqueKeys.size() - 1, view -> view.removeAll(null, nonUniqueKeys));
+        testKeyValueViewOperation(
+                of(RO_READS, RW_READS, WRITES),
+                of(0L, 0L, nonUniqueKeys.size() - 1L),
+                view -> view.removeAll(null, nonUniqueKeys)
+        );
     }
 
     @Test
@@ -367,15 +380,15 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         recordView(0).upsertAll(null, recs);
 
         // Delete existing keys.
-        testRecordViewOperation(WRITES, recs.size(), view -> view.deleteAll(null, keys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, ((long) recs.size())), view -> view.deleteAll(null, keys));
 
         // Delete non-existing keys.
-        testRecordViewOperation(WRITES, 0L, view -> view.deleteAll(null, keys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 0L), view -> view.deleteAll(null, keys));
 
         recordView(0).insert(null, recs.get(0));
 
         // Delete one non-existing key.
-        testRecordViewOperation(WRITES, 1L, view -> view.deleteAll(null, keys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 1L), view -> view.deleteAll(null, keys));
 
         // Non-unique keys.
         List<Tuple> nonUniqueKeys = of(
@@ -389,7 +402,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
 
         recordView(0).upsertAll(null, nonUniqueRecs);
 
-        testRecordViewOperation(WRITES, 2L, view -> view.deleteAll(null, nonUniqueKeys));
+        testRecordViewOperation(of(RO_READS, RW_READS, WRITES), of(0L, 0L, 2L), view -> view.deleteAll(null, nonUniqueKeys));
     }
 
     @Test
