@@ -369,7 +369,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionTableStatsMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
     private final Map<TablePartitionId, LongSupplier> pendingWriteIntentsSuppliers = new ConcurrentHashMap<>();
-    private final GlobalPartitionTableStatsMetricSource globalPartitionTableStatsMetricSource;
 
     /**
      * Creates a new table manager.
@@ -468,7 +467,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.minTimeCollectorService = minTimeCollectorService;
         this.metricManager = metricManager;
         this.partitionModificationCounterFactory = partitionModificationCounterFactory;
-        this.globalPartitionTableStatsMetricSource = new GlobalPartitionTableStatsMetricSource(this::totalPendingWriteIntents);
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -526,7 +524,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            registerGlobalPartitionTableStatsMetricSource();
+            txManager.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
 
             mvGc.start();
 
@@ -1107,7 +1105,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         }
 
-        unregisterGlobalPartitionTableStatsMetricSource();
+        txManager.setPendingWriteIntentsSupplier(null);
 
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
@@ -1733,23 +1731,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return sum;
-    }
-
-    private void registerGlobalPartitionTableStatsMetricSource() {
-        try {
-            metricManager.registerSource(globalPartitionTableStatsMetricSource);
-            metricManager.enable(globalPartitionTableStatsMetricSource);
-        } catch (Exception e) {
-            LOG.warn("Failed to register global partition statistics metrics source.", e);
-        }
-    }
-
-    private void unregisterGlobalPartitionTableStatsMetricSource() {
-        try {
-            metricManager.unregisterSource(globalPartitionTableStatsMetricSource);
-        } catch (Exception e) {
-            LOG.warn("Failed to unregister global partition statistics metrics source.", e);
-        }
     }
 
     /**

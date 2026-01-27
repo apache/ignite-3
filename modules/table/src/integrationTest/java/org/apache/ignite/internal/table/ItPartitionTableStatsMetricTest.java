@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.table.distributed.GlobalPartitionTableStatsMetricSource.SOURCE_NAME;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_COUNTER;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP;
 import static org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource.METRIC_NEXT_MILESTONE;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounter;
 import org.apache.ignite.internal.table.distributed.PartitionTableStatsMetricSource;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.Transaction;
@@ -365,7 +365,7 @@ public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
     private static long globalMetricFromNode(int nodeIdx, String metricName) {
         MetricManager metricManager = unwrapIgniteImpl(node(nodeIdx)).metricManager();
 
-        MetricSet metrics = metricManager.metricSnapshot().metrics().get(SOURCE_NAME);
+        MetricSet metrics = metricManager.metricSnapshot().metrics().get(TransactionMetricsSource.SOURCE_NAME);
 
         if (metrics != null) {
             LongMetric metric = metrics.get(metricName);
