@@ -66,6 +66,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private boolean killed;
 
     /**
+     * {@code True} if a remote(directly mapped) part of this transaction has no writes.
+     */
+    private boolean noRemoteWrites = true;
+
+    /**
      * Constructs an explicit read-write transaction.
      *
      * @param txManager The tx manager.
@@ -243,6 +248,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             commit,
                             timeoutExceeded,
                             false,
+                            noRemoteWrites,
                             enlisted,
                             id()
                     );
@@ -312,5 +318,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public void fail(TransactionException e) {
         // Thread safety is not needed.
         finishFuture = failedFuture(e);
+    }
+
+    /**
+     * Set no remote writes flag.
+     *
+     * @param noRemoteWrites The value.
+     */
+    public void noRemoteWrites(boolean noRemoteWrites) {
+        this.noRemoteWrites = noRemoteWrites;
     }
 }

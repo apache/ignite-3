@@ -139,7 +139,7 @@ public class CurrentClientWithOldServerCompatibilityTest
         ITable? table = await _client.Tables.GetTableAsync(TableNameTest);
         Assert.IsNotNull(table);
 
-        IReadOnlyDictionary<IPartition, IClusterNode> primaryReplicas = await table.PartitionManager.GetPrimaryReplicasAsync();
+        IReadOnlyDictionary<IPartition, IClusterNode> primaryReplicas = await table.PartitionDistribution.GetPrimaryReplicasAsync();
         Assert.AreEqual(25, primaryReplicas.Count);
 
         var clusterNode = _client.GetConnections().Select(x => x.Node).First();

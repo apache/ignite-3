@@ -27,19 +27,19 @@ using Common.Table;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Table;
+using Network;
 using NUnit.Framework;
 using static Common.Table.TestTables;
 
 /// <summary>
-/// Tests for <see cref="IPartitionManager"/>.
+/// Tests for <see cref="IPartitionDistribution"/>.
 /// </summary>
-[Obsolete("Obsolete. Replaced by PartitionDistributionTests.")]
-public class PartitionManagerTests : IgniteTestsBase
+public class PartitionDistributionTests : IgniteTestsBase
 {
     [Test]
     public async Task TestGetPrimaryReplicas()
     {
-        var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
+        var replicas = await Table.PartitionDistribution.GetPrimaryReplicasAsync();
         var replicasNodes = replicas.Values.Distinct().OrderBy(x => ((IPEndPoint)x.Address).Port).ToList();
         var replicasPartitions = replicas.Keys.Select(x => ((HashPartition)x).Id).OrderBy(x => x).ToList();
 
@@ -68,7 +68,7 @@ public class PartitionManagerTests : IgniteTestsBase
 
         async Task<List<HashPartition>> GetPartitions()
         {
-            var replicas = await Table.PartitionManager.GetPrimaryReplicasAsync();
+            var replicas = await Table.PartitionDistribution.GetPrimaryReplicasAsync();
             return replicas.Keys.Cast<HashPartition>().OrderBy(x => x.Id).ToList();
         }
     }
@@ -81,7 +81,7 @@ public class PartitionManagerTests : IgniteTestsBase
         for (int partId = 0; partId < TablePartitionCount; partId++)
         {
             var partition = new HashPartition(partId);
-            var replica = await Table.PartitionManager.GetPrimaryReplicaAsync(partition);
+            var replica = await Table.PartitionDistribution.GetPrimaryReplicaAsync(partition);
 
             CollectionAssert.Contains(nodes, replica);
         }
@@ -91,7 +91,7 @@ public class PartitionManagerTests : IgniteTestsBase
     public void TestGetPrimaryReplicaNegativePartitionIdThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(-1)));
+            async () => await Table.PartitionDistribution.GetPrimaryReplicaAsync(new HashPartition(-1)));
 
         Assert.AreEqual("Partition id can't be negative: HashPartition { Id = -1 }", ex.Message);
     }
@@ -100,7 +100,7 @@ public class PartitionManagerTests : IgniteTestsBase
     public void TestGetPrimaryReplicaPartitionIdOutOfRangeThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new HashPartition(10)));
+            async () => await Table.PartitionDistribution.GetPrimaryReplicaAsync(new HashPartition(10)));
 
         Assert.AreEqual("Partition id can't be greater than 9: HashPartition { Id = 10 }", ex.Message);
     }
@@ -109,7 +109,7 @@ public class PartitionManagerTests : IgniteTestsBase
     public void TestGetPrimaryReplicaUnknownPartitionClassThrows()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await Table.PartitionManager.GetPrimaryReplicaAsync(new MyPartition()));
+            async () => await Table.PartitionDistribution.GetPrimaryReplicaAsync(new MyPartition()));
 
         Assert.AreEqual($"Unsupported partition type: {typeof(MyPartition)}", ex.Message);
     }
@@ -123,9 +123,9 @@ public class PartitionManagerTests : IgniteTestsBase
         {
             var partition = poco
                 ? withMapper
-                    ? await Table.PartitionManager.GetPartitionAsync(GetPoco(id), new PocoMapper())
-                    : await Table.PartitionManager.GetPartitionAsync(GetPoco(id))
-                : await Table.PartitionManager.GetPartitionAsync(GetTuple(id));
+                    ? await Table.PartitionDistribution.GetPartitionAsync(GetPoco(id), new PocoMapper())
+                    : await Table.PartitionDistribution.GetPartitionAsync(GetPoco(id))
+                : await Table.PartitionDistribution.GetPartitionAsync(GetTuple(id));
 
             var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.PartitionJob, id);
             var expectedPartition = await partitionJobExec.GetResultAsync();
@@ -137,8 +137,8 @@ public class PartitionManagerTests : IgniteTestsBase
     [Test]
     public async Task TestGetPartitionReturnsCachedInstance()
     {
-        var partition1 = await Table.PartitionManager.GetPartitionAsync(GetTuple(1));
-        var partition2 = await Table.PartitionManager.GetPartitionAsync(GetTuple(1));
+        var partition1 = await Table.PartitionDistribution.GetPartitionAsync(GetTuple(1));
+        var partition2 = await Table.PartitionDistribution.GetPartitionAsync(GetTuple(1));
 
         Assert.AreSame(partition1, partition2);
     }
@@ -156,7 +156,7 @@ public class PartitionManagerTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var partition = new HashPartition(0);
 
-        var replica1 = await table!.PartitionManager.GetPrimaryReplicaAsync(partition);
+        var replica1 = await table!.PartitionDistribution.GetPrimaryReplicaAsync(partition);
         Assert.AreEqual("n1", replica1.Name);
 
         server.PartitionAssignmentTimestamp = 124;
@@ -164,7 +164,7 @@ public class PartitionManagerTests : IgniteTestsBase
 
         await client.Tables.GetTablesAsync(); // Trigger cache invalidation with any response.
 
-        var replica2 = await table.PartitionManager.GetPrimaryReplicaAsync(partition);
+        var replica2 = await table.PartitionDistribution.GetPrimaryReplicaAsync(partition);
         Assert.AreEqual("n2", replica2.Name);
     }
 
@@ -181,9 +181,40 @@ public class PartitionManagerTests : IgniteTestsBase
         Assert.IsFalse(part1.Equals(customPart));
     }
 
+    [Test]
+    public async Task TestGetPartitionsAsync()
+    {
+        IReadOnlyList<IPartition> partitions = await Table.PartitionDistribution.GetPartitionsAsync();
+
+        Assert.AreEqual(TablePartitionCount, partitions.Count);
+
+        for (int i = 0; i < TablePartitionCount; i++)
+        {
+            Assert.AreEqual(i, partitions[i].Id);
+        }
+    }
+
+    [Test]
+    public async Task TestGetPrimaryReplicasForNodeAsync()
+    {
+        IReadOnlyDictionary<IPartition, IClusterNode> allReplicas = await Table.PartitionDistribution.GetPrimaryReplicasAsync();
+
+        IList<IClusterNode> nodes = await Client.GetClusterNodesAsync();
+        IClusterNode node = nodes.First();
+        IReadOnlyList<IPartition> nodePartitions = await Table.PartitionDistribution.GetPrimaryReplicasAsync(node);
+
+        Assert.IsNotEmpty(nodePartitions);
+
+        foreach (var partition in nodePartitions)
+        {
+            Assert.IsTrue(allReplicas.TryGetValue(partition, out var replicaNode));
+            Assert.AreEqual(node.Name, replicaNode!.Name);
+        }
+    }
+
     private class MyPartition : IPartition
     {
-        public long Id => -1;
+        public long Id => 999;
 
         public bool Equals(IPartition? other) => false;
     }
