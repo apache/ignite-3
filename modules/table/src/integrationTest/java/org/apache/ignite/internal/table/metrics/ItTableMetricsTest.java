@@ -223,6 +223,7 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
         kvView.removeAll(null);
         kvView.putAll(null, values);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27670 Fix removeAll effect on read metrics.
         // Reads happen when batch is retrieved, even though removeAll shouldn't update read metrics.
         testKeyValueViewOperation(
                 of(RO_READS, RW_READS, WRITES),
