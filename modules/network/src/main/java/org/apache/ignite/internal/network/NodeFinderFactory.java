@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.network;
 
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Arrays;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderView;
@@ -55,9 +54,15 @@ public class NodeFinderFactory {
             case StaticNodeFinderConfigurationSchema.TYPE:
                 StaticNodeFinderView staticConfig = (StaticNodeFinderView) nodeFinderConfiguration;
 
-                return Arrays.stream(staticConfig.netClusterNodes())
+                Set<NetworkAddress> addresses = Arrays.stream(staticConfig.netClusterNodes())
                         .map(NetworkAddress::from)
-                        .collect(collectingAndThen(toUnmodifiableList(), StaticNodeFinder::new));
+                        .collect(toUnmodifiableSet());
+
+                return new StaticNodeFinder(
+                        addresses,
+                        InetAddress::getAllByName,
+                        staticConfig.nameResolutionAttempts()
+                );
             case MulticastNodeFinderConfigurationSchema.TYPE:
                 MulticastNodeFinderView multicastConfig = (MulticastNodeFinderView) nodeFinderConfiguration;
 
@@ -83,7 +88,7 @@ public class NodeFinderFactory {
             return NetworkInterface.networkInterfaces()
                     .flatMap(NetworkInterface::inetAddresses)
                     .map(address -> new NetworkAddress(address.getHostName(), localBindAddress.getPort()))
-                    .collect(Collectors.toUnmodifiableSet());
+                    .collect(toUnmodifiableSet());
         } catch (SocketException e) {
             throw new IgniteInternalException(INTERNAL_ERR, "Cannot get local addresses", e);
         }
