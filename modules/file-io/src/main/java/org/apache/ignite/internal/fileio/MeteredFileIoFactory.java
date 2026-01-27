@@ -15,24 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.fileio;
 
-import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
+import java.io.IOException;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
 
-/** Metric source for checkpoint of persistent page memory. */
-public class CheckpointMetricSource extends CollectionMetricSource {
-    /**
-     * Constructor.
-     *
-     * @param name Metric set name.
-     */
-    public CheckpointMetricSource(String name) {
-        super(name, "storage", null);
+/**
+ * {@link MeteredFileIo} factory.
+ */
+public class MeteredFileIoFactory implements FileIoFactory {
+    private final FileIoFactory delegate;
+    private final FileIoMetrics metrics;
+
+    public MeteredFileIoFactory(FileIoFactory delegate, FileIoMetrics metrics) {
+        this.delegate = delegate;
+        this.metrics = metrics;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public synchronized <T extends Metric> T addMetric(T metric) {
-        return super.addMetric(metric);
+    public FileIo create(Path filePath, OpenOption... modes) throws IOException {
+        return new MeteredFileIo(delegate.create(filePath, modes), metrics);
     }
 }

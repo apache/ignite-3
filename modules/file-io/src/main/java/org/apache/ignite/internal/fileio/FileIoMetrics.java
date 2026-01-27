@@ -15,24 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.fileio;
 
-import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
-
-/** Metric source for checkpoint of persistent page memory. */
-public class CheckpointMetricSource extends CollectionMetricSource {
+/**
+ * Metrics for file I/O operations.
+ */
+public interface FileIoMetrics {
     /**
-     * Constructor.
-     *
-     * @param name Metric set name.
+     * Record information about read operation.
      */
-    public CheckpointMetricSource(String name) {
-        super(name, "storage", null);
-    }
+    void recordRead(int bytesRead, long durationNanos);
 
-    @Override
-    public synchronized <T extends Metric> T addMetric(T metric) {
-        return super.addMetric(metric);
-    }
+    /**
+     * Record information about write operation.
+     */
+    void recordWrite(int bytesWritten, long durationNanos);
 }
