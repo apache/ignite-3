@@ -17,6 +17,8 @@
 
 #pragma once
 #include <winsock2.h>
+#include <vector>
+#include <cstddef>
 
 namespace ignite {
 class client_socket_adapter {
@@ -36,7 +38,7 @@ public:
         ::send(m_fd, reinterpret_cast<const char *>(msg.data()), msg.size(), 0);
     }
 
-    int recieve_next_packet(std::byte *buf, size_t buf_size) {
+    int receive_next_packet(std::byte *buf, size_t buf_size) {
         return ::recv(m_fd, reinterpret_cast<char *>(buf), buf_size, 0);
     }
 

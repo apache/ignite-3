@@ -19,10 +19,6 @@
 
 #include <algorithm>
 
-#ifndef _WIN32
-
-#endif
-
 namespace ignite {
 std::vector<std::byte> tcp_client_channel::read_next_n_bytes(size_t n) {
     std::vector<std::byte> res;
@@ -53,7 +49,7 @@ void tcp_client_channel::send_message(const std::vector<std::byte>& msg) {
 }
 
 void tcp_client_channel::receive_next_packet() {
-    int received = m_cl_sock.recieve_next_packet(m_buf, sizeof(m_buf));
+    int received = m_cl_sock.receive_next_packet(m_buf, sizeof(m_buf));
 
     if (received == 0) {
         m_logger->log_debug( "connection was closed");

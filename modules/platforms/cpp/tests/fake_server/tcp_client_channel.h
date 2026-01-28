@@ -32,6 +32,8 @@
 #else
 #include "socket_adapter/posix/server_socket_adapter.h"
 #include "socket_adapter/posix/client_socket_adapter.h"
+#include <cerrno>
+#include <cstring>
 
 #define LAST_SOCKET_ERROR() strerror(errno)
 #endif

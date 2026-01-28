@@ -16,8 +16,11 @@
  */
 
 #pragma once
+
 #include <sys/socket.h>
 #include <unistd.h>
+#include <vector>
+#include <cstddef>
 
 namespace ignite {
 class client_socket_adapter {
@@ -35,7 +38,7 @@ public:
 
     void send_message(const std::vector<std::byte> &msg) { ::send(m_fd, msg.data(), msg.size(), 0); }
 
-    int recieve_next_packet(std::byte *buf, size_t buf_size) { return ::recv(m_fd, buf, buf_size, 0); }
+    int receive_next_packet(std::byte *buf, size_t buf_size) { return ::recv(m_fd, buf, buf_size, 0); }
 
     void close() {
         ::close(m_fd);
