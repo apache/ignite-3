@@ -17,19 +17,108 @@
 
 package org.apache.ignite.example.serialization;
 
-import org.apache.ignite.client.IgniteClient;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
-public class SerializationExample {
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
+/**
+ * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
+ *
+ * <p>Find instructions on how to run the example in the {@code README.md}
+ * file located in the {@code examples} directory root.</p>
+ *
+ * <h2>Execution Modes</h2>
+ *
+ * <p>There are two modes of execution:</p>
+ *
+ * <h3>1. Automated : The JAR Deployment for  deployment unit is automated </h3>
+ *
+ * <h4>1.1 With IDE</h4>
+ * <ul>
+ *   <li>
+ *     <b>Run from an IDE</b><br>
+ *     Launch the example directly from the IDE. If the required deployment
+ *     unit is not present, the example automatically builds and deploys the
+ *     necessary JAR.
+ *   </li>
+ * </ul>
+ *
+ * <h3>1.2 Without IDE</h3>
+ * <ul>
+ *   <li>
+ *     <b>Run from the command line</b><br>
+ *     Start the example using a Java command where the classpath includes
+ *     all required dependencies:
+ *
+ *     <pre>{@code
+ * java -cp "{user.home}\\.m2\\repository\\org\\apache\\ignite\\ignite-core\\3.1.0-SNAPSHOT\\
+ * ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
+ * <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"
+ *     }</pre>
+ * <p>
+ *     In this mode, {@code runFromIDE=false} indicates command-line execution,
+ *     and {@code jarPath} must reference the examples JAR used as the
+ *     deployment unit.
+ *   </li>
+ * </ul>
+ *
+ * <h2>2. Manual (with IDE): The JAR deployment for the deployment unit is manual</h2>
+ *
+ * <p>Before running this example, complete the following steps related to
+ * code deployment:</p>
+ *
+ * <ol>
+ *   <li>
+ *     Build the {@code ignite-examples-x.y.z.jar} file:<br>
+ *     {@code ./gradlew :ignite-examples:jar}
+ *   </li>
+ *   <li>
+ *     Deploy the generated JAR as a deployment unit using the CLI:<br>
+ *     <pre>{@code
+ * cluster unit deploy computeExampleUnit \
+ *     --version 1.0.0 \
+ *     --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar
+ *     }</pre>
+ *   </li>
+ * </ol>
+ */
+
+public class SerializationExample extends AbstractDeploymentUnitExample {
+
+    private static final String DEPLOYMENT_UNIT_NATIVE = "nativeSerializationExampleUnit";
+    private static final String DEPLOYMENT_UNIT_CUSTOM = "customPojoSerializationExampleUnit";
+    private static final String DEPLOYMENT_UNIT_AUTO = "pojoAutoSerializationExampleUnit";
+    private static final String DEPLOYMENT_UNIT_TUPLE = "tupleSerializationExampleUnit";
+    private static final String VERSION = "1.0.0";
 
     public static void main(String[] args) throws Exception {
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
+            processDeploymentUnit(args);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_NATIVE, VERSION, jarPath);
             NativeTypeSerializationExample.runNativeSerialization(client);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_TUPLE, VERSION, jarPath);
             TupleSerializationExample.runTupleSerialization(client);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_AUTO, VERSION, jarPath);
             PojoAutoSerializationExample.runPojoAutoSerialization(client);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_CUSTOM, VERSION, jarPath);
             CustomPojoSerializationExample.runPojoCustomJsonSerialization(client);
+
+        } finally {
+
+            System.out.println("Cleaning up resources...");
+            undeployUnit(DEPLOYMENT_UNIT_CUSTOM, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_AUTO, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_NATIVE, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_TUPLE, VERSION);
+
         }
     }
 }
