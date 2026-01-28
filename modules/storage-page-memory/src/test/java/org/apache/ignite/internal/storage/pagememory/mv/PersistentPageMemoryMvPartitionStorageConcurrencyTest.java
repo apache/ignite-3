@@ -19,16 +19,21 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -41,6 +46,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
@@ -95,5 +101,47 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 table,
                 engine == null ? null : engine::stop
         );
+    }
+
+    /**
+     * Reproducer for a <a href="https://issues.apache.org/jira/browse/IGNITE-27638">corrupted Write Intent list</a>.
+     * During replace of the value found both in inner and leaf nodes of VersionChain tree, we tried to remove WI from the WI list twice.
+     * If neighboring WI in the WI double-linked list was invalidated between these removals, we would get an exception trying to access it
+     * to change its links.
+     * <p>
+     * Test builds a 3-level tree, and creates a race between aborting A and D write intents. WI are large, so they don't share the same
+     * page.
+     * <p>           B
+     * <p>          /  \
+     * <p>        A     C
+     * <p>       / \    | \
+     * <p>      A   B   C  D
+     */
+    @Test
+    void testAbortWriteIntentsListRace() {
+        // Build a 3-level tree.
+        int rowsCount = 50_000;
+        UUID txId = newTransactionId();
+        RowId[] rowIds = new RowId[rowsCount];
+
+        for (int i = 0; i < rowsCount; i++) {
+            rowIds[i] = new RowId(PARTITION_ID, i, i);
+            addWriteCommitted(rowIds[i], TABLE_ROW, HybridTimestamp.MAX_VALUE);
+        }
+
+        // Left-most leaf, "A" on diagram.
+        int leftMostLeafIndex = 163;
+
+        BinaryRow largeRow = binaryRow(KEY, new TestValue(20, "A".repeat(10_000)));
+
+        for (int i = 0; i < 1000; i++) {
+            addWrite(rowIds[leftMostLeafIndex], largeRow, txId);
+            addWrite(rowIds[rowsCount - 1], largeRow, txId);
+
+            runRace(
+                    () -> abortWrite(rowIds[leftMostLeafIndex], txId),
+                    () -> abortWrite(rowIds[rowsCount - 1], txId)
+            );
+        }
     }
 }
