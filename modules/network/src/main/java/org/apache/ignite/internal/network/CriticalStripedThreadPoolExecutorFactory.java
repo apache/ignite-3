@@ -50,10 +50,7 @@ class CriticalStripedThreadPoolExecutorFactory {
     private final MetricManager metricManager;
 
     @Nullable
-    private final String metricName;
-
-    @Nullable
-    private final String metricGroup;
+    private final String metricNamePrefix;
 
     @Nullable
     private final String metricDescription;
@@ -65,8 +62,7 @@ class CriticalStripedThreadPoolExecutorFactory {
             CriticalWorkerRegistry workerRegistry,
             List<CriticalWorker> registeredWorkers,
             @Nullable MetricManager metricManager,
-            @Nullable String metricName,
-            @Nullable String metricGroup,
+            @Nullable String metricNamePrefix,
             @Nullable String metricDescription
     ) {
         this.nodeName = nodeName;
@@ -76,8 +72,7 @@ class CriticalStripedThreadPoolExecutorFactory {
         this.registeredWorkers = registeredWorkers;
 
         this.metricManager = metricManager;
-        this.metricName = metricName;
-        this.metricGroup = metricGroup;
+        this.metricNamePrefix = metricNamePrefix;
         this.metricDescription = metricDescription;
     }
 
@@ -88,8 +83,9 @@ class CriticalStripedThreadPoolExecutorFactory {
         var threadFactory = IgniteMessageServiceThreadFactory.create(nodeName, poolName, log, NOTHING_ALLOWED);
         var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0);
 
-        if (metricManager != null && metricName != null) {
-            var metricSource = new StripedThreadPoolMetricSource<>(metricName + '.' + poolName, metricDescription, metricGroup,
+        if (metricManager != null && metricNamePrefix != null) {
+            String metricName = String.format("%s.%s", metricNamePrefix, channelType.name());
+            var metricSource = new StripedThreadPoolMetricSource<>(metricName, metricDescription, null,
                     executor);
 
             metricManager.registerSource(metricSource);
