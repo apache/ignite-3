@@ -25,12 +25,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.time.Duration;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
@@ -469,8 +469,8 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
         LongMetric metric = metrics.get(TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS);
 
-        assertThat("Metric must be present: " +
-                TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS, metric != null, is(true));
+        assertThat("Metric must be present: "
+                + TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS, metric != null, is(true));
 
         return metric.value();
     }
