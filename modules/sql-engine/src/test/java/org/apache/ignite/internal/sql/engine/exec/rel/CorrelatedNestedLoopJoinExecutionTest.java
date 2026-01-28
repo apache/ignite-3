@@ -35,6 +35,7 @@ import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -80,6 +81,7 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
                 ctx,
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
+                ImmutableBitSet.of(),
                 joinType,
                 ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
                 identityProjection()
@@ -236,6 +238,7 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
                 ctx,
                 (r1, r2) -> Objects.equals(hnd.get(2, r1), hnd.get(0, r2)),
                 Set.of(new CorrelationId(0)),
+                ImmutableBitSet.of(),
                 joinType,
                 ctx.rowFactoryFactory().create(convertStructuredType(rightType)),
                 identityProjection()
