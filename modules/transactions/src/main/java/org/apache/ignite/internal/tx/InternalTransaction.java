@@ -181,4 +181,15 @@ public interface InternalTransaction extends Transaction {
     default void processDelayedAck(Object val, @Nullable Throwable err) {
         // No-op.
     }
+
+    /**
+     * Records abort exception information in the local transaction state meta storage.
+     *
+     * <p>Intended for cases when the transaction is aborted for a non-user reason and the original response might be lost.
+     *
+     * @param throwable Abort reason.
+     */
+    default void recordAbortReason(Throwable throwable) {
+        // No-op by default.
+    }
 }

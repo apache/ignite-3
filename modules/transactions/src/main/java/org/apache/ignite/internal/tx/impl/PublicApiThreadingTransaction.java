@@ -74,6 +74,11 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
         return transaction.isReadOnly();
     }
 
+    @Override
+    public void recordAbortReason(Throwable throwable) {
+        transaction.recordAbortReason(throwable);
+    }
+
     private <T> CompletableFuture<T> preventThreadHijack(Supplier<CompletableFuture<T>> operation) {
         CompletableFuture<T> future = execUserAsyncOperation(operation);
         return PublicApiThreading.preventThreadHijack(future, asyncContinuationExecutor);

@@ -190,6 +190,7 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaExceptionInfo;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -1618,9 +1619,19 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     && txStateMeta.isFinishedDueToTimeout() != null
                     && txStateMeta.isFinishedDueToTimeout();
 
+            Throwable cause = null;
+            if (txStateMeta != null) {
+                TxStateMetaExceptionInfo exceptionInfo = txStateMeta.exceptionInfo();
+
+                if (exceptionInfo != null) {
+                    cause = exceptionInfo.throwable();
+                }
+            }
+
             return failedFuture(new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txState)
+                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                    cause
             ));
         }
 

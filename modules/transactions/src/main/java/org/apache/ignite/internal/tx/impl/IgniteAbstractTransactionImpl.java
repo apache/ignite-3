@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
@@ -163,5 +164,10 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public boolean isRolledBackWithTimeoutExceeded() {
         return timeoutExceeded;
+    }
+
+    @Override
+    public void recordAbortReason(Throwable throwable) {
+        txManager.updateTxMeta(id, old -> recordExceptionInfo(old, throwable));
     }
 }
