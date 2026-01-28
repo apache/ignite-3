@@ -23,22 +23,41 @@
 namespace ignite {
 class client_socket_adapter {
 public:
-    explicit client_socket_adapter(SOCKET m_fd)
+    explicit client_socket_adapter(int m_fd)
         : m_fd(m_fd) {}
+
+    ~client_socket_adapter() {
+        if (is_valid()) {
+            close();
+        }
+    }
 
     client_socket_adapter() = default;
 
-    client_socket_adapter(const client_socket_adapter &other) = default;
+    client_socket_adapter(const client_socket_adapter &other) = delete;
 
-    client_socket_adapter &operator=(const client_socket_adapter &other) = default;
+    client_socket_adapter(client_socket_adapter &&other) noexcept
+        : m_fd(other.m_fd)
+    {
+        other.m_fd = INVALID_SOCKET;
+    }
 
-    bool is_valid() const { return m_fd != INVALID_SOCKET; }
+    client_socket_adapter &operator=(const client_socket_adapter &other) = delete;
 
-    void send_message(const std::vector<std::byte> &msg) {
+    client_socket_adapter &operator=(client_socket_adapter &&other) noexcept {
+        m_fd = other.m_fd;
+        other.m_fd = INVALID_SOCKET;
+
+        return *this;
+    }
+
+    [[nodiscard]] bool is_valid() const { return m_fd != INVALID_SOCKET; }
+
+    void send_message(const std::vector<std::byte> &msg) const {
         ::send(m_fd, reinterpret_cast<const char *>(msg.data()), msg.size(), 0);
     }
 
-    int receive_next_packet(std::byte *buf, size_t buf_size) {
+    [[nodiscard]] ssize_t receive_next_packet(std::byte *buf, size_t buf_size) const {
         return ::recv(m_fd, reinterpret_cast<char *>(buf), buf_size, 0);
     }
 

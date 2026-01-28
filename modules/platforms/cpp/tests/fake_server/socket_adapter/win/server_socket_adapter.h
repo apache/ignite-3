@@ -23,24 +23,37 @@
 namespace ignite {
 class server_socket_adapter {
 public:
-    explicit server_socket_adapter(SOCKET m_fd)
+    explicit server_socket_adapter(int m_fd)
         : m_fd(m_fd) {}
 
     server_socket_adapter() = default;
 
-    server_socket_adapter(const server_socket_adapter &other) = default;
+    server_socket_adapter(const server_socket_adapter &other) = delete;
 
-    server_socket_adapter &operator=(const server_socket_adapter &other) = default;
+    server_socket_adapter(server_socket_adapter &&other) noexcept
+        : m_fd(other.m_fd)
+    {
+        other.m_fd = INVALID_SOCKET;
+    }
+
+    server_socket_adapter &operator=(const server_socket_adapter &other) = delete;
+
+    server_socket_adapter &operator=(server_socket_adapter &&other) noexcept {
+        m_fd = other.m_fd;
+        other.m_fd = INVALID_SOCKET;
+
+        return *this;
+    }
 
     void start() {
         m_fd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     }
 
-    bool is_valid() const {
+    [[nodiscard]] bool is_valid() const {
         return m_fd != INVALID_SOCKET;
     }
 
-    SOCKET accept() {
+    [[nodiscard]] SOCKET accept() {
         sockaddr_in cl_addr{};
 
         socklen_t addr_len = sizeof(cl_addr);
@@ -50,7 +63,7 @@ public:
         return cl_sock;
     }
 
-    int bind(int port) const {
+    [[nodiscard]] int bind(int port) const {
         sockaddr_in srv_addr{};
 
         srv_addr.sin_family = AF_INET;
@@ -60,7 +73,7 @@ public:
         return ::bind(m_fd, reinterpret_cast<sockaddr*>(&srv_addr), sizeof(srv_addr));
     }
 
-    int listen() const {
+    [[nodiscard]] int listen() const {
         return ::listen(m_fd, 1);
     }
 

@@ -46,8 +46,9 @@ namespace ignite {
  */
 class tcp_client_channel {
 public:
-    explicit tcp_client_channel(server_socket_adapter srv_sock, std::shared_ptr<ignite_logger> logger)
+    explicit tcp_client_channel(const server_socket_adapter& srv_sock, std::shared_ptr<ignite_logger> logger)
         : m_srv_sock(srv_sock)
+        , m_buf{}
         , m_logger(std::move(logger)) {}
 
     void start();
@@ -58,7 +59,7 @@ public:
 private:
     void receive_next_packet();
     /** Server socket. */
-    server_socket_adapter m_srv_sock;
+    const server_socket_adapter& m_srv_sock;
     /** Client socket. */
     client_socket_adapter m_cl_sock;
     /** Message buffer. */

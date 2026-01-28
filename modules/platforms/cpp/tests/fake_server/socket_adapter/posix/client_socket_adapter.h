@@ -28,17 +28,38 @@ public:
     explicit client_socket_adapter(int m_fd)
         : m_fd(m_fd) {}
 
+    ~client_socket_adapter() {
+        if (is_valid()) {
+            close();
+        }
+    }
+
     client_socket_adapter() = default;
 
-    client_socket_adapter(const client_socket_adapter &other) = default;
+    client_socket_adapter(const client_socket_adapter &other) = delete;
 
-    client_socket_adapter &operator=(const client_socket_adapter &other) = default;
+    client_socket_adapter(client_socket_adapter &&other) noexcept
+        : m_fd(other.m_fd)
+    {
+        other.m_fd = -1;
+    }
 
-    bool is_valid() const { return m_fd >= 0; }
+    client_socket_adapter &operator=(const client_socket_adapter &other) = delete;
 
-    void send_message(const std::vector<std::byte> &msg) { ::send(m_fd, msg.data(), msg.size(), 0); }
+    client_socket_adapter &operator=(client_socket_adapter &&other) noexcept {
+        m_fd = other.m_fd;
+        other.m_fd = -1;
 
-    int receive_next_packet(std::byte *buf, size_t buf_size) { return ::recv(m_fd, buf, buf_size, 0); }
+        return *this;
+    }
+
+    [[nodiscard]] bool is_valid() const { return m_fd >= 0; }
+
+    void send_message(const std::vector<std::byte> &msg) const { ::send(m_fd, msg.data(), msg.size(), 0); }
+
+    [[nodiscard]] ssize_t receive_next_packet(std::byte *buf, size_t buf_size) const {
+        return ::recv(m_fd, buf, buf_size, 0);
+    }
 
     void close() {
         ::close(m_fd);
