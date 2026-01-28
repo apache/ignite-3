@@ -20,6 +20,17 @@ pluginManagement {
         maven {
             url "https://plugins.gradle.org/m2/"
         }
+        mavenCentral()
+    }
+    resolutionStrategy {
+        eachPlugin {
+            // com.palantir.docker 0.37.0 is only available on Maven Central, not the Gradle Plugin Portal,
+            // so the plugin marker artifact is missing and Gradle cannot resolve it automatically.
+            // This mapping redirects the plugin ID to the actual Maven artifact.
+            if (requested.id.id == 'com.palantir.docker' || requested.id.id == 'com.palantir.docker-compose') {
+                useModule("com.palantir.gradle.docker:gradle-docker:${requested.version}")
+            }
+        }
     }
 }
 
