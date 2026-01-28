@@ -89,7 +89,7 @@ class CriticalStripedThreadPoolExecutorFactory {
         var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0);
 
         if (metricManager != null && metricName != null) {
-            var metricSource = new StripedThreadPoolMetricSource<>(metricName, metricDescription, metricGroup,
+            var metricSource = new StripedThreadPoolMetricSource<>(metricName + '.' + poolName, metricDescription, metricGroup,
                     executor);
 
             metricManager.registerSource(metricSource);
