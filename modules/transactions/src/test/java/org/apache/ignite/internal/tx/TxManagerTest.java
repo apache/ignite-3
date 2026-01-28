@@ -181,7 +181,6 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         transactionInflights = new TransactionInflights(placementDriver, clockService, volatileTxStateMetaStorage);
 
-        VolatileTxStateMetaStorage volatileTxStateMetaStorage = new VolatileTxStateMetaStorage();
         txManager = new TxManagerImpl(
                 txConfiguration,
                 systemDistributedConfiguration,
