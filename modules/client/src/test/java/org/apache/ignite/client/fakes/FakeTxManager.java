@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -53,6 +54,11 @@ public class FakeTxManager implements TxManager {
 
     public FakeTxManager(HybridClock clock) {
         this.clock = clock;
+    }
+
+    @Override
+    public void setPendingWriteIntentsSupplier(@Nullable LongSupplier supplier) {
+        // No-op.
     }
 
     @Override

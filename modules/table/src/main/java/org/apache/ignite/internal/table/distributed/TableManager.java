@@ -72,6 +72,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -111,7 +112,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
-import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -363,7 +363,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final MetricManager metricManager;
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
-    private final Map<TablePartitionId, PartitionModificationCounterMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
+    private final Map<TablePartitionId, PartitionTableStatsMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
+    private final Map<TablePartitionId, LongSupplier> pendingWriteIntentsSuppliers = new ConcurrentHashMap<>();
 
     /**
      * Creates a new table manager.
@@ -519,6 +520,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
+            txManager.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
+
             mvGc.start();
 
             fullStateTransferIndexChooser.start();
@@ -1098,6 +1101,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         }
 
+        txManager.setPendingWriteIntentsSupplier(null);
+
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
         partitionReplicaLifecycleManager.removeListener(BEFORE_REPLICA_STARTED, onBeforeZoneReplicaStartedListener);
@@ -1589,7 +1594,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped.
         minTimeCollectorService.removePartition(tablePartitionId);
 
-        PartitionModificationCounterMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
+        PartitionTableStatsMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
+        pendingWriteIntentsSuppliers.remove(tablePartitionId);
         if (metricSource != null) {
             try {
                 metricManager.unregisterSource(metricSource);
@@ -1649,8 +1655,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         PartitionModificationCounter modificationCounter =
                 partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration, table.tableId(), partitionId);
 
-        registerPartitionModificationCounterMetrics(table, partitionId, modificationCounter);
-
         StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
                 partitionId,
                 partitionDataStorage,
@@ -1659,48 +1663,44 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 modificationCounter,
                 txManager
         );
+
         storageUpdateHandler.start(onNodeRecovery);
+
+        registerPartitionTableStatsMetrics(table, partitionId, modificationCounter);
+
+        pendingWriteIntentsSuppliers.put(new TablePartitionId(table.tableId(), partitionId), storageUpdateHandler::getPendingRowCount);
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }
 
-    private void registerPartitionModificationCounterMetrics(
+    private void registerPartitionTableStatsMetrics(
             TableViewInternal table,
             int partitionId,
             PartitionModificationCounter counter
     ) {
-        PartitionModificationCounterMetricSource metricSource =
-                new PartitionModificationCounterMetricSource(table.tableId(), partitionId);
-
-        metricSource.addMetric(new LongGauge(
-                PartitionModificationCounterMetricSource.METRIC_COUNTER,
-                "The value of the volatile counter of partition modifications. "
-                        + "This value is used to determine staleness of the related SQL statistics.",
-                counter::value
-        ));
-
-        metricSource.addMetric(new LongGauge(
-                PartitionModificationCounterMetricSource.METRIC_NEXT_MILESTONE,
-                "The value of the next milestone for the number of partition modifications. "
-                        + "This value is used to determine staleness of the related SQL statistics.",
-                counter::nextMilestone
-        ));
-
-        metricSource.addMetric(new LongGauge(
-                PartitionModificationCounterMetricSource.METRIC_LAST_MILESTONE_TIMESTAMP,
-                "The timestamp value representing the commit time of the last modification operation that "
-                        + "reached the milestone. This value is used to determine staleness of the related SQL statistics.",
-                () -> counter.lastMilestoneTimestamp().longValue()
-        ));
+        PartitionTableStatsMetricSource metricSource =
+                new PartitionTableStatsMetricSource(table.tableId(), partitionId, counter);
 
         try {
             metricManager.registerSource(metricSource);
             metricManager.enable(metricSource);
 
-            partModCounterMetricSources.put(new TablePartitionId(table.tableId(), partitionId), metricSource);
+            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionId);
+
+            partModCounterMetricSources.put(tablePartitionId, metricSource);
         } catch (Exception e) {
             LOG.warn("Failed to register metrics source for table [name={}, partitionId={}].", e, table.name(), partitionId);
         }
+    }
+
+    private long totalPendingWriteIntents() {
+        long sum = 0;
+
+        for (LongSupplier supplier : pendingWriteIntentsSuppliers.values()) {
+            sum += supplier.getAsLong();
+        }
+
+        return sum;
     }
 
     /**

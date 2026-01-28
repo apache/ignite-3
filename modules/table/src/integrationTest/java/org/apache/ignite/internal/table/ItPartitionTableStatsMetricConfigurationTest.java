@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.table.ItPartitionModificationCounterMetricsTest.expectNextMilestone;
+import static org.apache.ignite.internal.table.ItPartitionTableStatsMetricTest.expectNextMilestone;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Check that partition modification counter settings are depends on configuration settings. */
-public class ItPartitionModificationCounterConfigurationTest extends BaseSqlIntegrationTest {
+public class ItPartitionTableStatsMetricConfigurationTest extends BaseSqlIntegrationTest {
     private static final String ZONE_1_PART_NO_REPLICAS = "zone_single_partition_no_replicas";
     private static final int MIN_STALE_ROWS = 2;
     private static final double STALE_ROWS_FRACTION = 1.0d;

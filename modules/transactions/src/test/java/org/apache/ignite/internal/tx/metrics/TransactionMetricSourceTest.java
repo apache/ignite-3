@@ -61,7 +61,8 @@ public class TransactionMetricSourceTest extends BaseIgniteAbstractTest {
                 "RoCommits",
                 "RoRollbacks",
                 "RwDuration",
-                "RoDuration");
+                "RoDuration",
+                TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS);
 
         var actualMetrics = new HashSet<String>();
         set.forEach(m -> actualMetrics.add(m.name()));
