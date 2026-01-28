@@ -61,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Catalog utils.
  */
-public class CatalogUtils {
+public final class CatalogUtils {
     /** Default zone name. */
     public static final String DEFAULT_ZONE_NAME = "Default";
 
@@ -966,5 +966,25 @@ public class CatalogUtils {
         }
 
         return names;
+    }
+
+    /**
+     * Return column positions in the table descriptor for the given column IDs.
+     */
+    public static int[] resolveColumnIndexesByIds(CatalogTableDescriptor descriptor, IntList columnIds) {
+        int[] columnIdxs = new int[columnIds.size()];
+
+        for (int i = 0; i < columnIds.size(); i++) {
+            int colId = columnIds.getInt(i);
+            int colIdx = descriptor.columnIndexById(colId);
+            columnIdxs[i] = colIdx;
+        }
+
+        return columnIdxs;
+    }
+
+    // Private constructor to prevent instantiation
+    private CatalogUtils() {
+
     }
 }

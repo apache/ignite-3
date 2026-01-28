@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.UUID;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 
 /**
  * This exception is thrown when a lock cannot be acquired due to possible deadlock situation.
@@ -32,18 +34,25 @@ public class PossibleDeadlockOnLockAcquireException extends LockException {
      * @param currentLockHolderTxId UUID of a transaction that currently holds the lock.
      * @param attemptedLockModeToAcquireWith {@link LockMode} that was tried to acquire the lock with but failed the attempt.
      * @param currentlyAcquiredLockMode {@link LockMode} of the lock that is already acquired with.
+     * @param abandonedLock flag which shows the status of the lock. If the state is uncertain, it's treated as abandoned.
+     * @param txStateMetaStorage txState required to properly log tx labels.
      */
     public PossibleDeadlockOnLockAcquireException(
             UUID failedToAcquireLockTxId,
             UUID currentLockHolderTxId,
             LockMode attemptedLockModeToAcquireWith,
-            LockMode currentlyAcquiredLockMode
+            LockMode currentlyAcquiredLockMode,
+            boolean abandonedLock,
+            VolatileTxStateMetaStorage txStateMetaStorage
     ) {
         super(
                 ACQUIRE_LOCK_ERR,
-                "Failed to acquire a lock due to a possible deadlock ["
-                        + "failedToAcquireLockTransactionId=" + failedToAcquireLockTxId
-                        + ", currentLockHolderTransactionId=" + currentLockHolderTxId
+                "Failed to acquire " + (abandonedLock ? "the abandoned " : "a ")
+                        + "lock due to a possible deadlock ["
+                        + "failedToAcquireLockTransactionId=txn "
+                        + formatTxInfo(failedToAcquireLockTxId, txStateMetaStorage)
+                        + ", currentLockHolderTransactionId=txn"
+                        +  formatTxInfo(currentLockHolderTxId, txStateMetaStorage)
                         + ", attemptedLockModeToAcquireWith=" + attemptedLockModeToAcquireWith
                         + ", currentlyAcquiredLockMode=" + currentlyAcquiredLockMode
                         + "]."

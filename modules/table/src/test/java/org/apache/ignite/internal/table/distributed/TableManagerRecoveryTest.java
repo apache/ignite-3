@@ -158,6 +158,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -431,6 +432,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         ClockService clockService = new TestClockService(clock);
         FailureProcessor failureProcessor = mock(FailureProcessor.class);
 
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
         replicaMgr = spy(new ReplicaManager(
                 NODE_NAME,
                 clusterService,
@@ -580,7 +583,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
-                new TransactionInflights(placementDriver, clockService),
+                new TransactionInflights(placementDriver, clockService, txStateVolatileStorage),
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,

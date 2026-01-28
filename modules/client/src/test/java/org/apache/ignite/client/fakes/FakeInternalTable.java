@@ -58,7 +58,7 @@ import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
@@ -524,7 +524,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public TableMetricSource metrics() {
+    public ReadWriteMetricSource metrics() {
         return null;
     }
 }

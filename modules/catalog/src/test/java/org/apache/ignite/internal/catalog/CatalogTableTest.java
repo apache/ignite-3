@@ -175,8 +175,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate newly created table
         assertEquals(TABLE_NAME, table.name());
         assertEquals(catalog.defaultZone().id(), table.zoneId());
-        assertEquals(List.of("key1", "key2"), table.primaryKeyColumnNames());
-        assertEquals(List.of("key2"), table.colocationColumnNames());
+        assertEquals(IntList.of(0, 1), table.primaryKeyColumns());
+        assertEquals(IntList.of(1), table.colocationColumns());
 
         // Validate newly created pk index
         assertEquals(pkIndexName(TABLE_NAME), pkIndex.name());
@@ -662,8 +662,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
-        assertThat(curDescriptor.colocationColumnNames(), is(prevDescriptor.colocationColumnNames()));
-        assertThat(curDescriptor.primaryKeyColumnNames(), is(prevDescriptor.primaryKeyColumnNames()));
+        assertThat(curDescriptor.colocationColumns(), is(prevDescriptor.colocationColumns()));
+        assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
         assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));

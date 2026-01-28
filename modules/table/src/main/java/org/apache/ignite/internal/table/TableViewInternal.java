@@ -27,7 +27,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -136,7 +136,7 @@ public interface TableViewInternal extends Table {
      *
      * @return Table metrics source.
      */
-    TableMetricSource metrics();
+    ReadWriteMetricSource metrics();
 
     /**
      * Updates staleness configuration with provided parameters.

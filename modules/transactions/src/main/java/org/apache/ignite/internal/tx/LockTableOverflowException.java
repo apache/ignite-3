@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.UUID;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 
 /**
  * This exception is thrown when the lock map size exceeded and new lock cannot be acquired and placed there.
@@ -30,11 +32,13 @@ public class LockTableOverflowException extends LockException {
      *
      * @param failedTx Transaction that couldn't acquire a lock.
      * @param lockMapSizeLimit Current lock map size limit that was exceeded.
+     * @param txStateVolatileStorage tx storage to retrieve label for logging.
      */
-    public LockTableOverflowException(UUID failedTx, int lockMapSizeLimit) {
+    public LockTableOverflowException(UUID failedTx, int lockMapSizeLimit, VolatileTxStateMetaStorage txStateVolatileStorage) {
         super(
                 ACQUIRE_LOCK_ERR,
-                "Failed to acquire a lock due to lock table overflow [failedTxId=" + failedTx
+                "Failed to acquire a lock due to lock table overflow ["
+                        +  formatTxInfo(failedTx, txStateVolatileStorage)
                         + ", lockMapSizeLimit=" + lockMapSizeLimit + ']'
         );
     }

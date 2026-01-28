@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
@@ -142,7 +143,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private void failEnlist() {
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [id={}, state={}].", id(), state()));
+                format("Transaction is already finished [{}, txState={}].",
+                        formatTxInfo(id(), txManager, false), state()));
     }
 
     /**
@@ -222,7 +224,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                         return failedFuture(new TransactionException(
                                 TX_ALREADY_FINISHED_ERR,
-                                format("Transaction is killed [id={}, state={}].", id(), state())
+                                format("Transaction is killed [{}, txState={}].",
+                                        formatTxInfo(id(), txManager, false), state())
                         ));
                     } else {
                         return nullCompletedFuture();

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -60,9 +61,23 @@ public class TransactionInflights {
 
     private final ClockService clockService;
 
-    public TransactionInflights(PlacementDriver placementDriver, ClockService clockService) {
+    private final VolatileTxStateMetaStorage txStateVolatileStorage;
+
+    /**
+     * Creates an instance that tracks transaction in-flight operations.
+     *
+     * @param placementDriver Placement driver.
+     * @param clockService Clock service.
+     * @param txStateVolatileStorage Volatile transaction meta storage.
+     */
+    public TransactionInflights(
+            PlacementDriver placementDriver,
+            ClockService clockService,
+            VolatileTxStateMetaStorage txStateVolatileStorage
+    ) {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+        this.txStateVolatileStorage = txStateVolatileStorage;
     }
 
     /**
@@ -260,7 +275,8 @@ public class TransactionInflights {
                 tuple0 = new ReadWriteTxContext(placementDriver, clockService, true); // No writes enlisted, can go with unlock only.
             }
 
-            assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
+            assert !tuple0.isTxFinishing()
+                    : format("Transaction is already finished {}.", formatTxInfo(uuid, txStateVolatileStorage));
 
             tuple0.finishTx(enlistedGroups);
 

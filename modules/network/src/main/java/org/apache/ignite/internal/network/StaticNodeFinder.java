@@ -22,15 +22,16 @@ import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses and/or host names.
@@ -44,19 +45,61 @@ import org.apache.ignite.network.NetworkAddress;
  */
 public class StaticNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(StaticNodeFinder.class);
+
     private static final long RETRY_WAIT_BASE_MILLIS = 500;
-    private static final int MAX_TRIES = 3;
 
     /** List of seed cluster members. */
-    private final List<NetworkAddress> addresses;
+    private final Set<NetworkAddress> addresses;
+
+    private final int nameResolutionAttempts;
+
+    private final HostNameResolver hostNameResolver;
+
+    /**
+     * Class for resolving host names.
+     *
+     * <p>Needed for writing cleaner tests.
+     */
+    @FunctionalInterface
+    public interface HostNameResolver {
+        /**
+         * Given the name of a host, returns an array of its IP addresses, based on the configured name service on the system.
+         */
+        InetAddress[] getAllByName(String host) throws UnknownHostException;
+    }
 
     /**
      * Constructor.
      *
      * @param addresses Addresses of initial cluster members.
      */
+    @TestOnly
     public StaticNodeFinder(List<NetworkAddress> addresses) {
-        this.addresses = addresses;
+        this(addresses, 1);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param addresses Addresses of initial cluster members.
+     * @param nameResolutionAttempts Number of attempts to resolve the host names from the {@code addresses} list.
+     */
+    public StaticNodeFinder(Collection<NetworkAddress> addresses, int nameResolutionAttempts) {
+        this(addresses, InetAddress::getAllByName, nameResolutionAttempts);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param addresses Addresses of initial cluster members.
+     * @param hostNameResolver Host name resolver.
+     * @param nameResolutionAttempts Number of attempts to resolve the host names from the {@code addresses} list.
+     */
+    @VisibleForTesting
+    public StaticNodeFinder(Collection<NetworkAddress> addresses, HostNameResolver hostNameResolver, int nameResolutionAttempts) {
+        this.addresses = Set.copyOf(addresses);
+        this.hostNameResolver = hostNameResolver;
+        this.nameResolutionAttempts = nameResolutionAttempts;
     }
 
     @Override
@@ -66,10 +109,7 @@ public class StaticNodeFinder implements NodeFinder {
         }
 
         Collection<NetworkAddress> networkAddresses = addresses.parallelStream()
-                .flatMap(
-                        originalAddress -> Arrays.stream(resolveAll(originalAddress.host()))
-                                .map(ip -> new NetworkAddress(ip, originalAddress.port()))
-                )
+                .flatMap(originalAddress -> resolveAddress(originalAddress).stream())
                 .collect(toSet());
 
         if (networkAddresses.isEmpty()) {
@@ -84,47 +124,53 @@ public class StaticNodeFinder implements NodeFinder {
         // No-op
     }
 
-    private static String[] resolveAll(String host) {
-        InetAddress[] inetAddresses = null;
+    private List<NetworkAddress> resolveAddress(NetworkAddress address) {
+        InetAddress[] inetAddresses = resolveInetAddresses(address.host());
 
-        int tryCount = 0;
-        boolean resolved = false;
+        if (inetAddresses.length == 0) {
+            return List.of();
+        }
 
-        do {
-            tryCount++;
+        var addresses = new ArrayList<NetworkAddress>(inetAddresses.length);
 
-            try {
-                inetAddresses = InetAddress.getAllByName(host);
-                resolved = true;
-            } catch (UnknownHostException e) {
-                if (tryCount == MAX_TRIES) {
-                    LOG.warn("Cannot resolve {}", host);
-                    return ArrayUtils.STRING_EMPTY_ARRAY;
-                }
-
-                try {
-                    Thread.sleep(tryCount * RETRY_WAIT_BASE_MILLIS);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-
-                    return ArrayUtils.STRING_EMPTY_ARRAY;
-                }
-            }
-        } while (!resolved);
-
-        assert inetAddresses != null;
-        String[] addresses = new String[inetAddresses.length];
-        for (int i = 0; i < inetAddresses.length; i++) {
-            InetAddress inetAddress = inetAddresses[i];
-
+        for (InetAddress inetAddress : inetAddresses) {
             if (inetAddress.isLoopbackAddress()) {
                 // If it's a loopback address (like 127.0.0.1), only return this address.
-                return new String[]{inetAddress.getHostAddress()};
+                return List.of(new NetworkAddress(inetAddress.getHostAddress(), address.port()));
             }
 
-            addresses[i] = inetAddress.getHostAddress();
+            addresses.add(new NetworkAddress(inetAddress.getHostAddress(), address.port()));
         }
 
         return addresses;
+    }
+
+    private InetAddress[] resolveInetAddresses(String host) {
+        try {
+            int tryCount = 1;
+
+            while (true) {
+                try {
+                    return hostNameResolver.getAllByName(host);
+                } catch (UnknownHostException e) {
+                    LOG.warn("Cannot resolve host \"{}\" (attempt {}/{}).", host, tryCount, nameResolutionAttempts);
+
+                    if (tryCount >= nameResolutionAttempts) {
+                        break;
+                    }
+
+                    //noinspection BusyWait
+                    Thread.sleep(tryCount * RETRY_WAIT_BASE_MILLIS);
+
+                    tryCount++;
+                }
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+
+            LOG.warn("Cannot resolve host \"{}\" (interrupted).", host);
+        }
+
+        return new InetAddress[0];
     }
 }

@@ -106,6 +106,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -221,7 +222,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 clockService,
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
-                new TransactionInflights(placementDriver, clockService),
+                new TransactionInflights(placementDriver, clockService, txStateVolatileStorage()),
                 () -> null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
@@ -515,5 +516,9 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(table.estimatedSize(), willBe(expectedSum));
+    }
+
+    private static VolatileTxStateMetaStorage txStateVolatileStorage() {
+        return VolatileTxStateMetaStorage.createStarted();
     }
 }

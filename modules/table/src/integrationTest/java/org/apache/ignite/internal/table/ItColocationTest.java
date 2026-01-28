@@ -114,6 +114,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -203,14 +204,17 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = new TestClockService(clock);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
                 systemDistributedConfiguration,
                 clusterService,
                 replicaService,
-                new HeapLockManager(systemLocalConfiguration),
+                new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage),
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
@@ -479,7 +483,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

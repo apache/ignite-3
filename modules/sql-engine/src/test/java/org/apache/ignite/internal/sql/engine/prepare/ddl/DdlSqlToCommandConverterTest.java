@@ -39,10 +39,10 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -204,15 +205,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 )
         );
 
-        assertThat(
-                tblDesc.primaryKeyColumnNames(),
-                hasSize(1)
-        );
-
-        assertThat(
-                tblDesc.primaryKeyColumnNames(),
-                hasItem(Commons.IMPLICIT_PK_COL_NAME)
-        );
+        assertThat(tblDesc.primaryKeyColumns(), contains(0));
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.HASH));
     }
@@ -242,7 +235,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         NewIndexEntry idxEntry = (NewIndexEntry) entries.get(1);
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.SORTED));
-        assertThat(tblEntry.descriptor().primaryKeyColumnNames(), equalTo(List.of("ID")));
+        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(IntList.of(0)));
         assertThat(((CatalogSortedIndexDescriptor) idxEntry.descriptor()).columns().get(0).collation(), is(collation));
     }
 
@@ -283,7 +276,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.HASH));
         assertThat(idxEntry.descriptor(), Matchers.instanceOf(CatalogHashIndexDescriptor.class));
-        assertThat(tblEntry.descriptor().primaryKeyColumnNames(), equalTo(List.of("ID")));
+        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(IntList.of(0)));
     }
 
     @Test
