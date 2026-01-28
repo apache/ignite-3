@@ -49,7 +49,7 @@ void tcp_client_channel::send_message(const std::vector<std::byte>& msg) {
 }
 
 void tcp_client_channel::receive_next_packet() {
-    ssize_t received = m_cl_sock.receive_next_packet(m_buf, sizeof(m_buf));
+    int64_t received = m_cl_sock.receive_next_packet(m_buf, sizeof(m_buf));
 
     if (received == 0) {
         m_logger->log_debug( "connection was closed");

@@ -53,7 +53,7 @@ public:
         return m_fd != INVALID_SOCKET;
     }
 
-    [[nodiscard]] SOCKET accept() {
+    [[nodiscard]] SOCKET accept() const {
         sockaddr_in cl_addr{};
 
         socklen_t addr_len = sizeof(cl_addr);

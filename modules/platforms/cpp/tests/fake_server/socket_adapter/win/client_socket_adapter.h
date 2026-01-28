@@ -57,7 +57,7 @@ public:
         ::send(m_fd, reinterpret_cast<const char *>(msg.data()), msg.size(), 0);
     }
 
-    [[nodiscard]] ssize_t receive_next_packet(std::byte *buf, size_t buf_size) const {
+    [[nodiscard]] int receive_next_packet(std::byte *buf, size_t buf_size) const {
         return ::recv(m_fd, reinterpret_cast<char *>(buf), buf_size, 0);
     }
 
