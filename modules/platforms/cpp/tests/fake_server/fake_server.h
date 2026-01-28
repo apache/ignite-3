@@ -41,7 +41,8 @@ public:
         )
         : m_srv_port(srv_port)
         , m_logger(std::move(logger))
-        , m_op_type_handler(op_type_handler) {}
+        , m_op_type_handler(op_type_handler)
+    {}
 
     ~fake_server() {
         m_stopped.store(true);
