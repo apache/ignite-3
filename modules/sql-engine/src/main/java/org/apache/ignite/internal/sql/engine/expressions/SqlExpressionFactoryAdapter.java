@@ -303,7 +303,7 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         }
 
         @Override
-        public @Nullable Object correlatedVariable(int corrId, int fieldIndex) {
+        public @Nullable Object correlatedVariable(long id) {
             throw new AssertionError("Should not get here");
         }
 

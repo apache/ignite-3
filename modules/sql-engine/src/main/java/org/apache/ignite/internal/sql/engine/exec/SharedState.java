@@ -40,17 +40,14 @@ public class SharedState {
     /**
      * Gets correlated value.
      *
-     * @param corrId Correlation ID.
-     * @param fieldIndex Field index.
+     * @param id Correlation ID.
      * @return Correlated value.
      */
-    public @Nullable Object correlatedVariable(int corrId, int fieldIndex) {
-        long key = packToLong(corrId, fieldIndex);
+    public @Nullable Object correlatedVariable(long id) {
+        Object value = correlations.get(id);
 
-        Object value = correlations.get(key);
-
-        if (value == null && !correlations.containsKey(key)) {
-            throw new IllegalStateException("Correlated variable is not set [corrId=" + corrId + ", fieldIndex=" + fieldIndex + "]");
+        if (value == null && !correlations.containsKey(id)) {
+            throw new IllegalStateException("Correlated variable is not set [id=" + id + "]");
         }
 
         return value;
@@ -59,21 +56,14 @@ public class SharedState {
     /**
      * Sets correlated value.
      *
-     * @param corrId Correlation ID.
-     * @param fieldIndex Field index.
+     * @param id Correlation ID.
      * @param value Correlated value.
      */
-    public void correlatedVariable(int corrId, int fieldIndex, @Nullable Object value) {
-        long key = packToLong(corrId, fieldIndex);
-
-        correlations.put(key, value);
+    public void correlatedVariable(long id, @Nullable Object value) {
+        correlations.put(id, value);
     }
 
     Long2ObjectMap<Object> correlations() {
         return Long2ObjectMaps.unmodifiable(correlations);
-    }
-
-    private static long packToLong(int corrId, int fieldIdx) {
-        return ((long) corrId << 32) | (fieldIdx & 0xFFFF_FFFFL);
     }
 }

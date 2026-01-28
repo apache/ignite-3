@@ -358,19 +358,18 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     }
 
     @Override
-    public @Nullable Object correlatedVariable(int corrId, int fieldIndex) {
-        return sharedState.correlatedVariable(corrId, fieldIndex);
+    public @Nullable Object correlatedVariable(long id) {
+        return sharedState.correlatedVariable(id);
     }
 
     /**
      * Sets correlated value.
      *
-     * @param corrId Correlation ID.
-     * @param fieldIndex Field index.
+     * @param id Correlation ID.
      * @param value Correlated value.
      */
-    public void correlatedVariable(int corrId, int fieldIndex, @Nullable Object value) {
-        sharedState.correlatedVariable(corrId, fieldIndex, value);
+    public void correlatedVariable(long id, @Nullable Object value) {
+        sharedState.correlatedVariable(id, value);
     }
 
     /**

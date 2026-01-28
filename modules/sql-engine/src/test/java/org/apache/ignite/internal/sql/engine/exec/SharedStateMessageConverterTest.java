@@ -66,7 +66,7 @@ public class SharedStateMessageConverterTest {
         Object value = SchemaTestUtils.generateRandomValue(rnd, type);
 
         SharedState state = new SharedState();
-        state.correlatedVariable(1, 1, TypeUtils.toInternal(value, type.spec()));
+        state.correlatedVariable(1, TypeUtils.toInternal(value, type.spec()));
 
         SharedState converted = doConversions(state);
 
@@ -92,7 +92,7 @@ public class SharedStateMessageConverterTest {
                 value = SchemaTestUtils.generateRandomValue(rnd, SchemaTestUtils.specToType(typeSpec));
             }
 
-            state.correlatedVariable(typeSpec.ordinal(), fieldIdx++, TypeUtils.toInternal(value, typeSpec));
+            state.correlatedVariable(fieldIdx++, TypeUtils.toInternal(value, typeSpec));
         }
 
         SharedState converted = doConversions(state);
@@ -103,7 +103,7 @@ public class SharedStateMessageConverterTest {
     @Test
     void nullValue() {
         SharedState state = new SharedState();
-        state.correlatedVariable(1, 1, null);
+        state.correlatedVariable(1, null);
 
         SharedState converted = doConversions(state);
 

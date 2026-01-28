@@ -50,8 +50,8 @@ public enum IgniteMethod {
     /** See {@link SqlEvaluationContext#rowAccessor()}. */
     CONTEXT_ROW_HANDLER(SqlEvaluationContext.class, "rowAccessor"),
 
-    /** See {@link SqlEvaluationContext#correlatedVariable(int, int)}. */
-    CONTEXT_GET_CORRELATED_VALUE(SqlEvaluationContext.class, "correlatedVariable", int.class, int.class),
+    /** See {@link SqlEvaluationContext#correlatedVariable(long)}. */
+    CONTEXT_GET_CORRELATED_VALUE(SqlEvaluationContext.class, "correlatedVariable", long.class),
 
     /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),

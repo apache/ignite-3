@@ -497,7 +497,9 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                     fieldIndex = correlationColumns.nextSetBit(fieldIndex + 1)) {
                 Object value = context().rowAccessor().get(fieldIndex, row);
 
-                context().correlatedVariable(corrId, fieldIndex, value);
+                long id = ((long) corrId << 32) | (fieldIndex & 0xFFFF_FFFFL);
+
+                context().correlatedVariable(id, value);
             }
         }
     }

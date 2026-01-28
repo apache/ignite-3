@@ -36,8 +36,9 @@ class CorrelationValueGetter extends CommonFieldGetter {
 
     @Override
     protected Expression fillExpressions(BlockBuilder list, int index) {
+        long id = ((long) variable.id.getId() << 32) | (index & 0xFFFF_FFFFL);
+
         return list.append("corr",
-                Expressions.call(ctx, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(),
-                        Expressions.constant(variable.id.getId()), Expressions.constant(index)));
+                Expressions.call(ctx, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(), Expressions.constant(id)));
     }
 }
