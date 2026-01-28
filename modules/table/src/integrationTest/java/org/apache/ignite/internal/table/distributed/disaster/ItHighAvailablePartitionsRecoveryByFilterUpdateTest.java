@@ -66,7 +66,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testScaleUpAfterZoneFilterUpdate() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
         startNode(2, EU_ONLY_NODES_CONFIG);
@@ -122,7 +121,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testThatPartitionResetZoneStorageProfileFilterAware() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
         startNode(2, ROCKS_NODES_CONFIG);
@@ -226,7 +224,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -287,7 +284,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testNodesWaitForNodesFromGracefulChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -328,7 +324,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     private void alterZoneSql(String filter, String zoneName) {
-        executeSql(String.format("ALTER ZONE \"%s\" SET (\"DATA_NODES_FILTER\" '%s')", zoneName, filter));
+        executeSql(String.format("ALTER ZONE %s SET DATA_NODES_FILTER='%s'", zoneName, filter));
     }
 
     /**

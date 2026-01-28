@@ -120,7 +120,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testHaRecoveryWhenPartitionResetTimeoutUpdated() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -393,7 +392,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      * </ol>
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testManualRecovery() throws InterruptedException {
         startNode(3);
         startNode(4);
@@ -496,7 +494,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testNodeStateCleanupAfterRestartInHaMode() throws Exception {
         startNode(3);
         startNode(4);
