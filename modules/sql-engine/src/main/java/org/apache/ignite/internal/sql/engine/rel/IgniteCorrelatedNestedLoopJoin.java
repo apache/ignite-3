@@ -212,6 +212,8 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
 
     @Override
     public IgniteRelWriter explain(IgniteRelWriter writer) {
-        return super.explain(writer).addCorrelatedVariables(variablesSet);
+        return super.explain(writer)
+                .addCorrelatedVariables(variablesSet)
+                .addCorrelationFieldNames(correlationColumns, getInput(0).getRowType());
     }
 }
