@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -37,6 +38,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_E
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.SERVER_TO_CLIENT_REQUEST_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Storage.STORAGE_CORRUPTED_ERR;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -44,7 +46,9 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.net.SocketException;
 import java.util.BitSet;
 import java.util.Collection;
@@ -147,6 +151,7 @@ import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
@@ -194,6 +199,12 @@ public class ClientInboundMessageHandler
         implements EventListener<AuthenticationEventParameters> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
+
+    /** Error codes that should always be logged. */
+    private static final IntSet ERROR_CODES_TO_LOG = IntSet.of(
+            INTERNAL_ERR,
+            STORAGE_CORRUPTED_ERR
+    );
 
     private static final byte STATE_BEFORE_HANDSHAKE = 0;
 
@@ -279,6 +290,8 @@ public class ClientInboundMessageHandler
 
     private final HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
 
+    private final IgniteThrottledLogger throttledLogger;
+
     /**
      * Constructor.
      *
@@ -299,6 +312,7 @@ public class ClientInboundMessageHandler
      * @param features Features.
      * @param extensions Extensions.
      * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
+     * @param throttledLoggerExecutor Executor to be used by a throttled logger.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -320,7 +334,8 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
-            Consumer<SqlQueryType> queryTypeListener
+            Consumer<SqlQueryType> queryTypeListener,
+            Executor throttledLoggerExecutor
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -338,6 +353,7 @@ public class ClientInboundMessageHandler
         assert partitionOperationsExecutor != null;
         assert features != null;
         assert extensions != null;
+        assert throttledLoggerExecutor != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
@@ -358,12 +374,13 @@ public class ClientInboundMessageHandler
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
 
-        jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
+        jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources, throttledLoggerExecutor);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
                 processor,
                 new JdbcMetadataCatalog(clockService, schemaSyncService, catalogService),
                 resources,
-                txManager
+                txManager,
+                throttledLoggerExecutor
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clockService);
@@ -377,6 +394,8 @@ public class ClientInboundMessageHandler
         this.computeConnectionFunc = computeConnectionFunc;
 
         this.queryTypeListener = queryTypeListener;
+
+        throttledLogger = Loggers.toThrottledLogger(LOG, partitionOperationsExecutor);
     }
 
     @Override
@@ -545,7 +564,7 @@ public class ClientInboundMessageHandler
         try {
             ProtocolVersion.LATEST_VER.pack(errPacker);
 
-            writeErrorCore(t, errPacker);
+            writeErrorCore(t, errPacker, 0, ctx, -1, false, true);
 
             writeAndFlushWithMagic(errPacker, ctx); // Releases packer.
         } catch (Throwable t2) {
@@ -671,23 +690,13 @@ public class ClientInboundMessageHandler
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
-        if (LOG.isDebugEnabled() && shouldLogError(err)) {
-            if (isNotification) {
-                LOG.debug("Error processing client notification [connectionId=" + connectionId + ", id=" + requestId
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
-            } else {
-                LOG.debug("Error processing client request [connectionId=" + connectionId + ", id=" + requestId + ", op=" + opCode
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
-            }
-        }
-
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
             assert err != null;
 
             writeResponseHeader(packer, requestId, ctx, isNotification, true, NULL_HYBRID_TIMESTAMP);
-            writeErrorCore(err, packer);
+            writeErrorCore(err, packer, requestId, ctx, opCode, isNotification, false);
 
             writeAndFlush(packer, ctx);
         } catch (Throwable t) {
@@ -696,7 +705,36 @@ public class ClientInboundMessageHandler
         }
     }
 
-    private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
+    private void writeErrorCore(
+            Throwable err,
+            ClientMessagePacker packer,
+            long requestId,
+            ChannelHandlerContext ctx,
+            int opCode,
+            boolean isNotification,
+            boolean isHandshake
+    ) {
+        if (throttledLogger.isDebugEnabled() && shouldLogError(err)) {
+            SocketAddress socketAddress = ctx.channel().remoteAddress();
+
+            if (isHandshake) {
+                throttledLogger.warn("Error processing client handshake [connectionId={}, remoteAddress={}]",
+                        connectionId, socketAddress, err);
+            } else if (isNotification) {
+                // Do not include requestId into a throttling key as independent client requests may result in the same error.
+                String key = format("{}", connectionId);
+
+                throttledLogger.warn(key, "Error processing client notification [connectionId={}, id={}, remoteAddress={}]",
+                        connectionId, requestId, socketAddress, err);
+            } else {
+                // Do not include requestId into a throttling key as independent client requests may result in the same error.
+                String key = format("{}{}", connectionId, opCode);
+
+                throttledLogger.warn(key, "Error processing client operation [connectionId={}, id={}, op={}, remoteAddress={}]",
+                        connectionId, requestId, opCode, socketAddress, err);
+            }
+        }
+
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
@@ -750,17 +788,21 @@ public class ClientInboundMessageHandler
         }
     }
 
-    private static boolean shouldLogError(Throwable e) {
+    static boolean shouldLogError(Throwable e) {
         Throwable cause = ExceptionUtils.unwrapRootCause(e);
 
-        // Do not log errors caused by cancellation (triggered by user action).
         if (cause instanceof TraceableException) {
             TraceableException te = (TraceableException) cause;
             int c = te.code();
 
-            return c != Sql.EXECUTION_CANCELLED_ERR
-                    && c != Compute.COMPUTE_JOB_CANCELLED_ERR
-                    && c != Compute.CANCELLING_ERR;
+            if (c == Sql.EXECUTION_CANCELLED_ERR
+                    || c == Compute.CANCELLING_ERR
+                    || c == Compute.COMPUTE_JOB_CANCELLED_ERR) {
+                // Do not log errors caused by cancellation (triggered by user action).
+                return false;
+            } else {
+                return ERROR_CODES_TO_LOG.contains(c);
+            }
         }
 
         return true;

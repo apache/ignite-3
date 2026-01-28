@@ -275,7 +275,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         randomExtensions(),
                                         unused -> null,
                                         bootstrapFactory.handshakeEventLoopSwitcher(),
-                                        ignore -> {}
+                                        ignore -> {},
+                                        Runnable::run
                                 )
                         );
                     }

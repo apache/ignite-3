@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
@@ -98,9 +99,10 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcDa
             QueryProcessor processor,
             JdbcMetadataCatalog meta,
             ClientResourceRegistry resources,
-            TxManager txManager
+            TxManager txManager,
+            Executor throttledLoggerExecutor
     ) {
-        super(resources);
+        super(resources, throttledLoggerExecutor);
 
         this.processor = processor;
         this.meta = meta;

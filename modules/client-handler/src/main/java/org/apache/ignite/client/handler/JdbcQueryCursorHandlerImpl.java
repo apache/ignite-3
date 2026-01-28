@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
@@ -44,8 +45,8 @@ public class JdbcQueryCursorHandlerImpl extends JdbcHandlerBase implements JdbcQ
      *
      * @param resources Client resources.
      */
-    JdbcQueryCursorHandlerImpl(ClientResourceRegistry resources) {
-        super(resources);
+    JdbcQueryCursorHandlerImpl(ClientResourceRegistry resources, Executor throttledLoggerExecutor) {
+        super(resources, throttledLoggerExecutor);
     }
 
     /** {@inheritDoc} */

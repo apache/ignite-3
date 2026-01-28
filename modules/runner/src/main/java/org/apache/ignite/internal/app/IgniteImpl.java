@@ -1316,7 +1316,8 @@ public class IgniteImpl implements Ignite {
                 clientConnectorConfiguration,
                 lowWatermark,
                 threadPoolsManager.partitionOperationsExecutor(),
-                () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value()
+                () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value(),
+                threadPoolsManager.commonScheduler()
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);

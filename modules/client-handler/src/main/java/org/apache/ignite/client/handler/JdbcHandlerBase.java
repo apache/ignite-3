@@ -27,12 +27,13 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -60,14 +61,14 @@ abstract class JdbcHandlerBase {
     public static final Set<SqlQueryType> ZERO_UPDATE_COUNT_QUERIES = EnumSet.of(DDL, KILL, TX_CONTROL);
 
     /** Logger. */
-    private final IgniteLogger log;
+    private final IgniteThrottledLogger log;
 
     /** Client registry resources. */
     protected final ClientResourceRegistry resources;
 
-    JdbcHandlerBase(ClientResourceRegistry resources) {
+    JdbcHandlerBase(ClientResourceRegistry resources, Executor throttledLoggerExecutor) {
         this.resources = resources;
-        this.log = Loggers.forClass(this.getClass());
+        this.log = Loggers.toThrottledLogger(Loggers.forClass(this.getClass()), throttledLoggerExecutor);
     }
 
     /**
@@ -152,7 +153,9 @@ abstract class JdbcHandlerBase {
     JdbcQuerySingleResult createErrorResult(String logMessage, Throwable origin, @Nullable String errMessagePrefix) {
         Throwable ex = ExceptionUtils.unwrapCause(origin);
 
-        log.info(logMessage, ex);
+        if (ClientInboundMessageHandler.shouldLogError(ex)) {
+            log.warn(logMessage, ex);
+        }
 
         String errorMessage;
 
