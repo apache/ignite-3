@@ -17,8 +17,6 @@
 
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION ON)
 
-set(IGNITE_CMAKE_TOP_DIR "${CMAKE_CURRENT_LIST_DIR}/..")
-
 set(CPACK_COMPONENTS_ALL client odbc)
 
 set(CPACK_PACKAGE_NAME ignite3 CACHE STRING "The resulting package name")
@@ -49,15 +47,6 @@ set(CPACK_RPM_COMPONENT_INSTALL ON)
 
 set(CPACK_ARCHIVE_COMPONENT_INSTALL 1)
 set(CPACK_TGZ_COMPONENT_INSTALL ON)
-
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${IGNITE_CMAKE_TOP_DIR}/cmake/scripts/odbc/post_install.sh.in)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${IGNITE_CMAKE_TOP_DIR}/cmake/scripts/odbc/pre_uninstall.sh.in)
-
-get_cmake_property(_variableNames VARIABLES)
-list (SORT _variableNames)
-foreach (_variableName ${_variableNames})
-    message(STATUS "${_variableName}=${${_variableName}}")
-endforeach()
 
 set(ODBC_SCRIPT_DIR "${IGNITE_CMAKE_TOP_DIR}/cmake/scripts/odbc")
 
