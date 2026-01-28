@@ -25,7 +25,7 @@ CREATE ZONE IF NOT EXISTS auto_scale_down_zone (AUTO SCALE DOWN 600) STORAGE PRO
 
 -- The following example requires nodes to be configured with
 -- the 'storage' attribute set to 'SSD'. To configure node attributes,
--- use the GridGain CLI or configuration files.
+-- use the Ignite CLI or configuration files.
 -- CREATE ZONE IF NOT EXISTS ssd_only_zone (NODES FILTER '$[?(@.storage == "SSD")]') STORAGE PROFILES['default'];
 
 -- Create a zone with high availability mode and 5 replicas

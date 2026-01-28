@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Table;
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
@@ -26,10 +25,11 @@ using Mapper;
 using Network;
 
 /// <summary>
-/// Partition manager provides table partition information.
+/// Partition distribution provides table partition information.
+/// This interface can be used to get all partitions of a table, the location of the primary replica of a partition,
+/// the partition for a specific table key.
 /// </summary>
-[Obsolete("Use IPartitionDistribution instead.")]
-public interface IPartitionManager
+public interface IPartitionDistribution
 {
     /// <summary>
     /// Gets the primary replicas for all partitions.
@@ -38,6 +38,16 @@ public interface IPartitionManager
     /// </summary>
     /// <returns>Map of partition to the primary replica node.</returns>
     ValueTask<IReadOnlyDictionary<IPartition, IClusterNode>> GetPrimaryReplicasAsync();
+
+    /// <summary>
+    /// Gets all partitions hosted by the specified node as a primary replica as of the time of the call.
+    /// <para />
+    /// NOTE: This assignment may become outdated if a re-assignment happens on the cluster.
+    /// </summary>
+    /// <param name="node">Cluster node.</param>
+    /// <returns>A task representing the asynchronous operation with a list of all partitions hosted by the specified node
+    /// as a primary replica.</returns>
+    ValueTask<IReadOnlyList<IPartition>> GetPrimaryReplicasAsync(IClusterNode node);
 
     /// <summary>
     /// Gets the primary replica for the specified partition.
@@ -74,4 +84,10 @@ public interface IPartitionManager
     /// <typeparam name="TK">Key type.</typeparam>
     ValueTask<IPartition> GetPartitionAsync<TK>(TK key, IMapper<TK> mapper)
         where TK : notnull;
+
+    /// <summary>
+    /// Gets a list with all partitions.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation with a list of all partitions.</returns>
+    ValueTask<IReadOnlyList<IPartition>> GetPartitionsAsync();
 }

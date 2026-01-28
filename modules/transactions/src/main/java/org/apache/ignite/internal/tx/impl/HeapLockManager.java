@@ -858,6 +858,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                 if (currentlyAcquiredLockMode != null && !currentlyAcquiredLockMode.isCompatible(intendedLockMode)) {
                     if (conflictFound(waiter.txId())) {
+                        // We treat the current lock as the abandoned one.
                         waiter.fail(new PossibleDeadlockOnLockAcquireException(
                                 waiter.txId,
                                 tmp.txId,
@@ -893,6 +894,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     if (skipFail) {
                         return false;
                     } else if (conflictFound(waiter.txId())) {
+                        // We treat the current lock as the abandoned one.
                         waiter.fail(new PossibleDeadlockOnLockAcquireException(
                                 waiter.txId,
                                 tmp.txId,

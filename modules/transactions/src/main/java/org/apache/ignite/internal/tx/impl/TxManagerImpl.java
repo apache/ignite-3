@@ -401,8 +401,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
 
-        txCleanupRequestSender =
-                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
+        txCleanupRequestSender = new TxCleanupRequestSender(
+                txMessageSender,
+                placementDriverHelper,
+                txStateVolatileStorage,
+                writeIntentSwitchPool,
+                commonScheduler
+        );
 
         txMetrics = new TransactionMetricsSource(clockService);
     }
@@ -650,6 +655,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean commitIntent,
             boolean timeout,
             boolean recovery,
+            boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
@@ -715,7 +721,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         enlistedGroups,
                         txId,
                         finishingStateMeta.txFinishFuture(),
-                        txContext.isNoWrites() && !recovery
+                        txContext.isNoWrites() && noRemoteWrites && !recovery
                 )
         ).whenComplete((unused, throwable) -> {
             if (throwable != null) {
@@ -1022,6 +1028,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(DEFAULT_TX_ID_COMPARATOR, DEFAULT_LOCK_TIMEOUT);
+        txStateVolatileStorage.start();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23539
         lockManager.start(deadlockPreventionPolicy);
@@ -1037,8 +1044,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 placementDriver,
                 failureProcessor
         );
-
-        txStateVolatileStorage.start();
 
         txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
 

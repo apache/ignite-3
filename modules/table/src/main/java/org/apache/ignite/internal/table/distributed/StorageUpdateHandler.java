@@ -583,7 +583,7 @@ public class StorageUpdateHandler {
             if (lastCommitTs == null) {
 
                 String formattedMessage = txManager != null ? format(
-                        "Mismatched transaction id [ expectedTxId={}, conflictingTxId= {}]",
+                        "Mismatched transaction id [expectedTxId={}, conflictingTxId={}]",
                         formatTxInfo(wiTxId, txManager),
                         formatTxInfo(txId, txManager)) : null;
 

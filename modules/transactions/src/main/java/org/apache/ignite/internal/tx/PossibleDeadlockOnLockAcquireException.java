@@ -49,9 +49,9 @@ public class PossibleDeadlockOnLockAcquireException extends LockException {
                 ACQUIRE_LOCK_ERR,
                 "Failed to acquire " + (abandonedLock ? "the abandoned " : "a ")
                         + "lock due to a possible deadlock ["
-                        + "failedToAcquireLockTransactionId txn "
+                        + "failedToAcquireLockTransactionId=txn "
                         + formatTxInfo(failedToAcquireLockTxId, txStateMetaStorage)
-                        + ", currentLockHolderTransactionId txn"
+                        + ", currentLockHolderTransactionId=txn"
                         +  formatTxInfo(currentLockHolderTxId, txStateMetaStorage)
                         + ", attemptedLockModeToAcquireWith=" + attemptedLockModeToAcquireWith
                         + ", currentlyAcquiredLockMode=" + currentlyAcquiredLockMode

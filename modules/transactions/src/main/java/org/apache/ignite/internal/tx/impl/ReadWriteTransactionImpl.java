@@ -38,8 +38,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.TxStateMetaExceptionInfo;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,6 +65,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * {@code True} if a transaction is externally killed.
      */
     private boolean killed;
+
+    /**
+     * {@code True} if a remote(directly mapped) part of this transaction has no writes.
+     */
+    private boolean noRemoteWrites = true;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -246,6 +249,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             commit,
                             timeoutExceeded,
                             false,
+                            noRemoteWrites,
                             enlisted,
                             id()
                     );
@@ -319,5 +323,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
         // Thread safety is not needed.
         finishFuture = failedFuture(e);
+    }
+
+    /**
+     * Set no remote writes flag.
+     *
+     * @param noRemoteWrites The value.
+     */
+    public void noRemoteWrites(boolean noRemoteWrites) {
+        this.noRemoteWrites = noRemoteWrites;
     }
 }

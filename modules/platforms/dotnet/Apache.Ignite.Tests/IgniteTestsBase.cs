@@ -211,6 +211,9 @@ namespace Apache.Ignite.Tests
 
         protected List<IgniteProxy> GetProxies()
         {
+            // Ensure the client is connected to all configured endpoints.
+            Client.WaitForConnections(Client.Configuration.Endpoints.Count);
+
             var proxies = Client.GetConnections().Select(c => new IgniteProxy(c.Node.Address, c.Node.Name)).ToList();
 
             _disposables.AddRange(proxies);

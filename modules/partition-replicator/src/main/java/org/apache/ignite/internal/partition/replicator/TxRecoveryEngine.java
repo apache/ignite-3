@@ -71,6 +71,7 @@ public class TxRecoveryEngine {
                         false,
                         false,
                         true,
+                        false,
                         Map.of(replicationGroupId, abandonedTxRecoveryEnlistmentFactory.apply(clusterNodeResolver.getById(senderId))),
                         txId
                 )
