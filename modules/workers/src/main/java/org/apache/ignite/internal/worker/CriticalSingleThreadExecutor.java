@@ -19,11 +19,17 @@ package org.apache.ignite.internal.worker;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricSource;
+import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Single thread executor instrumented to be used as a {@link CriticalWorker} and being monitored by the {@link CriticalWorkerWatchdog}.
@@ -34,6 +40,9 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
     private volatile Thread lastSeenThread;
     private volatile long heartbeatNanos = NOT_MONITORED;
 
+    private @Nullable MetricSource metricSource;
+    private @Nullable MetricManager metricManager;
+
     /** Constructor. */
     public CriticalSingleThreadExecutor(ThreadFactory threadFactory) {
         this(0, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
@@ -42,6 +51,24 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
     /** Constructor. */
     public CriticalSingleThreadExecutor(long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
         super(1, 1, keepAliveTime, unit, workQueue, threadFactory);
+    }
+
+    /**
+     * Initialize the metric source to track this thread pool's metrics.
+     *
+     * @param metricManager the metric manager used to register the source.
+     * @param name the name of the metric.
+     * @param description the metric description.
+     */
+    public void initMetricSource(MetricManager metricManager, String name, String description) {
+        if (this.metricManager == null) {
+            this.metricManager = metricManager;
+
+            metricSource = new ThreadPoolMetricSource(name, description, null, this);
+
+            metricManager.registerSource(metricSource);
+            metricManager.enable(metricSource);
+        }
     }
 
     @Override
@@ -73,5 +100,29 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
     @Override
     public long heartbeatNanos() {
         return heartbeatNanos;
+    }
+
+    private void unregisterMetricSource() {
+        if (metricManager != null) {
+            assert metricSource != null;
+
+            if (metricManager.metricSources().contains(metricSource)) {
+                metricManager.unregisterSource(metricSource);
+            }
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        unregisterMetricSource();
+
+        super.shutdown();
+    }
+
+    @Override
+    public @NotNull List<Runnable> shutdownNow() {
+        unregisterMetricSource();
+
+        return super.shutdownNow();
     }
 }

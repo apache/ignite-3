@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-workers')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.scalecube.cluster
     implementation libs.fastutil.core
@@ -56,6 +57,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation libs.jmh.core
     testImplementation(libs.kryo) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
@@ -72,6 +74,7 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-configuration-root')
     testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-workers'))

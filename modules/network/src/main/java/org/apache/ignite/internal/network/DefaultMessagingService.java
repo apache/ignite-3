@@ -56,6 +56,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
@@ -143,6 +144,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureProcessor Failure processor.
+     * @param metricManager The metrics manager.
      * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public DefaultMessagingService(
@@ -154,6 +156,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureProcessor failureProcessor,
+            MetricManager metricManager,
             ChannelTypeRegistry channelTypeRegistry
     ) {
         this.factory = factory;
@@ -165,15 +168,18 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.failureProcessor = failureProcessor;
 
         outboundExecutor = new CriticalSingleThreadExecutor(
-                IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
-        );
+                IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED));
+        outboundExecutor.initMetricSource(metricManager, "network.messaging.outbound", "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
                 nodeName,
                 "MessagingService-inbound",
                 criticalWorkerRegistry,
                 channelTypeRegistry,
-                LOG
+                LOG,
+                metricManager,
+                "network.messaging.inbound",
+                "Inbound message executor metrics"
         );
 
         timeoutWorker = new TimeoutWorker(
@@ -274,7 +280,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param msg Message.
      * @param correlationId Correlation id. Not null iff the message is a response to a {@link #invoke} request.
      * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
-     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
+     *         actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> send0(
@@ -323,7 +329,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param msg Message.
      * @param timeout Invocation timeout.
      * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
-     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
+     *         actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return A future holding the response or error if the expected response was not received.
      */
     private CompletableFuture<NetworkMessage> invoke0(
@@ -370,7 +376,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param addr Target address.
      * @param message Message.
      * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
-     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
+     *         actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> sendViaNetwork(
@@ -570,8 +576,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * Finishes unmarshalling the message and handles it on current thread on first handler. Also handles it with other
-     * handlers (second and so on) on executors chosen by their choosers.
+     * Finishes unmarshalling the message and handles it on current thread on first handler. Also handles it with other handlers (second and
+     * so on) on executors chosen by their choosers.
      */
     private void handleStartingWithFirstHandler(
             NetworkMessage payload,
@@ -726,13 +732,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     // TODO: IGNITE-18493 - remove/move this
+
     /**
-     * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
-     * message will be dropped (it will not be sent; the corresponding future will time out soon for {@code invoke()} methods
-     * and will never complete for methods different from {@code invoke()}).
+     * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the message will be
+     * dropped (it will not be sent; the corresponding future will time out soon for {@code invoke()} methods and will never complete for
+     * methods different from {@code invoke()}).
      *
-     * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the recipient
-     *     node's consistent ID.
+     * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the recipient node's
+     *         consistent ID.
      */
     @TestOnly
     public void dropMessages(BiPredicate<@Nullable String, NetworkMessage> predicate) {
@@ -749,6 +756,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     // TODO: IGNITE-18493 - remove/move this
+
     /**
      * Stops dropping messages.
      *

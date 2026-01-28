@@ -71,7 +71,11 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("placement-driver", true),
             new MetricSource("clock.service", true),
             new MetricSource("index.builder", true),
-            new MetricSource("raft.snapshots", true)
+            new MetricSource("raft.snapshots", true),
+            new MetricSource("network.messaging.inbound.Default", true),
+            new MetricSource("network.messaging.inbound.DeploymentUnits", true),
+            new MetricSource("network.messaging.inbound.ScaleCube", true),
+            new MetricSource("network.messaging.outbound", true),
     };
 
     @Inject
