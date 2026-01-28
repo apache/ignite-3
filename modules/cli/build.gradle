@@ -60,6 +60,7 @@ dependencies {
     implementation libs.jansi.core
     implementation libs.picocli.shell.jline3
     implementation libs.picocli.core
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.databind
     implementation libs.typesafe.config
     implementation libs.slf4j.jdk14
