@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
@@ -46,6 +47,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -406,5 +408,70 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 2));
         assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + 1));
         assertThat(actualMetrics0.get("RwCommits"), is(metrics0.get("RwCommits") + 1));
+    }
+
+    @Test
+    void globalPendingWriteIntentsMetric() throws Exception {
+        String zoneName = "zone_single_partition_no_replicas_tx_metrics";
+
+        String table1 = "test_table_pending_wi_1";
+        String table2 = "test_table_pending_wi_2";
+
+        sql("CREATE ZONE " + zoneName + " (PARTITIONS 1, REPLICAS 1) storage profiles ['default']");
+
+        sql("CREATE TABLE " + table1 + "(id INT PRIMARY KEY, val INT) ZONE " + zoneName);
+        sql("CREATE TABLE " + table2 + "(id INT PRIMARY KEY, val INT) ZONE " + zoneName);
+
+        Transaction tx = node(0).transactions().begin();
+
+        int table1Inserts = 3;
+        int table2Inserts = 5;
+
+        try {
+            for (int i = 0; i < table1Inserts; i++) {
+                sql(tx, "INSERT INTO " + table1 + " VALUES(?, ?)", i, i);
+            }
+
+            for (int i = 0; i < table2Inserts; i++) {
+                sql(tx, "INSERT INTO " + table2 + " VALUES(?, ?)", i, i);
+            }
+
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(10))
+                    .untilAsserted(() -> assertThat(totalPendingWriteIntents(), is((long) table1Inserts + table2Inserts)));
+        } finally {
+            tx.commit();
+        }
+
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(totalPendingWriteIntents(), is(0L)));
+    }
+
+    private static long totalPendingWriteIntents() {
+        long sum = 0;
+
+        for (int i = 0; i < CLUSTER.nodes().size(); i++) {
+            sum += pendingWriteIntentsOnNode(i);
+        }
+
+        return sum;
+    }
+
+    private static long pendingWriteIntentsOnNode(int nodeIdx) {
+        MetricSet metrics = unwrapIgniteImpl(node(nodeIdx))
+                .metricManager()
+                .metricSnapshot()
+                .metrics()
+                .get(TransactionMetricsSource.SOURCE_NAME);
+
+        assertThat("Transaction metrics must be present on node " + nodeIdx, metrics != null, is(true));
+
+        LongMetric metric = metrics.get(TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS);
+
+        assertThat("Metric must be present: " +
+                TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS, metric != null, is(true));
+
+        return metric.value();
     }
 }
