@@ -24,7 +24,7 @@ commons-collections4 = "4.5.0"
 commons-lang3 = "3.20.0"
 fliptables = "1.1.1"
 fmpp = "0.9.16"
-jackson = "2.19.2"
+jackson = "2.21.0"
 jakarta = "2.0.0"
 jansi = "2.4.2"
 netty = "4.2.9.Final"
@@ -189,10 +189,11 @@ picocli-annotation-processor = { module = "info.picocli:picocli-codegen", versio
 
 jansi-core = { module = "org.fusesource.jansi:jansi", version.ref = "jansi" }
 
-jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
-jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
-jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
-jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
+jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
 
 typesafe-config = { module = "com.typesafe:config", version.ref = "typesafe" }
 

@@ -58,6 +58,7 @@ dependencies {
     // TODO It might worth shadowing reactor library https://issues.apache.org/jira/browse/IGNITE-18942
     implementation libs.micronaut.reactor
     implementation libs.micronaut.reactor.http.client
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config
