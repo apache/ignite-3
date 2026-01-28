@@ -333,7 +333,17 @@ class GroupUpdateRequestHandler {
                     .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
                     .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
                     .toQueue();
-
+            if (!manualUpdate) {
+                ByteArray pendingKey = ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId);
+                var entry = metaStorageMgr.getLocally(pendingKey);
+                if (entry != null) {
+                    AssignmentsQueue pendingQueue = AssignmentsQueue.fromBytes(entry.value());
+                    if (pendingQueue != null && !pendingQueue.isEmpty()) {
+                        AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
+                        assignmentsQueue = new AssignmentsQueue(assignmentsQueue, filteredPendingQueue);
+                    }
+                }
+            }
             return invoke(
                     partId,
                     revision,
@@ -345,6 +355,21 @@ class GroupUpdateRequestHandler {
                     partAssignments
             );
         });
+    }
+
+    private static AssignmentsQueue filterAliveNodesOnly(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds) {
+        List<Assignments> filteredAssignments = new ArrayList<>();
+
+        for (Assignments assignments : queue) {
+            Set<Assignment> aliveAssignments = assignments.nodes().stream()
+                    .filter(assignment -> aliveNodesConsistentIds.contains(assignment.consistentId()))
+                    .collect(toSet());
+
+            if (!aliveAssignments.isEmpty()) {
+                filteredAssignments.add(Assignments.of(aliveAssignments, assignments.timestamp(), assignments.force()));
+            }
+        }
+        return new AssignmentsQueue(filteredAssignments.toArray(Assignments[]::new));
     }
 
     /**
