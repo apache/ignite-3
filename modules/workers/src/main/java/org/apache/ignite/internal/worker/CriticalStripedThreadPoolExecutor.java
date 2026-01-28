@@ -127,7 +127,9 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
         if (metricManager != null) {
             assert metricSource != null;
 
-            metricManager.unregisterSource(metricSource);
+            if (metricManager.metricSources().contains(metricSource)) {
+                metricManager.unregisterSource(metricSource);
+            }
         }
 
         super.shutdown();
