@@ -420,14 +420,15 @@ class RaftCommandExecutor {
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> clusterService.messagingService().invoke(node, retryContext.request(), responseTimeout))
-                    .whenComplete((resp, err) ->
+                    .whenCompleteAsync((resp, err) ->
                             handleResponse(
                                     fut,
                                     resp,
                                     err,
                                     retryContext,
                                     new SingleAttemptRetryStrategy(fut)
-                            )
+                            ),
+                            executor
                     );
         } finally {
             busyLock.leaveBusy();
@@ -855,13 +856,19 @@ class RaftCommandExecutor {
 
         @Override
         public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
-            // Single-attempt mode: ALWAYS mark current peer as unavailable, regardless of trackCurrentAs.
-            // This prevents retrying the same peer and matches original behavior where:
-            // - transient errors: would select new peer, mark current unavailable
-            // - peer unavailable: marks current unavailable
-            // - no leader: marks current unavailable (no NO_LEADER distinction needed)
-            // - leader redirect: marks current unavailable (to prevent redirect loops)
-            sendWithRetrySingleAttempt(fut, context.nextAttemptForUnavailablePeer(nextPeer, reason));
+            // In single-attempt mode, each peer is tried at most once.
+            // For transient errors, the caller passes the same peer (meaning "retry on same peer"),
+            // but we must select a different one instead.
+            Peer effectiveNextPeer = nextPeer.equals(context.targetPeer())
+                    ? randomNode(context, false)
+                    : nextPeer;
+
+            if (effectiveNextPeer == null) {
+                onAllPeersExhausted();
+                return;
+            }
+
+            sendWithRetrySingleAttempt(fut, context.nextAttemptForUnavailablePeer(effectiveNextPeer, reason));
         }
 
         @Override

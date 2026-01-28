@@ -1020,4 +1020,41 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         long totalCalls = calledPeers.size();
         assertTrue(totalCalls > 3, "Should have more than 3 calls (some peers retried after leader election), got " + totalCalls);
     }
+
+    /**
+     * Tests single-attempt mode (timeout=0) with transient errors (EBUSY).
+     *
+     * <p>In single-attempt mode, each peer should be tried at most once, even for transient errors.
+     * EBUSY should cause the executor to move to the next peer, not retry the same peer indefinitely.
+     */
+    @Test
+    void testSingleAttemptModeWithTransientErrors() {
+        AtomicInteger callCount = new AtomicInteger(0);
+        Set<String> calledPeers = ConcurrentHashMap.newKeySet();
+
+        // All peers return EBUSY (transient error).
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            InternalClusterNode target = invocation.getArgument(0);
+            calledPeers.add(target.name());
+            callCount.incrementAndGet();
+            return completedFuture(FACTORY.errorResponse()
+                    .errorCode(RaftError.EBUSY.getNumber())
+                    .build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // With timeout=0, should try each peer at most once and fail, not loop forever.
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), 0);
+
+        assertThat(result, willThrow(ReplicationGroupUnavailableException.class, 2, TimeUnit.SECONDS));
+
+        // Should have tried each peer at most once (3 peers).
+        assertThat("Should call at most 3 peers, but got " + callCount.get(), callCount.get(), is(3));
+        assertThat("Should call all 3 unique peers", calledPeers.size(), is(3));
+    }
 }
