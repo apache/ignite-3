@@ -20,7 +20,6 @@ package org.apache.ignite.internal.network;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -58,11 +57,7 @@ public class NodeFinderFactory {
                         .map(NetworkAddress::from)
                         .collect(toUnmodifiableSet());
 
-                return new StaticNodeFinder(
-                        addresses,
-                        InetAddress::getAllByName,
-                        staticConfig.nameResolutionAttempts()
-                );
+                return new StaticNodeFinder(addresses, staticConfig.nameResolutionAttempts());
             case MulticastNodeFinderConfigurationSchema.TYPE:
                 MulticastNodeFinderView multicastConfig = (MulticastNodeFinderView) nodeFinderConfiguration;
 

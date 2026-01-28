@@ -31,6 +31,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * {@code NodeFinder} implementation that encapsulates a predefined list of network addresses and/or host names.
@@ -74,7 +75,17 @@ public class StaticNodeFinder implements NodeFinder {
      */
     @TestOnly
     public StaticNodeFinder(List<NetworkAddress> addresses) {
-        this(addresses, InetAddress::getAllByName, 1);
+        this(addresses, 1);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param addresses Addresses of initial cluster members.
+     * @param nameResolutionAttempts Number of attempts to resolve the host names from the {@code addresses} list.
+     */
+    public StaticNodeFinder(Collection<NetworkAddress> addresses, int nameResolutionAttempts) {
+        this(addresses, InetAddress::getAllByName, nameResolutionAttempts);
     }
 
     /**
@@ -84,6 +95,7 @@ public class StaticNodeFinder implements NodeFinder {
      * @param hostNameResolver Host name resolver.
      * @param nameResolutionAttempts Number of attempts to resolve the host names from the {@code addresses} list.
      */
+    @VisibleForTesting
     public StaticNodeFinder(Collection<NetworkAddress> addresses, HostNameResolver hostNameResolver, int nameResolutionAttempts) {
         this.addresses = Set.copyOf(addresses);
         this.hostNameResolver = hostNameResolver;
