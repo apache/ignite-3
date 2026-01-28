@@ -19,8 +19,9 @@ package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
-/** Configuration specific for Static node finder. */
+/** Configuration specific for the Static Node Finder. */
 @PolymorphicConfigInstance(StaticNodeFinderConfigurationSchema.TYPE)
 public class StaticNodeFinderConfigurationSchema extends NodeFinderConfigurationSchema {
     public static final String TYPE = "STATIC";
@@ -28,4 +29,13 @@ public class StaticNodeFinderConfigurationSchema extends NodeFinderConfiguration
     /** Addresses of nodes in the cluster in a host:port format. */
     @Value(hasDefault = true)
     public final String[] netClusterNodes = new String[0];
+
+    /**
+     * Number of attempts to resolve host names from the {@code netClusterNodes} list.
+     *
+     * <p>{@code 1} means no retries will be performed apart from the initial attempt.
+     */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public int nameResolutionAttempts = 10;
 }
