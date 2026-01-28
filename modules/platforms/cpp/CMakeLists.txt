@@ -221,13 +221,6 @@ install(FILES
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
 )
 
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config-version.cmake"
-    COMPONENT odbc
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
-)
-
 # Do not export the package by default
 cmake_policy(SET CMP0090 NEW)
 

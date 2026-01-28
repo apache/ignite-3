@@ -122,7 +122,7 @@ install(
     EXPORT ignite-odbc-targets
     NAMESPACE ignite::
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
-    COMPONENT odbc
+    COMPONENT odbc-local
     FILE "ignite-odbc-targets.cmake"
 )
 
