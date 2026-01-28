@@ -107,7 +107,8 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                 queryProcessor,
                 catalog,
                 resourceRegistry,
-                txManager
+                txManager,
+                Runnable::run
         );
     }
 
