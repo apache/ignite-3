@@ -93,7 +93,7 @@ set(CPACK_RPM_ODBC_POST_INSTALL_SCRIPT_FILE  "${SCRIPTS_BINARY_DIR}/post_install
 set(CPACK_RPM_ODBC_PRE_UNINSTALL_SCRIPT_FILE "${SCRIPTS_BINARY_DIR}/pre_uninstall.sh")
 
 set(CPACK_RPM_CLIENT_PACKAGE_DEPENDS libc6 libstdc++6)
-set(CPACK_RPM_ODBC_PACKAGE_DEPENDS unixodbc odbcinst libc6 libstdc++6)
+set(CPACK_RPM_ODBC_PACKAGE_DEPENDS unixODBC libc6 libstdc++6)
 
 configure_file("${ODBC_SCRIPT_DIR}/ignite3-odbc-linux.ini.in" "${CMAKE_CURRENT_BINARY_DIR}/ignite3-odbc-linux.ini")
 
