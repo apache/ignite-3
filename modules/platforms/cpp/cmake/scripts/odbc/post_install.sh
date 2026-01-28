@@ -1,3 +1,4 @@
+#!/bin/sh
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements. See the NOTICE file distributed with
@@ -15,4 +16,7 @@
 # limitations under the License.
 #
 
-odbcinst -i -d -f /usr/share/ignite/ignite3-odbc.ini -v
+if ! odbcinst -i -d -f /usr/share/ignite/ignite3-odbc.ini -v; then
+    echo "Error: Failed to install Apache Ignite 3 ODBC driver using odbcinst." >&2
+    exit 1
+fi

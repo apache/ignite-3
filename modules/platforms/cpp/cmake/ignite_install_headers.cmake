@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-# ignite_install_headers(FILES <header>... DESTINATION <dest>)
+# ignite_install_headers(FILES <header>... DESTINATION <dest> COMPONENT <component>)
 #
 # Function to install header files.
 function(ignite_install_headers)

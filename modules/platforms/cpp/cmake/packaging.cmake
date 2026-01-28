@@ -15,26 +15,32 @@
 # limitations under the License.
 #
 
+set(CPACK_PACKAGE_NAME ignite3)
+
+if(ENABLE_ADDRESS_SANITIZER)
+    set(CPACK_PACKAGE_NAME ${CPACK_PACKAGE_NAME}-asan)
+endif()
+
+if(ENABLE_UB_SANITIZER)
+    set(CPACK_PACKAGE_NAME ${CPACK_PACKAGE_NAME}-ubsan)
+endif()
+
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION ON)
 
 set(CPACK_COMPONENTS_ALL client odbc)
 
-set(CPACK_PACKAGE_NAME ignite3 CACHE STRING "The resulting package name")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Apache Ignite 3 client library for C++"
-        CACHE STRING "Package description for the package metadata"
-)
 set(CPACK_PACKAGE_VENDOR "Apache Software Foundation")
 
 set(CPACK_VERBATIM_VARIABLES YES)
 
 set(CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
-SET(CPACK_OUTPUT_FILE_PREFIX "_packages")
+set(CPACK_OUTPUT_FILE_PREFIX "_packages")
 
 set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
-set(CPACK_PACKAGE_CONTACT "Apache Software Foundation")
+set(CPACK_PACKAGE_CONTACT "dev@ignite.apache.org")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Apache Software Foundation")
 
 set(CPACK_RESOURCE_FILE_LICENSE "${IGNITE_CMAKE_TOP_DIR}/LICENSE")
@@ -50,17 +56,40 @@ set(CPACK_TGZ_COMPONENT_INSTALL ON)
 
 set(ODBC_SCRIPT_DIR "${IGNITE_CMAKE_TOP_DIR}/cmake/scripts/odbc")
 
-configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/postinst" COPYONLY)
-configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/prerm" COPYONLY)
-set(CPACK_DEBIAN_ODBC_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_BINARY_DIR}/postinst;${CMAKE_CURRENT_BINARY_DIR}/prerm")
-set(CPACK_DEBIAN_ODBC_PACKAGE_CONTROL_STRICT_PERMISSION TRUE)
-set(CPACK_DEBIAN_ODBC_PACKAGE_DEPENDS unixodbc)
+#configure_file can set permissions as well, but it will raise required cmake version to 3.20
+configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/postinst.sh" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/prerm.sh" @ONLY)
 
-configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh" COPYONLY)
-configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh" COPYONLY)
-set(CPACK_RPM_ODBC_POST_INSTALL_SCRIPT_FILE  "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh")
-set(CPACK_RPM_ODBC_PRE_UNINSTALL_SCRIPT_FILE "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh")
-set(CPACK_RPM_ODBC_PACKAGE_DEPENDS unixodbc)
+configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh" @ONLY)
+
+set(SCRIPTS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/scripts/")
+
+file(MAKE_DIRECTORY ${SCRIPTS_BINARY_DIR})
+
+file(COPY
+    "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh"
+    "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh"
+    "${CMAKE_CURRENT_BINARY_DIR}/postinst.sh"
+    "${CMAKE_CURRENT_BINARY_DIR}/prerm.sh"
+    DESTINATION "${SCRIPTS_BINARY_DIR}"
+    FILE_PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE
+)
+
+set(CPACK_DEBIAN_ODBC_PACKAGE_CONTROL_EXTRA "${SCRIPTS_BINARY_DIR}/postinst;${SCRIPTS_BINARY_DIR}/prerm")
+set(CPACK_DEBIAN_ODBC_PACKAGE_CONTROL_STRICT_PERMISSION TRUE)
+
+set(CPACK_DEBIAN_CLIENT_PACKAGE_DEPENDS unixodbc libc6 libstdc++6)
+set(CPACK_DEBIAN_ODBC_PACKAGE_DEPENDS unixodbc libc6 libstdc++6)
+
+set(CPACK_RPM_ODBC_POST_INSTALL_SCRIPT_FILE  "${SCRIPTS_BINARY_DIR}/post_install.sh")
+set(CPACK_RPM_ODBC_PRE_UNINSTALL_SCRIPT_FILE "${SCRIPTS_BINARY_DIR}/pre_uninstall.sh")
+
+set(CPACK_RPM_CLIENT_PACKAGE_DEPENDS unixodbc libc6 libstdc++6)
+set(CPACK_RPM_ODBC_PACKAGE_DEPENDS unixodbc libc6 libstdc++6)
 
 install(FILES
     "${ODBC_SCRIPT_DIR}/ignite3-odbc-linux.ini"
@@ -70,5 +99,5 @@ install(FILES
 )
 
 set(CPACK_COMPONENT_CLIENT_DESCRIPTION "Apache Ignite 3 client library for C++")
-set(CPACK_COMPONENT_ODBC_DESCRIPTION "Apache Ignite ODBC driver")
+set(CPACK_COMPONENT_ODBC_DESCRIPTION "Apache Ignite 3 ODBC driver")
 set(CPACK_PACKAGE_CHECKSUM "SHA256")

@@ -1,3 +1,4 @@
+#!/bin/sh
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements. See the NOTICE file distributed with
@@ -15,4 +16,5 @@
 # limitations under the License.
 #
 
-odbcinst -u -d -n "Apache Ignite 3" -v
+# Best-effort: ignore failures so uninstall does not fail if the driver is not registered or already removed.
+odbcinst -u -d -n "Apache Ignite 3" -v || true
