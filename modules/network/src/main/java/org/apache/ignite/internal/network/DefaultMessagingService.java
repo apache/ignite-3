@@ -57,6 +57,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
@@ -71,7 +72,6 @@ import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarsha
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
-import org.apache.ignite.internal.worker.CriticalSingleThreadExecutorMetricSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -168,22 +168,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.failureProcessor = failureProcessor;
 
-        var criticalSingleThreadExecutorMetricSourceOutbound = new CriticalSingleThreadExecutorMetricSource("network.messaging",
-                "outbound");
-
-        metricManager.registerSource(criticalSingleThreadExecutorMetricSourceOutbound);
-        metricManager.enable(criticalSingleThreadExecutorMetricSourceOutbound);
-
         outboundExecutor = new CriticalSingleThreadExecutor(
-                IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED),
-                criticalSingleThreadExecutorMetricSourceOutbound
-        );
+                IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED));
 
-        var criticalSingleThreadExecutorMetricSourceInbound = new CriticalSingleThreadExecutorMetricSource("network.messaging",
-                "inbound");
+        var outboundMetricSource = new ThreadPoolMetricSource("outbound",
+                "Outbound message executor metrics", "network.messaging", outboundExecutor);
 
-        metricManager.registerSource(criticalSingleThreadExecutorMetricSourceInbound);
-        metricManager.enable(criticalSingleThreadExecutorMetricSourceInbound);
+        metricManager.registerSource(outboundMetricSource);
+        metricManager.enable(outboundMetricSource);
 
         inboundExecutors = new CriticalStripedExecutors(
                 nodeName,
@@ -191,7 +183,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 criticalWorkerRegistry,
                 channelTypeRegistry,
                 LOG,
-                criticalSingleThreadExecutorMetricSourceInbound
+                metricManager,
+                "inbound",
+                "network.messaging",
+                "Inbound message executor metrics"
         );
 
         timeoutWorker = new TimeoutWorker(

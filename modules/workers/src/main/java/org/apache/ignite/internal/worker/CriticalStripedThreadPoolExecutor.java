@@ -50,10 +50,9 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime,
-            CriticalSingleThreadExecutorMetricSource  metricSource
+            long keepAliveTime
     ) {
-        this(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime, metricSource));
+        this(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime));
     }
 
     private CriticalStripedThreadPoolExecutor(CriticalSingleThreadExecutor[] executors) {
@@ -68,8 +67,7 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime,
-            CriticalSingleThreadExecutorMetricSource  metricSource
+            long keepAliveTime
     ) {
         CriticalSingleThreadExecutor[] execs = new CriticalSingleThreadExecutor[concurrencyLvl];
 
@@ -78,8 +76,7 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
                     keepAliveTime,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    threadFactory,
-                    metricSource
+                    threadFactory
             );
 
             executor.allowCoreThreadTimeOut(allowCoreThreadTimeOut);

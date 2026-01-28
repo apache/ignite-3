@@ -22,30 +22,33 @@ import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.thread.AbstractStripedThreadPoolExecutor;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.jetbrains.annotations.Nullable;
 
 /** Metric source for monitoring of {@link StripedThreadPoolExecutor}. */
-public class StripedThreadPoolMetricSource extends AbstractMetricSource<StripedThreadPoolMetricSource.Holder> {
+public class StripedThreadPoolMetricSource<T extends AbstractStripedThreadPoolExecutor<? extends ExecutorService>> extends
+        AbstractMetricSource<StripedThreadPoolMetricSource<T>.Holder> {
     /** Striped thread pool to be monitored. */
-    private final StripedThreadPoolExecutor exec;
+    private final T exec;
 
     /**
-     * Creates a new thread pool metric source with the given {@code name} to monitor the provided striped executor {@code exec},
-     * using the default {@link ThreadPoolMetricSource#THREAD_POOLS_GROUP_NAME} group.
+     * Creates a new thread pool metric source with the given {@code name} to monitor the provided striped executor {@code exec}, using the
+     * default {@link ThreadPoolMetricSource#THREAD_POOLS_GROUP_NAME} group.
      *
      * @param name Metric source name.
      * @param description Metric source description.
      * @param exec Striped thread pool executor to monitor.
      * @see StripedThreadPoolExecutor
      */
-    public StripedThreadPoolMetricSource(String name, @Nullable String description, StripedThreadPoolExecutor exec) {
-        this(name, null, THREAD_POOLS_GROUP_NAME, exec);
+    public StripedThreadPoolMetricSource(String name, @Nullable String description, T exec) {
+        this(name, description, THREAD_POOLS_GROUP_NAME, exec);
     }
 
     /**
@@ -60,7 +63,7 @@ public class StripedThreadPoolMetricSource extends AbstractMetricSource<StripedT
             String name,
             @Nullable String description,
             @Nullable String group,
-            StripedThreadPoolExecutor exec
+            T exec
     ) {
         super(name, description, group);
 

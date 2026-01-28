@@ -21,10 +21,12 @@ import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.worker.CriticalSingleThreadExecutorMetricSource;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.StripedThreadPoolMetricSource;
 import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
+import org.jetbrains.annotations.Nullable;
 
 /** Factory for creating {@link CriticalStripedThreadPoolExecutor}. */
 class CriticalStripedThreadPoolExecutorFactory {
@@ -44,7 +46,17 @@ class CriticalStripedThreadPoolExecutorFactory {
 
     private final List<CriticalWorker> registeredWorkers;
 
-    private final CriticalSingleThreadExecutorMetricSource metricSource;
+    @Nullable
+    private final MetricManager metricManager;
+
+    @Nullable
+    private final String metricName;
+
+    @Nullable
+    private final String metricGroup;
+
+    @Nullable
+    private final String metricDescription;
 
     CriticalStripedThreadPoolExecutorFactory(
             String nodeName,
@@ -52,14 +64,21 @@ class CriticalStripedThreadPoolExecutorFactory {
             IgniteLogger log,
             CriticalWorkerRegistry workerRegistry,
             List<CriticalWorker> registeredWorkers,
-            CriticalSingleThreadExecutorMetricSource metricSource
+            @Nullable MetricManager metricManager,
+            @Nullable String metricName,
+            @Nullable String metricGroup,
+            @Nullable String metricDescription
     ) {
         this.nodeName = nodeName;
         this.poolNamePrefix = poolNamePrefix;
         this.log = log;
         this.workerRegistry = workerRegistry;
         this.registeredWorkers = registeredWorkers;
-        this.metricSource = metricSource;
+
+        this.metricManager = metricManager;
+        this.metricName = metricName;
+        this.metricGroup = metricGroup;
+        this.metricDescription = metricDescription;
     }
 
     CriticalStripedThreadPoolExecutor create(ChannelType channelType) {
@@ -67,7 +86,15 @@ class CriticalStripedThreadPoolExecutorFactory {
         String poolName = poolNamePrefix + "-" + channelType.name() + "-" + channelTypeId;
 
         var threadFactory = IgniteMessageServiceThreadFactory.create(nodeName, poolName, log, NOTHING_ALLOWED);
-        var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0, metricSource);
+        var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0);
+
+        if (metricManager != null && metricName != null) {
+            var metricSource = new StripedThreadPoolMetricSource<>(metricName, metricDescription, metricGroup,
+                    executor);
+
+            metricManager.registerSource(metricSource);
+            metricManager.enable(metricSource);
+        }
 
         for (CriticalWorker worker : executor.workers()) {
             workerRegistry.register(worker);
