@@ -27,8 +27,7 @@ endif()
 
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 set(PACKAGE_SO_PATH "${CPACK_PACKAGING_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
-message(STATUS "[CPACK_PACKAGING_INSTALL_PREFIX] ${CPACK_PACKAGING_INSTALL_PREFIX}")
-message(STATUS "[PACKAGE_SO_PATH] ${PACKAGE_SO_PATH}")
+set(IGNITE_ODBC_INI_PATH "${CPACK_PACKAGING_INSTALL_PREFIX}/${CMAKE_INSTALL_DATAROOTDIR}/ignite")
 
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION ON)
 
@@ -62,11 +61,11 @@ set(CPACK_TGZ_COMPONENT_INSTALL ON)
 set(ODBC_SCRIPT_DIR "${IGNITE_CMAKE_TOP_DIR}/cmake/scripts/odbc")
 
 #configure_file can set permissions as well, but it will raise required cmake version to 3.20
-configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/postinst" @ONLY)
-configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/prerm" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/post_install.sh.in"  "${CMAKE_CURRENT_BINARY_DIR}/postinst" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh.in" "${CMAKE_CURRENT_BINARY_DIR}/prerm" @ONLY)
 
-configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh" @ONLY)
-configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/post_install.sh.in"  "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh.in" "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh" @ONLY)
 
 set(SCRIPTS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/scripts/")
 

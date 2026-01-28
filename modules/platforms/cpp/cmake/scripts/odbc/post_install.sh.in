@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-if ! odbcinst -i -d -f /usr/share/ignite/ignite3-odbc.ini -v; then
+if ! odbcinst -i -d -f @IGNITE_ODBC_INI_PATH@/ignite3-odbc.ini -v; then
     echo "Error: Failed to install Apache Ignite 3 ODBC driver using odbcinst." >&2
     exit 1
 fi
