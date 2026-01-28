@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -127,7 +128,10 @@ import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -1634,6 +1638,10 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert opCtx.txContext().isReadOnly();
 
+        TxContext.ReadOnly txContext = (TxContext.ReadOnly) opCtx.txContext();
+
+        updateLabel(txContext, null);
+
         boolean rangeScan = criteria instanceof IndexScanCriteria.Range;
         boolean lookup = criteria instanceof IndexScanCriteria.Lookup;
 
@@ -1641,8 +1649,6 @@ public class InternalTableImpl implements InternalTable {
         BinaryTuplePrefix lowerBound = rangeScan ? ((IndexScanCriteria.Range) criteria).lowerBound() : null;
         BinaryTuplePrefix upperBound = rangeScan ? ((IndexScanCriteria.Range) criteria).upperBound() : null;
         int flags = rangeScan ? ((IndexScanCriteria.Range) criteria).flags() : 0;
-
-        TxContext.ReadOnly txContext = (TxContext.ReadOnly) opCtx.txContext();
 
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
@@ -1760,6 +1766,11 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert !opCtx.txContext().isReadOnly();
 
+        TxContext.ReadWrite txContext = (TxContext.ReadWrite) opCtx.txContext();
+
+        // Update transaction state meta with label if present
+        updateLabel(txContext, txContext.commitPartition());
+
         boolean rangeScan = criteria instanceof IndexScanCriteria.Range;
         boolean lookup = criteria instanceof IndexScanCriteria.Lookup;
 
@@ -1767,8 +1778,6 @@ public class InternalTableImpl implements InternalTable {
         BinaryTuplePrefix lowerBound = rangeScan ? ((IndexScanCriteria.Range) criteria).lowerBound() : null;
         BinaryTuplePrefix upperBound = rangeScan ? ((IndexScanCriteria.Range) criteria).upperBound() : null;
         int flags = rangeScan ? ((IndexScanCriteria.Range) criteria).flags() : 0;
-
-        TxContext.ReadWrite txContext = (TxContext.ReadWrite) opCtx.txContext();
 
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
@@ -1801,6 +1810,17 @@ public class InternalTableImpl implements InternalTable {
                 return completeScan(txContext.txId(), replicationGroupId, scanId, th, recipient.name(), intentionallyClose);
             }
         };
+    }
+    // TODO add doc
+    private void updateLabel(TxContext txContext, @Nullable ZonePartitionId commitPartition) {
+        String label = txContext.label();
+        if (label != null) {
+            txManager.updateTxMeta(txContext.txId(), old -> TxStateMeta.builder(old, PENDING)
+                    .txCoordinatorId(txContext.coordinatorId())
+                    .commitPartitionId(commitPartition)
+                    .txLabel(label)
+                    .build());
+        }
     }
 
     /**
