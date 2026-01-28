@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.io.Serializable;
+import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.TraceableException;
@@ -31,9 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>This information is stored for cases when a transaction is aborted exceptionally and the original response to the user
  * is lost (for example, due to disconnections). The stored information can later be used to understand the abort reason.
  */
-public class TxStateMetaExceptionInfo implements Serializable {
-    private static final long serialVersionUID = 4057922085423696869L;
-
+public class TxStateMetaExceptionInfo {
     /** Exception class name. */
     private final String exceptionClassName;
 
@@ -43,8 +41,11 @@ public class TxStateMetaExceptionInfo implements Serializable {
     /** Trace id of the exception. If exception is not traceable will be null. */
     private final @Nullable UUID traceId;
 
-    /** Exception message (may be {@code null}). */
+    /** Exception message. */
     private final @Nullable String message;
+
+    /** Original exception object. */
+    private final @Nullable Throwable throwable;
 
     /**
      * Constructor.
@@ -59,6 +60,21 @@ public class TxStateMetaExceptionInfo implements Serializable {
         this.code = code;
         this.traceId = traceId;
         this.message = message;
+        this.throwable = null;
+    }
+
+    private TxStateMetaExceptionInfo(
+            String exceptionClassName,
+            int code,
+            @Nullable UUID traceId,
+            @Nullable String message,
+            @Nullable Throwable throwable
+    ) {
+        this.exceptionClassName = exceptionClassName;
+        this.code = code;
+        this.traceId = traceId;
+        this.message = message;
+        this.throwable = throwable;
     }
 
     /**
@@ -81,7 +97,8 @@ public class TxStateMetaExceptionInfo implements Serializable {
                     unwrapped.getClass().getName(),
                     traceable.code(),
                     traceable.traceId(),
-                    unwrapped.getMessage()
+                    unwrapped.getMessage(),
+                    unwrapped
             );
         }
 
@@ -89,7 +106,8 @@ public class TxStateMetaExceptionInfo implements Serializable {
                 unwrapped.getClass().getName(),
                 INTERNAL_ERR,
                 null,
-                unwrapped.getMessage()
+                unwrapped.getMessage(),
+                unwrapped
         );
     }
 
@@ -109,6 +127,10 @@ public class TxStateMetaExceptionInfo implements Serializable {
         return message;
     }
 
+    public @Nullable Throwable throwable() {
+        return throwable;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -120,25 +142,15 @@ public class TxStateMetaExceptionInfo implements Serializable {
 
         TxStateMetaExceptionInfo that = (TxStateMetaExceptionInfo) o;
 
-        if (code != that.code) {
-            return false;
-        }
-        if (!exceptionClassName.equals(that.exceptionClassName)) {
-            return false;
-        }
-        if (!traceId.equals(that.traceId)) {
-            return false;
-        }
-        return message != null ? message.equals(that.message) : that.message == null;
+        return code == that.code
+                && exceptionClassName.equals(that.exceptionClassName)
+                && Objects.equals(traceId, that.traceId)
+                && Objects.equals(message, that.message);
     }
 
     @Override
     public int hashCode() {
-        int result = exceptionClassName.hashCode();
-        result = 31 * result + Integer.hashCode(code);
-        result = 31 * result + traceId.hashCode();
-        result = 31 * result + (message != null ? message.hashCode() : 0);
-        return result;
+        return Objects.hash(exceptionClassName, code, traceId, message);
     }
 
     @Override

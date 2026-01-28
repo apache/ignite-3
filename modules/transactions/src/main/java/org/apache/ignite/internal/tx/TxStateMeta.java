@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
-import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.*;
+import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
@@ -62,7 +62,7 @@ public class TxStateMeta implements TransactionMeta {
     private final @Nullable String txLabel;
 
     /** Information about exceptional transaction abortion (may be {@code null}). */
-    private final @Nullable TxStateMetaExceptionInfo exceptionInfo;
+    private final transient @Nullable TxStateMetaExceptionInfo exceptionInfo;
 
     /**
      * The ignite transaction object is associated with this state.

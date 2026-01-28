@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.tx.TxStateMeta.*;
+import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
