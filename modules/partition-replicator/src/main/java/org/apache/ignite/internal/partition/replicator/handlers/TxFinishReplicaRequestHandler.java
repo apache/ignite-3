@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -205,14 +205,14 @@ public class TxFinishReplicaRequestHandler {
             // Let the client know a transaction has finished with a different outcome.
             if (commit != (txMeta.txState() == COMMITTED)) {
                 LOG.error("Failed to finish a transaction that is already finished [{}, expectedState={}, actualState={}].",
-                        TransactionLogUtils.formatTxInfo(txId, txManager),
+                        formatTxInfo(txId, txManager, false),
                         commit ? COMMITTED : ABORTED,
                         txMeta.txState()
                 );
 
                 throw new MismatchingTransactionOutcomeInternalException(
                         format("Failed to change the outcome of a finished transaction [{}, txState={}].",
-                                TransactionLogUtils.formatTxInfo(txId, txManager),
+                                formatTxInfo(txId, txManager, false),
                                 txMeta.txState()),
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );

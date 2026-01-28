@@ -136,6 +136,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     InternalClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    VolatileTxStateMetaStorage txStateVolatileStorage,
                     TransactionInflights transactionInflights,
                     LowWatermark lowWatermark
             ) {

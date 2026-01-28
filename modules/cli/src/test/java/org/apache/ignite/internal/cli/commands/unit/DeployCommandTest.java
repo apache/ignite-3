@@ -41,6 +41,51 @@ class DeployCommandTest extends CliCommandTestBase {
     }
 
     @Test
+    @DisplayName("Should display error when --recursive is used with a file path")
+    void recursiveWithFilePath(@WorkDirectory Path workDir) throws IOException {
+        Path testFile = Files.createFile(workDir.resolve("test.txt"));
+
+        // When executed with --recursive option pointing to a file
+        execute("--path", testFile.toString(), "--version", "1.0.0", "--recursive", "id");
+
+        // Error is printed
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("The --recursive option requires a directory path")
+        );
+    }
+
+    @Test
+    @DisplayName("Should accept --recursive option with a directory path (passes validation)")
+    void recursiveWithDirectoryPath(@WorkDirectory Path workDir) throws IOException {
+        Path testDir = Files.createDirectory(workDir.resolve("testDir"));
+        Files.createFile(testDir.resolve("test.txt"));
+
+        // When executed with --recursive option pointing to a directory
+        // Note: This will fail at execution stage (no server), but should pass option validation
+        execute("--path", testDir.toString(), "--version", "1.0.0", "--recursive", "id");
+
+        // Option validation passes - exit code 1 means execution error (no server),
+        // not exit code 2 which would mean parameter validation error
+        assertExitCodeIsError(); // Exit code 1, not 2
+    }
+
+    @Test
+    @DisplayName("Should display error when path does not exist")
+    void pathDoesNotExist(@WorkDirectory Path workDir) {
+        // When executed with non-existent path
+        execute("--path", workDir.resolve("nonexistent").toString(), "--version", "1.0.0", "id");
+
+        // Error is printed
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("No such file or directory")
+        );
+    }
+
+    @Test
     @DisplayName("Aliases couldn't be used with explicit nodes list")
     void aliasesWithExplicitNodesList(@WorkDirectory Path workDir) throws IOException {
         Path testFile = Files.createFile(workDir.resolve("test.txt"));

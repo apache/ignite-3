@@ -48,6 +48,7 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
     private SystemLocalConfiguration systemLocalConfiguration;
 
     protected LockManager lockManager;
+    protected VolatileTxStateMetaStorage txStateVolatileStorage;
     private final Map<UUID, Map<IgniteBiTuple<LockKey, LockMode>, CompletableFuture<Lock>>> locks = new HashMap<>();
 
     @BeforeEach
@@ -58,7 +59,8 @@ public abstract class AbstractLockingTest extends BaseIgniteAbstractTest {
     protected abstract LockManager lockManager();
 
     protected LockManager lockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, new VolatileTxStateMetaStorage());
+        txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(deadlockPreventionPolicy);
         return lockManager;
     }

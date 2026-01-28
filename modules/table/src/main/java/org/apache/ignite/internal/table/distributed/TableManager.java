@@ -168,6 +168,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
@@ -893,7 +894,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionDataStorage,
                 table,
                 resources.safeTimeTracker(),
-                replicationConfiguration
+                replicationConfiguration,
+                onNodeRecovery
         );
 
         mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
@@ -1191,7 +1193,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Objects.requireNonNull(streamerReceiverRunner),
                 () -> txCfg.value().readWriteTimeoutMillis(),
                 () -> txCfg.value().readOnlyTimeoutMillis(),
-                createAndRegisterMetricsSource(tableStorage.getTableDescriptor(), tableName)
+                createAndRegisterMetricsSource(tableStorage, tableName)
         );
 
         CatalogTableProperties descProps = tableDescriptor.properties();
@@ -1633,7 +1635,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionDataStorage partitionDataStorage,
             TableViewInternal table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            ReplicationConfiguration replicationConfiguration
+            ReplicationConfiguration replicationConfiguration,
+            boolean onNodeRecovery
     ) {
         TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
 
@@ -1653,9 +1656,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                modificationCounter
+                modificationCounter,
+                txManager
         );
-        storageUpdateHandler.start();
+        storageUpdateHandler.start(onNodeRecovery);
 
         return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
     }
@@ -2007,11 +2011,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private TableMetricSource createAndRegisterMetricsSource(StorageTableDescriptor tableDescriptor, QualifiedName tableName) {
+    private ReadWriteMetricSource createAndRegisterMetricsSource(MvTableStorage tableStorage, QualifiedName tableName) {
+        StorageTableDescriptor tableDescriptor = tableStorage.getTableDescriptor();
+
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.latestCatalog().table(tableDescriptor.getId());
+
         // The table might be created during the recovery phase.
         // In that case, we should only register the metric source for the actual tables that exist in the latest catalog.
-        boolean registrationNeeded =
-                catalogService.latestCatalog().table(tableDescriptor.getId()) != null;
+        boolean registrationNeeded = catalogTableDescriptor != null;
 
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.getStorageProfile());
 
@@ -2030,7 +2037,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
         }
 
-        TableMetricSource source = new TableMetricSource(tableName);
+        ReadWriteMetricSource source = new TableMetricSource(tableName);
 
         if (registrationNeeded) {
             try {

@@ -66,6 +66,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private boolean killed;
 
     /**
+     * {@code True} if a remote(directly mapped) part of this transaction has no writes.
+     */
+    private boolean noRemoteWrites = true;
+
+    /**
      * Constructs an explicit read-write transaction.
      *
      * @param txManager The tx manager.
@@ -138,7 +143,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private void failEnlist() {
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [{}, state={}].", formatTxInfo(id(), txManager), state()));
+                format("Transaction is already finished [{}, txState={}].",
+                        formatTxInfo(id(), txManager, false), state()));
     }
 
     /**
@@ -218,8 +224,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                         return failedFuture(new TransactionException(
                                 TX_ALREADY_FINISHED_ERR,
-                                format("Transaction is killed [{}, state={}].",
-                                        formatTxInfo(id(), txManager), state())
+                                format("Transaction is killed [{}, txState={}].",
+                                        formatTxInfo(id(), txManager, false), state())
                         ));
                     } else {
                         return nullCompletedFuture();
@@ -242,6 +248,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                             commit,
                             timeoutExceeded,
                             false,
+                            noRemoteWrites,
                             enlisted,
                             id()
                     );
@@ -311,5 +318,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public void fail(TransactionException e) {
         // Thread safety is not needed.
         finishFuture = failedFuture(e);
+    }
+
+    /**
+     * Set no remote writes flag.
+     *
+     * @param noRemoteWrites The value.
+     */
+    public void noRemoteWrites(boolean noRemoteWrites) {
+        this.noRemoteWrites = noRemoteWrites;
     }
 }

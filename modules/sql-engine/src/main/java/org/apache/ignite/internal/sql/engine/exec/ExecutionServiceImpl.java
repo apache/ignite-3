@@ -83,6 +83,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlPlanToTxSchemaVersionValidator;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
@@ -189,6 +190,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
     private final SqlExpressionFactory sqlExpressionFactory;
 
+    private final SqlPlanToTxSchemaVersionValidator planValidator;
+
     /**
      * Constructor.
      *
@@ -204,6 +207,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param clockService Clock service.
      * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
+     * @param planValidator Validator of the catalog version from the plan relative to the started transaction.
      */
     public ExecutionServiceImpl(
             MessageService messageService,
@@ -220,7 +224,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ClockService clockService,
             KillCommandHandler killCommandHandler,
             SqlExpressionFactory sqlExpressionFactory,
-            long shutdownTimeout
+            long shutdownTimeout,
+            SqlPlanToTxSchemaVersionValidator planValidator
     ) {
         this.localNode = topSrvc.localMember();
         this.handler = handler;
@@ -237,6 +242,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
         this.killCommandHandler = killCommandHandler;
         this.sqlExpressionFactory = sqlExpressionFactory;
         this.shutdownTimeout = shutdownTimeout;
+        this.planValidator = planValidator;
     }
 
     /**
@@ -259,6 +265,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
      * @param clockService Clock service.
      * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
+     * @param planValidator Validator of the catalog version from the plan relative to the started transaction.
      * @return An execution service.
      */
     public static <RowT> ExecutionServiceImpl<RowT> create(
@@ -278,7 +285,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
             ClockService clockService,
             KillCommandHandler killCommandHandler,
             SqlExpressionFactory sqlExpressionFactory,
-            long shutdownTimeout
+            long shutdownTimeout,
+            SqlPlanToTxSchemaVersionValidator planValidator
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
@@ -301,7 +309,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 clockService,
                 killCommandHandler,
                 sqlExpressionFactory,
-                shutdownTimeout
+                shutdownTimeout,
+                planValidator
         );
     }
 
@@ -330,60 +339,76 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
 
         assert old == null;
 
+        boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
+
+        QueryTransactionWrapper txWrapper = getOrStartTransaction(operationContext, readOnly);
+        InternalTransaction tx = txWrapper.unwrap();
+
+        return planValidator.validate(plan, txWrapper)
+                .thenCompose(ignore -> {
+                    PrefetchCallback prefetchCallback = queryManager.prefetchCallback;
+
+                    CompletableFuture<Void> firstPageReady = prefetchCallback.prefetchFuture();
+
+                    if (plan.type() == SqlQueryType.DML) {
+                        // DML is supposed to have a single row response, so if the first page is ready, then all
+                        // inputs have been processed, all tables have been updated, and now it should be safe to
+                        // commit implicit transaction
+                        firstPageReady = firstPageReady.thenCompose(none -> txWrapper.finalise());
+                    }
+
+                    CompletableFuture<Void> firstPageReady0 = firstPageReady;
+
+                    Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter();
+
+                    CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan, nodeExclusionFilter)
+                            .thenApply(dataCursor -> new TxAwareAsyncCursor<>(
+                                    txWrapper,
+                                    dataCursor,
+                                    firstPageReady0,
+                                    queryManager::close,
+                                    operationContext::notifyError
+                            ));
+
+                    return f.handle((r, t) -> {
+                        if (t != null) {
+                            // We were unable to create cursor, hence need to finalise transaction wrapper
+                            // which were created solely for this operation.
+                            return txWrapper.finalise(t).handle((none, finalizationErr) -> {
+                                if (finalizationErr != null) {
+                                    t.addSuppressed(finalizationErr);
+                                }
+
+                                // Re-throw the exception, so execution future is completed with the same exception.
+                                sneakyThrow(t);
+
+                                // We must never reach this line.
+                                return (AsyncDataCursor<InternalSqlRow>) null;
+                            });
+                        }
+
+                        return completedFuture(r);
+                    }).thenCompose(Function.identity());
+                });
+    }
+
+    private static QueryTransactionWrapper getOrStartTransaction(SqlOperationContext operationContext, boolean readOnly) {
         QueryTransactionContext txContext = operationContext.txContext();
 
         assert txContext != null;
 
-        boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
-        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, false);
+        // Try to use previously started transaction.
+        QueryTransactionWrapper txWrapper = operationContext.retryTx();
 
-        InternalTransaction tx = txWrapper.unwrap();
+        if (txWrapper != null) {
+            return txWrapper;
+        }
+
+        txWrapper = txContext.getOrStartSqlManaged(readOnly, false);
 
         operationContext.notifyTxUsed(txWrapper);
 
-        PrefetchCallback prefetchCallback = queryManager.prefetchCallback;
-
-        CompletableFuture<Void> firstPageReady = prefetchCallback.prefetchFuture();
-
-        if (plan.type() == SqlQueryType.DML) {
-            // DML is supposed to have a single row response, so if the first page is ready, then all
-            // inputs have been processed, all tables have been updated, and now it should be safe to
-            // commit implicit transaction
-            firstPageReady = firstPageReady.thenCompose(none -> txWrapper.finalise());
-        }
-
-        CompletableFuture<Void> firstPageReady0 = firstPageReady;
-
-        Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter();
-
-        CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan, nodeExclusionFilter)
-                .thenApply(dataCursor -> new TxAwareAsyncCursor<>(
-                        txWrapper,
-                        dataCursor,
-                        firstPageReady0,
-                        queryManager::close,
-                        operationContext::notifyError
-                ));
-
-        return f.handle((r, t) -> {
-            if (t != null) {
-                // We were unable to create cursor, hence need to finalise transaction wrapper
-                // which were created solely for this operation.
-                return txWrapper.finalise(t).handle((none, finalizationErr) -> {
-                    if (finalizationErr != null) {
-                        t.addSuppressed(finalizationErr);
-                    }
-
-                    // Re-throw the exception, so execution future is completed with the same exception.
-                    sneakyThrow(t);
-
-                    // We must never reach this line.
-                    return (AsyncDataCursor<InternalSqlRow>) null;
-                });
-            }
-
-            return completedFuture(r);
-        }).thenCompose(Function.identity());
+        return txWrapper;
     }
 
     private static SqlOperationContext createOperationContext(

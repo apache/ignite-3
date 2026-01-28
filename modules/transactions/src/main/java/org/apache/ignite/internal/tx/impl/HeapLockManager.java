@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -174,7 +173,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             LockState state = acquireLockState(lockKey);
 
             if (state == null) {
-                return failedFuture(new LockTableOverflowException(txId, lockMapSize));
+                return failedFuture(new LockTableOverflowException(txId, lockMapSize, txStateVolatileStorage));
             }
 
             IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
@@ -375,21 +374,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         return result;
-    }
-
-    /**
-     * Create lock exception when lock holder is believed to be missing.
-     *
-     * @param locker Locker.
-     * @param holder Lock holder.
-     * @return Lock exception.
-     */
-    private static LockException abandonedLockException(UUID locker, UUID holder, VolatileTxStateMetaStorage storage) {
-        return new LockException(ACQUIRE_LOCK_ERR,
-                format(
-                        "Failed to acquire an abandoned lock due to a possible deadlock [locker={}, holder={}]",
-                        formatTxInfo(locker, storage), formatTxInfo(holder, storage)
-                ));
     }
 
     /**
@@ -631,17 +615,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             CompletableFuture<Lock> failedFuture = new CompletableFuture<>();
 
             fireEvent(LOCK_CONFLICT, new LockEventParameters(failedToAcquireLockTxId, allLockHolderTxs())).whenComplete((v, ex) -> {
-                if (ex != null) {
-                    failedFuture.completeExceptionally(abandonedLockException(failedToAcquireLockTxId, currentLockHolderTxId,
-                            txStateVolatileStorage));
-                } else {
-                    failedFuture.completeExceptionally(new PossibleDeadlockOnLockAcquireException(
-                            failedToAcquireLockTxId,
-                            currentLockHolderTxId,
-                            attemptedLockModeToAcquireWith,
-                            currentlyAcquiredLockMode
-                    ));
-                }
+                boolean abandonedLock = ex != null;
+                failedFuture.completeExceptionally(new PossibleDeadlockOnLockAcquireException(
+                        failedToAcquireLockTxId,
+                        currentLockHolderTxId,
+                        attemptedLockModeToAcquireWith,
+                        currentlyAcquiredLockMode,
+                        abandonedLock,
+                        txStateVolatileStorage
+                ));
             });
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
@@ -878,7 +860,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
                 if (currentlyAcquiredLockMode != null && !currentlyAcquiredLockMode.isCompatible(intendedLockMode)) {
                     if (conflictFound(waiter.txId())) {
-                        waiter.fail(abandonedLockException(waiter.txId, tmp.txId, txStateVolatileStorage));
+                        // We treat the current lock as the abandoned one.
+                        waiter.fail(new PossibleDeadlockOnLockAcquireException(
+                                waiter.txId,
+                                tmp.txId,
+                                intendedLockMode,
+                                currentlyAcquiredLockMode,
+                                true,
+                                txStateVolatileStorage
+                        ));
 
                         return true;
                     } else if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
@@ -886,7 +876,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                                 waiter.txId,
                                 tmp.txId,
                                 intendedLockMode,
-                                currentlyAcquiredLockMode
+                                currentlyAcquiredLockMode,
+                                false,
+                                txStateVolatileStorage
                         ));
 
                         return true;
@@ -904,15 +896,24 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     if (skipFail) {
                         return false;
                     } else if (conflictFound(waiter.txId())) {
-                        waiter.fail(abandonedLockException(waiter.txId, tmp.txId, txStateVolatileStorage));
-
+                        // We treat the current lock as the abandoned one.
+                        waiter.fail(new PossibleDeadlockOnLockAcquireException(
+                                waiter.txId,
+                                tmp.txId,
+                                intendedLockMode,
+                                currentlyAcquiredLockMode,
+                                true,
+                                txStateVolatileStorage
+                        ));
                         return true;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
                         waiter.fail(new PossibleDeadlockOnLockAcquireException(
                                 waiter.txId,
                                 tmp.txId,
                                 intendedLockMode,
-                                currentlyAcquiredLockMode
+                                currentlyAcquiredLockMode,
+                                false,
+                                txStateVolatileStorage
                         ));
 
                         return true;
@@ -1058,7 +1059,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private void setWaiterTimeout(WaiterImpl waiter) {
             delayedExecutor.execute(() -> {
                 if (!waiter.fut.isDone()) {
-                    waiter.fut.completeExceptionally(new AcquireLockTimeoutException(waiter, deadlockPreventionPolicy.waitTimeout()));
+                    waiter.fut.completeExceptionally(
+                            new AcquireLockTimeoutException(waiter, deadlockPreventionPolicy.waitTimeout(), txStateVolatileStorage));
                 }
             });
         }

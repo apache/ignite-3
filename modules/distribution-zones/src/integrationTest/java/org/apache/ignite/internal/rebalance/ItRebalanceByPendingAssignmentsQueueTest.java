@@ -68,7 +68,6 @@ import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -506,8 +505,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     private static Catalog latestCatalog(Ignite ignite) {
-        CatalogManager catalogManager = unwrapIgniteImpl(ignite).catalogManager();
-        return catalogManager.catalog(catalogManager.latestCatalogVersion());
+        return unwrapIgniteImpl(ignite).catalogManager().latestCatalog();
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
@@ -153,7 +153,11 @@ public class TxCleanupRecoveryRequestHandler {
                 txMeta.commitTimestamp(),
                 txId
         ).exceptionally(throwable -> {
-            LOG.warn("Failed to cleanup transaction [{}].", throwable, TransactionLogUtils.formatTxInfo(txId, txManager));
+            LOG.warn(
+                    "Failed to cleanup transaction {}.",
+                    throwable,
+                    formatTxInfo(txId, txManager)
+            );
 
             return null;
         });

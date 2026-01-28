@@ -127,12 +127,12 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
         handleSnapshotInterference(rowId);
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 
     @Override

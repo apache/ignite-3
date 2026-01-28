@@ -122,4 +122,17 @@ public class TxMessageGroup {
      * Message type for {@link TableWriteIntentSwitchReplicaRequest}.
      */
     public static final short TABLE_WRITE_INTENT_SWITCH_REQUEST = 21;
+
+    /**
+     * Message type for {@link TxStatePrimaryReplicaRequest}.
+     */
+    public static final short TX_STATE_PRIMARY_REPLICA_REQUEST = 22;
+
+    /**
+     * Message type for {@link RowIdMessage}.
+     */
+    public static final short ROW_ID_MESSAGE = 23;
+
+    /** Message type for {@link TxStateMetaUnknownMessage}. */
+    public static final short TX_STATE_META_UNKNOWN_MESSAGE = 24;
 }

@@ -38,7 +38,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
-    private final TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
+    private TransactionExpirationRegistry registry;
+    private VolatileTxStateMetaStorage txStateMetaStorage;
 
     @Mock
     private InternalTransaction tx1;
@@ -48,6 +49,9 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void configureMocks() {
+        txStateMetaStorage = VolatileTxStateMetaStorage.createStarted();
+        registry = new TransactionExpirationRegistry(txStateMetaStorage);
+
         HybridClock clock = new TestHybridClock(() -> 0);
 
         UUID txId1 = transactionId(clock.now(), 0);

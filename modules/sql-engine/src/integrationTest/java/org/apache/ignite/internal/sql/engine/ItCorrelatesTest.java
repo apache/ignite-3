@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 /** Tests for correlated queries. */
 public class ItCorrelatesTest extends BaseSqlIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter', "
-            + "'HashJoinConverter') */ ";
+            + "'HashJoinConverter'), disable_decorrelation */ ";
 
     @AfterEach
     public void dropTables() {
@@ -60,7 +60,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
         sql("insert into t0 values(1, 1, 1, 10), (2, 2, 2, 20);");
         sql("insert into t1 values(1, 10), (2, 20);");
 
-        assertQuery("SELECT t1.ID FROM t0 JOIN t1 ON "
+        assertQuery("SELECT /*+ disable_decorrelation */ t1.ID FROM t0 JOIN t1 ON "
                 + "(t1.id = (SELECT inner_t1.id FROM t1 AS inner_t1 WHERE inner_t1.val = t0.val)) ORDER BY 1")
                 .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns(1)
@@ -80,7 +80,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
         sql("insert into t0 values(1, 10), (2, 20);");
         sql("insert into t1 values(1, 10), (2, 20);");
 
-        assertQuery("SELECT t1.ID FROM t0 JOIN t1 ON "
+        assertQuery("SELECT /*+ disable_decorrelation */ t1.ID FROM t0 JOIN t1 ON "
                 + "(t0.id = (SELECT inner_t0.id FROM t0 AS inner_t0 WHERE inner_t0.val = t1.val)) ORDER BY 1")
                 .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns(1)
@@ -100,7 +100,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
         // Collision by correlate variables in the left hand.
-        assertQuery("SELECT * FROM test1 WHERE "
+        assertQuery("SELECT /*+ disable_decorrelation */ * FROM test1 WHERE "
                 + "EXISTS(SELECT * FROM test2 WHERE test1.a=test2.a AND test1.b<>test2.c) "
                 + "AND NOT EXISTS(SELECT * FROM test2 WHERE test1.a=test2.a AND test1.b<test2.c)")
                 .returns(12, 2)
@@ -119,7 +119,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
 
         // Collision by correlate variables in both, left and right hands.
-        assertQuery("SELECT * FROM test1 WHERE "
+        assertQuery("SELECT /*+ disable_decorrelation */ * FROM test1 WHERE "
                 + "EXISTS(SELECT * FROM test2 WHERE (SELECT test1.a)=test2.a AND (SELECT test1.b)<>test2.c) "
                 + "AND NOT EXISTS(SELECT * FROM test2 WHERE (SELECT test1.a)=test2.a AND (SELECT test1.b)<test2.c)")
                 .returns(12, 2)
@@ -145,25 +145,25 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
 
         // t1 -> t2 (t2 references t1)
 
-        assertQuery("SELECT * FROM t1 as cor WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.id = cor.id)")
+        assertQuery("SELECT /*+ disable_decorrelation */ * FROM t1 as cor WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.id = cor.id)")
                 .returns(1, 2)
                 .returns(42, 43)
                 .check();
 
-        assertQuery("SELECT * FROM t1 as cor WHERE NOT EXISTS (SELECT 1 FROM t2 WHERE t2.id = cor.id)")
+        assertQuery("SELECT /*+ disable_decorrelation */ * FROM t1 as cor WHERE NOT EXISTS (SELECT 1 FROM t2 WHERE t2.id = cor.id)")
                 .returns(13, 14)
                 .check();
 
         // t3 -> t1 -> t2 (t2 references t1)
 
-        assertQuery("SELECT * FROM t3 AS out\n"
+        assertQuery("SELECT /*+ disable_decorrelation */ * FROM t3 AS out\n"
                 + "WHERE EXISTS (SELECT * FROM t1 as cor WHERE out.id = cor.id AND EXISTS "
                 + "(SELECT 1 FROM t2 WHERE t2.id = cor.id))")
                 .returns(1, 11)
                 .returns(42, 52)
                 .check();
 
-        assertQuery("SELECT * FROM t3 AS out\n"
+        assertQuery("SELECT /*+ disable_decorrelation */ * FROM t3 AS out\n"
                 + "WHERE NOT EXISTS (SELECT * FROM t1 as cor WHERE out.id = cor.id AND EXISTS "
                 + "(SELECT 1 FROM t2 WHERE t2.id = cor.id))")
                 .returns(13, 23)
@@ -171,7 +171,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
 
         // t3 -> t1 -> t2 (t2 references both t3 and t1)
 
-        assertQuery("SELECT * FROM t3 AS out\n"
+        assertQuery("SELECT /*+ disable_decorrelation */ * FROM t3 AS out\n"
                 + "WHERE EXISTS (SELECT * FROM t1 as cor WHERE out.id = cor.id AND EXISTS "
                 + "(SELECT 1 FROM t2 WHERE t2.id = out.id OR t2.id = cor.id))")
                 .returns(1, 11)

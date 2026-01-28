@@ -603,7 +603,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        [Platform("Linux")]
+        [Category(TestUtils.CategoryIntensive)]
         public async Task TestUpsertAllMany()
         {
             int count = 25_000;
@@ -616,7 +616,7 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        [Platform("Linux")]
+        [Category(TestUtils.CategoryIntensive)]
         public void TestUpsertAllBufferOverflow()
         {
             int count = 25;

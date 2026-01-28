@@ -66,6 +66,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -170,7 +171,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
@@ -237,7 +238,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
@@ -320,7 +321,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
@@ -384,7 +385,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 (pageMemory0, fullPageId, buffer) -> flushDirtyPageForReplacementFuture.complete(null)
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
@@ -485,7 +486,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
         checkpointManager.start();

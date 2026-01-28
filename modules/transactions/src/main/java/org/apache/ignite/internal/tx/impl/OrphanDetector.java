@@ -200,7 +200,8 @@ public class OrphanDetector {
     private void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
-                    InternalClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());
+                    InternalClusterNode commitPartPrimaryNode =
+                            replicaMeta != null ? topologyService.getByConsistentId(replicaMeta.getLeaseholder()) : null;
 
                     if (commitPartPrimaryNode == null) {
                         LOG.warn(
@@ -219,7 +220,7 @@ public class OrphanDetector {
                             .build());
                 }).exceptionally(throwable -> {
                     if (throwable != null) {
-                        LOG.warn("A recovery message for the transaction was handled with the error [{}].",
+                        LOG.warn("A recovery message for the transaction was handled with the error {}.",
                                 throwable, formatTxInfo(txId, txLocalStateStorage));
                     }
 

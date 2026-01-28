@@ -63,7 +63,8 @@ public class LockManagerBenchmark {
      */
     @Setup
     public void setUp() {
-        lockManager = new HeapLockManager(DEFAULT_SLOTS, new VolatileTxStateMetaStorage());
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+        lockManager = new HeapLockManager(DEFAULT_SLOTS, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         generator = new TransactionIdGenerator(0);
         clock = new TestHybridClock(() -> 0L);

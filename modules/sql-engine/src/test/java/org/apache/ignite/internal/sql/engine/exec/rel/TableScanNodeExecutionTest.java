@@ -175,7 +175,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             HybridClock clock = new HybridClockImpl();
             ClockService clockService = new TestClockService(clock);
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
@@ -183,7 +185,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     clusterService,
                     replicaSvc,
                     HeapLockManager.smallInstance(),
-                    new VolatileTxStateMetaStorage(),
+                    txStateVolatileStorage,
                     clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,

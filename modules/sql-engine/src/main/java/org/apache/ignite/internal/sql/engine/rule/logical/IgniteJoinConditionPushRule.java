@@ -33,6 +33,11 @@ import org.immutables.value.Value;
  */
 @Value.Enclosing
 public class IgniteJoinConditionPushRule extends FilterJoinRule<IgniteJoinConditionPushRuleConfig> {
+    // This constant is chosen empirically. If set to 32, then TPC-H q19 will result in less optimal plan
+    // involving NestedLoopJoin instead of HashJoin. If set to 128, then planning of TPC-DS q41 will take
+    // more than 40sec and might even fail with OOM (depending on amount of mem available on machine).
+    private static final int MAX_CNF_NODE_COUNT = 64;
+
     public static final RelOptRule INSTANCE = IgniteJoinConditionPushRuleConfig.DEFAULT.toRule();
 
     /** Creates a JoinConditionPushRule. */
@@ -45,7 +50,7 @@ public class IgniteJoinConditionPushRule extends FilterJoinRule<IgniteJoinCondit
 
         join = join.copy(
                 join.getTraitSet(),
-                RexUtil.toCnf(join.getCluster().getRexBuilder(), join.getCondition()),
+                RexUtil.toCnf(join.getCluster().getRexBuilder(), MAX_CNF_NODE_COUNT, join.getCondition()),
                 join.getLeft(),
                 join.getRight(),
                 join.getJoinType(),

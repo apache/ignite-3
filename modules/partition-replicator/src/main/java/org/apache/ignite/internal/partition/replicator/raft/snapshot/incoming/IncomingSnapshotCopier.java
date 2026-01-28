@@ -102,7 +102,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
-    private static final long NETWORK_TIMEOUT = Long.MAX_VALUE;
+    // Snapshot loading is batched, so 2 minutes should be more than enough for all operations.
+    private static final long NETWORK_TIMEOUT_MILLIS = 120_000;
 
     private static final long MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT = 100 * 1024;
 
@@ -370,7 +371,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenApply(response -> {
                 PartitionSnapshotMeta snapshotMeta = ((SnapshotMetaResponse) response).meta();
 
@@ -442,7 +443,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .id(snapshotUri.snapshotId)
                             .batchSizeHint(MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT)
                             .build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenComposeAsync(response -> {
                 SnapshotMvDataResponse snapshotMvDataResponse = ((SnapshotMvDataResponse) response);
 
@@ -526,7 +527,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .id(snapshotUri.snapshotId)
                             .maxTransactionsInBatch(MAX_TX_DATA_BATCH_SIZE)
                             .build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenComposeAsync(response -> {
                 SnapshotTxDataResponse snapshotTxDataResponse = (SnapshotTxDataResponse) response;
 
@@ -724,14 +725,14 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         if (entryIndex == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
-            assert entry.commitTableOrZoneId() != null;
+            assert entry.commitZoneId() != null;
             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
             partition.addWrite(
                     rowId,
                     binaryRow,
                     entry.txId(),
-                    entry.commitTableOrZoneId(),
+                    entry.commitZoneId(),
                     entry.commitPartitionId(),
                     snapshotCatalogVersion
             );
@@ -814,7 +815,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     LWM_MSG_FACTORY.getLowWatermarkRequest().build(),
-                    NETWORK_TIMEOUT
+                    NETWORK_TIMEOUT_MILLIS
             ).thenAcceptAsync(response -> {
                 GetLowWatermarkResponse getLowWatermarkResponse = (GetLowWatermarkResponse) response;
 

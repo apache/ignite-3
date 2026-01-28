@@ -46,7 +46,7 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
 
             if (!result) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}, {}]",
-                        tx, formatTxInfo(tx.id(), txManager)));
+                        tx, formatTxInfo(tx.id(), txManager, false)));
             }
         }
     }

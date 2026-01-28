@@ -40,7 +40,18 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
 
     @Override
     protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
+        builder.clusterConfiguration(clusterConfig());
+    }
+
+    private static String clusterConfig() {
+        return "{\n"
+                + "  ignite.gc.lowWatermark {\n"
+                + "    dataAvailabilityTimeMillis: 1000,\n"
+                + "    updateIntervalMillis: 100\n"
+                + "  },\n"
+                // Default is 60 seconds, and we need to retry write intent resolution in some tests.
+                + "  ignite.replication.rpcTimeoutMillis: 1000\n"
+                + "}";
     }
 
     @Test
@@ -49,27 +60,23 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
 
         executeSql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT)");
 
-        // This node will send WriteIntentSwitchReplicaRequest messages.
-        IgniteImpl senderNode = unwrapIgniteImpl(cluster.node(0));
-
-        int receiverNodeIndex = 1;
-        // This node will process WriteIntentSwitchReplicaRequest messages.
-        IgniteImpl receiverNode = unwrapIgniteImpl(cluster.node(receiverNodeIndex));
+        // This node will fail cleanups till table is dropped.
+        IgniteImpl delayedCleanupNode = unwrapIgniteImpl(cluster.node(0));
 
         CompletableFuture<Void> tableDestroyedFut = new CompletableFuture<>();
 
-        failIntentSwitchUntilTableIsDestroyed(senderNode, tableDestroyedFut);
+        failIntentSwitchUntilTableIsDestroyed(delayedCleanupNode, tableDestroyedFut);
 
-        receiverNode.transactions().runInTransaction((tx) -> {
+        delayedCleanupNode.transactions().runInTransaction((tx) -> {
             for (int i = 0; i < 10; i++) {
-                executeSql(receiverNodeIndex, tx, "INSERT INTO " + tableName + " (id, val) VALUES (?, ?)", i, i);
+                executeSql(0, tx, "INSERT INTO " + tableName + " (id, val) VALUES (?, ?)", i, i);
             }
         });
 
         executeSql("DROP TABLE " + tableName);
 
         // Await real table destruction.
-        await().until(() -> receiverNode.distributedTableManager().cachedTable(tableName) == null);
+        await().until(() -> delayedCleanupNode.distributedTableManager().cachedTable(tableName) == null);
 
         LogInspector logInspector = new LogInspector(
                 TxCleanupRequestHandler.class.getName(),
@@ -88,8 +95,8 @@ public class ItWriteIntentSwitchRequestHandlerTest extends ClusterPerTestIntegra
         }
     }
 
-    private static void failIntentSwitchUntilTableIsDestroyed(IgniteImpl node0, CompletableFuture<Void> tableDroppedFut) {
-        node0.dropMessages((recipientId, message) ->
+    private static void failIntentSwitchUntilTableIsDestroyed(IgniteImpl senderNode, CompletableFuture<Void> tableDroppedFut) {
+        senderNode.dropMessages((recipientId, message) ->
                 message.getClass().getName().contains("WriteIntentSwitchReplicaRequest") && !tableDroppedFut.isDone());
     }
 }

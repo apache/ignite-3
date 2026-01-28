@@ -335,9 +335,9 @@ public class IndexManager implements IgniteComponent {
                 ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
 
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
+        Catalog nextCatalog = catalogService.latestCatalog();
 
-        Catalog nextCatalog = catalogService.catalog(latestCatalogVersion);
+        int latestCatalogVersion = nextCatalog.version();
 
         assert nextCatalog != null : "catalogVersion=" + latestCatalogVersion;
 

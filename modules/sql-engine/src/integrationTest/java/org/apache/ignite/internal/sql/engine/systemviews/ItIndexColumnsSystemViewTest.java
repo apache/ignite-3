@@ -22,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -108,10 +106,7 @@ public class ItIndexColumnsSystemViewTest extends AbstractSystemViewTest {
     }
 
     private static void checkHashIndex(String schemaName, String indexName, List<String> columns) {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManager catalogManager = ignite.catalogManager();
-        int version = catalogManager.latestCatalogVersion();
-        Catalog catalog = catalogManager.catalog(version);
+        Catalog catalog = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog();
 
         CatalogSchemaDescriptor schema = catalog.schema(schemaName);
         assertNotNull(schema);
@@ -159,10 +154,7 @@ public class ItIndexColumnsSystemViewTest extends AbstractSystemViewTest {
             List<String> columns,
             List<String> collations
     ) {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManager catalogManager = ignite.catalogManager();
-        int version = catalogManager.latestCatalogVersion();
-        Catalog catalog = catalogManager.catalog(version);
+        Catalog catalog = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog();
 
         CatalogSchemaDescriptor schema = catalog.schema(schemaName);
         assertNotNull(schema);
