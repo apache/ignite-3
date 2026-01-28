@@ -25,6 +25,11 @@ if(ENABLE_UB_SANITIZER)
     set(CPACK_PACKAGE_NAME ${CPACK_PACKAGE_NAME}-ubsan)
 endif()
 
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+set(PACKAGE_SO_PATH "${CPACK_PACKAGING_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+message(STATUS "[CPACK_PACKAGING_INSTALL_PREFIX] ${CPACK_PACKAGING_INSTALL_PREFIX}")
+message(STATUS "[PACKAGE_SO_PATH] ${PACKAGE_SO_PATH}")
+
 set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION ON)
 
 set(CPACK_COMPONENTS_ALL client odbc)
@@ -57,8 +62,8 @@ set(CPACK_TGZ_COMPONENT_INSTALL ON)
 set(ODBC_SCRIPT_DIR "${IGNITE_CMAKE_TOP_DIR}/cmake/scripts/odbc")
 
 #configure_file can set permissions as well, but it will raise required cmake version to 3.20
-configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/postinst.sh" @ONLY)
-configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/prerm.sh" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/postinst" @ONLY)
+configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/prerm" @ONLY)
 
 configure_file("${ODBC_SCRIPT_DIR}/post_install.sh"  "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh" @ONLY)
 configure_file("${ODBC_SCRIPT_DIR}/pre_uninstall.sh" "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh" @ONLY)
@@ -70,8 +75,8 @@ file(MAKE_DIRECTORY ${SCRIPTS_BINARY_DIR})
 file(COPY
     "${CMAKE_CURRENT_BINARY_DIR}/post_install.sh"
     "${CMAKE_CURRENT_BINARY_DIR}/pre_uninstall.sh"
-    "${CMAKE_CURRENT_BINARY_DIR}/postinst.sh"
-    "${CMAKE_CURRENT_BINARY_DIR}/prerm.sh"
+    "${CMAKE_CURRENT_BINARY_DIR}/postinst"
+    "${CMAKE_CURRENT_BINARY_DIR}/prerm"
     DESTINATION "${SCRIPTS_BINARY_DIR}"
     FILE_PERMISSIONS
     OWNER_READ OWNER_WRITE OWNER_EXECUTE
@@ -91,8 +96,10 @@ set(CPACK_RPM_ODBC_PRE_UNINSTALL_SCRIPT_FILE "${SCRIPTS_BINARY_DIR}/pre_uninstal
 set(CPACK_RPM_CLIENT_PACKAGE_DEPENDS unixodbc libc6 libstdc++6)
 set(CPACK_RPM_ODBC_PACKAGE_DEPENDS unixodbc libc6 libstdc++6)
 
+configure_file("${ODBC_SCRIPT_DIR}/ignite3-odbc-linux.ini.in" "${CMAKE_CURRENT_BINARY_DIR}/ignite3-odbc-linux.ini")
+
 install(FILES
-    "${ODBC_SCRIPT_DIR}/ignite3-odbc-linux.ini"
+    "${CMAKE_CURRENT_BINARY_DIR}/ignite3-odbc-linux.ini"
     COMPONENT odbc
     DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/ignite/"
     RENAME "ignite3-odbc.ini"
