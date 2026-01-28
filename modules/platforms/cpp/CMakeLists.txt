@@ -25,7 +25,7 @@ if(NOT DEFINED IGNITE_VERSION)
   message(WARNING "Failed to read version from _version.txt file. Using default version \"${IGNITE_VERSION}\".")
 endif()
 
-project(Ignite.C++ VERSION ${IGNITE_VERSION} LANGUAGES CXX)
+project(ignite3 VERSION ${IGNITE_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -85,9 +85,10 @@ else()
 endif()
 
 set(IGNITE_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
-if(${INSTALL_IGNITE_FILES})
-    message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
-endif()
+
+include(cmake/packaging.cmake)
+include(CPack)
+
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
 
@@ -216,6 +217,7 @@ write_basic_package_version_file(
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config-version.cmake"
+    COMPONENT client
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
 )
 
