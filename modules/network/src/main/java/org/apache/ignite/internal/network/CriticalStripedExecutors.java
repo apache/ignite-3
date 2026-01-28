@@ -55,13 +55,13 @@ class CriticalStripedExecutors implements ManuallyCloseable {
             ChannelTypeRegistry channelTypeRegistry,
             IgniteLogger log,
             @Nullable MetricManager metricManager,
-            @Nullable String metricName,
+            @Nullable String metricNamePrefix,
             @Nullable String metricDescription
     ) {
         this.workerRegistry = workerRegistry;
 
         var factory = new CriticalStripedThreadPoolExecutorFactory(nodeName, poolNamePrefix, log, workerRegistry, registeredWorkers,
-                metricManager, metricName, metricDescription);
+                metricManager, metricNamePrefix, metricDescription);
 
         executorByChannelTypeId = StripedExecutorByChannelTypeId.of(channelTypeRegistry, factory);
     }

@@ -57,7 +57,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
@@ -170,12 +169,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED));
-
-        var outboundMetricSource = new ThreadPoolMetricSource("network.messaging.outbound",
-                "Outbound message executor metrics", null, outboundExecutor);
-
-        metricManager.registerSource(outboundMetricSource);
-        metricManager.enable(outboundMetricSource);
+        outboundExecutor.initMetricSource(metricManager, "network.messaging.outbound", "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
                 nodeName,
