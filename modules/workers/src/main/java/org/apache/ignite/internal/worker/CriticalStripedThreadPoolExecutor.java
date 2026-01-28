@@ -32,6 +32,7 @@ import org.apache.ignite.internal.metrics.sources.StripedThreadPoolMetricSource;
 import org.apache.ignite.internal.thread.AbstractStripedThreadPoolExecutor;
 import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -122,8 +123,7 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
         }
     }
 
-    @Override
-    public void shutdown() {
+    private void unregisterMetricSource() {
         if (metricManager != null) {
             assert metricSource != null;
 
@@ -131,7 +131,19 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
                 metricManager.unregisterSource(metricSource);
             }
         }
+    }
+
+    @Override
+    public void shutdown() {
+        unregisterMetricSource();
 
         super.shutdown();
+    }
+
+    @Override
+    public @NotNull List<Runnable> shutdownNow() {
+        unregisterMetricSource();
+
+        return super.shutdownNow();
     }
 }

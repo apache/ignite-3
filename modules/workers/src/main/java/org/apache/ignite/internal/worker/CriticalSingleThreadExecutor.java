@@ -19,6 +19,7 @@ package org.apache.ignite.internal.worker;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -100,8 +102,7 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
         return heartbeatNanos;
     }
 
-    @Override
-    public void shutdown() {
+    private void unregisterMetricSource() {
         if (metricManager != null) {
             assert metricSource != null;
 
@@ -109,7 +110,19 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
                 metricManager.unregisterSource(metricSource);
             }
         }
+    }
+
+    @Override
+    public void shutdown() {
+        unregisterMetricSource();
 
         super.shutdown();
+    }
+
+    @Override
+    public @NotNull List<Runnable> shutdownNow() {
+        unregisterMetricSource();
+
+        return super.shutdownNow();
     }
 }
