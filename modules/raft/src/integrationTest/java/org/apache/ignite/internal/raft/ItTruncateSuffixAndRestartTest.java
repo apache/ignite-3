@@ -56,6 +56,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -196,6 +197,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureManager.class),
+                    new NoOpMetricManager(),
                     defaultChannelTypeRegistry(),
                     new DefaultIgniteProductVersionSource()
             );

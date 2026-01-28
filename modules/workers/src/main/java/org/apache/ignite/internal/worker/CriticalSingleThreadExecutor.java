@@ -34,20 +34,26 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
     private volatile Thread lastSeenThread;
     private volatile long heartbeatNanos = NOT_MONITORED;
 
+    private CriticalSingleThreadExecutorMetrics metrics;
+
     /** Constructor. */
-    public CriticalSingleThreadExecutor(ThreadFactory threadFactory) {
-        this(0, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+    public CriticalSingleThreadExecutor(ThreadFactory threadFactory, CriticalSingleThreadExecutorMetricSource metricSource) {
+        this(0, SECONDS, new LinkedBlockingQueue<>(), threadFactory, metricSource);
     }
 
     /** Constructor. */
-    public CriticalSingleThreadExecutor(long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
+    public CriticalSingleThreadExecutor(long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,
+            CriticalSingleThreadExecutorMetricSource metricSource) {
         super(1, 1, keepAliveTime, unit, workQueue, threadFactory);
+
+        metrics = new CriticalSingleThreadExecutorMetrics(metricSource);
     }
 
     @Override
     protected void beforeExecute(Thread t, Runnable r) {
         lastSeenThread = t;
         heartbeatNanos = System.nanoTime();
+        metrics.incrementMessageQueueSize();
 
         super.beforeExecute(t, r);
     }
@@ -58,6 +64,7 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
             super.afterExecute(r, t);
         } finally {
             heartbeatNanos = NOT_MONITORED;
+            metrics.decrementMessageQueueSize();
         }
     }
 

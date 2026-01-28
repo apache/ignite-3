@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.worker.CriticalSingleThreadExecutorMetricSource;
 import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
@@ -43,18 +44,22 @@ class CriticalStripedThreadPoolExecutorFactory {
 
     private final List<CriticalWorker> registeredWorkers;
 
+    private final CriticalSingleThreadExecutorMetricSource metricSource;
+
     CriticalStripedThreadPoolExecutorFactory(
             String nodeName,
             String poolNamePrefix,
             IgniteLogger log,
             CriticalWorkerRegistry workerRegistry,
-            List<CriticalWorker> registeredWorkers
+            List<CriticalWorker> registeredWorkers,
+            CriticalSingleThreadExecutorMetricSource metricSource
     ) {
         this.nodeName = nodeName;
         this.poolNamePrefix = poolNamePrefix;
         this.log = log;
         this.workerRegistry = workerRegistry;
         this.registeredWorkers = registeredWorkers;
+        this.metricSource = metricSource;
     }
 
     CriticalStripedThreadPoolExecutor create(ChannelType channelType) {
@@ -62,7 +67,7 @@ class CriticalStripedThreadPoolExecutorFactory {
         String poolName = poolNamePrefix + "-" + channelType.name() + "-" + channelTypeId;
 
         var threadFactory = IgniteMessageServiceThreadFactory.create(nodeName, poolName, log, NOTHING_ALLOWED);
-        var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0);
+        var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0, metricSource);
 
         for (CriticalWorker worker : executor.workers()) {
             workerRegistry.register(worker);

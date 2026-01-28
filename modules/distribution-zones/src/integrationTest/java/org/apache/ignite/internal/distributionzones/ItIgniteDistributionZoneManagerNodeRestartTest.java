@@ -239,6 +239,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
                 failureProcessor,
+                new NoOpMetricManager(),
                 defaultChannelTypeRegistry(),
                 new DefaultIgniteProductVersionSource()
         );

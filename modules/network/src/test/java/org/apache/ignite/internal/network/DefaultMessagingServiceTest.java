@@ -63,6 +63,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -610,6 +611,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 marshaller,
                 criticalWorkerRegistry,
                 failureProcessor,
+                new NoOpMetricManager(),
                 channelTypeRegistry
         );
 
