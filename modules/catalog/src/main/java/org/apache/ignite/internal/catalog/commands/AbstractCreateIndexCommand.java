@@ -98,7 +98,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             }
         }
 
-        if (unique && !new HashSet<>(columns).containsAll(table.colocationColumnNames())) {
+        if (unique && !new HashSet<>(columns).containsAll(CatalogUtils.resolveColumnNames(table, table.colocationColumns()))) {
             throw new CatalogValidationException("Unique index must include all colocation columns.");
         }
 

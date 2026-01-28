@@ -28,15 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * Metric source for persistent page memory.
  */
 public class PersistentPageMemoryMetricSource implements MetricSource {
-    public static final String PAGES_READ = "PagesRead";
-    public static final String PAGES_WRITTEN = "PagesWritten";
-    public static final String PAGE_REPLACEMENTS = "PageReplacements";
-    public static final String PAGE_CACHE_MISSES = "PageCacheMisses";
-    public static final String PAGE_CACHE_HITS = "PageCacheHits";
-    public static final String DIRTY_PAGES = "DirtyPages";
-    public static final String LOADED_PAGES = "LoadedPages";
-    public static final String PAGE_ACQUIRE_TIME = "PageAcquireTime";
-
     private final String name;
 
     /** Metrics map. Only modified in {@code synchronized} context. */

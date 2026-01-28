@@ -126,7 +126,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      */
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
      *
@@ -140,7 +139,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @param rowId Row ID.
      * @param row Table row to update. {@code null} means value removal.
      * @param txId Transaction ID.
-     * @param commitTableOrZoneId Commit table/zone ID.
+     * @param commitZoneId Commit zone ID.
      * @param commitPartitionId Commit partition ID.
      * @return Result of add write intent.
      * @throws StorageException If failed to write data to the storage.
@@ -150,7 +149,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException;
 

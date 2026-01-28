@@ -4,131 +4,122 @@ Sort
     est: (rows=100)
   Filter
       predicate: >=(CNT, 10)
-      est: (rows=7985)
+      est: (rows=28746)
     ColocatedHashAggregate
         fieldNames: [STATE, CNT]
         group: [STATE]
         aggregation: [COUNT()]
-        est: (rows=31941)
+        est: (rows=57493)
       Project
           fieldNames: [STATE]
           projection: [CA_STATE]
-          est: (rows=159703)
-        Filter
-            predicate: >(CAST(I_CURRENT_PRICE):DECIMAL(23, 17), *(1.2:DECIMAL(2, 1), EXPR$0))
-            est: (rows=159703)
-          CorrelatedNestedLoopJoin
-              predicate: true
-              type: left
-              correlates: [$cor1]
-              est: (rows=319405)
-            Project
-                fieldNames: [CA_STATE, I_CURRENT_PRICE, I_CATEGORY]
-                projection: [CA_STATE, I_CURRENT_PRICE, I_CATEGORY]
+          est: (rows=287465)
+        HashJoin
+            predicate: =(C_CUSTOMER_SK, SS_CUSTOMER_SK)
+            type: inner
+            est: (rows=287465)
+          HashJoin
+              predicate: =(SS_ITEM_SK, I_ITEM_SK)
+              type: inner
+              est: (rows=287465)
+            HashJoin
+                predicate: AND(=(I_CATEGORY, I_CATEGORY$0), >(CAST(I_CURRENT_PRICE):DECIMAL(23, 17), *(1.2:DECIMAL(2, 1), EXPR$0)))
+                fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_CATEGORY, I_CATEGORY$0, EXPR$0]
+                type: inner
+                est: (rows=4374000)
+              Exchange
+                  distribution: single
+                  est: (rows=18000)
+                TableScan
+                    table: PUBLIC.ITEM
+                    fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_CATEGORY]
+                    est: (rows=18000)
+              Project
+                  fieldNames: [I_CATEGORY, EXPR$0]
+                  projection: [f0, DECIMAL_DIVIDE(CAST(f0_1):DECIMAL(14, 2), f1_2, 21, 16)]
+                  est: (rows=3240)
+                ReduceHashAggregate
+                    fieldNames: [f0, f0_1, f1_2]
+                    group: [0]
+                    aggregation: [SUM(1), $SUM0(2)]
+                    est: (rows=3240)
+                  Exchange
+                      distribution: single
+                      est: (rows=3240)
+                    Project
+                        fieldNames: [0, 1, 2, 3]
+                        projection: [I_CATEGORY, CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL, _GROUP_ID]
+                        est: (rows=3240)
+                      MapHashAggregate
+                          fieldNames: [I_CATEGORY, _ACC0, _ACC1, _GROUP_ID]
+                          group: [I_CATEGORY]
+                          aggregation: [SUM(I_CURRENT_PRICE), COUNT(I_CURRENT_PRICE)]
+                          est: (rows=3240)
+                        TableScan
+                            table: PUBLIC.ITEM
+                            predicate: IS NOT NULL(I_CATEGORY)
+                            fieldNames: [I_CATEGORY, I_CURRENT_PRICE]
+                            est: (rows=16200)
+            HashJoin
+                predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                type: inner
                 est: (rows=319405)
+              Exchange
+                  distribution: single
+                  est: (rows=2880404)
+                TableScan
+                    table: PUBLIC.STORE_SALES
+                    fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK]
+                    est: (rows=2880404)
               HashJoin
-                  predicate: =(C_CUSTOMER_SK, SS_CUSTOMER_SK)
+                  predicate: =(D_MONTH_SEQ, $f0)
                   type: inner
-                  est: (rows=319405)
-                HashJoin
-                    predicate: =(SS_ITEM_SK, I_ITEM_SK)
-                    type: inner
-                    est: (rows=319405)
-                  HashJoin
-                      predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
-                      type: inner
-                      est: (rows=319405)
+                  est: (rows=10957)
+                Exchange
+                    distribution: single
+                    est: (rows=73049)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      fieldNames: [D_DATE_SK, D_MONTH_SEQ]
+                      est: (rows=73049)
+                ColocatedHashAggregate
+                    fieldNames: [$f0]
+                    group: []
+                    aggregation: [SINGLE_VALUE(D_MONTH_SEQ)]
+                    est: (rows=1)
+                  ReduceHashAggregate
+                      fieldNames: [D_MONTH_SEQ]
+                      group: [D_MONTH_SEQ]
+                      aggregation: []
+                      est: (rows=1620)
                     Exchange
                         distribution: single
-                        est: (rows=2880404)
-                      TableScan
-                          table: PUBLIC.STORE_SALES
-                          fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK]
-                          est: (rows=2880404)
-                    HashJoin
-                        predicate: =(D_MONTH_SEQ, $f0)
-                        type: inner
-                        est: (rows=10957)
-                      Exchange
-                          distribution: single
-                          est: (rows=73049)
+                        est: (rows=1620)
+                      MapHashAggregate
+                          fieldNames: [D_MONTH_SEQ, _GROUP_ID]
+                          group: [D_MONTH_SEQ]
+                          aggregation: []
+                          est: (rows=1620)
                         TableScan
                             table: PUBLIC.DATE_DIM
-                            fieldNames: [D_DATE_SK, D_MONTH_SEQ]
-                            est: (rows=73049)
-                      ColocatedHashAggregate
-                          fieldNames: [$f0]
-                          group: []
-                          aggregation: [SINGLE_VALUE(D_MONTH_SEQ)]
-                          est: (rows=1)
-                        ReduceHashAggregate
+                            predicate: AND(=(D_YEAR, 2002), =(D_MOY, 3))
                             fieldNames: [D_MONTH_SEQ]
-                            group: [D_MONTH_SEQ]
-                            aggregation: []
-                            est: (rows=1620)
-                          Exchange
-                              distribution: single
-                              est: (rows=1620)
-                            MapHashAggregate
-                                fieldNames: [D_MONTH_SEQ, _GROUP_ID]
-                                group: [D_MONTH_SEQ]
-                                aggregation: []
-                                est: (rows=1620)
-                              TableScan
-                                  table: PUBLIC.DATE_DIM
-                                  predicate: AND(=(D_YEAR, 2002), =(D_MOY, 3))
-                                  fieldNames: [D_MONTH_SEQ]
-                                  est: (rows=8100)
-                  Exchange
-                      distribution: single
-                      est: (rows=18000)
-                    TableScan
-                        table: PUBLIC.ITEM
-                        fieldNames: [I_ITEM_SK, I_CURRENT_PRICE, I_CATEGORY]
-                        est: (rows=18000)
-                HashJoin
-                    predicate: =(CA_ADDRESS_SK, C_CURRENT_ADDR_SK)
-                    type: inner
-                    est: (rows=100000)
-                  Exchange
-                      distribution: single
-                      est: (rows=100000)
-                    TableScan
-                        table: PUBLIC.CUSTOMER
-                        fieldNames: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
-                        est: (rows=100000)
-                  Exchange
-                      distribution: single
-                      est: (rows=50000)
-                    TableScan
-                        table: PUBLIC.CUSTOMER_ADDRESS
-                        fieldNames: [CA_ADDRESS_SK, CA_STATE]
-                        est: (rows=50000)
-            Project
-                fieldNames: [EXPR$0]
-                projection: [CASE(=(CAST(f0_0):DECIMAL(14, 2), 0:DECIMAL(38, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(14, 2), f1_1, 21, 16))]
-                est: (rows=1)
-              ReduceSortAggregate
-                  fieldNames: [f0_0, f1_1]
-                  collation: []
-                  group: []
-                  aggregation: [SUM(0), $SUM0(1)]
-                  est: (rows=1)
-                Project
-                    fieldNames: [0, 1]
-                    projection: [CAST(_ACC0):DECIMAL(28, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
-                    est: (rows=1)
-                  Exchange
-                      distribution: single
-                      est: (rows=1)
-                    MapSortAggregate
-                        fieldNames: [_ACC0, _ACC1]
-                        collation: []
-                        group: []
-                        aggregation: [SUM(I_CURRENT_PRICE), COUNT(I_CURRENT_PRICE)]
-                        est: (rows=1)
-                      TableScan
-                          table: PUBLIC.ITEM
-                          predicate: =(I_CATEGORY, $cor1.I_CATEGORY)
-                          fieldNames: [I_CURRENT_PRICE]
-                          est: (rows=5994)
+                            est: (rows=8100)
+          HashJoin
+              predicate: =(CA_ADDRESS_SK, C_CURRENT_ADDR_SK)
+              type: inner
+              est: (rows=100000)
+            Exchange
+                distribution: single
+                est: (rows=100000)
+              TableScan
+                  table: PUBLIC.CUSTOMER
+                  fieldNames: [C_CUSTOMER_SK, C_CURRENT_ADDR_SK]
+                  est: (rows=100000)
+            Exchange
+                distribution: single
+                est: (rows=50000)
+              TableScan
+                  table: PUBLIC.CUSTOMER_ADDRESS
+                  fieldNames: [CA_ADDRESS_SK, CA_STATE]
+                  est: (rows=50000)

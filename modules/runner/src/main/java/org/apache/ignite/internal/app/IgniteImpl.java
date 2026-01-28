@@ -90,6 +90,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
@@ -178,7 +179,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.JoinedNodes;
+import org.apache.ignite.internal.network.LogicalTopologyEventsListener;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -655,6 +656,8 @@ public class IgniteImpl implements Ignite {
                 raftConfiguration.fsync().value()
         );
 
+        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+
         metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
         msLogStorageFactory = SharedLogStorageFactoryUtils.create(
@@ -952,7 +955,7 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 longJvmPauseDetector,
                 failureManager,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 clock,
                 threadPoolsManager.commonScheduler()
         );
@@ -1069,7 +1072,7 @@ public class IgniteImpl implements Ignite {
                 storagePath.resolve(TX_STATE_DIR),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 failureManager
         );
 
@@ -1147,7 +1150,7 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration,
@@ -1261,7 +1264,8 @@ public class IgniteImpl implements Ignite {
                 ),
                 computeExecutor,
                 computeCfg,
-                eventLog
+                eventLog,
+                observableTimestampTracker
         );
 
         systemViewManager.register(computeComponent);
@@ -1348,16 +1352,16 @@ public class IgniteImpl implements Ignite {
         );
     }
 
-    private static LogicalTopologyEventListener logicalTopologyJoinedNodesListener(JoinedNodes joinedNodes) {
+    private static LogicalTopologyEventListener logicalTopologyJoinedNodesListener(LogicalTopologyEventsListener listener) {
         return new LogicalTopologyEventListener() {
             @Override
             public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-                joinedNodes.onJoined(joinedNode);
+                listener.onJoined(joinedNode, newTopology.version());
             }
 
             @Override
             public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-                joinedNodes.onLeft(leftNode);
+                listener.onLeft(leftNode, newTopology.version());
             }
         };
     }

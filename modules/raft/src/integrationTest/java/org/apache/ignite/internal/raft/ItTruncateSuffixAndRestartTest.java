@@ -423,9 +423,5 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
             return nullCompletedFuture();
         }
-
-        @Override
-        public void sync(){
-        }
     }
 }

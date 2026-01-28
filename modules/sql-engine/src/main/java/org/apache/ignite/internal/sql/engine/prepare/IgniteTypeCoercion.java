@@ -36,7 +36,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
@@ -625,15 +624,21 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
-    private static SqlNode castTo(SqlNode node, RelDataType type) {
-        SqlDataTypeSpec targetDataType;
-        if (type.getSqlTypeName() == SqlTypeName.UUID) {
-            targetDataType = new SqlDataTypeSpec(
-                    new SqlBasicTypeNameSpec(SqlTypeName.UUID, SqlParserPos.ZERO), null, type.isNullable(), SqlParserPos.ZERO
-            );
-        } else {
-            targetDataType = SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable());
+    /** Wraps the given expression in CAST iff it is not of the specified type and such implicit cast is allowed. */
+    public SqlNode addImplicitCastIfNeeded(SqlValidatorScope scope, SqlNode node, RelDataType requiredType) {
+        if (needToCast(scope, node, requiredType)) {
+            RelDataType fromType = validator.deriveType(scope, node);
+
+            if (typeFamiliesAreCompatible(factory, requiredType, fromType)) {
+                return castTo(node, requiredType);
+            }
         }
+
+        return node;
+    }
+
+    private static SqlNode castTo(SqlNode node, RelDataType type) {
+        SqlDataTypeSpec targetDataType = SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable());
 
         return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node, targetDataType);
     }

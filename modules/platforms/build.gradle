@@ -67,7 +67,9 @@ def docfx = tasks.register('docfx', Exec) {
     dependsOn restoreTool
     workingDir "$rootDir/modules/platforms/dotnet"
 
-    commandLine "dotnet", "docfx", "docs/docfx.json"
+    commandLine "dotnet", "docfx",
+            "docs/docfx.json",
+            "-m", "_appFooter=Ignite <b>${project.version}</b> | Copyright ${new Date().format("yyyy")} The Apache Software Foundation"
 }
 
 def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
@@ -79,6 +81,7 @@ def aggregateDotnetDocs = tasks.register('aggregateDotnetDocs', Copy) {
 
 def doxygenCppClient = tasks.register('doxygenCppClient', Exec) {
     workingDir "$projectDir/cpp"
+    environment("IGNITE_VERSION", "${project.version}")
 
     commandLine "doxygen"
 }

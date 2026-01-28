@@ -149,7 +149,7 @@ SELECT TIMESTAMP '100000-01-01 00:00:01.5'::VARCHAR
 query T
 SELECT '2008-01-01 00:00:01.999'::TIMESTAMP::VARCHAR
 ----
-2008-01-01 00:00:01.999
+2008-01-01 00:00:01.999000
 
 # Value must be trimmed without rounding.
 query T
@@ -162,6 +162,13 @@ query T
 SELECT '2008-01-01 00:00:01.9994'::TIMESTAMP(3)::VARCHAR
 ----
 2008-01-01 00:00:01.999
+
+# Value must be trimmed during string-to-ts conversion,
+# but then 0s should be inserted during ts-to-string conversion
+query T
+SELECT '2008-01-01 00:00:01.9994'::TIMESTAMP(6)::VARCHAR
+----
+2008-01-01 00:00:01.999000
 
 # Minimum allowed value.
 query T

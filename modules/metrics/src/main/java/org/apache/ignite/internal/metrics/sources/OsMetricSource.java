@@ -81,10 +81,16 @@ public class OsMetricSource implements MetricSource {
 
         metricSetBuilder.doubleGauge(
                 "CpuLoad",
-                "CPU load. The value is between 0.0 and 1.0, where 0.0 means no CPU load and 1.0 means "
+                "System CPU load. The value is between 0.0 and 1.0, where 0.0 means no CPU load and 1.0 means "
                         + "100% CPU load."
                         + "If the CPU load is not available, a negative value is returned.",
                 cpuLoadSupplier()
+        );
+
+        metricSetBuilder.intGauge(
+                "AvailableProcessors",
+                "Number of processors available to the Java virtual machine.",
+                operatingSystemMxBean::getAvailableProcessors
         );
 
         enabled = true;

@@ -58,23 +58,19 @@ class ConfigOverrideTest {
     }
 
     @Test
-    @ConfigOverrides({
-            @ConfigOverride(name = "foo", value = "bar"),
-            @ConfigOverride(name = "baz", value = "qux")
-    })
+    @ConfigOverride(name = "foo", value = "bar")
+    @ConfigOverride(name = "baz", value = "qux")
     @ConfigOverride(name = "foo", value = "value")
     void multipleOverridesOrder(TestInfo testInfo) {
         assertThat(containsOverrides(testInfo, 0), is(true));
         String config = "foo=nil";
         String config0 = applyOverridesToConfig(config, configOverrides(testInfo, 0));
-        assertThat(config0, is("foo=bar, baz : qux"));
+        assertThat(config0, is("foo=value, baz : qux"));
     }
 
     @ConfigOverride(name = "key", value = "value")
-    @ConfigOverrides({
-            @ConfigOverride(name = "foo", value = "bar"),
-            @ConfigOverride(name = "baz", value = "qux")
-    })
+    @ConfigOverride(name = "foo", value = "bar")
+    @ConfigOverride(name = "baz", value = "qux")
     static class ParentAnnotation {
     }
 

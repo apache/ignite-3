@@ -44,6 +44,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
+import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
@@ -152,7 +154,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 partitionMetaManager,
                 dataRegions,
                 ioRegistry,
-                () -> {},
+                new NoOpLogSyncer(),
                 executorService,
                 new CheckpointMetricSource("test"),
                 PAGE_SIZE
@@ -182,7 +184,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         pageStoreManager.start();
         pageMemory.start();
 
-        dataRegion = () -> pageMemory;
+        dataRegion = new TestDataRegion<>(pageMemory);
         dataRegions.add(dataRegion);
 
         checkpointManager.start();

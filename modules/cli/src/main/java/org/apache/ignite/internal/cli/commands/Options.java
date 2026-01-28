@@ -247,6 +247,12 @@ public enum Options {
         /** Unit nodes option description. */
         public static final String UNIT_NODES_OPTION_DESC = "Initial set of nodes where the unit will be deployed";
 
+        /** Unit recursive option long name. */
+        public static final String UNIT_RECURSIVE_OPTION = "--recursive";
+
+        /** Unit recursive option description. */
+        public static final String UNIT_RECURSIVE_OPTION_DESC = "Deploy directory recursively (creates a ZIP file and uses ZIP deployment)";
+
         public static final String CLUSTER_CONFIG_OPTION = "--config";
 
         public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration that "
@@ -342,5 +348,17 @@ public enum Options {
 
         public static final String RESET_DATA_NODES_ZONE_NAMES_OPTION_DESC = "Comma-separated list of zone names to reset data nodes for. "
                 + "If not specified, resets for all zones.";
+
+        /** Maximum column width option long name. */
+        public static final String MAX_COL_WIDTH_OPTION = "--max-col-width";
+
+        /** Maximum column width option description. */
+        public static final String MAX_COL_WIDTH_OPTION_DESC = "Maximum column width for table output (default: 50)";
+
+        /** No truncate option long name. */
+        public static final String NO_TRUNCATE_OPTION = "--no-truncate";
+
+        /** No truncate option description. */
+        public static final String NO_TRUNCATE_OPTION_DESC = "Disable column truncation, show full content";
     }
 }

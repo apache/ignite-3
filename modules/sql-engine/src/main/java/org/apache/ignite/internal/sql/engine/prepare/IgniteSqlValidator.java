@@ -1070,7 +1070,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             SqlSelect expandedQry = new SqlSelect(SqlParserPos.ZERO, null,
                     SqlNodeList.of(SqlIdentifier.star(SqlParserPos.ZERO)), src, null, null, null,
-                    null, null, null, null, null);
+                    null, null, null, null, null, null);
 
             return SqlValidatorUtil.addAlias(expandedQry, alias);
         } else {

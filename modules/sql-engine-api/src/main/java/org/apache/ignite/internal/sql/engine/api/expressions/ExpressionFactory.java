@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.api.expressions;
 
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.StructNativeType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Factory for creating and compiling expressions from string representations.
@@ -35,7 +37,8 @@ import org.apache.ignite.internal.type.StructNativeType;
  * <h2>Namespace and Column References</h2>
  *
  * <p>Expressions operate within namespaces that correspond to input data sources. For single-row predicates, an implicit "INPUT" namespace
- * is created, allowing both simple and qualified column references (e.g., {@code col_name} or {@code input.col_name}).
+ * is created, allowing both simple and qualified column references (e.g., {@code col_name} or {@code input.col_name}). A scalar on the
+ * other hand has no input, thus has no namespace to refer to within expression.
  *
  * <h2>Usage Pattern</h2>
  * <pre>{@code
@@ -99,6 +102,24 @@ public interface ExpressionFactory {
     IgnitePredicate predicate(
             String expression,
             StructNativeType inputRowType
+    ) throws ExpressionParsingException, ExpressionValidationException;
+
+    /**
+     * Returns scalar which evaluates to a single value.
+     *
+     * <p>This expression has no input and can return value of a simple type (not {@link StructNativeType}/{@link ColumnType#STRUCT});
+     *
+     * @param expression String representation of expression to create.
+     * @param resultType An expected type of value returned as result of evaluation.
+     * @return A scalar representing the provided expression.
+     * @throws ExpressionParsingException If the expression string is syntactically invalid.
+     * @throws ExpressionValidationException If the expression is syntactically correct but semantically invalid (e.g., type mismatches).
+     * @see ExpressionParsingException
+     * @see ExpressionValidationException
+     */
+    IgniteScalar scalar(
+            String expression,
+            NativeType resultType
     ) throws ExpressionParsingException, ExpressionValidationException;
 
     /** Returns builder to create {@link EvaluationContext context} which should be used with expressions returned by this factory. */
