@@ -20,8 +20,6 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
