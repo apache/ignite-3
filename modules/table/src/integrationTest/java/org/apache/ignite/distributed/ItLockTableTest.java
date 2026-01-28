@@ -151,7 +151,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     TransactionInflights transactionInflights,
                     LowWatermark lowWatermark
             ) {
-                VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
                 return new TxManagerImpl(
                         txConfiguration,
                         systemDistributedConfiguration,

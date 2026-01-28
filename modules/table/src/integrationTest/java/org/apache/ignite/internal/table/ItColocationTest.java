@@ -208,7 +208,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
-        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
         txManager = new TxManagerImpl(
                 txConfiguration,
                 systemDistributedConfiguration,

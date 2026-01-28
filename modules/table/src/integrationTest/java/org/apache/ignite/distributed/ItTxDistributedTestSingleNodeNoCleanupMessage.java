@@ -140,7 +140,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     TransactionInflights transactionInflights,
                     LowWatermark lowWatermark
             ) {
-                VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
                 return new TxManagerImpl(
                         txConfiguration,
                         systemDistributedConfiguration,
