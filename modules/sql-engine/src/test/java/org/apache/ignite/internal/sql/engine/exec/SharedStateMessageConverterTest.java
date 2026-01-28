@@ -30,7 +30,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.engine.message.SharedStateMessage;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -56,7 +55,7 @@ public class SharedStateMessageConverterTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        Loggers.forClass(SharedStateMessageConverterTest.class).info("Using seed: " + seed + "L; //");
+        System.out.println("Using seed: " + seed + "L;");
 
         rnd = new Random(seed);
     }
