@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
@@ -407,7 +408,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
-        indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService);
+        indexBuildingProcessor = new PartitionReplicaBuildIndexProcessor(busyLock, tableId, indexMetaStorage, catalogService, txManager);
 
         tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
@@ -1619,7 +1620,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             return failedFuture(new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
+                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txState)
             ));
         }
 
@@ -1698,7 +1699,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                 // Assume that all write intents for the same key belong to the same transaction, as the key should be exclusively locked.
                 // This means that we can just resolve the state of this transaction.
-                checkWriteIntentsBelongSameTx(writeIntents);
+                checkWriteIntentsBelongSameTx(writeIntents, txManager);
 
                 return inBusyLockAsync(busyLock, () ->
                         resolveWriteIntentReadability(writeIntent, ts)
@@ -1739,13 +1740,13 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      *
      * @param writeIntents Write intents.
      */
-    private static void checkWriteIntentsBelongSameTx(Collection<ReadResult> writeIntents) {
+    private static void checkWriteIntentsBelongSameTx(Collection<ReadResult> writeIntents, TxManager txManager) {
         ReadResult writeIntent = findAny(writeIntents).orElseThrow();
 
         for (ReadResult wi : writeIntents) {
             assert Objects.equals(wi.transactionId(), writeIntent.transactionId())
-                    : "Unexpected write intent, tx1=" + writeIntent.transactionId() + ", tx2=" + wi.transactionId();
-
+                    : format("Unexpected write intent, tx1={}, tx2={}",
+                    formatTxInfo(writeIntent.transactionId(), txManager), formatTxInfo(wi.transactionId(), txManager));
             assert Objects.equals(wi.commitZoneId(), writeIntent.commitZoneId())
                     : "Unexpected write intent, commitZoneId1=" + writeIntent.commitZoneId()
                     + ", commitZoneId2=" + wi.commitZoneId();
@@ -2497,7 +2498,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                 CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).handle((r, e) -> {
                     if (e != null) {
-                        throw new DelayedAckException(cmd.txId(), unwrapCause(e));
+                        throw new DelayedAckException(cmd.txId(), unwrapCause(e), txManager);
                     }
 
                     return cmd.txId();
@@ -2511,11 +2512,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                 if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(
-                            txId, 
-                            cmd.leaseStartTime(), 
+                            cmd.txId(),
+                            cmd.leaseStartTime(),
                             updateCommandResult.currentLeaseStartTime(),
-                            replicationGroupId
-                    );
+                            replicationGroupId);
                 }
 
                 if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
@@ -2641,7 +2641,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).handle((r, e) -> {
                 if (e != null) {
-                    throw new DelayedAckException(cmd.txId(), unwrapCause(e));
+                    throw new DelayedAckException(cmd.txId(), unwrapCause(e), txManager);
                 }
 
                 return cmd.txId();
@@ -3454,7 +3454,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     )
             )).whenComplete((unused, e) -> {
                 if (e != null && !ReplicatorRecoverableExceptions.isRecoverable(e)) {
-                    LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
+                    LOG.warn("Failed to complete transaction cleanup command {}", e,
+                            formatTxInfo(txId, txManager));
                 }
             });
         });
@@ -3491,7 +3492,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
                     }
 
-                    return canReadFromWriteIntent(txId, transactionMeta, timestamp);
+                    return canReadFromWriteIntent(txId, txManager, transactionMeta, timestamp);
                 });
     }
 
@@ -3504,9 +3505,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return {@code true} if we can read from entries created in this transaction (when the transaction was committed and commit time <=
      *         read time).
      */
-    private static Boolean canReadFromWriteIntent(UUID txId, TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
+    private static Boolean canReadFromWriteIntent(UUID txId, TxManager txManager,
+            TransactionMeta txMeta, @Nullable HybridTimestamp timestamp) {
         assert isFinalState(txMeta.txState()) || txMeta.txState() == PENDING || txMeta.txState() == UNKNOWN
-                : format("Unexpected state defined by write intent resolution [txId={}, txMeta={}].", txId, txMeta);
+                : format("Unexpected state defined by write intent resolution [{}, txMeta={}].",
+                formatTxInfo(txId, txManager, false), txMeta);
 
         if (txMeta.txState() == COMMITTED) {
             boolean readLatest = timestamp == null;

@@ -1656,7 +1656,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionDataStorage,
                 indexUpdateHandler,
                 replicationConfiguration,
-                modificationCounter
+                modificationCounter,
+                txManager
         );
         storageUpdateHandler.start(onNodeRecovery);
 
