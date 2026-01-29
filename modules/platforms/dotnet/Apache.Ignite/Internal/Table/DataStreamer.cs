@@ -295,7 +295,7 @@ internal static class DataStreamer
 
         async Task SendAndDisposeBufAsync(
             PooledArrayBuffer buf,
-            int partitionId,
+            long partitionId,
             Task oldTask,
             DataStreamerItem<T>[] items,
             int count,
@@ -449,7 +449,7 @@ internal static class DataStreamer
         buf.Advance(5); // Reserve count.
     }
 
-    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int deletedSetReserveSize)
+    private static void WriteBatchHeader(PooledArrayBuffer buf, long partitionId, Schema schema, int deletedSetReserveSize)
     {
         var w = buf.MessageWriter;
 
@@ -509,7 +509,7 @@ internal static class DataStreamer
 
     private static void ReWriteBatch<T>(
         PooledArrayBuffer buf,
-        int partitionId,
+        long partitionId,
         Schema schema,
         ReadOnlySpan<DataStreamerItem<T>> items,
         IRecordSerializerHandler<T> writer)
@@ -585,14 +585,14 @@ internal static class DataStreamer
 
     private sealed record Batch<T>
     {
-        public Batch(int capacity, Schema schema, int partitionId)
+        public Batch(int capacity, Schema schema, long partitionId)
         {
             PartitionId = partitionId;
             Items = GetPool<T>().Rent(capacity);
             Schema = schema;
         }
 
-        public int PartitionId { get; }
+        public long PartitionId { get; }
 
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
