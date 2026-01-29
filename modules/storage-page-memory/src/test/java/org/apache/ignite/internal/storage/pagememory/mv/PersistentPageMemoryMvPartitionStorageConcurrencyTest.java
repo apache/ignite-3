@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfigurationSchema.DEFAULT_PAGE_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -114,11 +115,13 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
      *
      * <p>Test builds a 3-level tree, and creates a race between aborting B and D write intents. WI are large, so they don't share the same
      * page.
-     *                B
-     *               / \
-     *             A   C
-     *           / \   | \
-     *          A  B   C  D
+     * <pre>
+     *              B
+     *             / \
+     *            A   C
+     *           / \ | \
+     *          A  B C  D
+     * </pre>
      */
     @Test
     void testAbortWriteIntentsListRace() throws IgniteInternalCheckedException {
@@ -135,10 +138,10 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
         VersionChainTree versionChainTree = ((PersistentPageMemoryMvPartitionStorage) storage).renewableState.versionChainTree();
 
         // Assert that the tree has 3 levels, first level is 0.
-        assertThat((versionChainTree.rootLevel()), is(2));
+        assertThat(versionChainTree.rootLevel(), is(2));
 
         // First index that will be in the inner node, "A" on the javadoc diagram.
-        int indexA = versionChainTree.getLeafMaxItemsCount() / 2;
+        int indexA = versionChainTree.latestLeafIo().getMaxCount(DEFAULT_PAGE_SIZE) / 2;
 
         BinaryRow largeRow = binaryRow(KEY, new TestValue(20, "A".repeat(10_000)));
 
