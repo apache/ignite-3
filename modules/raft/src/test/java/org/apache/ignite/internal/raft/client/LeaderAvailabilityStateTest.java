@@ -248,6 +248,26 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
     }
 
+    /**
+     * Negative terms are rejected with {@link IllegalArgumentException}.
+     */
+    @Test
+    void testNegativeTermRejected() {
+        LeaderAvailabilityState state = new LeaderAvailabilityState();
+        InternalClusterNode leaderNode = createNode("leader");
+
+        assertEquals(-1, state.currentTerm());
+
+        IllegalArgumentException thrown = assertThrows(
+                IllegalArgumentException.class,
+                () -> state.onLeaderElected(leaderNode, -1)
+        );
+
+        assertEquals("Term must be non-negative: -1", thrown.getMessage());
+        assertEquals(State.WAITING_FOR_LEADER, state.currentState());
+        assertEquals(-1, state.currentTerm());
+    }
+
     /** Concurrent leader elections with different terms. */
     @Test
     void testConcurrentLeaderElections() throws Exception {

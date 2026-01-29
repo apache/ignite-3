@@ -104,6 +104,10 @@ class LeaderAvailabilityState {
      * @param term The term of the new leader.
      */
     void onLeaderElected(InternalClusterNode leader, long term) {
+        if (term < 0) {
+            throw new IllegalArgumentException("Term must be non-negative: " + term);
+        }
+
         CompletableFuture<Long> futureToComplete = null;
 
         synchronized (mutex) {
