@@ -17,7 +17,6 @@
 
 package org.apache.ignite.raft;
 
-import static java.util.List.of;
 import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.aggressiveLowWatermarkIncreaseClusterConfig;
 import static org.apache.ignite.internal.TestMetricUtils.testMetricChangeAfterOperation;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -25,6 +24,7 @@ import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.RAFT_G
 import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.SOURCE_NAME;
 import static org.awaitility.Awaitility.await;
 
+import java.util.List;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
@@ -51,8 +51,8 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
         testMetricChangeAfterOperation(
                 CLUSTER,
                 SOURCE_NAME,
-                of(RAFT_GROUP_LEADERS),
-                of((long) DEFAULT_PARTITION_COUNT),
+                List.of(RAFT_GROUP_LEADERS),
+                List.of((long) DEFAULT_PARTITION_COUNT),
                 ItRaftMetricTest::createZoneAndTable
         );
     }
@@ -64,8 +64,8 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
         testMetricChangeAfterOperation(
                 CLUSTER,
                 SOURCE_NAME,
-                of(RAFT_GROUP_LEADERS),
-                of((long) -DEFAULT_PARTITION_COUNT),
+                List.of(RAFT_GROUP_LEADERS),
+                List.of((long) -DEFAULT_PARTITION_COUNT),
                 () -> {
                     int initialNodes = getRaftNodesCount();
 
