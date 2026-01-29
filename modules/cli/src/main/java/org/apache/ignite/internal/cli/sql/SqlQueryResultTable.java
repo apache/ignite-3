@@ -35,6 +35,14 @@ class SqlQueryResultTable implements SqlQueryResultItem {
 
     @Override
     public TerminalOutput decorate(boolean plain, TruncationConfig truncationConfig) {
-        return new TableDecorator(plain, truncationConfig).decorate(table);
+        TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(table);
+
+        if (table.hasMoreRows()) {
+            int rowCount = table.getRowCount();
+            String rowWord = rowCount == 1 ? "row" : "rows";
+            return () -> tableOutput.toTerminalString()
+                    + "... (showing first " + rowCount + " " + rowWord + ", more available)\n";
+        }
+        return tableOutput;
     }
 }

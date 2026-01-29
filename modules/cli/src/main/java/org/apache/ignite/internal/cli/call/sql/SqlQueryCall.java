@@ -32,20 +32,33 @@ public class SqlQueryCall implements Call<StringCallInput, SqlQueryResult> {
 
     private final SqlManager sqlManager;
 
+    private final int resultLimit;
+
     /**
      * Constructor.
      *
      * @param sqlManager SQL manager.
      */
     public SqlQueryCall(SqlManager sqlManager) {
+        this(sqlManager, 0);
+    }
+
+    /**
+     * Constructor with result limit.
+     *
+     * @param sqlManager SQL manager.
+     * @param resultLimit maximum number of rows to return (0 = unlimited).
+     */
+    public SqlQueryCall(SqlManager sqlManager, int resultLimit) {
         this.sqlManager = sqlManager;
+        this.resultLimit = resultLimit;
     }
 
     /** {@inheritDoc} */
     @Override
     public CallOutput<SqlQueryResult> execute(StringCallInput input) {
         try {
-            SqlQueryResult result = sqlManager.execute(trimQuotes(input.getString()));
+            SqlQueryResult result = sqlManager.execute(trimQuotes(input.getString()), resultLimit);
             return DefaultCallOutput.success(result);
         } catch (SQLException e) {
             return DefaultCallOutput.failure(e);

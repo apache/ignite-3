@@ -26,11 +26,14 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNC
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RESULT_LIMIT_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RESULT_LIMIT_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.treesitter.parser.Parser.isTreeSitterParserAvailable;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.Constants.DEFAULT_SQL_RESULT_LIMIT;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
@@ -65,8 +68,10 @@ import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.decorators.TruncationConfig;
+import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -91,6 +96,8 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlExecReplCommand extends BaseCommand implements Runnable {
+    private static final IgniteLogger LOG = CliLoggers.forClass(SqlExecReplCommand.class);
+
     @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
@@ -105,6 +112,9 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
     @Option(names = NO_TRUNCATE_OPTION, description = NO_TRUNCATE_OPTION_DESC)
     private boolean noTruncate;
+
+    @Option(names = RESULT_LIMIT_OPTION, description = RESULT_LIMIT_OPTION_DESC)
+    private Integer resultLimit;
 
     @ArgGroup
     private ExecOptions execOptions;
@@ -243,10 +253,12 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                 plain
         );
 
+        int limit = getResultLimit();
+
         // Use CommandLineContextProvider to get the current REPL's output writer,
         // not the outer command's writer. This ensures SQL output goes through
         // the nested REPL's output capture for proper pager support.
-        return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
+        return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager, limit))
                 .inputProvider(() -> new StringCallInput(line))
                 .output(CommandLineContextProvider.getContext().out())
                 .errOutput(CommandLineContextProvider.getContext().err())
@@ -254,6 +266,22 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                 .verbose(verbose)
                 .exceptionHandler(SqlExceptionHandler.INSTANCE)
                 .build();
+    }
+
+    private int getResultLimit() {
+        if (resultLimit != null) {
+            return resultLimit;
+        }
+        String configValue = configManagerProvider.get().getCurrentProperty(CliConfigKeys.SQL_RESULT_LIMIT.value());
+        if (configValue != null && !configValue.isEmpty()) {
+            try {
+                return Integer.parseInt(configValue);
+            } catch (NumberFormatException e) {
+                LOG.warn("Invalid SQL result limit in config '{}', using default: {}",
+                        configValue, DEFAULT_SQL_RESULT_LIMIT);
+            }
+        }
+        return DEFAULT_SQL_RESULT_LIMIT;
     }
 
     private CallExecutionPipeline<?, ?> createInternalCommandPipeline(RegistryCommandExecutor call,
