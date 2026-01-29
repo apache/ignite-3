@@ -72,7 +72,6 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * <h3>Abstract B+Tree</h3>
@@ -1693,32 +1692,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
 
         return treePrinter.print(rootPageId);
-    }
-
-    /** Returns max items in leaf pages for test purposes. Not safe against concurrent modifications. */
-    @TestOnly
-    public final int getLeafMaxItemsCount() throws IgniteInternalCheckedException {
-        long metaPage = acquirePage(metaPageId);
-
-        long leafPageId;
-        try {
-            leafPageId = getFirstPageId(metaPageId, metaPage, 0); // Level 0 is always at the bottom.
-        } finally {
-            releasePage(metaPageId, metaPage);
-        }
-
-        long leafPage = acquirePage(leafPageId);
-        try {
-            long leafPageAddr = readLock(leafPageId, leafPage);
-
-            try {
-                return latestLeafIo().getMaxCount(pageSize());
-            } finally {
-                readUnlock(leafPageId, leafPage, leafPageAddr);
-            }
-        } finally {
-            releasePage(leafPageId, leafPage);
-        }
     }
 
     /**

@@ -119,7 +119,7 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
      *              B
      *             / \
      *            A   C
-     *           / \ | \
+     *           / \ / \
      *          A  B C  D
      * </pre>
      */
