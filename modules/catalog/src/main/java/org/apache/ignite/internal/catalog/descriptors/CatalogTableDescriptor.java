@@ -190,6 +190,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     /**
      * Returns a list primary key column names.
      */
+    @Deprecated
     public List<String> primaryKeyColumnNames() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26840
         return resolveColumnNames(this, primaryKeyColumns);
@@ -198,9 +199,24 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     /**
      * Returns a list colocation key column names.
      */
+    @Deprecated
     public List<String> colocationColumnNames() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26840
         return resolveColumnNames(this, colocationColumns);
+    }
+
+    /**
+     * Returns a list of primary key column IDs.
+     */
+    public IntList primaryKeyColumns() {
+        return primaryKeyColumns;
+    }
+
+    /**
+     * Returns a list of colocation key column IDs.
+     */
+    public IntList colocationColumns() {
+        return colocationColumns;
     }
 
     /** {@inheritDoc} */

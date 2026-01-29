@@ -78,7 +78,7 @@ class CatalogTableDescriptorTest {
                 .build();
 
         assertSoftly(assertions -> {
-            assertions.assertThat(descriptor.colocationColumnNames()).containsExactly("pkCol");
+            assertions.assertThat(descriptor.colocationColumns().intStream()).containsExactly(0);
             assertions.assertThat(descriptor.updateTimestamp()).isEqualTo(INITIAL_TIMESTAMP);
             assertions.assertThat(descriptor.isPrimaryKeyColumn("pkCol")).isTrue();
             assertions.assertThat(descriptor.latestSchemaVersion()).isEqualTo(CatalogTableDescriptor.INITIAL_TABLE_VERSION);
@@ -92,7 +92,7 @@ class CatalogTableDescriptorTest {
                 .build();
 
         assertSoftly(assertions -> {
-            assertions.assertThat(descriptor.colocationColumnNames()).containsExactly("pkCol");
+            assertions.assertThat(descriptor.colocationColumns().intStream()).containsExactly(0);
             assertions.assertThat(descriptorV2.updateTimestamp()).isEqualTo(HybridTimestamp.MAX_VALUE);
             assertions.assertThat(descriptorV2.isPrimaryKeyColumn("pkCol")).isTrue();
             assertions.assertThat(descriptorV2.latestSchemaVersion()).isEqualTo(2);

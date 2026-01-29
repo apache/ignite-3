@@ -61,7 +61,7 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
 
     /** {@inheritDoc} */
     @Override
-    public int getMaxCount(long pageAddr, int pageSize) {
+    public int getMaxCount(int pageSize) {
         return (pageSize - SHIFT_LEFT - PARTITIONLESS_LINK_SIZE_BYTES) / (getItemSize() + PARTITIONLESS_LINK_SIZE_BYTES);
     }
 

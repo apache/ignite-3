@@ -1,15 +1,15 @@
-import pygridgain_dbapi
-from pygridgain_dbapi import DatabaseError
+import pyignite3_dbapi
+from pyignite3_dbapi import DatabaseError
 
 def create_simple_connection():
-  """Create a basic connection to GridGain cluster."""
+  """Create a basic connection to Ignite cluster."""
   addr = ['127.0.0.1:10800']
-  return pygridgain_dbapi.connect(address=addr, timeout=10)
+  return pyignite3_dbapi.connect(address=addr, timeout=10)
 
 def create_ssl_connection():
-  """Create SSL-enabled connection to GridGain cluster."""
+  """Create SSL-enabled connection to Ignite cluster."""
   addr = ['127.0.0.1:10800']
-  return pygridgain_dbapi.connect(
+  return pyignite3_dbapi.connect(
       address=addr,
       timeout=10,
       use_ssl=True,
@@ -19,9 +19,9 @@ def create_ssl_connection():
   )
 
 def create_authenticated_connection():
-  """Create authenticated connection to GridGain cluster."""
+  """Create authenticated connection to Ignite cluster."""
   addr = ['127.0.0.1:10800']
-  return pygridgain_dbapi.connect(
+  return pyignite3_dbapi.connect(
       address=addr,
       timeout=10,
       identity='user',
@@ -127,8 +127,8 @@ def connection_examples():
   print("2. SSL and authenticated connections available via helper functions")
 
 def main():
-  """Main function demonstrating GridGain DB API usage."""
-  print("GridGain DB API Example")
+  """Main function demonstrating Ignite DB API usage."""
+  print("Ignite DB API Example")
   print("=" * 30)
 
   try:

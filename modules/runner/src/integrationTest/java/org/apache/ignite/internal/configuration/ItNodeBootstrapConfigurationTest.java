@@ -123,6 +123,7 @@ public class ItNodeBootstrapConfigurationTest {
                 + "    nodeFinder {\n"
                 + "      netClusterNodes: [ \"localhost:3344\" ]\n"
                 + "      type: STATIC\n"
+                + "      nameResolutionAttempts: 10\n"
                 + "    }\n"
                 + "  }\n"
                 + "}";

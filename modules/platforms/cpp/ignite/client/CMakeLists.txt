@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite3-client)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ${PROJECT_NAME}-client)
 
 set(SOURCES
     cancel_handle.cpp
@@ -125,6 +123,7 @@ add_library(ignite::client-static ALIAS ${TARGET}-static)
 
 install(TARGETS ${TARGET}
     EXPORT ignite-client-targets
+    COMPONENT client
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -145,7 +144,7 @@ install(
     FILE "ignite-client-targets.cmake"
 )
 
-ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
+ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client COMPONENT client)
 
 ignite_test(utils_test DISCOVER SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(name_utils_test DISCOVER SOURCES detail/table/name_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
