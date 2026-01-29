@@ -111,14 +111,14 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
      * During replace of the value found both in inner and leaf nodes of VersionChain tree, we tried to remove WI from the WI list twice.
      * If neighboring WI in the WI double-linked list was invalidated between these removals, we would get an exception trying to access it
      * to change its links.
-     * <p>
-     * Test builds a 3-level tree, and creates a race between aborting B and D write intents. WI are large, so they don't share the same
+     *
+     * <p>Test builds a 3-level tree, and creates a race between aborting B and D write intents. WI are large, so they don't share the same
      * page.
-     * <p>           C
-     * <p>          /  \
-     * <p>        B     D
-     * <p>       / \    | \
-     * <p>      A   B   C  D
+     *                C
+     *               / \
+     *             B   D
+     *           / \   | \
+     *          A  B   C  D
      */
     @Test
     void testAbortWriteIntentsListRace() throws IgniteInternalCheckedException {
@@ -136,16 +136,16 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
         assertThat((((PersistentPageMemoryMvPartitionStorage) storage).renewableState.versionChainTree().rootLevel()), is(2));
 
         // First index that will be in the inner node, "B" on the javadoc diagram. Value was found experimentally.
-        int bIndex = 163;
+        int indexB = 163;
 
         BinaryRow largeRow = binaryRow(KEY, new TestValue(20, "A".repeat(10_000)));
 
         for (int i = 0; i < 1000; i++) {
-            addWrite(rowIds[bIndex], largeRow, txId);
+            addWrite(rowIds[indexB], largeRow, txId);
             addWrite(rowIds[rowsCount - 1], largeRow, txId);
 
             runRace(
-                    () -> abortWrite(rowIds[bIndex], txId),
+                    () -> abortWrite(rowIds[indexB], txId),
                     () -> abortWrite(rowIds[rowsCount - 1], txId)
             );
         }
