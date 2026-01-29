@@ -724,7 +724,7 @@ public class ClientInboundMessageHandler
                         err, connectionId, requestId, socketAddress);
             } else {
                 // Do not include requestId into a throttling key as independent client requests may result in the same error.
-                String key = format("{}{}", connectionId, opCode);
+                String key = String.valueOf(connectionId) + ':' + String.valueOf(opCode);
 
                 throttledLogger.warn(key, "Error processing client operation [connectionId={}, id={}, op={}, remoteAddress={}]", 
                         err, connectionId, requestId, opCode, socketAddress);
