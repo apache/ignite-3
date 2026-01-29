@@ -20,11 +20,13 @@ package org.apache.ignite.internal.network;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 
 class DefaultMessagingServiceMetrics {
-    private final AtomicLongMetric sendFailures;
+    private final AtomicLongMetric messageSendFailures;
 
-    private final AtomicLongMetric respondFailures;
+    private final AtomicLongMetric messageRecipientNotFound;
 
-    private final AtomicLongMetric invokeFailures;
+    private final AtomicLongMetric invokeRequestFailures;
+
+    private final AtomicLongMetric invokeResponseFailures;
 
     private final AtomicLongMetric messageSerializationFailures;
 
@@ -32,26 +34,29 @@ class DefaultMessagingServiceMetrics {
 
     private final AtomicLongMetric connectionFailures;
 
-    private final AtomicLongMetric requestProcessingFailures;
+    private final AtomicLongMetric invokeTimeouts;
 
-    private final AtomicLongMetric invocationTimeouts;
-
-    private final AtomicLongMetric slowRequests;
+    private final AtomicLongMetric slowResponses;
 
     DefaultMessagingServiceMetrics(DefaultMessagingServiceMetricSource source) {
-        sendFailures = source.addMetric(new AtomicLongMetric(
-                "sendFailures",
-                "Total number of failed message sends."
+        messageSendFailures = source.addMetric(new AtomicLongMetric(
+                "messageSendFailures",
+                "Total number of failed outgoing messages."
         ));
 
-        respondFailures = source.addMetric(new AtomicLongMetric(
-                "respondFailures",
-                "Total number of failed responses."
+        messageRecipientNotFound = source.addMetric(new AtomicLongMetric(
+                "messageRecipientNotFound",
+                "Total number of message recipient resolution failures."
         ));
 
-        invokeFailures = source.addMetric(new AtomicLongMetric(
-                "invokeFailures",
-                "Total number of failed invokes."
+        invokeRequestFailures = source.addMetric(new AtomicLongMetric(
+                "invokeRequestFailures",
+                "Total number of failed outgoing request invocations."
+        ));
+
+        invokeResponseFailures = source.addMetric(new AtomicLongMetric(
+                "invokeResponseFailures",
+                "Total number of failed outgoing responses to invoked requests."
         ));
 
         messageSerializationFailures = source.addMetric(new AtomicLongMetric(
@@ -69,32 +74,31 @@ class DefaultMessagingServiceMetrics {
                 "Total number of failed connection attempts."
         ));
 
-        requestProcessingFailures = source.addMetric(new AtomicLongMetric(
-                "requestProcessingFailures",
-                "Total number of failed request processing attempts."
-        ));
-
-        invocationTimeouts = source.addMetric(new AtomicLongMetric(
-                "invocationTimeouts",
+        invokeTimeouts = source.addMetric(new AtomicLongMetric(
+                "invokeTimeouts",
                 "Total number of invocation timeouts."
         ));
 
-        slowRequests = source.addMetric(new AtomicLongMetric(
-                "slowRequests",
-                "Total number of requests that took long to process (> 100ms)."
+        slowResponses = source.addMetric(new AtomicLongMetric(
+                "slowResponses",
+                "Total number of responses that took long to generate (> 100ms)."
         ));
     }
 
-    void incrementSendFailures() {
-        sendFailures.increment();
+    void incrementMessageSendFailures() {
+        messageSendFailures.increment();
     }
 
-    void incrementRespondFailures() {
-        respondFailures.increment();
+    void incrementMessageRecipientNotFound() {
+        messageRecipientNotFound.increment();
     }
 
-    void incrementInvokeFailures() {
-        invokeFailures.increment();
+    void incrementInvokeRequestFailures() {
+        invokeRequestFailures.increment();
+    }
+
+    void  incrementInvokeResponseFailures() {
+        invokeResponseFailures.increment();
     }
 
     void incrementMessageSerializationFailures() {
@@ -109,15 +113,11 @@ class DefaultMessagingServiceMetrics {
         connectionFailures.increment();
     }
 
-    void incrementRequestProcessingFailures() {
-        requestProcessingFailures.increment();
+    void incrementInvokeTimeouts() {
+        invokeTimeouts.increment();
     }
 
-    void incrementInvocationTimeouts() {
-        invocationTimeouts.increment();
-    }
-
-    void incrementSlowRequestsHandledCount() {
-        slowRequests.increment();
+    void incrementSlowResponses() {
+        slowResponses.increment();
     }
 }

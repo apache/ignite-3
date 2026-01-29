@@ -230,7 +230,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
-            metrics.incrementSendFailures();
+            metrics.incrementMessageSendFailures();
 
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
@@ -262,7 +262,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
-            metrics.incrementRespondFailures();
+            metrics.incrementMessageRecipientNotFound();
 
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
@@ -283,7 +283,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
-            metrics.incrementInvokeFailures();
+            metrics.incrementInvokeRequestFailures();
 
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
@@ -311,7 +311,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (connectionManager.isStopped()) {
-            metrics.incrementSendFailures();
+            metrics.incrementMessageSendFailures();
 
             return failedFuture(new NodeStoppingException());
         }
@@ -362,7 +362,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (connectionManager.isStopped()) {
-            metrics.incrementInvokeFailures();
+            metrics.incrementInvokeRequestFailures();
 
             return failedFuture(new NodeStoppingException());
         }
@@ -429,7 +429,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 .thenComposeToCompletable(sender -> {
                     if (strictIdCheck && nodeId != null && !sender.launchId().equals(nodeId)) {
                         // The destination node has been rebooted, so it's a different node instance.
-                        metrics.incrementSendFailures();
+                        metrics.incrementMessageSendFailures();
 
                         throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
                     }
@@ -441,7 +441,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        metrics.incrementSendFailures();
+                        metrics.incrementMessageSendFailures();
                     }
 
                     handleHandshakeError(ex, nodeId, type, addr);
@@ -544,21 +544,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
-            long startedNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
+            long startedNanos = System.nanoTime();
 
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
-                metrics.incrementRequestProcessingFailures();
+                metrics.incrementInvokeResponseFailures();
 
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
-                if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
-                    long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-                    if (tookMillis > 100) {
-                        metrics.incrementSlowRequestsHandledCount();
+                if (tookMillis > 100) {
+                    metrics.incrementSlowResponses();
 
+                    if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
                         LOG.warn(
                                 "Processing of {} from {} took {} ms",
                                 LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
@@ -703,7 +703,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             var fut = responseFuture.future();
 
             if (fut.isCompletedExceptionally()) {
-                metrics.incrementInvocationTimeouts();
+                metrics.incrementInvokeTimeouts();
             } else {
                 fut.complete(response);
             }
