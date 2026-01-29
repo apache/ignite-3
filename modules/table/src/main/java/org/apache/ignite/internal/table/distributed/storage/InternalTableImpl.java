@@ -128,9 +128,7 @@ import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.internal.tx.TransactionLogUtils;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -1811,7 +1809,15 @@ public class InternalTableImpl implements InternalTable {
             }
         };
     }
-    // TODO add doc
+
+    /**
+     * Updates transaction meta with the label and commit partition, if a label is present.
+     *
+     * <p>This is used for tracking labeled transactions in the meta storage; unlabeled transactions are ignored.
+     *
+     * @param txContext Transaction context.
+     * @param commitPartition Commit partition to record (may be {@code null}).
+     */
     private void updateLabel(TxContext txContext, @Nullable ZonePartitionId commitPartition) {
         String label = txContext.label();
         if (label != null) {
