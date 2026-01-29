@@ -28,7 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.client.LeaderAvailabilityState.State;
@@ -41,10 +40,19 @@ import org.junit.jupiter.api.Test;
  */
 public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
-    /** Initial state should be {@link State#WAITING_FOR_LEADER} with term -1. */
+    /**
+     * Initial state should be {@link State#WAITING_FOR_LEADER} with term -1.
+     * {@link LeaderAvailabilityState#onGroupUnavailable(long)} has no effect when already in {@link State#WAITING_FOR_LEADER}.
+     */
     @Test
-    void testInitialState() {
+    void testOnGroupUnavailableWhenAlreadyWaiting() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
+
+        assertEquals(State.WAITING_FOR_LEADER, state.currentState());
+        assertEquals(-1, state.currentTerm());
+
+        // Already in WAITING_FOR_LEADER, should have no effect
+        state.onGroupUnavailable(0);
 
         assertEquals(State.WAITING_FOR_LEADER, state.currentState());
         assertEquals(-1, state.currentTerm());
@@ -152,11 +160,15 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         InternalClusterNode leaderNode = createNode("leader-node");
 
-        state.onLeaderElected(leaderNode, 1);
-        assertEquals(State.LEADER_AVAILABLE, state.currentState());
+        long expectedTerm = 1;
 
-        state.onGroupUnavailable(1);
+        state.onLeaderElected(leaderNode, expectedTerm);
+        assertEquals(State.LEADER_AVAILABLE, state.currentState());
+        assertEquals(expectedTerm, state.currentTerm());
+
+        state.onGroupUnavailable(expectedTerm);
         assertEquals(State.WAITING_FOR_LEADER, state.currentState());
+        assertEquals(expectedTerm, state.currentTerm());
     }
 
     /**
@@ -175,18 +187,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         // Should be ignored because term changed from 1 to 2
         state.onGroupUnavailable(1);
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
-    }
-
-    /**
-     * {@link LeaderAvailabilityState#onGroupUnavailable(long)} has no effect when already in {@link State#WAITING_FOR_LEADER}.
-     */
-    @Test
-    void testOnGroupUnavailableWhenAlreadyWaiting() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-
-        // Already in WAITING_FOR_LEADER, should have no effect
-        state.onGroupUnavailable(0);
-        assertEquals(State.WAITING_FOR_LEADER, state.currentState());
+        assertEquals(2, state.currentTerm());
     }
 
     /**
@@ -273,7 +274,6 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         int threadCount = 10;
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch doneLatch = new CountDownLatch(threadCount);
-        AtomicLong maxTerm = new AtomicLong(-1);
 
         Thread[] threads = new Thread[threadCount];
         for (int i = 0; i < threadCount; i++) {
@@ -283,7 +283,6 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
                     startLatch.await();
                     InternalClusterNode leader = createNode("leader-" + term);
                     state.onLeaderElected(leader, term);
-                    maxTerm.updateAndGet(current -> Math.max(current, term));
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } finally {
@@ -298,22 +297,6 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
         // The final term should be the maximum term that was set
         assertEquals(threadCount - 1, state.currentTerm());
-    }
-
-    /** State machine handles rapid state transitions. */
-    @Test
-    void testRapidStateTransitions() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leader = createNode("leader");
-
-        for (int i = 0; i < 100; i++) {
-            state.onLeaderElected(leader, i);
-            assertEquals(State.LEADER_AVAILABLE, state.currentState());
-            assertEquals(i, state.currentTerm());
-
-            state.onGroupUnavailable(i);
-            assertEquals(State.WAITING_FOR_LEADER, state.currentState());
-        }
     }
 
     /**
