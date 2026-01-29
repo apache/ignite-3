@@ -18,25 +18,13 @@
 #pragma once
 
 #include "ignite/client/ignite_logger.h"
+#include "socket_adapter/socket_adapter.h"
 
 #include <atomic>
 #include <cstddef>
 #include <ignite/common/ignite_error.h>
 #include <ignite/protocol/utils.h>
 
-#ifdef _WIN32
-#include "socket_adapter/win/server_socket_adapter.h"
-#include "socket_adapter/win/client_socket_adapter.h"
-
-#define LAST_SOCKET_ERROR() WSAGetLastError()
-#else
-#include "socket_adapter/posix/server_socket_adapter.h"
-#include "socket_adapter/posix/client_socket_adapter.h"
-#include <cerrno>
-#include <cstring>
-
-#define LAST_SOCKET_ERROR() strerror(errno)
-#endif
 
 
 namespace ignite {
