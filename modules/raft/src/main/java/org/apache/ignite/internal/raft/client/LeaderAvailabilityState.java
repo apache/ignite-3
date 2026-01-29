@@ -46,6 +46,9 @@ class LeaderAvailabilityState {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaderAvailabilityState.class);
 
+    /** Synchronization mutex. */
+    private final Object mutex = new Object();
+
     /** Possible states of leader availability. */
     enum State {
         /** No leader is known, waiting for leader election. */
@@ -54,19 +57,19 @@ class LeaderAvailabilityState {
         LEADER_AVAILABLE
     }
 
-    /** Current state. Guarded by {@code this}. */
+    /** Current state. Guarded by {@code mutex}. */
     private State currentState = State.WAITING_FOR_LEADER;
 
-    /** Current leader term. Initialized to -1 to accept term 0 as the first valid term. Guarded by {@code this}. */
+    /** Current leader term. Initialized to -1 to accept term 0 as the first valid term. Guarded by {@code mutex}. */
     private long currentTerm = -1;
 
-    /** Future that waiters block on. Guarded by {@code this}. */
+    /** Future that waiters block on. Guarded by {@code mutex}. */
     private CompletableFuture<Long> waiters = new CompletableFuture<>();
 
-    /** Whether the state machine has been stopped. Guarded by {@code this}. */
+    /** Whether the state machine has been stopped. Guarded by {@code mutex}. */
     private boolean stopped = false;
 
-    /** Exception used to fail futures after destruction. Guarded by {@code this}. */
+    /** Exception used to fail futures after destruction. Guarded by {@code mutex}. */
     private Throwable stopException;
 
     /**
@@ -78,14 +81,16 @@ class LeaderAvailabilityState {
      *
      * @return Future that completes with the leader term when a leader is available.
      */
-    synchronized CompletableFuture<Long> awaitLeader() {
-        if (stopped) {
-            return CompletableFuture.failedFuture(stopException);
+    CompletableFuture<Long> awaitLeader() {
+        synchronized (mutex) {
+            if (stopped) {
+                return CompletableFuture.failedFuture(stopException);
+            }
+            if (currentState == State.LEADER_AVAILABLE) {
+                return CompletableFuture.completedFuture(currentTerm);
+            }
+            return waiters;
         }
-        if (currentState == State.LEADER_AVAILABLE) {
-            return CompletableFuture.completedFuture(currentTerm);
-        }
-        return waiters;
     }
 
     /**
@@ -101,7 +106,7 @@ class LeaderAvailabilityState {
     void onLeaderElected(InternalClusterNode leader, long term) {
         CompletableFuture<Long> futureToComplete = null;
 
-        synchronized (this) {
+        synchronized (mutex) {
             if (stopped) {
                 LOG.debug("Ignoring leader election after stop [leader={}, term={}]", leader, term);
                 return;
@@ -143,20 +148,22 @@ class LeaderAvailabilityState {
      *
      * @param termWhenDetected The term at which unavailability was detected.
      */
-    synchronized void onGroupUnavailable(long termWhenDetected) {
-        if (stopped) {
-            return;
-        }
+    void onGroupUnavailable(long termWhenDetected) {
+        synchronized (mutex) {
+            if (stopped) {
+                return;
+            }
 
-        // Only transition if we're still at the same term (no new leader elected in the meantime).
-        if (currentTerm == termWhenDetected && currentState == State.LEADER_AVAILABLE) {
-            State previousState = currentState;
+            // Only transition if we're still at the same term (no new leader elected in the meantime).
+            if (currentTerm == termWhenDetected && currentState == State.LEADER_AVAILABLE) {
+                State previousState = currentState;
 
-            currentState = State.WAITING_FOR_LEADER;
-            waiters = new CompletableFuture<>();
+                currentState = State.WAITING_FOR_LEADER;
+                waiters = new CompletableFuture<>();
 
-            LOG.debug("Group unavailable [term={}, stateChange={}->{}]",
-                    termWhenDetected, previousState, currentState);
+                LOG.debug("Group unavailable [term={}, stateChange={}->{}]",
+                        termWhenDetected, previousState, currentState);
+            }
         }
     }
 
@@ -165,8 +172,10 @@ class LeaderAvailabilityState {
      *
      * @return Current leader term (-1 if no leader has been elected yet).
      */
-    synchronized long currentTerm() {
-        return currentTerm;
+    long currentTerm() {
+        synchronized (mutex) {
+            return currentTerm;
+        }
     }
 
     /**
@@ -174,8 +183,10 @@ class LeaderAvailabilityState {
      *
      * @return Current state.
      */
-    synchronized State currentState() {
-        return currentState;
+    State currentState() {
+        synchronized (mutex) {
+            return currentState;
+        }
     }
 
     /**
@@ -183,8 +194,10 @@ class LeaderAvailabilityState {
      *
      * @return True if stopped.
      */
-    synchronized boolean stopped() {
-        return stopped;
+    boolean stopped() {
+        synchronized (mutex) {
+            return stopped;
+        }
     }
 
     /**
@@ -204,7 +217,7 @@ class LeaderAvailabilityState {
     void stop(Throwable exception) {
         CompletableFuture<Long> futureToCancel;
 
-        synchronized (this) {
+        synchronized (mutex) {
             if (stopped) {
                 return;
             }
