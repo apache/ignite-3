@@ -176,7 +176,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public int getMaxCount(long buf, int pageSize) {
+        public int getMaxCount(int pageSize) {
             return 2;
         }
 
@@ -215,7 +215,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public int getMaxCount(long pageAddr, int pageSize) {
+        public int getMaxCount(int pageSize) {
             return 2;
         }
 

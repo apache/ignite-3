@@ -80,7 +80,7 @@ import org.jetbrains.annotations.Nullable;
  * There are two types of pages/nodes: {@link BplusInnerIo} and {@link BplusLeafIo}.
  *
  * <p>Every page in the tree contains a list of <i>items</i>. Item is just a fixed-size binary payload. Inner nodes and leaves may have
- * different item sizes. There's a limit on how many items each page can hold. It is defined by a {@link BplusIo#getMaxCount(long, int)}
+ * different item sizes. There's a limit on how many items each page can hold. It is defined by a {@link BplusIo#getMaxCount(int)}
  * method of the corresponding IO. There should be no empty pages in trees, so:
  * <ul>
  *     <li>a leaf page must have from {@code 1} to {@code max} items</li>
@@ -616,7 +616,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             // We may need to replace inner key or want to merge this leaf with sibling after the remove -> keep lock.
             if (needReplaceInner
                     // We need to make sure that we have back or forward to be able to merge.
-                    || ((r.fwdId != 0 || r.backId != 0) && mayMerge(cnt - 1, io.getMaxCount(leafAddr, pageSize())))) {
+                    || ((r.fwdId != 0 || r.backId != 0) && mayMerge(cnt - 1, io.getMaxCount(pageSize())))) {
                 // If we have backId then we've already locked back page, nothing to do here.
                 if (r.fwdId != 0 && r.backId == 0) {
                     Result res = r.lockForward(0);
@@ -3957,7 +3957,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @throws IgniteInternalCheckedException If failed.
          */
         private @Nullable L insert(long pageId, long pageAddr, BplusIo<L> io, int idx, int lvl) throws IgniteInternalCheckedException {
-            int maxCnt = io.getMaxCount(pageAddr, pageSize());
+            int maxCnt = io.getMaxCount(pageSize());
             int cnt = io.getCount(pageAddr);
 
             if (cnt == maxCnt) {
@@ -4983,7 +4983,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         // Exit: we are done.
                     }
 
-                    if (tail.sibling != null && tail.getCount() + tail.sibling.getCount() < tail.io.getMaxCount(tail.buf, pageSize())) {
+                    if (tail.sibling != null && tail.getCount() + tail.sibling.getCount() < tail.io.getMaxCount(pageSize())) {
                         // Release everything lower than tail, we've already merged this path.
                         doReleaseTail(tail.down);
                         tail.down = null;
