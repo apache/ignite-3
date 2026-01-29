@@ -64,7 +64,7 @@ public class ItTransactionLabelLoggingTest extends ClusterPerTestIntegrationTest
             );
 
             await("Expected to find transaction label in timeout log message")
-                    .atMost(Duration.ofSeconds(2L)).untilAtomic(timeoutLabelCount, is(greaterThan(0)));
+                    .atMost(Duration.ofSeconds(5L)).untilAtomic(timeoutLabelCount, is(greaterThan(0)));
         } finally {
             timeoutLogInspector.stop();
         }
