@@ -163,10 +163,7 @@ if (${ENABLE_TESTS})
 
     if (${ENABLE_CLIENT})
         add_subdirectory(tests/client-test)
-
-        if (NOT MSVC) # TODO enable when IGNITE-27213 implemented
-            add_subdirectory(tests/fake_server)
-        endif ()
+        add_subdirectory(tests/fake_server)
     endif()
 
     if (${ENABLE_ODBC})
