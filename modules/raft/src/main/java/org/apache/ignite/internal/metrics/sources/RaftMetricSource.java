@@ -21,11 +21,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.LongStream;
+import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
-import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
@@ -61,8 +59,7 @@ public class RaftMetricSource implements MetricSource {
     /** Metric set. */
     private final Map<String, Metric> metrics;
 
-    /** Set of raft nodes where this node is leader. */
-    private final Set<RaftNodeId> leaderNodeIds = ConcurrentHashMap.newKeySet();
+    private final AtomicIntMetric leadersCount = new AtomicIntMetric(RAFT_GROUP_LEADERS, "");
 
     /**
      * Constructor.
@@ -78,11 +75,11 @@ public class RaftMetricSource implements MetricSource {
     }
 
     public void onLeaderStart(RaftNodeId raftNodeId) {
-        leaderNodeIds.add(raftNodeId);
+        leadersCount.increment();
     }
 
     public void onLeaderStop(RaftNodeId raftNodeId) {
-        leaderNodeIds.remove(raftNodeId);
+        leadersCount.decrement();
     }
 
     @Override
@@ -161,11 +158,7 @@ public class RaftMetricSource implements MetricSource {
                         LongStream.range(0, logStripeCount).toArray()
                 ));
 
-        metrics.put(RAFT_GROUP_LEADERS,
-                new IntGauge(RAFT_GROUP_LEADERS,
-                        "Number of raft groups where this node is the leader",
-                        leaderNodeIds::size
-                ));
+        metrics.put(RAFT_GROUP_LEADERS, leadersCount);
 
         return metrics;
     }
