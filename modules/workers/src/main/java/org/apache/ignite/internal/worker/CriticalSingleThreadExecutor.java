@@ -102,26 +102,24 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
         return heartbeatNanos;
     }
 
-    private void unregisterMetricSource() {
+    @Override
+    public void shutdown() {
         if (metricManager != null) {
             assert metricSource != null;
 
-            if (metricManager.metricSources().contains(metricSource)) {
-                metricManager.unregisterSource(metricSource);
-            }
+            metricManager.unregisterSource(metricSource);
         }
-    }
-
-    @Override
-    public void shutdown() {
-        unregisterMetricSource();
 
         super.shutdown();
     }
 
     @Override
     public @NotNull List<Runnable> shutdownNow() {
-        unregisterMetricSource();
+        if (metricManager != null) {
+            assert metricSource != null;
+
+            metricManager.unregisterSource(metricSource);
+        }
 
         return super.shutdownNow();
     }

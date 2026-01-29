@@ -186,18 +186,30 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public void unregisterSource(MetricSource src) {
-        inBusyLockSafe(busyLock, () -> {
-            disable(src);
-            registry.unregisterSource(src);
-        });
+        try {
+            if (metricSources().contains(src)) {
+                inBusyLockSafe(busyLock, () -> {
+                    disable(src);
+                    registry.unregisterSource(src);
+                });
+            }
+        } catch (Exception e) {
+            log.warn("Failed to unregister metrics source {}", e, src.name());
+        }
     }
 
     @Override
     public void unregisterSource(String srcName) {
-        inBusyLockSafe(busyLock, () -> {
-            disable(srcName);
-            registry.unregisterSource(srcName);
-        });
+        try {
+            if (metricSources().stream().anyMatch(metricSource -> metricSource.name().equals(srcName))) {
+                inBusyLockSafe(busyLock, () -> {
+                    disable(srcName);
+                    registry.unregisterSource(srcName);
+                });
+            }
+        } catch (Exception e) {
+            log.warn("Failed to unregister metrics source {}", e, srcName);
+        }
     }
 
     @Override
