@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
  */
 public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
-    /** Initial state should be WAITING_FOR_LEADER with term -1. */
+    /** Initial state should be {@link State#WAITING_FOR_LEADER} with term -1. */
     @Test
     void testInitialState() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -52,7 +52,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(-1, state.currentTerm());
     }
 
-    /** awaitLeader returns incomplete future when no leader elected. */
+    /** {@link LeaderAvailabilityState#awaitLeader()} returns incomplete future when no leader elected. */
     @Test
     void testAwaitLeaderWhenNoLeader() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -62,33 +62,41 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertFalse(future.isDone(), "Future should not be completed when no leader");
     }
 
-    /** awaitLeader returns completed future when leader is available. */
+    /** {@link LeaderAvailabilityState#awaitLeader()} returns completed future when leader is available. */
     @Test
     void testAwaitLeaderWhenLeaderAvailable() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         InternalClusterNode leaderNode = createNode("leader-node");
 
-        state.onLeaderElected(leaderNode, 1);
+        long expectedTerm = 1;
+
+        state.onLeaderElected(leaderNode, expectedTerm);
 
         CompletableFuture<Long> future = state.awaitLeader();
 
         assertTrue(future.isDone(), "Future should be completed when leader available");
-        assertEquals(1L, future.join());
+        assertEquals(expectedTerm, future.join());
     }
 
-    /** onLeaderElected transitions to LEADER_AVAILABLE state. */
+    /**
+     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} transitions to {@link State#LEADER_AVAILABLE} state.
+     */
     @Test
     void testOnLeaderElectedTransition() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         InternalClusterNode leaderNode = createNode("leader-node");
 
-        state.onLeaderElected(leaderNode, 1);
+        long expectedTerm = 1;
+
+        state.onLeaderElected(leaderNode, expectedTerm);
 
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
-        assertEquals(1, state.currentTerm());
+        assertEquals(expectedTerm, state.currentTerm());
     }
 
-    /** onLeaderElected completes waiting futures. */
+    /**
+     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} completes waiting futures.
+     */
     @Test
     void testOnLeaderElectedCompletesWaiters() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -97,10 +105,12 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         CompletableFuture<Long> waiter = state.awaitLeader();
         assertFalse(waiter.isDone());
 
-        state.onLeaderElected(leaderNode, 5);
+        long expectedTerm = 5;
+
+        state.onLeaderElected(leaderNode, expectedTerm);
 
         assertTrue(waiter.isDone());
-        assertEquals(5L, waiter.join());
+        assertEquals(expectedTerm, waiter.join());
     }
 
     /** Stale term notifications are ignored. */
@@ -110,12 +120,14 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         InternalClusterNode leaderNode1 = createNode("leader-1");
         InternalClusterNode leaderNode2 = createNode("leader-2");
 
-        state.onLeaderElected(leaderNode1, 5);
-        assertEquals(5, state.currentTerm());
+        long expectedTerm = 5;
 
-        // Stale notification with lower term should be ignored
+        state.onLeaderElected(leaderNode1, expectedTerm);
+        assertEquals(expectedTerm, state.currentTerm());
+
+        // Stale notification with lower term should be ignored.
         state.onLeaderElected(leaderNode2, 3);
-        assertEquals(5, state.currentTerm());
+        assertEquals(expectedTerm, state.currentTerm());
     }
 
     /** Equal term notifications are ignored. */
@@ -124,12 +136,14 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         InternalClusterNode leaderNode = createNode("leader");
 
-        state.onLeaderElected(leaderNode, 5);
-        assertEquals(5, state.currentTerm());
+        long expectedTerm = 5;
 
-        // Same term should be ignored
-        state.onLeaderElected(leaderNode, 5);
-        assertEquals(5, state.currentTerm());
+        state.onLeaderElected(leaderNode, expectedTerm);
+        assertEquals(expectedTerm, state.currentTerm());
+
+        // Same term should be ignored.
+        state.onLeaderElected(leaderNode, expectedTerm);
+        assertEquals(expectedTerm, state.currentTerm());
     }
 
     /** Higher term updates current term. */
@@ -146,7 +160,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(5, state.currentTerm());
     }
 
-    /** onGroupUnavailable transitions back to WAITING_FOR_LEADER. */
+    /**
+     * {@link LeaderAvailabilityState#onGroupUnavailable(long)} transitions back to WAITING_FOR_LEADER.
+     */
     @Test
     void testOnGroupUnavailableTransition() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -159,7 +175,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(State.WAITING_FOR_LEADER, state.currentState());
     }
 
-    /** onGroupUnavailable ignored if term changed. */
+    /**
+     * {@link LeaderAvailabilityState#onGroupUnavailable(long)} ignored if term changed.
+     */
     @Test
     void testOnGroupUnavailableIgnoredIfTermChanged() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -175,7 +193,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
     }
 
-    /** onGroupUnavailable has no effect when already in WAITING_FOR_LEADER. */
+    /**
+     * {@link LeaderAvailabilityState#onGroupUnavailable(long)} has no effect when already in {@link State#WAITING_FOR_LEADER}.
+     */
     @Test
     void testOnGroupUnavailableWhenAlreadyWaiting() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -185,7 +205,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(State.WAITING_FOR_LEADER, state.currentState());
     }
 
-    /** After onGroupUnavailable, new waiters get fresh future. */
+    /**
+     * After {@link LeaderAvailabilityState#onGroupUnavailable(long)}, new waiters get fresh future.
+     */
     @Test
     void testNewWaitersAfterUnavailable() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -290,7 +312,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         }
     }
 
-    /** awaitLeader returns same future for multiple calls when waiting. */
+    /**
+     * {@link LeaderAvailabilityState#awaitLeader()} returns same future for multiple calls when waiting.
+     */
     @Test
     void testAwaitLeaderReturnsSameFuture() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -302,7 +326,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertSame(future1, future2, "Should return same future instance when waiting");
     }
 
-    /** awaitLeader returns new completed future for multiple calls when leader available. */
+    /**
+     * {@link LeaderAvailabilityState#awaitLeader()} returns new completed future for multiple calls when leader available.
+     */
     @Test
     void testAwaitLeaderReturnsNewCompletedFuture() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -443,7 +469,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertSame(exception1, thrown.getCause(), "Should use exception from first stop call");
     }
 
-    /** onLeaderElected is ignored after stop. */
+    /**
+     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} is ignored after stop.
+     */
     @Test
     void testOnLeaderElectedIgnoredAfterStop() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -466,7 +494,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertTrue(waiter2.isCompletedExceptionally());
     }
 
-    /** onGroupUnavailable is ignored after stop. */
+    /**
+     * {@link LeaderAvailabilityState#onGroupUnavailable(long)} is ignored after stop.
+     */
     @Test
     void testOnGroupUnavailableIgnoredAfterStop() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -498,7 +528,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals("Component stopping", thrown.getCause().getMessage());
     }
 
-    /** stopped() returns false before stop and true after. */
+    /**
+     * {@link LeaderAvailabilityState#stopped()} returns false before stop and true after.
+     */
     @Test
     void testStopped() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();

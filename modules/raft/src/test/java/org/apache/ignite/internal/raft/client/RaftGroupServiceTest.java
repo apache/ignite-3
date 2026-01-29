@@ -47,6 +47,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -717,7 +718,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         // Verify that other peers were NOT called.
         for (Peer otherPeer : NODES.subList(1, NODES.size())) {
-            verify(messagingService, org.mockito.Mockito.never()).invoke(
+            verify(messagingService, never()).invoke(
                     argThat((InternalClusterNode target) -> target != null && target.name().equals(otherPeer.consistentId())),
                     any(ReadActionRequest.class),
                     anyLong()
