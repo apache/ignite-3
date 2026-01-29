@@ -35,6 +35,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -54,6 +55,8 @@ public class PartitionReplicaBuildIndexProcessor {
 
     private final CatalogService catalogService;
 
+    private final TxManager txManager;
+
     /** Listener for {@link CatalogEvent#INDEX_BUILDING}. */
     private final EventListener<CatalogEventParameters> listener = this::onIndexBuilding;
 
@@ -65,18 +68,21 @@ public class PartitionReplicaBuildIndexProcessor {
      * @param tableId Table ID.
      * @param indexMetaStorage Index meta storage.
      * @param catalogService Catalog service.
+     * @param txManager tx manager to retrieve label for logging.
      */
     PartitionReplicaBuildIndexProcessor(
             IgniteSpinBusyLock busyLock,
             int tableId,
             IndexMetaStorage indexMetaStorage,
-            CatalogService catalogService
+            CatalogService catalogService,
+            TxManager txManager
     ) {
         this.busyLock = busyLock;
         this.tableId = tableId;
         this.indexMetaStorage = indexMetaStorage;
         this.txRwOperationTracker = new IndexBuilderTxRwOperationTracker();
         this.catalogService = catalogService;
+        this.txManager = txManager;
 
         prepareIndexBuilderTxRwOperationTracker();
     }
@@ -108,7 +114,7 @@ public class PartitionReplicaBuildIndexProcessor {
             // It is very important that the counter is increased only after the schema sync at the begin timestamp of RW transaction,
             // otherwise there may be races/errors and the index will not be able to start building.
             if (!txRwOperationTracker.incrementOperationCount(rwTxActiveCatalogVersion)) {
-                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
+                throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId(), txManager);
             }
         }
     }

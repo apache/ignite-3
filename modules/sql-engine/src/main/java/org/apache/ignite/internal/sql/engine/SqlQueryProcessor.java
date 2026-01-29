@@ -251,7 +251,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
-        this.txTracker = new InflightTransactionalOperationTracker(transactionInflights);
+        this.txTracker = new InflightTransactionalOperationTracker(transactionInflights, txManager);
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;

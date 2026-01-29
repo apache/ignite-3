@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -59,7 +60,7 @@ class TxStateRocksDbSharedStorageTest {
                 workDir,
                 scheduler,
                 executor,
-                () -> {},
+                new NoOpLogSyncer(),
                 new FailureManager(new NoOpFailureHandler())
         );
 

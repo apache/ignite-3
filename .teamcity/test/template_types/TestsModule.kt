@@ -2,6 +2,7 @@ package test.template_types
 
 import jetbrains.buildServer.configs.kotlin.BuildStep
 import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.buildFeatures.parallelTests
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
@@ -59,6 +60,13 @@ class TestsModule(
             conditions {
                 equals("env.DIND_ENABLED", "true")
             }
+        }
+    }
+
+    features {
+        parallelTests {
+            enabled = module.parallelTestsEnabled
+            numberOfBatches = 15
         }
     }
 

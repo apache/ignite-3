@@ -21,6 +21,8 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /** Manages deployment units on node level in REPL mode. */
-@Command(name = "unit", subcommands = NodeUnitListReplCommand.class, description = "Manages deployment units")
+@Command(name = "unit",
+        subcommands = {NodeUnitListReplCommand.class, NodeUnitInspectReplCommand.class},
+        description = "Manages deployment units")
 public class NodeUnitReplCommand extends BaseCommand {
 }

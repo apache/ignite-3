@@ -30,6 +30,7 @@ dependencies {
     implementation libs.ignite2.spring
     implementation libs.commons.lang3
     implementation libs.commons.collections4
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.databind
     implementation libs.slf4j.api
     implementation libs.bytebuddy
@@ -50,6 +51,7 @@ dependencies {
     integrationTestImplementation libs.ignite2.core
     integrationTestImplementation libs.commons.lang3
     integrationTestImplementation libs.commons.collections4
+    integrationTestImplementation platform(libs.jackson.bom)
     integrationTestImplementation libs.jackson.databind
     integrationTestImplementation libs.assertj.core
     integrationTestImplementation libs.testcontainers.core

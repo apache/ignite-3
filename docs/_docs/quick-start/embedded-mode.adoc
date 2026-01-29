@@ -126,7 +126,7 @@ In the following example, you interact with the cluster using the SQL API:
 [source, java]
 ----
 ignite.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
-ignite.sql().execute(null, "insert into Person (id, name, age) values ('1', 'Person Man', '501'");
+ignite.sql().execute(null, "insert into Person (id, name, age) values (1, 'Person Man', 50)");
 try (ResultSet<SqlRow> rs = ignite.sql().execute(null, "SELECT id, name, age from Person")) {
     while (rs.hasNext()) {
         SqlRow row = rs.next();

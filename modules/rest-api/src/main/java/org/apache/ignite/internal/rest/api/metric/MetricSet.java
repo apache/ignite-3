@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.api.metric;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,6 +41,7 @@ public class MetricSet {
             requiredMode = RequiredMode.REQUIRED,
             implementation = Metric.class)
     )
+    @JsonInclude
     private final Collection<Metric> metrics;
 
     /**

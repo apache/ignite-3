@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -77,6 +80,9 @@ public class StorageUpdateHandler {
     /** Partition modification counter. */
     private final PartitionModificationCounter modificationCounter;
 
+    /** Transaction manager to retrieve labels for logging. */
+    private final TxManager txManager;
+
     /**
      * The constructor.
      *
@@ -93,11 +99,33 @@ public class StorageUpdateHandler {
             ReplicationConfiguration replicationConfiguration,
             PartitionModificationCounter modificationCounter
     ) {
+        this(partitionId, storage, indexUpdateHandler, replicationConfiguration, modificationCounter, null);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param partitionId Partition id.
+     * @param storage Partition data storage.
+     * @param indexUpdateHandler Partition index update handler.
+     * @param replicationConfiguration Configuration for the replication.
+     * @param modificationCounter Partition modification counter.
+     * @param txManager tx manager to retrieve label for logging.
+     */
+    public StorageUpdateHandler(
+            int partitionId,
+            PartitionDataStorage storage,
+            IndexUpdateHandler indexUpdateHandler,
+            ReplicationConfiguration replicationConfiguration,
+            PartitionModificationCounter modificationCounter,
+            @Nullable TxManager txManager
+    ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexUpdateHandler = indexUpdateHandler;
         this.replicationConfiguration = replicationConfiguration;
         this.modificationCounter = modificationCounter;
+        this.txManager = txManager;
     }
 
     /** Returns partition ID of the storage. */
@@ -117,8 +145,6 @@ public class StorageUpdateHandler {
     }
 
     private void recoverPendingRows() {
-        LOG.info("Recovering pending rows [tableId={}, partitionIndex={}]", storage.tableId(), storage.partitionId());
-
         long startNanos = System.nanoTime();
 
         int count = 0;
@@ -138,13 +164,15 @@ public class StorageUpdateHandler {
             }
         }
 
-        LOG.info(
-                "Recovered pending rows [tableId={}, partitionIndex={}, count={}, duration={}ms]",
-                storage.tableId(),
-                storage.partitionId(),
-                count,
-                NANOSECONDS.toMillis(System.nanoTime() - startNanos)
-        );
+        if (count != 0 && LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Recovered pending rows [tableId={}, partitionId={}, count={}, duration={}ms]",
+                    storage.tableId(),
+                    storage.partitionId(),
+                    count,
+                    NANOSECONDS.toMillis(System.nanoTime() - startNanos)
+            );
+        }
     }
 
     /**
@@ -553,7 +581,13 @@ public class StorageUpdateHandler {
             UUID wiTxId = result.currentWriteIntentTxId();
 
             if (lastCommitTs == null) {
-                throw new TxIdMismatchException(wiTxId, txId);
+
+                String formattedMessage = txManager != null ? format(
+                        "Mismatched transaction id [expectedTxId={}, conflictingTxId={}]",
+                        formatTxInfo(wiTxId, txManager),
+                        formatTxInfo(txId, txManager)) : null;
+
+                throw new TxIdMismatchException(wiTxId, txId, formattedMessage);
             }
 
             performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.latestCommitTimestamp(), indexIds);

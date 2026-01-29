@@ -264,7 +264,7 @@ public final class PlannerHelper {
         try {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-23608 remove after window functions are supported
             // Decorrelation may produce Window node which is currently not supported.
-            result.accept(WindowNodeIsNotPresentedValidator.INSTANCE);
+            result.accept(new WindowNodeIsNotPresentedValidator());
         } catch (FoundOne ignored) {
             return rel;
         }
@@ -670,8 +670,6 @@ public final class PlannerHelper {
     }
 
     private static class WindowNodeIsNotPresentedValidator extends RelHomogeneousShuttle {
-        private static final WindowNodeIsNotPresentedValidator INSTANCE = new WindowNodeIsNotPresentedValidator();
-
         @Override
         public RelNode visit(RelNode other) {
             if (other instanceof Window) {
