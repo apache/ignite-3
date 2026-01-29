@@ -33,6 +33,7 @@ import java.util.Set;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.engine.message.SharedStateMessage;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matchers;
@@ -45,7 +46,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for class {@link SharedStateMessageConverter}.
  */
-public class SharedStateMessageConverterTest {
+public class SharedStateMessageConverterTest extends BaseIgniteAbstractTest {
     private Random rnd;
 
     /**
@@ -55,7 +56,7 @@ public class SharedStateMessageConverterTest {
     public void initRandom() {
         long seed = System.currentTimeMillis();
 
-        System.out.println("Using seed: " + seed + "L;");
+        log.info("Using seed: " + seed + "L;");
 
         rnd = new Random(seed);
     }
