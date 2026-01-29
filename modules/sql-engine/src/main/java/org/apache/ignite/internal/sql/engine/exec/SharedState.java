@@ -40,7 +40,7 @@ public class SharedState {
     /**
      * Gets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @return Correlated value.
      */
     public @Nullable Object correlatedVariable(long id) {
@@ -56,7 +56,7 @@ public class SharedState {
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @param value Correlated value.
      */
     public void correlatedVariable(long id, @Nullable Object value) {

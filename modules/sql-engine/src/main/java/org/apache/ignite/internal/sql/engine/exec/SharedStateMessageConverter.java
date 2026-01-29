@@ -101,6 +101,9 @@ public class SharedStateMessageConverter {
             case SqlQueryMessageGroup.DECIMAL_FIELD_MESSAGE:
                 return decimalFromBytes((byte[]) value);
 
+            case SqlQueryMessageGroup.NULL_FIELD_MESSAGE:
+                return null;
+
             default:
                 return value;
         }

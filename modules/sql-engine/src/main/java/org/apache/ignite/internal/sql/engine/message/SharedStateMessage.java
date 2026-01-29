@@ -22,7 +22,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * A message that contains map with correlations.
+ * A message that contains a map with correlations.
  */
 @Transferable(SqlQueryMessageGroup.SHARED_STATE_MESSAGE)
 public interface SharedStateMessage extends NetworkMessage {

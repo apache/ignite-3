@@ -365,7 +365,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @param value Correlated value.
      */
     public void correlatedVariable(long id, @Nullable Object value) {
