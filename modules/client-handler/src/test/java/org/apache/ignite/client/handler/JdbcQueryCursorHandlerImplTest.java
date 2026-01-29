@@ -66,7 +66,7 @@ public class JdbcQueryCursorHandlerImplTest extends BaseIgniteAbstractTest {
         ClientResourceRegistry resourceRegistryMocked = mock(ClientResourceRegistry.class);
         ClientResource resource = mock(ClientResource.class);
 
-        JdbcQueryCursorHandler cursorHandler = new JdbcQueryCursorHandlerImpl(resourceRegistryMocked, Runnable::run);
+        JdbcQueryCursorHandler cursorHandler = new JdbcQueryCursorHandlerImpl(resourceRegistryMocked);
 
         when(resourceRegistryMocked.remove(anyLong())).thenReturn(resource);
 
@@ -89,7 +89,7 @@ public class JdbcQueryCursorHandlerImplTest extends BaseIgniteAbstractTest {
         ClientResourceRegistry resourceRegistryMocked = mock(ClientResourceRegistry.class);
         ClientResource resource = mock(ClientResource.class);
 
-        JdbcQueryCursorHandler cursorHandler = new JdbcQueryCursorHandlerImpl(resourceRegistryMocked, Runnable::run);
+        JdbcQueryCursorHandler cursorHandler = new JdbcQueryCursorHandlerImpl(resourceRegistryMocked);
 
         when(resourceRegistryMocked.remove(anyLong())).thenReturn(resource);
 

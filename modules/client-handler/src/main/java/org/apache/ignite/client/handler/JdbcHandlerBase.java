@@ -27,7 +27,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Executor;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
@@ -66,9 +65,9 @@ abstract class JdbcHandlerBase {
     /** Client registry resources. */
     protected final ClientResourceRegistry resources;
 
-    JdbcHandlerBase(ClientResourceRegistry resources, Executor throttledLoggerExecutor) {
+    JdbcHandlerBase(ClientResourceRegistry resources) {
         this.resources = resources;
-        this.log = Loggers.toThrottledLogger(Loggers.forClass(this.getClass()), throttledLoggerExecutor);
+        this.log = Loggers.toThrottledLogger(Loggers.forClass(this.getClass()), Runnable::run);
     }
 
     /**

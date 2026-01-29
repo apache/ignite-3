@@ -312,7 +312,6 @@ public class ClientInboundMessageHandler
      * @param features Features.
      * @param extensions Extensions.
      * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
-     * @param throttledLoggerExecutor Executor to be used by a throttled logger.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -334,8 +333,7 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
-            Consumer<SqlQueryType> queryTypeListener,
-            Executor throttledLoggerExecutor
+            Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -353,7 +351,6 @@ public class ClientInboundMessageHandler
         assert partitionOperationsExecutor != null;
         assert features != null;
         assert extensions != null;
-        assert throttledLoggerExecutor != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
@@ -374,13 +371,12 @@ public class ClientInboundMessageHandler
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
 
-        jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources, throttledLoggerExecutor);
+        jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
                 processor,
                 new JdbcMetadataCatalog(clockService, schemaSyncService, catalogService),
                 resources,
-                txManager,
-                throttledLoggerExecutor
+                txManager
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clockService);
@@ -395,7 +391,7 @@ public class ClientInboundMessageHandler
 
         this.queryTypeListener = queryTypeListener;
 
-        throttledLogger = Loggers.toThrottledLogger(LOG, partitionOperationsExecutor);
+        throttledLogger = Loggers.toThrottledLogger(LOG, Runnable::run);
     }
 
     @Override
@@ -714,24 +710,24 @@ public class ClientInboundMessageHandler
             boolean isNotification,
             boolean isHandshake
     ) {
-        if (throttledLogger.isDebugEnabled() && shouldLogError(err)) {
+        if (throttledLogger.isWarnEnabled() && shouldLogError(err)) {
             SocketAddress socketAddress = ctx.channel().remoteAddress();
 
             if (isHandshake) {
                 throttledLogger.warn("Error processing client handshake [connectionId={}, remoteAddress={}]",
-                        connectionId, socketAddress, err);
+                        err, connectionId, socketAddress);
             } else if (isNotification) {
                 // Do not include requestId into a throttling key as independent client requests may result in the same error.
-                String key = format("{}", connectionId);
+                String key = String.valueOf(connectionId);
 
-                throttledLogger.warn(key, "Error processing client notification [connectionId={}, id={}, remoteAddress={}]",
-                        connectionId, requestId, socketAddress, err);
+                throttledLogger.warn(key, "Error processing client notification [connectionId={}, id={}, remoteAddress={}]", 
+                        err, connectionId, requestId, socketAddress);
             } else {
                 // Do not include requestId into a throttling key as independent client requests may result in the same error.
                 String key = format("{}{}", connectionId, opCode);
 
-                throttledLogger.warn(key, "Error processing client operation [connectionId={}, id={}, op={}, remoteAddress={}]",
-                        connectionId, requestId, opCode, socketAddress, err);
+                throttledLogger.warn(key, "Error processing client operation [connectionId={}, id={}, op={}, remoteAddress={}]", 
+                        err, connectionId, requestId, opCode, socketAddress);
             }
         }
 

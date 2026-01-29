@@ -163,8 +163,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
     @SuppressWarnings("unused")
     private volatile ClientInboundMessageHandler handler;
 
-    private final Executor throttledLoggerExecutor;
-
     /**
      * Constructor.
      *
@@ -182,7 +180,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
      * @param ddlBatchingSuggestionEnabled Boolean supplier indicates whether the suggestion related DDL batching is enabled.
-     * @param throttledLoggerExecutor Executor to be used by a throttled logger.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -202,8 +199,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
             Executor partitionOperationsExecutor,
-            Supplier<Boolean> ddlBatchingSuggestionEnabled,
-            Executor throttledLoggerExecutor
+            Supplier<Boolean> ddlBatchingSuggestionEnabled
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -246,7 +242,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.ddlBatchingSuggestionEnabled = ddlBatchingSuggestionEnabled;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
-        this.throttledLoggerExecutor = throttledLoggerExecutor;
     }
 
     /** {@inheritDoc} */
@@ -472,8 +467,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 handshakeEventLoopSwitcher,
                 ddlBatchingSuggestionEnabled.get()
                         ? new DdlBatchingSuggester()
-                        : ignore -> {},
-                throttledLoggerExecutor
+                        : ignore -> {}
         );
     }
 
