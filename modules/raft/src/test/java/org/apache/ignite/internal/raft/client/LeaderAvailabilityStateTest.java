@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.raft.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -332,42 +330,6 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertSame(future1, future2, "Should return same future instance when waiting");
     }
 
-    /**
-     * {@link LeaderAvailabilityState#awaitLeader()} returns new completed future for multiple calls when leader available.
-     */
-    @Test
-    void testAwaitLeaderReturnsNewCompletedFuture() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leader = createNode("leader");
-
-        state.onLeaderElected(leader, 1);
-
-        CompletableFuture<Long> future1 = state.awaitLeader();
-        CompletableFuture<Long> future2 = state.awaitLeader();
-
-        // Both should be completed
-        assertTrue(future1.isDone());
-        assertTrue(future2.isDone());
-    }
-
-    /** Stop completes waiting futures exceptionally. */
-    @Test
-    void testStopCompletesExceptionally() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-        RuntimeException testException = new RuntimeException("Test shutdown");
-
-        CompletableFuture<Long> waiter = state.awaitLeader();
-        assertFalse(waiter.isDone());
-
-        state.stop(testException);
-
-        assertTrue(waiter.isDone());
-        assertTrue(waiter.isCompletedExceptionally());
-
-        CompletionException thrown = assertThrows(CompletionException.class, waiter::join);
-        assertSame(testException, thrown.getCause());
-    }
-
     /** Stop completes multiple waiters exceptionally. */
     @Test
     void testStopCompletesMultipleWaiters() {
@@ -388,25 +350,19 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertTrue(waiter1.isCompletedExceptionally());
         assertTrue(waiter2.isCompletedExceptionally());
         assertTrue(waiter3.isCompletedExceptionally());
-    }
 
-    /** Stop causes subsequent awaitLeader to fail immediately. */
-    @Test
-    void testStopFailsSubsequentWaiters() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-        RuntimeException testException = new RuntimeException("Test shutdown");
-
-        CompletableFuture<Long> waiter1 = state.awaitLeader();
-        state.stop(testException);
-
-        assertTrue(waiter1.isCompletedExceptionally());
+        CompletionException thrown1 = assertThrows(CompletionException.class, waiter1::join);
+        assertSame(testException, thrown1.getCause());
+        CompletionException thrown2 = assertThrows(CompletionException.class, waiter2::join);
+        assertSame(testException, thrown2.getCause());
+        CompletionException thrown3 = assertThrows(CompletionException.class, waiter3::join);
+        assertSame(testException, thrown3.getCause());
 
         // New waiter should immediately fail with the same exception
-        CompletableFuture<Long> waiter2 = state.awaitLeader();
-        assertTrue(waiter2.isDone(), "New waiter should be immediately completed");
-        assertTrue(waiter2.isCompletedExceptionally());
+        CompletableFuture<Long> waiterAfterComplete = state.awaitLeader();
+        assertTrue(waiterAfterComplete.isCompletedExceptionally());
 
-        CompletionException thrown = assertThrows(CompletionException.class, waiter2::join);
+        CompletionException thrown = assertThrows(CompletionException.class, waiterAfterComplete::join);
         assertSame(testException, thrown.getCause());
     }
 
@@ -416,6 +372,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         RuntimeException testException = new RuntimeException("Test shutdown");
 
+        assertFalse(state.stopped());
         // Stop without any waiters - should not throw
         state.stop(testException);
 
@@ -430,7 +387,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertSame(testException, thrown.getCause());
     }
 
-    /** Stop when leader is available fails subsequent awaitLeader. */
+    /** Stop when leader is available fails subsequent {@link LeaderAvailabilityState#awaitLeader()}. */
     @Test
     void testStopWhenLeaderAvailable() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -457,7 +414,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testMultipleStopCalls() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        RuntimeException exception1 = new RuntimeException("Shutdown 1");
+        IllegalStateException exception1 = new IllegalStateException("Component stopping");
         RuntimeException exception2 = new RuntimeException("Shutdown 2");
 
         CompletableFuture<Long> waiter1 = state.awaitLeader();
@@ -516,34 +473,6 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
         // Group unavailable after stop should be ignored
         state.onGroupUnavailable(1);
-
-        assertTrue(state.stopped());
-    }
-
-    /** Stop preserves exception type. */
-    @Test
-    void testStopPreservesExceptionType() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-        IllegalStateException testException = new IllegalStateException("Component stopping");
-
-        CompletableFuture<Long> waiter = state.awaitLeader();
-        state.stop(testException);
-
-        CompletionException thrown = assertThrows(CompletionException.class, waiter::join);
-        assertThat(thrown.getCause(), instanceOf(IllegalStateException.class));
-        assertEquals("Component stopping", thrown.getCause().getMessage());
-    }
-
-    /**
-     * {@link LeaderAvailabilityState#stopped()} returns false before stop and true after.
-     */
-    @Test
-    void testStopped() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-
-        assertFalse(state.stopped());
-
-        state.stop(new RuntimeException("Test"));
 
         assertTrue(state.stopped());
     }
