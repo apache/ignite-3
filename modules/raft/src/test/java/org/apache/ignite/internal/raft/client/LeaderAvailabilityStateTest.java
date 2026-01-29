@@ -62,55 +62,40 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertFalse(future.isDone(), "Future should not be completed when no leader");
     }
 
-    /** {@link LeaderAvailabilityState#awaitLeader()} returns completed future when leader is available. */
+    /**
+     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} transitions to {@link State#LEADER_AVAILABLE} state and
+     * completes waiting futures.
+     * {@link LeaderAvailabilityState#awaitLeader()} returns completed future when leader is available.
+     */
     @Test
-    void testAwaitLeaderWhenLeaderAvailable() {
+    void testAwaitLeader() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         InternalClusterNode leaderNode = createNode("leader-node");
 
         long expectedTerm = 1;
 
+        // No leader present. The future will wait.
+        CompletableFuture<Long> waiter = state.awaitLeader();
+        assertFalse(waiter.isDone());
+
         state.onLeaderElected(leaderNode, expectedTerm);
 
+        // Verify leader is available after onLeaderElected.
+        assertEquals(State.LEADER_AVAILABLE, state.currentState());
+        assertEquals(expectedTerm, state.currentTerm());
+
+        assertTrue(waiter.isDone());
+        assertEquals(expectedTerm, waiter.join());
+
+        // Leader is present. The future is completed.
         CompletableFuture<Long> future = state.awaitLeader();
 
         assertTrue(future.isDone(), "Future should be completed when leader available");
         assertEquals(expectedTerm, future.join());
-    }
 
-    /**
-     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} transitions to {@link State#LEADER_AVAILABLE} state.
-     */
-    @Test
-    void testOnLeaderElectedTransition() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader-node");
-
-        long expectedTerm = 1;
-
-        state.onLeaderElected(leaderNode, expectedTerm);
-
+        // Verify the state has not changed and we see exactly the same results as previously.
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
         assertEquals(expectedTerm, state.currentTerm());
-    }
-
-    /**
-     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} completes waiting futures.
-     */
-    @Test
-    void testOnLeaderElectedCompletesWaiters() {
-        LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader-node");
-
-        CompletableFuture<Long> waiter = state.awaitLeader();
-        assertFalse(waiter.isDone());
-
-        long expectedTerm = 5;
-
-        state.onLeaderElected(leaderNode, expectedTerm);
-
-        assertTrue(waiter.isDone());
-        assertEquals(expectedTerm, waiter.join());
     }
 
     /** Stale term notifications are ignored. */
@@ -158,6 +143,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
         state.onLeaderElected(leaderNode2, 5);
         assertEquals(5, state.currentTerm());
+        assertEquals(State.LEADER_AVAILABLE, state.currentState());
     }
 
     /**
