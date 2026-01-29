@@ -44,9 +44,9 @@ public class SharedState {
      * @return Correlated value.
      */
     public @Nullable Object correlatedVariable(long id) {
-        Object value = correlations.get(id);
+        Object value = correlations.getOrDefault(id, this);
 
-        if (value == null && !correlations.containsKey(id)) {
+        if (value == this) {
             throw new IllegalStateException("Correlated variable is not set [id=" + id + "]");
         }
 
