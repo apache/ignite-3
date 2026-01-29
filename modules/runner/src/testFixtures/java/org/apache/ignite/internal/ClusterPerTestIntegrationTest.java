@@ -89,6 +89,18 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         cluster.shutdown();
 
         TestMvTableStorage.resetPartitionStorageFactory();
+
+        try {
+            while (cluster.runningNodes().findAny().isPresent()) {
+                Thread.sleep(100);
+            }
+        } catch (InterruptedException ex) {
+
+        }
+
+        log.info("===================================");
+        log.info("There are no running nodes");
+        log.info("===================================");
     }
 
     /**
