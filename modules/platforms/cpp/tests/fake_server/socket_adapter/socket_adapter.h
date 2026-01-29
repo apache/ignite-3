@@ -18,13 +18,13 @@
 #pragma once
 
 #ifdef _WIN32
-#include "socket_adapter/win/server_socket_adapter.h"
-#include "socket_adapter/win/client_socket_adapter.h"
+#include "win/server_socket_adapter.h"
+#include "win/client_socket_adapter.h"
 
 #define LAST_SOCKET_ERROR() WSAGetLastError()
 #else
-#include "socket_adapter/posix/server_socket_adapter.h"
-#include "socket_adapter/posix/client_socket_adapter.h"
+#include "posix/server_socket_adapter.h"
+#include "posix/client_socket_adapter.h"
 #include <cerrno>
 #include <cstring>
 
