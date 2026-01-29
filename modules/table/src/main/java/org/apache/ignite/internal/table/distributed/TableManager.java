@@ -128,6 +128,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
@@ -302,6 +303,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final SchemaVersions schemaVersions;
 
+    private final ValidationSchemasSource validationSchemasSource;
+
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
     /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
@@ -465,6 +468,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
+
+        validationSchemasSource = new CatalogValidationSchemasSource(catalogService, schemaManager);
 
         schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
 
@@ -918,6 +923,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 partitionUpdateHandlers.storageUpdateHandler,
                 catalogService,
                 table.schemaView(),
+                validationSchemasSource,
+                executorInclinedSchemaSyncService,
                 indexMetaStorage,
                 topologyService.localMember().id(),
                 minTimeCollectorService,
@@ -1048,7 +1055,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 safeTimeTracker,
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
-                new CatalogValidationSchemasSource(catalogService, schemaManager),
+                validationSchemasSource,
                 localNode(),
                 executorInclinedSchemaSyncService,
                 catalogService,

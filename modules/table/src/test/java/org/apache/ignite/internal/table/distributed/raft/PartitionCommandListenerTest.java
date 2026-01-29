@@ -24,12 +24,17 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.atLeast;
@@ -63,6 +68,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -79,7 +85,11 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateAll
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schemacompat.CompatibilityValidationResult;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
@@ -90,12 +100,14 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -121,10 +133,12 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -133,7 +147,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InOrder;
-import org.mockito.Mockito;
+import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -148,6 +163,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private static final int TABLE_ID = 1;
 
+    private static final String TABLE_NAME = "TEST";
+
     private static final int PARTITION_ID = 0;
 
     private static final int ZONE_ID = 2;
@@ -159,6 +176,12 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     );
 
     private static final SchemaRegistry SCHEMA_REGISTRY = new DummySchemaManagerImpl(SCHEMA);
+
+    @Mock
+    private ValidationSchemasSource validationSchemasSource;
+
+    @Spy
+    private SchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
     private TablePartitionProcessor commandListener;
 
@@ -273,6 +296,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 storageUpdateHandler,
                 catalogService,
                 SCHEMA_REGISTRY,
+                validationSchemasSource,
+                schemaSyncService,
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 mock(MinimumRequiredTimeCollectorService.class),
@@ -392,7 +417,66 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         verify(mvPartitionStorage).lastApplied(3, 2);
     }
 
+    @ParameterizedTest
+    @MethodSource("fullUpdateCommands")
+    void returnsFailedValidationResultIfSchemaChangeValidationOn1PcCommitFails(WriteCommand command) {
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(HybridTimestamp.class), any(HybridTimestamp.class)))
+                .thenReturn(incompatibleSchemaChange());
+
+        CommandResult commandResult = commandListener.processCommand(command, 3, 2, hybridClock.now());
+
+        assertThat(commandResult.wasApplied(), is(true));
+        UpdateCommandResult updateCommandResult = (UpdateCommandResult) commandResult.result();
+        assertThat(updateCommandResult, is(notNullValue()));
+        assertThat(updateCommandResult, is(instanceOf(UpdateCommandResult.class)));
+        CompatibilityValidationResult compatibilityValidationResult = updateCommandResult.compatibilityValidationResult();
+        assertThat(compatibilityValidationResult, is(notNullValue()));
+        assertThat(compatibilityValidationResult.isSuccessful(), is(false));
+    }
+
+    @ParameterizedTest
+    @MethodSource("fullUpdateCommands")
+    void doesNotUpdateStorageIfSchemaChangeValidationOn1PcCommitFails(WriteCommand command) {
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(HybridTimestamp.class), any(HybridTimestamp.class)))
+                .thenReturn(incompatibleSchemaChange());
+
+        commandListener.processCommand(command, 3, 2, hybridClock.now());
+
+        verify(mvPartitionStorage, never()).addWriteCommitted(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @MethodSource("fullUpdateCommands")
+    void updatesLastAppliedIndexIfSchemaChangeValidationOn1PcCommitFails(WriteCommand command) {
+        when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(HybridTimestamp.class), any(HybridTimestamp.class)))
+                .thenReturn(incompatibleSchemaChange());
+
+        commandListener.processCommand(command, 3, 2, hybridClock.now());
+
+        verify(mvPartitionStorage).lastApplied(3, 2);
+    }
+
+    private static Stream<Arguments> fullUpdateCommands() {
+        return Stream.of(updateCommand(true), updateAllCommand(true))
+                .map(Arguments::of);
+    }
+
+    private static List<FullTableSchema> incompatibleSchemaChange() {
+        CatalogTableColumnDescriptor column1 = new CatalogTableColumnDescriptor("column1", ColumnType.INT32, false, 0, 0, 0, null);
+        CatalogTableColumnDescriptor column2 = new CatalogTableColumnDescriptor("column2", ColumnType.INT32, false, 0, 0, 0, null);
+
+        // Dropping a column is a forward-incompatible schema change.
+        return List.of(
+                new FullTableSchema(1, TABLE_ID, TABLE_NAME, List.of(column1, column2)),
+                new FullTableSchema(1, TABLE_ID, TABLE_NAME, List.of(column1))
+        );
+    }
+
     private static UpdateCommandV2 updateCommand() {
+        return updateCommand(false);
+    }
+
+    private static UpdateCommandV2 updateCommand(boolean full) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .rowUuid(randomUUID())
                 .tableId(TABLE_ID)
@@ -400,10 +484,15 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
                 .initiatorTime(anyTime())
+                .full(full)
                 .build();
     }
 
     private static UpdateAllCommandV2 updateAllCommand() {
+        return updateAllCommand(false);
+    }
+
+    private static UpdateAllCommandV2 updateAllCommand(boolean full) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .messageRowsToUpdate(singletonMap(
                         randomUUID(),
@@ -414,6 +503,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
                 .initiatorTime(anyTime())
+                .full(full)
                 .build();
     }
 
@@ -590,7 +680,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         // Then: Command checks should release and finishes with null nextRowIdToBuild
         verify(shouldRelease, atLeastOnce()).getAsBoolean();
         verify(indexUpdateHandler, atLeast(2)).buildIndex(eq(indexId), any(Stream.class), any());
-        verify(indexUpdateHandler, times(1)).buildIndex(eq(indexId), any(Stream.class), Mockito.isNull(RowId.class));
+        verify(indexUpdateHandler, times(1)).buildIndex(eq(indexId), any(Stream.class), isNull(RowId.class));
         verify(mvPartitionStorage, times(1)).lastApplied(20, 2);
     }
 

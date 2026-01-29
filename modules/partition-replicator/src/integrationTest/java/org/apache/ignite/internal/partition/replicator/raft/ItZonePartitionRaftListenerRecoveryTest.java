@@ -44,6 +44,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import static org.mockito.quality.Strictness.LENIENT;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +57,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -101,7 +104,10 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
@@ -112,6 +118,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
+import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -120,10 +127,12 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -138,6 +147,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
     private static final ZonePartitionId PARTITION_ID = new ZonePartitionId(1, 3);
+
+    private static final CatalogTableDescriptor TABLE_DESCRIPTOR = CatalogTableDescriptor.builder()
+            .id(1)
+            .name("TEST")
+            .newColumns(List.of(new CatalogTableColumnDescriptor("KEY", ColumnType.INT32, false, 0, 0, 0, null)))
+            .primaryKeyColumns(IntList.of(0))
+            .storageProfile("default")
+            .build();
+
+    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(
+            1,
+            new Column[]{new Column("KEY", NativeTypes.INT32, false)},
+            new Column[]{new Column("VAL", NativeTypes.INT32, false)}
+    );
 
     private static final PartitionReplicationMessagesFactory MESSAGE_FACTORY = new PartitionReplicationMessagesFactory();
 
@@ -239,7 +262,10 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
             @Mock ReplicaManager replicaManager
     ) {
         when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        when(catalog.table(anyInt())).thenReturn(TABLE_DESCRIPTOR);
         when(catalog.indexes(anyInt())).thenReturn(List.of(catalogIndexDescriptor));
+
+        when(schemaRegistry.lastKnownSchema()).thenReturn(SCHEMA_DESCRIPTOR);
 
         doAnswer(invocation -> {
             // This is needed to bump last applied index on corresponding storages.
@@ -399,6 +425,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 storageUpdateHandler,
                 catalogService,
                 schemaRegistry,
+                new DummyValidationSchemasSource(schemaRegistry),
+                new AlwaysSyncedSchemaSyncService(),
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 minimumRequiredTimeCollectorService,
@@ -573,7 +601,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 .txCoordinatorId(id)
                 .requiredCatalogVersion(0)
                 .leaseStartTime(0L)
-                .safeTime(now)
+                .safeTime(clock.now())
                 .build();
     }
 

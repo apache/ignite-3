@@ -28,20 +28,25 @@ import static org.apache.ignite.internal.partition.replicator.raft.CommandResult
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandBase;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
@@ -49,6 +54,9 @@ import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schemacompat.CompatibilityValidationResult;
+import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -57,6 +65,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -104,7 +113,13 @@ public class TablePartitionProcessor implements RaftTableProcessor {
      */
     private final ZonePartitionId realReplicationGroupId;
 
+    private final SchemaCompatibilityValidator schemaCompatibilityValidator;
+
     private ReplicaMeta lastKnownLease;
+
+    private final StorageUpdater<UpdateCommand> singleUpdateStorageUpdater = new SingleUpdateStorageUpdater();
+
+    private final StorageUpdater<UpdateAllCommand> batchUpdateStorageUpdater = new BatchUpdateStorageUpdater();
 
     /** Constructor. */
     public TablePartitionProcessor(
@@ -113,6 +128,8 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             StorageUpdateHandler storageUpdateHandler,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
+            ValidationSchemasSource validationSchemasSource,
+            SchemaSyncService schemaSyncService,
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
@@ -129,6 +146,8 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.realReplicationGroupId = realReplicationGroupId;
+
+        schemaCompatibilityValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         // RAFT command handlers initialization.
         TablePartitionId tablePartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
@@ -264,6 +283,36 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long commandTerm,
             HybridTimestamp safeTimestamp
     ) {
+        return handleAnUpdateCommand(cmd, commandIndex, commandTerm, safeTimestamp, singleUpdateStorageUpdater);
+    }
+
+    /**
+     * Handler for the {@link UpdateAllCommand}.
+     *
+     * <p>We will also handle {@link UpdateAllCommandV2}, since there is no specific logic for {@link UpdateAllCommandV2}, we will leave it
+     * as is to support backward compatibility.</p>
+     *
+     * @param cmd Command.
+     * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
+     * @param safeTimestamp Safe timestamp.
+     */
+    private CommandResult handleUpdateAllCommand(
+            UpdateAllCommand cmd,
+            long commandIndex,
+            long commandTerm,
+            HybridTimestamp safeTimestamp
+    ) {
+        return handleAnUpdateCommand(cmd, commandIndex, commandTerm, safeTimestamp, batchUpdateStorageUpdater);
+    }
+
+    private <T extends UpdateCommandBase> CommandResult handleAnUpdateCommand(
+            T cmd,
+            long commandIndex,
+            long commandTerm,
+            HybridTimestamp safeTimestamp,
+            StorageUpdater<T> storageUpdater
+    ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return EMPTY_NOT_APPLIED_RESULT; // Update result is not needed.
@@ -291,18 +340,22 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         assert storageLeaseInfo != null;
         assert localNodeId != null;
 
+        CompatibilityValidationResult failedCompatValidationResult = null;
+
         if (shouldUpdateStorage(cmd.full(), storageLeaseInfo)) {
-            storageUpdateHandler.handleUpdate(
-                    txId,
-                    cmd.rowUuid(),
-                    cmd.commitPartitionId().asReplicationGroupId(),
-                    cmd.rowToUpdate(),
-                    !cmd.full(),
-                    () -> storage.lastApplied(commandIndex, commandTerm),
-                    cmd.full() ? safeTimestamp : null,
-                    cmd.lastCommitTimestamp(),
-                    indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
-            );
+            HybridTimestamp commitTsOrNull = cmd.full() ? safeTimestamp : null;
+
+            failedCompatValidationResult = validateSchemaCompatibilityIfNeeded(cmd.txId(), cmd.full(), commitTsOrNull);
+
+            if (failedCompatValidationResult == null) {
+                storageUpdater.updateStorage(cmd, commandIndex, commandTerm, commitTsOrNull, safeTimestamp);
+            } else {
+                assert !failedCompatValidationResult.isSuccessful();
+
+                // We applied the command, even though it did not change the storage, so we advance the last applied index and will consider
+                // the command applied.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+            }
         } else {
             // We MUST bump information about last updated index+term.
             // See a comment in #onWrite() for explanation.
@@ -311,79 +364,43 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
-        return new CommandResult(
-                new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
-                true
+        UpdateCommandResult result = new UpdateCommandResult(
+                true,
+                isPrimaryInGroupTopology(storageLeaseInfo),
+                safeTimestamp.longValue(),
+                failedCompatValidationResult
         );
+
+        return new CommandResult(result, true);
     }
 
-    /**
-     * Handler for the {@link UpdateAllCommand}.
-     *
-     * <p>We will also handle {@link UpdateAllCommandV2}, since there is no specific logic for {@link UpdateAllCommandV2}, we will leave it
-     * as is to support backward compatibility.</p>
-     *
-     * @param cmd Command.
-     * @param commandIndex Index of the RAFT command.
-     * @param commandTerm Term of the RAFT command.
-     * @param safeTimestamp Safe timestamp.
-     */
-    private CommandResult handleUpdateAllCommand(
-            UpdateAllCommand cmd,
-            long commandIndex,
-            long commandTerm,
-            HybridTimestamp safeTimestamp
+    private @Nullable CompatibilityValidationResult validateSchemaCompatibilityIfNeeded(
+            UUID txId,
+            boolean full,
+            @Nullable HybridTimestamp commitTsOrNull
     ) {
-        // Skips the write command because the storage has already executed it.
-        if (commandIndex <= storage.lastAppliedIndex()) {
-            return EMPTY_NOT_APPLIED_RESULT;
+        if (!full) {
+            return null;
         }
 
-        LeaseInfo storageLeaseInfo = storage.leaseInfo();
+        HybridTimestamp commitTs = Objects.requireNonNull(commitTsOrNull);
 
-        if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = cmd.leaseStartTime();
+        CompatibilityValidationResult validationResult;
+        try {
+            validationResult = schemaCompatibilityValidator
+                    .validateCommit(txId, Set.of(storage.tableId()), commitTs)
+                    .get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
 
-            if (storageLeaseInfo == null || leaseStartTime != storageLeaseInfo.leaseStartTime()) {
-                var updateCommandResult = new UpdateCommandResult(
-                        false,
-                        storageLeaseInfo == null ? 0 : storageLeaseInfo.leaseStartTime(),
-                        isPrimaryInGroupTopology(storageLeaseInfo),
-                        NULL_HYBRID_TIMESTAMP
-                );
-
-                return new CommandResult(updateCommandResult, false);
-            }
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        } catch (ExecutionException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
         }
 
-        UUID txId = cmd.txId();
-
-        if (shouldUpdateStorage(cmd.full(), storageLeaseInfo)) {
-            storageUpdateHandler.handleUpdateAll(
-                    txId,
-                    cmd.rowsToUpdate(),
-                    cmd.commitPartitionId().asReplicationGroupId(),
-                    !cmd.full(),
-                    () -> storage.lastApplied(commandIndex, commandTerm),
-                    cmd.full() ? safeTimestamp : null,
-                    indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
-            );
-        } else {
-            // We MUST bump information about last updated index+term.
-            // See a comment in #onWrite() for explanation.
-            // If we get here, that means that we are collocated with primary and data was already inserted there, thus it's only required
-            // to update information about index and term.
-            advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
-        }
-
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
-
-        return new CommandResult(
-                new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
-                true
-        );
+        return validationResult.isSuccessful() ? null : validationResult;
     }
 
     /**
@@ -545,7 +562,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         }
     }
 
-    private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+    private void replicaTouch(UUID txId, UUID txCoordinatorId, boolean full) {
         // Saving state is not needed for full transactions.
         if (!full) {
             txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, PENDING)
@@ -569,5 +586,59 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         // while calling isPrimaryInGroupTopology because of HB between handlePrimaryReplicaChangeCommand that will populate the storage
         // with lease information and handleUpdate(All)Command that on it's turn calls isPrimaryReplicaInGroupTopology.
         return storageLeaseInfo == null || currentGroupTopology.contains(storageLeaseInfo.primaryReplicaNodeName());
+    }
+
+    private interface StorageUpdater<T extends UpdateCommandBase> {
+        void updateStorage(
+                T command,
+                long commandIndex,
+                long commandTerm,
+                @Nullable HybridTimestamp commitTsOrNull,
+                HybridTimestamp safeTimestamp
+        );
+    }
+
+    private class SingleUpdateStorageUpdater implements StorageUpdater<UpdateCommand> {
+        @Override
+        public void updateStorage(
+                UpdateCommand cmd,
+                long commandIndex,
+                long commandTerm,
+                @Nullable HybridTimestamp commitTsOrNull,
+                HybridTimestamp safeTimestamp
+        ) {
+            storageUpdateHandler.handleUpdate(
+                    cmd.txId(),
+                    cmd.rowUuid(),
+                    cmd.commitPartitionId().asReplicationGroupId(),
+                    cmd.rowToUpdate(),
+                    !cmd.full(),
+                    () -> storage.lastApplied(commandIndex, commandTerm),
+                    commitTsOrNull,
+                    cmd.lastCommitTimestamp(),
+                    indexIdsAtRwTxBeginTs(catalogService, cmd.txId(), storage.tableId())
+            );
+        }
+    }
+
+    private class BatchUpdateStorageUpdater implements StorageUpdater<UpdateAllCommand> {
+        @Override
+        public void updateStorage(
+                UpdateAllCommand cmd,
+                long commandIndex,
+                long commandTerm,
+                @Nullable HybridTimestamp commitTsOrNull,
+                HybridTimestamp safeTimestamp
+        ) {
+            storageUpdateHandler.handleUpdateAll(
+                    cmd.txId(),
+                    cmd.rowsToUpdate(),
+                    cmd.commitPartitionId().asReplicationGroupId(),
+                    !cmd.full(),
+                    () -> storage.lastApplied(commandIndex, commandTerm),
+                    commitTsOrNull,
+                    indexIdsAtRwTxBeginTs(catalogService, cmd.txId(), storage.tableId())
+            );
+        }
     }
 }
