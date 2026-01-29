@@ -50,7 +50,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.ReplicationGroupUnavailableException;
-import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
@@ -111,9 +110,6 @@ class RaftCommandExecutor {
     /** Factory for creating stopping exceptions. */
     private final ExceptionFactory stoppingExceptionFactory;
 
-    /** Throttling context holder. */
-    private final ThrottlingContextHolder throttlingContextHolder;
-
     /** State machine for tracking leader availability. */
     private final LeaderAvailabilityState leaderAvailabilityState;
 
@@ -136,7 +132,6 @@ class RaftCommandExecutor {
      * @param raftConfiguration RAFT configuration.
      * @param commandsMarshaller Command marshaller.
      * @param stoppingExceptionFactory Factory for creating stopping exceptions.
-     * @param throttlingContextHolder Throttling context holder.
      */
     RaftCommandExecutor(
             ReplicationGroupId groupId,
@@ -145,8 +140,7 @@ class RaftCommandExecutor {
             ScheduledExecutorService executor,
             RaftConfiguration raftConfiguration,
             Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory,
-            ThrottlingContextHolder throttlingContextHolder
+            ExceptionFactory stoppingExceptionFactory
     ) {
         this.groupId = groupId;
         this.peersSupplier = peersSupplier;
@@ -155,7 +149,6 @@ class RaftCommandExecutor {
         this.raftConfiguration = raftConfiguration;
         this.commandsMarshaller = commandsMarshaller;
         this.stoppingExceptionFactory = stoppingExceptionFactory;
-        this.throttlingContextHolder = throttlingContextHolder;
         this.leaderAvailabilityState = new LeaderAvailabilityState();
     }
 
@@ -374,7 +367,7 @@ class RaftCommandExecutor {
                 cmd::toStringForLightLogging,
                 createRequestFactory(cmd),
                 sendWithRetryTimeoutMillis,
-                RetryContext.USE_DEFAULT_RESPONSE_TIMEOUT
+                raftConfiguration.responseTimeoutMillis().value()
         );
 
         sendWithRetryWaitingForLeader(resultFuture, context, cmd, deadline, term);
@@ -597,31 +590,25 @@ class RaftCommandExecutor {
                 return;
             }
 
-            ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder.peerContextHolder(
-                    retryContext.targetPeer().consistentId()
-            );
-
-            peerThrottlingContextHolder.beforeRequest();
             retryContext.onNewAttempt();
 
             // Bound response timeout by remaining time until retry stop time.
-            long responseTimeout = Math.min(peerThrottlingContextHolder.peerRequestTimeoutMillis(), stopTime - requestStartTime);
+            long responseTimeout = Math.min(retryContext.responseTimeoutMillis(), stopTime - requestStartTime);
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> clusterService.messagingService().invoke(node, retryContext.request(), responseTimeout))
                     // Enforce timeout even if messaging service doesn't (e.g., in tests with mocks).
                     .orTimeout(responseTimeout > 0 ? responseTimeout : Long.MAX_VALUE, TimeUnit.MILLISECONDS)
-                    .whenComplete((resp, err) -> {
-                        peerThrottlingContextHolder.afterRequest(requestStartTime, retriableError(err, resp));
-
-                        handleResponse(
-                                fut,
-                                resp,
-                                err,
-                                retryContext,
-                                new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted)
-                        );
-                    });
+                    .whenCompleteAsync(
+                            (resp, err) -> handleResponse(
+                                    fut,
+                                    resp,
+                                    err,
+                                    retryContext,
+                                    new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted)
+                            ),
+                            executor
+                    );
         } finally {
             busyLock.leaveBusy();
         }

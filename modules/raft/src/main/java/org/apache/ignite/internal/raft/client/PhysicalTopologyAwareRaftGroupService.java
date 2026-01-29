@@ -136,8 +136,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 executor,
                 raftConfiguration,
                 cmdMarshaller,
-                stoppingExceptionFactory,
-                throttlingContextHolder
+                stoppingExceptionFactory
         );
 
         this.generalLeaderElectionListener = new ServerEventHandler(executor);
