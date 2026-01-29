@@ -27,6 +27,9 @@ object CodeStyleJava17 : BuildType({
             tasks = "java-records-tests:checkstyle"
             gradleParams = "--continue"
             workingDir = "%VCSROOT__IGNITE3%"
+            conditions {
+                doesNotEqual("env.JAVA_HOME", "%env.JDK_ORA_11%")
+            }
         }
     }
 
