@@ -101,6 +101,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private final FailureProcessor failureProcessor;
 
+    private final MetricManager metricManager;
+
+    private final DefaultMessagingServiceMetricSource metricSource;
+
+    private final DefaultMessagingServiceMetrics metrics;
+
     /** Connection manager that provides access to {@link NettySender}. */
     private volatile ConnectionManager connectionManager;
 
@@ -166,10 +172,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.failureProcessor = failureProcessor;
+        this.metricManager = metricManager;
 
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED));
-        outboundExecutor.initMetricSource(metricManager, "network.messaging.outbound", "Outbound message executor metrics");
+        outboundExecutor.initMetricSource(metricManager, "network.messaging.default.executor.outbound",
+                "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
                 nodeName,
@@ -178,7 +186,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 channelTypeRegistry,
                 LOG,
                 metricManager,
-                "network.messaging.inbound",
+                "network.messaging.default.executor.inbound",
                 "Inbound message executor metrics"
         );
 
@@ -189,6 +197,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 requestsMap,
                 failureProcessor
         );
+
+        metricSource = new DefaultMessagingServiceMetricSource();
+        metrics = new DefaultMessagingServiceMetrics(metricSource);
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
     }
 
     /**
@@ -216,6 +230,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementSendFailures();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -246,6 +262,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementRespondFailures();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -265,6 +283,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementInvokeFailures();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -291,6 +311,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (connectionManager.isStopped()) {
+            metrics.incrementSendFailures();
+
             return failedFuture(new NodeStoppingException());
         }
 
@@ -340,6 +362,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (connectionManager.isStopped()) {
+            metrics.incrementInvokeFailures();
+
             return failedFuture(new NodeStoppingException());
         }
 
@@ -396,6 +420,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         try {
             descriptors = prepareMarshal(message);
         } catch (Exception e) {
+            metrics.incrementMessageSerializationFailures();
+
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
@@ -403,6 +429,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 .thenComposeToCompletable(sender -> {
                     if (strictIdCheck && nodeId != null && !sender.launchId().equals(nodeId)) {
                         // The destination node has been rebooted, so it's a different node instance.
+                        metrics.incrementSendFailures();
+
                         throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
                     }
 
@@ -411,12 +439,20 @@ public class DefaultMessagingService extends AbstractMessagingService {
                             () -> triggerChannelCreation(nodeId, type, addr)
                     );
                 })
-                .whenComplete((res, ex) -> handleHandshakeError(ex, nodeId, type, addr));
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        metrics.incrementSendFailures();
+                    }
+
+                    handleHandshakeError(ex, nodeId, type, addr);
+                });
     }
 
     private void handleHandshakeError(Throwable ex, UUID nodeId, ChannelType type, InetSocketAddress addr) {
         if (ex != null) {
             if (hasCause(ex, CriticalHandshakeException.class)) {
+                metrics.incrementConnectionFailures();
+
                 LOG.error(
                         "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
                         nodeId, type, addr, connectionManager.localBindAddress()
@@ -457,6 +493,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         List<HandlerContext> handlerContexts = getHandlerContexts(message.groupType());
 
         // Specially made by a classic loop for optimization.
+        //noinspection ForLoopReplaceableByForEach
         for (int i = 0; i < handlerContexts.size(); i++) {
             HandlerContext handlerContext = handlerContexts.get(i);
 
@@ -512,12 +549,16 @@ public class DefaultMessagingService extends AbstractMessagingService {
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
+                metrics.incrementRequestProcessingFailures();
+
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
                 if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
                     long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
                     if (tookMillis > 100) {
+                        metrics.incrementSlowRequestsHandledCount();
+
                         LOG.warn(
                                 "Processing of {} from {} took {} ms",
                                 LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
@@ -557,6 +598,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         try {
             obj.message().unmarshal(marshaller, obj.registry());
         } catch (Exception e) {
+            metrics.incrementMessageDeserializationFailures();
+
             throw new IgniteException(INTERNAL_ERR, "Failed to unmarshal message: " + e.getMessage(), e);
         }
     }
@@ -657,7 +700,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
         TimeoutObjectImpl responseFuture = requestsMap.remove(correlationId);
 
         if (responseFuture != null) {
-            responseFuture.future().complete(response);
+            var fut = responseFuture.future();
+
+            if (fut.isCompletedExceptionally()) {
+                metrics.incrementInvocationTimeouts();
+            } else {
+                fut.complete(response);
+            }
         }
     }
 
@@ -714,6 +763,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Stops the messaging service.
      */
     public void stop() throws Exception {
+        metricManager.disable(metricSource);
+        metricManager.unregisterSource(metricSource);
+
         var exception = new NodeStoppingException();
 
         requestsMap.values().forEach(fut -> fut.future().completeExceptionally(exception));
