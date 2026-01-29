@@ -25,18 +25,18 @@ import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 class CorrelationValueGetter extends CommonFieldGetter {
     private final Expression ctx;
-    private final RexCorrelVariable variable;
+    private final int correlationId;
 
     CorrelationValueGetter(Expression ctx, RexCorrelVariable variable) {
         super(null, null, variable.getType());
 
         this.ctx = ctx;
-        this.variable = variable;
+        this.correlationId = variable.id.getId();
     }
 
     @Override
     protected Expression fillExpressions(BlockBuilder list, int index) {
-        long id = ((long) variable.id.getId() << 32) | (index & 0xFFFF_FFFFL);
+        long id = ((long) correlationId << 32) | (index & 0xFFFF_FFFFL);
 
         return list.append("corr",
                 Expressions.call(ctx, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(), Expressions.constant(id)));
