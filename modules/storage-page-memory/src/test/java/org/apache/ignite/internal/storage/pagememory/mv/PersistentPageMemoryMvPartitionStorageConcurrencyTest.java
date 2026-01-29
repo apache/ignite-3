@@ -114,9 +114,9 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
      *
      * <p>Test builds a 3-level tree, and creates a race between aborting B and D write intents. WI are large, so they don't share the same
      * page.
-     *                C
+     *                B
      *               / \
-     *             B   D
+     *             A   C
      *           / \   | \
      *          A  B   C  D
      */
@@ -132,20 +132,22 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
             addWriteCommitted(rowIds[i], TABLE_ROW, HybridTimestamp.MAX_VALUE);
         }
 
-        // Check that the tree has 3 levels, first level is 0.
-        assertThat((((PersistentPageMemoryMvPartitionStorage) storage).renewableState.versionChainTree().rootLevel()), is(2));
+        VersionChainTree versionChainTree = ((PersistentPageMemoryMvPartitionStorage) storage).renewableState.versionChainTree();
 
-        // First index that will be in the inner node, "B" on the javadoc diagram. Value was found experimentally.
-        int indexB = 163;
+        // Assert that the tree has 3 levels, first level is 0.
+        assertThat((versionChainTree.rootLevel()), is(2));
+
+        // First index that will be in the inner node, "A" on the javadoc diagram.
+        int indexA = versionChainTree.getLeafMaxItemsCount() / 2;
 
         BinaryRow largeRow = binaryRow(KEY, new TestValue(20, "A".repeat(10_000)));
 
         for (int i = 0; i < 1000; i++) {
-            addWrite(rowIds[indexB], largeRow, txId);
+            addWrite(rowIds[indexA], largeRow, txId);
             addWrite(rowIds[rowsCount - 1], largeRow, txId);
 
             runRace(
-                    () -> abortWrite(rowIds[indexB], txId),
+                    () -> abortWrite(rowIds[indexA], txId),
                     () -> abortWrite(rowIds[rowsCount - 1], txId)
             );
         }
