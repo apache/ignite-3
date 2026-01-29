@@ -360,5 +360,11 @@ public enum Options {
 
         /** No truncate option description. */
         public static final String NO_TRUNCATE_OPTION_DESC = "Disable column truncation, show full content";
+
+        /** SQL result limit option long name. */
+        public static final String RESULT_LIMIT_OPTION = "--limit";
+
+        /** SQL result limit option description. */
+        public static final String RESULT_LIMIT_OPTION_DESC = "Maximum number of rows to display (0 = unlimited, default: 1000)";
     }
 }

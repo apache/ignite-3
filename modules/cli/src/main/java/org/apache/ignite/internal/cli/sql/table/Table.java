@@ -35,6 +35,12 @@ public class Table<T> {
 
     private final List<TableRow<T>> content;
 
+    /** Whether there are more rows available beyond those included in this table. */
+    private final boolean hasMoreRows;
+
+    /** Number of rows in this table. */
+    private final int rowCount;
+
     /**
      * Constructor.
      *
@@ -42,14 +48,27 @@ public class Table<T> {
      * @param content list of row content. Size should be equals n * ids.size.
      */
     public Table(List<String> ids, List<T> content) {
+        this(ids, content, false);
+    }
+
+    /**
+     * Constructor with truncation metadata.
+     *
+     * @param ids list of column names.
+     * @param content list of row content. Size should be equals n * ids.size.
+     * @param hasMoreRows whether there are more rows available beyond those included.
+     */
+    public Table(List<String> ids, List<T> content, boolean hasMoreRows) {
         if (!content.isEmpty() && !ids.isEmpty() && content.size() % ids.size() != 0) {
             throw new IllegalArgumentException("Content size should be divisible by columns count");
         }
 
         this.header = parseHeader(ids);
         this.content = new ArrayList<>();
+        this.hasMoreRows = hasMoreRows;
         int columnsCount = ids.size();
         int n = columnsCount != 0 ? content.size() / columnsCount : 0;
+        this.rowCount = n;
         for (int i = 0; i < n; i++) {
             List<T> elements = content.subList(i * columnsCount, (i + 1) * columnsCount);
             this.content.add(new TableRow<>(elements));
@@ -88,12 +107,41 @@ public class Table<T> {
     }
 
     /**
+     * Returns whether there are more rows available beyond those included in this table.
+     *
+     * @return true if the result was truncated due to a row limit.
+     */
+    public boolean hasMoreRows() {
+        return hasMoreRows;
+    }
+
+    /**
+     * Returns the number of rows in this table.
+     *
+     * @return row count.
+     */
+    public int getRowCount() {
+        return rowCount;
+    }
+
+    /**
      * Create method.
      *
      * @param resultSet coming result set.
-     * @return istance of {@link Table}.
+     * @return instance of {@link Table}.
      */
     public static Table<String> fromResultSet(ResultSet resultSet) {
+        return fromResultSet(resultSet, 0);
+    }
+
+    /**
+     * Create method with row limit.
+     *
+     * @param resultSet coming result set.
+     * @param limit maximum number of rows to read (0 = unlimited).
+     * @return instance of {@link Table} with truncation metadata.
+     */
+    public static Table<String> fromResultSet(ResultSet resultSet, int limit) {
         try {
             ResultSetMetaData metaData = resultSet.getMetaData();
             int columnCount = metaData.getColumnCount();
@@ -102,12 +150,21 @@ public class Table<T> {
                 ids.add(metaData.getColumnLabel(i));
             }
             List<String> content = new ArrayList<>();
+            int rowsRead = 0;
+            boolean hasMoreRows = false;
+
             while (resultSet.next()) {
+                if (limit > 0 && rowsRead >= limit) {
+                    // We've reached the limit, but there's at least one more row
+                    hasMoreRows = true;
+                    break;
+                }
                 for (int i = 1; i <= columnCount; i++) {
                     content.add(resultSet.getString(i));
                 }
+                rowsRead++;
             }
-            return new Table<>(ids, content);
+            return new Table<>(ids, content, hasMoreRows);
         } catch (SQLException e) {
             return null;
         }
