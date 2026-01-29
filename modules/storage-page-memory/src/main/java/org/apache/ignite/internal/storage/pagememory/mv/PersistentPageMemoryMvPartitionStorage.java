@@ -169,7 +169,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     /**
-     * Updates the {@link #meta} fields and all other values associated with it.
+     * Updates the {@link #meta} field and all other values associated with it.
      *
      * @param meta New instance for partition's meta.
      */
