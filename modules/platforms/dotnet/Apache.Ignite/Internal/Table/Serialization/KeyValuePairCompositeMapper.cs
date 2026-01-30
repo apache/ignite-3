@@ -18,23 +18,50 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System.Collections.Generic;
-using Apache.Ignite.Table.Mapper;
+using Ignite.Table.Mapper;
 
 /// <summary>
 /// Composite mapper for key-value pairs.
 /// </summary>
 /// <typeparam name="TKey">Key type.</typeparam>
 /// <typeparam name="TValue">Value type.</typeparam>
-internal sealed class PrimitiveKeyValueMapper<TKey, TValue> : IMapper<KeyValuePair<TKey, TValue>>
+internal sealed record KeyValuePairCompositeMapper<TKey, TValue>(OneColumnMapper<TKey> KeyMapper, OneColumnMapper<TValue> ValMapper)
+    : IMapper<KeyValuePair<TKey, TValue>>
 {
     /// <inheritdoc />
     public void Write(KeyValuePair<TKey, TValue> obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
-        throw new System.NotImplementedException();
+        foreach (var column in schema.Columns)
+        {
+            if (column is Column { IsKey: true })
+            {
+                KeyMapper.Writer(obj.Key, ref rowWriter, schema);
+            }
+            else
+            {
+                ValMapper.Writer(obj.Value, ref rowWriter, schema);
+            }
+        }
     }
 
+    /// <inheritdoc />
     public KeyValuePair<TKey, TValue> Read(ref RowReader rowReader, IMapperSchema schema)
     {
-        throw new System.NotImplementedException();
+        TKey key = default!;
+        TValue value = default!;
+
+        foreach (var column in schema.Columns)
+        {
+            if (column is Column { IsKey: true })
+            {
+                key = KeyMapper.Reader(ref rowReader, schema);
+            }
+            else
+            {
+                value = ValMapper.Reader(ref rowReader, schema);
+            }
+        }
+
+        return KeyValuePair.Create(key, value);
     }
 }
