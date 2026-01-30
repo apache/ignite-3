@@ -763,7 +763,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Stops the messaging service.
      */
     public void stop() throws Exception {
-        metricManager.disable(metricSource);
         metricManager.unregisterSource(metricSource);
 
         var exception = new NodeStoppingException();

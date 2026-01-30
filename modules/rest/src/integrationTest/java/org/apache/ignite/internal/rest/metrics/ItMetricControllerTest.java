@@ -72,10 +72,11 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("clock.service", true),
             new MetricSource("index.builder", true),
             new MetricSource("raft.snapshots", true),
-            new MetricSource("network.messaging.inbound.Default", true),
-            new MetricSource("network.messaging.inbound.DeploymentUnits", true),
-            new MetricSource("network.messaging.inbound.ScaleCube", true),
-            new MetricSource("network.messaging.outbound", true),
+            new MetricSource("network.messaging.default", true),
+            new MetricSource("network.messaging.default.executor.inbound.Default", true),
+            new MetricSource("network.messaging.default.executor.inbound.DeploymentUnits", true),
+            new MetricSource("network.messaging.default.executor.inbound.ScaleCube", true),
+            new MetricSource("network.messaging.default.executor.outbound", true),
     };
 
     @Inject
