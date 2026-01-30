@@ -197,6 +197,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurator,
                     new NoOpMetricManager()

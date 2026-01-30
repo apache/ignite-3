@@ -441,6 +441,7 @@ public class Node {
                 logicalTopology,
                 new NodeAttributesCollector(nodeAttributesConfiguration, storageConfiguration),
                 failureManager,
+                raftGroupEventsClientListener,
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 metricManager

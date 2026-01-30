@@ -761,6 +761,7 @@ public class IgniteImpl implements Ignite {
                 validationManager,
                 nodeAttributesCollector,
                 failureManager,
+                raftGroupEventsClientListener,
                 clusterIdService,
                 cmgRaftConfigurer,
                 metricManager
