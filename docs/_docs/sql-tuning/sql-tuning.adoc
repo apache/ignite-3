@@ -398,7 +398,7 @@ Apache Ignite 3 tracks how many rows change and decides when a cached plan shoul
 
 === How Staleness Detection Works
 
-For each table, GridGain tracks the number of modifications and if such modifications exceed a configurable threshold - statistics are considered stale and:
+For each table, Ignite tracks the number of modifications and if such modifications exceed a configurable threshold - statistics are considered stale and:
 
 - Fresh statistics are automatically recollected
 

@@ -182,7 +182,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 txMessageSender
         );
 
-        txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
+        txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine, txManager);
 
         txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(
                 txStatePartitionStorage,

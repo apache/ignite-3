@@ -53,6 +53,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.raft.jraft.test.TestUtils;
@@ -146,6 +147,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     InternalClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    VolatileTxStateMetaStorage txStateVolatileStorage,
                     TransactionInflights transactionInflights,
                     LowWatermark lowWatermark
             ) {
@@ -154,7 +156,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         systemDistributedConfiguration,
                         clusterService,
                         replicaSvc,
-                        new HeapLockManager(systemLocalConfiguration),
+                        new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage),
+                        txStateVolatileStorage,
                         clockService,
                         generator,
                         placementDriver,

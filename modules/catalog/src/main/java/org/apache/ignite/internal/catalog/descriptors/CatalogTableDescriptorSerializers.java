@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.IOException;
 import java.util.List;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataInput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
@@ -88,13 +89,8 @@ public class CatalogTableDescriptorSerializers {
             if (colocationColumnsLen == -1) {
                 colocationColumns = primaryKeyColumns;
             } else {
-                colocationColumns = new IntArrayList(colocationColumnsLen);
-
                 int[] colocationColumnIdxs = input.readIntArray(colocationColumnsLen);
-
-                for (int idx : colocationColumnIdxs) {
-                    colocationColumns.add(columns.get(idx).id());
-                }
+                colocationColumns = resolveColumnIdsByIndexes(columns, colocationColumnIdxs);
             }
 
             return CatalogTableDescriptor.builder()
@@ -130,64 +126,19 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.primaryKeyIndexId());
             output.writeVarInt(descriptor.zoneId());
 
-            int[] pkIndexes = resolvePkColumnIndexes(descriptor);
+            int[] pkIndexes = CatalogUtils.resolveColumnIndexesByIds(descriptor, descriptor.primaryKeyColumns());
 
             output.writeVarInt(pkIndexes.length);
             output.writeIntArray(pkIndexes);
 
-            if (descriptor.colocationColumnNames() == descriptor.primaryKeyColumnNames()) {
+            if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
                 output.writeVarInt(-1);
             } else {
-                int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
+                int[] colocationIndexes = CatalogUtils.resolveColumnIndexesByIds(descriptor, descriptor.colocationColumns());
 
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
             }
-        }
-
-        private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {
-            int[] colocationColumnIndexes = new int[descriptor.colocationColumnNames().size()];
-
-            for (int idx : pkColumnIndexes) {
-                String columnName = descriptor.columns().get(idx).name();
-
-                for (int j = 0; j < descriptor.colocationColumnNames().size(); j++) {
-                    if (descriptor.colocationColumnNames().get(j).equals(columnName)) {
-                        colocationColumnIndexes[j] = idx;
-
-                        break;
-                    }
-                }
-            }
-
-            return colocationColumnIndexes;
-        }
-
-        private static int[] resolvePkColumnIndexes(CatalogTableDescriptor descriptor) {
-            List<CatalogTableColumnDescriptor> columns = descriptor.columns();
-            List<String> pkColumns = descriptor.primaryKeyColumnNames();
-
-            assert columns.size() >= pkColumns.size();
-
-            int[] pkColumnIndexes = new int[pkColumns.size()];
-            int foundCount = 0;
-
-            for (int i = 0; i < columns.size() && foundCount < pkColumnIndexes.length; i++) {
-                for (int j = 0; j < pkColumns.size(); j++) {
-                    String pkColumn = pkColumns.get(j);
-
-                    if (pkColumn.equals(columns.get(i).name())) {
-                        pkColumnIndexes[j] = i;
-                        foundCount++;
-
-                        break;
-                    }
-                }
-            }
-
-            assert foundCount == pkColumnIndexes.length;
-
-            return pkColumnIndexes;
         }
     }
 
@@ -230,13 +181,8 @@ public class CatalogTableDescriptorSerializers {
             if (colocationColumnsLen == -1) {
                 colocationColumns = primaryKeyColumns;
             } else {
-                colocationColumns = new IntArrayList(colocationColumnsLen);
-
                 int[] colocationColumnIdxs = input.readIntArray(colocationColumnsLen);
-
-                for (int idx : colocationColumnIdxs) {
-                    colocationColumns.add(columns.get(idx).id());
-                }
+                colocationColumns = resolveColumnIdsByIndexes(columns, colocationColumnIdxs);
             }
 
             return CatalogTableDescriptor.builder()
@@ -267,15 +213,15 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.primaryKeyIndexId());
             output.writeVarInt(descriptor.zoneId());
 
-            int[] pkIndexes = resolvePkColumnIndexes(descriptor);
+            int[] pkIndexes = CatalogUtils.resolveColumnIndexesByIds(descriptor, descriptor.primaryKeyColumns());
 
             output.writeVarInt(pkIndexes.length);
             output.writeIntArray(pkIndexes);
 
-            if (descriptor.colocationColumnNames() == descriptor.primaryKeyColumnNames()) {
+            if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
                 output.writeVarInt(-1);
             } else {
-                int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
+                int[] colocationIndexes = CatalogUtils.resolveColumnIndexesByIds(descriptor, descriptor.colocationColumns());
 
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
@@ -318,13 +264,8 @@ public class CatalogTableDescriptorSerializers {
             if (colocationColumnsLen == -1) {
                 colocationColumns = primaryKeyColumns;
             } else {
-                colocationColumns = new IntArrayList(colocationColumnsLen);
-
                 int[] colocationColumnIdxs = input.readIntArray(colocationColumnsLen);
-
-                for (int idx : colocationColumnIdxs) {
-                    colocationColumns.add(columns.get(idx).id());
-                }
+                colocationColumns = resolveColumnIdsByIndexes(columns, colocationColumnIdxs);
             }
 
             double staleRowsFraction = input.readDouble();
@@ -359,15 +300,15 @@ public class CatalogTableDescriptorSerializers {
             output.writeVarInt(descriptor.primaryKeyIndexId());
             output.writeVarInt(descriptor.zoneId());
 
-            int[] pkIndexes = resolvePkColumnIndexes(descriptor);
+            int[] pkIndexes = CatalogUtils.resolveColumnIndexesByIds(descriptor, descriptor.primaryKeyColumns());
 
             output.writeVarInt(pkIndexes.length);
             output.writeIntArray(pkIndexes);
 
-            if (descriptor.colocationColumnNames() == descriptor.primaryKeyColumnNames()) {
+            if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
                 output.writeVarInt(-1);
             } else {
-                int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
+                int[] colocationIndexes = CatalogUtils.resolveColumnIndexesByIds(descriptor, descriptor.colocationColumns());
 
                 output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
@@ -378,48 +319,16 @@ public class CatalogTableDescriptorSerializers {
         }
     }
 
-    private static int[] resolveColocationColumnIndexes(int[] pkColumnIndexes, CatalogTableDescriptor descriptor) {
-        int[] colocationColumnIndexes = new int[descriptor.colocationColumnNames().size()];
+    /**
+     * Return column IDs for the given column positions in columns list.
+     */
+    private static IntList resolveColumnIdsByIndexes(List<CatalogTableColumnDescriptor> columns, int[] indexes) {
+        IntList columnIds = new IntArrayList(indexes.length);
 
-        for (int idx : pkColumnIndexes) {
-            String columnName = descriptor.columns().get(idx).name();
-
-            for (int j = 0; j < descriptor.colocationColumnNames().size(); j++) {
-                if (descriptor.colocationColumnNames().get(j).equals(columnName)) {
-                    colocationColumnIndexes[j] = idx;
-
-                    break;
-                }
-            }
+        for (int idx : indexes) {
+            columnIds.add(columns.get(idx).id());
         }
 
-        return colocationColumnIndexes;
-    }
-
-    private static int[] resolvePkColumnIndexes(CatalogTableDescriptor descriptor) {
-        List<CatalogTableColumnDescriptor> columns = descriptor.columns();
-        List<String> pkColumns = descriptor.primaryKeyColumnNames();
-
-        assert columns.size() >= pkColumns.size();
-
-        int[] pkColumnIndexes = new int[pkColumns.size()];
-        int foundCount = 0;
-
-        for (int i = 0; i < columns.size() && foundCount < pkColumnIndexes.length; i++) {
-            for (int j = 0; j < pkColumns.size(); j++) {
-                String pkColumn = pkColumns.get(j);
-
-                if (pkColumn.equals(columns.get(i).name())) {
-                    pkColumnIndexes[j] = i;
-                    foundCount++;
-
-                    break;
-                }
-            }
-        }
-
-        assert foundCount == pkColumnIndexes.length;
-
-        return pkColumnIndexes;
+        return columnIds;
     }
 }

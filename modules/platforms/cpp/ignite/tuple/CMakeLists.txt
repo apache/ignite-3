@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-tuple)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-tuple)
 
 set(SOURCES
     binary_tuple_builder.cpp
@@ -37,5 +35,5 @@ target_link_libraries(${TARGET} ignite-common)
 ignite_test(tuple_test DISCOVER SOURCES tuple_test.cpp LIBS ${TARGET})
 
 if (${INSTALL_IGNITE_FILES})
-    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/tuple)
+    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/tuple COMPONENT client)
 endif()
