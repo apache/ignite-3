@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.deployment;
 
 import java.io.InputStream;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 
 /**
@@ -52,14 +53,14 @@ public interface InputStreamCollector {
 
     /**
      * Converts the collected input streams into a deployment unit.
-     * 
-     * <p>This method creates a {@link DeploymentUnit} instance containing all the input streams
-     * that have been added to this collector. The specific type of deployment unit returned
-     * depends on the implementation and the characteristics of the collected content.
      *
-     * @return a deployment unit containing all collected input streams; never {@code null}.
+     * <p>This method creates a {@link DeploymentUnit} instance containing all the input streams
+     * that have been added to this collector. The specific type of deployment unit returned depends on the implementation and the
+     * characteristics of the collected content.
+     *
+     * @return a deployment unit future which will complete when all the input streams are collected input streams; never {@code null}.
      */
-    DeploymentUnit toDeploymentUnit();
+    CompletableFuture<DeploymentUnit> toDeploymentUnit();
 
     void rollback() throws Exception;
 }
