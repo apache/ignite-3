@@ -27,10 +27,12 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.message.value.SingleValueMessage;
 import org.apache.ignite.internal.sql.engine.message.SharedStateMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.message.field.SingleValueMessage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -40,7 +42,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SharedStateMessageConverter {
     /** Message factory. */
-    private static final SqlQueryMessagesFactory MESSAGE_FACTORY = new SqlQueryMessagesFactory();
+    private static final SqlQueryMessagesFactory SQL_MESSAGE_FACTORY = new SqlQueryMessagesFactory();
+
+    private static final NetworkMessagesFactory NETOWRK_MESSAGE_FACTORY = new NetworkMessagesFactory();
 
     @Contract("null -> null; !null -> !null")
     static @Nullable SharedStateMessage toMessage(@Nullable SharedState state) {
@@ -57,7 +61,7 @@ public class SharedStateMessageConverter {
             result.put(entry.getLongKey(), msg);
         }
 
-        return MESSAGE_FACTORY.sharedStateMessage()
+        return SQL_MESSAGE_FACTORY.sharedStateMessage()
                 .sharedState(result)
                 .build();
     }
@@ -94,14 +98,17 @@ public class SharedStateMessageConverter {
             return null;
         }
 
+        if (msg.groupType() == SqlQueryMessageGroup.GROUP_TYPE) {
+            assert msg.messageType() == SqlQueryMessageGroup.DECIMAL_VALUE_MESSAGE : msg.messageType();
+
+            return decimalFromBytes((byte[]) value);
+        }
+
         switch (msg.messageType()) {
-            case SqlQueryMessageGroup.BYTE_ARRAY_FIELD_MESSAGE:
+            case NetworkMessageTypes.BYTE_ARRAY_VALUE_MESSAGE:
                 return new ByteString((byte[]) value);
 
-            case SqlQueryMessageGroup.DECIMAL_FIELD_MESSAGE:
-                return decimalFromBytes((byte[]) value);
-
-            case SqlQueryMessageGroup.NULL_FIELD_MESSAGE:
+            case NetworkMessageTypes.NULL_VALUE_MESSAGE:
                 return null;
 
             default:
@@ -137,43 +144,43 @@ public class SharedStateMessageConverter {
 
     private static SingleValueMessage<?> toSingleValueMessage(Object value) {
         if (value == null) {
-            return MESSAGE_FACTORY.nullValueMessage().build();
+            return NETOWRK_MESSAGE_FACTORY.nullValueMessage().build();
         }
 
         if (value instanceof Boolean) {
-            return MESSAGE_FACTORY.booleanValueMessage().value((Boolean) value).build();
+            return NETOWRK_MESSAGE_FACTORY.booleanValueMessage().value((Boolean) value).build();
         }
         if (value instanceof Byte) {
-            return MESSAGE_FACTORY.byteValueMessage().value((Byte) value).build();
+            return NETOWRK_MESSAGE_FACTORY.byteValueMessage().value((Byte) value).build();
         }
         if (value instanceof Short) {
-            return MESSAGE_FACTORY.shortValueMessage().value((Short) value).build();
+            return NETOWRK_MESSAGE_FACTORY.shortValueMessage().value((Short) value).build();
         }
         if (value instanceof Integer) {
-            return MESSAGE_FACTORY.intValueMessage().value((Integer) value).build();
+            return NETOWRK_MESSAGE_FACTORY.intValueMessage().value((Integer) value).build();
         }
         if (value instanceof Long) {
-            return MESSAGE_FACTORY.longValueMessage().value((Long) value).build();
+            return NETOWRK_MESSAGE_FACTORY.longValueMessage().value((Long) value).build();
         }
         if (value instanceof Float) {
-            return MESSAGE_FACTORY.floatValueMessage().value((Float) value).build();
+            return NETOWRK_MESSAGE_FACTORY.floatValueMessage().value((Float) value).build();
         }
         if (value instanceof Double) {
-            return MESSAGE_FACTORY.doubleValueMessage().value((Double) value).build();
+            return NETOWRK_MESSAGE_FACTORY.doubleValueMessage().value((Double) value).build();
         }
         if (value instanceof BigDecimal) {
-            return MESSAGE_FACTORY.decimalValueMessage().value(decimalToBytes((BigDecimal) value)).build();
+            return SQL_MESSAGE_FACTORY.decimalValueMessage().value(decimalToBytes((BigDecimal) value)).build();
         }
         if (value instanceof UUID) {
-            return MESSAGE_FACTORY.uuidValueMessage().value((UUID) value).build();
+            return NETOWRK_MESSAGE_FACTORY.uuidValueMessage().value((UUID) value).build();
         }
         if (value instanceof String) {
-            return MESSAGE_FACTORY.stringValueMessage().value((String) value).build();
+            return NETOWRK_MESSAGE_FACTORY.stringValueMessage().value((String) value).build();
         }
         if (value instanceof ByteString) {
             ByteString byteString = (ByteString) value;
 
-            return MESSAGE_FACTORY.byteArrayValueMessage().value(byteString.getBytes()).build();
+            return NETOWRK_MESSAGE_FACTORY.byteArrayValueMessage().value(byteString.getBytes()).build();
         }
 
         throw new IllegalArgumentException("Unsupported type: " + value.getClass());

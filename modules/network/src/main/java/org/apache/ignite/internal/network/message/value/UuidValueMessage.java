@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
-import java.math.BigDecimal;
+import java.util.UUID;
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link BigDecimal} value in a byte array representation.
+ * A message that contains a single {@link UUID} value.
  */
-@Transferable(SqlQueryMessageGroup.DECIMAL_FIELD_MESSAGE)
-public interface DecimalValueMessage extends SingleValueMessage<byte[]> {
+@Transferable(NetworkMessageTypes.UUID_VALUE_MESSAGE)
+public interface UuidValueMessage extends SingleValueMessage<UUID> {
     @Override
-    byte[] value();
+    UUID value();
 }

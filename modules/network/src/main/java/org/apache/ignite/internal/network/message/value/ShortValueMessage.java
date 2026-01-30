@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Long} value.
+ * A message that contains a single {@link Short} value.
  */
-@Transferable(SqlQueryMessageGroup.LONG_FIELD_MESSAGE)
-public interface LongValueMessage extends SingleValueMessage<Long> {
+@Transferable(NetworkMessageTypes.SHORT_VALUE_MESSAGE)
+public interface ShortValueMessage extends SingleValueMessage<Short> {
     @Override
-    Long value();
+    Short value();
 }

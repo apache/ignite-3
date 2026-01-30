@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A message that contains a single {@code null} value.
  */
-@Transferable(SqlQueryMessageGroup.NULL_FIELD_MESSAGE)
+@Transferable(NetworkMessageTypes.NULL_VALUE_MESSAGE)
 public interface NullValueMessage extends SingleValueMessage<Boolean> {
     @Override
     @Nullable Boolean value();

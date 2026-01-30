@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.sql.engine.message;
 
+import java.math.BigDecimal;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
+import org.apache.ignite.internal.network.message.value.SingleValueMessage;
 
 /**
- * A message that contains a single {@link Boolean} value.
+ * A message that contains a single {@link BigDecimal} value in a byte array representation.
  */
-@Transferable(SqlQueryMessageGroup.BOOLEAN_FIELD_MESSAGE)
-public interface BooleanValueMessage extends SingleValueMessage<Boolean> {
+@Transferable(SqlQueryMessageGroup.DECIMAL_VALUE_MESSAGE)
+public interface DecimalValueMessage extends SingleValueMessage<byte[]> {
     @Override
-    Boolean value();
+    byte[] value();
 }

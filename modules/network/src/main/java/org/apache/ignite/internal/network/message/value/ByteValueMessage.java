@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
-import java.util.UUID;
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link UUID} value.
+ * A message that contains a single {@link Byte} value.
  */
-@Transferable(SqlQueryMessageGroup.UUID_FIELD_MESSAGE)
-public interface UuidValueMessage extends SingleValueMessage<UUID> {
+@Transferable(NetworkMessageTypes.BYTE_VALUE_MESSAGE)
+public interface ByteValueMessage extends SingleValueMessage<Byte> {
     @Override
-    UUID value();
+    Byte value();
 }

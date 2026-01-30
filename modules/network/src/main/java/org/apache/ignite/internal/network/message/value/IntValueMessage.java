@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Double} value.
+ * A message that contains a single {@link Integer} value.
  */
-@Transferable(SqlQueryMessageGroup.DOUBLE_FIELD_MESSAGE)
-public interface DoubleValueMessage extends SingleValueMessage<Double> {
+@Transferable(NetworkMessageTypes.INT_VALUE_MESSAGE)
+public interface IntValueMessage extends SingleValueMessage<Integer> {
     @Override
-    Double value();
+    Integer value();
 }

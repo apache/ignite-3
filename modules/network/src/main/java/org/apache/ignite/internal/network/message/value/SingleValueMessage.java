@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * A message that contains a single {@link Float} value.
+ * A message that contains a single value.
  */
-@Transferable(SqlQueryMessageGroup.FLOAT_FIELD_MESSAGE)
-public interface FloatValueMessage extends SingleValueMessage<Float> {
-    @Override
-    Float value();
+public interface SingleValueMessage<T> extends NetworkMessage {
+    @Nullable T value();
 }

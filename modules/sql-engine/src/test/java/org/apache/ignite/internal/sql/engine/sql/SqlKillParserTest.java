@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -48,6 +49,13 @@ public class SqlKillParserTest extends AbstractParserTest {
         assertNull(kill.noWait());
 
         expectUnparsed(kill, stmt);
+    }
+
+    @Test
+    void testX() {
+        SqlNode sqlNode = parse("SELECT * FROM tab1, tab2 WHERE tab1.id = tab2.id");
+
+        System.out.println(sqlNode);
     }
 
     /** KILL .. NO WAIT statement. */

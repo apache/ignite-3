@@ -25,6 +25,17 @@ import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.internal.network.message.value.BooleanValueMessage;
+import org.apache.ignite.internal.network.message.value.ByteArrayValueMessage;
+import org.apache.ignite.internal.network.message.value.ByteValueMessage;
+import org.apache.ignite.internal.network.message.value.DoubleValueMessage;
+import org.apache.ignite.internal.network.message.value.FloatValueMessage;
+import org.apache.ignite.internal.network.message.value.IntValueMessage;
+import org.apache.ignite.internal.network.message.value.LongValueMessage;
+import org.apache.ignite.internal.network.message.value.NullValueMessage;
+import org.apache.ignite.internal.network.message.value.ShortValueMessage;
+import org.apache.ignite.internal.network.message.value.StringValueMessage;
+import org.apache.ignite.internal.network.message.value.UuidValueMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
@@ -101,4 +112,37 @@ public class NetworkMessageTypes {
      * Type for {@link ProbeMessage}.
      */
     public static final short PROBE_MESSAGE = 12;
+
+    /** See {@link BooleanValueMessage} for the details. */
+    public static final short BOOLEAN_VALUE_MESSAGE = 13;
+
+    /** See {@link ByteValueMessage} for the details. */
+    public static final short BYTE_VALUE_MESSAGE = 14;
+
+    /** See {@link ShortValueMessage} for the details. */
+    public static final short SHORT_VALUE_MESSAGE = 15;
+
+    /** See {@link IntValueMessage} for the details. */
+    public static final short INT_VALUE_MESSAGE = 16;
+
+    /** See {@link LongValueMessage} for the details. */
+    public static final short LONG_VALUE_MESSAGE = 17;
+
+    /** See {@link FloatValueMessage} for the details. */
+    public static final short FLOAT_VALUE_MESSAGE = 18;
+
+    /** See {@link DoubleValueMessage} for the details. */
+    public static final short DOUBLE_VALUE_MESSAGE = 19;
+
+    /** See {@link UuidValueMessage} for the details. */
+    public static final short UUID_VALUE_MESSAGE = 20;
+
+    /** See {@link StringValueMessage} for the details. */
+    public static final short STRING_VALUE_MESSAGE = 21;
+
+    /** See {@link ByteArrayValueMessage} for the details. */
+    public static final short BYTE_ARRAY_VALUE_MESSAGE = 22;
+
+    /** See {@link NullValueMessage} for the details. */
+    public static final short NULL_VALUE_MESSAGE = 23;
 }

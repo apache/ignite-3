@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
  * A message that contains a single {@link String} value.
  */
-@Transferable(SqlQueryMessageGroup.STRING_FIELD_MESSAGE)
+@Transferable(NetworkMessageTypes.STRING_VALUE_MESSAGE)
 public interface StringValueMessage extends SingleValueMessage<String> {
     @Override
     String value();

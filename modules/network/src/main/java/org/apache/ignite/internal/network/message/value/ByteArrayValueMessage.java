@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * A message that contains a single {@link Byte} value.
+ * A message that contains a single {@code byte[]} value.
  */
-@Transferable(SqlQueryMessageGroup.BYTE_FIELD_MESSAGE)
-public interface ByteValueMessage extends SingleValueMessage<Byte> {
+@Transferable(NetworkMessageTypes.BYTE_ARRAY_VALUE_MESSAGE)
+public interface ByteArrayValueMessage extends SingleValueMessage<byte[]> {
     @Override
-    Byte value();
+    byte[] value();
 }

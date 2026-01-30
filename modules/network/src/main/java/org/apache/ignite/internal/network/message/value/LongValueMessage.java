@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message.field;
+package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * A message that contains a single value.
+ * A message that contains a single {@link Long} value.
  */
-public interface SingleValueMessage<T> extends NetworkMessage {
-    @Nullable T value();
+@Transferable(NetworkMessageTypes.LONG_VALUE_MESSAGE)
+public interface LongValueMessage extends SingleValueMessage<Long> {
+    @Override
+    Long value();
 }
