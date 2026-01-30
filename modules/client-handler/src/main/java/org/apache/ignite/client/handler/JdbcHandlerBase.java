@@ -32,7 +32,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.logger.IgniteThrottledLogger;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -60,14 +60,14 @@ abstract class JdbcHandlerBase {
     public static final Set<SqlQueryType> ZERO_UPDATE_COUNT_QUERIES = EnumSet.of(DDL, KILL, TX_CONTROL);
 
     /** Logger. */
-    private final IgniteThrottledLogger log;
+    private final IgniteLogger log;
 
     /** Client registry resources. */
     protected final ClientResourceRegistry resources;
 
     JdbcHandlerBase(ClientResourceRegistry resources) {
         this.resources = resources;
-        this.log = Loggers.toThrottledLogger(Loggers.forClass(this.getClass()), Runnable::run);
+        this.log = Loggers.forClass(this.getClass());
     }
 
     /**
@@ -152,9 +152,7 @@ abstract class JdbcHandlerBase {
     JdbcQuerySingleResult createErrorResult(String logMessage, Throwable origin, @Nullable String errMessagePrefix) {
         Throwable ex = ExceptionUtils.unwrapCause(origin);
 
-        if (ClientInboundMessageHandler.shouldLogError(ex)) {
-            log.warn(logMessage, ex);
-        }
+        log.debug(logMessage, ex);
 
         String errorMessage;
 
