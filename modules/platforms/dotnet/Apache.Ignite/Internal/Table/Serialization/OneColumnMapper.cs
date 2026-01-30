@@ -87,35 +87,20 @@ internal static class OneColumnMapper
 /// </summary>
 /// <typeparam name="T">Type.</typeparam>
 [SuppressMessage("MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
-internal sealed class OneColumnMapper<T> : IMapper<T>
+internal sealed record OneColumnMapper<T>(OneColumnMapper.Reader<T> Reader, OneColumnMapper.Writer<T> Writer) : IMapper<T>
 {
-    private readonly OneColumnMapper.Reader<T> _reader;
-
-    private readonly OneColumnMapper.Writer<T> _writer;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="OneColumnMapper{T}"/> class.
-    /// </summary>
-    /// <param name="reader">Reader.</param>
-    /// <param name="writer">Writer.</param>
-    public OneColumnMapper(OneColumnMapper.Reader<T> reader, OneColumnMapper.Writer<T> writer)
-    {
-        _reader = reader;
-        _writer = writer;
-    }
-
     /// <inheritdoc/>
     public void Write(T obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
         ValidateSchema(schema);
-        _writer(obj, ref rowWriter, schema);
+        Writer(obj, ref rowWriter, schema);
     }
 
     /// <inheritdoc/>
     public T Read(ref RowReader rowReader, IMapperSchema schema)
     {
         ValidateSchema(schema);
-        return _reader(ref rowReader, schema);
+        return Reader(ref rowReader, schema);
     }
 
     private static void ValidateSchema(IMapperSchema schema)
