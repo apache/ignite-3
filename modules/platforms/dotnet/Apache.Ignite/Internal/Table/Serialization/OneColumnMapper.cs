@@ -26,6 +26,18 @@ using Ignite.Table.Mapper;
 /// </summary>
 internal static class OneColumnMapper
 {
+    private static readonly OneColumnMapper<int> IntMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadInt()!.Value,
+        (int obj, ref RowWriter writer, IMapperSchema _) => writer.WriteInt(obj));
+
+    private static readonly OneColumnMapper<int?> IntNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadInt(),
+        (int? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteInt(obj));
+
+    private static readonly OneColumnMapper<string?> StringMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadString(),
+        (string? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteString(obj));
+
     /// <summary>
     /// Writer delegate.
     /// </summary>
@@ -51,7 +63,21 @@ internal static class OneColumnMapper
     /// <returns>Mapper or null.</returns>
     public static OneColumnMapper<T>? TryCreate<T>()
     {
-        // TODO: Store in static fields.
+        if (typeof(T) == typeof(int))
+        {
+            return (OneColumnMapper<T>)(object)IntMapper;
+        }
+
+        if (typeof(T) == typeof(int?))
+        {
+            return (OneColumnMapper<T>)(object)IntNullableMapper;
+        }
+
+        if (typeof(T) == typeof(string))
+        {
+            return (OneColumnMapper<T>)(object)StringMapper;
+        }
+
         return null;
     }
 }
