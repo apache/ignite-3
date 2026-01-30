@@ -43,11 +43,11 @@ public class AssignmentsQueue implements Iterable<Assignments> {
 
     /** Constructor. */
     public AssignmentsQueue(AssignmentsQueue... assignmentsQueues) {
-        LinkedList<Assignments> assigments = new LinkedList<>();
+        LinkedList<Assignments> assignments = new LinkedList<>();
         for (AssignmentsQueue assignmentsQueue : assignmentsQueues) {
-            assigments.addAll(assignmentsQueue.queue);
+            assignments.addAll(assignmentsQueue.queue);
         }
-        this.queue = assigments;
+        this.queue = assignments;
     }
 
     /** Constructor. */

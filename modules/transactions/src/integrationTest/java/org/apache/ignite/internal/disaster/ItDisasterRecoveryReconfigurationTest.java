@@ -797,9 +797,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 1, 3, 4);
 
-        stopNodesInParallel(3, 4);
+        stopNodesInParallel(2, 3, 4);
 
-        waitForScale(node0, 3);
+        waitForScale(node0, 2);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
@@ -808,7 +808,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
-        assertRealAssignments(node0, partId, 0, 1, 2);
+        assertRealAssignments(node0, partId, 0, 1);
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -816,13 +816,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Check that there is no ongoing or planned rebalance.
         assertNull(getPendingAssignments(node0, partId));
 
-        assertRealAssignments(node0, partId, 0, 1, 2);
+        assertRealAssignments(node0, partId, 0, 1);
 
         // No fromReset flag is set on stable.
         Assignments assignmentsStable = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name())
+                Assignment.forPeer(node(1).name())
         ), timestamp);
 
         assertStableAssignments(node0, partId, assignmentsStable);

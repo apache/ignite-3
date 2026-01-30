@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyInMetastorage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
@@ -375,6 +377,15 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         stopNodes(1, 2);
 
+        Set<LogicalNode> expectedNodes = Set.of(
+                createLogicalNode(igniteImpl(0)),
+                createLogicalNode(igniteImpl(3)),
+                createLogicalNode(igniteImpl(4)),
+                createLogicalNode(igniteImpl(5))
+        );
+
+        assertLogicalTopologyInMetastorage(expectedNodes, node.metaStorageManager());
+
         String globalFilter = "$[?(@.region == \"US\")]";
 
         alterZoneSql(globalFilter, HA_ZONE_NAME);
@@ -517,5 +528,19 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  clientConnector: { port:{} }, \n"
                 + "  rest.port: {}\n"
                 + "}";
+    }
+
+    private static LogicalNode createLogicalNode(IgniteImpl ignite) {
+        LogicalNode localLogicalNode = ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
+                .filter(n -> n.name().equals(ignite.name()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Node not found in logical topology: " + ignite.name()));
+
+        return new LogicalNode(
+                ignite.clusterService().topologyService().localMember(),
+                localLogicalNode.userAttributes(),
+                localLogicalNode.systemAttributes(),
+                localLogicalNode.storageProfiles()
+        );
     }
 }
