@@ -39,8 +39,8 @@ public class StripedThreadPoolMetricSource<T extends AbstractStripedThreadPoolEx
     private final T exec;
 
     /**
-     * Creates a new thread pool metric source with the given {@code name} to monitor the provided striped executor {@code exec}, using the
-     * default {@link ThreadPoolMetricSource#THREAD_POOLS_GROUP_NAME} group.
+     * Creates a new thread pool metric source with the given {@code name} to monitor the provided striped executor {@code exec},
+     * using the default {@link ThreadPoolMetricSource#THREAD_POOLS_GROUP_NAME} group.
      *
      * @param name Metric source name.
      * @param description Metric source description.
