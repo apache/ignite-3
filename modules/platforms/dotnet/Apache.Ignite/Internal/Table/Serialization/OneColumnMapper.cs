@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table.Serialization;
 using System;
 using Ignite.Sql;
 using Ignite.Table.Mapper;
+using NodaTime;
 
 /// <summary>
 /// Primitive mapper.
@@ -42,39 +43,87 @@ internal sealed class OneColumnMapper<T> : IMapper<T>
             case ColumnType.Int8:
                 rowWriter.WriteByte((sbyte?)(object?)obj!);
                 break;
+            case ColumnType.Int16:
+                rowWriter.WriteShort((short?)(object?)obj!);
+                break;
+            case ColumnType.Int32:
+                rowWriter.WriteInt((int?)(object?)obj!);
+                break;
+            case ColumnType.Int64:
+                rowWriter.WriteLong((long?)(object?)obj!);
+                break;
+            case ColumnType.Float:
+                rowWriter.WriteFloat((float?)(object?)obj!);
+                break;
+            case ColumnType.Double:
+                rowWriter.WriteDouble((double?)(object?)obj!);
+                break;
+            case ColumnType.Decimal:
+                rowWriter.WriteDecimal((decimal?)(object?)obj!);
+                break;
+            case ColumnType.Date:
+                rowWriter.WriteDate((LocalDate?)(object?)obj!);
+                break;
+            case ColumnType.Time:
+                rowWriter.WriteTime((LocalTime?)(object?)obj!);
+                break;
+            case ColumnType.Datetime:
+                rowWriter.WriteDateTime((LocalDateTime?)(object?)obj!);
+                break;
+            case ColumnType.Timestamp:
+                rowWriter.WriteTimestamp((Instant?)(object?)obj!);
+                break;
+            case ColumnType.Uuid:
+                rowWriter.WriteGuid((Guid?)(object?)obj!);
+                break;
+            case ColumnType.String:
+                rowWriter.WriteString((string?)(object?)obj!);
+                break;
+            case ColumnType.ByteArray:
+                rowWriter.WriteBytes((byte[]?)(object?)obj!);
+                break;
+            case ColumnType.Period:
+                rowWriter.WritePeriod((Period?)(object?)obj!);
+                break;
+            case ColumnType.Duration:
+                rowWriter.WriteDuration((Duration?)(object?)obj!);
+                break;
             default:
                 throw new NotSupportedException("Unsupported column type: " + column.Type);
         }
     }
 
+    /// <inheritdoc/>
     public T Read(ref RowReader rowReader, IMapperSchema schema)
     {
         ValidateSchema(schema);
 
         var column = schema.Columns[0];
 
-        return column.Type switch
+        var res = column.Type switch
         {
             ColumnType.Boolean => (T?)(object?)rowReader.ReadBool(),
             ColumnType.Int8 => (T?)(object?)rowReader.ReadByte(),
-            ColumnType.Null => expr,
-            ColumnType.Int16 => expr,
-            ColumnType.Int32 => expr,
-            ColumnType.Int64 => expr,
-            ColumnType.Float => expr,
-            ColumnType.Double => expr,
-            ColumnType.Decimal => expr,
-            ColumnType.Date => expr,
-            ColumnType.Time => expr,
-            ColumnType.Datetime => expr,
-            ColumnType.Timestamp => expr,
-            ColumnType.Uuid => expr,
-            ColumnType.String => expr,
-            ColumnType.ByteArray => expr,
-            ColumnType.Period => expr,
-            ColumnType.Duration => expr,
+            ColumnType.Int16 => (T?)(object?)rowReader.ReadShort(),
+            ColumnType.Int32 => (T?)(object?)rowReader.ReadInt(),
+            ColumnType.Int64 => (T?)(object?)rowReader.ReadLong(),
+            ColumnType.Float => (T?)(object?)rowReader.ReadFloat(),
+            ColumnType.Double => (T?)(object?)rowReader.ReadDouble(),
+            ColumnType.Decimal => (T?)(object?)rowReader.ReadDecimal(),
+            ColumnType.Date => (T?)(object?)rowReader.ReadDate(),
+            ColumnType.Time => (T?)(object?)rowReader.ReadTime(),
+            ColumnType.Datetime => (T?)(object?)rowReader.ReadDateTime(),
+            ColumnType.Timestamp => (T?)(object?)rowReader.ReadTimestamp(),
+            ColumnType.Uuid => (T?)(object?)rowReader.ReadGuid(),
+            ColumnType.String => (T?)(object?)rowReader.ReadString(),
+            ColumnType.ByteArray => (T?)(object?)rowReader.ReadBytes(),
+            ColumnType.Period => (T?)(object?)rowReader.ReadPeriod(),
+            ColumnType.Duration => (T?)(object?)rowReader.ReadDuration(),
+            ColumnType.Null => default,
             _ => throw new NotSupportedException("Unsupported column type: " + column.Type)
         };
+
+        return res!;
     }
 
     private static void ValidateSchema(IMapperSchema schema)
