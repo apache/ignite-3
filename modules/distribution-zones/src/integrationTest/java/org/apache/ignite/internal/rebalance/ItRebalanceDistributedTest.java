@@ -1314,6 +1314,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     clusterIdService,
                     cmgRaftConfigurer,
                     metricManager

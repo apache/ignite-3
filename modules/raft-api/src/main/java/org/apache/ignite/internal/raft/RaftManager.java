@@ -21,6 +21,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.Nullable;
 
@@ -84,6 +85,31 @@ public interface RaftManager extends IgniteComponent {
     ) throws NodeStoppingException;
 
     /**
+     * Starts a Raft group and a time-aware Raft service on the current node, using the given service factory.
+     *
+     * <p>Synchronously waits for the Raft log to be applied.
+     *
+     * <p>This method is similar to {@link #startSystemRaftGroupNodeAndWaitNodeReady} but creates a
+     * {@link TimeAwareRaftGroupService} instead of a {@link RaftGroupService}.
+     *
+     * @param nodeId Raft node ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param lsnr Raft group listener.
+     * @param eventsLsnr Raft group events listener.
+     * @param factory Service factory for creating time-aware Raft group service.
+     * @param groupOptionsConfigurer Configures raft log and snapshot storages.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    TimeAwareRaftGroupService startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(
+            RaftNodeId nodeId,
+            PeersAndLearners configuration,
+            RaftGroupListener lsnr,
+            RaftGroupEventsListener eventsLsnr,
+            TimeAwareRaftServiceFactory factory,
+            RaftGroupOptionsConfigurer groupOptionsConfigurer
+    ) throws NodeStoppingException;
+
+    /**
      * Stops a given local Raft node.
      *
      * @param nodeId Raft node ID.
@@ -137,6 +163,28 @@ public interface RaftManager extends IgniteComponent {
             PeersAndLearners configuration,
             RaftServiceFactory<T> factory,
             @Nullable Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory,
+            boolean isSystemGroup
+    ) throws NodeStoppingException;
+
+    /**
+     * Creates a time-aware Raft group service providing operations on a Raft group, using the given factory.
+     *
+     * <p>This method is similar to {@link #startRaftGroupService(ReplicationGroupId, PeersAndLearners, RaftServiceFactory, Marshaller,
+     * ExceptionFactory, boolean)} but creates a {@link TimeAwareRaftGroupService} instead of a {@link RaftGroupService}.
+     *
+     * @param groupId Raft group ID.
+     * @param configuration Peers and Learners of the Raft group.
+     * @param factory Factory that should be used to create raft service.
+     * @param stoppingExceptionFactory Exception factory used to create exceptions thrown to indicate that the object is being stopped.
+     * @param isSystemGroup Whether the group service is for a system group or not.
+     * @return Time-aware Raft group service.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    TimeAwareRaftGroupService startTimeAwareRaftGroupService(
+            ReplicationGroupId groupId,
+            PeersAndLearners configuration,
+            TimeAwareRaftServiceFactory factory,
             ExceptionFactory stoppingExceptionFactory,
             boolean isSystemGroup
     ) throws NodeStoppingException;

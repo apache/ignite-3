@@ -34,7 +34,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -84,8 +84,8 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     /** General leader election listener. */
     private final ServerEventHandler generalLeaderElectionListener;
 
-    /** Failure manager. */
-    private final FailureManager failureManager;
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -117,7 +117,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     /**
      * Constructor.
      *
-     * @param failureManager Failure manager.
+     * @param failureProcessor Failure processor.
      * @param clusterService Cluster service.
      * @param executor Executor to invoke RPC requests and notify listeners.
      * @param raftConfiguration RAFT configuration.
@@ -125,7 +125,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      */
     private PhysicalTopologyAwareRaftGroupService(
             ReplicationGroupId groupId,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ClusterService clusterService,
             ScheduledExecutorService executor,
             RaftConfiguration raftConfiguration,
@@ -135,7 +135,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             RaftGroupEventsClientListener eventsClientListener
     ) {
         this.groupId = groupId;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.clusterService = clusterService;
         this.stoppingExceptionFactory = stoppingExceptionFactory;
         this.peers = List.copyOf(configuration.peers());
@@ -232,7 +232,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
             return messageSender.send(member, msg).whenComplete((isSent, err) -> {
                 if (err != null) {
-                    failureManager.process(new FailureContext(err, "Could not change subscription to leader updates [grp="
+                    failureProcessor.process(new FailureContext(err, "Could not change subscription to leader updates [grp="
                             + groupId() + "]."));
                 }
 
@@ -255,7 +255,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * @param eventsClientListener Listener for RAFT group events.
      * @param cmdMarshaller Marshaller for RAFT commands.
      * @param stoppingExceptionFactory Factory for creating stopping exceptions.
-     * @param failureManager Manager for handling failures.
+     * @param failureProcessor Processor for handling failures.
      * @return A new instance of PhysicalTopologyAwareRaftGroupService.
      */
     public static PhysicalTopologyAwareRaftGroupService start(
@@ -267,11 +267,11 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             RaftGroupEventsClientListener eventsClientListener,
             Marshaller cmdMarshaller,
             ExceptionFactory stoppingExceptionFactory,
-            FailureManager failureManager
+            FailureProcessor failureProcessor
     ) {
         return new PhysicalTopologyAwareRaftGroupService(
                 groupId,
-                failureManager,
+                failureProcessor,
                 cluster,
                 executor,
                 raftConfiguration,

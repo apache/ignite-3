@@ -194,6 +194,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     logicalTopology,
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
+                    raftGroupEventsClientListener,
                     new ClusterIdHolder(),
                     cmgRaftConfigurer,
                     metricManager
