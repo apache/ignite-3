@@ -312,62 +312,64 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     }
 
     @Override
-    public CompletableFuture<Void> refreshLeader() {
+    public CompletableFuture<Void> refreshLeader(long timeoutMillis) {
         return raftClient.refreshLeader();
     }
 
     @Override
-    public CompletableFuture<LeaderWithTerm> refreshAndGetLeaderWithTerm() {
+    public CompletableFuture<LeaderWithTerm> refreshAndGetLeaderWithTerm(long timeoutMillis) {
         return raftClient.refreshAndGetLeaderWithTerm();
     }
 
     @Override
-    public CompletableFuture<Void> refreshMembers(boolean onlyAlive) {
+    public CompletableFuture<Void> refreshMembers(boolean onlyAlive, long timeoutMillis) {
         return raftClient.refreshMembers(onlyAlive);
     }
 
     @Override
-    public CompletableFuture<Void> addPeer(Peer peer, long sequenceToken) {
+    public CompletableFuture<Void> addPeer(Peer peer, long sequenceToken, long timeoutMillis) {
         return raftClient.addPeer(peer, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> removePeer(Peer peer, long sequenceToken) {
+    public CompletableFuture<Void> removePeer(Peer peer, long sequenceToken, long timeoutMillis) {
         return raftClient.removePeer(peer, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
+    public CompletableFuture<Void> changePeersAndLearners(
+            PeersAndLearners peersAndLearners, long term, long sequenceToken, long timeoutMillis) {
         return raftClient.changePeersAndLearners(peersAndLearners, term, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
+    public CompletableFuture<Void> changePeersAndLearnersAsync(
+            PeersAndLearners peersAndLearners, long term, long sequenceToken, long timeoutMillis) {
         return raftClient.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> addLearners(Collection<Peer> learners, long sequenceToken) {
+    public CompletableFuture<Void> addLearners(Collection<Peer> learners, long sequenceToken, long timeoutMillis) {
         return raftClient.addLearners(learners, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> removeLearners(Collection<Peer> learners, long sequenceToken) {
+    public CompletableFuture<Void> removeLearners(Collection<Peer> learners, long sequenceToken, long timeoutMillis) {
         return raftClient.removeLearners(learners, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> resetLearners(Collection<Peer> learners, long sequenceToken) {
+    public CompletableFuture<Void> resetLearners(Collection<Peer> learners, long sequenceToken, long timeoutMillis) {
         return raftClient.resetLearners(learners, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> snapshot(Peer peer, boolean forced) {
+    public CompletableFuture<Void> snapshot(Peer peer, boolean forced, long timeoutMillis) {
         return raftClient.snapshot(peer, forced);
     }
 
     @Override
-    public CompletableFuture<Void> transferLeadership(Peer newLeader) {
+    public CompletableFuture<Void> transferLeadership(Peer newLeader, long timeoutMillis) {
         return raftClient.transferLeadership(newLeader);
     }
 
@@ -382,7 +384,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     }
 
     @Override
-    public CompletableFuture<Long> readIndex() {
+    public CompletableFuture<Long> readIndex(long timeoutMillis) {
         return raftClient.readIndex();
     }
 
