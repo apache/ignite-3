@@ -148,7 +148,9 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
-            where T : notnull => GetRecordViewInternal<T>();
+            where T : notnull => OneColumnMapper.TryCreate<T>() is { } mapper
+            ? GetRecordView(mapper)
+            : GetRecordViewInternal<T>();
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
