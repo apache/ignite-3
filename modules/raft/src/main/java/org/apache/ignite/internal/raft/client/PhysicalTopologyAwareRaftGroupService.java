@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.client;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,12 +27,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
@@ -79,17 +76,14 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     /** RPC RAFT client. */
     private final RaftGroupService raftClient;
 
-    /** Executor to invoke RPC requests. */
-    private final ScheduledExecutorService executor;
-
-    /** RAFT configuration. */
-    private final RaftConfiguration raftConfiguration;
-
     /** Factory for creating stopping exceptions. */
     private final ExceptionFactory stoppingExceptionFactory;
 
     /** Command executor with retry semantics. */
     private final RaftCommandExecutor commandExecutor;
+
+    /** Sender for subscription messages with retry logic. */
+    private final SubscriptionMessageSender messageSender;
 
     /**
      * Constructor.
@@ -114,8 +108,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     ) {
         this.failureManager = failureManager;
         this.clusterService = clusterService;
-        this.executor = executor;
-        this.raftConfiguration = raftConfiguration;
         this.stoppingExceptionFactory = stoppingExceptionFactory;
         this.raftClient = RaftGroupServiceImpl.start(
                 groupId,
@@ -138,6 +130,8 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 cmdMarshaller,
                 stoppingExceptionFactory
         );
+
+        this.messageSender = new SubscriptionMessageSender(clusterService.messagingService(), executor, raftConfiguration);
 
         this.generalLeaderElectionListener = new ServerEventHandler(executor);
 
@@ -216,7 +210,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         if (peers().contains(peer)) {
             SubscriptionLeaderChangeRequest msg = subscriptionLeaderChangeRequest(subscribe);
 
-            return sendMessage(member, msg).whenComplete((isSent, err) -> {
+            return messageSender.send(member, msg).whenComplete((isSent, err) -> {
                 if (err != null) {
                     failureManager.process(new FailureContext(err, "Could not change subscription to leader updates [grp="
                             + groupId() + "]."));
@@ -290,53 +284,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 .groupId(groupId())
                 .subscribe(subscribe)
                 .build();
-    }
-
-    private CompletableFuture<Boolean> sendMessage(InternalClusterNode node, SubscriptionLeaderChangeRequest msg) {
-        var msgSendFut = new CompletableFuture<Boolean>();
-
-        sendWithRetry(node, msg, msgSendFut);
-
-        return msgSendFut;
-    }
-
-    private void sendWithRetry(InternalClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
-        Long responseTimeout = raftConfiguration.responseTimeoutMillis().value();
-
-        clusterService.messagingService().invoke(node, msg, responseTimeout).whenCompleteAsync((unused, invokeThrowable) -> {
-            if (invokeThrowable == null) {
-                msgSendFut.complete(true);
-
-                return;
-            }
-
-            Throwable invokeCause = unwrapCause(invokeThrowable);
-            if (!msg.subscribe()) {
-                // We don't want to propagate exceptions when unsubscribing (if it's not an Error!).
-                if (invokeCause instanceof Error) {
-                    msgSendFut.completeExceptionally(invokeThrowable);
-                } else {
-                    LOG.debug("An exception while trying to unsubscribe.", invokeThrowable);
-
-                    msgSendFut.complete(false);
-                }
-            } else if (RaftErrorUtils.recoverable(invokeCause)) {
-                sendWithRetry(node, msg, msgSendFut);
-            } else if (invokeCause instanceof RecipientLeftException) {
-                LOG.info(
-                        "Could not subscribe to leader update from a specific node, because the node had left the cluster: [node={}].",
-                        node
-                );
-
-                msgSendFut.complete(false);
-            } else if (invokeCause instanceof NodeStoppingException) {
-                msgSendFut.complete(false);
-            } else {
-                LOG.error("Could not send the subscribe message to the node: [node={}, msg={}].", invokeThrowable, node, msg);
-
-                msgSendFut.completeExceptionally(invokeThrowable);
-            }
-        }, executor);
     }
 
     @Override
