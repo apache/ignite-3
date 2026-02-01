@@ -101,7 +101,7 @@ public class TransactionOptions {
      * Sets transaction label. The label is used for identification in logs and system views.
      *
      * <p>Transaction labels help identify and track transactions in system logs and the transaction system view.
-     * They can be useful for debugging and monitoring purposes.
+     * They can be useful for debugging and monitoring purposes. As soon as a transaction label is set, it's immutable for the transaction.
      *
      * @param label Transaction label. Can be {@code null} to clear the label.
      * @return {@code this} for chaining.

@@ -566,6 +566,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .commitPartitionId(serializeReplicationGroupId(tx.commitPartition()))
                         .coordinatorId(tx.coordinatorId())
+                        .txLabel(txLabel(tx))
                         .build();
 
         if (enlistment != null) {
@@ -941,6 +942,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> false
         );
@@ -1090,6 +1092,7 @@ public class InternalTableImpl implements InternalTable {
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
+                .txLabel(txLabel(tx))
                 .build();
     }
 
@@ -1156,6 +1159,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> false
         );
@@ -1251,6 +1255,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> false
         );
@@ -1275,6 +1280,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1334,6 +1340,7 @@ public class InternalTableImpl implements InternalTable {
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
+                .txLabel(txLabel(tx))
                 .build();
     }
 
@@ -1356,6 +1363,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1384,6 +1392,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1410,6 +1419,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> res == null
         );
@@ -1434,6 +1444,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1458,6 +1469,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1484,6 +1496,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> res == null
         );
@@ -1798,6 +1811,7 @@ public class InternalTableImpl implements InternalTable {
                         .flags(flags)
                         .batchSize(batchSize)
                         .full(false) // Set explicitly.
+                        .txLabel(txContext.label())
                         .build();
 
                 return replicaSvc.invoke(recipient, request);
@@ -1827,6 +1841,11 @@ public class InternalTableImpl implements InternalTable {
                     .txLabel(label)
                     .build());
         }
+    }
+
+    private @Nullable String txLabel(InternalTransaction tx) {
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+        return meta == null ? null : meta.txLabel();
     }
 
     /**
