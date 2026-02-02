@@ -103,9 +103,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private final MetricManager metricManager;
 
-    private final DefaultMessagingServiceMetricSource metricSource;
+    private final MessagingServiceMetricSource metricSource;
 
-    private final DefaultMessagingServiceMetrics metrics;
+    private final MessagingServiceMetrics metrics;
 
     /** Connection manager that provides access to {@link NettySender}. */
     private volatile ConnectionManager connectionManager;
@@ -176,7 +176,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED));
-        outboundExecutor.initMetricSource(metricManager, "network.messaging.default.executor.outbound",
+        outboundExecutor.initMetricSource(metricManager, "network.messaging.executor.outbound",
                 "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
@@ -186,7 +186,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 channelTypeRegistry,
                 LOG,
                 metricManager,
-                "network.messaging.default.executor.inbound",
+                "network.messaging.executor.inbound",
                 "Inbound message executor metrics"
         );
 
@@ -198,8 +198,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 failureProcessor
         );
 
-        metricSource = new DefaultMessagingServiceMetricSource();
-        metrics = new DefaultMessagingServiceMetrics(metricSource);
+        metricSource = new MessagingServiceMetricSource();
+        metrics = new MessagingServiceMetrics(metricSource);
 
         metricManager.registerSource(metricSource);
         metricManager.enable(metricSource);

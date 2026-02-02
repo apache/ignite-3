@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Metric source for the {@link DefaultMessagingService}.
  */
-class DefaultMessagingServiceMetricSource implements MetricSource {
+class MessagingServiceMetricSource implements MetricSource {
     /** Metrics map. Only modified in {@code synchronized} context. */
     private final Map<String, Metric> metrics = new HashMap<>();
 
@@ -36,7 +36,7 @@ class DefaultMessagingServiceMetricSource implements MetricSource {
 
     @Override
     public String name() {
-        return "network.messaging.default";
+        return "network.messaging";
     }
 
     @Override

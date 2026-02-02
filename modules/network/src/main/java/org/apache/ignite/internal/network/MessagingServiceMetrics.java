@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network;
 
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 
-class DefaultMessagingServiceMetrics {
+class MessagingServiceMetrics {
     private final AtomicLongMetric messageSendFailures;
 
     private final AtomicLongMetric messageRecipientNotFound;
@@ -38,7 +38,7 @@ class DefaultMessagingServiceMetrics {
 
     private final AtomicLongMetric slowResponses;
 
-    DefaultMessagingServiceMetrics(DefaultMessagingServiceMetricSource source) {
+    MessagingServiceMetrics(MessagingServiceMetricSource source) {
         messageSendFailures = source.addMetric(new AtomicLongMetric(
                 "messageSendFailures",
                 "Total number of failed outgoing messages."
