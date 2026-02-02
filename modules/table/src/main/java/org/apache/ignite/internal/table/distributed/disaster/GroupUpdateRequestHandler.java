@@ -366,7 +366,12 @@ class GroupUpdateRequestHandler {
                     .collect(toSet());
 
             if (!aliveAssignments.isEmpty()) {
-                filteredAssignments.add(Assignments.of(aliveAssignments, assignments.timestamp(), assignments.force()));
+                filteredAssignments.add(new Assignments(
+                        aliveAssignments,
+                        assignments.force(),
+                        assignments.timestamp(),
+                        assignments.fromReset())
+                );
             }
         }
         return new AssignmentsQueue(filteredAssignments.toArray(Assignments[]::new));
