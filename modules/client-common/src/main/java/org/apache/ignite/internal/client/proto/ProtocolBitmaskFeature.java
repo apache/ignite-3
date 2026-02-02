@@ -97,7 +97,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Compute tasks and jobs accept observable timestamp from the client.
      */
-    COMPUTE_OBSERVABLE_TS(14);
+    COMPUTE_OBSERVABLE_TS(14),
+
+    /**
+     * Send remote writes flag for directly mapped transactions.
+     */
+    TX_DIRECT_MAPPING_SEND_REMOTE_WRITES(15);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

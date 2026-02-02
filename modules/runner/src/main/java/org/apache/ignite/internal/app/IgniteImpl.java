@@ -91,6 +91,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
@@ -285,6 +286,7 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -657,6 +659,8 @@ public class IgniteImpl implements Ignite {
                 raftConfiguration.fsync().value()
         );
 
+        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+
         metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
         msLogStorageFactory = SharedLogStorageFactoryUtils.create(
@@ -957,7 +961,7 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 longJvmPauseDetector,
                 failureManager,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 clock,
                 threadPoolsManager.commonScheduler()
         );
@@ -1042,9 +1046,12 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
-        LockManager lockMgr = new HeapLockManager(systemConfiguration);
+        TransactionInflights transactionInflights =
+                new TransactionInflights(placementDriverMgr.placementDriver(), clockService, txStateVolatileStorage);
+
+        LockManager lockMgr = new HeapLockManager(systemConfiguration, txStateVolatileStorage);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -1055,6 +1062,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 replicaSvc,
                 lockMgr,
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),
@@ -1074,7 +1082,7 @@ public class IgniteImpl implements Ignite {
                 storagePath.resolve(TX_STATE_DIR),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 failureManager
         );
 
@@ -1152,7 +1160,7 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration,

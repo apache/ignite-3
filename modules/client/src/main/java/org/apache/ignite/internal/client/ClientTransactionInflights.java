@@ -126,6 +126,16 @@ public class ClientTransactionInflights {
     }
 
     /**
+     * Check if the inflights map contains a given transaction.
+     *
+     * @param txId Tx id.
+     * @return {@code True} if contains.
+     */
+    public boolean contains(UUID txId) {
+        return txCtxMap.containsKey(txId);
+    }
+
+    /**
      * Transaction inflights context.
      */
     public static class TxContext {

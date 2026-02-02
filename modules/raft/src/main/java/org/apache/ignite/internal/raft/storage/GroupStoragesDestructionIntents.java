@@ -19,12 +19,11 @@ package org.apache.ignite.internal.raft.storage;
 
 import java.util.Collection;
 import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /** Persists and retrieves intent to complete storages destruction on node start. */
 public interface GroupStoragesDestructionIntents {
     /** Save intent to destroy raft storages. */
-    void saveStorageDestructionIntent(ReplicationGroupId groupId, StorageDestructionIntent intent);
+    void saveStorageDestructionIntent(StorageDestructionIntent intent);
 
     /** Remove intent to destroy raft storages. */
     void removeStorageDestructionIntent(String nodeId);

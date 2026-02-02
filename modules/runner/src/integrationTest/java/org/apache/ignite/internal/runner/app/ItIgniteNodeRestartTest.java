@@ -106,6 +106,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -226,6 +227,7 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -416,6 +418,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LogStorageFactory partitionsLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
+        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+
         RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
@@ -470,7 +474,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        var lockManager = new HeapLockManager(systemConfiguration);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        var lockManager = new HeapLockManager(systemConfiguration, txStateVolatileStorage);
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -612,7 +618,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.commonScheduler()
         );
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
+        TransactionInflights transactionInflights = new TransactionInflights(
+                placementDriverManager.placementDriver(),
+                clockService,
+                txStateVolatileStorage
+        );
 
         var replicaService = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
@@ -630,6 +640,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 replicaService,
                 lockManager,
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
@@ -672,7 +683,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         storagePath,
                         null,
                         failureProcessor,
-                        partitionsLogStorageFactory,
+                        partitionsLogSyncer,
                         hybridClock,
                         scheduledExecutorService
                 ),
@@ -737,7 +748,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 failureProcessor
         );
 
@@ -800,7 +811,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 partitionReplicaLifecycleListener,
                 minTimeCollectorService,
                 systemDistributedConfiguration,

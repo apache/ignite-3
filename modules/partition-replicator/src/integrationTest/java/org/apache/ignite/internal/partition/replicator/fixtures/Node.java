@@ -68,6 +68,7 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -187,6 +188,7 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
@@ -390,6 +392,8 @@ public class Node {
 
         partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
 
+        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+
         RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
@@ -554,7 +558,9 @@ public class Node {
                 zoneId -> completedFuture(Set.of())
         );
 
-        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService, txStateVolatileStorage);
 
         var cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -595,7 +601,7 @@ public class Node {
                         dir.resolve("storage"),
                         null,
                         failureManager,
-                        partitionsLogStorageFactory,
+                        partitionsLogSyncer,
                         hybridClock,
                         scheduledExecutorService
                 ),
@@ -617,6 +623,7 @@ public class Node {
                 clusterService,
                 replicaSvc,
                 lockManager,
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(address.port()),
                 placementDriverManager.placementDriver(),
@@ -714,7 +721,7 @@ public class Node {
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 failureManager
         );
 
@@ -789,7 +796,7 @@ public class Node {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration,

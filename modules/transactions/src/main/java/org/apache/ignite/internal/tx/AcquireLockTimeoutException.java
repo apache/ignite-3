@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
+
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 
 /**
  * This exception is thrown when a lock cannot be acquired in a timeout boundaries.
@@ -28,11 +31,13 @@ public class AcquireLockTimeoutException extends LockException {
      *
      * @param waiter Waiter for lock acquisition.
      * @param exceededTimeout Exceeded timeout value in milliseconds.
+     * @param txStateVolatileStorage tx storage to retrieve label for logging.
      */
-    public AcquireLockTimeoutException(Waiter waiter, long exceededTimeout) {
+    public AcquireLockTimeoutException(Waiter waiter, long exceededTimeout, VolatileTxStateMetaStorage txStateVolatileStorage) {
         super(
                 ACQUIRE_LOCK_TIMEOUT_ERR,
-                "Failed to acquire a lock due to timeout [txId=" + waiter.txId()
+                "Failed to acquire a lock due to timeout ["
+                        +  formatTxInfo(waiter.txId(), txStateVolatileStorage)
                         + ", waiter=" + waiter
                         + ", timeoutMs=" + exceededTimeout
                         + ']'

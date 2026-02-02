@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.commands;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
@@ -32,7 +31,8 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.OptionSpec;
 
@@ -49,16 +49,11 @@ class ProfileOptionTest {
         System.setProperty("org.jline.terminal.dumb", "true");
     }
 
-    @Test
-    void nonReplCommands() {
-        CommandLine cmd = new CommandLine(TopLevelCliCommand.class, new MicronautFactory(context));
+    @ParameterizedTest
+    @ValueSource(classes = {TopLevelCliCommand.class, TopLevelCliReplCommand.class})
+    void everyCommandWithUrlOptionHasProfileOption(Class<?> cmdClass) {
+        CommandLine cmd = new CommandLine(cmdClass, new MicronautFactory(context));
         assertThat(subCommands(cmd), everyItem(profileOption(notNullValue(OptionSpec.class))));
-    }
-
-    @Test
-    void replCommands() {
-        CommandLine cmd = new CommandLine(TopLevelCliReplCommand.class, new MicronautFactory(context));
-        assertThat(subCommands(cmd), everyItem(profileOption(nullValue(OptionSpec.class))));
     }
 
     private static Matcher<CommandLine> profileOption(Matcher<OptionSpec> optionMatcher) {
@@ -76,7 +71,7 @@ class ProfileOptionTest {
 
             @Override
             protected void describeMismatchSafely(CommandLine item, Description mismatchDescription) {
-                mismatchDescription.appendText(item.getCommandSpec().qualifiedName())
+                mismatchDescription.appendValue(item.getCommandSpec().qualifiedName())
                         .appendText(" has --profile option ").appendValue(item.getCommandSpec().findOption("--profile"));
             }
         };

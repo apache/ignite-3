@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -44,6 +45,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
+import java.net.SocketException;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
@@ -948,11 +950,11 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
-                        clientContext.hasFeature(TX_PIGGYBACK), tsTracker);
+                        clientContext.hasFeature(TX_PIGGYBACK), clientContext.hasFeature(TX_DIRECT_MAPPING_SEND_REMOTE_WRITES), tsTracker);
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources, metrics, igniteTables,
-                        clientContext.hasFeature(TX_PIGGYBACK));
+                        clientContext.hasFeature(TX_PIGGYBACK), clientContext.hasFeature(TX_DIRECT_MAPPING_SEND_REMOTE_WRITES));
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId), clientContext);
@@ -1154,14 +1156,13 @@ public class ClientInboundMessageHandler
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         boolean logWarn = true;
+        boolean logThrowable = true;
 
         if (cause instanceof SSLException || cause.getCause() instanceof SSLException) {
             metrics.sessionsRejectedTlsIncrement();
 
             logWarn = false;
-        }
-
-        if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
+        } else if (cause instanceof DecoderException && cause.getCause() instanceof IgniteException) {
             var err = (IgniteException) cause.getCause();
 
             if (err.code() == HANDSHAKE_HEADER_ERR) {
@@ -1169,11 +1170,14 @@ public class ClientInboundMessageHandler
             }
 
             logWarn = false;
+        } else if (cause instanceof SocketException) {
+            // SocketExceptions seem to well known and have a nice messages. If a stranger exception happens we can always enable debug.
+            logThrowable = false;
         }
 
         if (logWarn) {
             LOG.warn("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
-                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
+                    + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), (logThrowable) ? cause : null);
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Exception in client connector pipeline [connectionId=" + connectionId + ", remoteAddress="
                     + ctx.channel().remoteAddress() + "]: " + cause.getMessage(), cause);
