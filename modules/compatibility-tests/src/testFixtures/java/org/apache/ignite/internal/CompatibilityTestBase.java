@@ -130,8 +130,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();
 
-            cluster.startEmbedded(nodesCount);
-            await().until(this::noActiveRebalance, willBe(true));
+            startEmbeddedClusterAndAwaitRebalance(nodesCount);
         }
     }
 
@@ -254,6 +253,13 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             return value.isEmpty() || "true".equals(value);
         }
         return false;
+    }
+
+    /** Starts an embedded cluster with the given number of nodes and waits for rebalance to complete. */
+    protected void startEmbeddedClusterAndAwaitRebalance(int nodesCount) {
+        cluster.startEmbedded(nodesCount);
+
+        await().until(this::noActiveRebalance, willBe(true));
     }
 
     /**

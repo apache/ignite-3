@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTa
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -85,9 +83,7 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
 
     @Test
     void testStreamToFollower() throws InterruptedException {
-        cluster.startEmbedded(2);
-
-        await().until(this::noActiveRebalance, willBe(true));
+        startEmbeddedClusterAndAwaitRebalance(2);
 
         checkMetastorage();
 

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.awaitility.Awaitility.await;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -63,9 +62,8 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     @Test
     void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
         cluster.stop();
-        cluster.startEmbedded(2);
 
-        await().until(this::noActiveRebalance, willBe(true));
+        startEmbeddedClusterAndAwaitRebalance(2);
 
         checkMetastorage();
 
