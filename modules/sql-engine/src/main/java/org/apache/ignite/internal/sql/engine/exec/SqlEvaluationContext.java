@@ -39,6 +39,6 @@ public interface SqlEvaluationContext<RowT> extends DataContext {
     /** Returns a factory capable of producing {@link RowFactory} instances for the {@code RowT} row representation. */
     RowFactoryFactory<RowT> rowFactoryFactory();
 
-    /** Returns the value of a correlated variable identified by the given correlation id and field index. */
+    /** Returns the value of a correlated variable identified by the given correlation id. */
     @Nullable Object correlatedVariable(long corrId);
 }

@@ -21,6 +21,7 @@ import org.apache.calcite.linq4j.tree.BlockBuilder;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.rex.RexCorrelVariable;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 class CorrelationValueGetter extends CommonFieldGetter {
@@ -36,7 +37,7 @@ class CorrelationValueGetter extends CommonFieldGetter {
 
     @Override
     protected Expression fillExpressions(BlockBuilder list, int index) {
-        long id = ((long) correlationId << 32) | (index & 0xFFFF_FFFFL);
+        long id = Commons.packIntsToLong(correlationId, index);
 
         return list.append("corr",
                 Expressions.call(ctx, IgniteMethod.CONTEXT_GET_CORRELATED_VALUE.method(), Expressions.constant(id)));

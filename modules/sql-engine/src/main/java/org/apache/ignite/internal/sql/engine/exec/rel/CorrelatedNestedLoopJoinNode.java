@@ -33,6 +33,7 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * CorrelatedNestedLoopJoinNode.
@@ -496,8 +497,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             for (int fieldIndex = correlationColumns.nextSetBit(0); fieldIndex != -1;
                     fieldIndex = correlationColumns.nextSetBit(fieldIndex + 1)) {
                 Object value = context().rowAccessor().get(fieldIndex, row);
-
-                long id = ((long) corrId << 32) | (fieldIndex & 0xFFFF_FFFFL);
+                long id = Commons.packIntsToLong(corrId, fieldIndex);
 
                 context().correlatedVariable(id, value);
             }

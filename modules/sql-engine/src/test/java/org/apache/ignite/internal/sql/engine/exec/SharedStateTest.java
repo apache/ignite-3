@@ -20,15 +20,39 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.util.List;
+import java.util.Random;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for class {@link SharedState}.
  */
-public class SharedStateTest {
+public class SharedStateTest extends BaseIgniteAbstractTest {
     private final SharedState state = new SharedState();
+
+    @ParameterizedTest
+    @MethodSource("allTypes")
+    void canSetValue(NativeType type) {
+        long seed = System.currentTimeMillis();
+
+        log.info("Using seed: " + seed);
+
+        Random rnd = new Random(seed);
+
+        Object value = SchemaTestUtils.generateRandomValue(rnd, type);
+        long corrId = rnd.nextLong();
+
+        state.correlatedVariable(corrId, value);
+
+        assertThat(state.correlatedVariable(corrId), is(value));
+    }
 
     @Test
     void canSetNullAsValue() {
@@ -45,5 +69,9 @@ public class SharedStateTest {
                 () -> state.correlatedVariable(1),
                 "Correlated variable is not set [id=1]"
         );
+    }
+
+    private static List<NativeType> allTypes() {
+        return SchemaTestUtils.ALL_TYPES;
     }
 }
