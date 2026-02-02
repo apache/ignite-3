@@ -37,6 +37,7 @@ public class FastTimestamps {
     }
 
     private static void startUpdater() {
+        @SuppressWarnings("resource")
         ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             @SuppressWarnings("ClassExplicitlyExtendsThread")
             Thread t = new Thread(r, "FastTimestamps updater") {
