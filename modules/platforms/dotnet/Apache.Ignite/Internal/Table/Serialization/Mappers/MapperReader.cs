@@ -26,4 +26,4 @@ using Ignite.Table.Mapper;
 /// <param name="schema">Schema.</param>
 /// <typeparam name="T">Type.</typeparam>
 /// <returns>Result.</returns>
-public delegate T MapperReader<out T>(ref RowReader rowReader, IMapperSchema schema);
+internal delegate T MapperReader<out T>(ref RowReader rowReader, IMapperSchema schema);

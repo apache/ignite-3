@@ -17,6 +17,9 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization.Mappers;
 
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
 using Ignite.Table.Mapper;
 
 /// <summary>
@@ -36,28 +39,17 @@ internal static class OneColumnMappers
         (ref RowReader reader, IMapperSchema _) => reader.ReadString(),
         (string? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteString(obj));
 
+    private static readonly FrozenDictionary<Type, object> Mappers = new Dictionary<Type, object>
+    {
+        { typeof(int), IntMapper },
+        { typeof(int?), IntNullableMapper },
+        { typeof(string), StringMapper }
+    }.ToFrozenDictionary();
+
     /// <summary>
     /// Creates a primitive mapper for the specified type if supported; otherwise, returns null.
     /// </summary>
     /// <typeparam name="T">Type.</typeparam>
     /// <returns>Mapper or null.</returns>
-    public static OneColumnMapper<T>? TryCreate<T>()
-    {
-        if (typeof(T) == typeof(int))
-        {
-            return (OneColumnMapper<T>)(object)IntMapper;
-        }
-
-        if (typeof(T) == typeof(int?))
-        {
-            return (OneColumnMapper<T>)(object)IntNullableMapper;
-        }
-
-        if (typeof(T) == typeof(string))
-        {
-            return (OneColumnMapper<T>)(object)StringMapper;
-        }
-
-        return null;
-    }
+    public static OneColumnMapper<T>? TryCreate<T>() => Mappers.GetValueOrDefault(typeof(T)) as OneColumnMapper<T>;
 }
