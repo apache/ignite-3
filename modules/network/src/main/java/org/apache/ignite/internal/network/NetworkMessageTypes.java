@@ -113,36 +113,58 @@ public class NetworkMessageTypes {
      */
     public static final short PROBE_MESSAGE = 12;
 
-    /** See {@link BooleanValueMessage} for the details. */
+    /**
+     * Type for {@link BooleanValueMessage}.
+     */
     public static final short BOOLEAN_VALUE_MESSAGE = 13;
 
-    /** See {@link ByteValueMessage} for the details. */
+    /**
+     * Type for {@link ByteValueMessage}.
+     */
     public static final short BYTE_VALUE_MESSAGE = 14;
 
-    /** See {@link ShortValueMessage} for the details. */
+    /**
+     * Type for {@link ShortValueMessage}.
+     */
     public static final short SHORT_VALUE_MESSAGE = 15;
 
-    /** See {@link IntValueMessage} for the details. */
+    /**
+     * Type for {@link IntValueMessage}.
+     */
     public static final short INT_VALUE_MESSAGE = 16;
 
-    /** See {@link LongValueMessage} for the details. */
+    /**
+     * Type for {@link LongValueMessage}.
+     */
     public static final short LONG_VALUE_MESSAGE = 17;
 
-    /** See {@link FloatValueMessage} for the details. */
+    /**
+     * Type for {@link FloatValueMessage}.
+     */
     public static final short FLOAT_VALUE_MESSAGE = 18;
 
-    /** See {@link DoubleValueMessage} for the details. */
+    /**
+     * Type for {@link DoubleValueMessage}.
+     */
     public static final short DOUBLE_VALUE_MESSAGE = 19;
 
-    /** See {@link UuidValueMessage} for the details. */
+    /**
+     * Type for {@link UuidValueMessage}.
+     */
     public static final short UUID_VALUE_MESSAGE = 20;
 
-    /** See {@link StringValueMessage} for the details. */
+    /**
+     * Type for {@link StringValueMessage}.
+     */
     public static final short STRING_VALUE_MESSAGE = 21;
 
-    /** See {@link ByteArrayValueMessage} for the details. */
+    /**
+     * Type for {@link ByteArrayValueMessage}.
+     */
     public static final short BYTE_ARRAY_VALUE_MESSAGE = 22;
 
-    /** See {@link NullValueMessage} for the details. */
+    /**
+     * Type for {@link NullValueMessage}.
+     */
     public static final short NULL_VALUE_MESSAGE = 23;
 }
