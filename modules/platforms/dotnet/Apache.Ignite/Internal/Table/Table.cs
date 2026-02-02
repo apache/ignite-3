@@ -179,10 +179,27 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
-            where TK : notnull =>
-            KeyValueMappers.TryCreate<TK, TV>() is { } mapper
-                ? GetKeyValueView(mapper)
+            where TK : notnull
+        {
+            var simpleMapper = KeyValueMappers.TryCreate<TK, TV>();
+
+            if (!RuntimeFeature.IsDynamicCodeSupported)
+            {
+                if (simpleMapper == null)
+                {
+                    throw new InvalidOperationException(
+                        "Dynamic code generation is not supported in the current environment. " +
+                        "Provide an explicit IMapper<KeyValuePair<TK, TV>> implementation for types " +
+                        typeof(TK).FullName + " and " + typeof(TV).FullName);
+                }
+
+                return GetKeyValueView(simpleMapper);
+            }
+
+            return simpleMapper is not null
+                ? GetKeyValueView(simpleMapper)
                 : new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+        }
 
         /// <inheritdoc/>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
