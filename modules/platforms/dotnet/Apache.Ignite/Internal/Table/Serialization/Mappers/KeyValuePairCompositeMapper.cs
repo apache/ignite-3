@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table.Serialization;
+namespace Apache.Ignite.Internal.Table.Serialization.Mappers;
 
 using System.Collections.Generic;
-using Ignite.Table.Mapper;
+using Apache.Ignite.Table.Mapper;
 
 /// <summary>
 /// Composite mapper for key-value pairs.

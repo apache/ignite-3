@@ -34,6 +34,7 @@ namespace Apache.Ignite.Internal.Table
     using Proto;
     using Proto.MsgPack;
     using Serialization;
+    using Serialization.Mappers;
     using Sql;
     using Transactions;
 

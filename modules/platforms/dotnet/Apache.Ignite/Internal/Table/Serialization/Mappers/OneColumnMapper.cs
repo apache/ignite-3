@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table.Serialization;
+namespace Apache.Ignite.Internal.Table.Serialization.Mappers;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using Ignite.Table.Mapper;
+using Apache.Ignite.Table.Mapper;
 
 /// <summary>
 /// Primitive mapper helper.
