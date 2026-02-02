@@ -27,6 +27,30 @@ using Ignite.Table.Mapper;
 /// </summary>
 internal static class OneColumnMappers
 {
+    private static readonly OneColumnMapper<sbyte> SByteMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadByte()!.Value,
+        (sbyte obj, ref RowWriter writer, IMapperSchema _) => writer.WriteByte(obj));
+
+    private static readonly OneColumnMapper<sbyte?> SByteNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadByte(),
+        (sbyte? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteByte(obj));
+
+    private static readonly OneColumnMapper<bool> BoolMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadBool()!.Value,
+        (bool obj, ref RowWriter writer, IMapperSchema _) => writer.WriteBool(obj));
+
+    private static readonly OneColumnMapper<bool?> BoolNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadBool(),
+        (bool? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteBool(obj));
+
+    private static readonly OneColumnMapper<short> ShortMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadShort()!.Value,
+        (short obj, ref RowWriter writer, IMapperSchema _) => writer.WriteShort(obj));
+
+    private static readonly OneColumnMapper<short?> ShortNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadShort(),
+        (short? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteShort(obj));
+
     private static readonly OneColumnMapper<int> IntMapper = new(
         (ref RowReader reader, IMapperSchema _) => reader.ReadInt()!.Value,
         (int obj, ref RowWriter writer, IMapperSchema _) => writer.WriteInt(obj));
@@ -35,15 +59,76 @@ internal static class OneColumnMappers
         (ref RowReader reader, IMapperSchema _) => reader.ReadInt(),
         (int? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteInt(obj));
 
+    private static readonly OneColumnMapper<long> LongMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadLong()!.Value,
+        (long obj, ref RowWriter writer, IMapperSchema _) => writer.WriteLong(obj));
+
+    private static readonly OneColumnMapper<long?> LongNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadLong(),
+        (long? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteLong(obj));
+
+    private static readonly OneColumnMapper<float> FloatMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadFloat()!.Value,
+        (float obj, ref RowWriter writer, IMapperSchema _) => writer.WriteFloat(obj));
+
+    private static readonly OneColumnMapper<float?> FloatNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadFloat(),
+        (float? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteFloat(obj));
+
+    private static readonly OneColumnMapper<double> DoubleMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDouble()!.Value,
+        (double obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDouble(obj));
+
+    private static readonly OneColumnMapper<double?> DoubleNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDouble(),
+        (double? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDouble(obj));
+
     private static readonly OneColumnMapper<string?> StringMapper = new(
         (ref RowReader reader, IMapperSchema _) => reader.ReadString(),
         (string? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteString(obj));
 
+    private static readonly OneColumnMapper<byte[]?> ByteArrayMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadBytes(),
+        (byte[]? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteBytes(obj));
+
+    private static readonly OneColumnMapper<Guid> GuidMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadGuid()!.Value,
+        (Guid obj, ref RowWriter writer, IMapperSchema _) => writer.WriteGuid(obj));
+
+    private static readonly OneColumnMapper<Guid?> GuidNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadGuid(),
+        (Guid? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteGuid(obj));
+
+    private static readonly OneColumnMapper<decimal> DecimalMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDecimal()!.Value,
+        (decimal obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDecimal(obj));
+
+    private static readonly OneColumnMapper<decimal?> DecimalNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDecimal(),
+        (decimal? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDecimal(obj));
+
     private static readonly FrozenDictionary<Type, object> Mappers = new Dictionary<Type, object>
     {
+        { typeof(sbyte), SByteMapper },
+        { typeof(sbyte?), SByteNullableMapper },
+        { typeof(bool), BoolMapper },
+        { typeof(bool?), BoolNullableMapper },
+        { typeof(short), ShortMapper },
+        { typeof(short?), ShortNullableMapper },
         { typeof(int), IntMapper },
         { typeof(int?), IntNullableMapper },
-        { typeof(string), StringMapper }
+        { typeof(long), LongMapper },
+        { typeof(long?), LongNullableMapper },
+        { typeof(float), FloatMapper },
+        { typeof(float?), FloatNullableMapper },
+        { typeof(double), DoubleMapper },
+        { typeof(double?), DoubleNullableMapper },
+        { typeof(string), StringMapper },
+        { typeof(byte[]), ByteArrayMapper },
+        { typeof(Guid), GuidMapper },
+        { typeof(Guid?), GuidNullableMapper },
+        { typeof(decimal), DecimalMapper },
+        { typeof(decimal?), DecimalNullableMapper }
     }.ToFrozenDictionary();
 
     /// <summary>
