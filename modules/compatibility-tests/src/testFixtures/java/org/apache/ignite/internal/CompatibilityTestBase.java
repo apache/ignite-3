@@ -259,6 +259,8 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     protected void startEmbeddedClusterAndAwaitRebalance(int nodesCount) {
         cluster.startEmbedded(nodesCount);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27719 SQL queries can fail during rebalance if they try to access partition on
+        //  a wrong node during rebalance.
         await().until(this::noActiveRebalance, willBe(true));
     }
 
