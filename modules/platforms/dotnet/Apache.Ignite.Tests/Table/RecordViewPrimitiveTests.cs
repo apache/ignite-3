@@ -40,6 +40,7 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
     [Test]
     public async Task TestAllKeyTypes()
     {
+        // TODO: Nullable types.
         await TestKey((sbyte)1, TableInt8Name);
         await TestKey(true, TableBoolName);
         await TestKey((short)1, TableInt16Name);
