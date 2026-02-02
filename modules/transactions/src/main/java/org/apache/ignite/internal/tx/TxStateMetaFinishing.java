@@ -50,7 +50,27 @@ public class TxStateMetaFinishing extends TxStateMeta {
             @Nullable Boolean isFinishingDueToTimeout,
             @Nullable String txLabel
     ) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, null, null, isFinishingDueToTimeout, txLabel);
+        this(txCoordinatorId, commitPartitionId, isFinishingDueToTimeout, txLabel, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition id.
+     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
+     * @param txLabel Transaction label.
+     * @param exceptionInfo Exception info for exceptional abort.
+     */
+    public TxStateMetaFinishing(
+            @Nullable UUID txCoordinatorId,
+            @Nullable ZonePartitionId commitPartitionId,
+            @Nullable Boolean isFinishingDueToTimeout,
+            @Nullable String txLabel,
+            @Nullable TxStateMetaExceptionInfo exceptionInfo
+    ) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
+                null, null, isFinishingDueToTimeout, txLabel, exceptionInfo);
     }
 
     /**
@@ -117,7 +137,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel, exceptionInfo);
             } else {
                 return super.build();
             }

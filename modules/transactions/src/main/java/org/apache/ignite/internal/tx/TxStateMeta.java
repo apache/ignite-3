@@ -200,7 +200,7 @@ public class TxStateMeta implements TransactionMeta {
      * @return Transaction state meta.
      */
     public TxStateMetaFinishing finishing(boolean isFinishedDueToTimeoutFlag) {
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeoutFlag, txLabel);
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeoutFlag, txLabel, exceptionInfo);
     }
 
     @Override
@@ -243,11 +243,12 @@ public class TxStateMeta implements TransactionMeta {
 
     /**
      * Records exceptional information by mutating tx state or by creating a new one.
+     * This method should be called after tx is finished.
      *
      * @param old previous TxStateMeta.
      * @param throwable to record
      */
-    public static TxStateMeta recordExceptionInfo(TxStateMeta old, Throwable throwable) {
+    public static TxStateMeta recordExceptionInfo(@Nullable TxStateMeta old, Throwable throwable) {
         TxStateMetaExceptionInfo exceptionInfo = fromThrowable(throwable);
         return old == null
                 ? builder(old, ABORTED).exceptionInfo(exceptionInfo).build()
@@ -429,9 +430,9 @@ public class TxStateMeta implements TransactionMeta {
             requireNonNull(txState, "txState must not be null");
 
             if (txState == FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel, exceptionInfo);
             } else if (txState == ABANDONED) {
-                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel);
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, exceptionInfo);
             } else if (txState == UNKNOWN) {
                 return txStateMetaUnknown();
             } else {

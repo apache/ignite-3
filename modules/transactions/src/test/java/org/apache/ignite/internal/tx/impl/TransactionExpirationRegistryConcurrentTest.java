@@ -290,6 +290,11 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
+        public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+            return rollbackAsync();
+        }
+
+        @Override
         public boolean isReadOnly() {
             return false;
         }

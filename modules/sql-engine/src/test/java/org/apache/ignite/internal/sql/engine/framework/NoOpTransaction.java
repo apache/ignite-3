@@ -129,6 +129,11 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return rollbackAsync();
+    }
+
+    @Override
     public boolean isReadOnly() {
         return readOnly;
     }

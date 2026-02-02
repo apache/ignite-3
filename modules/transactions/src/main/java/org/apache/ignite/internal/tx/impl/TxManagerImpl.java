@@ -588,9 +588,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
-            tx.recordAbortReason(new PrimaryReplicaExpiredException(senderGroupId, enlistment.consistencyToken(), null, null));
-
-            return tx.rollbackAsync()
+            return tx.rollbackWithExceptionAsync(
+                    new PrimaryReplicaExpiredException(senderGroupId, enlistment.consistencyToken(), null, null))
                     .thenApply(unused -> {
                         TxStateMeta newMeta = stateMeta(tx.id());
 

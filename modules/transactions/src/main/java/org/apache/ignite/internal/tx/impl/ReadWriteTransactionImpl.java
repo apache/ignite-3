@@ -317,10 +317,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param e Fail reason.
      */
     public void fail(TransactionException e) {
-        txManager.updateTxMeta(
-                id(), old -> recordExceptionInfo(old, e)
-        );
-
         // Thread safety is not needed.
         finishFuture = failedFuture(e);
     }

@@ -142,6 +142,11 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
     }
 
     @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return rollbackAsync();
+    }
+
+    @Override
     public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
         return nullCompletedFuture();
     }

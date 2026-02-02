@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.Optional.ofNullable;
+import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
+import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
@@ -26,6 +29,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -167,7 +171,18 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     }
 
     @Override
-    public void recordAbortReason(Throwable throwable) {
-        txManager.updateTxMeta(id, old -> recordExceptionInfo(old, throwable));
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return rollbackAsync().whenComplete((v, t) -> {
+            if (t != null) {
+                // If rollback fails we consider that there is coordinator problem, but we keep original exception.
+                txManager.updateTxMeta(id,
+                        old -> ofNullable(old)
+                                .map(txStateMeta -> txStateMeta.mutate().txState(TxState.ABANDONED)
+                                        .exceptionInfo(fromThrowable(throwable)).build())
+                                        .orElse(builder(TxState.ABANDONED).exceptionInfo(fromThrowable(throwable)).build()));
+            } else {
+                txManager.updateTxMeta(id, old -> recordExceptionInfo(old, throwable));
+            }
+        });
     }
 }

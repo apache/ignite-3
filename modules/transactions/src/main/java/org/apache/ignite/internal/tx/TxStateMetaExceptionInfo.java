@@ -155,11 +155,11 @@ public class TxStateMetaExceptionInfo {
 
     @Override
     public String toString() {
-        return "TxStateMetaExceptionInfo{"
+        return "TxStateMetaExceptionInfo["
                 + "exceptionClassName='" + exceptionClassName + '\''
                 + ", code=" + code
                 + ", traceId=" + traceId
                 + ", message='" + message + '\''
-                + '}';
+                + ']';
     }
 }

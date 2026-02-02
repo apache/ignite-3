@@ -75,8 +75,8 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public void recordAbortReason(Throwable throwable) {
-        transaction.recordAbortReason(throwable);
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return transaction.rollbackWithExceptionAsync(throwable);
     }
 
     private <T> CompletableFuture<T> preventThreadHijack(Supplier<CompletableFuture<T>> operation) {

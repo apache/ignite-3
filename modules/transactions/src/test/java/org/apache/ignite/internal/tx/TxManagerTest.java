@@ -59,6 +59,7 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
@@ -638,6 +639,89 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testRollbackWithExceptionAsyncRecordsExceptionInfoOnSuccess() {
+        preparePrimaryReplica();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
+
+        InternalTransaction tx = prepareTransaction();
+        RuntimeException abortReason = new RuntimeException("abort");
+
+        assertThat(tx.rollbackWithExceptionAsync(abortReason), willSucceedFast());
+
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+
+        assertEquals(TxState.ABORTED, meta.txState());
+        assertNotNull(meta.exceptionInfo());
+        assertEquals(RuntimeException.class.getName(), meta.exceptionInfo().exceptionClassName());
+    }
+
+    @Test
+    public void testRollbackWithExceptionAsyncRecordsExceptionInfoOnFailure() {
+        preparePrimaryReplica();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(failedFuture(new IgniteInternalException(Transactions.TX_ROLLBACK_ERR, "rollback failed")));
+
+        InternalTransaction tx = prepareTransaction();
+        RuntimeException abortReason = new RuntimeException("abort");
+
+        CompletableFuture<Void> rollbackFuture = tx.rollbackWithExceptionAsync(abortReason);
+
+        assertThrows(CompletionException.class, rollbackFuture::join);
+
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+
+        assertNotNull(meta.exceptionInfo());
+        assertEquals(RuntimeException.class.getName(), meta.exceptionInfo().exceptionClassName());
+    }
+
+    @Test
+    public void testRollbackWithExceptionAsyncOnReadOnlyTransactionRecordsExceptionInfo() {
+        InternalTransaction tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
+        RuntimeException abortReason = new RuntimeException("abort");
+
+        assertThat(tx.rollbackWithExceptionAsync(abortReason), willSucceedFast());
+
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+
+        assertEquals(TxState.PENDING, meta.txState());
+        assertNotNull(meta.exceptionInfo());
+        assertEquals(RuntimeException.class.getName(), meta.exceptionInfo().exceptionClassName());
+    }
+
+    @Test
+    public void testRollbackWithExceptionAsyncOnRemoteTransactionThrowsAssertionError() {
+        InternalTransaction tx = txManager.beginRemote(
+                TransactionIds.transactionId(hybridTimestamp(1), LOCAL_NODE.name().hashCode()),
+                new ZonePartitionId(1, 0),
+                randomUUID(),
+                1L,
+                1_000L,
+                err -> { }
+        );
+
+        assertThrows(AssertionError.class, () -> tx.rollbackWithExceptionAsync(new RuntimeException("abort")));
+    }
+
+    @Test
+    public void testRollbackWithExceptionAsyncAfterTimeoutKeepsTimeoutFlag() {
+        preparePrimaryReplica();
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
+
+        InternalTransaction tx = prepareTransaction();
+
+        assertThat(tx.rollbackTimeoutExceededAsync(), willSucceedFast());
+
+        assertThat(tx.rollbackWithExceptionAsync(new RuntimeException("abort")), willSucceedFast());
+
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+
+        assertTrue(meta.isFinishedDueToTimeout());
+        assertNotNull(meta.exceptionInfo());
+    }
+
+    @Test
     public void testExpiredExceptionDoesNotShadeResponseExceptions() {
         // Null is returned as primaryReplica during finish phase.
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
@@ -883,5 +967,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private static HybridTimestamp beginTs(InternalTransaction tx) {
         return TransactionIds.beginTimestamp(tx.id());
+    }
+
+    private void preparePrimaryReplica() {
+        ReplicaMeta replicaMeta = new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = completedFuture(replicaMeta);
+
+        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(primaryReplicaMetaFuture);
+        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(primaryReplicaMetaFuture);
     }
 }

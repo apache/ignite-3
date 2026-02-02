@@ -89,6 +89,11 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        throw new AssertionError(EXCEPTION_MSG);
+    }
+
+    @Override
     public boolean isReadOnly() {
         return false;
     }
