@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import io.micronaut.context.annotation.Property;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
@@ -60,6 +61,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Integration test for REST events.
  */
 @MicronautTest(rebuildContext = true)
+@Property(name = "ignite.endpoints.rest-events", value = "true")
 class ItRestEventsTest extends ClusterPerTestIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
     private static final @Nullable String username = "admin";

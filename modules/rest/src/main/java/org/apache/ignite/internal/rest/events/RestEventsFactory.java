@@ -28,21 +28,24 @@ import org.apache.ignite.internal.rest.RestFactory;
  */
 @Factory
 public class RestEventsFactory implements RestFactory {
-    private RestEvents restEvents;
+    private EventLog eventLog;
+    private String localNodeName;
 
     /** Constructor. */
     public RestEventsFactory(EventLog eventLog, String localNodeName) {
-        this.restEvents = new RestEvents(eventLog, localNodeName);
+        this.eventLog = eventLog;
+        this.localNodeName = localNodeName;
     }
 
     @Bean
     @Singleton
     public RestEvents restEvents() {
-        return restEvents;
+        return new RestEvents(eventLog, localNodeName);
     }
 
     @Override
     public void cleanResources() {
-        restEvents = null;
+        this.eventLog = null;
+        this.localNodeName = null;
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest.events;
 
+import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.order.Ordered;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MutableHttpResponse;
@@ -32,6 +33,7 @@ import reactor.core.publisher.Mono;
  * HTTP filter that logs REST API request start and finish events.
  */
 @Filter(Filter.MATCH_ALL_PATTERN)
+@Requires(property = "ignite.endpoints.rest-events", value = "true", defaultValue = "true")
 public class RestEventsFilter implements HttpServerFilter, ResourceHolder, Ordered {
     private RestEvents restEvents;
 
