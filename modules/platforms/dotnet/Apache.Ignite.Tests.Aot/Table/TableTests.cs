@@ -123,11 +123,11 @@ public class TableTests(IIgniteClient client)
         await Test<Guid>(TableUuidName, Guid.NewGuid());
         await Test<bool>(TableBoolName, true);
         await Test<decimal>(TableDecimalName, 123.456m);
+        await Test<BigDecimal>(TableDecimalName, new BigDecimal(12345.67m));
         await Test<LocalDate>(TableDateName, new LocalDate(2024, 6, 30));
         await Test<LocalTime>(TableTimeName, new LocalTime(14, 30, 0));
         await Test<LocalDateTime>(TableDateTimeName, new LocalDateTime(2024, 6, 30, 14, 30, 0));
         await Test<Instant>(TableTimestampName, Instant.FromUtc(2024, 6, 30, 14, 30, 0));
-        await Test<BigDecimal>(TableNumberName, new BigDecimal(12345.6789m));
         await Test<byte[]>(TableBytesName, [1, 2, 3, 4, 5]);
 
         async Task Test<T>(string tableName, T value)
