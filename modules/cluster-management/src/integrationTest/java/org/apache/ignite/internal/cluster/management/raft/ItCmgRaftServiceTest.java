@@ -74,7 +74,8 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -255,7 +256,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests the basic scenario of {@link CmgRaftService#logicalTopology()} when nodes are joining and leaving.
+     * Tests the basic scenario of {@link CmgRaftService#logicalTopology(long)} when nodes are joining and leaving.
      */
     @Test
     void testLogicalTopology() {
