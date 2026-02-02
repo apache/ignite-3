@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -149,10 +150,26 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
-            where T : notnull =>
-            OneColumnMappers.TryCreate<T>() is { } mapper
-                ? GetRecordView(mapper)
+            where T : notnull
+        {
+            var simpleMapper = OneColumnMappers.TryCreate<T>();
+
+            if (!RuntimeFeature.IsDynamicCodeSupported)
+            {
+                if (simpleMapper == null)
+                {
+                    throw new InvalidOperationException(
+                        "Dynamic code generation is not supported in the current environment. " +
+                        "Provide an explicit IMapper<T> implementation for type " + typeof(T).FullName);
+                }
+
+                return GetRecordView(simpleMapper);
+            }
+
+            return simpleMapper is not null
+                ? GetRecordView(simpleMapper)
                 : GetRecordViewInternal<T>();
+        }
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
