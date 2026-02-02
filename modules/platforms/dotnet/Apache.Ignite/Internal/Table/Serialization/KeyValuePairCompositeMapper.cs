@@ -31,15 +31,25 @@ internal sealed record KeyValuePairCompositeMapper<TKey, TValue>(OneColumnMapper
     /// <inheritdoc />
     public void Write(KeyValuePair<TKey, TValue> obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
+        bool keyWritten = false;
+        bool valueWritten = false;
+
         foreach (var column in schema.Columns)
         {
-            if (column is Column { IsKey: true })
+            if (!keyWritten && column is Column { IsKey: true })
             {
                 KeyMapper.Writer(obj.Key, ref rowWriter, schema);
+                keyWritten = true;
             }
-            else
+            else if (!valueWritten)
             {
                 ValMapper.Writer(obj.Value, ref rowWriter, schema);
+                valueWritten = true;
+            }
+
+            if (keyWritten && valueWritten)
+            {
+                break;
             }
         }
     }
@@ -50,15 +60,25 @@ internal sealed record KeyValuePairCompositeMapper<TKey, TValue>(OneColumnMapper
         TKey key = default!;
         TValue value = default!;
 
+        bool keyRead = false;
+        bool valueRead = false;
+
         foreach (var column in schema.Columns)
         {
-            if (column is Column { IsKey: true })
+            if (!keyRead && column is Column { IsKey: true })
             {
                 key = KeyMapper.Reader(ref rowReader, schema);
+                keyRead = true;
             }
-            else
+            else if (!valueRead)
             {
                 value = ValMapper.Reader(ref rowReader, schema);
+                valueRead = true;
+            }
+
+            if (keyRead && valueRead)
+            {
+                break;
             }
         }
 
