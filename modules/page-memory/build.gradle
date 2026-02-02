@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/jmh.gradle"
 
 dependencies {
     implementation project(':ignite-api')
@@ -38,7 +39,7 @@ dependencies {
     testAnnotationProcessor libs.auto.service
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
-    testImplementation project(':ignite-failure-handler')
+
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-metrics'))
@@ -49,7 +50,12 @@ dependencies {
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation project(':ignite-file-io')
+    testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-configuration'))
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
+
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.auto.service.annotations
 
