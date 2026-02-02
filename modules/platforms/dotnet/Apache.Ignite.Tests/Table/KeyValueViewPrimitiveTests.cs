@@ -391,6 +391,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await TestKey(instant, (Instant?)instant, TableTimestampName);
 
         await TestKey(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3, 4 }, TableBytesName);
+        await TestKey(Guid.NewGuid(), Guid.NewGuid(), TableUuidName);
     }
 
     [Test]
