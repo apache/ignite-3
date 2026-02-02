@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -22,72 +22,11 @@ using System.Diagnostics.CodeAnalysis;
 using Apache.Ignite.Table.Mapper;
 
 /// <summary>
-/// Primitive mapper helper.
-/// </summary>
-internal static class OneColumnMapper
-{
-    private static readonly OneColumnMapper<int> IntMapper = new(
-        (ref RowReader reader, IMapperSchema _) => reader.ReadInt()!.Value,
-        (int obj, ref RowWriter writer, IMapperSchema _) => writer.WriteInt(obj));
-
-    private static readonly OneColumnMapper<int?> IntNullableMapper = new(
-        (ref RowReader reader, IMapperSchema _) => reader.ReadInt(),
-        (int? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteInt(obj));
-
-    private static readonly OneColumnMapper<string?> StringMapper = new(
-        (ref RowReader reader, IMapperSchema _) => reader.ReadString(),
-        (string? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteString(obj));
-
-    /// <summary>
-    /// Writer delegate.
-    /// </summary>
-    /// <param name="obj">Object.</param>
-    /// <param name="rowWriter">Writer.</param>
-    /// <param name="schema">Schema.</param>
-    /// <typeparam name="T">Type.</typeparam>
-    public delegate void Writer<in T>(T obj, ref RowWriter rowWriter, IMapperSchema schema);
-
-    /// <summary>
-    /// Reader delegate.
-    /// </summary>
-    /// <param name="rowReader">Reader.</param>
-    /// <param name="schema">Schema.</param>
-    /// <typeparam name="T">Type.</typeparam>
-    /// <returns>Result.</returns>
-    public delegate T Reader<out T>(ref RowReader rowReader, IMapperSchema schema);
-
-    /// <summary>
-    /// Creates a primitive mapper for the specified type if supported; otherwise, returns null.
-    /// </summary>
-    /// <typeparam name="T">Type.</typeparam>
-    /// <returns>Mapper or null.</returns>
-    public static OneColumnMapper<T>? TryCreate<T>()
-    {
-        if (typeof(T) == typeof(int))
-        {
-            return (OneColumnMapper<T>)(object)IntMapper;
-        }
-
-        if (typeof(T) == typeof(int?))
-        {
-            return (OneColumnMapper<T>)(object)IntNullableMapper;
-        }
-
-        if (typeof(T) == typeof(string))
-        {
-            return (OneColumnMapper<T>)(object)StringMapper;
-        }
-
-        return null;
-    }
-}
-
-/// <summary>
 /// Primitive mapper.
 /// </summary>
 /// <typeparam name="T">Type.</typeparam>
 [SuppressMessage("MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
-internal sealed record OneColumnMapper<T>(OneColumnMapper.Reader<T> Reader, OneColumnMapper.Writer<T> Writer) : IMapper<T>
+internal sealed record OneColumnMapper<T>(MapperReader<T> Reader, MapperWriter<T> Writer) : IMapper<T>
 {
     /// <inheritdoc/>
     public void Write(T obj, ref RowWriter rowWriter, IMapperSchema schema)
