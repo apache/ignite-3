@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.raft.client;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.raft.client.RaftPeerUtils.parsePeer;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -56,10 +56,11 @@ import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.SMErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
@@ -122,6 +123,9 @@ class RaftCommandExecutor {
     /** This flag is used only for logging. */
     private final AtomicBoolean peersAreUnavailable = new AtomicBoolean();
 
+    /** Flag indicating the executor is stopping. When true, operations fail with NodeStoppingException. */
+    private volatile boolean stopping;
+
     /**
      * Constructor.
      *
@@ -153,12 +157,19 @@ class RaftCommandExecutor {
     }
 
     /**
-     * Returns a {@link LeaderElectionListener} that feeds the internal leader availability state machine.
+     * Returns a {@link LeaderElectionListener} that feeds the internal leader availability state machine
+     * and updates the cached leader peer.
      *
      * @return Leader election listener callback.
      */
     LeaderElectionListener leaderElectionListener() {
-        return leaderAvailabilityState::onLeaderElected;
+        return (node, term) -> {
+            if (leaderAvailabilityState.onLeaderElected(node, term)) {
+                // Update cached leader only if the state machine accepted the new term.
+                // This ensures leader field stays in sync with LeaderAvailabilityState.
+                this.leader = new Peer(node.name());
+            }
+        };
     }
 
     /**
@@ -169,16 +180,69 @@ class RaftCommandExecutor {
      * @return Future that completes with the command result.
      */
     <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        return this.<ActionResponse>send(
+                createRequestFactory(cmd),
+                TargetPeerStrategy.LEADER,
+                null,
+                timeoutMillis
+        ).thenApply(resp -> (R) resp.result());
+    }
+
+    /**
+     * Sends a request with leader-aware retry semantics.
+     *
+     * @param requestFactory Factory creating requests for target peer.
+     * @param targetStrategy How to select the initial target peer.
+     * @param timeoutMillis Timeout (0=single attempt, MAX_VALUE=infinite, positive=bounded).
+     * @param <R> Response type.
+     * @return Future with response.
+     */
+    <R extends NetworkMessage> CompletableFuture<R> send(
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            TargetPeerStrategy targetStrategy,
+            long timeoutMillis
+    ) {
+        return send(requestFactory, targetStrategy, null, timeoutMillis);
+    }
+
+    /**
+     * Sends a request with leader-aware retry semantics.
+     *
+     * @param requestFactory Factory creating requests for target peer.
+     * @param targetStrategy How to select the initial target peer.
+     * @param specificPeer Target peer for SPECIFIC strategy (ignored for other strategies).
+     * @param timeoutMillis Timeout (0=single attempt, MAX_VALUE=infinite, positive=bounded).
+     * @param <R> Response type.
+     * @return Future with response.
+     */
+    <R extends NetworkMessage> CompletableFuture<R> send(
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            TargetPeerStrategy targetStrategy,
+            @Nullable Peer specificPeer,
+            long timeoutMillis
+    ) {
         // Normalize timeout: negative values mean infinite wait.
         long effectiveTimeout = (timeoutMillis < 0) ? Long.MAX_VALUE : timeoutMillis;
-        // Wait for leader mode (bounded or infinite).
         long deadline = Utils.monotonicMsAfter(effectiveTimeout);
 
         return executeWithBusyLock(responseFuture -> {
+            Peer initialPeer = resolveInitialPeer(targetStrategy, specificPeer);
+            if (initialPeer == null) {
+                responseFuture.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
+                return;
+            }
+
             if (effectiveTimeout == 0) {
-                tryAllPeersOnce(responseFuture, cmd);
+                tryAllPeersOnce(responseFuture, requestFactory, initialPeer, targetStrategy);
             } else {
-                startRetryPhase(responseFuture, cmd, deadline, leaderAvailabilityState.currentTerm());
+                startRetryPhase(
+                        responseFuture,
+                        requestFactory,
+                        initialPeer,
+                        targetStrategy,
+                        deadline,
+                        leaderAvailabilityState.currentTerm()
+                );
             }
         });
     }
@@ -203,18 +267,63 @@ class RaftCommandExecutor {
     }
 
     /**
-     * Resolves initial target peer for a command execution.
+     * Marks the executor as stopping. After this call, operations will fail with an exception from the
+     * stopping exception factory instead of TimeoutException.
+     */
+    void markAsStopping() {
+        stopping = true;
+    }
+
+    /**
+     * Returns the current leader.
      *
-     * <p>Tries the known leader first, falling back to a random peer if no leader is known.
+     * @return Current leader or {@code null} if unknown.
+     */
+    @Nullable Peer leader() {
+        return leader;
+    }
+
+    /**
+     * Sets the current leader. Used by PhysicalTopologyAwareRaftGroupService to update state from response.
      *
+     * @param leader New leader.
+     */
+    void setLeader(@Nullable Peer leader) {
+        this.leader = leader;
+    }
+
+    /**
+     * Returns the cluster service.
+     *
+     * @return Cluster service.
+     */
+    ClusterService clusterService() {
+        return clusterService;
+    }
+
+    /**
+     * Resolves initial target peer based on strategy.
+     *
+     * @param strategy Target peer strategy.
+     * @param specificPeer Specific peer for SPECIFIC strategy.
      * @return Initial target peer, or {@code null}.
      */
-    private @Nullable Peer resolveInitialPeer() {
-        Peer targetPeer = leader;
-        if (targetPeer == null) {
-            targetPeer = randomNode(null, false);
+    private @Nullable Peer resolveInitialPeer(TargetPeerStrategy strategy, @Nullable Peer specificPeer) {
+        switch (strategy) {
+            case LEADER:
+                // Current behavior: try known leader, fallback to random.
+                Peer targetPeer = leader;
+                return targetPeer != null ? targetPeer : randomNode(null, false);
+            case RANDOM:
+                return randomNode(null, false);
+            case SPECIFIC:
+                if (specificPeer == null) {
+                    throw new IllegalArgumentException("specificPeer required for SPECIFIC strategy");
+                }
+                return specificPeer;
+            default:
+                throw new AssertionError("Unknown strategy: " + strategy);
         }
-        return targetPeer;
     }
 
     /**
@@ -222,55 +331,44 @@ class RaftCommandExecutor {
      *
      * @param resultFuture Future that completes with the response, or fails with {@link ReplicationGroupUnavailableException} if no
      *         peer responds successfully.
-     * @param cmd The command to execute.
+     * @param requestFactory Factory creating requests for target peer.
+     * @param initialPeer Initial peer to send the request to.
+     * @param targetStrategy Target peer strategy.
      */
-    private void tryAllPeersOnce(CompletableFuture<ActionResponse> resultFuture, Command cmd) {
-        Peer targetPeer = resolveInitialPeer();
-        if (targetPeer == null) {
-            resultFuture.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
-
-            return;
-        }
-
+    private <R extends NetworkMessage> void tryAllPeersOnce(
+            CompletableFuture<R> resultFuture,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            Peer initialPeer,
+            TargetPeerStrategy targetStrategy
+    ) {
         var context = new RetryContext(
                 groupId.toString(),
-                targetPeer,
-                cmd::toStringForLightLogging,
-                createRequestFactory(cmd),
+                initialPeer,
+                () -> null,
+                requestFactory,
                 0,  // Single attempt - no retry timeout
                 raftConfiguration.responseTimeoutMillis().value()
         );
 
-        sendWithRetrySingleAttempt(resultFuture, context);
+        sendWithRetrySingleAttempt(resultFuture, context, targetStrategy);
     }
 
     /**
-     * Executes an action within busy lock and transforms the response.
+     * Executes an action within busy lock.
      */
-    @SuppressWarnings("unchecked")
-    private <R> CompletableFuture<R> executeWithBusyLock(Consumer<CompletableFuture<ActionResponse>> action) {
-        var responseFuture = new CompletableFuture<ActionResponse>();
-        var resultFuture = new CompletableFuture<R>();
+    private <R extends NetworkMessage> CompletableFuture<R> executeWithBusyLock(Consumer<CompletableFuture<R>> action) {
+        var responseFuture = new CompletableFuture<R>();
 
         if (!busyLock.enterBusy()) {
-            resultFuture.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId + "]."));
-
-            return resultFuture;
+            responseFuture.completeExceptionally(
+                    stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId + "].")
+            );
+            return responseFuture;
         }
 
         try {
             action.accept(responseFuture);
-
-            // Transform ActionResponse to result type.
-            responseFuture.whenComplete((resp, err) -> {
-                if (err != null) {
-                    resultFuture.completeExceptionally(err);
-                } else {
-                    resultFuture.complete((R) resp.result());
-                }
-            });
-
-            return resultFuture;
+            return responseFuture;
         } finally {
             busyLock.leaveBusy();
         }
@@ -305,9 +403,18 @@ class RaftCommandExecutor {
     }
 
     /**
-     * Waits for leader to become available and then retries the command.
+     * Waits for leader to become available and then retries the request.
+     *
+     * @param originalPeer Original peer from strategy. For SPECIFIC, used both for resolving and retry validation.
+     *                     For LEADER/RANDOM, passed to resolveInitialPeer (which ignores it and resolves fresh).
      */
-    private void waitForLeaderAndRetry(CompletableFuture<ActionResponse> resultFuture, Command cmd, long deadline) {
+    private <R extends NetworkMessage> void waitForLeaderAndRetry(
+            CompletableFuture<R> resultFuture,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            TargetPeerStrategy targetStrategy,
+            Peer originalPeer,
+            long deadline
+    ) {
         CompletableFuture<Long> leaderFuture = leaderAvailabilityState.awaitLeader();
 
         // Apply timeout if bounded.
@@ -325,13 +432,22 @@ class RaftCommandExecutor {
             }
 
             if (!busyLock.enterBusy()) {
-                resultFuture.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId + "]."));
+                resultFuture.completeExceptionally(
+                        stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId + "].")
+                );
                 return;
             }
 
             try {
-                // Leader is available, now run the command with retry logic.
-                startRetryPhase(resultFuture, cmd, deadline, term);
+                // Leader is available, now run the request with retry logic.
+                // For SPECIFIC, resolveInitialPeer returns originalPeer unchanged.
+                // For LEADER/RANDOM, it resolves a fresh peer (ignoring originalPeer).
+                Peer initialPeer = resolveInitialPeer(targetStrategy, originalPeer);
+                if (initialPeer == null) {
+                    resultFuture.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
+                    return;
+                }
+                startRetryPhase(resultFuture, requestFactory, initialPeer, targetStrategy, deadline, term);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -340,12 +456,22 @@ class RaftCommandExecutor {
 
     /**
      * Starts the retry phase after leader is available.
+     *
+     * @param initialPeer Initial peer to send to. For SPECIFIC strategy, this is also used for retry validation.
      */
-    private void startRetryPhase(CompletableFuture<ActionResponse> resultFuture, Command cmd, long deadline, long term) {
-        Peer targetPeer = resolveInitialPeer();
-        if (targetPeer == null) {
-            resultFuture.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
-
+    private <R extends NetworkMessage> void startRetryPhase(
+            CompletableFuture<R> resultFuture,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            Peer initialPeer,
+            TargetPeerStrategy targetStrategy,
+            long deadline,
+            long term
+    ) {
+        // Check stopping flag before timeout check.
+        if (stopping) {
+            resultFuture.completeExceptionally(
+                    stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId + "].")
+            );
             return;
         }
 
@@ -358,19 +484,18 @@ class RaftCommandExecutor {
 
         // Use retry timeout bounded by remaining time until deadline.
         long configTimeout = raftConfiguration.retryTimeoutMillis().value();
-
         long sendWithRetryTimeoutMillis = deadline == Long.MAX_VALUE ? configTimeout : Math.min(configTimeout, deadline - now);
 
         var context = new RetryContext(
                 groupId.toString(),
-                targetPeer,
-                cmd::toStringForLightLogging,
-                createRequestFactory(cmd),
+                initialPeer,
+                () -> null,
+                requestFactory,
                 sendWithRetryTimeoutMillis,
                 raftConfiguration.responseTimeoutMillis().value()
         );
 
-        sendWithRetryWaitingForLeader(resultFuture, context, cmd, deadline, term);
+        sendWithRetryWaitingForLeader(resultFuture, context, requestFactory, targetStrategy, initialPeer, deadline, term);
     }
 
     /**
@@ -399,7 +524,8 @@ class RaftCommandExecutor {
      */
     private <R extends NetworkMessage> void sendWithRetrySingleAttempt(
             CompletableFuture<R> fut,
-            RetryContext retryContext
+            RetryContext retryContext,
+            TargetPeerStrategy targetStrategy
     ) {
         if (!busyLock.enterBusy()) {
             fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId + "]."));
@@ -419,7 +545,7 @@ class RaftCommandExecutor {
                                     resp,
                                     err,
                                     retryContext,
-                                    new SingleAttemptRetryStrategy(fut)
+                                    new SingleAttemptRetryStrategy<>(fut, targetStrategy)
                             ),
                             executor
                     );
@@ -566,11 +692,15 @@ class RaftCommandExecutor {
 
     /**
      * Sends a request with retry and waits for leader on leader absence.
+     *
+     * @param originalPeer Original peer from strategy. For SPECIFIC, used for retry validation.
      */
-    private void sendWithRetryWaitingForLeader(
-            CompletableFuture<ActionResponse> fut,
+    private <R extends NetworkMessage> void sendWithRetryWaitingForLeader(
+            CompletableFuture<R> fut,
             RetryContext retryContext,
-            Command cmd,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            TargetPeerStrategy targetStrategy,
+            Peer originalPeer,
             long deadline,
             long termWhenStarted
     ) {
@@ -580,12 +710,17 @@ class RaftCommandExecutor {
         }
 
         try {
+            // Check stopping flag before timeout check.
+            if (stopping) {
+                fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId + "]."));
+                return;
+            }
+
             long requestStartTime = Utils.monotonicMs();
             long stopTime = retryContext.stopTime();
 
             if (requestStartTime >= stopTime) {
                 // Retry timeout expired - fail with timeout exception.
-                // For non-leader-related retriable errors, we don't wait for leader, just fail.
                 fut.completeExceptionally(createTimeoutException());
                 return;
             }
@@ -605,7 +740,9 @@ class RaftCommandExecutor {
                                     resp,
                                     err,
                                     retryContext,
-                                    new LeaderWaitRetryStrategy(fut, cmd, deadline, termWhenStarted)
+                                    new LeaderWaitRetryStrategy<>(
+                                            fut, requestFactory, targetStrategy, originalPeer, deadline, termWhenStarted
+                                    )
                             ),
                             executor
                     );
@@ -651,20 +788,6 @@ class RaftCommandExecutor {
         }
     }
 
-    private static boolean retriableError(@Nullable Throwable e, NetworkMessage raftResponse) {
-        int errorCode = raftResponse instanceof ErrorResponse ? ((ErrorResponse) raftResponse).errorCode() : 0;
-        RaftError raftError = RaftError.forNumber(errorCode);
-
-        if (e != null) {
-            e = unwrapCause(e);
-
-            // Retriable error but can be caused by an overload.
-            return e instanceof TimeoutException || e instanceof IOException;
-        }
-
-        return raftError == RaftError.EBUSY || raftError == RaftError.EAGAIN;
-    }
-
     /**
      * Resolves a peer to an internal cluster node.
      */
@@ -676,18 +799,6 @@ class RaftCommandExecutor {
         }
 
         return CompletableFuture.completedFuture(node);
-    }
-
-    /**
-     * Parses a peer ID string to a Peer object.
-     *
-     * @param peerId Peer ID string in format "consistentId:idx" or just "consistentId".
-     * @return Parsed Peer object, or {@code null} if parsing fails.
-     */
-    private static @Nullable Peer parsePeer(@Nullable String peerId) {
-        PeerId id = PeerId.parsePeer(peerId);
-
-        return id == null ? null : new Peer(id.getConsistentId(), id.getIdx());
     }
 
     /**
@@ -834,15 +945,26 @@ class RaftCommandExecutor {
      * as unavailable. When all peers have been tried, the request fails with
      * {@link ReplicationGroupUnavailableException}.
      */
-    private class SingleAttemptRetryStrategy implements RetryExecutionStrategy {
-        private final CompletableFuture<? extends NetworkMessage> fut;
+    private class SingleAttemptRetryStrategy<R extends NetworkMessage> implements RetryExecutionStrategy {
+        private final CompletableFuture<R> fut;
+        private final TargetPeerStrategy targetStrategy;
 
-        SingleAttemptRetryStrategy(CompletableFuture<? extends NetworkMessage> fut) {
+        SingleAttemptRetryStrategy(
+                CompletableFuture<R> fut,
+                TargetPeerStrategy targetStrategy
+        ) {
             this.fut = fut;
+            this.targetStrategy = targetStrategy;
         }
 
         @Override
         public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
+            // For SPECIFIC strategy, don't try other peers.
+            if (targetStrategy == TargetPeerStrategy.SPECIFIC) {
+                onAllPeersExhausted();
+                return;
+            }
+
             // In single-attempt mode, each peer is tried at most once.
             // For transient errors, the caller passes the same peer (meaning "retry on same peer"),
             // but we must select a different one instead.
@@ -855,7 +977,7 @@ class RaftCommandExecutor {
                 return;
             }
 
-            sendWithRetrySingleAttempt(fut, context.nextAttemptForUnavailablePeer(effectiveNextPeer, reason));
+            sendWithRetrySingleAttempt(fut, context.nextAttemptForUnavailablePeer(effectiveNextPeer, reason), targetStrategy);
         }
 
         @Override
@@ -879,20 +1001,27 @@ class RaftCommandExecutor {
      *     <li>When all peers are exhausted, waits for leader notification</li>
      * </ul>
      */
-    private class LeaderWaitRetryStrategy implements RetryExecutionStrategy {
-        private final CompletableFuture<ActionResponse> fut;
-        private final Command cmd;
+    private class LeaderWaitRetryStrategy<R extends NetworkMessage> implements RetryExecutionStrategy {
+        private final CompletableFuture<R> fut;
+        private final Function<Peer, ? extends NetworkMessage> requestFactory;
+        private final TargetPeerStrategy targetStrategy;
+        /** Original peer from strategy. For SPECIFIC, used for retry validation and re-resolution. */
+        private final Peer originalPeer;
         private final long deadline;
         private final long termWhenStarted;
 
         LeaderWaitRetryStrategy(
-                CompletableFuture<ActionResponse> fut,
-                Command cmd,
+                CompletableFuture<R> fut,
+                Function<Peer, ? extends NetworkMessage> requestFactory,
+                TargetPeerStrategy targetStrategy,
+                Peer originalPeer,
                 long deadline,
                 long termWhenStarted
         ) {
             this.fut = fut;
-            this.cmd = cmd;
+            this.requestFactory = requestFactory;
+            this.targetStrategy = targetStrategy;
+            this.originalPeer = originalPeer;
             this.deadline = deadline;
             this.termWhenStarted = termWhenStarted;
         }
@@ -914,8 +1043,16 @@ class RaftCommandExecutor {
                     throw new AssertionError("Unexpected tracking: " + trackCurrentAs);
             }
 
+            // For SPECIFIC strategy, only allow retry to the same peer.
+            if (targetStrategy == TargetPeerStrategy.SPECIFIC && !nextPeer.equals(originalPeer)) {
+                onAllPeersExhausted();
+                return;
+            }
+
             executor.schedule(
-                    () -> sendWithRetryWaitingForLeader(fut, nextContext, cmd, deadline, termWhenStarted),
+                    () -> sendWithRetryWaitingForLeader(
+                            fut, nextContext, requestFactory, targetStrategy, originalPeer, deadline, termWhenStarted
+                    ),
                     raftConfiguration.retryDelayMillis().value(),
                     TimeUnit.MILLISECONDS
             );
@@ -923,14 +1060,22 @@ class RaftCommandExecutor {
 
         @Override
         public void onAllPeersExhausted() {
+            // For RANDOM and SPECIFIC strategies, fail immediately - don't wait for leader.
+            if (targetStrategy != TargetPeerStrategy.LEADER) {
+                fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
+                return;
+            }
+
             LOG.debug("All peers exhausted, waiting for leader [groupId={}, term={}]", groupId, termWhenStarted);
             leaderAvailabilityState.onGroupUnavailable(termWhenStarted);
-            waitForLeaderAndRetry(fut, cmd, deadline);
+            waitForLeaderAndRetry(fut, requestFactory, targetStrategy, originalPeer, deadline);
         }
 
         @Override
         public boolean trackNoLeaderSeparately() {
-            return true;
+            // For LEADER strategy, track no-leader peers separately so we can wait for leader.
+            // For RANDOM/SPECIFIC, treat all errors uniformly.
+            return targetStrategy == TargetPeerStrategy.LEADER;
         }
     }
 
@@ -999,12 +1144,31 @@ class RaftCommandExecutor {
 
             case EBUSY:
             case EAGAIN:
-            case UNKNOWN:
-            case EINTERNAL:
-            case ENOENT:
                 // Transient errors - retry on same peer (COMMON = don't mark current peer).
                 strategy.executeRetry(retryContext, retryContext.targetPeer(), PeerTracking.COMMON, reason);
                 break;
+
+            case UNKNOWN:
+            case EINTERNAL:
+            case ENOENT: {
+                // These errors may indicate the target peer is doing rebalancing.
+                // For leader discovery and configuration change requests, try another peer.
+                // For other requests, retry on the same peer.
+                NetworkMessage request = retryContext.request();
+                Peer newTargetPeer;
+
+                if (request instanceof GetLeaderRequest || request instanceof ChangePeersAndLearnersAsyncRequest) {
+                    newTargetPeer = randomNode(retryContext, false);
+                    if (newTargetPeer == null) {
+                        newTargetPeer = retryContext.targetPeer();
+                    }
+                } else {
+                    newTargetPeer = retryContext.targetPeer();
+                }
+
+                strategy.executeRetry(retryContext, newTargetPeer, PeerTracking.COMMON, reason);
+                break;
+            }
 
             case EHOSTDOWN:
             case ESHUTDOWN:

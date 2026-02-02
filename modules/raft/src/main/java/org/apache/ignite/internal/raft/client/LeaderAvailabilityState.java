@@ -102,8 +102,9 @@ class LeaderAvailabilityState {
      *
      * @param leader The newly elected leader node.
      * @param term The term of the new leader.
+     * @return {@code true} if the leader was accepted (term is newer), {@code false} if ignored (stale or stopped).
      */
-    void onLeaderElected(InternalClusterNode leader, long term) {
+    boolean onLeaderElected(InternalClusterNode leader, long term) {
         if (term < 0) {
             throw new IllegalArgumentException("Term must be non-negative: " + term);
         }
@@ -113,13 +114,13 @@ class LeaderAvailabilityState {
         synchronized (mutex) {
             if (stopped) {
                 LOG.debug("Ignoring leader election after stop [leader={}, term={}]", leader, term);
-                return;
+                return false;
             }
 
             // Ignore stale term notifications.
             if (term <= currentTerm) {
                 LOG.debug("Ignoring stale leader [newTerm={}, currentTerm={}]", term, currentTerm);
-                return;
+                return false;
             }
 
             long previousTerm = currentTerm;
@@ -140,6 +141,8 @@ class LeaderAvailabilityState {
         if (futureToComplete != null) {
             futureToComplete.complete(term);
         }
+
+        return true;
     }
 
     /**

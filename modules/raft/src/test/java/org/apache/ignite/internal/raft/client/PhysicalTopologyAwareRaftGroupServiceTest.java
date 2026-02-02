@@ -20,7 +20,6 @@ package org.apache.ignite.internal.raft.client;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
-import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -69,7 +68,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LeaderChangeNotification;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -84,9 +82,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
-    /** RAFT message factory. */
-    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
     /** Base node port. */
     private static final int PORT_BASE = 1234;
 
@@ -188,7 +183,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         assertNotNull(firstRaftClient);
 
-        assertThat(firstRaftClient.refreshLeader(), willCompleteSuccessfully());
+        assertThat(firstRaftClient.refreshLeader(Long.MAX_VALUE), willCompleteSuccessfully());
 
         // Start client service for the second client.
         int clientPort = PORT_BASE + nodes + 1;
@@ -279,7 +274,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         log.info("New Leader: " + secondLeaderRef.get());
 
-        secondRaftClient.refreshLeader().get();
+        secondRaftClient.refreshLeader(Long.MAX_VALUE).get();
 
         assertEquals(secondRaftClient.leader().consistentId(), secondLeaderRef.get().name());
     }
@@ -305,7 +300,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         log.info("Peer to transfer leader: " + newLeaderPeer);
 
-        raftClient.transferLeadership(newLeaderPeer).get();
+        raftClient.transferLeadership(newLeaderPeer, Long.MAX_VALUE).get();
 
         String leaderId = newLeaderPeer.consistentId();
 
@@ -315,7 +310,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         log.info("New Leader: " + leaderRef.get());
 
-        raftClient.refreshLeader().get();
+        raftClient.refreshLeader(Long.MAX_VALUE).get();
 
         assertEquals(raftClient.leader().consistentId(), leaderRef.get().name());
     }
@@ -475,7 +470,6 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
                 eventsClientListener,
                 commandsMarshaller,
                 StoppingExceptionFactories.indicateComponentStop(),
-                throttlingContextHolder(),
                 NOOP_FAILURE_PROCESSOR
         );
     }

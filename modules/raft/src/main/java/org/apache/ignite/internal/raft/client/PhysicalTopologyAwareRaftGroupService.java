@@ -18,13 +18,21 @@
 package org.apache.ignite.internal.raft.client;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static org.apache.ignite.internal.raft.client.RaftPeerUtils.parsePeer;
+import static org.apache.ignite.internal.raft.client.RaftPeerUtils.parsePeerList;
+import static org.apache.ignite.internal.raft.client.RaftPeerUtils.peerId;
+import static org.apache.ignite.internal.raft.client.RaftPeerUtils.peerIds;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -40,15 +48,21 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.AddPeerResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetPeersResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexResponse;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,6 +78,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     /** Raft message factory. */
     private static final RaftMessagesFactory MESSAGES_FACTORY = Loza.FACTORY;
 
+    /** Replication group ID. */
+    private final ReplicationGroupId groupId;
+
     /** General leader election listener. */
     private final ServerEventHandler generalLeaderElectionListener;
 
@@ -73,9 +90,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     /** Cluster service. */
     private final ClusterService clusterService;
 
-    /** RPC RAFT client. */
-    private final RaftGroupService raftClient;
-
     /** Factory for creating stopping exceptions. */
     private final ExceptionFactory stoppingExceptionFactory;
 
@@ -84,6 +98,21 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
     /** Sender for subscription messages with retry logic. */
     private final SubscriptionMessageSender messageSender;
+
+    /** Current peers. */
+    private volatile List<Peer> peers;
+
+    /** Current learners. */
+    private volatile List<Peer> learners;
+
+    /** Topology event handler for cleanup during shutdown. */
+    private final TopologyEventHandler topologyEventHandler;
+
+    /** Events client listener for cleanup during shutdown. */
+    private final RaftGroupEventsClientListener eventsClientListener;
+
+    /** Timeout in milliseconds to wait for subscription cleanup during shutdown. */
+    private static final long SUBSCRIPTION_CLEANUP_TIMEOUT_MS = 30_000;
 
     /**
      * Constructor.
@@ -103,27 +132,18 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             PeersAndLearners configuration,
             Marshaller cmdMarshaller,
             ExceptionFactory stoppingExceptionFactory,
-            ThrottlingContextHolder throttlingContextHolder,
             RaftGroupEventsClientListener eventsClientListener
     ) {
+        this.groupId = groupId;
         this.failureManager = failureManager;
         this.clusterService = clusterService;
         this.stoppingExceptionFactory = stoppingExceptionFactory;
-        this.raftClient = RaftGroupServiceImpl.start(
-                groupId,
-                clusterService,
-                MESSAGES_FACTORY,
-                raftConfiguration,
-                configuration,
-                executor,
-                cmdMarshaller,
-                stoppingExceptionFactory,
-                throttlingContextHolder
-        );
+        this.peers = List.copyOf(configuration.peers());
+        this.learners = List.copyOf(configuration.learners());
 
         this.commandExecutor = new RaftCommandExecutor(
                 groupId,
-                raftClient::peers,
+                this::peers,
                 clusterService,
                 executor,
                 raftConfiguration,
@@ -135,21 +155,23 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
         this.generalLeaderElectionListener = new ServerEventHandler(executor);
 
-        eventsClientListener.addLeaderElectionListener(raftClient.groupId(), generalLeaderElectionListener);
+        this.eventsClientListener = eventsClientListener;
+        eventsClientListener.addLeaderElectionListener(groupId, generalLeaderElectionListener);
 
         // Subscribe the command executor's leader availability state to leader election notifications.
         subscribeLeader(commandExecutor.leaderElectionListener());
 
         TopologyService topologyService = clusterService.topologyService();
 
-        topologyService.addEventHandler(new TopologyEventHandler() {
+        this.topologyEventHandler = new TopologyEventHandler() {
             @Override
             public void onAppeared(InternalClusterNode member) {
                 CompletableFuture<Boolean> fut = changeNodeSubscriptionIfNeed(member, true);
 
-                requestLeaderManually(topologyService, executor, raftClient, fut);
+                requestLeaderManually(topologyService, executor, fut);
             }
-        });
+        };
+        topologyService.addEventHandler(topologyEventHandler);
 
         ArrayList<CompletableFuture<?>> futures = new ArrayList<>();
 
@@ -157,7 +179,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             futures.add(changeNodeSubscriptionIfNeed(member, true));
         }
 
-        requestLeaderManually(topologyService, executor, raftClient, CompletableFutures.allOf(futures));
+        requestLeaderManually(topologyService, executor, CompletableFutures.allOf(futures));
     }
 
     /**
@@ -165,18 +187,16 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      *
      * @param topologyService Topology service.
      * @param executor Executor to run asynchronous tasks.
-     * @param raftClient RAFT client to interact with the RAFT group.
      * @param subscriptionsFut Future representing the completion of subscription updates.
      */
     // TODO: IGNITE-27256 Remove the method after implementing a notification after subscription.
     private void requestLeaderManually(
             TopologyService topologyService,
             Executor executor,
-            RaftGroupService raftClient,
             CompletableFuture<?> subscriptionsFut
     ) {
         subscriptionsFut.thenRunAsync(
-                () -> raftClient.refreshAndGetLeaderWithTerm().whenCompleteAsync(
+                () -> refreshAndGetLeaderWithTerm(Long.MAX_VALUE).whenCompleteAsync(
                         (leaderWithTerm, throwable) -> {
                             if (throwable != null) {
                                 LOG.warn("Could not refresh and get leader with term [grp={}].", groupId(), throwable);
@@ -235,7 +255,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
      * @param eventsClientListener Listener for RAFT group events.
      * @param cmdMarshaller Marshaller for RAFT commands.
      * @param stoppingExceptionFactory Factory for creating stopping exceptions.
-     * @param throttlingContextHolder Context holder for throttling.
      * @param failureManager Manager for handling failures.
      * @return A new instance of PhysicalTopologyAwareRaftGroupService.
      */
@@ -248,7 +267,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             RaftGroupEventsClientListener eventsClientListener,
             Marshaller cmdMarshaller,
             ExceptionFactory stoppingExceptionFactory,
-            ThrottlingContextHolder throttlingContextHolder,
             FailureManager failureManager
     ) {
         return new PhysicalTopologyAwareRaftGroupService(
@@ -260,14 +278,27 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 configuration,
                 cmdMarshaller,
                 stoppingExceptionFactory,
-                throttlingContextHolder,
                 eventsClientListener
         );
     }
 
     private void finishSubscriptions() {
+        List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+
         for (InternalClusterNode member : clusterService.topologyService().allMembers()) {
-            changeNodeSubscriptionIfNeed(member, false);
+            futures.add(changeNodeSubscriptionIfNeed(member, false));
+        }
+
+        // Wait for unsubscription to complete with a timeout, but don't fail if it times out.
+        try {
+            CompletableFutures.allOf(futures).get(SUBSCRIPTION_CLEANUP_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.debug("Interrupted while waiting for subscription cleanup [grp={}].", groupId);
+        } catch (ExecutionException e) {
+            LOG.debug("Error during subscription cleanup [grp={}].", groupId, e.getCause());
+        } catch (TimeoutException e) {
+            LOG.debug("Timeout waiting for subscription cleanup [grp={}].", groupId);
         }
     }
 
@@ -281,7 +312,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
     private SubscriptionLeaderChangeRequest subscriptionLeaderChangeRequest(boolean subscribe) {
         return MESSAGES_FACTORY.subscriptionLeaderChangeRequest()
-                .groupId(groupId())
+                .groupId(groupId)
                 .subscribe(subscribe)
                 .build();
     }
@@ -293,109 +324,258 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
     @Override
     public ReplicationGroupId groupId() {
-        return raftClient.groupId();
+        return groupId;
     }
 
     @Override
     public @Nullable Peer leader() {
-        return raftClient.leader();
+        return commandExecutor.leader();
     }
 
     @Override
     public List<Peer> peers() {
-        return raftClient.peers();
+        return peers;
     }
 
     @Override
     public @Nullable List<Peer> learners() {
-        return raftClient.learners();
+        return learners;
     }
 
     @Override
     public CompletableFuture<Void> refreshLeader(long timeoutMillis) {
-        return raftClient.refreshLeader();
+        return commandExecutor.<GetLeaderResponse>send(
+                peer -> MESSAGES_FACTORY.getLeaderRequest()
+                        .peerId(peerId(peer))
+                        .groupId(groupId.toString())
+                        .build(),
+                TargetPeerStrategy.RANDOM,
+                timeoutMillis
+        ).thenAccept(resp -> commandExecutor.setLeader(parsePeer(resp.leaderId())));
     }
 
     @Override
     public CompletableFuture<LeaderWithTerm> refreshAndGetLeaderWithTerm(long timeoutMillis) {
-        return raftClient.refreshAndGetLeaderWithTerm();
+        return commandExecutor.<GetLeaderResponse>send(
+                peer -> MESSAGES_FACTORY.getLeaderRequest()
+                        .peerId(peerId(peer))
+                        .groupId(groupId.toString())
+                        .build(),
+                TargetPeerStrategy.RANDOM,
+                timeoutMillis
+        ).thenApply(resp -> {
+            if (resp.leaderId() == null) {
+                return LeaderWithTerm.NO_LEADER;
+            }
+
+            Peer respLeader = parsePeer(resp.leaderId());
+            commandExecutor.setLeader(respLeader);
+            return new LeaderWithTerm(respLeader, resp.currentTerm());
+        });
     }
 
     @Override
     public CompletableFuture<Void> refreshMembers(boolean onlyAlive, long timeoutMillis) {
-        return raftClient.refreshMembers(onlyAlive);
+        return commandExecutor.<GetPeersResponse>send(
+                peer -> MESSAGES_FACTORY.getPeersRequest()
+                        .leaderId(peerId(peer))
+                        .onlyAlive(onlyAlive)
+                        .groupId(groupId.toString())
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> {
+            this.peers = parsePeerList(resp.peersList());
+            this.learners = parsePeerList(resp.learnersList());
+        });
     }
 
     @Override
     public CompletableFuture<Void> addPeer(Peer peer, long sequenceToken, long timeoutMillis) {
-        return raftClient.addPeer(peer, sequenceToken);
+        return commandExecutor.<AddPeerResponse>send(
+                targetPeer -> MESSAGES_FACTORY.addPeerRequest()
+                        .leaderId(peerId(targetPeer))
+                        .groupId(groupId.toString())
+                        .peerId(peerId(peer))
+                        .sequenceToken(sequenceToken)
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
     @Override
     public CompletableFuture<Void> removePeer(Peer peer, long sequenceToken, long timeoutMillis) {
-        return raftClient.removePeer(peer, sequenceToken);
+        return commandExecutor.<RemovePeerResponse>send(
+                targetPeer -> MESSAGES_FACTORY.removePeerRequest()
+                        .leaderId(peerId(targetPeer))
+                        .groupId(groupId.toString())
+                        .peerId(peerId(peer))
+                        .sequenceToken(sequenceToken)
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
     @Override
     public CompletableFuture<Void> changePeersAndLearners(
             PeersAndLearners peersAndLearners, long term, long sequenceToken, long timeoutMillis) {
-        return raftClient.changePeersAndLearners(peersAndLearners, term, sequenceToken);
+        LOG.info("Sending changePeersAndLearners request for group={} to peers={} and learners={} with leader term={}",
+                groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
+
+        return commandExecutor.<ChangePeersAndLearnersResponse>send(
+                targetPeer -> MESSAGES_FACTORY.changePeersAndLearnersRequest()
+                        .leaderId(peerId(targetPeer))
+                        .groupId(groupId.toString())
+                        .term(term)
+                        .newPeersList(peerIds(peersAndLearners.peers()))
+                        .newLearnersList(peerIds(peersAndLearners.learners()))
+                        .sequenceToken(sequenceToken)
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> {
+            this.peers = parsePeerList(resp.newPeersList());
+            this.learners = parsePeerList(resp.newLearnersList());
+        });
     }
 
     @Override
     public CompletableFuture<Void> changePeersAndLearnersAsync(
             PeersAndLearners peersAndLearners, long term, long sequenceToken, long timeoutMillis) {
-        return raftClient.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken);
+        LOG.info("Sending changePeersAndLearnersAsync request for group={} to peers={} and learners={} with leader term={}",
+                groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
+
+        return commandExecutor.<ChangePeersAndLearnersAsyncResponse>send(
+                targetPeer -> MESSAGES_FACTORY.changePeersAndLearnersAsyncRequest()
+                        .leaderId(peerId(targetPeer))
+                        .groupId(groupId.toString())
+                        .term(term)
+                        .newPeersList(peerIds(peersAndLearners.peers()))
+                        .newLearnersList(peerIds(peersAndLearners.learners()))
+                        .sequenceToken(sequenceToken)
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> {
+            this.peers = parsePeerList(resp.newPeersList());
+            this.learners = parsePeerList(resp.newLearnersList());
+        });
     }
 
     @Override
     public CompletableFuture<Void> addLearners(Collection<Peer> learners, long sequenceToken, long timeoutMillis) {
-        return raftClient.addLearners(learners, sequenceToken);
+        return commandExecutor.<LearnersOpResponse>send(
+                targetPeer -> MESSAGES_FACTORY.addLearnersRequest()
+                        .leaderId(peerId(targetPeer))
+                        .groupId(groupId.toString())
+                        .learnersList(peerIds(learners))
+                        .sequenceToken(sequenceToken)
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
     @Override
     public CompletableFuture<Void> removeLearners(Collection<Peer> learners, long sequenceToken, long timeoutMillis) {
-        return raftClient.removeLearners(learners, sequenceToken);
+        return commandExecutor.<LearnersOpResponse>send(
+                targetPeer -> MESSAGES_FACTORY.removeLearnersRequest()
+                        .leaderId(peerId(targetPeer))
+                        .groupId(groupId.toString())
+                        .learnersList(peerIds(learners))
+                        .sequenceToken(sequenceToken)
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
     @Override
     public CompletableFuture<Void> resetLearners(Collection<Peer> learners, long sequenceToken, long timeoutMillis) {
-        return raftClient.resetLearners(learners, sequenceToken);
+        return commandExecutor.<LearnersOpResponse>send(
+                targetPeer -> MESSAGES_FACTORY.resetLearnersRequest()
+                        .leaderId(peerId(targetPeer))
+                        .groupId(groupId.toString())
+                        .learnersList(peerIds(learners))
+                        .sequenceToken(sequenceToken)
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
     @Override
     public CompletableFuture<Void> snapshot(Peer peer, boolean forced, long timeoutMillis) {
-        return raftClient.snapshot(peer, forced);
+        return commandExecutor.send(
+                targetPeer -> MESSAGES_FACTORY.snapshotRequest()
+                        .peerId(peerId(peer))
+                        .groupId(groupId.toString())
+                        .forced(forced)
+                        .build(),
+                TargetPeerStrategy.SPECIFIC,
+                peer,
+                timeoutMillis
+        ).thenApply(unused -> null);
     }
 
     @Override
     public CompletableFuture<Void> transferLeadership(Peer newLeader, long timeoutMillis) {
-        return raftClient.transferLeadership(newLeader);
+        return commandExecutor.send(
+                targetPeer -> MESSAGES_FACTORY.transferLeaderRequest()
+                        .groupId(groupId.toString())
+                        .leaderId(peerId(targetPeer))
+                        .peerId(peerId(newLeader))
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenAccept(resp -> commandExecutor.setLeader(newLeader));
     }
 
     @Override
     public void shutdown() {
-        // Stop the command executor first - blocks new run() calls, cancels leader waiters.
+        // Remove topology event handler to prevent new topology events from triggering activity.
+        clusterService.topologyService().removeEventHandler(topologyEventHandler);
+
+        // Remove leader election listener to prevent memory leaks and stop receiving events.
+        eventsClientListener.removeLeaderElectionListener(groupId, generalLeaderElectionListener);
+
+        // Stop the command executor - blocks new run() calls, cancels leader waiters.
         commandExecutor.shutdown(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
 
+        // Unsubscribe from leader updates with timeout to ensure clean shutdown.
         finishSubscriptions();
-
-        raftClient.shutdown();
     }
 
     @Override
     public CompletableFuture<Long> readIndex(long timeoutMillis) {
-        return raftClient.readIndex();
+        return commandExecutor.<ReadIndexResponse>send(
+                peer -> MESSAGES_FACTORY.readIndexRequest()
+                        .groupId(groupId.toString())
+                        .peerId(peer.consistentId())
+                        .serverId(peer.consistentId())
+                        .build(),
+                TargetPeerStrategy.LEADER,
+                timeoutMillis
+        ).thenApply(ReadIndexResponse::index);
     }
 
     @Override
     public ClusterService clusterService() {
-        return raftClient.clusterService();
+        return clusterService;
     }
 
     @Override
     public void updateConfiguration(PeersAndLearners configuration) {
-        raftClient.updateConfiguration(configuration);
+        this.peers = List.copyOf(configuration.peers());
+        this.learners = List.copyOf(configuration.learners());
+        commandExecutor.setLeader(null);
+    }
+
+    @Override
+    public void markAsStopping() {
+        commandExecutor.markAsStopping();
     }
 
     /**
@@ -404,7 +584,8 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     private static class ServerEventHandler implements LeaderElectionListener {
         private final Executor executor;
 
-        CompletableFuture<Void> fut = CompletableFutures.nullCompletedFuture();
+        /** Future chain for async notifications. */
+        private CompletableFuture<Void> fut = nullCompletedFuture();
 
         /** A leader elected callback. */
         private final ArrayList<LeaderElectionListener> callbacks = new ArrayList<>();
@@ -422,6 +603,17 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
          */
         ServerEventHandler(Executor executor) {
             this.executor = executor;
+        }
+
+        /**
+         * Chains an async action to the future, starting a new chain if the current one is done.
+         */
+        private void chainAsync(Runnable action) {
+            if (fut.isDone()) {
+                fut = runAsync(action, executor);
+            } else {
+                fut = fut.thenRunAsync(action, executor);
+            }
         }
 
         /**
@@ -443,19 +635,11 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 ArrayList<LeaderElectionListener> listeners = new ArrayList<>(callbacks);
 
                 // Avoid notifying in the synchronized block.
-                if (fut.isDone()) {
-                    fut = runAsync(() -> {
-                        for (LeaderElectionListener listener : listeners) {
-                            listener.onLeaderElected(node, term);
-                        }
-                    }, executor);
-                } else {
-                    fut = fut.thenRunAsync(() -> {
-                        for (LeaderElectionListener listener : listeners) {
-                            listener.onLeaderElected(node, term);
-                        }
-                    }, executor);
-                }
+                chainAsync(() -> {
+                    for (LeaderElectionListener listener : listeners) {
+                        listener.onLeaderElected(node, term);
+                    }
+                });
             }
         }
 
@@ -466,22 +650,13 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 long finalLeaderTerm = this.leaderTerm;
                 InternalClusterNode finalLeaderNode = this.leaderNode;
 
-                // Notify about the current leader outside of the synchronized block.
-                if (fut.isDone()) {
-                    fut = runAsync(() -> callback.onLeaderElected(finalLeaderNode, finalLeaderTerm), executor);
-                } else {
-                    fut = fut.thenRunAsync(() -> callback.onLeaderElected(finalLeaderNode, finalLeaderTerm), executor);
-                }
+                // Notify about the current leader outside the synchronized block.
+                chainAsync(() -> callback.onLeaderElected(finalLeaderNode, finalLeaderTerm));
             }
         }
 
         synchronized void removeCallbackAndNotify(LeaderElectionListener callback) {
             callbacks.remove(callback);
         }
-    }
-
-    @Override
-    public void markAsStopping() {
-        raftClient.markAsStopping();
     }
 }
