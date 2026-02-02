@@ -24,6 +24,6 @@ using Ignite.Table.Mapper;
 /// </summary>
 /// <param name="obj">Object.</param>
 /// <param name="rowWriter">Writer.</param>
-/// <param name="schema">Schema.</param>
+/// <param name="column">Column.</param>
 /// <typeparam name="T">Type.</typeparam>
-internal delegate void MapperWriter<in T>(T obj, ref RowWriter rowWriter, IMapperSchema schema);
+internal delegate void MapperWriter<in T>(T obj, ref RowWriter rowWriter, IMapperColumn column);

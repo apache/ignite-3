@@ -35,7 +35,7 @@ internal sealed record OneColumnMapper<T>(MapperReader<T> Reader, MapperWriter<T
         {
             if (i == 0)
             {
-                Writer(obj, ref rowWriter, schema);
+                Writer(obj, ref rowWriter, schema.Columns[i]);
             }
             else
             {
@@ -46,8 +46,6 @@ internal sealed record OneColumnMapper<T>(MapperReader<T> Reader, MapperWriter<T
     }
 
     /// <inheritdoc/>
-    public T Read(ref RowReader rowReader, IMapperSchema schema)
-    {
-        return Reader(ref rowReader, schema);
-    }
+    public T Read(ref RowReader rowReader, IMapperSchema schema) =>
+        Reader(ref rowReader, schema.Columns[0]);
 }

@@ -38,12 +38,12 @@ internal sealed record KeyValuePairCompositeMapper<TKey, TValue>(OneColumnMapper
         {
             if (!keyWritten && column is Column { IsKey: true })
             {
-                KeyMapper.Writer(obj.Key, ref rowWriter, schema);
+                KeyMapper.Writer(obj.Key, ref rowWriter, column);
                 keyWritten = true;
             }
             else if (!valueWritten)
             {
-                ValMapper.Writer(obj.Value, ref rowWriter, schema);
+                ValMapper.Writer(obj.Value, ref rowWriter, column);
                 valueWritten = true;
             }
             else
@@ -66,12 +66,12 @@ internal sealed record KeyValuePairCompositeMapper<TKey, TValue>(OneColumnMapper
         {
             if (!keyRead && column is Column { IsKey: true })
             {
-                key = KeyMapper.Reader(ref rowReader, schema);
+                key = KeyMapper.Reader(ref rowReader, column);
                 keyRead = true;
             }
             else if (!valueRead)
             {
-                value = ValMapper.Reader(ref rowReader, schema);
+                value = ValMapper.Reader(ref rowReader, column);
                 valueRead = true;
             }
             else

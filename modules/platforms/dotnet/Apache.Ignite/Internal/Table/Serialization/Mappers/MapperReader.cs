@@ -23,7 +23,7 @@ using Ignite.Table.Mapper;
 /// Reader delegate.
 /// </summary>
 /// <param name="rowReader">Reader.</param>
-/// <param name="schema">Schema.</param>
+/// <param name="column">Column.</param>
 /// <typeparam name="T">Type.</typeparam>
 /// <returns>Result.</returns>
-internal delegate T MapperReader<out T>(ref RowReader rowReader, IMapperSchema schema);
+internal delegate T MapperReader<out T>(ref RowReader rowReader, IMapperColumn column);
