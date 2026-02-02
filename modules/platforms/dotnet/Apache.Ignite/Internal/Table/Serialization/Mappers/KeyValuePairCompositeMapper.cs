@@ -21,7 +21,7 @@ using System.Collections.Generic;
 using Apache.Ignite.Table.Mapper;
 
 /// <summary>
-/// Composite mapper for key-value pairs.
+/// Key-value mapper.
 /// </summary>
 /// <typeparam name="TKey">Key type.</typeparam>
 /// <typeparam name="TValue">Value type.</typeparam>
@@ -46,10 +46,9 @@ internal sealed record KeyValuePairCompositeMapper<TKey, TValue>(OneColumnMapper
                 ValMapper.Writer(obj.Value, ref rowWriter, schema);
                 valueWritten = true;
             }
-
-            if (keyWritten && valueWritten)
+            else
             {
-                break;
+                rowWriter.Skip();
             }
         }
     }
@@ -75,10 +74,9 @@ internal sealed record KeyValuePairCompositeMapper<TKey, TValue>(OneColumnMapper
                 value = ValMapper.Reader(ref rowReader, schema);
                 valueRead = true;
             }
-
-            if (keyRead && valueRead)
+            else
             {
-                break;
+                rowReader.Skip();
             }
         }
 

@@ -17,12 +17,12 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization.Mappers;
 
-using System;
 using System.Diagnostics.CodeAnalysis;
 using Apache.Ignite.Table.Mapper;
 
 /// <summary>
-/// Primitive mapper.
+/// One column mapper. Maps the first schema column to a simple type.
+/// The rest of the columns are ignored (consistent with existing <see cref="ObjectSerializerHandler{T}"/> behavior).
 /// </summary>
 /// <typeparam name="T">Type.</typeparam>
 [SuppressMessage("MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
@@ -31,24 +31,23 @@ internal sealed record OneColumnMapper<T>(MapperReader<T> Reader, MapperWriter<T
     /// <inheritdoc/>
     public void Write(T obj, ref RowWriter rowWriter, IMapperSchema schema)
     {
-        ValidateSchema(schema);
-        Writer(obj, ref rowWriter, schema);
+        for (int i = 0; i < schema.Columns.Count; i++)
+        {
+            if (i == 0)
+            {
+                Writer(obj, ref rowWriter, schema);
+            }
+            else
+            {
+                // Every column must be handled (written or skipped).
+                rowWriter.Skip();
+            }
+        }
     }
 
     /// <inheritdoc/>
     public T Read(ref RowReader rowReader, IMapperSchema schema)
     {
-        ValidateSchema(schema);
         return Reader(ref rowReader, schema);
-    }
-
-    private static void ValidateSchema(IMapperSchema schema)
-    {
-        if (schema.Columns.Count > 1)
-        {
-            // TODO: Is this consistent with auto-generated mapper?
-            throw new InvalidOperationException(
-                $"Primitive mapper can only be used with single-column schemas, but schema has {schema.Columns.Count} columns.");
-        }
     }
 }
