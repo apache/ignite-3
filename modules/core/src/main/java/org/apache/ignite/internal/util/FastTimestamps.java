@@ -55,7 +55,7 @@ public class FastTimestamps {
 
         Runnable updaterTask = () -> {
             if (interrupted) {
-                scheduledExecutor.shutdownNow();
+                scheduledExecutor.shutdown();
                 return;
             }
 
