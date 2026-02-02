@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -86,7 +87,7 @@ public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     void testStreamToFollower() throws InterruptedException {
         cluster.startEmbedded(2);
 
-        awaitAssignmentsStabilization(node(0), TABLE_NAME_TEST);
+        await().until(this::noActiveRebalance, willBe(true));
 
         checkMetastorage();
 
