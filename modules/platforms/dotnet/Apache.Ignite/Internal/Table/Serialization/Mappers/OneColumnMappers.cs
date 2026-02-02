@@ -37,7 +37,7 @@ internal static class OneColumnMappers
         (sbyte? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteByte(obj));
 
     private static readonly OneColumnMapper<bool> BoolMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadBool()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadBool(), column),
         (bool obj, ref RowWriter writer, IMapperColumn _) => writer.WriteBool(obj));
 
     private static readonly OneColumnMapper<bool?> BoolNullableMapper = new(
@@ -45,7 +45,7 @@ internal static class OneColumnMappers
         (bool? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteBool(obj));
 
     private static readonly OneColumnMapper<short> ShortMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadShort()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadShort(), column),
         (short obj, ref RowWriter writer, IMapperColumn _) => writer.WriteShort(obj));
 
     private static readonly OneColumnMapper<short?> ShortNullableMapper = new(
@@ -53,7 +53,7 @@ internal static class OneColumnMappers
         (short? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteShort(obj));
 
     private static readonly OneColumnMapper<int> IntMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadInt()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadInt(), column),
         (int obj, ref RowWriter writer, IMapperColumn _) => writer.WriteInt(obj));
 
     private static readonly OneColumnMapper<int?> IntNullableMapper = new(
@@ -61,7 +61,7 @@ internal static class OneColumnMappers
         (int? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteInt(obj));
 
     private static readonly OneColumnMapper<long> LongMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadLong()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadLong(), column),
         (long obj, ref RowWriter writer, IMapperColumn _) => writer.WriteLong(obj));
 
     private static readonly OneColumnMapper<long?> LongNullableMapper = new(
@@ -69,7 +69,7 @@ internal static class OneColumnMappers
         (long? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteLong(obj));
 
     private static readonly OneColumnMapper<float> FloatMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadFloat()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadFloat(), column),
         (float obj, ref RowWriter writer, IMapperColumn _) => writer.WriteFloat(obj));
 
     private static readonly OneColumnMapper<float?> FloatNullableMapper = new(
@@ -77,7 +77,7 @@ internal static class OneColumnMappers
         (float? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteFloat(obj));
 
     private static readonly OneColumnMapper<double> DoubleMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadDouble()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadDouble(), column),
         (double obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDouble(obj));
 
     private static readonly OneColumnMapper<double?> DoubleNullableMapper = new(
@@ -93,7 +93,7 @@ internal static class OneColumnMappers
         (byte[]? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteBytes(obj));
 
     private static readonly OneColumnMapper<Guid> GuidMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadGuid()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadGuid(), column),
         (Guid obj, ref RowWriter writer, IMapperColumn _) => writer.WriteGuid(obj));
 
     private static readonly OneColumnMapper<Guid?> GuidNullableMapper = new(
@@ -101,7 +101,7 @@ internal static class OneColumnMappers
         (Guid? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteGuid(obj));
 
     private static readonly OneColumnMapper<decimal> DecimalMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadDecimal()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadDecimal(), column),
         (decimal obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDecimal(obj));
 
     private static readonly OneColumnMapper<decimal?> DecimalNullableMapper = new(
@@ -109,7 +109,7 @@ internal static class OneColumnMappers
         (decimal? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDecimal(obj));
 
     private static readonly OneColumnMapper<BigDecimal> BigDecimalMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadBigDecimal()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadBigDecimal(), column),
         (BigDecimal obj, ref RowWriter writer, IMapperColumn _) => writer.WriteBigDecimal(obj));
 
     private static readonly OneColumnMapper<BigDecimal?> BigDecimalNullableMapper = new(
@@ -117,7 +117,7 @@ internal static class OneColumnMappers
         (BigDecimal? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteBigDecimal(obj));
 
     private static readonly OneColumnMapper<LocalDate> LocalDateMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadDate()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadDate(), column),
         (LocalDate obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDate(obj));
 
     private static readonly OneColumnMapper<LocalDate?> LocalDateNullableMapper = new(
@@ -125,7 +125,7 @@ internal static class OneColumnMappers
         (LocalDate? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDate(obj));
 
     private static readonly OneColumnMapper<LocalTime> LocalTimeMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadTime()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadTime(), column),
         (LocalTime obj, ref RowWriter writer, IMapperColumn _) => writer.WriteTime(obj));
 
     private static readonly OneColumnMapper<LocalTime?> LocalTimeNullableMapper = new(
@@ -133,7 +133,7 @@ internal static class OneColumnMappers
         (LocalTime? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteTime(obj));
 
     private static readonly OneColumnMapper<LocalDateTime> LocalDateTimeMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadDateTime()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadDateTime(), column),
         (LocalDateTime obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDateTime(obj));
 
     private static readonly OneColumnMapper<LocalDateTime?> LocalDateTimeNullableMapper = new(
@@ -141,7 +141,7 @@ internal static class OneColumnMappers
         (LocalDateTime? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDateTime(obj));
 
     private static readonly OneColumnMapper<Instant> InstantMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadTimestamp()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadTimestamp(), column),
         (Instant obj, ref RowWriter writer, IMapperColumn _) => writer.WriteTimestamp(obj));
 
     private static readonly OneColumnMapper<Instant?> InstantNullableMapper = new(
@@ -149,7 +149,7 @@ internal static class OneColumnMappers
         (Instant? obj, ref RowWriter writer, IMapperColumn _) => writer.WriteTimestamp(obj));
 
     private static readonly OneColumnMapper<Duration> DurationMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadDuration()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadDuration(), column),
         (Duration obj, ref RowWriter writer, IMapperColumn _) => writer.WriteDuration(obj));
 
     private static readonly OneColumnMapper<Duration?> DurationNullableMapper = new(
@@ -212,7 +212,7 @@ internal static class OneColumnMappers
             return value.Value;
         }
 
-        var message = $"Can't map '{typeof(T?)}' to column '{column.Name}' - column is nullable, but field is not.";
+        var message = $"Can't map '{typeof(T)}' to column '{column.Name}' - column is nullable, but field is not.";
 
         throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
     }
