@@ -29,7 +29,7 @@ using NodaTime;
 internal static class OneColumnMappers
 {
     private static readonly OneColumnMapper<sbyte> SByteMapper = new(
-        (ref RowReader reader, IMapperColumn _) => reader.ReadByte()!.Value,
+        (ref RowReader reader, IMapperColumn column) => UnwrapNullable(reader.ReadByte(), column),
         (sbyte obj, ref RowWriter writer, IMapperColumn _) => writer.WriteByte(obj));
 
     private static readonly OneColumnMapper<sbyte?> SByteNullableMapper = new(
@@ -203,4 +203,17 @@ internal static class OneColumnMappers
     /// <typeparam name="T">Type.</typeparam>
     /// <returns>Mapper or null.</returns>
     public static OneColumnMapper<T>? TryCreate<T>() => Mappers.GetValueOrDefault(typeof(T)) as OneColumnMapper<T>;
+
+    private static T UnwrapNullable<T>(T? value, IMapperColumn column)
+        where T : struct
+    {
+        if (value.HasValue)
+        {
+            return value.Value;
+        }
+
+        var message = $"Can't map '{typeof(T?)}' to column '{column.Name}' - column is nullable, but field is not.";
+
+        throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+    }
 }
