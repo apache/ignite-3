@@ -48,6 +48,7 @@ import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
+import org.apache.ignite.internal.rest.events.RestEvents.FieldNames;
 import org.apache.ignite.internal.testframework.log4j2.EventLogInspector;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
@@ -137,36 +138,36 @@ class ItRestEventsTest extends ClusterPerTestIntegrationTest {
 
         assertThat(logInspector.events(), containsInRelativeOrder(
                 eventEqualTo(IgniteEventType.REST_API_REQUEST_STARTED, user, Map.of(
-                        "requestId", notNullValue(),
-                        "timestamp", notNullValue(),
-                        "method", "GET",
-                        "endpoint", "/health",
-                        "nodeName", notNullValue()
+                        FieldNames.REQUEST_ID, notNullValue(),
+                        FieldNames.TIMESTAMP, notNullValue(),
+                        FieldNames.METHOD, "GET",
+                        FieldNames.ENDPOINT, "/health",
+                        FieldNames.NODE_NAME, notNullValue()
                 )),
                 eventEqualTo(IgniteEventType.REST_API_REQUEST_FINISHED, user, Map.of(
-                        "requestId", notNullValue(),
-                        "timestamp", notNullValue(),
-                        "method", "GET",
-                        "endpoint", "/health",
-                        "nodeName", notNullValue(),
-                        "status", equalTo(200),
-                        "durationMs", notNullValue()
+                        FieldNames.REQUEST_ID, notNullValue(),
+                        FieldNames.TIMESTAMP, notNullValue(),
+                        FieldNames.METHOD, "GET",
+                        FieldNames.ENDPOINT, "/health",
+                        FieldNames.NODE_NAME, notNullValue(),
+                        FieldNames.STATUS, equalTo(200),
+                        FieldNames.DURATION_MS, notNullValue()
                 )),
                 eventEqualTo(IgniteEventType.REST_API_REQUEST_STARTED, user, Map.of(
-                        "requestId", notNullValue(),
-                        "timestamp", notNullValue(),
-                        "method", "GET",
-                        "endpoint", "/management/v1/node/state",
-                        "nodeName", notNullValue()
+                        FieldNames.REQUEST_ID, notNullValue(),
+                        FieldNames.TIMESTAMP, notNullValue(),
+                        FieldNames.METHOD, "GET",
+                        FieldNames.ENDPOINT, "/management/v1/node/state",
+                        FieldNames.NODE_NAME, notNullValue()
                 )),
                 eventEqualTo(IgniteEventType.REST_API_REQUEST_FINISHED, user, Map.of(
-                        "requestId", notNullValue(),
-                        "timestamp", notNullValue(),
-                        "method", "GET",
-                        "endpoint", "/management/v1/node/state",
-                        "nodeName", notNullValue(),
-                        "status", equalTo(200),
-                        "durationMs", notNullValue()
+                        FieldNames.REQUEST_ID, notNullValue(),
+                        FieldNames.TIMESTAMP, notNullValue(),
+                        FieldNames.METHOD, "GET",
+                        FieldNames.ENDPOINT, "/management/v1/node/state",
+                        FieldNames.NODE_NAME, notNullValue(),
+                        FieldNames.STATUS, equalTo(200),
+                        FieldNames.DURATION_MS, notNullValue()
                 ))
         ));
     }

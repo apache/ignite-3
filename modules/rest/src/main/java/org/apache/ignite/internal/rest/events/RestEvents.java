@@ -146,7 +146,7 @@ public class RestEvents implements ResourceHolder {
         return EventUser.of("anonymous", "anonymous");
     }
 
-    static class Attributes {
+    private static class Attributes {
         static final String REQUEST_ID = "ignite.rest.request.id";
         static final String START_TIME = "ignite.rest.request.startTime";
         static final String FINISH_TIME = "ignite.rest.request.finishTime";
