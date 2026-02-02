@@ -128,6 +128,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -666,6 +667,8 @@ public class InternalTableImpl implements InternalTable {
                         code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
                     }
 
+                    Throwable cause = lastExceptionCause(tx.id());
+
                     return failedFuture(
                             new TransactionException(code, format(
                                     "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
@@ -673,7 +676,7 @@ public class InternalTableImpl implements InternalTable {
                                     partId,
                                     tx.state(),
                                     tx.isRolledBackWithTimeoutExceeded()
-                            )));
+                            ), cause));
                 }
 
                 return replicaSvc.<R>invoke(enlistment.primaryNodeConsistentId(), request).thenApply(res -> {
@@ -2317,13 +2320,26 @@ public class InternalTableImpl implements InternalTable {
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
+            Throwable cause = lastExceptionCause(transaction.id());
             throw new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
                     format("Transaction is already finished [{}, readOnly={}].",
                             formatTxInfo(transaction.id(), txManager, false),
                             transaction.isReadOnly()
-                    ));
+                    ),
+                    cause
+            );
         }
+    }
+
+    @Nullable
+    private Throwable lastExceptionCause(UUID txId) {
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+        if (txStateMeta == null) {
+            return null;
+        }
+
+        return TxStateMeta.aggregateExceptionInfos(txStateMeta.exceptionInfos());
     }
 
     @FunctionalInterface

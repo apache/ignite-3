@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
-import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
@@ -38,6 +37,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -142,10 +142,22 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * Fails the operation.
      */
     private void failEnlist() {
+        Throwable cause = aggregateExceptionInfos();
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
                 format("Transaction is already finished [{}, txState={}].",
-                        formatTxInfo(id(), txManager, false), state()));
+                        formatTxInfo(id(), txManager, false), state()),
+                cause);
+    }
+
+    @Nullable
+    private Throwable aggregateExceptionInfos() {
+        TxStateMeta meta = txManager.stateMeta(id());
+        if (meta == null || meta.exceptionInfos() == null || meta.exceptionInfos().isEmpty()) {
+            return null;
+        }
+
+        return TxStateMeta.aggregateExceptionInfos(meta.exceptionInfos());
     }
 
     /**

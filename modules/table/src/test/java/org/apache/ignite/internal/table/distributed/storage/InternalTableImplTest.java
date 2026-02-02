@@ -27,14 +27,18 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
@@ -831,6 +835,58 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 assertThat("Error should be TransactionException", cause, is(instanceOf(TransactionException.class)));
                 TransactionException txEx = (TransactionException) cause;
                 assertThat("Error code should be TX_ALREADY_FINISHED_ERR", txEx.code(), is(TX_ALREADY_FINISHED_ERR));
+            }
+        }
+
+        @Test
+        void testScanAfterTimeoutExposesExceptionInfosFromMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            InternalTransaction tx = new ReadWriteTransactionImpl(
+                    txManager,
+                    mock(HybridTimestampTracker.class),
+                    TestTransactionIds.newTransactionId(),
+                    randomUUID(),
+                    false,
+                    1
+            );
+
+            UUID txId = tx.id();
+            RuntimeException firstFailure = new RuntimeException("first");
+            IllegalStateException secondFailure = new IllegalStateException("second");
+
+            TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
+                    .finishedDueToTimeout(true)
+                    .exceptionInfo(fromThrowable(firstFailure))
+                    .exceptionInfo(fromThrowable(secondFailure))
+                    .build();
+
+            when(txManager.stateMeta(txId)).thenReturn(meta);
+            tx.rollbackTimeoutExceededAsync().join();
+
+            Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<Void> completed = new CompletableFuture<>();
+
+            publisher.subscribe(new BlackholeSubscriber(completed));
+
+            try {
+                completed.get(10, TimeUnit.SECONDS);
+                fail("Expected TransactionException but scan completed successfully");
+            } catch (Exception e) {
+                Throwable unwrapped = unwrapCause(e);
+                assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+                TransactionException txEx = (TransactionException) unwrapped;
+                assertThat("Error code should be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR or TX_ALREADY_FINISHED_ERR",
+                        txEx.code(), anyOf(is(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR), is(TX_ALREADY_FINISHED_ERR)));
+                Throwable rootCause = unwrapRootCause(e);
+                assertThat("Cause should be the last recorded exception", rootCause,
+                        is(instanceOf(IllegalStateException.class)));
+                assertThat(rootCause.getMessage(), is(secondFailure.getMessage()));
+                Throwable suppressed = unwrapped.getCause().getSuppressed()[0];
+                assertThat("Suppressed should be the 1st recorded exception", suppressed,
+                        is(instanceOf(RuntimeException.class)));
+                assertThat(suppressed.getMessage(), is(firstFailure.getMessage()));
             }
         }
 

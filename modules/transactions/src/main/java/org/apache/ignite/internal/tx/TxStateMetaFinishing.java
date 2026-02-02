@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -60,17 +61,17 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * @param commitPartitionId Commit partition id.
      * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      * @param txLabel Transaction label.
-     * @param exceptionInfo Exception info for exceptional abort.
+     * @param exceptionInfos Exception info for exceptional abort.
      */
     public TxStateMetaFinishing(
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
             @Nullable String txLabel,
-            @Nullable TxStateMetaExceptionInfo exceptionInfo
+            @Nullable List<TxStateMetaExceptionInfo> exceptionInfos
     ) {
         super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
-                null, null, isFinishingDueToTimeout, txLabel, exceptionInfo);
+                null, null, isFinishingDueToTimeout, txLabel, exceptionInfos);
     }
 
     /**
@@ -137,7 +138,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel, exceptionInfo);
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel, exceptionInfos);
             } else {
                 return super.build();
             }

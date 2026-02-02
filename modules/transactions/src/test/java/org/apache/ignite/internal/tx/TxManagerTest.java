@@ -652,8 +652,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        assertNotNull(meta.exceptionInfo());
-        assertEquals(RuntimeException.class.getName(), meta.exceptionInfo().exceptionClassName());
+        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        assertNotNull(exceptionInfo);
+        assertEquals(RuntimeException.class.getName(), exceptionInfo.exceptionClassName());
     }
 
     @Test
@@ -671,8 +672,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
-        assertNotNull(meta.exceptionInfo());
-        assertEquals(RuntimeException.class.getName(), meta.exceptionInfo().exceptionClassName());
+        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        assertNotNull(exceptionInfo);
+        assertEquals(RuntimeException.class.getName(), exceptionInfo.exceptionClassName());
     }
 
     @Test
@@ -685,8 +687,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
         assertEquals(TxState.PENDING, meta.txState());
-        assertNotNull(meta.exceptionInfo());
-        assertEquals(RuntimeException.class.getName(), meta.exceptionInfo().exceptionClassName());
+        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        assertNotNull(exceptionInfo);
+        assertEquals(RuntimeException.class.getName(), exceptionInfo.exceptionClassName());
     }
 
     @Test
@@ -718,7 +721,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
         assertTrue(meta.isFinishedDueToTimeout());
-        assertNotNull(meta.exceptionInfo());
+        assertNotNull(lastExceptionInfo(meta));
     }
 
     @Test
@@ -741,8 +744,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        assertNotNull(meta.exceptionInfo());
-        assertEquals(MismatchingTransactionOutcomeInternalException.class.getName(), meta.exceptionInfo().exceptionClassName());
+        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        assertNotNull(exceptionInfo);
+        assertEquals(MismatchingTransactionOutcomeInternalException.class.getName(), exceptionInfo.exceptionClassName());
         assertRollbackSucceeds();
     }
 
@@ -940,11 +944,12 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        assertNotNull(meta.exceptionInfo());
-        assertEquals(PrimaryReplicaExpiredException.class.getName(), meta.exceptionInfo().exceptionClassName());
-        assertEquals(TX_PRIMARY_REPLICA_EXPIRED_ERR, meta.exceptionInfo().code());
-        assertNotNull(meta.exceptionInfo().traceId());
-        assertTrue(meta.exceptionInfo().message().contains("Primary replica has expired"));
+        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        assertNotNull(exceptionInfo);
+        assertEquals(PrimaryReplicaExpiredException.class.getName(), exceptionInfo.exceptionClassName());
+        assertEquals(TX_PRIMARY_REPLICA_EXPIRED_ERR, exceptionInfo.code());
+        assertNotNull(exceptionInfo.traceId());
+        assertTrue(exceptionInfo.message().contains("Primary replica has expired"));
     }
 
     private void assertRollbackSucceeds() {
@@ -967,6 +972,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private static HybridTimestamp beginTs(InternalTransaction tx) {
         return TransactionIds.beginTimestamp(tx.id());
+    }
+
+    private static TxStateMetaExceptionInfo lastExceptionInfo(TxStateMeta meta) {
+        assertNotNull(meta);
+        assertNotNull(meta.exceptionInfos());
+        assertFalse(meta.exceptionInfos().isEmpty());
+
+        return meta.exceptionInfos().get(meta.exceptionInfos().size() - 1);
     }
 
     private void preparePrimaryReplica() {

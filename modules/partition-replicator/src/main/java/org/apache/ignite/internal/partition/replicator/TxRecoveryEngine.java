@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
@@ -75,12 +74,7 @@ public class TxRecoveryEngine {
                         Map.of(replicationGroupId, abandonedTxRecoveryEnlistmentFactory.apply(clusterNodeResolver.getById(senderId))),
                         txId
                 )
-                .whenComplete((v, ex) -> {
-                    if (ex != null) {
-                        txManager.updateTxMeta(txId, old -> recordExceptionInfo(old, ex));
-                    }
-                    runCleanupOnNode(replicationGroupId, txId, senderId);
-                });
+                .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));
     }
 
     /**

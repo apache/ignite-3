@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMeta.aggregateExceptionInfos;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -190,7 +191,6 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.TxStateMetaExceptionInfo;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -1621,11 +1621,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             Throwable cause = null;
             if (txStateMeta != null) {
-                TxStateMetaExceptionInfo exceptionInfo = txStateMeta.exceptionInfo();
-
-                if (exceptionInfo != null) {
-                    cause = exceptionInfo.throwable();
-                }
+                cause = aggregateExceptionInfos(txStateMeta.exceptionInfos());
             }
 
             return failedFuture(new TransactionException(
