@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 public class FastTimestamps {
     private static volatile long coarseCurrentTimeMillis = System.currentTimeMillis();
 
+    private static volatile boolean interrupted = false;
+
     /** The interval in milliseconds for updating a timestamp cache. */
     private static final long UPDATE_INTERVAL_MS = 10;
 
@@ -36,13 +38,23 @@ public class FastTimestamps {
 
     private static void startUpdater() {
         ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "FastTimestamps updater");
+            @SuppressWarnings("ClassExplicitlyExtendsThread")
+            Thread t = new Thread(r, "FastTimestamps updater") {
+                @Override
+                public void interrupt() {
+                    // Support scenarios like "mvn exec:java `-Dexec.cleanupDaemonThreads=true`"
+                    // that expect daemon threads to exit when interrupted.
+                    //noinspection AssignmentToStaticFieldFromInstanceMethod
+                    interrupted = true;
+                    super.interrupt();
+                }
+            };
             t.setDaemon(true);
             return t;
         });
 
         Runnable updaterTask = () -> {
-            if (Thread.currentThread().isInterrupted()) {
+            if (interrupted) {
                 scheduledExecutor.shutdownNow();
                 return;
             }
