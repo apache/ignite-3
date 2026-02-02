@@ -71,6 +71,18 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      */
     @BeforeEach
     public void startCluster(TestInfo testInfo) throws Exception {
+        try {
+            while (cluster.runningNodes().findAny().isPresent()) {
+                Thread.sleep(100);
+            }
+        } catch (InterruptedException ex) {
+
+        }
+
+        log.info("===================================");
+        log.info("There are no running nodes");
+        log.info("===================================");
+
         ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate());
 
@@ -89,18 +101,6 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         cluster.shutdown();
 
         TestMvTableStorage.resetPartitionStorageFactory();
-
-        try {
-            while (cluster.runningNodes().findAny().isPresent()) {
-                Thread.sleep(100);
-            }
-        } catch (InterruptedException ex) {
-
-        }
-
-        log.info("===================================");
-        log.info("There are no running nodes");
-        log.info("===================================");
     }
 
     /**
