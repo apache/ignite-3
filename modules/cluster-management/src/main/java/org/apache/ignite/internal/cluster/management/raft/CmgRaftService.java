@@ -49,6 +49,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
@@ -101,7 +102,7 @@ public class CmgRaftService implements ManuallyCloseable {
      * @return Future that resolves into the current cluster state or {@code null} if it does not exist.
      */
     public CompletableFuture<ClusterState> readClusterState() {
-        return raftService.run(msgFactory.readStateCommand().build(), RaftCommandRunner.NO_TIMEOUT)
+        return run(msgFactory.readStateCommand().build())
                 .thenApply(ClusterState.class::cast);
     }
 
@@ -114,10 +115,7 @@ public class CmgRaftService implements ManuallyCloseable {
     public CompletableFuture<ClusterState> initClusterState(ClusterState clusterState) {
         ClusterNodeMessage localNodeMessage = nodeMessage(topologyService.localMember());
 
-        return raftService.run(
-                        msgFactory.initCmgStateCommand().node(localNodeMessage).clusterState(clusterState).build(),
-                        RaftCommandRunner.NO_TIMEOUT
-                )
+        return run(msgFactory.initCmgStateCommand().node(localNodeMessage).clusterState(clusterState).build())
                 .thenApply(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new IllegalInitArgumentException("Init CMG request denied, reason: "
@@ -149,7 +147,7 @@ public class CmgRaftService implements ManuallyCloseable {
 
         // Using NO_TIMEOUT because we want a node that doesn't see CMG majority at start to hang out until someone else starts; otherwise,
         // if we employ a timeout here, node-by-node starts might cause inability to form a cluster.
-        return raftService.run(command, RaftCommandRunner.NO_TIMEOUT)
+        return run(command)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         var validationErrorResponse = (ValidationErrorResponse) response;
@@ -180,7 +178,7 @@ public class CmgRaftService implements ManuallyCloseable {
         ClusterNodeMessage localNodeMessage = nodeMessage(topologyService.localMember(), attributes);
 
         JoinReadyCommand joinReadyCommand = msgFactory.joinReadyCommand().node(localNodeMessage).build();
-        return raftService.run(joinReadyCommand, RaftCommandRunner.NO_TIMEOUT)
+        return run(joinReadyCommand)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new JoinDeniedException("JoinReady request denied, reason: "
@@ -203,7 +201,7 @@ public class CmgRaftService implements ManuallyCloseable {
                 .nodes(nodes.stream().map(this::nodeMessage).collect(toSet()))
                 .build();
 
-        return raftService.run(command, RaftCommandRunner.NO_TIMEOUT);
+        return run(command);
     }
 
     /**
@@ -213,7 +211,7 @@ public class CmgRaftService implements ManuallyCloseable {
      * @return Logical topology snapshot.
      */
     public CompletableFuture<LogicalTopologySnapshot> logicalTopology(long timeout) {
-        return raftService.run(msgFactory.readLogicalTopologyCommand().build(), timeout)
+        return run(msgFactory.readLogicalTopologyCommand().build(), timeout)
                 .thenApply(LogicalTopologyResponse.class::cast)
                 .thenApply(LogicalTopologyResponse::logicalTopology);
     }
@@ -225,7 +223,15 @@ public class CmgRaftService implements ManuallyCloseable {
      * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
      */
     public CompletableFuture<Set<InternalClusterNode>> validatedNodes(long timeout) {
-        return raftService.run(msgFactory.readValidatedNodesCommand().build(), timeout);
+        return run(msgFactory.readValidatedNodesCommand().build(), timeout);
+    }
+
+    private <R> CompletableFuture<R> run(Command cmd, long timeout) {
+        return raftService.run(cmd, timeout);
+    }
+
+    private <R> CompletableFuture<R> run(Command cmd) {
+        return run(cmd, RaftCommandRunner.NO_TIMEOUT);
     }
 
     /**
@@ -370,7 +376,7 @@ public class CmgRaftService implements ManuallyCloseable {
                 .metaStorageNodes(Set.copyOf(newMetastorageNodes))
                 .metastorageRepairingConfigIndex(metastorageRepairingConfigIndex)
                 .build();
-        return raftService.run(command, timeout);
+        return run(command, timeout);
     }
 
     /**
@@ -380,7 +386,7 @@ public class CmgRaftService implements ManuallyCloseable {
      * @return Future that resolves into the metastorage info or {@code null} if cluster state does not exist.
      */
     public CompletableFuture<MetaStorageInfo> readMetaStorageInfo(long timeout) {
-        return raftService.run(msgFactory.readMetaStorageInfoCommand().build(), timeout)
+        return run(msgFactory.readMetaStorageInfoCommand().build(), timeout)
                 .thenApply(MetaStorageInfo.class::cast);
     }
 
