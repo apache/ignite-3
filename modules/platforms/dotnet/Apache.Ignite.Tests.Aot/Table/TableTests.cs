@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Aot.Table;
 
+using System.Diagnostics.CodeAnalysis;
 using Common.Table;
 using Ignite.Table;
 using JetBrains.Annotations;
@@ -105,6 +106,37 @@ public class TableTests(IIgniteClient client)
         Assert.AreEqual(poco.Int64, res.Int64);
         Assert.AreEqual(poco.Str, res.Str);
         Assert.AreEqual(poco.Uuid, res.Uuid);
+    }
+
+    [UsedImplicitly]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Test.")]
+    public async Task TestRecordViewPrimitiveMapping()
+    {
+        var table = await client.Tables.GetTableAsync(TableName);
+        var view = table!.GetRecordView<long>();
+
+        const long key = 42;
+
+        await view.UpsertAsync(null, key);
+        var res = await view.ContainsKeyAsync(null, key);
+
+        Assert.AreEqual(true, res);
+    }
+
+    [UsedImplicitly]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Test.")]
+    public async Task TestKeyValueViewPrimitiveMapping()
+    {
+        var table = await client.Tables.GetTableAsync(TableName);
+        var view = table!.GetKeyValueView<long, string>();
+
+        const long key = 42;
+        const string val = "Hello, World!";
+
+        await view.PutAsync(null, key, val);
+        var res = await view.GetAsync(null, key);
+
+        Assert.AreEqual(val, res.Value);
     }
 
     [UsedImplicitly]
