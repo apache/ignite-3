@@ -42,6 +42,11 @@ public class FastTimestamps {
         });
 
         Runnable updaterTask = () -> {
+            if (Thread.currentThread().isInterrupted()) {
+                scheduledExecutor.shutdownNow();
+                return;
+            }
+
             long now = System.currentTimeMillis();
 
             if (now > coarseCurrentTimeMillis) {
