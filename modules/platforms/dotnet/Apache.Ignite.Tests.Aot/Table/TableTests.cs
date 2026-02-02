@@ -110,17 +110,37 @@ public class TableTests(IIgniteClient client)
 
     [UsedImplicitly]
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Test.")]
+    [SuppressMessage("ReSharper", "RedundantTypeArgumentsOfMethod", Justification = "Consistency.")]
     public async Task TestRecordViewPrimitiveMapping()
     {
-        var table = await client.Tables.GetTableAsync(TableName);
-        var view = table!.GetRecordView<long>();
+        await Test<sbyte>(TableInt8Name, 42);
+        await Test<short>(TableInt16Name, 42);
+        await Test<int>(TableInt32Name, 42);
+        await Test<long>(TableInt64Name, 42);
+        await Test<float>(TableFloatName, 3.14f);
+        await Test<double>(TableDoubleName, 3.14);
+        await Test<string>(TableStringName, "Hello, Ignite!");
+        await Test<Guid>(TableUuidName, Guid.NewGuid());
+        await Test<bool>(TableBoolName, true);
+        await Test<decimal>(TableDecimalName, 123.456m);
+        await Test<LocalDate>(TableDateName, new LocalDate(2024, 6, 30));
+        await Test<LocalTime>(TableTimeName, new LocalTime(14, 30, 0));
+        await Test<LocalDateTime>(TableDateTimeName, new LocalDateTime(2024, 6, 30, 14, 30, 0));
+        await Test<Instant>(TableTimestampName, Instant.FromUtc(2024, 6, 30, 14, 30, 0));
+        await Test<BigDecimal>(TableNumberName, new BigDecimal(12345.6789m));
+        await Test<byte[]>(TableBytesName, [1, 2, 3, 4, 5]);
 
-        const long key = 42;
+        async Task Test<T>(string tableName, T value)
+            where T : notnull
+        {
+            var tbl = await client.Tables.GetTableAsync(tableName);
+            var view = tbl!.GetRecordView<T>();
 
-        await view.UpsertAsync(null, key);
-        var res = await view.ContainsKeyAsync(null, key);
+            await view.UpsertAsync(null, value);
+            var res = await view.GetAsync(null, value);
 
-        Assert.AreEqual(true, res);
+            Assert.AreEqual(value, res.Value);
+        }
     }
 
     [UsedImplicitly]
