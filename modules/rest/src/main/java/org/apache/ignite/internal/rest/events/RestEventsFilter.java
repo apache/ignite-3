@@ -44,11 +44,21 @@ public class RestEventsFilter implements HttpServerFilter, ResourceHolder, Order
 
     @Override
     public Publisher<MutableHttpResponse<?>> doFilter(HttpRequest<?> request, ServerFilterChain chain) {
-        restEvents.logRequestStarted(request);
+        if (restEvents != null) {
+            restEvents.logRequestStarted(request);
+        }
 
         return Mono.from(chain.proceed(request))
-                .doOnSuccess(response -> restEvents.logRequestFinished(request, response))
-                .doOnError(throwable -> restEvents.logRequestError(request, throwable));
+                .doOnSuccess(response -> {
+                    if (restEvents != null) {
+                        restEvents.logRequestFinished(request, response);
+                    }
+                })
+                .doOnError(throwable -> {
+                    if (restEvents != null) {
+                        restEvents.logRequestError(request, throwable);
+                    }
+                });
     }
 
     @Override
