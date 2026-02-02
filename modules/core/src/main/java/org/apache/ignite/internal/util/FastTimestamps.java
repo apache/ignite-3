@@ -20,7 +20,6 @@ package org.apache.ignite.internal.util;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides access to fast (low-latency), but coarse-grained timestamps.
@@ -31,27 +30,18 @@ public class FastTimestamps {
     /** The interval in milliseconds for updating a timestamp cache. */
     private static final long UPDATE_INTERVAL_MS = 10;
 
-    /** Executor service for updating timestamps. */
-    private static @Nullable ScheduledExecutorService executor;
-
     static {
         startUpdater();
     }
 
     private static void startUpdater() {
-        executor = Executors.newSingleThreadScheduledExecutor(r -> {
+        ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "FastTimestamps updater");
             t.setDaemon(true);
             return t;
         });
 
         Runnable updaterTask = () -> {
-            // Check if thread was interrupted and shut down the executor
-            if (Thread.currentThread().isInterrupted()) {
-                shutdownExecutor();
-                return;
-            }
-
             long now = System.currentTimeMillis();
 
             if (now > coarseCurrentTimeMillis) {
@@ -62,14 +52,7 @@ public class FastTimestamps {
             Thread.onSpinWait();
         };
 
-        executor.scheduleAtFixedRate(updaterTask, 0, UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
-    }
-
-    private static void shutdownExecutor() {
-        ScheduledExecutorService exec = executor;
-        if (exec != null) {
-            exec.shutdown();
-        }
+        scheduledExecutor.scheduleAtFixedRate(updaterTask, 0, UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
     /**
