@@ -54,6 +54,7 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
         await TestKey(new LocalTime(3, 4, 5), TableTimeName);
         await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), TableTimestampName);
         await TestKey(new byte[] { 1, 2, 3 }, TableBytesName);
+        await TestKey(Guid.NewGuid(), TableUuidName);
     }
 
     [Test]
