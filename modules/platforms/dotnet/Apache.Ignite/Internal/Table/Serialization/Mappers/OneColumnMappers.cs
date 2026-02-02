@@ -20,7 +20,9 @@ namespace Apache.Ignite.Internal.Table.Serialization.Mappers;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using Ignite.Sql;
 using Ignite.Table.Mapper;
+using NodaTime;
 
 /// <summary>
 /// Primitive mapper helper.
@@ -107,6 +109,58 @@ internal static class OneColumnMappers
         (ref RowReader reader, IMapperSchema _) => reader.ReadDecimal(),
         (decimal? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDecimal(obj));
 
+    private static readonly OneColumnMapper<BigDecimal> BigDecimalMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadBigDecimal()!.Value,
+        (BigDecimal obj, ref RowWriter writer, IMapperSchema _) => writer.WriteBigDecimal(obj));
+
+    private static readonly OneColumnMapper<BigDecimal?> BigDecimalNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadBigDecimal(),
+        (BigDecimal? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteBigDecimal(obj));
+
+    private static readonly OneColumnMapper<LocalDate> LocalDateMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDate()!.Value,
+        (LocalDate obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDate(obj));
+
+    private static readonly OneColumnMapper<LocalDate?> LocalDateNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDate(),
+        (LocalDate? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDate(obj));
+
+    private static readonly OneColumnMapper<LocalTime> LocalTimeMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadTime()!.Value,
+        (LocalTime obj, ref RowWriter writer, IMapperSchema _) => writer.WriteTime(obj));
+
+    private static readonly OneColumnMapper<LocalTime?> LocalTimeNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadTime(),
+        (LocalTime? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteTime(obj));
+
+    private static readonly OneColumnMapper<LocalDateTime> LocalDateTimeMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDateTime()!.Value,
+        (LocalDateTime obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDateTime(obj));
+
+    private static readonly OneColumnMapper<LocalDateTime?> LocalDateTimeNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDateTime(),
+        (LocalDateTime? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDateTime(obj));
+
+    private static readonly OneColumnMapper<Instant> InstantMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadTimestamp()!.Value,
+        (Instant obj, ref RowWriter writer, IMapperSchema _) => writer.WriteTimestamp(obj));
+
+    private static readonly OneColumnMapper<Instant?> InstantNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadTimestamp(),
+        (Instant? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteTimestamp(obj));
+
+    private static readonly OneColumnMapper<Duration> DurationMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDuration()!.Value,
+        (Duration obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDuration(obj));
+
+    private static readonly OneColumnMapper<Duration?> DurationNullableMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadDuration(),
+        (Duration? obj, ref RowWriter writer, IMapperSchema _) => writer.WriteDuration(obj));
+
+    private static readonly OneColumnMapper<Period?> PeriodMapper = new(
+        (ref RowReader reader, IMapperSchema _) => reader.ReadPeriod(),
+        (Period? obj, ref RowWriter writer, IMapperSchema _) => writer.WritePeriod(obj));
+
     private static readonly FrozenDictionary<Type, object> Mappers = new Dictionary<Type, object>
     {
         { typeof(sbyte), SByteMapper },
@@ -128,7 +182,20 @@ internal static class OneColumnMappers
         { typeof(Guid), GuidMapper },
         { typeof(Guid?), GuidNullableMapper },
         { typeof(decimal), DecimalMapper },
-        { typeof(decimal?), DecimalNullableMapper }
+        { typeof(decimal?), DecimalNullableMapper },
+        { typeof(BigDecimal), BigDecimalMapper },
+        { typeof(BigDecimal?), BigDecimalNullableMapper },
+        { typeof(LocalDate), LocalDateMapper },
+        { typeof(LocalDate?), LocalDateNullableMapper },
+        { typeof(LocalTime), LocalTimeMapper },
+        { typeof(LocalTime?), LocalTimeNullableMapper },
+        { typeof(LocalDateTime), LocalDateTimeMapper },
+        { typeof(LocalDateTime?), LocalDateTimeNullableMapper },
+        { typeof(Instant), InstantMapper },
+        { typeof(Instant?), InstantNullableMapper },
+        { typeof(Duration), DurationMapper },
+        { typeof(Duration?), DurationNullableMapper },
+        { typeof(Period), PeriodMapper }
     }.ToFrozenDictionary();
 
     /// <summary>
