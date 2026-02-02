@@ -149,9 +149,10 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IRecordView<T> GetRecordView<T>()
-            where T : notnull => OneColumnMappers.TryCreate<T>() is { } mapper
-            ? GetRecordView(mapper)
-            : GetRecordViewInternal<T>();
+            where T : notnull =>
+            OneColumnMappers.TryCreate<T>() is { } mapper
+                ? GetRecordView(mapper)
+                : GetRecordViewInternal<T>();
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>(IMapper<T> mapper)
@@ -162,7 +163,9 @@ namespace Apache.Ignite.Internal.Table
         [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
             where TK : notnull =>
-            new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
+            KeyValueMappers.TryCreate<TK, TV>() is { } mapper
+                ? GetKeyValueView(mapper)
+                : new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
 
         /// <inheritdoc/>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>(IMapper<KeyValuePair<TK, TV>> mapper)
