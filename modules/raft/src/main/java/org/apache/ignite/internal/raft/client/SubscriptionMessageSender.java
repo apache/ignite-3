@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.client;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.RecipientLeftException;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SubscriptionLeaderChangeRequest;
 
@@ -101,6 +103,22 @@ class SubscriptionMessageSender {
             } else if (invokeCause instanceof RecipientLeftException) {
                 LOG.info(
                         "Could not subscribe to leader update from a specific node, because the node had left the cluster: [node={}].",
+                        node
+                );
+
+                msgSendFut.complete(false);
+            } else if (invokeCause instanceof HandshakeException) {
+                LOG.info(
+                        "Could not subscribe to leader update from a specific node, because the handshake failed "
+                                + "(node may be unavailable): [node={}].",
+                        node
+                );
+
+                msgSendFut.complete(false);
+            } else if (invokeCause instanceof CancellationException) {
+                LOG.info(
+                        "Could not subscribe to leader update from a specific node, because the operation was cancelled "
+                                + "(node may be stopping): [node={}].",
                         node
                 );
 

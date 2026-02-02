@@ -720,8 +720,22 @@ class RaftCommandExecutor {
             long stopTime = retryContext.stopTime();
 
             if (requestStartTime >= stopTime) {
-                // Retry timeout expired - fail with timeout exception.
-                fut.completeExceptionally(createTimeoutException());
+                // Retry phase timeout expired.
+                if (deadline == Long.MAX_VALUE) {
+                    // Infinite wait mode: start a new retry phase.
+                    // We may not have probed all peers yet (e.g., with many peers and short retry timeout),
+                    // so we can't assume there's no leader. Start fresh and keep trying.
+                    LOG.debug("Retry phase timeout expired with infinite deadline, starting new retry phase [groupId={}]", groupId);
+                    Peer initialPeer = resolveInitialPeer(targetStrategy, originalPeer);
+                    if (initialPeer == null) {
+                        fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
+                        return;
+                    }
+                    startRetryPhase(fut, requestFactory, initialPeer, targetStrategy, deadline, termWhenStarted);
+                } else {
+                    // Bounded wait mode: fail with timeout exception.
+                    fut.completeExceptionally(createTimeoutException());
+                }
                 return;
             }
 
