@@ -72,11 +72,11 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @BeforeEach
     public void startCluster(TestInfo testInfo) throws Exception {
         try {
-            while (cluster.runningNodes().findAny().isPresent()) {
+            while (cluster != null && cluster.runningNodes().findAny().isPresent()) {
                 Thread.sleep(100);
             }
         } catch (InterruptedException ex) {
-
+            throw new RuntimeException(ex);
         }
 
         log.info("===================================");
