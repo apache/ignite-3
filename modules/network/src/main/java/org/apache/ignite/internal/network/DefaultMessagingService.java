@@ -228,7 +228,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
-            metrics.incrementMessageSendFailures();
+            metrics.incrementMessageRecipientNotFound();
 
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
