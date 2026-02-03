@@ -70,9 +70,9 @@ public:
         auth_configuration m_auth_configuration{};
         std::int32_t m_page_size{DEFAULT_PAGE_SIZE};
         std::int32_t m_timeout{DEFAULT_TIMEOUT_SECONDS};
+        std::chrono::milliseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
         bool m_auto_commit{true};
         ssl_config m_ssl_configuration;
-        std::chrono::milliseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
     };
 
     /**
@@ -407,7 +407,7 @@ private:
      * @param op Operation.
      * @param func Function.
      */
-    std::vector<std::byte> make_request(std::int64_t id, ignite::protocol::client_operation op,
+    static std::vector<std::byte> make_request(std::int64_t id, ignite::protocol::client_operation op,
         const std::function<void(ignite::protocol::writer &)> &func) {
         std::vector<std::byte> req;
         ignite::protocol::buffer_adapter buffer(req);
@@ -628,8 +628,7 @@ private:
     void on_observable_timestamp(std::int64_t timestamp) {
         auto expected = m_observable_timestamp.load();
         while (expected < timestamp) {
-            auto success = m_observable_timestamp.compare_exchange_weak(expected, timestamp);
-            if (success)
+            if (m_observable_timestamp.compare_exchange_weak(expected, timestamp))
                 return;
             expected = m_observable_timestamp.load();
         }

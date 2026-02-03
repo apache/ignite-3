@@ -58,8 +58,10 @@ PyObject* make_connection()
 }
 
 PyObject* make_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, bool autocommit, ssl_config &&ssl_cfg) {
-    auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit, std::move(ssl_cfg));
+    int page_size, int timeout, float heartbeat_interval, bool autocommit, ssl_config &&ssl_cfg) {
+    auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, heartbeat_interval,
+        autocommit, std::move(ssl_cfg));
+
     if (!py_conn)
         return nullptr;
 
@@ -83,10 +85,11 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
         const_cast<char*>("timeout"),
         const_cast<char*>("page_size"),
         const_cast<char*>("autocommit"),
-        "use_ssl",
-        "ssl_keyfile",
-        "ssl_certfile",
-        "ssl_ca_certfile",
+        const_cast<char*>("heartbeat_interval"),
+        const_cast<char*>("use_ssl"),
+        const_cast<char*>("ssl_keyfile"),
+        const_cast<char*>("ssl_certfile"),
+        const_cast<char*>("ssl_ca_certfile"),
         nullptr
     };
 
@@ -96,6 +99,7 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
     const char *schema = nullptr;
     const char *timezone = nullptr;
     int timeout = 0;
+    float heartbeat_interval = .0;
     int page_size = 0;
     int autocommit = 1;
     int use_ssl = 0;
@@ -103,8 +107,8 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
     const char *ssl_certfile = nullptr;
     const char *ssl_ca_certfile = nullptr;
 
-    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssiippsss", kwlist, &address, &identity, &secret,
-        &schema, &timezone, &timeout, &page_size, &autocommit, &use_ssl, &ssl_keyfile, &ssl_certfile, &ssl_ca_certfile);
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssidippsss", kwlist, &address, &identity, &secret, &schema,
+        &timezone, &timeout, &heartbeat_interval, &page_size, &autocommit, &use_ssl, &ssl_keyfile, &ssl_certfile, &ssl_ca_certfile);
 
     if (!parsed)
         return nullptr;
@@ -157,7 +161,7 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
 
     ssl_config ssl_cfg(use_ssl != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
 
-    return make_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit != 0, std::move(ssl_cfg));
+    return make_connection(std::move(addresses), schema, identity, secret, page_size, timeout, heartbeat_interval, autocommit != 0, std::move(ssl_cfg));
 }
 
 PyMethodDef methods[] = {

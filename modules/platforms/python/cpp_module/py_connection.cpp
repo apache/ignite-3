@@ -194,7 +194,7 @@ int register_py_connection_type(PyObject* mod) {
 }
 
 PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity,
-    const char* secret, int page_size, int timeout, bool autocommit, ssl_config &&ssl_cfg) {
+    const char* secret, int page_size, int timeout, float heartbeat_interval, bool autocommit, ssl_config &&ssl_cfg) {
     if (addresses.empty()) {
         PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
         return nullptr;
@@ -215,7 +215,10 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
         cfg.m_page_size = page_size;
 
     if (timeout)
-        cfg.m_page_size = timeout;
+        cfg.m_timeout = timeout;
+
+    if (heartbeat_interval)
+        cfg.m_heartbeat_interval = std::chrono::milliseconds(static_cast<int>(std::round(heartbeat_interval * 1000)));
 
     auto node_connection = std::make_unique<class node_connection>(cfg);
 
