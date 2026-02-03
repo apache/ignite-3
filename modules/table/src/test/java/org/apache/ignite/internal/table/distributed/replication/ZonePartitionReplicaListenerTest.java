@@ -123,6 +123,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.FinishTxC
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandResult;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
@@ -319,7 +320,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         } else if (cmd instanceof FinishTxCommand) {
             FinishTxCommand command = (FinishTxCommand) cmd;
 
-            return completedFuture(new TransactionResult(command.commit() ? COMMITTED : ABORTED, command.commitTimestamp()));
+            return completedFuture(new FinishTxCommandResult(
+                    true,
+                    new TransactionResult(command.commit() ? COMMITTED : ABORTED, command.commitTimestamp())
+            ));
         }
 
         return nullCompletedFuture();
