@@ -97,7 +97,7 @@ public class OffheapReadWriteLock {
      * Constructor.
      *
      * @param concLvl Concurrency level, must be a power of two.
-     * @param timeout Lock acquisition timeout.
+     * @param timeout Lock acquisition timeout. {@code 0} means an unlimited timeout.
      * @param timeUnit Timeout time unit.
      */
     public OffheapReadWriteLock(int concLvl, long timeout, TimeUnit timeUnit) {
