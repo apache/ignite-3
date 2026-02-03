@@ -54,6 +54,15 @@ public interface RaftTableProcessor {
     );
 
     /**
+     * Sets the processor state to be later used by the processor to get information about replica state.
+     *
+     * @param state State to set.
+     */
+    default void processorState(ReplicaStoppingState state) {
+        // No-op.
+    }
+
+    /**
      * Sets the initial state of this processor when it gets added to a zone partition.
      *
      * @param config Initial Raft configuration.

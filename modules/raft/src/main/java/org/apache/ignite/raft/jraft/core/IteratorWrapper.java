@@ -37,7 +37,7 @@ public class IteratorWrapper implements Iterator {
 
     @Override
     public boolean hasNext() {
-        return iteratorHasNext() && !shuttingDown.getAsBoolean();
+        return !shuttingDown.getAsBoolean() && iteratorHasNext();
     }
 
     private boolean iteratorHasNext() {

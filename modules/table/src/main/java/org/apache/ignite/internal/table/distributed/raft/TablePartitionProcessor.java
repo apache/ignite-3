@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V1;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V2;
@@ -37,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
+import org.apache.ignite.internal.partition.replicator.raft.ReplicaStoppingState;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHandlers;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -61,6 +64,7 @@ import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -85,6 +89,8 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class TablePartitionProcessor implements RaftTableProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(TablePartitionProcessor.class);
+
+    private static final long SCHEMA_VALIDATION_WAIT_DURATION_MS = 100;
 
     /** Transaction manager. */
     private final TxManager txManager;
@@ -120,6 +126,8 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     private final StorageUpdater<UpdateCommand> singleUpdateStorageUpdater = new SingleUpdateStorageUpdater();
 
     private final StorageUpdater<UpdateAllCommand> batchUpdateStorageUpdater = new BatchUpdateStorageUpdater();
+
+    private ReplicaStoppingState replicaStoppingState;
 
     /** Constructor. */
     public TablePartitionProcessor(
@@ -382,25 +390,34 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             @Nullable HybridTimestamp commitTsOrNull
     ) {
         if (!full) {
+            // Not needed here as for non full operations, this validation will be performed on explicit commit.
             return null;
         }
 
         HybridTimestamp commitTs = Objects.requireNonNull(commitTsOrNull);
 
-        CompatibilityValidationResult validationResult;
-        try {
-            validationResult = schemaCompatibilityValidator
-                    .validateCommit(txId, Set.of(storage.tableId()), commitTs)
-                    .get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        CompletableFuture<CompatibilityValidationResult> future = schemaCompatibilityValidator
+                .validateCommit(txId, Set.of(storage.tableId()), commitTs);
 
-            throw new IgniteInternalException(INTERNAL_ERR, e);
-        } catch (ExecutionException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, e);
+        while (true) {
+            try {
+                CompatibilityValidationResult validationResult = future.get(SCHEMA_VALIDATION_WAIT_DURATION_MS, MILLISECONDS);
+                return validationResult.isSuccessful() ? null : validationResult;
+            } catch (TimeoutException e) {
+                if (replicaStoppingState.isReplicaStopping()) {
+                    // Breaking the wait if we need to stop.
+                    throw new ShutdownException();
+                }
+
+                // Else, just go to another iteration of wait.
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new ShutdownException();
+            } catch (ExecutionException e) {
+                throw new IgniteInternalException(INTERNAL_ERR, e);
+            }
         }
-
-        return validationResult.isSuccessful() ? null : validationResult;
     }
 
     /**
@@ -460,6 +477,11 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
             return null;
         });
+    }
+
+    @Override
+    public void processorState(ReplicaStoppingState state) {
+        replicaStoppingState = state;
     }
 
     private void setCurrentGroupTopology(RaftGroupConfiguration config) {

@@ -74,6 +74,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
@@ -863,11 +864,17 @@ public class JraftServerImpl implements RaftServer {
             try {
                 listener.onWrite(iterWrapper);
             } catch (Throwable err) {
-                LOG.error("Unexpected error while processing command [label={}]", err, label);
+                boolean isShutdownException = err instanceof ShutdownException;
+
+                if (!isShutdownException) {
+                    LOG.error("Unexpected error while processing command [label={}]", err, label);
+                }
 
                 Status st;
 
-                if (err.getMessage() != null) {
+                if (isShutdownException) {
+                    st = new Status(RaftError.ENODESHUTDOWN, "Shutting down.");
+                } else if (err.getMessage() != null) {
                     st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
                 } else {
                     st = new Status(RaftError.ESTATEMACHINE, "Unknown state machine error.");
@@ -880,7 +887,9 @@ public class JraftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
 
-                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
+                if (!isShutdownException) {
+                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
+                }
             }
         }
 
@@ -954,7 +963,11 @@ public class JraftServerImpl implements RaftServer {
             }
         }
 
-        /** {@inheritDoc} */
+        @Override
+        public void onShutdownInitiated() {
+            listener.onShutdownInitiated();
+        }
+
         @Override
         public void onShutdown() {
             listener.onShutdown();

@@ -164,6 +164,12 @@ public class IteratorImpl {
             this.currentIndex -= ntail - 1;
         }
         this.currEntry = null;
+
+        if (st.getRaftError() == RaftError.ENODESHUTDOWN) {
+            // The node is being shut down, no need to set error status.
+            return;
+        }
+
         getOrCreateError().setType(EnumOutter.ErrorType.ERROR_TYPE_STATE_MACHINE);
         getOrCreateError().getStatus().setError(RaftError.ESTATEMACHINE,
             "StateMachine meet critical error when applying one or more tasks since index=%d, %s", this.currentIndex,

@@ -111,6 +111,8 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
+    private final ReplicaStoppingState replicaStoppingState = new ReplicaStoppingState();
+
     /** Constructor. */
     public ZonePartitionRaftListener(
             ZonePartitionId zonePartitionId,
@@ -163,11 +165,13 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             } catch (Throwable t) {
                 clo.result(t);
 
-                LOG.error(
-                        "Failed to process write command [commandIndex={}, commandTerm={}, command={}]",
-                        t,
-                        clo.index(), clo.term(), clo.command()
-                );
+                if (!(t instanceof ShutdownException)) {
+                    LOG.error(
+                            "Failed to process write command [commandIndex={}, commandTerm={}, command={}]",
+                            t,
+                            clo.index(), clo.term(), clo.command()
+                    );
+                }
 
                 throw t;
             }
@@ -404,6 +408,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     }
 
     @Override
+    public void onShutdownInitiated() {
+        replicaStoppingState.markReplicaStopping();
+    }
+
+    @Override
     public void onShutdown() {
         cleanupSnapshots();
 
@@ -429,9 +438,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
             processor.initialize(configuration, leaseInfo, lastAppliedIndex, lastAppliedTerm);
 
-            RaftTableProcessor prev = tableProcessors.put(tableId, processor);
-
-            assert prev == null : "Listener for table " + tableId + " already exists";
+            injectStateAndPutProcessor(tableId, processor);
         }
     }
 
@@ -463,10 +470,16 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 );
             }
 
-            RaftTableProcessor prev = tableProcessors.put(tableId, processor);
-
-            assert prev == null : "Listener for table " + tableId + " already exists";
+            injectStateAndPutProcessor(tableId, processor);
         }
+    }
+
+    private void injectStateAndPutProcessor(int tableId, RaftTableProcessor processor) {
+        processor.processorState(replicaStoppingState);
+
+        RaftTableProcessor prev = tableProcessors.put(tableId, processor);
+
+        assert prev == null : "Listener for table " + tableId + " already exists";
     }
 
     private @Nullable PartitionSnapshotInfo snapshotInfo() {

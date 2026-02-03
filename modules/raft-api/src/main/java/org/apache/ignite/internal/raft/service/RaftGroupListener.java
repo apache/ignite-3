@@ -30,7 +30,8 @@ import org.apache.ignite.internal.raft.WriteCommand;
 public interface RaftGroupListener {
     /**
      * Exception type that should be used by {@link #onRead(Iterator)} and {@link #onWrite(Iterator)} to complete their closures, in cases
-     * when these methods have been invoked on a listener that's already shut down.
+     * when these methods have been invoked on a listener that's already shut down or if the listener has been notified that
+     * the Raft node is being shut down.
      */
     class ShutdownException extends RuntimeException {
         private static final long serialVersionUID = 5354137682604995519L;
@@ -91,6 +92,13 @@ public interface RaftGroupListener {
      * @return {@code True} if the snapshot was loaded successfully.
      */
     boolean onSnapshotLoad(Path path);
+
+    /**
+     * Invoked once when a raft node shut down is about to start.
+     */
+    default void onShutdownInitiated() {
+        // No-op.
+    }
 
     /**
      * Invoked once after a raft node has been shut down.

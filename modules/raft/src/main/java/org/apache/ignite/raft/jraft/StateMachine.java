@@ -45,6 +45,11 @@ public interface StateMachine {
     void onApply(final Iterator iter);
 
     /**
+     * Invoked once when the raft node shut down is initiated. Default do nothing
+     */
+    void onShutdownInitiated();
+
+    /**
      * Invoked once when the raft node was shut down. Default do nothing
      */
     void onShutdown();

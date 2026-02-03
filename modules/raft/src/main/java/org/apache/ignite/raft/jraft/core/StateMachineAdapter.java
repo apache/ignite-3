@@ -47,6 +47,11 @@ public abstract class StateMachineAdapter implements StateMachine {
     }
 
     @Override
+    public void onShutdownInitiated() {
+        LOG.info("onShutdownInitiated: label={}.", label);
+    }
+
+    @Override
     public void onShutdown() {
         LOG.info("onShutdown: label={}.", label);
     }

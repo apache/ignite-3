@@ -198,6 +198,8 @@ public class FSMCallerImpl implements FSMCaller {
 
         this.shuttingDown = true;
 
+        this.fsm.onShutdownInitiated();
+
         if (this.taskQueue != null) {
             final CountDownLatch latch = new CountDownLatch(1);
             this.shutdownLatch = latch;

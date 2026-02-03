@@ -25,6 +25,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
  * Assertions related to {@link CompletableFuture}.
@@ -114,6 +115,63 @@ public class CompletableFutureAssert {
         }
 
         return fail("Expected the future to be completed with an exception of class " + expectedExceptionClass
+                + ", but it completed normally with result " + normalResult);
+    }
+
+    /**
+     * Asserts that the given future completes with an exception having a cause (transitively) which is an instance of the given class
+     * (in time) and returns that exception for further examination.
+     *
+     * <p>Unlike
+     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * this method allows to examine the actual exception thrown further in the test.
+     *
+     * @param future Future to work on.
+     * @param expectedCauseClass Expected class of the exception.
+     * @return Matched exception.
+     */
+    public static Throwable assertWillThrowCausedBy(
+            CompletableFuture<?> future,
+            Class<?> expectedCauseClass
+    ) {
+        return assertWillThrowCausedBy(future, expectedCauseClass, 10, SECONDS);
+    }
+
+    /**
+     * Asserts that the given future completes with an exception having a cause (transitively) which is an instance of the given class
+     * (in time) and returns that exception for further examination.
+     *
+     * <p>Unlike
+     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * this method allows to examine the actual exception thrown further in the test.
+     *
+     * @param future Future to work on.
+     * @param expectedCauseClass Expected class of the exception.
+     * @param timeout Duration to wait for future completion.
+     * @param timeUnit Time unit of the duration.
+     * @return Matched exception.
+     */
+    public static Throwable assertWillThrowCausedBy(
+            CompletableFuture<?> future,
+            Class<?> expectedCauseClass,
+            long timeout,
+            TimeUnit timeUnit
+    ) {
+        Object normalResult;
+
+        try {
+            normalResult = future.get(timeout, timeUnit);
+        } catch (Throwable e) {
+            if (ExceptionUtils.hasCause(e, expectedCauseClass)) {
+                // The user actually expects this exception, let's return it.
+                return e;
+            }
+
+            return fail("Expected the future to be completed with an exception with a cause of class "
+                    + expectedCauseClass + " in time, but it did not");
+        }
+
+        return fail("Expected the future to be completed with an exception with a cause of class " + expectedCauseClass
                 + ", but it completed normally with result " + normalResult);
     }
 
