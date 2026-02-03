@@ -876,9 +876,9 @@ public class JraftServerImpl implements RaftServer {
             try {
                 listener.onWrite(iterWrapper);
             } catch (Throwable err) {
-                boolean expectedTxStateRace = hasErrorCode(err, TX_UNEXPECTED_STATE_ERR);
+                boolean failureProcessingRequired = hasErrorCode(err, TX_UNEXPECTED_STATE_ERR);
 
-                if (expectedTxStateRace) {
+                if (failureProcessingRequired) {
                     LOG.info("Expected tx state race while processing command [label={}]", label, err);
                 } else {
                     LOG.error("Unexpected error while processing command [label={}]", err, label);
@@ -899,7 +899,7 @@ public class JraftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
 
-                if (!expectedTxStateRace) {
+                if (!failureProcessingRequired) {
                     failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
                 }
             }
