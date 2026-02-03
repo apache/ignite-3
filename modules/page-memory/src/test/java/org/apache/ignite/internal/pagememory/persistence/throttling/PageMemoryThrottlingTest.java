@@ -132,7 +132,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         ioRegistry = null;
     }
 
-    void setUp(ThrottlingPolicyFactory throttleFactory) throws Exception {
+    private void setUp(ThrottlingPolicyFactory throttleFactory) throws Exception {
         FailureManager failureManager = mock(FailureManager.class);
         when(failureManager.process(any())).thenThrow(new AssertionError("Unexpected error"));
 
