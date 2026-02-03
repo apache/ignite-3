@@ -1,5 +1,6 @@
 package test.platform_tests
 
+import build.distributions.ClientPackages
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import jetbrains.buildServer.configs.kotlin.buildFeatures.XmlReport
@@ -32,6 +33,20 @@ object PlatformCppTestsLinux : BuildType({
         param("env.CPP_STAGING", "/tmp/cpp_staging")
     }
 
+    dependencies {
+        dependency(ClientPackages) {
+            snapshot {}
+            artifacts {
+                cleanDestination = true
+                artifactRules = """
+                    odbc-deb => ignite3-odbc-deb
+                    odbc-rpm => ignite3-odbc-rpm
+                    odbc-tgz => ignite3-odbc-tgz
+                """.trimIndent()
+            }
+        }
+    }
+
     steps {
         script {
             name = "Build Info"
@@ -39,11 +54,32 @@ object PlatformCppTestsLinux : BuildType({
             scriptContent = """
                 gcc --version || exit 0
                 g++ --version || exit 0
-
-                odbcinst -j || exit 0
-                cat /etc/odbcinst.ini || exit 0
             """.trimIndent()
         }
+
+        script {
+            name = "Install ODBC and run tests"
+//            workingDir = "%PATH__WORKING_DIR%"
+            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
+            scriptContent = """
+                rpm -i ignite3-odbc-rpm/*.rpm
+                
+                mkdir %PATH__CMAKE_BUILD_DIRECTORY%  || exit 2
+                cd %PATH__CMAKE_BUILD_DIRECTORY%  || exit 3
+
+                cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
+                cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
+                                             
+                if [ -f "./bin/ignite-odbc-test" ]; then
+                    ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
+                fi
+            """.trimIndent()
+        }
+
+        customScript(type = "bash") {
+            name = "Clean Up Remaining Processes"
+        }
+
         script {
             name = "Build C++"
             scriptContent = """
@@ -52,7 +88,6 @@ object PlatformCppTestsLinux : BuildType({
 
                 cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
-                cmake --install . || (echo 'CMake install failed' && exit 7)
             """.trimIndent()
         }
         customScript(type = "bash") {
@@ -141,13 +176,5 @@ object PlatformCppTestsLinux : BuildType({
             rules = "+:%PATH__UNIT_TESTS_RESULT%"
             verbose = true
         }
-    }
-
-    /**
-     *  Temporary lock Platform Linux jobs on old-type agents
-     *  until execution of these tests is fixed on DIND agents
-     */
-    requirements {
-        doesNotExist("env.DIND_ENABLED")
     }
 })
