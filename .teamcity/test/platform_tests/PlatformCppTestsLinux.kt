@@ -26,6 +26,7 @@ object PlatformCppTestsLinux : BuildType({
     params {
         param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
         param("PATH__CMAKE_BUILD_DIRECTORY", "%PATH__WORKING_DIR%/cmake-build-debug")
+        param("PATH__CMAKE_BUILD_DIRECTORY_DOCKER", "%PATH__WORKING_DIR%/cmake-build-debug-docker")
         param("PATH__CLIENT_TEST_RESULTS", "%PATH__WORKING_DIR%/cpp_client_tests_results.xml")
         param("PATH__ODBC_TEST_RESULTS", "%PATH__WORKING_DIR%/odbc_tests_results.xml")
         param("PATH__UNIT_TESTS_RESULT", "%PATH__WORKING_DIR%/cpp_unit_test_results.xml")
@@ -62,14 +63,14 @@ object PlatformCppTestsLinux : BuildType({
         }
 
         script {
-            name = "Install ODBC and run tests"
+            name = "Install ODBC and build C++ tests"
 //            workingDir = "%PATH__WORKING_DIR%"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             scriptContent = """
                 cd ignite3-odbc-rpm && rpm -i *.rpm && cd ..
                 
-                mkdir %PATH__CMAKE_BUILD_DIRECTORY%  || exit 2
-                cd %PATH__CMAKE_BUILD_DIRECTORY%  || exit 3
+                mkdir %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 2
+                cd %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 3
 
                 cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang-DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
