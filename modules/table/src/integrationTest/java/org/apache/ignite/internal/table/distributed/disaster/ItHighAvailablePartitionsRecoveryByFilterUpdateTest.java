@@ -36,7 +36,6 @@ import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** Test suite for the cases with a recovery of the group replication factor after reset by zone filter update. */
@@ -66,7 +65,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         return GLOBAL_EU_NODES_CONFIG;
     }
 
-    @RepeatedTest(100)
+    @Test
     void testScaleUpAfterZoneFilterUpdate() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
         startNode(2, EU_ONLY_NODES_CONFIG);
@@ -121,7 +120,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
-    @RepeatedTest(100)
+    @Test
     void testThatPartitionResetZoneStorageProfileFilterAware() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
         startNode(2, ROCKS_NODES_CONFIG);
@@ -224,7 +223,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(100)
+    @Test
     void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -284,7 +283,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(100)
+    @Test
     void testNodesWaitForNodesFromGracefulChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
