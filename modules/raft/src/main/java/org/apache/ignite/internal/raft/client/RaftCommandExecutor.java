@@ -117,6 +117,9 @@ class RaftCommandExecutor {
     /** Current leader. */
     private volatile Peer leader;
 
+    /** Term associated with the cached leader. Used by {@link #setLeaderIfTermNewer} to prevent stale updates. */
+    private volatile long cachedLeaderTerm = -1;
+
     /** Busy lock for shutdown. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -168,6 +171,8 @@ class RaftCommandExecutor {
                 // Update cached leader only if the state machine accepted the new term.
                 // This ensures leader field stays in sync with LeaderAvailabilityState.
                 this.leader = new Peer(node.name());
+                // Also update cachedLeaderTerm so setLeaderIfTermNewer works correctly.
+                this.cachedLeaderTerm = term;
             }
         };
     }
@@ -290,6 +295,31 @@ class RaftCommandExecutor {
      */
     void setLeader(@Nullable Peer leader) {
         this.leader = leader;
+    }
+
+    /**
+     * Updates the leader only if the given term is newer than the currently known term.
+     *
+     * <p>This prevents stale leader information from overwriting fresher information
+     * that may have been received via leader election notifications or previous refresh calls.
+     *
+     * @param leader New leader (can be {@code null}).
+     * @param term Term associated with this leader.
+     * @return {@code true} if the leader was updated (term is newer), {@code false} otherwise.
+     */
+    boolean setLeaderIfTermNewer(@Nullable Peer leader, long term) {
+        // Compare against the highest known term from either source:
+        // - leaderAvailabilityState.currentTerm(): term from leader election notifications
+        // - cachedLeaderTerm: term from previous setLeaderIfTermNewer calls
+        long highestKnownTerm = Math.max(leaderAvailabilityState.currentTerm(), cachedLeaderTerm);
+
+        if (term > highestKnownTerm) {
+            this.leader = leader;
+            this.cachedLeaderTerm = term;
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -659,7 +689,12 @@ class RaftCommandExecutor {
             } else if (resp instanceof SMErrorResponse) {
                 fut.completeExceptionally(extractSmError((SMErrorResponse) resp, retryContext));
             } else {
-                leader = retryContext.targetPeer();
+                // Only cache the leader when using LEADER strategy - in that case, a successful
+                // response means the target peer is the leader. For RANDOM/SPECIFIC strategies,
+                // the target peer is not necessarily the leader.
+                if (strategy.targetStrategy() == TargetPeerStrategy.LEADER) {
+                    leader = retryContext.targetPeer();
+                }
                 fut.complete((R) resp);
             }
         } catch (Throwable e) {
@@ -950,6 +985,11 @@ class RaftCommandExecutor {
          * as unavailable.
          */
         boolean trackNoLeaderSeparately();
+
+        /**
+         * Returns the target peer strategy used for this request.
+         */
+        TargetPeerStrategy targetStrategy();
     }
 
     /**
@@ -1002,6 +1042,11 @@ class RaftCommandExecutor {
         @Override
         public boolean trackNoLeaderSeparately() {
             return false;
+        }
+
+        @Override
+        public TargetPeerStrategy targetStrategy() {
+            return targetStrategy;
         }
     }
 
@@ -1090,6 +1135,11 @@ class RaftCommandExecutor {
             // For LEADER strategy, track no-leader peers separately so we can wait for leader.
             // For RANDOM/SPECIFIC, treat all errors uniformly.
             return targetStrategy == TargetPeerStrategy.LEADER;
+        }
+
+        @Override
+        public TargetPeerStrategy targetStrategy() {
+            return targetStrategy;
         }
     }
 

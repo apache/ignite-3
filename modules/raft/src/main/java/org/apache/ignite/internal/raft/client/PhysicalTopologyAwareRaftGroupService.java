@@ -351,7 +351,11 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                         .build(),
                 TargetPeerStrategy.RANDOM,
                 timeoutMillis
-        ).thenAccept(resp -> commandExecutor.setLeader(parsePeer(resp.leaderId())));
+        ).thenAccept(resp -> {
+            // Only update cached leader if the term is newer to avoid overwriting
+            // fresher info from leader election notifications with stale responses.
+            commandExecutor.setLeaderIfTermNewer(parsePeer(resp.leaderId()), resp.currentTerm());
+        });
     }
 
     @Override
@@ -369,7 +373,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
             }
 
             Peer respLeader = parsePeer(resp.leaderId());
-            commandExecutor.setLeader(respLeader);
+            // Only update cached leader if the term is newer to avoid overwriting
+            // fresher info from leader election notifications with stale responses.
+            commandExecutor.setLeaderIfTermNewer(respLeader, resp.currentTerm());
             return new LeaderWithTerm(respLeader, resp.currentTerm());
         });
     }
