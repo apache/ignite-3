@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.network.message.value;
 
 import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A message that contains a single {@link UUID} value.
  */
-@Transferable(NetworkMessageTypes.UUID_VALUE_MESSAGE)
+@Transferable(SingleValueMessages.UUID_VALUE_MESSAGE)
 public interface UuidValueMessage extends SingleValueMessage<UUID> {
     @Override
     UUID value();

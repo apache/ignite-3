@@ -114,57 +114,62 @@ public class NetworkMessageTypes {
     public static final short PROBE_MESSAGE = 12;
 
     /**
-     * Type for {@link BooleanValueMessage}.
+     * Message types that contain a single value of a certain type.
      */
-    public static final short BOOLEAN_VALUE_MESSAGE = 13;
+    public interface SingleValueMessages {
+        /**
+         * Type for {@link BooleanValueMessage}.
+         */
+        short BOOLEAN_VALUE_MESSAGE = 101;
 
-    /**
-     * Type for {@link ByteValueMessage}.
-     */
-    public static final short BYTE_VALUE_MESSAGE = 14;
+        /**
+         * Type for {@link ByteValueMessage}.
+         */
+        short BYTE_VALUE_MESSAGE = 102;
 
-    /**
-     * Type for {@link ShortValueMessage}.
-     */
-    public static final short SHORT_VALUE_MESSAGE = 15;
+        /**
+         * Type for {@link ShortValueMessage}.
+         */
+        short SHORT_VALUE_MESSAGE = 103;
 
-    /**
-     * Type for {@link IntValueMessage}.
-     */
-    public static final short INT_VALUE_MESSAGE = 16;
+        /**
+         * Type for {@link IntValueMessage}.
+         */
+        short INT_VALUE_MESSAGE = 104;
 
-    /**
-     * Type for {@link LongValueMessage}.
-     */
-    public static final short LONG_VALUE_MESSAGE = 17;
+        /**
+         * Type for {@link LongValueMessage}.
+         */
+        short LONG_VALUE_MESSAGE = 105;
 
-    /**
-     * Type for {@link FloatValueMessage}.
-     */
-    public static final short FLOAT_VALUE_MESSAGE = 18;
+        /**
+         * Type for {@link FloatValueMessage}.
+         */
+        short FLOAT_VALUE_MESSAGE = 106;
 
-    /**
-     * Type for {@link DoubleValueMessage}.
-     */
-    public static final short DOUBLE_VALUE_MESSAGE = 19;
+        /**
+         * Type for {@link DoubleValueMessage}.
+         */
+        short DOUBLE_VALUE_MESSAGE = 107;
 
-    /**
-     * Type for {@link UuidValueMessage}.
-     */
-    public static final short UUID_VALUE_MESSAGE = 20;
+        /**
+         * Type for {@link UuidValueMessage}.
+         */
+        short UUID_VALUE_MESSAGE = 108;
 
-    /**
-     * Type for {@link StringValueMessage}.
-     */
-    public static final short STRING_VALUE_MESSAGE = 21;
+        /**
+         * Type for {@link StringValueMessage}.
+         */
+        short STRING_VALUE_MESSAGE = 109;
 
-    /**
-     * Type for {@link ByteArrayValueMessage}.
-     */
-    public static final short BYTE_ARRAY_VALUE_MESSAGE = 22;
+        /**
+         * Type for {@link ByteArrayValueMessage}.
+         */
+        short BYTE_ARRAY_VALUE_MESSAGE = 110;
 
-    /**
-     * Type for {@link NullValueMessage}.
-     */
-    public static final short NULL_VALUE_MESSAGE = 23;
+        /**
+         * Type for {@link NullValueMessage}.
+         */
+        short NULL_VALUE_MESSAGE = 111;
+    }
 }

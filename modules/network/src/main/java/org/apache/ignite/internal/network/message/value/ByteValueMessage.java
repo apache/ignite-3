@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A message that contains a single {@link Byte} value.
  */
-@Transferable(NetworkMessageTypes.BYTE_VALUE_MESSAGE)
+@Transferable(SingleValueMessages.BYTE_VALUE_MESSAGE)
 public interface ByteValueMessage extends SingleValueMessage<Byte> {
     @Override
     Byte value();

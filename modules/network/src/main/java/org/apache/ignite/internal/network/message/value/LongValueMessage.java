@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A message that contains a single {@link Long} value.
  */
-@Transferable(NetworkMessageTypes.LONG_VALUE_MESSAGE)
+@Transferable(SingleValueMessages.LONG_VALUE_MESSAGE)
 public interface LongValueMessage extends SingleValueMessage<Long> {
     @Override
     Long value();

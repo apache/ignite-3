@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.value.SingleValueMessage;
 import org.apache.ignite.internal.sql.engine.message.SharedStateMessage;
@@ -105,10 +105,10 @@ public class SharedStateMessageConverter {
         }
 
         switch (msg.messageType()) {
-            case NetworkMessageTypes.BYTE_ARRAY_VALUE_MESSAGE:
+            case SingleValueMessages.BYTE_ARRAY_VALUE_MESSAGE:
                 return new ByteString((byte[]) value);
 
-            case NetworkMessageTypes.NULL_VALUE_MESSAGE:
+            case SingleValueMessages.NULL_VALUE_MESSAGE:
                 return null;
 
             default:

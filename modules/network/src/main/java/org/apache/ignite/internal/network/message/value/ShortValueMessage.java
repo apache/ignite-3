@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A message that contains a single {@link Short} value.
  */
-@Transferable(NetworkMessageTypes.SHORT_VALUE_MESSAGE)
+@Transferable(SingleValueMessages.SHORT_VALUE_MESSAGE)
 public interface ShortValueMessage extends SingleValueMessage<Short> {
     @Override
     Short value();

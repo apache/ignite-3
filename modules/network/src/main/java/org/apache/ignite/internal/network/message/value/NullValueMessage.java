@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A message that contains a single {@code null} value.
  */
-@Transferable(NetworkMessageTypes.NULL_VALUE_MESSAGE)
+@Transferable(SingleValueMessages.NULL_VALUE_MESSAGE)
 public interface NullValueMessage extends SingleValueMessage<Boolean> {
     @Override
     @Nullable Boolean value();

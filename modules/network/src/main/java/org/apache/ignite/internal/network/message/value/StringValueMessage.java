@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A message that contains a single {@link String} value.
  */
-@Transferable(NetworkMessageTypes.STRING_VALUE_MESSAGE)
+@Transferable(SingleValueMessages.STRING_VALUE_MESSAGE)
 public interface StringValueMessage extends SingleValueMessage<String> {
     @Override
     String value();

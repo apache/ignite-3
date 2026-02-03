@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.network.message.value;
 
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.NetworkMessageTypes.SingleValueMessages;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * A message that contains a single {@link Boolean} value.
  */
-@Transferable(NetworkMessageTypes.BOOLEAN_VALUE_MESSAGE)
+@Transferable(SingleValueMessages.BOOLEAN_VALUE_MESSAGE)
 public interface BooleanValueMessage extends SingleValueMessage<Boolean> {
     @Override
     Boolean value();
