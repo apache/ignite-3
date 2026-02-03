@@ -16,10 +16,10 @@ object ClientPackages : BuildType({
         %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*client*.deb => client-deb
         %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*client*.deb.sha256 => client-deb
         
-        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*odbc*.deb => odbc-rpm
-        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*odbc*.deb.sha256 => odbc-rpm
-        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*client*.deb => client-rpm
-        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*client*.deb.sha256 => client-rpm
+        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*odbc*.rpm => odbc-rpm
+        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*odbc*.rpm.sha256 => odbc-rpm
+        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*client*.rpm => client-rpm
+        %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*client*.rpm.sha256 => client-rpm
         
         %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*odbc*.tar.gz => odbc-tgz
         %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*odbc*.tar.gz.sha256 => odbc-tgz

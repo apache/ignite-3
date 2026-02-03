@@ -67,12 +67,12 @@ object PlatformCppTestsLinux : BuildType({
 //            workingDir = "%PATH__WORKING_DIR%"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             scriptContent = """
-                cd ignite3-odbc-rpm && rpm -i *.rpm && cd ..
+                rpm -i ignite3-odbc-rpm/*.rpm
                 
                 mkdir %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 2
                 cd %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 3
 
-                cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang-DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
+                cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
                                              
                 if [ -f "./bin/ignite-odbc-test" ]; then
