@@ -52,49 +52,49 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
         BigDecimal moreThanUpperLong = new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(1));
 
         // cache the plan with concrete type param
-        igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(Long.MAX_VALUE));
+        igniteSql().execute("SELECT * FROM test OFFSET ? ROWS", new BigDecimal(Long.MAX_VALUE));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(-1)));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET ? ROWS", new BigDecimal(-1)));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET ? ROWS", -1));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (Object) null));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET ? ROWS", (Object) null));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", moreThanUpperLong));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET ? ROWS", moreThanUpperLong));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (double) Long.MAX_VALUE + 1));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET ? ROWS", (double) Long.MAX_VALUE + 1));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (float) Long.MAX_VALUE + 1));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET ? ROWS", (float) Long.MAX_VALUE + 1));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET " + moreThanUpperLong + " ROWS"));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET " + moreThanUpperLong + " ROWS"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST " + moreThanUpperLong + " ROWS ONLY"));
+                () -> igniteSql().execute("SELECT * FROM test FETCH FIRST " + moreThanUpperLong + " ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test LIMIT " + moreThanUpperLong));
+                () -> igniteSql().execute("SELECT * FROM test LIMIT " + moreThanUpperLong));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"-\"",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET -1 ROWS FETCH FIRST -1 ROWS ONLY"));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET -1 ROWS FETCH FIRST -1 ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"-\"",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET -1 ROWS"));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query: Encountered \"-\"",
-                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST -1 ROWS ONLY"));
+                () -> igniteSql().execute("SELECT * FROM test FETCH FIRST -1 ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"+\"",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
+                () -> igniteSql().execute("SELECT * FROM test OFFSET 2+1 ROWS"));
     }
 
     /**

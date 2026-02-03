@@ -51,10 +51,10 @@ public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
         try (
                 IgniteClient client1 = newClient();
                 IgniteClient client2 = newClient();
-                ResultSet<?> ignored = client1.sql().execute(null, "CREATE TABLE my_table (id INT PRIMARY KEY, val INT)")
+                ResultSet<?> ignored = client1.sql().execute("CREATE TABLE my_table (id INT PRIMARY KEY, val INT)")
         ) {
             // Should not throw
-            try (ResultSet<?> rs = client2.sql().execute(null, "SELECT * FROM my_table")) {
+            try (ResultSet<?> rs = client2.sql().execute("SELECT * FROM my_table")) {
                 while (rs.hasNext()) {
                     rs.next();
                 }

@@ -49,7 +49,7 @@ public class DetectFailedEntriesExample {
                     .retryLimit(16)
                     .build();
             System.out.println("Creating Accounts table");
-            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS ACCOUNTS (id INT PRIMARY KEY, name VARCHAR(255), balance BIGINT, active BOOLEAN);");
+            client.sql().execute("CREATE TABLE IF NOT EXISTS ACCOUNTS (id INT PRIMARY KEY, name VARCHAR(255), balance BIGINT, active BOOLEAN);");
 
             RecordView<Account> view = client.tables()
                     .table("Accounts")
@@ -95,7 +95,7 @@ public class DetectFailedEntriesExample {
             streamerFut.join();
 
             System.out.println("Dropping Accounts table.");
-            client.sql().execute(null, "DROP TABLE IF EXISTS ACCOUNTS;");
+            client.sql().execute("DROP TABLE IF EXISTS ACCOUNTS;");
         }
     }
 }
