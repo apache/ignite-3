@@ -56,9 +56,9 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
     /**
      * Initialize the metric source to track this thread pool's metrics.
      *
-     * @param metricManager the metric manager used to register the source.
-     * @param name the name of the metric.
-     * @param description the metric description.
+     * @param metricManager The metric manager used to register the source.
+     * @param name The name of the metric.
+     * @param description The metric description.
      */
     public void initMetricSource(MetricManager metricManager, String name, String description) {
         if (this.metricManager == null) {
