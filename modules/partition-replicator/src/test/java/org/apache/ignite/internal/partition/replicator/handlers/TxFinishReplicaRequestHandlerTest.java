@@ -40,6 +40,7 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -55,7 +56,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class TxFinishReplicaRequestHandlerTest {
+class TxFinishReplicaRequestHandlerTest extends BaseIgniteAbstractTest {
     private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 1L;
 
     private final TxMessagesFactory txMessagesFactory = new TxMessagesFactory();
