@@ -25,7 +25,7 @@ import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Metric source for the {@link DefaultMessagingService}.
+ * Metric source for the {@link MessagingService}.
  */
 class MessagingServiceMetricSource implements MetricSource {
     /** Metrics map. Only modified in {@code synchronized} context. */
@@ -41,7 +41,7 @@ class MessagingServiceMetricSource implements MetricSource {
 
     @Override
     public @Nullable String description() {
-        return "Metrics for the default messaging service.";
+        return "Metrics for the messaging service.";
     }
 
     /** Adds metric to the source. */
