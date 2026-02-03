@@ -38,6 +38,7 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.netty.handler
     implementation libs.netty.transport
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations

@@ -65,6 +65,7 @@ dependencies {
 
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility
+    testFixturesImplementation platform(libs.jackson.bom)
     testFixturesImplementation libs.jackson.databind
     testFixturesImplementation libs.swagger.parser
     testFixturesImplementation(libs.jsonpath.assert) {

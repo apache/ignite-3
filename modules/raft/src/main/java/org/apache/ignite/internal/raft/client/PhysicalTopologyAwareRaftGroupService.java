@@ -20,14 +20,12 @@ package org.apache.ignite.internal.raft.client;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -44,7 +42,6 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -60,6 +57,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * The RAFT group service is based on the cluster physical topology. This service has ability to subscribe of a RAFT group leader update.
+ *
+ * <p>Command execution with leader-aware retry semantics is delegated to {@link RaftCommandExecutor}.
  */
 public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroupService {
     /** The logger. */
@@ -81,10 +80,16 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     private final RaftGroupService raftClient;
 
     /** Executor to invoke RPC requests. */
-    private final Executor executor;
+    private final ScheduledExecutorService executor;
 
     /** RAFT configuration. */
     private final RaftConfiguration raftConfiguration;
+
+    /** Factory for creating stopping exceptions. */
+    private final ExceptionFactory stoppingExceptionFactory;
+
+    /** Command executor with retry semantics. */
+    private final RaftCommandExecutor commandExecutor;
 
     /**
      * Constructor.
@@ -111,6 +116,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         this.clusterService = clusterService;
         this.executor = executor;
         this.raftConfiguration = raftConfiguration;
+        this.stoppingExceptionFactory = stoppingExceptionFactory;
         this.raftClient = RaftGroupServiceImpl.start(
                 groupId,
                 clusterService,
@@ -123,9 +129,22 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 throttlingContextHolder
         );
 
+        this.commandExecutor = new RaftCommandExecutor(
+                groupId,
+                raftClient::peers,
+                clusterService,
+                executor,
+                raftConfiguration,
+                cmdMarshaller,
+                stoppingExceptionFactory
+        );
+
         this.generalLeaderElectionListener = new ServerEventHandler(executor);
 
         eventsClientListener.addLeaderElectionListener(raftClient.groupId(), generalLeaderElectionListener);
+
+        // Subscribe the command executor's leader availability state to leader election notifications.
+        subscribeLeader(commandExecutor.leaderElectionListener());
 
         TopologyService topologyService = clusterService.topologyService();
 
@@ -167,6 +186,11 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                         (leaderWithTerm, throwable) -> {
                             if (throwable != null) {
                                 LOG.warn("Could not refresh and get leader with term [grp={}].", groupId(), throwable);
+                                return;
+                            }
+
+                            if (leaderWithTerm == null || leaderWithTerm.leader() == null) {
+                                LOG.debug("No leader information available [grp={}].", groupId());
                                 return;
                             }
 
@@ -296,7 +320,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
                     msgSendFut.complete(false);
                 }
-            } else if (recoverable(invokeCause)) {
+            } else if (RaftErrorUtils.recoverable(invokeCause)) {
                 sendWithRetry(node, msg, msgSendFut);
             } else if (invokeCause instanceof RecipientLeftException) {
                 LOG.info(
@@ -315,18 +339,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         }, executor);
     }
 
-    private static boolean recoverable(Throwable t) {
-        t = unwrapCause(t);
-
-        return t instanceof TimeoutException
-                || t instanceof IOException
-                || t instanceof PeerUnavailableException
-                || t instanceof RecipientLeftException;
-    }
-
     @Override
     public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
-        return raftClient.run(cmd, timeoutMillis);
+        return commandExecutor.run(cmd, timeoutMillis);
     }
 
     @Override
@@ -411,6 +426,9 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
     @Override
     public void shutdown() {
+        // Stop the command executor first - blocks new run() calls, cancels leader waiters.
+        commandExecutor.shutdown(stoppingExceptionFactory.create("Raft client is stopping [groupId=" + groupId() + "]."));
+
         finishSubscriptions();
 
         raftClient.shutdown();

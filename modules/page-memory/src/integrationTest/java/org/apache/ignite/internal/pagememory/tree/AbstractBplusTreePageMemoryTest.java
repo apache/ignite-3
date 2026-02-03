@@ -2923,12 +2923,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         /** {@inheritDoc} */
         @Override
-        public int getMaxCount(long buf, int pageSize) {
+        public int getMaxCount(int pageSize) {
             if (MAX_PER_PAGE != 0) {
                 return MAX_PER_PAGE;
             }
 
-            return super.getMaxCount(buf, pageSize);
+            return super.getMaxCount(pageSize);
         }
 
         /** {@inheritDoc} */
@@ -2986,12 +2986,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         /** {@inheritDoc} */
         @Override
-        public int getMaxCount(long pageAddr, int pageSize) {
+        public int getMaxCount(int pageSize) {
             if (MAX_PER_PAGE != 0) {
                 return MAX_PER_PAGE;
             }
 
-            return super.getMaxCount(pageAddr, pageSize);
+            return super.getMaxCount(pageSize);
         }
 
         /** {@inheritDoc} */

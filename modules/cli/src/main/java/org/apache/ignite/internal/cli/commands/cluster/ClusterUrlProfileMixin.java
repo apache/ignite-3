@@ -18,38 +18,34 @@
 package org.apache.ignite.internal.cli.commands.cluster;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.ProfileMixin;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import picocli.CommandLine.Mixin;
 
 /**
- * Mixin class to combine cluster URL and profile options.
+ * Mixin class for cluster URL and profile options.
  */
 public class ClusterUrlProfileMixin {
     /** Cluster endpoint URL option. */
     @Mixin
     private ClusterUrlMixin clusterUrl;
 
-    /** Profile to get default values from. */
-    @Mixin
-    private ProfileMixin profileName;
-
     @Inject
     private ConfigManagerProvider configManagerProvider;
 
     /**
-     * Gets cluster URL from either the command line or from the config with specified or default profile.
+     * Gets cluster URL from either the command line or from the default profile in the config.
      *
      * @return cluster URL
      */
     public String getClusterUrl() {
-        if (clusterUrl.getClusterUrl() != null) {
-            return clusterUrl.getClusterUrl();
+        String clusterUrlFromOptions = clusterUrl.getClusterUrl();
+        if (clusterUrlFromOptions != null) {
+            return clusterUrlFromOptions;
         } else {
             ConfigManager configManager = configManagerProvider.get();
-            return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName.getProfileName());
+            return configManager.getCurrentProperty(CliConfigKeys.CLUSTER_URL.value());
         }
     }
 }

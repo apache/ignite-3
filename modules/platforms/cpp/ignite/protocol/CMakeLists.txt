@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-protocol)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-protocol)
 
 set(SOURCES
     sql/column_meta.cpp sql/column_meta.h

@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.logger.Loggers.toThrottledLogger;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
@@ -401,8 +402,8 @@ public class TxCleanupRequestSender {
                         TxCleanupMessageErrorResponse errorResponse = (TxCleanupMessageErrorResponse) networkMessage;
                         if (writeIntentSwitchFailureShouldBeLogged(errorResponse.throwable())) {
                             LOG.warn(
-                                    "First cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
-                                    errorResponse.throwable(), txId
+                                    "First cleanup attempt failed (the transaction outcome is not affected) {}.",
+                                    errorResponse.throwable(), formatTxInfo(txId, txStateVolatileStorage)
                             );
                         }
 
