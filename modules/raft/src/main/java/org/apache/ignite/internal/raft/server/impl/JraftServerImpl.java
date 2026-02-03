@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,7 +38,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -876,13 +874,7 @@ public class JraftServerImpl implements RaftServer {
             try {
                 listener.onWrite(iterWrapper);
             } catch (Throwable err) {
-                boolean failureProcessingRequired = hasErrorCode(err, TX_UNEXPECTED_STATE_ERR);
-
-                if (failureProcessingRequired) {
-                    LOG.info("Expected tx state race while processing command [label={}]", label, err);
-                } else {
-                    LOG.error("Unexpected error while processing command [label={}]", err, label);
-                }
+                LOG.error("Unexpected error while processing command [label={}]", err, label);
 
                 Status st;
 
@@ -899,32 +891,8 @@ public class JraftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
 
-                if (!failureProcessingRequired) {
-                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
-                }
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
             }
-        }
-
-        private static boolean hasErrorCode(Throwable err, int errorCode) {
-            return hasErrorCode(err, errorCode, Collections.newSetFromMap(new IdentityHashMap<>()));
-        }
-
-        private static boolean hasErrorCode(Throwable err, int errorCode, Set<Throwable> visited) {
-            if (err == null || !visited.add(err)) {
-                return false;
-            }
-
-            if (err instanceof IgniteInternalException && ((IgniteInternalException) err).code() == errorCode) {
-                return true;
-            }
-
-            for (Throwable suppressed : err.getSuppressed()) {
-                if (hasErrorCode(suppressed, errorCode, visited)) {
-                    return true;
-                }
-            }
-
-            return hasErrorCode(err.getCause(), errorCode, visited);
         }
 
         @Override
