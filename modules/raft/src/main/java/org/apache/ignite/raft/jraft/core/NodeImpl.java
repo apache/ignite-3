@@ -2165,7 +2165,9 @@ public class NodeImpl implements Node, RaftServerService {
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.getDone(), new Status(RaftError.EBUSY, errorMsg));
                 LOG.warn("Node {} apply queue byte size limit exceeded.", getNodeId());
                 this.metrics.recordTimes("apply-task-overload-times", 1);
-                throw new OverloadException(errorMsg);
+                if (task.getDone() == null) {
+                    throw new OverloadException(errorMsg);
+                }
             }
         }
 

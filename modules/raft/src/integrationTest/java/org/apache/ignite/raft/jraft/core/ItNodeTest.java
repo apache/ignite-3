@@ -110,6 +110,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownExcepti
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -4736,7 +4737,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test that OverloadException is thrown when byte size limit is exceeded.
+     * Test that {@link OverloadException} is thrown or closure finished with error when byte size limit is exceeded.
      */
     @ParameterizedTest
     @EnumSource(ApplyTaskMode.class)
@@ -4755,14 +4756,22 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < numTasks; i++) {
             byte[] bytes = new byte[100 * 1024]; // 100 KB each
             ByteBuffer data = ByteBuffer.wrap(bytes);
-            Task task = new Task(data, new JoinableClosure(status -> {
-                if (!status.isOk()) {
-                    assertEquals(RaftError.EBUSY, status.getRaftError());
-                    assertTrue(status.getErrorMsg().contains("Node is busy, apply queue byte size limit exceeded"));
-                    overloadCount.incrementAndGet();
-                }
-                latch.countDown();
-            }));
+            Task task;
+            // Here we test both cases: task with closure and without closure
+            if (i % 2 == 0) {
+                task = new Task(data, new JoinableClosure(status -> {
+                    if (!status.isOk()) {
+                        assertEquals(RaftError.EBUSY, status.getRaftError());
+                        assertTrue(status.getErrorMsg().contains("Node is busy, apply queue byte size limit exceeded"));
+                        overloadCount.incrementAndGet();
+                    }
+                    latch.countDown();
+                }));
+            } else {
+                // For some tasks we don't provide a closure, which should throw exception when limit is exceeded
+                task = new Task(data, null);
+            }
+
             tasks.add(task);
         }
 
@@ -4822,19 +4831,20 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(ApplyTaskMode.class)
     public void testApplyQueueByteSizeCounterDecrements(ApplyTaskMode mode) throws Exception {
+        int batchSize = 10;
         RaftOptions raftOptions = new RaftOptions();
         // Set limit to 2 MB, but apply overall ~3 MB of tasks
         raftOptions.setMaxApplyQueueByteSize(2 * 1024 * 1024);
-        raftOptions.setApplyBatch(10);
+        raftOptions.setApplyBatch(batchSize);
 
         Node node = setupSingleNodeClusterWithRaftOptions(raftOptions, mode);
 
         // Apply tasks in batches, allowing time for processing between batch
         for (int batch = 0; batch < 3; batch++) {
-            CountDownLatch latch = new CountDownLatch(10);
+            CountDownLatch latch = new CountDownLatch(batchSize);
             AtomicInteger successCount = new AtomicInteger(0);
 
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < batchSize; i++) {
                 byte[] bytes = new byte[100 * 1024]; // 100 KB each
                 ByteBuffer data = ByteBuffer.wrap(bytes);
                 Task task = new Task(data, new JoinableClosure(status -> {
@@ -4848,8 +4858,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
             waitLatch(latch);
 
-            // All tasks in each batc should succeed because counter is decremented
-            assertEquals(10, successCount.get(), "All tasks in batch should succeed");
+            // All tasks in each batch should succeed because counter is decremented
+            assertEquals(batchSize, successCount.get(), "All tasks in batch should succeed");
         }
 
         assertEquals(0, getApplyQueueByteSize(node), "Apply queue byte size should be 0 after all tasks are processed");
@@ -5115,10 +5125,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      * @param node The node to check
      * @return The current applyQueueByteSize value
      */
-    private static long getApplyQueueByteSize(Node node) throws Exception {
-        Field field = NodeImpl.class.getDeclaredField("applyQueueByteSize");
-        field.setAccessible(true);
-        LongAdder counter = (LongAdder) field.get(node);
+    private static long getApplyQueueByteSize(Node node) {
+        LongAdder counter = IgniteTestUtils.getFieldValue(node, NodeImpl.class, "applyQueueByteSize");
         return counter.sum();
     }
 
