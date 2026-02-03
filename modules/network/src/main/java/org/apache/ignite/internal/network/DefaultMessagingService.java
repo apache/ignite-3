@@ -787,7 +787,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /**
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
      * message will be dropped (it will not be sent; the corresponding future will time out soon for {@code invoke()} methods
-     * and will never complete formethods different from {@code invoke()}).
+     * and will never complete for methods different from {@code invoke()}).
      *
      * @param predicate Predicate that will decide whether a message should be dropped. Its first argument is the recipient
      *     node's consistent ID.
