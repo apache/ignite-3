@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +43,7 @@ public class FastTimestamps {
             @SuppressWarnings("ClassExplicitlyExtendsThread")
             Thread t = new Thread(r, "FastTimestamps updater") {
                 @Override
+                @SuppressFBWarnings(value = "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD", justification = "Updater is static")
                 public void interrupt() {
                     // Support scenarios like "mvn exec:java `-Dexec.cleanupDaemonThreads=true`"
                     // that expect daemon threads to exit when interrupted.
