@@ -48,12 +48,12 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
                 + " (val1 VARCHAR, key1 INT, val2 BIGINT, key2 VARCHAR, PRIMARY KEY (key1, key2)) "
                 + "colocate by (key2, key1)";
 
-        client().sql().execute(null, query);
+        client().sql().execute(query);
     }
 
     @BeforeEach
     void clearTable() {
-        client().sql().execute(null, "DELETE FROM " + TABLE_NAME2);
+        client().sql().execute("DELETE FROM " + TABLE_NAME2);
     }
 
     protected Ignite ignite() {

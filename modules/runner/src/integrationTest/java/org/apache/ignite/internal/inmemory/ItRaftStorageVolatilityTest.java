@@ -262,11 +262,10 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         cluster.doInSession(0, session -> {
             session.execute(
-                    null,
                     "create zone zone1 (partitions 1, replicas 1) "
                             + "storage profiles ['" + DEFAULT_AIMEM_PROFILE_NAME + "']"
             );
-            session.execute(null, "create table " + tableName
+            session.execute("create table " + tableName
                     + " (id int primary key, name varchar) zone ZONE1 storage profile '"
                     + DEFAULT_AIMEM_PROFILE_NAME + "'");
         });

@@ -52,7 +52,7 @@ class ItIndexRegistrationAndRebalanceConcurrencyTest extends ClusterPerTestInteg
     }
 
     private static void waitForStoragesToBeCreated(Ignite ignite) {
-        ignite.sql().execute(null, "SELECT * FROM " + TEST_TABLE_NAME).close();
+        ignite.sql().execute("SELECT * FROM " + TEST_TABLE_NAME).close();
     }
 
     private static void initiateRebalanceOnTestZone(Ignite ignite) {
