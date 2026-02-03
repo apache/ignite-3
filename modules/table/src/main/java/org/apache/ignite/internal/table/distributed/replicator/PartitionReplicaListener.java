@@ -62,17 +62,20 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -3701,10 +3704,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
 
                         if (ex != null) {
-                            if (hasCause(ex, LockException.class)) {
+                            LockException lockException = findLockException(ex);
+                            if (lockException != null) {
                                 RequestType failedRequestType = getRequestOperationType(request);
 
-                                sneakyThrow(new OperationLockException(failedRequestType, (LockException) unwrapCause(ex)));
+                                sneakyThrow(new OperationLockException(failedRequestType, lockException));
                             }
 
                             sneakyThrow(ex);
@@ -3870,8 +3874,37 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     /**
-     * Operation unique identifier.
+     * Trying to find LockException in exception chain.
      */
+    @Nullable
+    private static LockException findLockException(Throwable throwable) {
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        ArrayDeque<Throwable> stack = new ArrayDeque<>();
+        stack.push(throwable);
+
+        while (!stack.isEmpty()) {
+            Throwable current = stack.pop();
+            if (current == null || !seen.add(current)) {
+                continue;
+            }
+
+            if (current instanceof LockException) {
+                return (LockException) current;
+            }
+
+            Throwable cause = current.getCause();
+            if (cause != null) {
+                stack.push(cause);
+            }
+
+            for (Throwable suppressed : current.getSuppressed()) {
+                stack.push(suppressed);
+            }
+        }
+
+        return null;
+    }
+
     private static class OperationId {
         /** Operation node initiator id. */
         private final UUID initiatorId;
