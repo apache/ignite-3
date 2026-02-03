@@ -97,6 +97,28 @@ public class SqlManager implements AutoCloseable {
         }
     }
 
+    /**
+     * Execute provided SQL and return a paged result for lazy fetching.
+     *
+     * @param sql incoming string representation of SQL command.
+     * @param pageSize the page size for fetching rows.
+     * @return a PagedSqlResult for lazy row fetching.
+     * @throws SQLException in any case when SQL command can't be executed.
+     */
+    public PagedSqlResult executePaged(String sql, int pageSize) throws SQLException {
+        long startTime = System.currentTimeMillis();
+        Statement statement = connection.createStatement();
+        try {
+            // Set fetch size to avoid fetching all rows at once
+            statement.setFetchSize(pageSize);
+            statement.execute(sql);
+            return new PagedSqlResult(statement, pageSize, startTime);
+        } catch (SQLException e) {
+            statement.close();
+            throw e;
+        }
+    }
+
     @Override
     public void close() throws SQLException {
         connection.close();

@@ -94,8 +94,8 @@ public enum CliConfigKeys {
     /** Color scheme property name (dark, light). */
     COLOR_SCHEME(Constants.COLOR_SCHEME),
 
-    /** SQL result row limit property name. */
-    SQL_RESULT_LIMIT(Constants.SQL_RESULT_LIMIT);
+    /** SQL display page size property name. */
+    SQL_DISPLAY_PAGE_SIZE(Constants.SQL_DISPLAY_PAGE_SIZE);
 
     private final String value;
 
@@ -176,10 +176,10 @@ public enum CliConfigKeys {
 
         public static final String COLOR_SCHEME = "ignite.cli.color-scheme";
 
-        public static final String SQL_RESULT_LIMIT = "ignite.cli.sql.result-limit";
+        public static final String SQL_DISPLAY_PAGE_SIZE = "ignite.cli.sql.display-page-size";
 
-        /** Default SQL result row limit. */
-        public static final int DEFAULT_SQL_RESULT_LIMIT = 1000;
+        /** Default SQL display page size. */
+        public static final int DEFAULT_SQL_DISPLAY_PAGE_SIZE = 1000;
     }
 
     CliConfigKeys(String value) {

@@ -26,25 +26,23 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNC
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RESULT_LIMIT_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RESULT_LIMIT_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.treesitter.parser.Parser.isTreeSitterParserAvailable;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.Constants.DEFAULT_SQL_RESULT_LIMIT;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.Constants.DEFAULT_SQL_DISPLAY_PAGE_SIZE;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
 import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
 import java.util.regex.Pattern;
-import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.sql.help.IgniteSqlCommandCompleter;
 import org.apache.ignite.internal.cli.commands.treesitter.highlighter.SqlAttributedStringHighlighter;
@@ -53,6 +51,7 @@ import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
+import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
@@ -66,21 +65,25 @@ import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
-import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
+import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
+import org.apache.ignite.internal.cli.sql.PagedSqlResult;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
+import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.jline.reader.EOFError;
+import org.jline.reader.EndOfFileException;
 import org.jline.reader.Highlighter;
 import org.jline.reader.LineReader;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.Parser;
 import org.jline.reader.SyntaxError;
+import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.DefaultHighlighter;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.completer.AggregateCompleter;
@@ -112,9 +115,6 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
     @Option(names = NO_TRUNCATE_OPTION, description = NO_TRUNCATE_OPTION_DESC)
     private boolean noTruncate;
-
-    @Option(names = RESULT_LIMIT_OPTION, description = RESULT_LIMIT_OPTION_DESC)
-    private Integer resultLimit;
 
     @ArgGroup
     private ExecOptions execOptions;
@@ -176,7 +176,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                         .build());
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-                createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
+                createPagedSqlExecPipeline(sqlManager, executeCommand).runPipeline();
             }
         } catch (SQLException e) {
             String url = session.info() == null ? null : session.info().nodeUrl();
@@ -241,10 +241,10 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     private CallExecutionPipelineProvider provider(SqlManager sqlManager) {
         return (executor, exceptionHandlers, line) -> executor.hasCommand(dropSemicolon(line))
                 ? createInternalCommandPipeline(executor, exceptionHandlers, line)
-                : createSqlExecPipeline(sqlManager, line);
+                : createPagedSqlExecPipeline(sqlManager, line);
     }
 
-    private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
+    private CallExecutionPipeline<?, ?> createPagedSqlExecPipeline(SqlManager sqlManager, String line) {
         TruncationConfig truncationConfig = TruncationConfig.fromConfig(
                 configManagerProvider,
                 terminal::getWidth,
@@ -253,35 +253,176 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                 plain
         );
 
-        int limit = getResultLimit();
+        int pageSize = getPageSize();
 
-        // Use CommandLineContextProvider to get the current REPL's output writer,
-        // not the outer command's writer. This ensures SQL output goes through
-        // the nested REPL's output capture for proper pager support.
-        return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager, limit))
-                .inputProvider(() -> new StringCallInput(line))
-                .output(CommandLineContextProvider.getContext().out())
-                .errOutput(CommandLineContextProvider.getContext().err())
-                .decorator(new SqlQueryResultDecorator(plain, timed, truncationConfig))
-                .verbose(verbose)
-                .exceptionHandler(SqlExceptionHandler.INSTANCE)
-                .build();
+        // Create pager support for output
+        org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport pagerSupport =
+                new org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport(terminal, configManagerProvider);
+
+        // Return a pipeline that executes paged SQL with interactive "load more" functionality
+        return new PagedSqlExecutionPipeline(sqlManager, line, pageSize, truncationConfig, pagerSupport);
     }
 
-    private int getResultLimit() {
-        if (resultLimit != null) {
-            return resultLimit;
-        }
-        String configValue = configManagerProvider.get().getCurrentProperty(CliConfigKeys.SQL_RESULT_LIMIT.value());
+    private int getPageSize() {
+        String configValue = configManagerProvider.get().getCurrentProperty(CliConfigKeys.SQL_DISPLAY_PAGE_SIZE.value());
         if (configValue != null && !configValue.isEmpty()) {
             try {
-                return Integer.parseInt(configValue);
+                int pageSize = Integer.parseInt(configValue);
+                if (pageSize <= 0) {
+                    LOG.warn("SQL display page size must be positive, got: {}, using default: {}",
+                            pageSize, DEFAULT_SQL_DISPLAY_PAGE_SIZE);
+                    return DEFAULT_SQL_DISPLAY_PAGE_SIZE;
+                }
+                return pageSize;
             } catch (NumberFormatException e) {
-                LOG.warn("Invalid SQL result limit in config '{}', using default: {}",
-                        configValue, DEFAULT_SQL_RESULT_LIMIT);
+                LOG.warn("Invalid SQL display page size in config '{}', using default: {}",
+                        configValue, DEFAULT_SQL_DISPLAY_PAGE_SIZE);
             }
         }
-        return DEFAULT_SQL_RESULT_LIMIT;
+        return DEFAULT_SQL_DISPLAY_PAGE_SIZE;
+    }
+
+    /**
+     * A custom pipeline for paged SQL execution with interactive "load more" prompts.
+     */
+    private class PagedSqlExecutionPipeline implements CallExecutionPipeline<StringCallInput, Object> {
+        private final SqlManager sqlManager;
+        private final String sql;
+        private final int pageSize;
+        private final TruncationConfig truncationConfig;
+        private final org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport pagerSupport;
+
+        PagedSqlExecutionPipeline(SqlManager sqlManager, String sql, int pageSize, TruncationConfig truncationConfig,
+                org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport pagerSupport) {
+            this.sqlManager = sqlManager;
+            this.sql = sql;
+            this.pageSize = pageSize;
+            this.truncationConfig = truncationConfig;
+            this.pagerSupport = pagerSupport;
+        }
+
+        @Override
+        public int runPipeline() {
+            PrintWriter err = CommandLineContextProvider.getContext().err();
+
+            // Force auto-flush for real-time output
+            PrintWriter autoFlushOut = new PrintWriter(terminal.output(), true);
+
+            try (PagedSqlResult pagedResult = sqlManager.executePaged(trimQuotes(sql), pageSize)) {
+                if (!pagedResult.hasResultSet()) {
+                    // Non-SELECT query (INSERT, UPDATE, DELETE, etc.)
+                    int updateCount = pagedResult.getUpdateCount();
+                    autoFlushOut.println(updateCount >= 0 ? "Updated " + updateCount + " rows." : "OK!");
+                    if (timed) {
+                        autoFlushOut.println("Query executed in " + pagedResult.getDurationMs() + " ms");
+                    }
+                    return 0;
+                }
+
+                // SELECT query - fetch and display pages
+                int totalRows = 0;
+                java.util.List<String> allContent = new java.util.ArrayList<>();
+                String[] columnNames = null;
+
+                while (true) {
+                    Table<String> page = pagedResult.fetchNextPage();
+                    if (page == null) {
+                        break;
+                    }
+
+                    totalRows += page.getRowCount();
+
+                    // Get column names from first page
+                    if (columnNames == null) {
+                        columnNames = page.header();
+                    }
+
+                    // Accumulate row content - flatten the 2D array to list
+                    Object[][] pageContent = page.content();
+                    for (Object[] row : pageContent) {
+                        for (Object cell : row) {
+                            allContent.add(cell != null ? cell.toString() : null);
+                        }
+                    }
+
+                    if (page.hasMoreRows()) {
+                        // If pager is disabled, use manual paging with prompts
+                        if (!pagerSupport.isPagerEnabled()) {
+                            // Render and display what we have so far as a single table
+                            Table<String> displayTable = new Table<>(java.util.Arrays.asList(columnNames),
+                                    new java.util.ArrayList<>(allContent), false);
+                            TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(displayTable);
+                            autoFlushOut.print(tableOutput.toTerminalString());
+                            allContent.clear(); // Clear for next batch
+                            columnNames = null; // Will be set again on next page
+
+                            // More rows available - prompt user
+                            autoFlushOut.println("-- " + totalRows + " rows shown. Press Enter to load more, or 'q' to stop --");
+
+                            try {
+                                String input = readUserInput();
+                                if (input == null || input.equalsIgnoreCase("q")) {
+                                    autoFlushOut.println("-- Stopped at " + totalRows + " rows --");
+                                    break;
+                                }
+                            } catch (UserInterruptException | EndOfFileException e) {
+                                autoFlushOut.println("-- Stopped at " + totalRows + " rows --");
+                                break;
+                            }
+                        }
+                        // If pager is enabled, continue accumulating rows
+                    }
+                }
+
+                // Display final output as a single continuous table
+                if (!allContent.isEmpty() && columnNames != null) {
+                    Table<String> finalTable = new Table<>(java.util.Arrays.asList(columnNames), allContent, false);
+                    TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(finalTable);
+
+                    if (pagerSupport.isPagerEnabled()) {
+                        pagerSupport.write(tableOutput.toTerminalString());
+                    } else {
+                        autoFlushOut.print(tableOutput.toTerminalString());
+                    }
+                }
+
+                if (timed) {
+                    autoFlushOut.println("Query executed in " + pagedResult.getDurationMs() + " ms, " + totalRows + " rows returned");
+                }
+
+                return 0;
+            } catch (SQLException e) {
+                SqlExceptionHandler.INSTANCE.handle(ExceptionWriter.fromPrintWriter(err), e);
+                return 1;
+            }
+        }
+
+        private String readUserInput() {
+            try {
+                // Read a line from terminal - user presses Enter to continue or types 'q' to quit
+                StringBuilder sb = new StringBuilder();
+                while (true) {
+                    int c = terminal.reader().read();
+                    if (c == -1) {
+                        return "q";
+                    }
+                    if (c == '\n' || c == '\r') {
+                        String input = sb.toString().trim();
+                        return input.equalsIgnoreCase("q") ? "q" : "";
+                    }
+                    sb.append((char) c);
+                }
+            } catch (IOException e) {
+                return "q";
+            }
+        }
+
+        private String trimQuotes(String input) {
+            if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
+                return input.substring(1, input.length() - 1);
+            }
+            return input;
+        }
     }
 
     private CallExecutionPipeline<?, ?> createInternalCommandPipeline(RegistryCommandExecutor call,
