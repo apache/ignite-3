@@ -19,7 +19,6 @@ plugins {
     id 'signing'
     alias(libs.plugins.checksum)
     alias(libs.plugins.cmake)
-    alias(libs.plugins.dockerRemoteApi)
 }
 
 import dev.welbyseely.CMakeBuildTask
@@ -28,11 +27,6 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.crypto.checksum.Checksum
-import com.bmuschko.gradle.docker.tasks.container.DockerStartContainer
-import com.bmuschko.gradle.docker.tasks.container.DockerStopContainer
-import com.bmuschko.gradle.docker.tasks.container.DockerCreateContainer
-import com.bmuschko.gradle.docker.tasks.container.DockerExecContainer
-import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
 
 configurations {
     cppClient
@@ -41,9 +35,6 @@ configurations {
     odbc
     platformsHeaders
 }
-
-def manylinuxWheelsContainerName = "ignite_manylinux_wheels"
-def manylinuxWheelsImageName = "ignite_manylinux_python_wheels_build"
 
 dependencies {
     platformsHeaders project(path: ':ignite-api', configuration: 'platformsHeaders')
@@ -267,6 +258,29 @@ private String simpleProjectVersion(String version) {
     return version
 }
 
+/**
+ * Converts the version to the python version format.
+ * See https://packaging.python.org/en/latest/discussions/versioning/
+ */
+private String pythonProjectVersion(String version) {
+    def (simple, addition) = version.tokenize('-')
+    if (addition == null) {
+        return simple
+    }
+
+    def pythonAddition = addition
+        .toLowerCase()
+        .replace("alpha", "a")
+        .replace("beta", "b")
+        .replace("patch", "post")
+        .replace("snapshot", "dev")
+
+    if (pythonAddition.matches("(a|b|rc)\\d+")) {
+        return simple + pythonAddition
+    }
+    return simple + '.' + pythonAddition
+}
+
 private void updateDotnetVersion(String version) {
     def versionFile = file("$projectDir/dotnet/version.json")
     def json = new JsonSlurper().parseText(versionFile.text)
@@ -277,73 +291,5 @@ private void updateDotnetVersion(String version) {
 
 private void updatePythonVersion(String version) {
     def versionFile = file("$projectDir/python/pyignite_dbapi/_version.txt")
-    versionFile.text = simpleProjectVersion(version)
+    versionFile.text = pythonProjectVersion(version)
 }
-
-def buildWindowsDbApiWheels = tasks.register('buildWindowsDbApiWheels', Exec) {
-    workingDir "$projectDir/python"
-
-    commandLine "cmd", "/c", "Powershell -File .\\scripts\\BuildWheels.ps1 -PyVers \"$dbapiPythonVersions\""
-}
-
-private void handleError(Throwable exc) {
-    if (exc == null)
-        return;
-    String strErr = exc.toString()
-    project.logger.info(">>>>>>>>> Error: " + strErr)
-    if (!strErr.contains('NotModifiedException') &&
-        !strErr.contains('No such container')) {
-        project.logger.info(">>>>>>>>> Re-throwing error")
-        throw new RuntimeException(exc)
-    }
-}
-
-def buildManyLinuxWheelsDockerImage = tasks.register('buildManyLinuxWheelsDockerImage', DockerBuildImage) {
-    inputDir = file("$projectDir/python/scripts")
-    images = ["$manylinuxWheelsImageName"]
-}
-
-def createManyLinuxWheelsContainer = tasks.register('createManyLinuxWheelsContainer', DockerCreateContainer) {
-    dependsOn buildManyLinuxWheelsDockerImage
-    targetImageId "$manylinuxWheelsImageName"
-    containerName = "$manylinuxWheelsContainerName"
-    withEnvVar("PLAT", "manylinux2014_x86_64")
-    hostConfig.autoRemove = true
-    hostConfig.binds = [
-        "$projectDir/python":"/pyignite_dbapi",
-        "$projectDir/cpp":"/cpp",
-        "$projectDir/python/distr":"/dist"
-    ]
-    tty = true
-}
-
-def startManyLinuxWheelsContainer = tasks.register('startManyLinuxWheelsContainer', DockerStartContainer) {
-    dependsOn createManyLinuxWheelsContainer
-    targetContainerId("$manylinuxWheelsContainerName")
-    onError { exception -> handleError(exception) }
-}
-
-def stopManyLinuxWheelsContainer = tasks.register('stopManyLinuxWheelsContainer', DockerStopContainer) {
-    targetContainerId("$manylinuxWheelsContainerName")
-    onError { exception -> handleError(exception) }
-}
-
-def buildLinuxDbApiWheels = tasks.register('buildLinuxDbApiWheels', DockerExecContainer) {
-    dependsOn startManyLinuxWheelsContainer
-    targetContainerId("$manylinuxWheelsContainerName")
-    commands.add(["/pyignite_dbapi/scripts/build_wheels.sh", "$dbapiPythonVersions"] as String[])
-    onError { exception -> handleError(exception) }
-}
-
-def buildDbApiSourceDist = tasks.register('buildDbApiSourceDist', DockerExecContainer) {
-    dependsOn startManyLinuxWheelsContainer
-    targetContainerId("$manylinuxWheelsContainerName")
-    commands.add(["/pyignite_dbapi/scripts/create_sdist.sh", "$dbapiPythonVersions"] as String[])
-    onError { exception -> handleError(exception) }
-}
-
-def buildLinuxDbApi = tasks.register('buildLinuxDbApi', Task) {
-    dependsOn buildDbApiSourceDist, buildLinuxDbApiWheels
-    finalizedBy stopManyLinuxWheelsContainer
-}
-

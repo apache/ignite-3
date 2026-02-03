@@ -1,0 +1,1214 @@
+---
+id: cli-commands
+title: CLI Commands Reference
+sidebar_position: 1
+---
+
+# Apache Ignite CLI Tool
+
+## Overview
+
+The Apache Ignite CLI communicates with the cluster via the REST API, allowing you to configure the entire cluster or apply node-specific settings. You can run the CLI either in the interactive mode or execute commands without entering it.
+
+### Interactive CLI Mode
+
+To use the CLI in the interactive mode, first [run](/3.1.0/getting-started/quick-start#start-the-ignite-cli) it, then configure the [cluster](/3.1.0/configure-and-operate/configuration/config-cluster-and-nodes) or [node](/3.1.0/configure-and-operate/reference/node-configuration) using the `update` command.
+
+For example, to add a new user to the cluster:
+
+```bash
+cluster config update ignite.security.authentication.providers.default.users=[{username=newuser,displayName=newuser,password="newpassword",passwordEncoding=PLAIN,roles=[system]}]
+```
+
+### Non-Interactive CLI Mode
+
+Non-interactive mode is useful for quick updates or when running commands in scripts.
+
+When running commands non-interactively, enclose arguments in quotation marks to ensure that special POSIX characters (such as `{` and `}`) are interpreted correctly:
+
+```bash title="Linux"
+bin/ignite3 cluster config update "ignite.schemaSync={delayDurationMillis=500,maxClockSkewMillis=500}"
+```
+
+```bash title="Windows"
+bin/ignite3.bat cluster config update "ignite.schemaSync={delayDurationMillis=500,maxClockSkewMillis=500}"
+```
+
+Alternatively, you can use the backslash (`\`) to escape all special characters in your command. For example:
+
+```bash title="Linux"
+bin/ignite3 cluster config update ignite.security.authentication.providers.default.users=\[\{username\=newuser,displayName\=newuser,password\=\"newpassword\",passwordEncoding\=PLAIN,roles\=\[system\]\}\]
+```
+
+```bash title="Windows"
+bin/ignite3.bat cluster config update ignite.security.authentication.providers.default.users=\[\{username\=newuser,displayName\=newuser,password\=\"newpassword\",passwordEncoding\=PLAIN,roles\=\[system\]\}\]
+```
+
+Non-interactive mode is also useful in automation scripts. For example, you can set configuration items in a Bash script as follows:
+
+```bash
+#!/bin/bash
+
+...
+
+bin/ignite3 cluster config update "ignite.schemaSync={delayDurationMillis=500,maxClockSkewMillis=500}"
+
+bin/ignite3 cluster config update "ignite.security.authentication.providers.default.users=[{username=newuser,displayName=newuser,password=\"newpassword\",passwordEncoding=PLAIN,roles=[system]}]"
+```
+
+### Verbose Output
+
+All CLI commands can provide additional output that can be helpful in debugging. You can specify the `-v` option multiple times to increase output verbosity. Single option shows REST request and response, second option (-vv) shows request headers, third one (-vvv) shows request body.
+
+### CLI Tool Logs
+
+CLI tool stores extended logs for your operations. These logs contain additional information not displayed during normal operation. You can configure the directory in the following ways:
+
+- By setting the `IGNITE_CLI_LOGS_DIR` environment variable to the directory where logs will be stored.
+- By setting the `$XDG_STATE_HOME` environment variable to set the CLI home folder. This configuration variable follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/) and does not override the `IGNITE_CLI_LOGS_DIR`. If `$XDG_STATE_HOME` is set and `IGNITE_CLI_LOGS_DIR` is not, logs will be stored in `$XDG_STATE_HOME/ignitecli/logs` directory.
+
+If neither of the above properties are set, the logs are stored in the following locations:
+
+- On Unix systems and MacOS, in the `~/.local/state/ignitecli/logs` directory.
+- On Windows, in the `%USERPROFILE%\.local\state\ignitecli\logs` folder.
+
+## SQL Commands
+
+These commands help you execute SQL queries against the cluster.
+
+### sql
+
+Executes SQL query or enters the interactive SQL editor mode if no SQL query is specified.
+
+#### Syntax
+
+```
+sql [--jdbc-url=<jdbc>] [--plain] [--file=<file>] [--profile=<profileName>] [--verbose] <command>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--jdbc-url` | Option | No | JDBC url to ignite cluster (e.g., 'jdbc:ignite:thin://127.0.0.1:10800'). |
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--file` | Option | No | Path to file with SQL commands to execute. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<command>` | Argument | Yes | SQL query to execute. |
+
+#### Example
+
+```bash
+sql "SELECT * FROM PUBLIC.PERSON"
+```
+
+### sql planner invalidate-cache
+
+Invalidates SQL planner cache.
+
+#### Syntax
+
+```
+sql planner invalidate-cache [--tables=<tables>] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--tables` | Option | No | Comma-separated list of tables. |
+| `--url` | Option | No | URL of cluster endpoint. It can be any node URL. If not set, the default URL from the profile settings will be used. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+sql planner invalidate-cache --tables=PUBLIC.PERSON,PUBLIC.ORDERS
+```
+
+## CLI Configuration Commands
+
+These commands help you configure Apache Ignite CLI tool profiles and settings.
+
+### cli config profile create
+
+Creates a profile with the given name.
+
+#### Syntax
+
+```
+cli config profile create [--activate] [--copy-from=<copyFrom>] [--verbose] <profileName>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--activate` | Flag | No | Activate new profile as current. |
+| `--copy-from` | Option | No | Profile whose content will be copied to new one. |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<profileName>` | Argument | Yes | Name of new profile. |
+
+#### Example
+
+```bash
+cli config profile create --activate --copy-from=default myprofile
+```
+
+### cli config profile activate
+
+Activates the profile identified by name.
+
+#### Syntax
+
+```
+cli config profile activate [--verbose] <profileName>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<profileName>` | Argument | Yes | Name of profile to activate. |
+
+#### Example
+
+```bash
+cli config profile activate myprofile
+```
+
+### cli config profile list
+
+Lists configuration profiles.
+
+#### Syntax
+
+```
+cli config profile list [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cli config profile list
+```
+
+### cli config profile show
+
+Gets the current profile details.
+
+#### Syntax
+
+```
+cli config profile show [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cli config profile show
+```
+
+### cli config get
+
+Gets the value for the specified configuration key.
+
+#### Syntax
+
+```
+cli config get [--profile=<profileName>] [--verbose] <key>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<key>` | Argument | Yes | Property name. |
+
+#### Example
+
+```bash
+cli config get ignite.jdbc-url
+```
+
+### cli config set
+
+Sets configuration parameters using comma-separated input key-value pairs.
+
+#### Syntax
+
+```
+cli config set [--profile=<profileName>] [--verbose] <String=String>...
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<String=String>...` | Arguments | Yes | CLI configuration parameters. |
+
+#### Example
+
+```bash
+cli config set ignite.jdbc-url=http://localhost:10300
+```
+
+### cli config show
+
+Shows the currently active configuration.
+
+#### Syntax
+
+```
+cli config show [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cli config show
+```
+
+### cli config remove
+
+Removes the specified configuration key.
+
+#### Syntax
+
+```
+cli config remove [--profile=<profileName>] [--verbose] <key>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<key>` | Argument | Yes | Property name. |
+
+#### Example
+
+```bash
+cli config remove ignite.jdbc-url
+```
+
+## Cluster Commands
+
+These commands help you manage your cluster.
+
+### cluster config show
+
+Shows configuration of the cluster indicated by the endpoint URL and, optionally, by a configuration path selector.
+
+#### Syntax
+
+```
+cluster config show [--url=<clusterUrl>] [--format=<format>] [--profile=<profileName>] [--verbose] [<selector>]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--format` | Option | No | Output format. Valid values: JSON, HOCON (Default: HOCON). |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<selector>` | Argument | No | Configuration path selector. |
+
+#### Example
+
+```bash
+cluster config show
+```
+
+### cluster config update
+
+Updates configuration of the cluster indicated by the endpoint URL with the provided argument values.
+
+#### Syntax
+
+```
+cluster config update [--url=<clusterUrl>] [--file=<configFile>] [--profile=<profileName>] [--verbose] [<args>...]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--file` | Option | No | Path to file with config update commands to execute. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<args>...` | Arguments | No | Configuration arguments and values to update. |
+
+#### Example
+
+```bash
+cluster config update ignite.system.idleSafeTimeSyncIntervalMillis=250
+```
+
+### cluster init
+
+Initializes an Ignite cluster.
+
+#### Syntax
+
+```
+cluster init --name=<clusterName> [--metastorage-group=<nodeNames>] [--cluster-management-group=<nodeNames>] [--config=<config>] [--config-files=<filePaths>] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--name` | Option | Yes | Human-readable name of the cluster. |
+| `--metastorage-group` | Option | No | Metastorage group nodes (comma-separated list). |
+| `--cluster-management-group` | Option | No | Names of nodes that will host the Cluster Management Group (comma-separated list). |
+| `--config` | Option | No | Cluster configuration that will be applied during initialization. |
+| `--config-files` | Option | No | Path to cluster configuration files (comma-separated list). |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cluster init --name=myCluster
+```
+
+### cluster status
+
+Prints status of the cluster.
+
+#### Syntax
+
+```
+cluster status [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cluster status --url http://localhost:10300
+```
+
+### cluster topology physical
+
+Shows physical topology of the specified cluster.
+
+#### Syntax
+
+```
+cluster topology physical [--plain] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cluster topology physical --url http://localhost:10300
+```
+
+### cluster topology logical
+
+Shows logical topology of the specified cluster.
+
+#### Syntax
+
+```
+cluster topology logical [--plain] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cluster topology logical --url http://localhost:10300
+```
+
+### cluster unit deploy
+
+Deploys a unit from a file or a directory (non-recursively).
+
+#### Syntax
+
+```
+cluster unit deploy --version=<version> --path=<path> [--nodes=<nodes>] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose] <id>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--version` | Option | Yes | Unit version (x.y.z). |
+| `--path` | Option | Yes | Path to deployment unit file or directory. |
+| `--nodes` | Option | No | Initial set of nodes where the unit will be deployed (comma-separated). |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<id>` | Argument | Yes | Deployment unit identifier. |
+
+#### Example
+
+```bash
+cluster unit deploy --version=1.0.0 --path=/path/to/unit.jar myunit
+```
+
+### cluster unit undeploy
+
+Undeploys a unit.
+
+#### Syntax
+
+```
+cluster unit undeploy --version=<version> [--url=<clusterUrl>] [--profile=<profileName>] [--verbose] <id>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--version` | Option | Yes | Unit version (x.y.z). |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<id>` | Argument | Yes | Unit id. |
+
+#### Example
+
+```bash
+cluster unit undeploy --version=1.0.0 --url http://localhost:10300 myunit
+```
+
+### cluster unit list
+
+Shows a list of deployed units for specified deployment unit.
+
+#### Syntax
+
+```
+cluster unit list [--version=<version>] [--status=<statuses>] [--plain] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose] <unitId>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--version` | Option | No | Filters out deployment unit by version (exact match assumed). |
+| `--status` | Option | No | Filters out deployment unit by status (comma-separated). |
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<unitId>` | Argument | Yes | Deployment unit id. |
+
+#### Example
+
+```bash
+cluster unit list --status=DEPLOYED,STARTING myunit
+```
+
+### cluster metric source enable
+
+Enables cluster metric source.
+
+#### Syntax
+
+```
+cluster metric source enable [--url=<clusterUrl>] [--profile=<profileName>] [--verbose] <srcName>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<srcName>` | Argument | Yes | Metric source name. |
+
+#### Example
+
+```bash
+cluster metric source enable jvm
+```
+
+### cluster metric source disable
+
+Disables cluster metric source.
+
+#### Syntax
+
+```
+cluster metric source disable [--url=<clusterUrl>] [--profile=<profileName>] [--verbose] <srcName>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<srcName>` | Argument | Yes | Metric source name. |
+
+#### Example
+
+```bash
+cluster metric source disable jvm
+```
+
+### cluster metric source list
+
+Lists cluster metric sources.
+
+#### Syntax
+
+```
+cluster metric source list [--plain] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cluster metric source list
+```
+
+## Node Commands
+
+These commands help you manage individual nodes.
+
+### node config show
+
+Shows node configuration.
+
+#### Syntax
+
+```
+node config show [--url=<nodeUrl>] [--format=<format>] [--profile=<profileName>] [--verbose] [<selector>]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--format` | Option | No | Output format. Valid values: JSON, HOCON (Default: HOCON). |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<selector>` | Argument | No | Configuration path selector. |
+
+#### Example
+
+```bash
+node config show ignite.clientConnector
+```
+
+### node config update
+
+Updates node configuration.
+
+#### Syntax
+
+```
+node config update [--url=<nodeUrl>] [--file=<configFile>] [--profile=<profileName>] [--verbose] [<args>...]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--file` | Option | No | Path to file with config update commands to execute. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<args>...` | Arguments | No | Configuration arguments and values to update. |
+
+#### Example
+
+```bash
+node config update --url http://localhost:10300 ignite.clientConnector.connectTimeoutMillis=5000
+```
+
+### node status
+
+Prints status of the node.
+
+#### Syntax
+
+```
+node status [--url=<nodeUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+node status
+```
+
+### node version
+
+Prints the node build version.
+
+#### Syntax
+
+```
+node version [--url=<nodeUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+node version
+```
+
+### node metric list
+
+Lists node metrics.
+
+#### Syntax
+
+```
+node metric list [--url=<nodeUrl>] [--plain] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+node metric list
+```
+
+### node metric source enable
+
+Enables node metric source.
+
+#### Syntax
+
+```
+node metric source enable [--url=<nodeUrl>] [--profile=<profileName>] [--verbose] <srcName>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<srcName>` | Argument | Yes | Metric source name. |
+
+#### Example
+
+```bash
+node metric source enable jvm
+```
+
+### node metric source disable
+
+Disables node metric source.
+
+#### Syntax
+
+```
+node metric source disable [--url=<nodeUrl>] [--profile=<profileName>] [--verbose] <srcName>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<srcName>` | Argument | Yes | Metric source name. |
+
+#### Example
+
+```bash
+node metric source disable jvm
+```
+
+### node metric source list
+
+Lists node metric sources.
+
+#### Syntax
+
+```
+node metric source list [--url=<nodeUrl>] [--plain] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+node metric source list --plain
+```
+
+### node unit list
+
+Shows a list of deployed units.
+
+#### Syntax
+
+```
+node unit list [--version=<version>] [--status=<statuses>] [--url=<nodeUrl>] [--plain] [--profile=<profileName>] [--verbose] <unitId>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--version` | Option | No | Filters out deployment unit by version (exact match assumed). |
+| `--status` | Option | No | Filters out deployment unit by status (comma-separated). |
+| `--url` | Option | No | URL of a node that will be used as a communication endpoint. |
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<unitId>` | Argument | Yes | Deployment unit id. |
+
+#### Example
+
+```bash
+node unit list --status=DEPLOYED myunit
+```
+
+## Disaster Recovery Commands
+
+These commands let you recover data partitions in disaster scenarios and recover system RAFT groups.
+
+### recovery partitions restart
+
+Restarts partitions.
+
+#### Syntax
+
+```
+recovery partitions restart --zone=<zoneName> --table=<tableName> [--partitions=<partitionIds>] [--nodes=<nodeNames>] [--with-cleanup] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--zone` | Option | Yes | Name of the zone to reset partitions of. Case-sensitive, without quotes. |
+| `--table` | Option | Yes | Fully-qualified name of the table to reset partitions of. Case-sensitive, without quotes. |
+| `--partitions` | Option | No | IDs of partitions to get states. All partitions if not set (comma-separated). |
+| `--nodes` | Option | No | Names specifying nodes to get partition states from. Case-sensitive, without quotes, all nodes if not set (comma-separated). |
+| `--with-cleanup` | Flag | No | Restarts partitions, preceded by a storage cleanup. This will remove all data from the partition storages before restart. |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+recovery partitions restart --zone=default --table=PUBLIC.PERSON --with-cleanup
+```
+
+### recovery partitions reset
+
+Resets partitions.
+
+#### Syntax
+
+```
+recovery partitions reset --zone=<zoneName> [--table=<tableName>] [--partitions=<partitionIds>] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--zone` | Option | Yes | Name of the zone to reset partitions of. Case-sensitive, without quotes. |
+| `--table` | Option | No | Fully-qualified name of the table to reset partitions of. Case-sensitive, without quotes. |
+| `--partitions` | Option | No | IDs of partitions to get states. All partitions if not set (comma-separated). |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+recovery partitions reset --zone=default --table=PUBLIC.PERSON
+```
+
+### recovery partitions states
+
+Returns partition states.
+
+#### Syntax
+
+```
+recovery partitions states (--global | --local) [--nodes=<nodeNames>] [--partitions=<partitionIds>] [--zones=<zoneNames>] [--plain] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--global` | Flag | Yes* | Gets global partition states. One of global or local is required. |
+| `--local` | Flag | Yes* | Gets local partition states. One of global or local is required. |
+| `--nodes` | Option | No | Names specifying nodes to get partition states from. Case-sensitive, without quotes, all nodes if not set (comma-separated). |
+| `--partitions` | Option | No | IDs of partitions to get states. All partitions if not set (comma-separated). |
+| `--zones` | Option | No | Names specifying zones to get partition states from. Case-sensitive, without quotes, all zones if not set (comma-separated). |
+| `--plain` | Flag | No | Display output with plain formatting. |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+recovery partitions states --local --zones=default
+```
+
+### recovery cluster reset
+
+Resets cluster.
+
+#### Syntax
+
+```
+recovery cluster reset [--cluster-management-group=<cmgNodeNames>] [--metastorage-replication-factor=<metastorageReplicationFactor>] [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--cluster-management-group` | Option | No | Names of nodes that will host the Cluster Management Group (comma-separated). |
+| `--metastorage-replication-factor` | Option | No | Number of nodes in the voting member set of the Metastorage RAFT group. |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+recovery cluster reset
+```
+
+### recovery cluster migrate
+
+Migrates nodes missed during repair to repaired cluster.
+
+#### Syntax
+
+```
+recovery cluster migrate --old-cluster-url=<oldClusterUrl> --new-cluster-url=<newClusterUrl> [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--old-cluster-url` | Option | Yes | URL of old cluster endpoint (nodes of this cluster will be migrated to a new cluster). |
+| `--new-cluster-url` | Option | Yes | URL of new cluster endpoint (nodes of old cluster will be migrated to this cluster). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+recovery cluster migrate --old-cluster-url=http://old-cluster:10300 --new-cluster-url=http://new-cluster:10300
+```
+
+## Distribution Commands
+
+These commands help you manage table partition distribution.
+
+### distribution reset
+
+Resets distribution of partitions.
+
+#### Syntax
+
+```
+distribution reset --zones=<zoneNames> [--url=<clusterUrl>] [--profile=<profileName>] [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--zones` | Option | Yes | Names specifying zones to reset the distribution state in (comma-separated). |
+| `--url` | Option | No | URL of cluster endpoint. |
+| `--profile` | Option | No | Local CLI profile name (only available in non-interactive mode). |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+distribution reset --zones=default
+```
+
+## Zone Commands
+
+These commands manage zone-level configuration and data-node assignments.
+
+### zone datanodes reset
+
+Resets data nodes for the specified zones.
+
+#### Syntax
+
+```
+zone datanodes reset --zone-names=<zoneNames>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--zone-names` | Argument | No | Comma-separated list of zone names to reset data nodes for. If not specified, all zones are reset. |
+
+## Miscellaneous Commands
+
+These are general-purpose commands.
+
+### connect
+
+Connects to an Ignite 3 node.
+
+#### Syntax
+
+```
+connect --username=<username> --password=<password> [--verbose] <nodeUrl>
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--username` | Option | Yes | Username to connect to cluster. |
+| `--password` | Option | Yes | Password to connect to cluster. |
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+| `<nodeUrl>` | Argument | Yes | URL of a node that will be used as a communication endpoint. |
+
+#### Example
+
+```bash
+connect --username=admin --password=password http://localhost:10300
+```
+
+### disconnect
+
+Disconnects from an Ignite 3 node.
+
+#### Syntax
+
+```
+disconnect [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+disconnect
+```
+
+### clear
+
+Clears the screen.
+
+#### Syntax
+
+```
+clear
+```
+
+#### Parameters
+
+This command takes no parameters.
+
+#### Example
+
+```bash
+clear
+```
+
+### cls
+
+Clears the screen.
+
+#### Syntax
+
+```
+cls [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+cls
+```
+
+### exit
+
+Exits the CLI.
+
+#### Syntax
+
+```
+exit [--verbose]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `--verbose` | Flag | No | Show additional information: logs, REST calls. |
+
+#### Example
+
+```bash
+exit
+```
+
+### help
+
+Display help information about the specified command.
+
+#### Syntax
+
+```
+help [COMMAND]
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `[COMMAND]` | Argument | No | The COMMAND to display the usage help message for. |
+
+#### Example
+
+```bash
+help cluster config show
+```
+
+### version
+
+Displays the current CLI tool version.
+
+#### Syntax
+
+```
+version
+```
+
+#### Parameters
+
+This command takes no parameters.
+
+#### Example
+
+```bash
+version
+```
