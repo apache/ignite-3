@@ -36,6 +36,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <mutex>
 
 #include "ssl_config.h"
 #include "type_conversion.h"
@@ -244,6 +245,7 @@ public:
         auto req_id = generate_next_req_id();
         auto request = make_request(req_id, op, wr);
 
+        std::lock_guard lock(m_socket_mutex);
         send_message(request, m_configuration.m_timeout);
         return receive_message_nothrow(req_id, m_configuration.m_timeout);
     }
@@ -435,6 +437,7 @@ private:
         auto req_id = generate_next_req_id();
         auto request = make_request(req_id, op, wr);
 
+        std::lock_guard lock(m_socket_mutex);
         send_message(request, m_configuration.m_timeout);
         return receive_message(req_id, m_configuration.m_timeout);
     }
@@ -707,4 +710,7 @@ private:
 
     /** Timer thread. */
     std::weak_ptr<ignite::detail::thread_timer> m_timer_thread;
+
+    /** Socket mutex. */
+    std::recursive_mutex m_socket_mutex;
 };

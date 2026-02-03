@@ -211,6 +211,7 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
     if (secret)
         cfg.m_auth_configuration.m_secret = secret;
 
+
     if (page_size)
         cfg.m_page_size = page_size;
 
