@@ -198,7 +198,7 @@ public class PersistentPageMemory implements PageMemory {
     private volatile @Nullable PagePool checkpointPool;
 
     /** Pages write throttle. */
-    private volatile @Nullable PagesWriteThrottlePolicy writeThrottle;
+    private final @Nullable PagesWriteThrottlePolicy writeThrottle;
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
@@ -284,17 +284,9 @@ public class PersistentPageMemory implements PageMemory {
                 partitionDestructionLockManager
         );
 
-        this.writeThrottle = null;
-    }
-
-    /**
-     * Temporary method to enable throttling in tests.
-     *
-     * @param writeThrottle Page write throttling instance.
-     */
-    // TODO IGNITE-24933 Remove this method.
-    public void initThrottling(PagesWriteThrottlePolicy writeThrottle) {
-        this.writeThrottle = writeThrottle;
+        // This is the last statement in the constructor, the `this` leak is fine.
+        //noinspection ThisEscapedInObjectConstruction
+        this.writeThrottle = dataRegionConfiguration.throttlingPolicyFactory().createThrottlingPolicy(this);
     }
 
     /** {@inheritDoc} */
