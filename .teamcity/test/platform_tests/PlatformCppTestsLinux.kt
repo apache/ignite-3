@@ -48,6 +48,10 @@ object PlatformCppTestsLinux : BuildType({
     }
 
     steps {
+        customScript(type = "bash") {
+            name = "Setup Docker Proxy"
+        }
+
         script {
             name = "Build Info"
             workingDir = "%PATH__WORKING_DIR%"
