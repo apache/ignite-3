@@ -141,7 +141,6 @@ import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.entity.UserLog;
 import org.apache.ignite.raft.jraft.error.LogIndexOutOfBoundsException;
 import org.apache.ignite.raft.jraft.error.LogNotFoundException;
-import org.apache.ignite.raft.jraft.error.OverloadException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.ApplyTaskMode;
@@ -4737,7 +4736,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test that {@link OverloadException} is thrown or closure finished with error when byte size limit is exceeded.
+     * Test that closure finished with error when byte size limit is exceeded.
      */
     @ParameterizedTest
     @EnumSource(ApplyTaskMode.class)
@@ -4757,32 +4756,20 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             byte[] bytes = new byte[100 * 1024]; // 100 KB each
             ByteBuffer data = ByteBuffer.wrap(bytes);
             Task task;
-            // Here we test both cases: task with closure and without closure
-            if (i % 2 == 0) {
-                task = new Task(data, new JoinableClosure(status -> {
-                    if (!status.isOk()) {
-                        assertEquals(RaftError.EBUSY, status.getRaftError());
-                        assertTrue(status.getErrorMsg().contains("Node is busy, apply queue byte size limit exceeded"));
-                        overloadCount.incrementAndGet();
-                    }
-                    latch.countDown();
-                }));
-            } else {
-                // For some tasks we don't provide a closure, which should throw exception when limit is exceeded
-                task = new Task(data, null);
-            }
+            task = new Task(data, new JoinableClosure(status -> {
+                if (!status.isOk()) {
+                    assertEquals(RaftError.EBUSY, status.getRaftError());
+                    assertTrue(status.getErrorMsg().contains("Node is busy, apply queue byte size limit exceeded"));
+                    overloadCount.incrementAndGet();
+                }
+                latch.countDown();
+            }));
 
             tasks.add(task);
         }
 
         for (Task task : tasks) {
-            try {
-                node.apply(task);
-            } catch (OverloadException e) {
-                assertTrue(e.getMessage().contains("Node is busy, apply queue byte size limit exceeded"));
-                overloadCount.incrementAndGet();
-                latch.countDown();
-            }
+            node.apply(task);
         }
 
         waitLatch(latch);
