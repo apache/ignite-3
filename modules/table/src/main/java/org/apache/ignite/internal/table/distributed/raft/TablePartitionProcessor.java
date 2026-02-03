@@ -362,6 +362,10 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             } else {
                 assert !failedCompatValidationResult.isSuccessful();
 
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Skipping update application because of schema compatibility validation failure: {}", cmd);
+                }
+
                 // We applied the command, even though it did not change the storage, so we advance the last applied index and will consider
                 // the command applied.
                 advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
