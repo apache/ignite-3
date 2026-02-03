@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemory
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_TYPE_SYSTEM_PROPERTY;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -170,6 +172,11 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
         this.regionSize = sizeBytes;
 
+        long checkpointReadLockTimeout = checkpointManager.checkpointTimeoutLock().checkpointReadLockTimeout();
+        OffheapReadWriteLock offheapReadWriteLock = checkpointReadLockTimeout == 0L
+                ? new OffheapReadWriteLock(DEFAULT_CONCURRENCY_LEVEL)
+                : new OffheapReadWriteLock(DEFAULT_CONCURRENCY_LEVEL, checkpointReadLockTimeout, MILLISECONDS);
+
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 regionConfiguration(dataRegionConfigView, sizeBytes, pageSize),
                 metricSource,
@@ -179,7 +186,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 filePageStoreManager,
                 this::flushDirtyPageOnReplacement,
                 checkpointManager.checkpointTimeoutLock(),
-                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL),
+                offheapReadWriteLock,
                 checkpointManager.partitionDestructionLockManager()
         );
 
@@ -254,7 +261,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     }
 
     private long getLoggingThreshold() {
-        return TimeUnit.MILLISECONDS.toNanos(getSystemConfig(
+        return MILLISECONDS.toNanos(getSystemConfig(
                 THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY,
                 TimeUnit.NANOSECONDS.toMillis(PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD),
                 value -> {
