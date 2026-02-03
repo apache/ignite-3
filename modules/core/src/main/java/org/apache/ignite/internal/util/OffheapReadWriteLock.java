@@ -92,6 +92,7 @@ public class OffheapReadWriteLock {
             super(message);
         }
     }
+
     /**
      * Constructor.
      *
@@ -568,7 +569,7 @@ public class OffheapReadWriteLock {
             long lock, int lockIdx, int tag, long startTimeNanos, Condition waitCond, boolean readLock
     ) throws InterruptedException {
         if (timeoutNanos == 0) {
-             waitCond.await();
+            waitCond.await();
         } else {
             long passedNanos = System.nanoTime() - startTimeNanos;
 
