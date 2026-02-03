@@ -201,9 +201,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         metricSource = new MessagingServiceMetricSource();
         metrics = new MessagingServiceMetrics(metricSource);
-
-        metricManager.registerSource(metricSource);
-        metricManager.enable(metricSource);
     }
 
     /**
@@ -758,6 +755,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 recipientInetAddrByNodeId.remove(member.id());
             }
         });
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
     }
 
     /**
