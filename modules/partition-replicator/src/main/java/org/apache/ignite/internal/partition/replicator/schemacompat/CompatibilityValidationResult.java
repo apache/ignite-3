@@ -173,22 +173,20 @@ public class CompatibilityValidationResult implements Serializable {
      * @param exceptionFactory Exception factory.
      */
     public <X extends Exception> void throwIfSchemaValidationOnCommitFailed(Function<String, ? extends X> exceptionFactory) throws X {
-        CompatibilityValidationResult validationResult = this;
-
         if (!isSuccessful()) {
             if (isTableDropped()) {
                 throw exceptionFactory.apply(
-                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName())
+                        format("Commit failed because a table was already dropped [table={}]", failedTableName())
                 );
             } else {
                 throw exceptionFactory.apply(
                         format(
                                 "Commit failed because schema is not forward-compatible "
                                         + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
-                                validationResult.fromSchemaVersion(),
-                                validationResult.toSchemaVersion(),
-                                validationResult.failedTableName(),
-                                validationResult.details()
+                                fromSchemaVersion(),
+                                toSchemaVersion(),
+                                failedTableName(),
+                                details()
                         )
                 );
             }
