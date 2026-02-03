@@ -90,7 +90,7 @@ import org.jetbrains.annotations.TestOnly;
 public class TablePartitionProcessor implements RaftTableProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(TablePartitionProcessor.class);
 
-    private static final long SCHEMA_VALIDATION_WAIT_DURATION_MS = 100;
+    private static final long SCHEMA_VALIDATION_WAIT_DURATION_MS = 500;
 
     /** Transaction manager. */
     private final TxManager txManager;
