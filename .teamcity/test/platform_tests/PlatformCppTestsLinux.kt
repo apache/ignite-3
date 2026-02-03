@@ -32,6 +32,7 @@ object PlatformCppTestsLinux : BuildType({
         param("PATH__UNIT_TESTS_RESULT", "%PATH__WORKING_DIR%/cpp_unit_test_results.xml")
         text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.CPP_STAGING", "/tmp/cpp_staging")
+        param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
     }
 
     dependencies {
@@ -66,6 +67,7 @@ object PlatformCppTestsLinux : BuildType({
             name = "Install ODBC and build C++ tests"
 //            workingDir = "%PATH__WORKING_DIR%"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
             scriptContent = """
                 rpm -i ignite3-odbc-rpm/*.rpm
                 
