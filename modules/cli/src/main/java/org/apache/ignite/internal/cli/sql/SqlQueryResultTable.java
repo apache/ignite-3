@@ -41,7 +41,8 @@ class SqlQueryResultTable implements SqlQueryResultItem {
             int rowCount = table.getRowCount();
             String rowWord = rowCount == 1 ? "row" : "rows";
             return () -> tableOutput.toTerminalString()
-                    + "... (showing first " + rowCount + " " + rowWord + ", more available)\n";
+                    + "-- " + rowCount + " " + rowWord + " shown. "
+                    + "Run 'sql' command without parameters for interactive mode to view all results. --\n";
         }
         return tableOutput;
     }

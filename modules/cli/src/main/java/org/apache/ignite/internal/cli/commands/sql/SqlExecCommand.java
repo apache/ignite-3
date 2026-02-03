@@ -22,15 +22,11 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RESULT_LIMIT_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RESULT_LIMIT_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.Constants.DEFAULT_SQL_RESULT_LIMIT;
 
-import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -39,17 +35,13 @@ import java.sql.SQLException;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
-import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.cli.sql.SqlManager;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -60,8 +52,6 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
-    private static final IgniteLogger LOG = CliLoggers.forClass(SqlExecCommand.class);
-
     @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
@@ -71,14 +61,8 @@ public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
     private boolean timed;
 
-    @Option(names = RESULT_LIMIT_OPTION, description = RESULT_LIMIT_OPTION_DESC)
-    private Integer resultLimit;
-
     @ArgGroup(multiplicity = "1")
     private ExecOptions execOptions;
-
-    @Inject
-    private ConfigManagerProvider configManagerProvider;
 
     private static class ExecOptions {
         @Parameters(index = "0", description = "SQL query to execute")
@@ -101,7 +85,8 @@ public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-            return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager, getResultLimit()))
+            // In non-interactive mode, fetch all rows (no paging)
+            return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager, 0))
                     .inputProvider(() -> new StringCallInput(executeCommand))
                     .exceptionHandler(SqlExceptionHandler.INSTANCE)
                     .decorator(new SqlQueryResultDecorator(plain, timed))
@@ -110,21 +95,5 @@ public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
             ExceptionWriter exceptionWriter = ExceptionWriter.fromPrintWriter(spec.commandLine().getErr());
             return SqlExceptionHandler.INSTANCE.handle(exceptionWriter, e);
         }
-    }
-
-    private int getResultLimit() {
-        if (resultLimit != null) {
-            return resultLimit;
-        }
-        String configValue = configManagerProvider.get().getCurrentProperty(CliConfigKeys.SQL_RESULT_LIMIT.value());
-        if (configValue != null && !configValue.isEmpty()) {
-            try {
-                return Integer.parseInt(configValue);
-            } catch (NumberFormatException e) {
-                LOG.warn("Invalid SQL result limit in config '{}', using default: {}",
-                        configValue, DEFAULT_SQL_RESULT_LIMIT);
-            }
-        }
-        return DEFAULT_SQL_RESULT_LIMIT;
     }
 }

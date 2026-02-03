@@ -37,7 +37,7 @@ class SqlQueryResultTableTest {
         TerminalOutput output = resultTable.decorate(true, noTruncation);
 
         String result = output.toTerminalString();
-        assertFalse(result.contains("... (showing first"), "Should not contain truncation indicator");
+        assertFalse(result.contains("rows shown"), "Should not contain truncation indicator");
     }
 
     @Test
@@ -49,7 +49,7 @@ class SqlQueryResultTableTest {
         TerminalOutput output = resultTable.decorate(true, noTruncation);
 
         String result = output.toTerminalString();
-        assertTrue(result.contains("... (showing first 3 rows, more available)"),
+        assertTrue(result.contains("-- 3 rows shown (more available, use interactive mode to load more) --"),
                 "Should contain truncation indicator with row count 3");
     }
 
@@ -62,7 +62,7 @@ class SqlQueryResultTableTest {
         TerminalOutput output = resultTable.decorate(true, noTruncation);
 
         String result = output.toTerminalString();
-        assertTrue(result.contains("... (showing first 1 row, more available)"),
+        assertTrue(result.contains("-- 1 row shown (more available, use interactive mode to load more) --"),
                 "Should use singular 'row' for single row");
     }
 }
