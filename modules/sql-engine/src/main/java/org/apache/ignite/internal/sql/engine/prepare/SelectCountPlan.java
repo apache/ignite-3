@@ -161,6 +161,11 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         return 1;
     }
 
+    @Override
+    public boolean lazyCursorPublication() {
+        return false;
+    }
+
     private <RowT> Function<Long, Iterator<InternalSqlRow>> createResultProjection(ExecutionContext<RowT> ctx) {
         RelDataType getCountType = new RelDataTypeFactory.Builder(ctx.getTypeFactory())
                 .add("ROWCOUNT", SqlTypeName.BIGINT)
