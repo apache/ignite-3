@@ -66,7 +66,7 @@ object PlatformCppTestsLinux : BuildType({
 //            workingDir = "%PATH__WORKING_DIR%"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             scriptContent = """
-                rpm -i ignite3-odbc-rpm/*.rpm
+                cd ignite3-odbc-rpm && rpm -i *.rpm && cd ..
                 
                 mkdir %PATH__CMAKE_BUILD_DIRECTORY%  || exit 2
                 cd %PATH__CMAKE_BUILD_DIRECTORY%  || exit 3
