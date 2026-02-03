@@ -21,7 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -189,16 +189,12 @@ public class MetricManagerImpl implements MetricManager {
     @Override
     public void unregisterSource(MetricSource src) {
         try {
-            if (metricSources().contains(src)) {
-                inBusyLockSafe(busyLock, () -> {
-                    disable(src);
-                    registry.unregisterSource(src);
-                });
-            }
+            inBusyLockSafe(busyLock, () -> {
+                disable(src);
+                registry.unregisterSource(src);
+            });
         } catch (Exception e) {
-            Throwable rootEx = unwrapRootCause(e);
-
-            if (!(rootEx instanceof NodeStoppingException)) {
+            if (!hasCause(e, NodeStoppingException.class)) {
                 log.error("Failed to unregister metrics source {}", e, src.name());
             }
         }
@@ -207,16 +203,12 @@ public class MetricManagerImpl implements MetricManager {
     @Override
     public void unregisterSource(String srcName) {
         try {
-            if (metricSources().stream().anyMatch(metricSource -> metricSource.name().equals(srcName))) {
-                inBusyLockSafe(busyLock, () -> {
-                    disable(srcName);
-                    registry.unregisterSource(srcName);
-                });
-            }
+            inBusyLockSafe(busyLock, () -> {
+                disable(srcName);
+                registry.unregisterSource(srcName);
+            });
         } catch (Exception e) {
-            Throwable rootEx = unwrapRootCause(e);
-
-            if (!(rootEx instanceof NodeStoppingException)) {
+            if (!hasCause(e, NodeStoppingException.class)) {
                 log.warn("Failed to unregister metrics source {}", e, srcName);
             }
         }
