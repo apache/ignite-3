@@ -64,7 +64,7 @@ object PlatformCppTestsLinux : BuildType({
         script {
             name = "Install ODBC and run tests"
 //            workingDir = "%PATH__WORKING_DIR%"
-            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
+            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             scriptContent = """
                 rpm -i ignite3-odbc-rpm/*.rpm
                 
