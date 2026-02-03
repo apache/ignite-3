@@ -103,9 +103,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private final MetricManager metricManager;
 
-    private final MessagingServiceMetricSource metricSource;
+    private final MessagingServiceMetricSource metricSource = new MessagingServiceMetricSource();
 
-    private final MessagingServiceMetrics metrics;
+    private final MessagingServiceMetrics metrics = new MessagingServiceMetrics(metricSource);
 
     /** Connection manager that provides access to {@link NettySender}. */
     private volatile ConnectionManager connectionManager;
@@ -198,9 +198,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 requestsMap,
                 failureProcessor
         );
-
-        metricSource = new MessagingServiceMetricSource();
-        metrics = new MessagingServiceMetrics(metricSource);
     }
 
     /**
