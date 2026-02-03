@@ -238,9 +238,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 );
 
             default:
-                assert false : "Impossible throttling type: " + throttlingType;
-
-                return pageMemory -> null;
+                throw new IllegalArgumentException("Impossible throttling type: " + throttlingType);
         }
     }
 
