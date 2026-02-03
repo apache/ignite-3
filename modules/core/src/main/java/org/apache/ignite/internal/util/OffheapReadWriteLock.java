@@ -466,7 +466,7 @@ public class OffheapReadWriteLock {
 
                     if (!checkTag(state, tag)) {
                         // We cannot lock with this tag, release waiter.
-                        if (tryReleaseReadWaiter(lock, lockIdx, state)) {
+                        if (tryReleaseWaiter(lock, lockIdx, state, true)) {
                             return false;
                         }
                     } else if (canReadLock(state)) {
@@ -513,7 +513,7 @@ public class OffheapReadWriteLock {
 
                     if (!checkTag(state, tag)) {
                         // We cannot lock with this tag, release waiter.
-                        if (tryReleaseWriteWaiter(lock, lockIdx, state)) {
+                        if (tryReleaseWaiter(lock, lockIdx, state, false)) {
                             return false;
                         }
                     } else if (canWriteLock(state)) {
@@ -536,22 +536,8 @@ public class OffheapReadWriteLock {
         }
     }
 
-    private boolean tryReleaseReadWaiter(long lock, int lockIdx, long state) {
-        long updated = updateState(state, 0, -1, 0);
-
-        if (GridUnsafe.compareAndSwapLong(null, lock, state, updated)) {
-            int writeWaitCnt = writersWaitCount(updated);
-
-            signalNextWaiter(writeWaitCnt, lockIdx);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private boolean tryReleaseWriteWaiter(long lock, int lockIdx, long state) {
-        long updated = updateState(state, 0, 0, -1);
+    private boolean tryReleaseWaiter(long lock, int lockIdx, long state, boolean readLock) {
+        long updated = readLock ? updateState(state, 0, -1, 0) : updateState(state, 0, 0, -1);
 
         if (GridUnsafe.compareAndSwapLong(null, lock, state, updated)) {
             int writeWaitCnt = writersWaitCount(updated);
@@ -578,7 +564,7 @@ public class OffheapReadWriteLock {
                 while (true) {
                     long state = GridUnsafe.getLongVolatile(null, lock);
 
-                    if (readLock ? tryReleaseReadWaiter(lock, lockIdx, state) : tryReleaseWriteWaiter(lock, lockIdx, state)) {
+                    if (tryReleaseWaiter(lock, lockIdx, state, readLock)) {
                         throw new LockTimeoutException(S.toString("Timeout waiting for lock acquisition",
                                 "lock", hexLong(lock), false,
                                 "state", hexLong(state), false,
