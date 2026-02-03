@@ -86,6 +86,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
+import org.apache.ignite.internal.partition.replicator.raft.ReplicaStoppingState;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
@@ -306,6 +307,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 clockService,
                 new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
+        commandListener.processorState(new ReplicaStoppingState());
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
