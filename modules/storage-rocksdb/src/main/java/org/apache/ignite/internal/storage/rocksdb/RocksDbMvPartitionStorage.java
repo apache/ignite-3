@@ -800,23 +800,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private ReadResult readLatestVersion(RowId rowId, RocksIterator seekIterator) {
-        return readVersion(rowId, seekIterator, true, true);
-    }
+        ByteBuffer dataIdKeyPrefix = prepareDirectDataIdKeyBuf(rowId)
+                .position(0)
+                .limit(ROW_PREFIX_SIZE);
 
-    private ReadResult readLatestCommittedVersion(RowId rowId, RocksIterator seekIterator) {
-        return readVersion(rowId, seekIterator, true, false);
-    }
-
-    private ReadResult readVersion(RowId rowId, RocksIterator seekIterator, boolean doSeek, boolean doReturnWriteIntent) {
-        if (doSeek) {
-            ByteBuffer dataIdKeyPrefix = prepareDirectDataIdKeyBuf(rowId)
-                    .position(0)
-                    .limit(ROW_PREFIX_SIZE);
-
-            // Seek to the first appearance of row id if timestamp isn't set.
-            // Since timestamps are sorted from newest to oldest, first occurrence will always be the latest version.
-            seekIterator.seek(dataIdKeyPrefix);
-        }
+        // Seek to the first appearance of row id if timestamp isn't set.
+        // Since timestamps are sorted from newest to oldest, first occurrence will always be the latest version.
+        seekIterator.seek(dataIdKeyPrefix);
 
         if (invalid(seekIterator)) {
             // No data at all.
@@ -835,12 +825,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
 
         boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
-
-        if (isWriteIntent && !doReturnWriteIntent) {
-            seekIterator.next();
-
-            return readVersion(rowId, seekIterator, false, false);
-        }
 
         ByteBuffer valueBytes = ByteBuffer.wrap(seekIterator.value());
 
@@ -1204,6 +1188,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     RowId rowId = getRowId(keyBuf);
 
                     RowMeta row;
+
                     if (isWriteIntent) {
                         ByteBuffer transactionState = ByteBuffer.wrap(it.value());
 
@@ -1214,14 +1199,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                         HybridTimestamp newestCommitTimestamp = null;
 
-                        try (
-                                RocksIterator seekIterator = wrapIterator(it, helper.partCf)
-                        ) {
-                            ReadResult rr = readLatestCommittedVersion(rowId, seekIterator);
+                        it.next();
 
-                            if (!rr.isEmpty()) {
-                                newestCommitTimestamp = rr.commitTimestamp();
-                            }
+                        ByteBuffer dataIdKey = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
+
+                        int keyLen = it.key(dataIdKey);
+
+                        dataIdKey.position(0).limit(keyLen);
+
+                        if (matches(rowId, dataIdKey)) {
+                            newestCommitTimestamp = readTimestampDesc(dataIdKey);
                         }
 
                         row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId, newestCommitTimestamp);
@@ -1231,7 +1218,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     result.add(row);
 
-                    it.next();
+                    // If write intent, it.next() was done already.
+                    if (!isWriteIntent) {
+                        it.next();
+                    }
                 }
             } catch (RocksDBException e) {
                 throw new IgniteRocksDbException("Error finding following Row IDs", e);
