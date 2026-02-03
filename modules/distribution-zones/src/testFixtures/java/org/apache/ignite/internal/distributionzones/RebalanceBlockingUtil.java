@@ -112,6 +112,25 @@ public class RebalanceBlockingUtil {
     }
 
     /**
+     * Blocks switching pending assignments key to a stable one.
+     *
+     * @param messageServices Message services.
+     * @param replicationGroupId Replication group identifier to check.
+     * @param blockedAssignments Assignments to be blocked.
+     * @param initialAndPredicate Initial predicate to filter messages.
+     * @param reached Atomic boolean that will be set to {@code true} when at least one message is blocked.
+     */
+    public static void blockStableKeySwitch(
+            Stream<MessagingService> messageServices,
+            ZonePartitionId replicationGroupId,
+            Assignments blockedAssignments,
+            BiPredicate<String, NetworkMessage> initialAndPredicate,
+            AtomicBoolean reached
+    ) {
+        blockMessages(messageServices, initialAndPredicate.and(KeySwitchPredicate.of(replicationGroupId, blockedAssignments, reached)));
+    }
+
+    /**
      * Blocks switching pending assignments key to a stable one for the given zone.
      *
      * @param messageServices Message services.

@@ -650,7 +650,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
                 replicationGroupId,
                 assignmentsPending,
-                (nodeName, message) -> blocked.get()
+                (nodeName, message) -> blocked.get(),
+                reached
         );
     }
 }
