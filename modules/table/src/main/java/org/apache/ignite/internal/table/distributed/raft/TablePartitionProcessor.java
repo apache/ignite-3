@@ -211,6 +211,8 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
+        assert replicaStoppingState != null : "Replica stopping state must be initialized before processing commands.";
+
         CommandResult result = null;
 
         AbstractCommandHandler<?> commandHandler = commandHandlers.handler(command.groupType(), command.messageType());
