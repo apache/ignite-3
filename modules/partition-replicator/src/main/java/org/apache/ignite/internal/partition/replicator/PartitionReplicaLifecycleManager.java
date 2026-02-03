@@ -1769,6 +1769,7 @@ public class PartitionReplicaLifecycleManager extends
             return fireEvent(beforeReplicaStoppedEvent, eventParameters)
                     .thenCompose(v -> {
                         try {
+                            LOG.info("Stopping zone partition replica [id={}].", zonePartitionId);
                             return replicaMgr.stopReplica(zonePartitionId)
                                     .thenComposeAsync(replicaWasStopped -> {
                                         closeTrackers(zonePartitionId);

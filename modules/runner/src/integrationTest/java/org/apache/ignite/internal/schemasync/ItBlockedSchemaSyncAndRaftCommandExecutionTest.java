@@ -33,10 +33,12 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.schema.SchemaSyncInhibitor;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.opentest4j.AssertionFailedError;
 
 @ExtendWith(ExecutorServiceExtension.class)
 class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestIntegrationTest {
@@ -56,10 +58,16 @@ class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestInteg
     void raftThreadBlockedOnSchemaSyncDoesNotPreventNodeStop() throws Exception {
         CompletableFuture<Void> putFuture = producePutBlockedInRaftStateMachine();
 
-        assertTimeoutPreemptively(
-                Duration.of(10, SECONDS),
-                () -> cluster.stopNode(0)
-        );
+        try {
+            assertTimeoutPreemptively(
+                    Duration.of(10, SECONDS),
+                    () -> cluster.stopNode(0)
+            );
+        } catch (AssertionFailedError e) {
+            ThreadUtils.dumpThreads(log, "XXX Threads on test failure", false);
+
+            throw e;
+        }
 
         assertWillThrowCausedBy(putFuture, NodeStoppingException.class);
     }
