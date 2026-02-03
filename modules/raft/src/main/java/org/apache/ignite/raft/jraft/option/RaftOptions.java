@@ -138,6 +138,13 @@ public class RaftOptions implements Copiable<RaftOptions> {
      */
     private boolean stepDownWhenVoteTimedout = true;
 
+    /**
+     * Maximum total byte size of tasks in the apply queue. When this limit is reached,
+     * new apply requests will be rejected with OverloadException.
+     * Default is -1 (unlimited, tracking disabled).
+     */
+    private long maxApplyQueueByteSize = -1;
+
     public boolean isStepDownWhenVoteTimedout() {
         return this.stepDownWhenVoteTimedout;
     }
@@ -304,6 +311,14 @@ public class RaftOptions implements Copiable<RaftOptions> {
         this.raftMessagesFactory = raftMessagesFactory;
     }
 
+    public long getMaxApplyQueueByteSize() {
+        return this.maxApplyQueueByteSize;
+    }
+
+    public void setMaxApplyQueueByteSize(long maxApplyQueueByteSize) {
+        this.maxApplyQueueByteSize = maxApplyQueueByteSize;
+    }
+
     /** {@inheritDoc} */
     @Override
     public RaftOptions copy() {
@@ -326,6 +341,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
         raftOptions.setEnableLogEntryChecksum(this.enableLogEntryChecksum);
         raftOptions.setReadOnlyOptions(this.readOnlyOptions);
         raftOptions.setRaftMessagesFactory(this.raftMessagesFactory);
+        raftOptions.setMaxApplyQueueByteSize(this.maxApplyQueueByteSize);
         return raftOptions;
     }
 
@@ -341,6 +357,6 @@ public class RaftOptions implements Copiable<RaftOptions> {
             + ", maxReplicatorInflightMsgs=" + this.maxReplicatorInflightMsgs + ", disruptorBufferSize="
             + this.disruptorBufferSize + ", disruptorPublishEventWaitTimeoutSecs="
             + this.disruptorPublishEventWaitTimeoutSecs + ", enableLogEntryChecksum=" + this.enableLogEntryChecksum
-            + ", readOnlyOptions=" + this.readOnlyOptions + '}';
+            + ", readOnlyOptions=" + this.readOnlyOptions + ", maxApplyQueueByteSize=" + this.maxApplyQueueByteSize + '}';
     }
 }
