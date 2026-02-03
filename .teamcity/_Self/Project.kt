@@ -23,7 +23,6 @@ object Project : Project({
         hiddenText("system.lastCommitHash", "%build.vcs.number%")
         hiddenText("IGNITE_CI", "true")
         hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=true -Dorg.gradle.java.home=%env.JDK_ORA_17%")
-        hiddenText("env.JAVA_HOME", "%env.JDK_ORA_17%")
         hiddenText("env.M2_HOME", "%teamcity.tool.maven.DEFAULT%")
     }
 })
