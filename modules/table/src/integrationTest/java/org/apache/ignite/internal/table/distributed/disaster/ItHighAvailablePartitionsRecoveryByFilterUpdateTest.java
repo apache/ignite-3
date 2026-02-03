@@ -378,10 +378,10 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         stopNodes(1, 2);
 
         Set<LogicalNode> expectedNodes = Set.of(
-                createLogicalNode(igniteImpl(0)),
-                createLogicalNode(igniteImpl(3)),
-                createLogicalNode(igniteImpl(4)),
-                createLogicalNode(igniteImpl(5))
+                getLogicalNode(igniteImpl(0)),
+                getLogicalNode(igniteImpl(3)),
+                getLogicalNode(igniteImpl(4)),
+                getLogicalNode(igniteImpl(5))
         );
 
         assertLogicalTopologyInMetastorage(expectedNodes, node.metaStorageManager());
@@ -530,17 +530,11 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "}";
     }
 
-    private static LogicalNode createLogicalNode(IgniteImpl ignite) {
-        LogicalNode localLogicalNode = ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
+    private static LogicalNode getLogicalNode(IgniteImpl ignite) {
+
+        return ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
                 .filter(n -> n.name().equals(ignite.name()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Node not found in logical topology: " + ignite.name()));
-
-        return new LogicalNode(
-                ignite.clusterService().topologyService().localMember(),
-                localLogicalNode.userAttributes(),
-                localLogicalNode.systemAttributes(),
-                localLogicalNode.storageProfiles()
-        );
     }
 }

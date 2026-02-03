@@ -482,7 +482,7 @@ public class DistributionZonesTestUtil {
                 zonesLogicalTopologyKey(),
                 DistributionZonesUtil::deserializeLogicalTopologySet,
                 nodes,
-                30000
+                1000
         );
     }
 
