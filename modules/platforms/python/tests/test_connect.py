@@ -72,11 +72,11 @@ def test_execute_update_rowcount(table_name, cursor, drop_table_cleanup):
 
 
 @pytest.mark.parametrize("interval", [2.0, 20.0, 0.0001])
-async def test_heartbeat_enabled(interval, table_name, drop_table_cleanup):
+def test_heartbeat_enabled(table_name, drop_table_cleanup, interval):
     row_count = 10
     with pyignite_dbapi.connect(address=server_addresses_basic[0], heartbeat_interval=interval) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(f'create table {table_name}(id int primary key, data varchar)')
+            cursor.execute(f"create table {table_name}(id int primary key, data varchar)")
             for key in range(row_count):
                 cursor.execute(f"insert into {table_name} values({key}, 'data-{key*2}')")
                 assert cursor.rowcount == 1
@@ -91,11 +91,11 @@ async def test_heartbeat_enabled(interval, table_name, drop_table_cleanup):
             assert len(data_out) == row_count
 
 
-async def test_heartbeat_disabled(table_name, drop_table_cleanup):
+def test_heartbeat_disabled(table_name, drop_table_cleanup):
     row_count = 10
     with pyignite_dbapi.connect(address=server_addresses_basic[0], heartbeat_interval=None) as conn:
         with conn.cursor() as cursor:
-            cursor.execute(f'create table {table_name}(id int primary key, data varchar)')
+            cursor.execute(f"create table {table_name}(id int primary key, data varchar)")
             for key in range(row_count):
                 cursor.execute(f"insert into {table_name} values({key}, 'data-{key*2}')")
                 assert cursor.rowcount == 1
@@ -103,7 +103,7 @@ async def test_heartbeat_disabled(table_name, drop_table_cleanup):
             data_out = {}
             with pytest.raises(pyignite_dbapi.OperationalError) as err:
                 for key in range(row_count):
-                    cursor.execute(f"select id, data from {table_name} WHERE id = ?", [key])
+                    cursor.execute(f"select id, data from {table_name} where id = ?", [key])
                     data_out[key] = cursor.fetchone()
                     if len(data_out) == 5:
                         time.sleep(7)

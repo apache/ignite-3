@@ -260,8 +260,11 @@ void set_error(const ignite::ignite_error &error) {
             break;
         }
     }
-
-    PyErr_SetString(error_class, error.what());
+    std::string error_str{error.what_str()};
+    if (error.get_java_stack_trace()) {
+        error_str += "\n" + *error.get_java_stack_trace();
+    }
+    PyErr_SetString(error_class, error_str.c_str());
 }
 
 std::string get_current_exception_as_string() {
