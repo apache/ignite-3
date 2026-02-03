@@ -50,11 +50,7 @@ import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMi
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
-import static org.apache.ignite.internal.util.GridUnsafe.decrementAndGetInt;
-import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
-import static org.apache.ignite.internal.util.GridUnsafe.incrementAndGetInt;
-import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
@@ -1062,50 +1058,7 @@ public class PersistentPageMemory implements PageMemory {
      * Returns total number of acquired pages.
      */
     public long acquiredPages() {
-        Segment[] segments = this.segments;
-        if (segments == null) {
-            return 0L;
-        }
-
-        long total = 0;
-
-        for (Segment seg : segments) {
-            seg.readLock().lock();
-
-            try {
-                if (seg.closed) {
-                    continue;
-                }
-
-                total += seg.acquiredPages();
-            } finally {
-                seg.readLock().unlock();
-            }
-        }
-
-        return total;
-    }
-
-    /**
-     * Returns {@code true} if the page is contained in the loaded pages table, {@code false} otherwise.
-     *
-     * @param fullPageId Full page ID to check.
-     */
-    public boolean hasLoadedPage(FullPageId fullPageId) {
-        int grpId = fullPageId.groupId();
-        long pageId = fullPageId.effectivePageId();
-
-        Segment seg = segment(grpId, pageId);
-
-        seg.readLock().lock();
-
-        try {
-            long res = seg.loadedPages.get(grpId, pageId, partGeneration(seg, fullPageId), INVALID_REL_PTR, INVALID_REL_PTR);
-
-            return res != INVALID_REL_PTR;
-        } finally {
-            seg.readLock().unlock();
-        }
+        return 0;
     }
 
     /** {@inheritDoc} */
@@ -1289,24 +1242,6 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     /**
-     * Returns the number of active pages across all segments. Used for test purposes only.
-     */
-    public int activePagesCount() {
-        Segment[] segments = this.segments;
-        if (segments == null) {
-            return 0;
-        }
-
-        int total = 0;
-
-        for (Segment seg : segments) {
-            total += seg.acquiredPages();
-        }
-
-        return total;
-    }
-
-    /**
      * This method must be called in synchronized context.
      *
      * @param pageId full page ID.
@@ -1420,17 +1355,8 @@ public class PersistentPageMemory implements PageMemory {
         /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
-        /** Pointer to acquired pages integer counter. */
-        private static final int ACQUIRED_PAGES_SIZEOF = 4;
-
-        /** Padding to read from word beginning. */
-        private static final int ACQUIRED_PAGES_PADDING = 4;
-
         /** Page ID to relative pointer map. */
         private final LoadedPagesMap loadedPages;
-
-        /** Pointer to acquired pages integer counter. */
-        private final long acquiredPagesPtr;
 
         /** Page pool. */
         private final PagePool pool;
@@ -1484,29 +1410,23 @@ public class PersistentPageMemory implements PageMemory {
 
             int pages = (int) (totalMemory / sysPageSize);
 
-            acquiredPagesPtr = region.address();
-
-            putIntVolatile(null, acquiredPagesPtr, 0);
-
-            int ldPagesMapOffInRegion = ACQUIRED_PAGES_SIZEOF + ACQUIRED_PAGES_PADDING;
-
-            long ldPagesAddr = region.address() + ldPagesMapOffInRegion;
+            long ldPagesAddr = region.address();
 
             memPerTbl = RobinHoodBackwardShiftHashMap.requiredMemory(pages);
 
             loadedPages = new RobinHoodBackwardShiftHashMap(ldPagesAddr, memPerTbl);
 
-            pages = (int) ((totalMemory - memPerTbl - ldPagesMapOffInRegion) / sysPageSize);
+            pages = (int) ((totalMemory - memPerTbl) / sysPageSize);
 
             memPerRepl = pageReplacementPolicyFactory.requiredMemory(pages);
 
-            DirectMemoryRegion poolRegion = region.slice(memPerTbl + memPerRepl + ldPagesMapOffInRegion);
+            DirectMemoryRegion poolRegion = region.slice(memPerTbl + memPerRepl);
 
             pool = new PagePool(idx, poolRegion, sysPageSize, rwLock);
 
             pageReplacementPolicy = pageReplacementPolicyFactory.create(
                     this,
-                    region.address() + memPerTbl + ldPagesMapOffInRegion,
+                    region.address() + memPerTbl,
                     pool.pages()
             );
 
@@ -1553,23 +1473,12 @@ public class PersistentPageMemory implements PageMemory {
             return memPerRepl;
         }
 
-        private void acquirePage(long absPtr) {
+        protected void acquirePage(long absPtr) {
             PageHeader.acquirePage(absPtr);
-
-            incrementAndGetInt(acquiredPagesPtr);
         }
 
-        private void releasePage(long absPtr) {
+        protected void releasePage(long absPtr) {
             PageHeader.releasePage(absPtr);
-
-            decrementAndGetInt(acquiredPagesPtr);
-        }
-
-        /**
-         * Returns total number of acquired pages.
-         */
-        private int acquiredPages() {
-            return getInt(acquiredPagesPtr);
         }
 
         /**
@@ -1720,10 +1629,6 @@ public class PersistentPageMemory implements PageMemory {
                 }
             }
 
-            if (acquiredPages() >= loadedPages.size()) {
-                throw oomException("all pages are acquired");
-            }
-
             return pageReplacementPolicy.replace();
         }
 
@@ -1739,7 +1644,6 @@ public class PersistentPageMemory implements PageMemory {
                     + ", dirtyPagesSoftThreshold=" + dirtyPagesSoftThreshold
                     + ", dirtyPagesHardThreshold=" + dirtyPagesHardThreshold
                     + ", dirtyPages=" + dirtyPagesCntr
-                    + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
                     + "name=" + dataRegionConfiguration.name()
                     + ", size=" + readableSize(dataRegionConfiguration.sizeBytes(), false)
