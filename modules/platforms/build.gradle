@@ -272,12 +272,10 @@ private String pythonProjectVersion(String version) {
         .toLowerCase()
         .replace("alpha", "a")
         .replace("beta", "b")
-        .replace("patch", "p")
+        .replace("patch", "post")
+        .replace("snapshot", "dev")
 
-    if (addition.startsWith("alpha")
-     || addition.startsWith("beta")
-     || addition.startsWith("patch"))
-    {
+    if (pythonAddition.matches("(a|b|rc)\\d+")) {
         return simple + pythonAddition
     }
     return simple + '.' + pythonAddition
