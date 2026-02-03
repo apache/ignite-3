@@ -652,7 +652,7 @@ public class PersistentPageMemory implements PageMemory {
 
         seg.readLock().lock();
 
-        boolean waitUntilPageIsFullyInitialized = false;
+        boolean pageAcquired = false;
         long resPointer = -1;
 
         try {
@@ -673,18 +673,17 @@ public class PersistentPageMemory implements PageMemory {
                 seg.pageReplacementPolicy.onHit(relPtr);
 
                 resPointer = absPtr;
-                waitUntilPageIsFullyInitialized = true;
+                pageAcquired = true;
 
                 return absPtr;
             }
         } finally {
             seg.readLock().unlock();
 
-            if (waitUntilPageIsFullyInitialized) {
+            if (pageAcquired) {
                 waitUntilPageIsFullyInitialized(resPointer);
+                metrics.recordPageAcquireTime(System.nanoTime() - startTime);
             }
-
-            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
 
         seg.writeLock().lock();
@@ -786,14 +785,14 @@ public class PersistentPageMemory implements PageMemory {
 
             if (!readPageFromStore) {
                 resPointer = absPtr;
-                waitUntilPageIsFullyInitialized = true;
+                pageAcquired = true;
             }
 
             return absPtr;
         } finally {
             seg.writeLock().unlock();
 
-            if (waitUntilPageIsFullyInitialized) {
+            if (pageAcquired) {
                 waitUntilPageIsFullyInitialized(resPointer);
             }
 
@@ -826,7 +825,9 @@ public class PersistentPageMemory implements PageMemory {
                 }
             }
 
-            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
+            if (pageAcquired) {
+                metrics.recordPageAcquireTime(System.nanoTime() - startTime);
+            }
         }
     }
 
