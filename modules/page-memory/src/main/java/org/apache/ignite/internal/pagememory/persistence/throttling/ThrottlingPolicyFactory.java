@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.configuration;
+package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 
 /**
  * Factory interface to create instances of {@link PagesWriteThrottlePolicy}.

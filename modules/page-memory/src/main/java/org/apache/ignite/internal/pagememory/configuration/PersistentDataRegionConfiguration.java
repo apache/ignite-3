@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.configuration;
 
+import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingPolicyFactory;
+
 /** * Configuration for a persistent data region. */
 public class PersistentDataRegionConfiguration implements DataRegionConfiguration {
     private final String name;
