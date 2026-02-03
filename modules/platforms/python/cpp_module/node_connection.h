@@ -19,6 +19,7 @@
 
 #include "ignite/common/end_point.h"
 #include "ignite/common/detail/bytes.h"
+#include "ignite/common/detail/thread_timer.h"
 #include "ignite/common/detail/utils.h"
 #include "ignite/network/socket_client.h"
 #include "ignite/network/network.h"
@@ -32,20 +33,40 @@
 #include <cstdint>
 #include <cassert>
 #include <optional>
+#include <memory>
 #include <random>
 #include <string>
 
 #include "ssl_config.h"
 #include "type_conversion.h"
+#include "ignite/protocol/heartbeat_timeout.h"
+
 
 
 /**
  * A single node connection.
  * TODO: https://issues.apache.org/jira/browse/IGNITE-25744 Move connection logic to the protocol library.
  */
-class node_connection final {
+class node_connection final : public std::enable_shared_from_this<node_connection> {
 public:
     static constexpr std::int32_t DEFAULT_TIMEOUT_SECONDS = 30;
+    static constexpr std::chrono::milliseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
+
+    struct auth_configuration {
+        std::string m_identity;
+        std::string m_secret;
+    };
+
+    struct configuration {
+        std::vector<ignite::end_point> m_addresses;
+        std::string m_schema;
+        auth_configuration m_auth_configuration;
+        std::int32_t m_page_size;
+        std::int32_t m_timeout{DEFAULT_TIMEOUT_SECONDS};
+        bool m_auto_commit{true};
+        ssl_config m_ssl_configuration;
+        std::chrono::milliseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
+    };
 
     /**
      * Destructor.
@@ -59,48 +80,35 @@ public:
      *
      * @return Schema.
      */
-    [[nodiscard]] const std::string &get_schema() const { return m_schema; }
+    [[nodiscard]] const std::string &get_schema() const { return m_configuration.m_schema; }
 
     /**
      * Get page size.
      *
      * @return Page size.
      */
-    [[nodiscard]] std::int32_t get_page_size() const { return m_page_size; }
+    [[nodiscard]] std::int32_t get_page_size() const { return m_configuration.m_page_size; }
 
     /**
      * Get timeout.
      *
      * @return Timeout.
      */
-    [[nodiscard]] std::int32_t get_timeout() const { return m_timeout; }
+    [[nodiscard]] std::int32_t get_timeout() const { return m_configuration.m_timeout; }
 
     /**
      * Constructor.
      *
-     * @param addresses Addresses.
-     * @param schema Schema. Can be empty.
-     * @param auth_identity Auth identity. Can be empty.
-     * @param auth_secret Auth secret. Can be empty.
-     * @param page_size Page size.
-     * @param timeout Timeout.
-     * @param auto_commit Auto commit flag.
-     * @param ssl_cfg SSL Configuration.
+     * @param cfg Configuration.
      */
-    node_connection(std::vector<ignite::end_point> addresses, std::string schema, std::string auth_identity,
-            std::string auth_secret, std::int32_t page_size, std::int32_t timeout, bool auto_commit, ssl_config ssl_cfg)
-        : m_addresses(std::move(addresses))
-        , m_schema(schema.empty() ? "PUBLIC" : std::move(schema))
-        , m_auth_identity(std::move(auth_identity))
-        , m_auth_secret(std::move(auth_secret))
-        , m_page_size(page_size > 0 ? page_size : 1024)
-        , m_timeout(timeout > 0 ? timeout : DEFAULT_TIMEOUT_SECONDS)
-        , m_auto_commit(auto_commit)
-        , m_ssl_config(std::move(ssl_cfg))
+    node_connection(configuration cfg)
+        : m_configuration(std::move(cfg))
+        , m_auto_commit(cfg.m_auto_commit)
+        , m_timer_thread(ignite::detail::thread_timer::start([] (auto&&) { /* Ignore */ }))
     {
         std::random_device device;
         std::mt19937 generator(device());
-        std::uniform_int_distribution<std::uint32_t> distribution(0, m_addresses.size());
+        std::uniform_int_distribution<std::uint32_t> distribution(0, m_configuration.m_addresses.size());
         m_current_address_idx = distribution(generator);
     }
 
@@ -229,8 +237,8 @@ public:
         auto req_id = generate_next_req_id();
         auto request = make_request(req_id, op, wr);
 
-        send_message(request, m_timeout);
-        return receive_message_nothrow(req_id, m_timeout);
+        send_message(request, m_configuration.m_timeout);
+        return receive_message_nothrow(req_id, m_configuration.m_timeout);
     }
 
 private:
@@ -324,6 +332,8 @@ private:
         ensure_connected();
 
         send_all(req.data(), req.size(), timeout);
+
+        m_last_message_ts = std::chrono::steady_clock::now();
     }
 
     /**
@@ -338,6 +348,7 @@ private:
         if (res.second) {
             throw std::move(*res.second);
         }
+
         return std::move(res.first);
     }
 
@@ -417,8 +428,8 @@ private:
         auto req_id = generate_next_req_id();
         auto request = make_request(req_id, op, wr);
 
-        send_message(request, m_timeout);
-        return receive_message(req_id, m_timeout);
+        send_message(request, m_configuration.m_timeout);
+        return receive_message(req_id, m_configuration.m_timeout);
     }
 
     /**
@@ -445,7 +456,7 @@ private:
      */
     void try_restore_connection() {
         if (!m_socket) {
-            if (m_ssl_config.m_enabled) {
+            if (m_configuration.m_ssl_configuration.m_enabled) {
                 try
                 {
                     ignite::network::ensure_ssl_loaded();
@@ -461,13 +472,13 @@ private:
                     }
 
                     throw ignite::ignite_error(ignite::error::code::CLIENT_SSL_CONFIGURATION,
-                        "Can not load OpenSSL library. [" + openssl_home_str + "]");
+                        "Can not load OpenSSL library. [path=" + openssl_home_str + ", error=" + err.what_str() + "]");
                 }
 
                 ignite::network::secure_configuration cfg;
-                cfg.key_path = m_ssl_config.m_ssl_keyfile;
-                cfg.cert_path = m_ssl_config.m_ssl_certfile;
-                cfg.ca_path = m_ssl_config.m_ssl_ca_certfile;
+                cfg.key_path = m_configuration.m_ssl_configuration.m_ssl_keyfile;
+                cfg.cert_path = m_configuration.m_ssl_configuration.m_ssl_certfile;
+                cfg.ca_path = m_configuration.m_ssl_configuration.m_ssl_ca_certfile;
 
                 m_socket = ignite::network::make_secure_socket_client(std::move(cfg));
             } else {
@@ -477,12 +488,12 @@ private:
 
         std::stringstream msgs;
         bool connected = false;
-        for (std::int32_t i = 0; i < m_addresses.size(); ++i) {
-            uint32_t idx = (m_current_address_idx + i) % m_addresses.size();
-            const ignite::end_point &address = m_addresses[idx];
+        for (std::int32_t i = 0; i < m_configuration.m_addresses.size(); ++i) {
+            uint32_t idx = (m_current_address_idx + i) % m_configuration.m_addresses.size();
+            const ignite::end_point &address = m_configuration.m_addresses[idx];
 
             try {
-                bool success = m_socket->connect(address.host.c_str(), address.port, m_timeout);
+                bool success = m_socket->connect(address.host.c_str(), address.port, m_configuration.m_timeout);
                 if (!success) {
                     continue;
                 }
@@ -515,19 +526,19 @@ private:
         m_protocol_version = ignite::protocol::protocol_version::get_current();
 
         std::map<std::string, std::string> extensions;
-        if (!m_auth_identity.empty()) {
+        if (!m_configuration.m_auth_configuration.m_identity.empty()) {
             static const std::string AUTH_TYPE{"basic"};
 
             extensions.emplace("authn-type", AUTH_TYPE);
-            extensions.emplace("authn-identity", m_auth_identity);
-            extensions.emplace("authn-secret", m_auth_secret);
+            extensions.emplace("authn-identity", m_configuration.m_auth_configuration.m_identity);
+            extensions.emplace("authn-secret", m_configuration.m_auth_configuration.m_secret);
         }
 
         std::vector<std::byte> message = make_handshake_request(CLIENT_CODE, m_protocol_version, extensions);
 
-        send_all(message.data(), message.size(), m_timeout);
-        receive_and_check_magic(message, m_timeout);
-        receive_message(message, m_timeout);
+        send_all(message.data(), message.size(), m_configuration.m_timeout);
+        receive_and_check_magic(message, m_configuration.m_timeout);
+        receive_message(message, m_configuration.m_timeout);
 
         auto response = ignite::protocol::parse_handshake_response(message);
         auto const &ver = response.context.get_version();
@@ -539,6 +550,13 @@ private:
 
         if (response.error) {
             throw ignite::ignite_error(ignite::error::code::HANDSHAKE_HEADER, "Server rejected handshake with error: " + response.error->what_str());
+        }
+
+        m_heartbeat_interval = ignite::calculate_heartbeat_interval(
+            m_configuration.m_heartbeat_interval, std::chrono::milliseconds(response.idle_timeout_ms));
+
+        if (m_heartbeat_interval.count()) {
+            plan_heartbeat(m_heartbeat_interval);
         }
     }
 
@@ -610,29 +628,49 @@ private:
         }
     }
 
-    /** Addresses. */
-    const std::vector<ignite::end_point> m_addresses;
+    void send_heartbeat() {
+        auto res = sync_request_nothrow(ignite::protocol::client_operation::HEARTBEAT,
+            [self_weak = weak_from_this()](const auto&) {
+                if (auto self = self_weak.lock()) {
+                    self->plan_heartbeat(self->m_heartbeat_interval);
+                }
+            }
+        );
 
-    /** Schema. */
-    const std::string m_schema;
+        // We don't care here if we were not able to send a heartbeat due to the connection is dead already.
+        UNUSED_VALUE(res);
+    }
 
-    /** Identity. */
-    const std::string m_auth_identity;
+    void on_heartbeat_timeout() {
+        auto idle_for = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - m_last_message_ts);
 
-    /** Secret. */
-    const std::string m_auth_secret;
+        if (idle_for > m_heartbeat_interval) {
+            send_heartbeat();
+        } else {
+            auto sleep_for = m_heartbeat_interval - idle_for;
+            plan_heartbeat(sleep_for);
+        }
+    }
 
-    /** Page size. */
-    const std::int32_t m_page_size;
+    void plan_heartbeat(std::chrono::milliseconds timeout) {
+        if (auto timer_thread = m_timer_thread.lock()) {
+            timer_thread->add(timeout, [self_weak = weak_from_this()] {
+                if (auto self = self_weak.lock()) {
+                    self->on_heartbeat_timeout();
+                }
+            });
+        }
+    }
+
+    /** Configuration. */
+    const configuration m_configuration;
+
+    /** Auto-commit. */
+    bool m_auto_commit;
 
     /** Current address index. */
     std::uint32_t m_current_address_idx{0};
-
-    /** Operation timeout in seconds. */
-    std::int32_t m_timeout{DEFAULT_TIMEOUT_SECONDS};
-
-    /** Autocommit flag. */
-    bool m_auto_commit{true};
 
     /** Current transaction ID. */
     std::optional<std::int64_t> m_transaction_id;
@@ -652,6 +690,15 @@ private:
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
 
-    /** SSL Configuration. */
-    const ssl_config m_ssl_config;
+    /** Heartbeat interval configured by a user. */
+    std::chrono::milliseconds m_config_heartbeat_interval{0};
+
+    /** Heartbeat interval. */
+    std::chrono::milliseconds m_heartbeat_interval{0};
+
+    /** Last message timestamp. */
+    std::chrono::steady_clock::time_point m_last_message_ts{};
+
+    /** Timer thread. */
+    std::weak_ptr<ignite::detail::thread_timer> m_timer_thread;
 };
