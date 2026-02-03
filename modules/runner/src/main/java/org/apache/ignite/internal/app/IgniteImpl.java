@@ -1850,11 +1850,6 @@ public class IgniteImpl implements Ignite {
         return distributedTblMgr;
     }
 
-    @TestOnly
-    public ThreadPoolsManager threadPoolsManager() {
-        return threadPoolsManager;
-    }
-
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {

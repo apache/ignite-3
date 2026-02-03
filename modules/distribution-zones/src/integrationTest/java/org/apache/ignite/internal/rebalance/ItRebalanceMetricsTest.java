@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil.unblockMessages;
 import static org.apache.ignite.internal.distributionzones.ZoneMetricSource.LOCAL_UNREBALANCED_PARTITIONS_COUNT;
 import static org.apache.ignite.internal.distributionzones.ZoneMetricSource.TOTAL_UNREBALANCED_PARTITIONS_COUNT;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
@@ -33,10 +34,10 @@ import static org.hamcrest.Matchers.notNullValue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil;
 import org.apache.ignite.internal.distributionzones.ZoneMetricSource;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metrics.IntMetric;
@@ -91,19 +92,8 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
         // Start a new node and register a watch listener for pending assignments.
         IgniteImpl node1 = unwrapIgniteImpl(startNode(1));
 
-        // Task to block a single threaded rebalance pool.
-        CountDownLatch rebalanceLatch = new CountDownLatch(1);
-        Runnable poisonPill = () -> {
-            try {
-                rebalanceLatch.await();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        };
-
-        // Block rebalance scheduler to avoid moving pending assignments to stable ones.
-        node0.threadPoolsManager().rebalanceScheduler().execute(poisonPill);
-        node1.threadPoolsManager().rebalanceScheduler().execute(poisonPill);
+        // Block rebalance. In particular, we block messages that switching pending key to a stable one.
+        blockStableKeySwitch(ZONE_NAME);
 
         // Set auto scale up timer to 0 in order to trigger rebalance immediately.
         cluster.doInSession(0, session -> {
@@ -118,7 +108,7 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
                 30);
 
         // Unblock rebalance.
-        rebalanceLatch.countDown();
+        unblockMessages(cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()));
 
         assertRebalanceMetrics(
                 List.of(node0, node1),
@@ -332,5 +322,15 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
 
             log.warn("  ^-- [partId={}, pending={}, stable={}]", i, pendingAssignments, stableAssignments);
         }
+    }
+
+    private void blockStableKeySwitch(String zoneName) {
+        CatalogZoneDescriptor desc = unwrapIgniteImpl(cluster.node(0)).catalogManager().latestCatalog().zone(zoneName);
+
+        RebalanceBlockingUtil.blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                desc.id(),
+                desc.partitions()
+        );
     }
 }
