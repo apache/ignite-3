@@ -130,6 +130,7 @@ def cmakeBuildPackage = tasks.register('cmakeBuildPackage', CMakeBuildTask) {
 }
 
 def cmakeCpack = tasks.register('cmakeCpack', Exec) {
+    dependsOn cmakeBuildPackage
     workingDir "$buildDir/cpp"
 
     commandLine "cpack", "-G", "DEB;RPM;TGZ", "-C", "Release"
