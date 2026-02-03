@@ -278,7 +278,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
-            metrics.incrementInvokeRequestFailures();
+            metrics.incrementRequestSendingFailures();
 
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
@@ -306,8 +306,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (connectionManager.isStopped()) {
-            metrics.incrementMessageSendFailures();
-
             return failedFuture(new NodeStoppingException());
         }
 
@@ -357,7 +355,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (connectionManager.isStopped()) {
-            metrics.incrementInvokeRequestFailures();
+            metrics.incrementRequestSendingFailures();
 
             return failedFuture(new NodeStoppingException());
         }
@@ -415,8 +413,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
         try {
             descriptors = prepareMarshal(message);
         } catch (Exception e) {
-            metrics.incrementMessageSerializationFailures();
-
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
@@ -424,7 +420,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 .thenComposeToCompletable(sender -> {
                     if (strictIdCheck && nodeId != null && !sender.launchId().equals(nodeId)) {
                         // The destination node has been rebooted, so it's a different node instance.
-                        metrics.incrementMessageSendFailures();
+                        metrics.incrementMessageRecipientNotFound();
 
                         throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
                     }
@@ -436,7 +432,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        metrics.incrementMessageSendFailures();
+                        metrics.incrementMessageTransmitFailures();
                     }
 
                     handleHandshakeError(ex, nodeId, type, addr);
@@ -446,8 +442,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private void handleHandshakeError(Throwable ex, UUID nodeId, ChannelType type, InetSocketAddress addr) {
         if (ex != null) {
             if (hasCause(ex, CriticalHandshakeException.class)) {
-                metrics.incrementConnectionFailures();
-
                 LOG.error(
                         "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
                         nodeId, type, addr, connectionManager.localBindAddress()
@@ -544,7 +538,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
-                metrics.incrementInvokeResponseFailures();
+                metrics.incrementResponseSendingFailures();
 
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
@@ -593,8 +587,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
         try {
             obj.message().unmarshal(marshaller, obj.registry());
         } catch (Exception e) {
-            metrics.incrementMessageDeserializationFailures();
-
             throw new IgniteException(INTERNAL_ERR, "Failed to unmarshal message: " + e.getMessage(), e);
         }
     }
