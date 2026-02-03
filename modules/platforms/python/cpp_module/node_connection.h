@@ -51,17 +51,24 @@ class node_connection final : public std::enable_shared_from_this<node_connectio
 public:
     static constexpr std::int32_t DEFAULT_TIMEOUT_SECONDS = 30;
     static constexpr std::chrono::milliseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
+    static constexpr std::int32_t DEFAULT_PAGE_SIZE = 1024;
+    static constexpr std::int32_t DEFAULT_AUTO_COMMIT = true;
 
-    struct auth_configuration {
-        std::string m_identity;
-        std::string m_secret;
+    struct auth_configuration final {
+        std::string m_identity{};
+        std::string m_secret{};
     };
 
-    struct configuration {
+    struct configuration final {
+        configuration(std::vector<ignite::end_point> addresses, bool autocommit, ssl_config ssl_config)
+            : m_addresses(std::move(addresses))
+            , m_auto_commit(autocommit)
+            , m_ssl_configuration(std::move(ssl_config)) {}
+
         std::vector<ignite::end_point> m_addresses;
-        std::string m_schema;
-        auth_configuration m_auth_configuration;
-        std::int32_t m_page_size;
+        std::string m_schema{};
+        auth_configuration m_auth_configuration{};
+        std::int32_t m_page_size{DEFAULT_PAGE_SIZE};
         std::int32_t m_timeout{DEFAULT_TIMEOUT_SECONDS};
         bool m_auto_commit{true};
         ssl_config m_ssl_configuration;

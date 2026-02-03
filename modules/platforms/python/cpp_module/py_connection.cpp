@@ -200,15 +200,24 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
         return nullptr;
     }
 
-    auto node_connection = std::make_unique<class node_connection>(
-        addresses,
-        schema ? schema : "",
-        identity ? identity : "",
-        secret ? secret : "",
-        page_size ? page_size : 1024,
-        timeout,
-        autocommit,
-        std::move(ssl_cfg));
+    node_connection::configuration cfg{addresses, autocommit, ssl_cfg};
+
+    if (schema)
+        cfg.m_schema = schema;
+
+    if (identity)
+        cfg.m_auth_configuration.m_identity = identity;
+
+    if (secret)
+        cfg.m_auth_configuration.m_secret = secret;
+
+    if (page_size)
+        cfg.m_page_size = page_size;
+
+    if (timeout)
+        cfg.m_page_size = timeout;
+
+    auto node_connection = std::make_unique<class node_connection>(cfg);
 
     try {
         node_connection->establish();
