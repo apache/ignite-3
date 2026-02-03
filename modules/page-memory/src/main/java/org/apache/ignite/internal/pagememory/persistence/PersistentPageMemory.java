@@ -652,7 +652,7 @@ public class PersistentPageMemory implements PageMemory {
 
         seg.readLock().lock();
 
-        boolean pageAcquired = false;
+        boolean waitUntilPageIsFullyInitialized = false;
         long resPointer = -1;
 
         try {
@@ -673,14 +673,14 @@ public class PersistentPageMemory implements PageMemory {
                 seg.pageReplacementPolicy.onHit(relPtr);
 
                 resPointer = absPtr;
-                pageAcquired = true;
+                waitUntilPageIsFullyInitialized = true;
 
                 return absPtr;
             }
         } finally {
             seg.readLock().unlock();
 
-            if (pageAcquired) {
+            if (waitUntilPageIsFullyInitialized) {
                 waitUntilPageIsFullyInitialized(resPointer);
                 metrics.recordPageAcquireTime(System.nanoTime() - startTime);
             }
@@ -785,14 +785,14 @@ public class PersistentPageMemory implements PageMemory {
 
             if (!readPageFromStore) {
                 resPointer = absPtr;
-                pageAcquired = true;
+                waitUntilPageIsFullyInitialized = true;
             }
 
             return absPtr;
         } finally {
             seg.writeLock().unlock();
 
-            if (pageAcquired) {
+            if (waitUntilPageIsFullyInitialized) {
                 waitUntilPageIsFullyInitialized(resPointer);
             }
 
@@ -825,9 +825,7 @@ public class PersistentPageMemory implements PageMemory {
                 }
             }
 
-            if (pageAcquired) {
-                metrics.recordPageAcquireTime(System.nanoTime() - startTime);
-            }
+            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
     }
 
@@ -1048,6 +1046,16 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         return total;
+    }
+
+    /**
+     * Returns the metrics object for this page memory instance.
+     * Provides access to cache hits, misses, replacements, and I/O statistics.
+     *
+     * @return Page memory metrics.
+     */
+    public PersistentPageMemoryMetrics metrics() {
+        return metrics;
     }
 
     /**
