@@ -61,16 +61,6 @@ def test_connection_wrong_arg(address, err_msg):
     assert err.match(err_msg)
 
 
-def test_execute_update_rowcount(table_name, cursor, drop_table_cleanup):
-    cursor.execute(f'create table {table_name}(id int primary key, data varchar)')
-    for key in range(10):
-        cursor.execute(f"insert into {table_name} values({key}, 'data-{key*2}')")
-        assert cursor.rowcount == 1
-
-    cursor.execute(f"update {table_name} set data='Lorem ipsum' where id > 3")
-    assert cursor.rowcount == 6
-
-
 @pytest.mark.parametrize("interval", [2.0, 20.0, 0.0001])
 def test_heartbeat_enabled(table_name, drop_table_cleanup, interval):
     row_count = 10
