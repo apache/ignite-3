@@ -158,13 +158,6 @@ public class Assignments {
     }
 
     /**
-     * Serializes the instance into an array of bytes.
-     */
-    public byte[] toBytes() {
-        return VersionedSerialization.toBytes(this, AssignmentsSerializer.INSTANCE);
-    }
-
-    /**
      * Checks whether the assignments contain an assignment for a node with the given consistent ID, either peer assignment or not.
      *
      * @param consistentId Consistent ID of the node.
@@ -178,6 +171,13 @@ public class Assignments {
         }
 
         return false;
+    }
+
+    /**
+     * Serializes the instance into an array of bytes.
+     */
+    public byte[] toBytes() {
+        return VersionedSerialization.toBytes(this, AssignmentsSerializer.INSTANCE);
     }
 
     /**
