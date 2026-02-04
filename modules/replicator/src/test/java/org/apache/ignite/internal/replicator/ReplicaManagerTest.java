@@ -49,6 +49,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -125,6 +126,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 nodeName,
                 clusterService,
                 cmgManager,
+                mock(MetaStorageManager.class),
                 new TestClockService(clock),
                 Set.of(),
                 placementDriver,

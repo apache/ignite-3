@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-metastorage-api')
     implementation project(':ignite-network-api')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-failure-handler')
@@ -41,6 +42,7 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
 
+    integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-placement-driver-api')
@@ -59,6 +61,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-raft'))
 
     testImplementation libs.awaitility
+    testImplementation project(':ignite-metastorage-api')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
     testImplementation testFixtures(project(':ignite-failure-handler'))

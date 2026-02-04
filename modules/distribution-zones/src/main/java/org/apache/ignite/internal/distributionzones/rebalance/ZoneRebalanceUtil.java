@@ -57,6 +57,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -686,6 +688,7 @@ public class ZoneRebalanceUtil {
      * @param partitionId Partition identifier.
      * @return Pending partition assignments.
      */
+    @TestOnly
     public static CompletableFuture<Set<Assignment>> pendingPartitionAssignments(
             MetaStorageManager metaStorageManager,
             int zoneId,
@@ -796,5 +799,65 @@ public class ZoneRebalanceUtil {
         Entry e = metaStorageManager.getLocally(assignmentsChainKey(zonePartitionId), revision);
 
         return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
+    }
+
+    /**
+     * Checks whether a node is present in stable or pending assignments for a given partition.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zonePartitionId Zone partition id.
+     * @param consistentId Node consistent ID.
+     * @return Future with the result of the check.
+     */
+    public static CompletableFuture<Boolean> isNodeInStableOrPendingAssignments(
+            MetaStorageManager metaStorageManager,
+            ZonePartitionId zonePartitionId,
+            String consistentId
+    ) {
+        return getStableAndPendingAssignments(metaStorageManager, zonePartitionId)
+                .thenApply(t -> {
+                    if (t.get1().contains(consistentId)) {
+                        return true;
+                    }
+
+                    for (Assignments pendingAssignments : t.get2()) {
+                        if (pendingAssignments.contains(consistentId)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                });
+    }
+
+    /**
+     * Returns stable and pending assignments for a given partition.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zonePartitionId Zone partition id.
+     * @return Future with stable and pending assignments.
+     */
+    private static CompletableFuture<IgniteBiTuple<Assignments, AssignmentsQueue>> getStableAndPendingAssignments(
+            MetaStorageManager metaStorageManager,
+            ZonePartitionId zonePartitionId
+    ) {
+        ByteArray stableKey = stablePartAssignmentsKey(zonePartitionId);
+        ByteArray pendingKey = pendingPartAssignmentsQueueKey(zonePartitionId);
+
+        return metaStorageManager.getAll(Set.of(stableKey, pendingKey))
+                .thenApply(entries -> {
+                    Entry stableEntry = entries.get(stableKey);
+                    Entry pendingEntry = entries.get(pendingKey);
+
+                    Assignments stableAssignments = stableEntry != null && !stableEntry.empty() && !stableEntry.tombstone()
+                            ? Assignments.fromBytes(stableEntry.value())
+                            : Assignments.EMPTY;
+
+                    AssignmentsQueue pendingAssignmentsQueue = pendingEntry != null && !pendingEntry.empty() && !pendingEntry.tombstone()
+                            ? AssignmentsQueue.fromBytes(pendingEntry.value())
+                            : AssignmentsQueue.EMPTY;
+
+                    return new IgniteBiTuple<>(stableAssignments, pendingAssignmentsQueue);
+                });
     }
 }

@@ -36,11 +36,13 @@ import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -75,6 +77,7 @@ import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -176,6 +179,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Cluster group manager. */
     private final ClusterManagementGroupManager cmgMgr;
 
+    /** Meta storage manager. */
+    private final MetaStorageManager metaStorageManager;
+
     /** Replica message handler. */
     private final NetworkMessageHandler handler;
 
@@ -237,6 +243,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
+     * @param metaStorageManager Meta storage manager.
      * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
@@ -257,6 +264,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
+            BiFunction<>,
             ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
@@ -274,6 +282,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
+        this.metaStorageManager = metaStorageManager;
         this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
@@ -374,7 +383,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
             if (replicaFut == null || !replicaFut.isDone()) {
-                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp);
+                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp, replicaFut == null);
 
                 return;
             }
@@ -1048,34 +1057,49 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String senderConsistentId,
             long correlationId,
             ReplicationGroupId groupId,
-            @Nullable HybridTimestamp requestTimestamp
+            @Nullable HybridTimestamp requestTimestamp,
+            boolean replicaIsAbsent
     ) {
-        if (requestTimestamp != null) {
-            clusterNetSvc.messagingService().respond(
-                    senderConsistentId,
-                    REPLICA_MESSAGES_FACTORY
-                            .errorTimestampAwareReplicaResponse()
-                            .throwable(
-                                    new ReplicaUnavailableException(
-                                            groupId,
-                                            clusterNetSvc.topologyService().localMember())
-                            )
-                            .timestamp(clockService.updateClock(requestTimestamp))
-                            .build(),
-                    correlationId);
+        CompletableFuture<Boolean> replicaInAssignmentsFuture;
+
+        if (replicaIsAbsent && (groupId instanceof ZonePartitionId)) {
+            replicaInAssignmentsFuture =
+                    isNodeInStableOrPendingAssignments(metaStorageManager, (ZonePartitionId) groupId, localNodeConsistentId);
         } else {
-            clusterNetSvc.messagingService().respond(
-                    senderConsistentId,
-                    REPLICA_MESSAGES_FACTORY
-                            .errorReplicaResponse()
-                            .throwable(
-                                    new ReplicaUnavailableException(
-                                            groupId,
-                                            clusterNetSvc.topologyService().localMember())
-                            )
-                            .build(),
-                    correlationId);
+            replicaInAssignmentsFuture = trueCompletedFuture();
         }
+
+        replicaInAssignmentsFuture.thenAccept(isInAssignments -> {
+            ReplicaUnavailableException e;
+
+            if (replicaIsAbsent && !isInAssignments) {
+                e = new ReplicaUnavailableException(
+                        REPLICA_ABSENT_ERR,
+                        format("Replica is absent on this node and not in assignments [groupId={}, nodeName={}]",
+                                groupId, localNodeConsistentId
+                        )
+                );
+            } else {
+                e = new ReplicaUnavailableException(groupId, clusterNetSvc.topologyService().localMember());
+            }
+
+            NetworkMessage msg;
+
+            if (requestTimestamp != null) {
+                msg = REPLICA_MESSAGES_FACTORY
+                        .errorTimestampAwareReplicaResponse()
+                        .throwable(e)
+                        .timestamp(clockService.updateClock(requestTimestamp))
+                        .build();
+            } else {
+                msg = REPLICA_MESSAGES_FACTORY
+                        .errorReplicaResponse()
+                        .throwable(e)
+                        .build();
+            }
+
+            clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+        });
     }
 
     /**

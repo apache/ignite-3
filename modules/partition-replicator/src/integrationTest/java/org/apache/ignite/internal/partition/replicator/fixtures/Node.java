@@ -641,6 +641,7 @@ public class Node {
                 name,
                 clusterService,
                 cmgManager,
+                metaStorageManager,
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),

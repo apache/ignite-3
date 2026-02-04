@@ -496,6 +496,9 @@ public class ErrorGroups {
 
         /** Replication group unavailable exception code. */
         public static final int GROUP_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Replica is absent on the node and the node is not is assignments for this replica. */
+        public static final int REPLICA_ABSENT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** Storage error group. */

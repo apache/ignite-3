@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static java.util.Collections.emptyList;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
@@ -38,6 +40,9 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class AssignmentsQueue implements Iterable<Assignments> {
+    /** Empty assignments queue. */
+    public static final AssignmentsQueue EMPTY = new AssignmentsQueue(emptyList());
+
     @IgniteToStringInclude
     private final Deque<Assignments> queue;
 
