@@ -111,24 +111,8 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
         }
 
         int computeWorkingSetSize(long capacity) {
-            if (capacity > Long.MAX_VALUE / multiplier) {
-                throw new IllegalArgumentException(String.format(
-                        "Capacity too large: %,d pages with multiplier %.1f would overflow. "
-                                + "Maximum safe capacity: %,d pages",
-                        capacity, multiplier, (long) (Long.MAX_VALUE / multiplier)
-                ));
-            }
-
             long result = Math.round(capacity * multiplier);
-
-            if (result > Integer.MAX_VALUE) {
-                throw new IllegalArgumentException(String.format(
-                        "Working set too large: %,d pages (capacity=%,d, multiplier=%.1f). "
-                                + "Maximum: %,d pages (Integer.MAX_VALUE)",
-                        result, capacity, multiplier, Integer.MAX_VALUE
-                ));
-            }
-
+            assert result <= Integer.MAX_VALUE : "Working set too large: " + result;
             return (int) result;
         }
     }
@@ -284,38 +268,8 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
     }
 
     private void validateConfiguration() {
-        if (PAGE_SIZE != EXPECTED_PAGE_SIZE) {
-            throw new IllegalStateException(String.format(
-                    "Benchmark requires PAGE_SIZE=%,d bytes, got: %,d bytes",
-                    EXPECTED_PAGE_SIZE, PAGE_SIZE
-            ));
-        }
-
-        if (SMALL_REGION_SIZE % PAGE_SIZE != 0) {
-            throw new IllegalStateException(String.format(
-                    "Region size (%,d bytes) must be evenly divisible by page size (%,d bytes)",
-                    SMALL_REGION_SIZE, PAGE_SIZE
-            ));
-        }
-
         regionCapacityPages = SMALL_REGION_SIZE / PAGE_SIZE;
-
-        if (regionCapacityPages <= 0) {
-            throw new IllegalStateException(String.format(
-                    "Invalid region capacity: %,d pages (regionSize=%,d bytes, pageSize=%,d bytes). "
-                            + "Both must be positive and regionSize > pageSize.",
-                    regionCapacityPages, SMALL_REGION_SIZE, PAGE_SIZE
-            ));
-        }
-
         workingSetSize = cachePressure.computeWorkingSetSize(regionCapacityPages);
-
-        if (workingSetSize <= regionCapacityPages) {
-            throw new IllegalStateException(String.format(
-                    "Invalid configuration: working set (%,d pages) must exceed capacity (%,d pages)",
-                    workingSetSize, regionCapacityPages
-            ));
-        }
 
         if (workingSetSize > 10_000_000) {
             throw new IllegalStateException(String.format(
@@ -336,15 +290,7 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
         pageIds = new long[workingSetSize];
 
         // Allocate 80% of capacity at a time to avoid hitting dirty pages limit.
-        long batchSizeLong = Math.round(regionCapacityPages * 0.8);
-        if (batchSizeLong > Integer.MAX_VALUE) {
-            throw new IllegalStateException(String.format(
-                    "Batch size too large: %,d pages exceeds Integer.MAX_VALUE. "
-                            + "Reduce region size or increase batch count.",
-                    batchSizeLong
-            ));
-        }
-        int batchSize = (int) batchSizeLong;
+        int batchSize = (int) Math.round(regionCapacityPages * 0.8);
 
         TestSimpleValuePageIo pageIo = new TestSimpleValuePageIo();
 
@@ -413,16 +359,7 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
     }
 
     private void warmupCache() throws IgniteInternalCheckedException {
-        long warmupPagesLong = Math.round(regionCapacityPages * WARMUP_MULTIPLIER);
-        if (warmupPagesLong > Integer.MAX_VALUE) {
-            throw new IllegalStateException(String.format(
-                    "Warmup page count too large: %,d pages exceeds Integer.MAX_VALUE. "
-                            + "Reduce region size or warmup multiplier.",
-                    warmupPagesLong
-            ));
-        }
-
-        int warmupPages = (int) warmupPagesLong;
+        int warmupPages = (int) Math.round(regionCapacityPages * WARMUP_MULTIPLIER);
         ZipfianDistribution warmupDistribution = new ZipfianDistribution(
                 workingSetSize,
                 ZIPFIAN_SKEW,
