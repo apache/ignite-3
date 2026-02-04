@@ -51,30 +51,15 @@ object PlatformCppOdbcTestsLinux : BuildType({
         }
 
         script {
-            name = "Build Info"
-            workingDir = "%PATH__WORKING_DIR%"
-            scriptContent = """
-                clang --version
-                clang++ --version
-                ulimit -a
-            """.trimIndent()
-        }
-
-//        customGradle {
-//            name = "Verify runner is built"
-//            tasks = ":ignite-runner:integrationTestClasses"
-//        }
-//
-//        customScript(type = "bash") {
-//            name = "Clean Up Remaining Processes"
-//        }
-
-        script {
             name = "Install ODBC and build C++ tests in Rockylinux 8 container"
 //            workingDir = "%PATH__WORKING_DIR%"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
             scriptContent = """
+                clang --version
+                clang++ --version
+                ulimit -a
+
                 rpm -i ignite3-odbc-rpm/*.rpm
                 
                 cd %PATH__IGNITE_DIR%
