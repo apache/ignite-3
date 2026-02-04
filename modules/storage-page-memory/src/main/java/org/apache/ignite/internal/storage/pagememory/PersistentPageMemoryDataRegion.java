@@ -58,6 +58,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
+import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -190,8 +191,6 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 checkpointManager.partitionDestructionLockManager()
         );
 
-        initThrottling(pageMemory);
-
         pageMemory.start();
 
         initMetrics();
@@ -204,7 +203,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         this.pageMemory = pageMemory;
     }
 
-    private static PersistentDataRegionConfiguration regionConfiguration(
+    private PersistentDataRegionConfiguration regionConfiguration(
             PersistentPageMemoryProfileView cfg,
             long sizeBytes,
             int pageSize
@@ -214,29 +213,28 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 .pageSize(pageSize)
                 .size(sizeBytes)
                 .replacementMode(ReplacementMode.valueOf(cfg.replacementMode()))
+                .throttlingPolicyFactory(throttlingPolicyFactory())
                 .build();
     }
 
-    // TODO IGNITE-24933 refactor.
-    private void initThrottling(PersistentPageMemory pageMemory) {
+    private ThrottlingPolicyFactory throttlingPolicyFactory() {
         ThrottlingType throttlingType = getThrottlingType();
 
         switch (throttlingType) {
             case DISABLED:
-                break;
+                return pageMemory -> null;
 
             case TARGET_RATIO:
-                pageMemory.initThrottling(new TargetRatioPagesWriteThrottle(
+                return pageMemory -> new TargetRatioPagesWriteThrottle(
                         getLoggingThreshold(),
                         pageMemory,
                         checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                         metricSource
-                ));
-                break;
+                );
 
             case SPEED_BASED:
-                pageMemory.initThrottling(new PagesWriteSpeedBasedThrottle(
+                return pageMemory -> new PagesWriteSpeedBasedThrottle(
                         getLoggingThreshold(),
                         getMinDirtyPages(),
                         getMaxDirtyPages(),
@@ -244,11 +242,10 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                         checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                         metricSource
-                ));
-                break;
+                );
 
             default:
-                assert false : "Impossible throttling type: " + throttlingType;
+                throw new IllegalArgumentException("Impossible throttling type: " + throttlingType);
         }
     }
 
