@@ -212,9 +212,7 @@ public class VolatilePageMemory implements PageMemory {
             chunks = Arrays.copyOf(chunks, lastIdx + 1);
         }
 
-        if (segments == null) {
-            directMemoryProvider.initialize(chunks);
-        }
+        directMemoryProvider.initialize(chunks);
 
         addSegment(null);
 
