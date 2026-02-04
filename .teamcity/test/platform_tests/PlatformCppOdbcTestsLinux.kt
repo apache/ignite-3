@@ -17,8 +17,6 @@ object PlatformCppOdbcTestsLinux : BuildType({
     name = "Platform C++ ODBC Tests (Linux)"
 
     artifactRules = """
-        %PATH__UNIT_TESTS_RESULT% => test_logs
-        %PATH__CLIENT_TEST_RESULTS% => test_logs
         %PATH__CMAKE_BUILD_DIRECTORY%/core => core_dumps
     """.trimIndent()
 
