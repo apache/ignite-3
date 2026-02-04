@@ -135,14 +135,14 @@ public class PartitionDistributionTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestGetPartitionForKeyAndValue()
+    public async Task TestGetPartitionForFullTuple()
     {
         for (int id = 0; id < 30; id++)
         {
             var partitionKeyOnly = await Table.PartitionDistribution.GetPartitionAsync(GetTuple(id));
-            var partitionKeyValue = await Table.PartitionDistribution.GetPartitionAsync(GetTuple(id, $"value-{id}"));
+            var partitionFullTuple = await Table.PartitionDistribution.GetPartitionAsync(GetTuple(id, $"value-{id}"));
 
-            Assert.AreEqual(partitionKeyOnly, partitionKeyValue);
+            Assert.AreEqual(partitionKeyOnly, partitionFullTuple);
         }
     }
 
