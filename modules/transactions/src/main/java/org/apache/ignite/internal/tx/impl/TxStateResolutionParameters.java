@@ -36,6 +36,8 @@ import org.jetbrains.annotations.Nullable;
 public class TxStateResolutionParameters {
     private final UUID txId;
 
+    private final int tableId;
+
     private final ZonePartitionId commitGroupId;
 
     private final HybridTimestamp readTimestamp;
@@ -58,6 +60,7 @@ public class TxStateResolutionParameters {
 
     private TxStateResolutionParameters(
             UUID txId,
+            int tableId,
             ZonePartitionId commitGroupId,
             HybridTimestamp readTimestamp,
             @Nullable Long senderCurrentConsistencyToken,
@@ -68,6 +71,7 @@ public class TxStateResolutionParameters {
             TimeUnit awaitCommitPartitionAvailabilityTimeUnit
     ) {
         this.txId = txId;
+        this.tableId = tableId;
         this.commitGroupId = commitGroupId;
         this.readTimestamp = readTimestamp;
         this.senderCurrentConsistencyToken = senderCurrentConsistencyToken;
@@ -85,6 +89,15 @@ public class TxStateResolutionParameters {
      */
     public UUID txId() {
         return txId;
+    }
+
+    /**
+     * Table ID.
+     *
+     * @return Table ID.
+     */
+    public int tableId() {
+        return tableId;
     }
 
     /**
@@ -177,6 +190,7 @@ public class TxStateResolutionParameters {
 
     public static class TxStateResolutionTxStateResolutionParametersBuilder {
         private UUID txId;
+        private int tableId;
         private ZonePartitionId commitGroupId;
         private HybridTimestamp readTimestamp = HybridTimestamp.MIN_VALUE;
         private Long senderCurrentConsistencyToken;
@@ -188,6 +202,12 @@ public class TxStateResolutionParameters {
 
         public TxStateResolutionTxStateResolutionParametersBuilder txId(UUID txId) {
             this.txId = txId;
+
+            return this;
+        }
+
+        public TxStateResolutionTxStateResolutionParametersBuilder tableId(int tableId) {
+            this.tableId = tableId;
 
             return this;
         }
@@ -246,6 +266,7 @@ public class TxStateResolutionParameters {
 
             return new TxStateResolutionParameters(
                     txId,
+                    tableId,
                     commitGroupId,
                     readTimestamp,
                     senderCurrentConsistencyToken,

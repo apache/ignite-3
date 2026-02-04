@@ -201,6 +201,8 @@ public class TxMessageSender {
                 TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                         .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, p.commitGroupId()))
                         .txId(p.txId())
+                        .tableId(p.tableId())
+                        .readTimestamp(p.readTimestamp())
                         .enlistmentConsistencyToken(consistencyToken)
                         .senderCurrentConsistencyToken(p.senderCurrentConsistencyToken())
                         .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, p.senderGroupId()))
@@ -257,11 +259,13 @@ public class TxMessageSender {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txStatePrimaryReplicaRequest()
-                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, p.commitGroupId()))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, p.senderGroupId()))
                         .txId(p.txId())
                         .enlistmentConsistencyToken(consistencyToken)
                         .rowId(rowId)
+                        .readTimestamp(p.readTimestamp())
                         .newestCommitTimestamp(p.newestCommitTimestamp())
+                        .tableId(p.tableId())
                         .build()
         );
     }

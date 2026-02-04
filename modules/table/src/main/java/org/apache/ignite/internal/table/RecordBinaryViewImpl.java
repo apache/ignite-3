@@ -451,15 +451,16 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      *
      * @param tx Transaction, if present.
      * @param rec Tuple record.
+     * @param keyOnly Marshal key part only.
      * @return A future, with row as a result.
      */
     @TestOnly
     @VisibleForTesting
-    public CompletableFuture<BinaryRowEx> tupleToBinaryRow(@Nullable Transaction tx, Tuple rec) {
+    public CompletableFuture<BinaryRowEx> tupleToBinaryRow(@Nullable Transaction tx, Tuple rec, boolean keyOnly) {
         Objects.requireNonNull(rec);
 
         return doOperation(tx, schemaVersion -> {
-            Row row = marshal(rec, schemaVersion, false);
+            Row row = marshal(rec, schemaVersion, keyOnly);
 
             return completedFuture(row);
         });

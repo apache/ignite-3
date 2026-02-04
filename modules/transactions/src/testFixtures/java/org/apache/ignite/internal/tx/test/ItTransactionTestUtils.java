@@ -45,7 +45,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.tx.impl.IgniteAbstractTransactionImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -96,13 +96,29 @@ public class ItTransactionTestUtils {
      */
     public static int partitionIdForTuple(IgniteImpl node, String tableName, Tuple tuple, @Nullable Transaction tx) {
         TableImpl table = table(node, tableName);
-        RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
 
-        CompletableFuture<BinaryRowEx> rowFut = view.tupleToBinaryRow(tx, tuple);
-        assertThat(rowFut, willCompleteSuccessfully());
-        BinaryRowEx row = rowFut.join();
+        BinaryRowEx row = tupleToBinaryRow(node, tableName, tuple, tx, false);
 
         return table.internalTable().partitionId(row);
+    }
+
+    /**
+     * Calculate the partition id on which the given tuple would be placed.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @param tuple Data tuple.
+     * @param tx Transaction, if present.
+     * @return Binary row.
+     */
+    public static BinaryRowEx tupleToBinaryRow(IgniteImpl node, String tableName, Tuple tuple, @Nullable Transaction tx, boolean keyOnly) {
+        TableImpl table = table(node, tableName);
+        RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
+
+        CompletableFuture<BinaryRowEx> rowFut = view.tupleToBinaryRow(tx, tuple, keyOnly);
+        assertThat(rowFut, willCompleteSuccessfully());
+
+        return rowFut.join();
     }
 
     /**
@@ -205,7 +221,7 @@ public class ItTransactionTestUtils {
      * @return Transaction id.
      */
     public static UUID txId(Transaction tx) {
-        return ((ReadWriteTransactionImpl) unwrapIgniteTransaction(tx)).id();
+        return ((IgniteAbstractTransactionImpl) unwrapIgniteTransaction(tx)).id();
     }
 
     /**

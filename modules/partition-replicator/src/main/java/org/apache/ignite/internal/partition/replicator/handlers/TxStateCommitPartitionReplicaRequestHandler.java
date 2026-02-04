@@ -106,6 +106,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
 
             return triggerTxRecoveryOnTxStateResolutionIfNeeded(
                     txId,
+                    request.tableId(),
+                    (ZonePartitionId) request.groupId().asReplicationGroupId(),
                     txMeta,
                     request.readTimestamp(),
                     request.senderCurrentConsistencyToken(),
@@ -122,6 +124,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
      * Checks whether tx recovery is needed with given tx meta and triggers it of needed.
      *
      * @param txId Transaction id.
+     * @param tableId Table id.
+     * @param commitGroupId Commit group id.
      * @param txStateMeta Transaction meta.
      * @param readTimestamp If the recovery is triggered by RO transaction, the the read timestamp of that transaction,
      *                     otherwise {@code null}.
@@ -133,6 +137,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
      */
     private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(
             UUID txId,
+            Integer tableId,
+            ZonePartitionId commitGroupId,
             @Nullable TxStateMeta txStateMeta,
             @Nullable HybridTimestamp readTimestamp,
             @Nullable Long senderCurrentConsistencyToken,
@@ -158,6 +164,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                 // both mean primary replica resolution path.
                 return resolveTxStateFromPrimaryReplica(
                         txId,
+                        tableId,
+                        commitGroupId,
                         senderGroupId,
                         senderCurrentConsistencyToken,
                         readTimestamp,
@@ -228,6 +236,8 @@ public class TxStateCommitPartitionReplicaRequestHandler {
 
     private CompletableFuture<TransactionMeta> resolveTxStateFromPrimaryReplica(
             UUID txId,
+            int tableId,
+            ZonePartitionId commitGroupId,
             ZonePartitionId senderGroupId,
             @Nullable Long senderCurrentConsistencyToken,
             @Nullable HybridTimestamp readTimestamp,
@@ -273,7 +283,10 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                         return txMessageSender.resolveTxStateFromPrimaryReplica(
                                 txStateResolutionParameters()
                                         .txId(txId)
+                                        .tableId(tableId)
+                                        .commitGroupId(commitGroupId)
                                         .senderGroupId(senderGroupId)
+                                        .readTimestamp(readTimestamp)
                                         .rowIdAndNewestCommitTimestamp(rowId, newestCommitTimestamp)
                                         .build(),
                                 primaryNode,

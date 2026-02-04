@@ -705,6 +705,18 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return CLUSTER.node(index);
     }
 
+    protected final IgniteImpl anyNode() {
+        return unwrapIgniteImpl(CLUSTER.runningNodes().findAny().orElseThrow());
+    }
+
+    protected final IgniteImpl findNode(Predicate<IgniteImpl> pred) {
+        return CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(pred)
+                .findFirst()
+                .orElseThrow();
+    }
+
     protected static IgniteImpl igniteImpl(int index) {
         return unwrapIgniteImpl(node(index));
     }

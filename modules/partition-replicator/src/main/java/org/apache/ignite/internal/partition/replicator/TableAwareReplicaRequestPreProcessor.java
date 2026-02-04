@@ -34,6 +34,7 @@ import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -90,6 +91,7 @@ public class TableAwareReplicaRequestPreProcessor {
         assert txTs == null
                 ? request instanceof GetEstimatedSizeRequest || request instanceof ScanCloseReplicaRequest
                 || request instanceof BuildIndexReplicaRequest || request instanceof TableWriteIntentSwitchReplicaRequest
+                || request instanceof TxStatePrimaryReplicaRequest
                 : opTs.compareTo(txTs) >= 0 :
                 "Invalid request timestamps [request=" + request + ']';
 

@@ -52,4 +52,6 @@ public interface TxStateCommitPartitionRequest extends PrimaryReplicaRequest {
     @Nullable RowIdMessage rowId();
 
     @Nullable HybridTimestamp newestCommitTimestamp();
+
+    @Nullable Integer tableId();
 }

@@ -2345,69 +2345,73 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             @Nullable HybridTimestamp newestCommitTimestamp,
             HybridTimestamp readTimestamp
     ) {
-        ReadResult anyCommittedAfterReadTs = null;
-        ReadResult wi = null;
+        return mvDataStorage.runConsistently(locker -> {
+            locker.lock(rowId);
 
-        try (Cursor<ReadResult> versions = mvDataStorage.scanVersions(rowId)) {
-            for (ReadResult rr : versions) {
-                if (rr != null && !rr.isEmpty()) {
-                    if (rr.isWriteIntent()) {
-                        wi = rr;
-                    } else {
-                        requireNonNull(rr.commitTimestamp(), "Committed read result must have commit timestamp");
+            ReadResult anyCommittedAfterReadTs = null;
+            ReadResult wi = null;
 
-                        long commitTs = rr.commitTimestamp().longValue();
+            try (Cursor<ReadResult> versions = mvDataStorage.scanVersions(rowId)) {
+                for (ReadResult rr : versions) {
+                    if (rr != null && !rr.isEmpty()) {
+                        if (rr.isWriteIntent()) {
+                            wi = rr;
+                        } else {
+                            requireNonNull(rr.commitTimestamp(), "Committed read result must have commit timestamp");
 
-                        // newestCommitTimestamp comes from requesting replica and is always less than read timestamp (if not null).
-                        if (newestCommitTimestamp == null || commitTs > newestCommitTimestamp.longValue()) {
-                            if (commitTs <= readTimestamp.longValue()) {
-                                // This means, the write intent for this committed version was created before read timestamp,
-                                // and requesting replica has seen it, so this is committed write intent for sought transaction.
-                                // Commit timestamp is checked on the requesting replica.
-                                return builder(COMMITTED).commitTimestamp(rr.commitTimestamp()).build();
-                            } else {
-                                anyCommittedAfterReadTs = rr;
+                            long commitTs = rr.commitTimestamp().longValue();
+
+                            // newestCommitTimestamp comes from requesting replica and is always less than read timestamp (if not null).
+                            if (newestCommitTimestamp == null || commitTs > newestCommitTimestamp.longValue()) {
+                                if (commitTs <= readTimestamp.longValue()) {
+                                    // This means, the write intent for this committed version was created before read timestamp,
+                                    // and requesting replica has seen it, so this is committed write intent for sought transaction.
+                                    // Commit timestamp is checked on the requesting replica.
+                                    return builder(COMMITTED).commitTimestamp(rr.commitTimestamp()).build();
+                                } else {
+                                    anyCommittedAfterReadTs = rr;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        if (wi != null && isWriteIntentBelongingToThisTx(wi, txId)) {
-            return builder(PENDING).build();
-        } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
-            // In this case we can't be sure about anything that happened before read timestamp.
-            throw new OutdatedReadOnlyTransactionInternalException(readTimestamp, lowWatermark.getLowWatermark());
-        } else if (anyCommittedAfterReadTs != null) {
-            // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
-            // contain tx id.
-            // Consider the examples:
-            // Example 1:
-            // - wi created at t1 by tx1
-            // - read ts is t2, backup replica waits for t2
-            // - tx1 is committed at t5, commit ts is t5
-            // - commit write is replicated at t6
-            // - now is t7
-            // - on primary replica, we see committed version with commit ts t5
-            // Example 2:
-            // - wi1 created at t1 by tx1
-            // - read ts is t2, backup replica waits for t2
-            // - tx1 is aborted at t3
-            // - tx2 creates wi2 on primary at t4
-            // - tx2 is committed at t5, commit ts is t5
-            // - commit write is replicated at t6
-            // - now is t7
-            // - on primary replica, we see committed version with commit ts t5
-            // In 1st example tx1 was committed and in 2nd it was aborted but in both examples the state of the storage is the same.
-            // So the state of tx1 is unknown.
-            // However, the write intent should be ignored by the requesting replica because nothing was committed
-            // with commit timestamp less than read timestamp.
-            return txStateMetaUnknown();
-        } else {
-            // These can be only versions known to requesting replica.
-            return builder(ABORTED).build();
-        }
+            if (wi != null && isWriteIntentBelongingToThisTx(wi, txId)) {
+                return builder(PENDING).build();
+            } else if (isReadTimestampOutdated(readTimestamp, newestCommitTimestamp)) {
+                // In this case we can't be sure about anything that happened before read timestamp.
+                throw new OutdatedReadOnlyTransactionInternalException(readTimestamp, lowWatermark.getLowWatermark());
+            } else if (anyCommittedAfterReadTs != null) {
+                // This means that state of the sought transaction is unrecoverable from storage state because committed versions don't
+                // contain tx id.
+                // Consider the examples:
+                // Example 1:
+                // - wi created at t1 by tx1
+                // - read ts is t2, backup replica waits for t2
+                // - tx1 is committed at t5, commit ts is t5
+                // - commit write is replicated at t6
+                // - now is t7
+                // - on primary replica, we see committed version with commit ts t5
+                // Example 2:
+                // - wi1 created at t1 by tx1
+                // - read ts is t2, backup replica waits for t2
+                // - tx1 is aborted at t3
+                // - tx2 creates wi2 on primary at t4
+                // - tx2 is committed at t5, commit ts is t5
+                // - commit write is replicated at t6
+                // - now is t7
+                // - on primary replica, we see committed version with commit ts t5
+                // In 1st example tx1 was committed and in 2nd it was aborted but in both examples the state of the storage is the same.
+                // So the state of tx1 is unknown.
+                // However, the write intent should be ignored by the requesting replica because nothing was committed
+                // with commit timestamp less than read timestamp.
+                return txStateMetaUnknown();
+            } else {
+                // These can be only versions known to requesting replica.
+                return builder(ABORTED).build();
+            }
+        });
     }
 
     private static <T> boolean allElementsAreNull(List<T> list) {
@@ -3484,6 +3488,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         return transactionStateResolver.resolveTxState(
                         txStateResolutionParameters()
                                 .txId(txId)
+                                .tableId(tableId)
                                 .commitGroupId(new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()))
                                 .readTimestamp(timestamp)
                                 .senderGroupId(replicationGroupId)

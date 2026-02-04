@@ -152,6 +152,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
                 txStateResolutionParameters()
                         .txId(txId)
+                        .tableId(1)
                         .commitGroupId(commitPartitionId)
                         .readTimestamp(timestamp)
                         .senderGroupId(commitPartitionId)
@@ -208,6 +209,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
                 txStateResolutionParameters()
                         .txId(txId)
+                        .tableId(1)
                         .commitGroupId(commitPartitionId)
                         .readTimestamp(timestamp)
                         .senderGroupId(commitPartitionId)
@@ -263,6 +265,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
                 txStateResolutionParameters()
                         .txId(txId)
+                        .tableId(1)
                         .commitGroupId(commitPartitionId)
                         .readTimestamp(timestamp)
                         .senderGroupId(commitPartitionId)
