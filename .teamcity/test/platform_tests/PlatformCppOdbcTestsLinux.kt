@@ -58,6 +58,11 @@ object PlatformCppOdbcTestsLinux : BuildType({
             """.trimIndent()
         }
 
+        customGradle {
+            name = "Verify runner is built"
+            tasks = ":ignite-runner:integrationTestClasses"
+        }
+
         script {
             name = "Install ODBC and build C++ tests in Rockylinux 8 container"
 //            workingDir = "%PATH__WORKING_DIR%"
