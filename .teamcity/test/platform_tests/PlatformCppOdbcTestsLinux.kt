@@ -54,8 +54,9 @@ object PlatformCppOdbcTestsLinux : BuildType({
             name = "Build Info"
             workingDir = "%PATH__WORKING_DIR%"
             scriptContent = """
-                gcc --version || exit 0
-                g++ --version || exit 0
+                clang --version
+                clang++ --version
+                ulimit -a
             """.trimIndent()
         }
 
