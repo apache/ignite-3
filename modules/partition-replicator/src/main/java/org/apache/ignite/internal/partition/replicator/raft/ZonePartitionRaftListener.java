@@ -409,6 +409,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onShutdownInitiated() {
+        LOG.info("onShutdownInitiated for {}", partitionKey.toReplicationGroupId());
         replicaStoppingState.markReplicaStopping();
     }
 

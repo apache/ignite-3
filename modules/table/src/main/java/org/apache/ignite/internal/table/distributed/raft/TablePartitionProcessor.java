@@ -410,15 +410,15 @@ public class TablePartitionProcessor implements RaftTableProcessor {
                 CompatibilityValidationResult validationResult = future.get(SCHEMA_VALIDATION_WAIT_DURATION_MS, MILLISECONDS);
                 return validationResult.isSuccessful() ? null : validationResult;
             } catch (TimeoutException e) {
-                LOG.info("XXX Timeout while waiting for schema validation to complete.");
+                LOG.info("XXX Timeout while waiting for schema validation to complete [groupId={}].", realReplicationGroupId);
 
                 if (replicaStoppingState.isReplicaStopping()) {
                     // Breaking the wait if we need to stop.
-                    LOG.info("XXX Replica is stopping, breaking the wait.");
+                    LOG.info("XXX Replica is stopping, breaking the wait {}.", realReplicationGroupId);
                     throw new ShutdownException();
                 }
 
-                LOG.info("XXX Replica is NOT stopping, let's continue waiting.");
+                LOG.info("XXX Replica is NOT stopping, let's continue waiting {}.", realReplicationGroupId);
 
                 // Else, just go to another iteration of wait.
             } catch (InterruptedException e) {
