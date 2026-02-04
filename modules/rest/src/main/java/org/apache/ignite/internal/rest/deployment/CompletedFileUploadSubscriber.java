@@ -76,18 +76,19 @@ class CompletedFileUploadSubscriber implements Subscriber<CompletedFileUpload> {
         if (ex != null) {
             result.completeExceptionally(ex);
         } else {
-            try {
-                DeploymentUnit deploymentUnit = collector.toDeploymentUnit();
-                result.complete(deploymentUnit);
-            } catch (Exception e) {
-                suppressException(e);
-                try {
-                    collector.rollback();
-                } catch (Exception e2) {
-                    suppressException(e2);
+            collector.toDeploymentUnit().whenComplete((deploymentUnit, throwable) -> {
+                if (throwable != null) {
+                    suppressException(throwable);
+                    try {
+                        collector.rollback();
+                    } catch (Exception e2) {
+                        suppressException(e2);
+                    }
+                    result.completeExceptionally(ex);
+                } else {
+                    result.complete(deploymentUnit);
                 }
-                result.completeExceptionally(ex);
-            }
+            });
         }
     }
 

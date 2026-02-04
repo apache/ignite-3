@@ -98,6 +98,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedDirtyPageWrite;
 import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedPageReplacementTracker;
+import org.apache.ignite.internal.pagememory.persistence.replacement.MeteredPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicy;
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicyFactory;
@@ -198,7 +199,7 @@ public class PersistentPageMemory implements PageMemory {
     private volatile @Nullable PagePool checkpointPool;
 
     /** Pages write throttle. */
-    private volatile @Nullable PagesWriteThrottlePolicy writeThrottle;
+    private final @Nullable PagesWriteThrottlePolicy writeThrottle;
 
     /**
      * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
@@ -250,27 +251,13 @@ public class PersistentPageMemory implements PageMemory {
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
         this.rwLock = rwLock;
+        metrics = new PersistentPageMemoryMetrics(metricSource, this, dataRegionConfiguration);
 
         ReplacementMode replacementMode = this.dataRegionConfiguration.replacementMode();
-
-        switch (replacementMode) {
-            case RANDOM_LRU:
-                pageReplacementPolicyFactory = new RandomLruPageReplacementPolicyFactory();
-
-                break;
-            case SEGMENTED_LRU:
-                pageReplacementPolicyFactory = new SegmentedLruPageReplacementPolicyFactory();
-
-                break;
-            case CLOCK:
-                pageReplacementPolicyFactory = new ClockPageReplacementPolicyFactory();
-
-                break;
-            default:
-                throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
-        }
-
-        metrics = new PersistentPageMemoryMetrics(metricSource, this, dataRegionConfiguration);
+        this.pageReplacementPolicyFactory = new MeteredPageReplacementPolicyFactory(
+                metrics,
+                pickPageReplacementPolicyFactory(replacementMode)
+        );
 
         delayedPageReplacementTracker = new DelayedPageReplacementTracker(
                 pageSize,
@@ -284,17 +271,22 @@ public class PersistentPageMemory implements PageMemory {
                 partitionDestructionLockManager
         );
 
-        this.writeThrottle = null;
+        // This is the last statement in the constructor, the `this` leak is fine.
+        //noinspection ThisEscapedInObjectConstruction
+        this.writeThrottle = dataRegionConfiguration.throttlingPolicyFactory().createThrottlingPolicy(this);
     }
 
-    /**
-     * Temporary method to enable throttling in tests.
-     *
-     * @param writeThrottle Page write throttling instance.
-     */
-    // TODO IGNITE-24933 Remove this method.
-    public void initThrottling(PagesWriteThrottlePolicy writeThrottle) {
-        this.writeThrottle = writeThrottle;
+    private static PageReplacementPolicyFactory pickPageReplacementPolicyFactory(ReplacementMode replacementMode) {
+        switch (replacementMode) {
+            case RANDOM_LRU:
+                return new RandomLruPageReplacementPolicyFactory();
+            case SEGMENTED_LRU:
+                return new SegmentedLruPageReplacementPolicyFactory();
+            case CLOCK:
+                return new ClockPageReplacementPolicyFactory();
+            default:
+                throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
+        }
     }
 
     /** {@inheritDoc} */
@@ -644,6 +636,8 @@ public class PersistentPageMemory implements PageMemory {
                 grpId, hexLong(pageId)
         );
 
+        long startTime = System.nanoTime();
+
         FullPageId fullId = new FullPageId(pageId, grpId);
 
         Segment seg = segment(grpId, pageId);
@@ -680,6 +674,7 @@ public class PersistentPageMemory implements PageMemory {
 
             if (waitUntilPageIsFullyInitialized) {
                 waitUntilPageIsFullyInitialized(resPointer);
+                metrics.recordPageAcquireTime(System.nanoTime() - startTime);
             }
         }
 
@@ -821,6 +816,8 @@ public class PersistentPageMemory implements PageMemory {
                     headerIsValid(lockedPageAbsPtr, true);
                 }
             }
+
+            metrics.recordPageAcquireTime(System.nanoTime() - startTime);
         }
     }
 
@@ -1008,10 +1005,6 @@ public class PersistentPageMemory implements PageMemory {
 
         if (segments != null) {
             for (Segment seg : segments) {
-                if (seg == null) {
-                    break;
-                }
-
                 seg.readLock().lock();
 
                 try {
@@ -1027,6 +1020,34 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         return total;
+    }
+
+    /**
+     * Returns the count of dirty pages across all segments.
+     */
+    public long dirtyPagesCount() {
+        Segment[] segments = this.segments;
+        if (segments == null) {
+            return 0;
+        }
+
+        long total = 0;
+
+        for (Segment seg : segments) {
+            total += seg.dirtyPagesCntr.get();
+        }
+
+        return total;
+    }
+
+    /**
+     * Returns the metrics object for this page memory instance.
+     * Provides access to cache hits, misses, replacements, and I/O statistics.
+     *
+     * @return Page memory metrics.
+     */
+    public PersistentPageMemoryMetrics metrics() {
+        return metrics;
     }
 
     /**

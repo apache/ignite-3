@@ -169,17 +169,19 @@ compileJava {
     source generatedClientDir.get().dir('src/main/java')
 }
 
+def completionScriptFile = layout.buildDirectory.file('ignite3_completion.sh')
+
 def generateAutocompletionScript = tasks.register('generateAutocompletionScript', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set("picocli.AutoComplete")
     systemProperty("picocli.autocomplete.systemExitOnError", "")
     args = ["--force",
             "--completionScript",
-            "${buildDir}/ignite_completion.sh",
+            completionScriptFile.get().asFile.path,
             "-n",
             "ignite3",
             "org.apache.ignite.internal.cli.commands.TopLevelCliCommand"]
-    outputs.file "${buildDir}/ignite_completion.sh"
+    outputs.file completionScriptFile
 }
 
 build.dependsOn generateAutocompletionScript
@@ -192,7 +194,7 @@ configurations {
 }
 
 artifacts {
-    cliScripts(new File("${buildDir}/ignite_completion.sh")) {
+    cliScripts(completionScriptFile) {
         builtBy(generateAutocompletionScript)
     }
 }
