@@ -182,7 +182,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
         filePageStoreManager.start();
         checkpointManager.start();
-        pageMemory.start();
         metricSet = metricSource.enable();
 
         createPartitionFilePageStoresIfMissing();

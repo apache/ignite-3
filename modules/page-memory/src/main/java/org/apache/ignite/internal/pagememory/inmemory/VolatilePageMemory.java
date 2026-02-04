@@ -182,7 +182,6 @@ public class VolatilePageMemory implements PageMemory {
         this.rwLock = rwLock;
     }
 
-    @Override
     public void start() throws IgniteInternalException {
         synchronized (segmentsLock) {
             if (started) {

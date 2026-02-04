@@ -191,8 +191,6 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 checkpointManager.partitionDestructionLockManager()
         );
 
-        pageMemory.start();
-
         initMetrics();
 
         metricManager.registerSource(metricSource);

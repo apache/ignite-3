@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
-import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
@@ -51,7 +50,7 @@ public class VolatilePageMemoryNoLoadSelfTest extends AbstractPageMemoryNoLoadSe
 
     @Test
     public void testLoadedPagesCount() {
-        PageMemory mem = memory();
+        VolatilePageMemory mem = memory();
 
         mem.start();
 
