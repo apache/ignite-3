@@ -26,7 +26,6 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
@@ -47,11 +46,6 @@ class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestInteg
     @Override
     protected int initialNodes() {
         return 1;
-    }
-
-    @Override
-    protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
     }
 
     @Test
