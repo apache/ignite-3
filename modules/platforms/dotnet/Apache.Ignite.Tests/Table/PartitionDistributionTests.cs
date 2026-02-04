@@ -130,7 +130,19 @@ public class PartitionDistributionTests : IgniteTestsBase
             var partitionJobExec = await Client.Compute.SubmitAsync(jobTarget, JavaJobs.PartitionJob, id);
             var expectedPartition = await partitionJobExec.GetResultAsync();
 
-            Assert.AreEqual(expectedPartition, ((HashPartition)partition).Id);
+            Assert.AreEqual(expectedPartition, partition.Id);
+        }
+    }
+
+    [Test]
+    public async Task TestGetPartitionForKeyAndValue()
+    {
+        for (int id = 0; id < 30; id++)
+        {
+            var partitionKeyOnly = await Table.PartitionDistribution.GetPartitionAsync(GetTuple(id));
+            var partitionKeyValue = await Table.PartitionDistribution.GetPartitionAsync(GetTuple(id, $"value-{id}"));
+
+            Assert.AreEqual(partitionKeyOnly, partitionKeyValue);
         }
     }
 
