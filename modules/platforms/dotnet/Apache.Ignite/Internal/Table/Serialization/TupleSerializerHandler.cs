@@ -114,15 +114,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(record, schema, columns.Length, written);
+            ValidateMappedCount(record, schema, columns.Length, written, keyOnly);
         }
 
-        private static void ValidateMappedCount(IIgniteTuple record, Schema schema, int columnCount, int written)
+        private static void ValidateMappedCount(IIgniteTuple record, Schema schema, int columnCount, int written, bool keyOnly)
         {
             if (written == 0)
             {
                 var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
                 throw new ArgumentException($"Can't map '{record}' to columns '{columnStr}'. Matching fields not found.");
+            }
+
+            if (keyOnly && written == schema.KeyColumns.Length)
+            {
+                return;
             }
 
             if (record.FieldCount > written)
@@ -142,8 +147,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     extraColumns.Remove(schema.Columns[i].Name);
                 }
-
-                throw SerializerExceptionExtensions.GetUnmappedColumnsException("Tuple", schema, extraColumns);
             }
         }
     }
