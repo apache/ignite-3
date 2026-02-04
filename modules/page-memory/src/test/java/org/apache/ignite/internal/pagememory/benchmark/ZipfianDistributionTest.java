@@ -20,6 +20,7 @@ package org.apache.ignite.internal.pagememory.benchmark;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,7 +50,7 @@ class ZipfianDistributionTest {
         for (int i = 0; i < itemCount; i++) {
             sortedIndices[i] = i;
         }
-        java.util.Arrays.sort(sortedIndices, (a, b) -> Integer.compare(accessCounts[b], accessCounts[a]));
+        Arrays.sort(sortedIndices, (a, b) -> Integer.compare(accessCounts[b], accessCounts[a]));
 
         // Count accesses to top 20% of items
         int top20Count = itemCount / 5;  // 2000 items
