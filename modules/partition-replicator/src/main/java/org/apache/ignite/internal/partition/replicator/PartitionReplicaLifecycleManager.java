@@ -1767,6 +1767,8 @@ public class PartitionReplicaLifecycleManager extends
 
         // Not using the busy lock here, because this method is called on component stop.
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
+            LOG.info("Took lock in stopPartitionInternal [id={}].", zonePartitionId);
+
             var eventParameters = new LocalPartitionReplicaEventParameters(zonePartitionId, eventRevision, false);
 
             return fireEvent(beforeReplicaStoppedEvent, eventParameters)
