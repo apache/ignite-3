@@ -52,8 +52,6 @@ public class VolatilePageMemoryNoLoadSelfTest extends AbstractPageMemoryNoLoadSe
     public void testLoadedPagesCount() {
         VolatilePageMemory mem = memory();
 
-        mem.start();
-
         int expPages = MAX_MEMORY_SIZE / mem.systemPageSize();
 
         try {
