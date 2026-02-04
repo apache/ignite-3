@@ -31,6 +31,7 @@ object PlatformCppTestsLinux : BuildType({
         text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.CPP_STAGING", "/tmp/cpp_staging")
     }
+
     steps {
         script {
             name = "Build Info"
