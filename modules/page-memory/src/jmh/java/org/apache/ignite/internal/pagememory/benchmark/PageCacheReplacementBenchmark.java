@@ -44,6 +44,9 @@ import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.infra.ThreadParams;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
  * Benchmark for page cache replacement policies (CLOCK, SEGMENTED_LRU, RANDOM_LRU).
@@ -477,5 +480,14 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
         } finally {
             persistentPageMemory.readUnlock(GROUP_ID, pageId, page);
         }
+    }
+
+    /** Run benchmark from IDE or command line. */
+    public static void main(String[] args) throws Exception {
+        Options opts = new OptionsBuilder()
+                .include(PageCacheReplacementBenchmark.class.getSimpleName())
+                .build();
+
+        new Runner(opts).run();
     }
 }
