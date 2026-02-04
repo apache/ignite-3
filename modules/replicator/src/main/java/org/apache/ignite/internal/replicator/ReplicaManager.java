@@ -77,7 +77,6 @@ import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -179,8 +178,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Cluster group manager. */
     private final ClusterManagementGroupManager cmgMgr;
 
-    /** Meta storage manager. */
-    private final MetaStorageManager metaStorageManager;
+    /** Supplier of stable assingments, used for replica absence handling. */
+    private final Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier;
 
     /** Replica message handler. */
     private final NetworkMessageHandler handler;
@@ -243,7 +242,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
-     * @param metaStorageManager Meta storage manager.
+     * @param stableAssignmentsSupplier Supplier of stable assignments.
      * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
@@ -264,7 +263,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
-            BiFunction<>,
+            Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier,
             ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
@@ -282,7 +281,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
-        this.metaStorageManager = metaStorageManager;
+        this.stableAssignmentsSupplier = stableAssignmentsSupplier;
         this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
@@ -1063,8 +1062,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<Boolean> replicaInAssignmentsFuture;
 
         if (replicaIsAbsent && (groupId instanceof ZonePartitionId)) {
-            replicaInAssignmentsFuture =
-                    isNodeInStableOrPendingAssignments(metaStorageManager, (ZonePartitionId) groupId, localNodeConsistentId);
+            replicaInAssignmentsFuture = stableAssignmentsSupplier.apply((ZonePartitionId) groupId)
+                    .thenApply(assignments -> assignments.contains(localNodeConsistentId));
         } else {
             replicaInAssignmentsFuture = trueCompletedFuture();
         }
@@ -1098,6 +1097,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         .build();
             }
 
+            System.out.println("qqq 2 " + System.identityHashCode(clusterNetSvc.messagingService()));
             clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
         });
     }
