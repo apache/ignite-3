@@ -54,7 +54,7 @@ object PlatformCppOdbcTestsLinux : BuildType({
             name = "Install ODBC and build C++ tests in Rockylinux 8 container"
 //            workingDir = "%PATH__WORKING_DIR%"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
-            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
             scriptContent = """
                 clang --version
                 clang++ --version
