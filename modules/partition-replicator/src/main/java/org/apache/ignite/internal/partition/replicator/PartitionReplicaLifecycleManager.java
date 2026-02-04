@@ -95,6 +95,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -1762,6 +1763,8 @@ public class PartitionReplicaLifecycleManager extends
             long eventRevision,
             Consumer<Boolean> afterReplicaStopAction
     ) {
+        LOG.info("Entered stopPartitionInternal [id={}].", zonePartitionId);
+
         // Not using the busy lock here, because this method is called on component stop.
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             var eventParameters = new LocalPartitionReplicaEventParameters(zonePartitionId, eventRevision, false);
@@ -1807,7 +1810,12 @@ public class PartitionReplicaLifecycleManager extends
      * @param partitionIds Partitions to stop.
      */
     private void cleanUpPartitionsResources(Stream<ZonePartitionId> partitionIds) {
-        CompletableFuture<?>[] stopPartitionsFuture = partitionIds
+        List<ZonePartitionId> ids = partitionIds.collect(Collectors.toUnmodifiableList());
+        Stream<ZonePartitionId> partitionIds1 = ids.stream();
+
+        LOG.info("Cleaning up zone partitions resources [ids={}].", ids);
+
+        CompletableFuture<?>[] stopPartitionsFuture = partitionIds1
                 .map(zonePartitionId -> stopPartitionInternal(
                         zonePartitionId,
                         BEFORE_REPLICA_STOPPED,
@@ -1823,7 +1831,7 @@ public class PartitionReplicaLifecycleManager extends
             delayedExecutor(30, TimeUnit.SECONDS, Runnable::run)
                     .execute(() -> {
                         if (!fut.isDone()) {
-                            printPartitionState(partitionIds);
+                            printPartitionState(partitionIds1);
                         }
                     });
 
