@@ -15,6 +15,7 @@ object Project : Project({
 
     listOf(
         PlatformCppTestsLinux,
+        PlatformCppOdbcTestsLinux,
         PlatformDotnetTestsLinux,
         PlatformPythonTestsLinux
     ).forEach {
