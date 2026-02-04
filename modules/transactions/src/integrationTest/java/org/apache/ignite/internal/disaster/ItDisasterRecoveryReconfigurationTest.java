@@ -806,9 +806,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 1, 3, 4);
 
-        stopNodesInParallel(3, 4);
+        stopNodesInParallel(2, 3, 4);
 
-        waitForScale(node0, 3);
+        waitForScale(node0, 2);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
@@ -817,18 +817,20 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
-        assertRealAssignments(node0, partId, 1);
+        assertRealAssignments(node0, partId, 0, 1);
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
+        awaitStableContainsNodes(node0, partId, 0, 1);
         // Check that there is no ongoing or planned rebalance.
         assertNull(getPendingAssignments(node0, partId));
 
-        assertRealAssignments(node0, partId, 1);
+        assertRealAssignments(node0, partId, 0, 1);
 
         // No fromReset flag is set on stable.
         Assignments assignmentsStable = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name())
         ), timestamp);
 
@@ -2054,6 +2056,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // The reset selects the node with the highest raft log index (or lexicographically first on tie).
         await().atMost(60, SECONDS)
                 .until(() -> getStableAssignments(node0, partId).nodes().size() == 1);
+    }
+
+    private void awaitStableContainsNodes(IgniteImpl node0, int partId, Integer ... expected) {
+        await().atMost(60, SECONDS)
+                .until(() -> requireNonNull(getStableAssignments(node0, partId)).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toList()).equals(
+                                Arrays.stream(expected).map(idx -> cluster.nodeName(idx)).collect(Collectors.toList())
+                        ));
     }
 
     /**
