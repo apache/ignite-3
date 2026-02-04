@@ -140,6 +140,7 @@ import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -702,7 +703,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 new TestLowWatermark(),
                 COMMON_SCHEDULER,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                new TransactionMetricsSource(CLOCK_SERVICE)
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

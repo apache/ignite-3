@@ -116,6 +116,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -224,7 +225,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 transactionInflights,
                 new TestLowWatermark(),
                 commonExecutor,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                new TransactionMetricsSource(clockService)
         ) {
             @Override
             public CompletableFuture<Void> finish(

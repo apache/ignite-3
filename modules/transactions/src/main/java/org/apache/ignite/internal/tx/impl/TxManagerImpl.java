@@ -258,6 +258,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
      * @param metricManager Metric manager.
+     * @param txMetrics Transaction metrics source.
      */
     @TestOnly
     public TxManagerImpl(
@@ -276,7 +277,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TransactionMetricsSource txMetrics
     ) {
         this(
                 clusterService.nodeName(),
@@ -298,7 +300,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 lowWatermark,
                 commonScheduler,
                 new FailureManager(new NoOpFailureHandler()),
-                metricManager
+                metricManager,
+                txMetrics
         );
     }
 
@@ -343,7 +346,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
             FailureProcessor failureProcessor,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TransactionMetricsSource txMetrics
     ) {
         this.txConfig = txConfig;
         this.systemCfg = systemCfg;
@@ -365,6 +369,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
         this.metricsManager = metricManager;
+        this.txMetrics = txMetrics;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -408,12 +413,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 commonScheduler
         );
 
-        txMetrics = new TransactionMetricsSource(clockService);
-    }
-
-    @Override
-    public void setPendingWriteIntentsSupplier(@Nullable LongSupplier supplier) {
-        txMetrics.setPendingWriteIntentsSupplier(supplier);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(

@@ -228,6 +228,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -631,6 +632,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.commonScheduler()
         );
 
+        TransactionMetricsSource txMetrics = new TransactionMetricsSource(clockService);
+
         var txManager = new TxManagerImpl(
                 name,
                 txConfiguration,
@@ -651,7 +654,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureProcessor,
-                metricManager
+                metricManager,
+                txMetrics
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
@@ -790,6 +794,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lockManager,
                 replicaService,
                 txManager,
+                txMetrics,
                 dataStorageManager,
                 sharedTxStateStorage,
                 metaStorageMgr,

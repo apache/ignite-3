@@ -23,7 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -37,16 +36,6 @@ import org.jetbrains.annotations.TestOnly;
  * A transaction manager.
  */
 public interface TxManager extends IgniteComponent {
-    /**
-     * Sets a supplier of the total number of unresolved (uncommitted) write intents local to this node.
-     *
-     * <p>The value is exposed via {@code transactions.pendingWriteIntents} metric
-     * (see {@link org.apache.ignite.internal.tx.metrics.TransactionMetricsSource}).
-     *
-     * @param supplier Supplier, or {@code null} to reset to default (always returns {@code 0}).
-     */
-    void setPendingWriteIntentsSupplier(@Nullable LongSupplier supplier);
-
     /**
      * Starts an implicit read-write transaction coordinated by a local node.
      *

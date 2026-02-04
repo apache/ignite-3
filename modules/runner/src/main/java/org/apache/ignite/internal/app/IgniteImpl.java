@@ -287,6 +287,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -1048,6 +1049,8 @@ public class IgniteImpl implements Ignite {
         LockManager lockMgr = new HeapLockManager(systemConfiguration, txStateVolatileStorage);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
+        TransactionMetricsSource txMetrics = new TransactionMetricsSource(clockService);
+
         txManager = new TxManagerImpl(
                 name,
                 txConfig,
@@ -1068,7 +1071,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureManager,
-                metricManager
+                metricManager,
+                txMetrics
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -1135,6 +1139,7 @@ public class IgniteImpl implements Ignite {
                 lockMgr,
                 replicaSvc,
                 txManager,
+                txMetrics,
                 dataStorageMgr,
                 sharedTxStateStorage,
                 metaStorageMgr,
