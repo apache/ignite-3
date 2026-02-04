@@ -147,6 +147,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     extraColumns.Remove(schema.Columns[i].Name);
                 }
+
+                throw SerializerExceptionExtensions.GetUnmappedColumnsException("Tuple", schema, extraColumns);
             }
         }
     }
