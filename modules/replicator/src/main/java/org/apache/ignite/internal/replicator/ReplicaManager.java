@@ -1074,8 +1074,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             if (replicaIsAbsent && !isInAssignments) {
                 e = new ReplicaUnavailableException(
                         REPLICA_ABSENT_ERR,
-                        format("Replica is absent on this node and not in assignments [groupId={}, nodeName={}]",
-                                groupId, localNodeConsistentId
+                        format("Replica is absent on this node and not in assignments, the request should be retried on another node "
+                                        + "[groupId={}, nodeName={}]", groupId, localNodeConsistentId
                         )
                 );
             } else {
@@ -1217,7 +1217,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         ComponentStoppingException.class,
                         // Not a problem, there will be a retry.
                         TimeoutException.class,
-                        GroupOverloadedException.class
+                        GroupOverloadedException.class,
+                        ReplicaUnavailableException.class
                 )) {
                     failureProcessor.process(
                             new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
