@@ -31,7 +31,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
-import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -106,7 +105,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
 
             TransactionResult result = new TransactionResult(stateToSet, command.commitTimestamp());
 
-            return new CommandResult(new FinishTxCommandResult(true, result), true);
+            return new CommandResult(result, true);
         }
 
         assert txMetaBeforeCas != null : "txMetaBeforeCas is null, but CAS has failed for " + txId;
@@ -115,7 +114,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
 
         logTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
 
-        return new CommandResult(new FinishTxCommandResult(false, existingResult), false);
+        return new CommandResult(existingResult, false);
     }
 
     private static List<EnlistedPartitionGroup> fromPartitionMessages(List<EnlistedPartitionGroupMessage> messages) {

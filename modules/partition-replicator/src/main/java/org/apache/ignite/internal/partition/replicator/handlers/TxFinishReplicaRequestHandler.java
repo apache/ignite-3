@@ -46,7 +46,6 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2Builder;
-import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandResult;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
@@ -287,12 +286,11 @@ public class TxFinishReplicaRequestHandler {
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
-                    FinishTxCommandResult finishResult = (FinishTxCommandResult) txOutcome;
-                    TransactionResult result = finishResult.transactionResult();
+                    TransactionResult result = (TransactionResult) txOutcome;
 
                     replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
 
-                    if (!finishResult.wasApplied() && commit != (result.transactionState() == COMMITTED)) {
+                    if (commit != (result.transactionState() == COMMITTED)) {
                         throw new MismatchingTransactionOutcomeInternalException(
                                 format("Failed to change the outcome of a finished transaction [{}, txState={}].",
                                         formatTxInfo(txId, txManager, false),

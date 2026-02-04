@@ -34,7 +34,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.partition.replicator.raft.FinishTxCommandResult;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -112,9 +111,8 @@ class TxFinishReplicaRequestHandlerTest extends BaseIgniteAbstractTest {
         when(txStatePartitionStorage.get(txId)).thenReturn(null);
 
         TransactionResult committedResult = new TransactionResult(TxState.COMMITTED, now);
-        FinishTxCommandResult finishResult = new FinishTxCommandResult(false, committedResult);
 
-        when(raftCommandRunner.run(any())).thenReturn(completedFuture(finishResult));
+        when(raftCommandRunner.run(any())).thenReturn(completedFuture(committedResult));
 
         TxFinishReplicaRequest request = txMessagesFactory.txFinishReplicaRequest()
                 .groupId(toZonePartitionIdMessage(replicaMessagesFactory, replicationGroupId))
