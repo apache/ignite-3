@@ -26,6 +26,7 @@ object PlatformCppOdbcTestsLinux : BuildType({
         param("PATH__CMAKE_BUILD_DIRECTORY_DOCKER", "%PATH__WORKING_DIR%/cmake-build-debug-docker")
         param("PATH__ODBC_TEST_RESULTS", "%PATH__WORKING_DIR%/odbc_tests_results.xml")
         text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        text("PATH__IGNITE_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.CPP_STAGING", "/tmp/cpp_staging")
         param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
     }
@@ -58,14 +59,14 @@ object PlatformCppOdbcTestsLinux : BuildType({
             """.trimIndent()
         }
 
-        customGradle {
-            name = "Verify runner is built"
-            tasks = ":ignite-runner:integrationTestClasses"
-        }
-
-        customScript(type = "bash") {
-            name = "Clean Up Remaining Processes"
-        }
+//        customGradle {
+//            name = "Verify runner is built"
+//            tasks = ":ignite-runner:integrationTestClasses"
+//        }
+//
+//        customScript(type = "bash") {
+//            name = "Clean Up Remaining Processes"
+//        }
 
         script {
             name = "Install ODBC and build C++ tests in Rockylinux 8 container"
@@ -75,6 +76,8 @@ object PlatformCppOdbcTestsLinux : BuildType({
             scriptContent = """
                 rpm -i ignite3-odbc-rpm/*.rpm
                 
+                cd %PATH__IGNITE_DIR%
+                ./gradlew :ignite-runner:integrationTestClasses
                 mkdir %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 2
                 cd %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 3
 
