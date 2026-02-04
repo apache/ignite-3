@@ -184,7 +184,6 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         );
 
         pageStoreManager.start();
-        pageMemory.start();
 
         dataRegion = new TestDataRegion<>(pageMemory);
         dataRegions.add(dataRegion);
