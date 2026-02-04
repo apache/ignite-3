@@ -63,6 +63,10 @@ object PlatformCppOdbcTestsLinux : BuildType({
             tasks = ":ignite-runner:integrationTestClasses"
         }
 
+        customScript(type = "bash") {
+            name = "Clean Up Remaining Processes"
+        }
+
         script {
             name = "Install ODBC and build C++ tests in Rockylinux 8 container"
 //            workingDir = "%PATH__WORKING_DIR%"
@@ -77,9 +81,7 @@ object PlatformCppOdbcTestsLinux : BuildType({
                 cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
                                              
-                if [ -f "./bin/ignite-odbc-test" ]; then
-                    ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
-                fi
+                ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
             """.trimIndent()
         }
 
