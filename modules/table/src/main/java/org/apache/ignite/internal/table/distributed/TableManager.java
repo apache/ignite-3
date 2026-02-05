@@ -113,7 +113,6 @@ import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -524,10 +523,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            TransactionMetricsSource transactionMetricsSource = transactionMetricsSource();
-            if (transactionMetricsSource != null) {
-                transactionMetricsSource.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
-            }
+            TransactionMetricsSource transactionMetricsSource = txManager.transactionMetricsSource();
+            transactionMetricsSource.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
 
             mvGc.start();
 
@@ -1117,7 +1114,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
-        TransactionMetricsSource transactionMetricsSource = transactionMetricsSource();
+        TransactionMetricsSource transactionMetricsSource = txManager.transactionMetricsSource();
         if (transactionMetricsSource != null) {
             transactionMetricsSource.setPendingWriteIntentsSupplier(null);
         }
@@ -1723,16 +1720,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return sum;
-    }
-
-    private @Nullable TransactionMetricsSource transactionMetricsSource() {
-        for (MetricSource source : metricManager.metricSources()) {
-            if (TransactionMetricsSource.SOURCE_NAME.equals(source.name()) && source instanceof TransactionMetricsSource) {
-                return (TransactionMetricsSource) source;
-            }
-        }
-
-        return null;
     }
 
     /**
