@@ -163,6 +163,17 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
 
     @Override
     public boolean lazyCursorPublication() {
+        // Fast SelectCount does not support transactions; therefore, when running concurrently with DML
+        // statements, it may return a non-transactionally-consistent result. For example, if a table is
+        // empty and two statements are executed in parallel -- one inserting 1,000 rows and another executing
+        // `SELECT count(*) FROM table` -- SelectCount may return any number in the range [0, 1000].
+        // This is not considered a problem when SelectCount runs independently (it is considered
+        // eventually consistent), but such behavior contradicts another guarantee we want to preserve:
+        // within a script, statements are executed sequentially, one after another.
+        //
+        // Lazy publication allows a race in which a subsequent DML statement can outrun the execution of
+        // the SelectCount plan, resulting in a situation where the SelectCount result includes changes
+        // made by that DML statement.
         return false;
     }
 
