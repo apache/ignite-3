@@ -52,7 +52,6 @@ object PlatformCppOdbcTestsLinux : BuildType({
 
         script {
             name = "Install ODBC and build C++ tests in Rockylinux 8 container"
-//            workingDir = "%PATH__WORKING_DIR%"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
             scriptContent = """
@@ -61,6 +60,29 @@ object PlatformCppOdbcTestsLinux : BuildType({
                 ulimit -a
 
                 rpm -i ignite3-odbc-rpm/*.rpm
+                
+                cd %PATH__IGNITE_DIR%
+                ./gradlew :ignite-runner:integrationTestClasses
+                mkdir %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 2
+                cd %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 3
+
+                cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
+                cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
+                                             
+                ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
+            """.trimIndent()
+        }
+
+        script {
+            name = "Install ODBC and build C++ tests in Ubuntu 22.04 container"
+            dockerImage = "docker.gridgain.com/ci/tc-ubuntu22_04-odbc:v1.0"
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
+            scriptContent = """
+                clang --version
+                clang++ --version
+                ulimit -a
+
+                dpkg -i ignite3-odbc-deb/*.deb
                 
                 cd %PATH__IGNITE_DIR%
                 ./gradlew :ignite-runner:integrationTestClasses
