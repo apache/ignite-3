@@ -39,7 +39,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
-import org.apache.ignite.internal.configuration.storage.Data;
+import org.apache.ignite.internal.configuration.storage.ReadEntry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -140,7 +140,7 @@ public class NamedListNodeTest {
         UUID x0Id = ((NamedListNode<?>) a.second().value()).internalId("X");
         UUID z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0");
 
-        CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readDataOnRecovery().thenApply(Data::values);
+        CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readDataOnRecovery().thenApply(ReadEntry::values);
 
         assertThat(
                 storageValues,
@@ -164,7 +164,7 @@ public class NamedListNodeTest {
 
         UUID z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5");
 
-        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(ReadEntry::values);
 
         assertThat(
                 storageValues,
@@ -190,7 +190,7 @@ public class NamedListNodeTest {
 
         UUID z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2");
 
-        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(ReadEntry::values);
 
         assertThat(
                 storageValues,
@@ -220,7 +220,7 @@ public class NamedListNodeTest {
 
         UUID z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3");
 
-        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(ReadEntry::values);
 
         assertThat(
                 storageValues,
@@ -252,7 +252,7 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.delete("Z2").delete("Z5")).get();
 
-        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(ReadEntry::values);
 
         assertThat(
                 storageValues,
@@ -276,7 +276,7 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.rename("Z0", "Z1")).get();
 
-        storageValues = storage.readDataOnRecovery().thenApply(Data::values);
+        storageValues = storage.readDataOnRecovery().thenApply(ReadEntry::values);
 
         assertThat(
                 storageValues,
@@ -300,7 +300,7 @@ public class NamedListNodeTest {
         // Delete values on several layers simultaneously. Storage must be empty after that.
         a.second().change(b -> b.delete("X")).get();
 
-        assertThat(storage.readDataOnRecovery().thenApply(Data::values), willBe(anEmptyMap()));
+        assertThat(storage.readDataOnRecovery().thenApply(ReadEntry::values), willBe(anEmptyMap()));
     }
 
     /** Tests exceptions described in methods signatures. */

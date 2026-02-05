@@ -136,6 +136,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-transactions'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-configuration-system'))
+    integrationTestImplementation testFixtures(project(':ignite-vault'))
 
 }
 
