@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.lexicographicListCompa
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -46,8 +47,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
     public static final String LEGACY_PAGE_MEMORY_SORTED_INDEX_COMPARATOR_PROPERTY = "legacyPageMemorySortedIndexComparator";
 
-    /** Making it nullable simplifies testing of the component. Usually tests don't need any system configuration. */
-    protected final @Nullable SystemLocalConfiguration systemLocalConfig;
+    protected final SystemLocalConfiguration systemLocalConfig;
 
     private final HybridClock clock;
 
@@ -69,20 +69,18 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
             ));
 
     /** Constructor. */
-    AbstractPageMemoryStorageEngine(@Nullable SystemLocalConfiguration systemLocalConfig, HybridClock clock) {
-        this.systemLocalConfig = systemLocalConfig;
+    AbstractPageMemoryStorageEngine(SystemLocalConfiguration systemLocalConfig, HybridClock clock) {
+        this.systemLocalConfig = Objects.requireNonNull(systemLocalConfig);
         this.clock = clock;
     }
 
     @Override
     public void start() throws StorageException {
-        if (systemLocalConfig != null) {
-            SystemPropertyView legacyComparator = systemLocalConfig.value().properties()
-                    .get(LEGACY_PAGE_MEMORY_SORTED_INDEX_COMPARATOR_PROPERTY);
+        SystemPropertyView legacyComparator = systemLocalConfig.value().properties()
+                .get(LEGACY_PAGE_MEMORY_SORTED_INDEX_COMPARATOR_PROPERTY);
 
-            if (legacyComparator != null && "true".equalsIgnoreCase(legacyComparator.propertyValue())) {
-                useLegacySortedIndexComparator = true;
-            }
+        if (legacyComparator != null && "true".equalsIgnoreCase(legacyComparator.propertyValue())) {
+            useLegacySortedIndexComparator = true;
         }
     }
 

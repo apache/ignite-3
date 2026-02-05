@@ -140,7 +140,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             String igniteInstanceName,
             MetricManager metricManager,
             StorageConfiguration storageConfig,
-            @Nullable SystemLocalConfiguration systemLocalConfig,
+            SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,

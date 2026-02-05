@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -54,10 +55,9 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
 
     @BeforeEach
     void setUp(
-            @WorkDirectory
-            Path workDir,
-            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-            StorageConfiguration storageConfig
+            @WorkDirectory Path workDir,
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -67,7 +67,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,

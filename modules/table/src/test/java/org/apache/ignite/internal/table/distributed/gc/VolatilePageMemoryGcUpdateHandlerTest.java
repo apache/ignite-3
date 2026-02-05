@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.pagememory.configuration.PageMe
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -43,8 +44,8 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration("mock.profiles.default = {engine = aimem}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -53,7 +54,7 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
         engine = new VolatilePageMemoryStorageEngine(
                 testNodeName(testInfo, 0),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 mock(FailureProcessor.class),
                 clock

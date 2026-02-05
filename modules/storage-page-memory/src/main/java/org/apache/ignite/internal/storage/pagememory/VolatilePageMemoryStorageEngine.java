@@ -47,7 +47,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.jetbrains.annotations.Nullable;
 
 /** Storage engine implementation based on {@link VolatilePageMemory}. */
 public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEngine {
@@ -90,7 +89,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             StorageConfiguration storageConfig,
-            @Nullable SystemLocalConfiguration systemLocalConfig,
+            SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             FailureProcessor failureProcessor,
             HybridClock clock

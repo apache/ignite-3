@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -59,14 +60,14 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration("mock.profiles.default = {engine = aimem}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, null, ioRegistry, mock(FailureProcessor.class), clock);
+        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, systemConfig, ioRegistry, mock(FailureProcessor.class), clock);
 
         engine.start();
 

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -41,13 +42,14 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration("mock.profiles.default = {engine = aimem}") StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, null, ioRegistry, mock(FailureProcessor.class), clock);
+        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, systemConfig, ioRegistry, mock(FailureProcessor.class), clock);
 
         engine.start();
 
