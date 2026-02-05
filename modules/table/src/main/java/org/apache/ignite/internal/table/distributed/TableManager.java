@@ -806,9 +806,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogZoneDescriptor zoneDescriptor,
             int tableId
     ) {
+        CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
+
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
-                (ignore, throwable) -> inBusyLock(busyLock, () -> readLockAcquisitionFuture.thenComposeAsync(unused -> {
+                (ignore, throwable) -> inBusyLock(busyLock, () -> allOf(readLockAcquisitionFuture, tablesByIdFuture).thenComposeAsync(unused -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     for (int i = 0; i < zoneDescriptor.partitions(); i++) {
@@ -825,14 +827,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .exceptionally(ignoreTableClosedException())
         );
 
-        CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
 
         CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
-            return allOf(localPartsUpdateFuture, tablesByIdFuture).thenRunAsync(() -> inBusyLock(busyLock, () -> {
+            return localPartsUpdateFuture.thenRunAsync(() -> inBusyLock(busyLock, () -> {
                 var table = (TableImpl) tables.get(tableId);
 
                 for (int i = 0; i < zoneDescriptor.partitions(); i++) {
