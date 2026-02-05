@@ -36,6 +36,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Helper class to keep customized logic isolated from RelJson. This makes it easier to track upstream changes and rebase this code when
+ * upgrading Calcite versions.
+ */
 class IgniteRelJsonTypesCache {
 
     private final List<String> packages;

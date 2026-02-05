@@ -23,6 +23,10 @@ import java.util.HashMap;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+/**
+ * Helper class to keep customized logic isolated from RelJson. This makes it easier to track upstream changes and rebase this code when
+ * upgrading Calcite versions.
+ */
 class IgniteRelJsonEnumCache {
 
     private final Map<String, Enum<?>> enums;

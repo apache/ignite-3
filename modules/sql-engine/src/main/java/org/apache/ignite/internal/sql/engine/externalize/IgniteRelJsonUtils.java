@@ -26,7 +26,16 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Helper class to keep customized logic isolated from RelJson. This makes it easier to track upstream changes and rebase this code when
+ * upgrading Calcite versions.
+ */
 final class IgniteRelJsonUtils {
+
+    /** Private constructor for utility class. */
+    private IgniteRelJsonUtils() {
+        // no-op
+    }
 
     static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
