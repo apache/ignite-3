@@ -539,7 +539,7 @@ public class StorageUpdateHandler {
      *
      * @return Total number of pending row IDs.
      */
-    public int getPendingRowCount() {
+    public long getPendingRowCount() {
         return pendingRows.getPendingRowCount();
     }
 
