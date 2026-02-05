@@ -17,20 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import java.util.Map;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * A message to notify remote fragment (aka remote source) that more batches required to fulfil the result.
+ * A message that contains a map with correlations.
  */
-@Transferable(SqlQueryMessageGroup.QUERY_BATCH_REQUEST)
-public interface QueryBatchRequestMessage extends ExecutionContextAwareMessage {
-    /** Returns an identifier of the exchange to request batches from. */
-    long exchangeId();
-
-    /** Returns amount of batches to request. */
-    int amountOfBatches();
-
-    /** Returns a state that should be propagated to the target fragment. */
-    @Nullable SharedStateMessage sharedStateMessage();
+@Transferable(SqlQueryMessageGroup.SHARED_STATE_MESSAGE)
+public interface SharedStateMessage extends NetworkMessage {
+    Map<Long, NetworkMessage> sharedState();
 }
