@@ -39,7 +39,7 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Compatibility tests for metastorage raft log. */
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
 public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
