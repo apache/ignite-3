@@ -249,7 +249,7 @@ public class LeaseUpdater {
 
         leaseNegotiator.cancelAgreement(grpId);
 
-        Leases leasesCurrent = leaseTracker.leasesCurrent();
+        Leases leasesCurrent = leaseTracker.leasesLatest();
 
         Collection<Lease> currentLeases = leasesCurrent.leaseByGroupId().values();
 
@@ -377,8 +377,7 @@ public class LeaseUpdater {
 
     /** Runnable to update lease in Meta storage. */
     private class Updater implements Runnable {
-        private int activeLeaseCount;
-        private int leaseWithoutCandidateCount;
+        private final Set<ReplicationGroupId> groupsWithoutCandidatesAlreadyLogged = new HashSet<>();
 
         @Override
         public void run() {
@@ -420,7 +419,7 @@ public class LeaseUpdater {
 
             HybridTimestamp newExpirationTimestamp = new HybridTimestamp(currentTime.getPhysical() + leaseExpirationInterval, 0);
 
-            Leases leasesCurrent = leaseTracker.leasesCurrent();
+            Leases leasesCurrent = leaseTracker.leasesLatest();
             Map<ReplicationGroupId, LeaseAgreement> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId().size());
 
@@ -441,9 +440,6 @@ public class LeaseUpdater {
                 aggregatedStableAndPendingAssignmentsByGroups.put(grpId, new Pair<>(stables, pendings));
             }
 
-            int activeLeaseCount = 0;
-            int leaseWithoutCandidateCount = 0;
-
             Set<ReplicationGroupId> prolongableLeaseGroupIds = new HashSet<>();
 
             for (Map.Entry<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> entry
@@ -455,10 +451,6 @@ public class LeaseUpdater {
                 Set<Assignment> pendingAssignments = entry.getValue().getSecond();
 
                 Lease lease = requireNonNullElse(leasesCurrent.leaseByGroupId().get(grpId), emptyLease(grpId));
-
-                if (lease.isAccepted() && !isLeaseOutdated(lease)) {
-                    activeLeaseCount++;
-                }
 
                 if (!lease.isAccepted()) {
                     LeaseAgreement agreement = leaseNegotiator.getAndRemoveIfReady(grpId);
@@ -500,11 +492,13 @@ public class LeaseUpdater {
                         && lease.isProlongable()
                         && candidate != null && candidate.id().equals(lease.getLeaseholderId());
 
-                // The lease is expired or close to this.
+                // The lease is expired or close to this, trying to prolong if possible or create a new one.
                 if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    // If we couldn't find a candidate neither stable nor pending assignments set, so update stats and skip iteration
+                    boolean isLeaseOutdated = isLeaseOutdated(lease);
+
+                    // If we couldn't find a candidate neither stable nor pending assignments set, so skip iteration.
                     if (candidate == null) {
-                        leaseWithoutCandidateCount++;
+                        logGroupWithoutCandidateOnce(grpId, isLeaseOutdated);
 
                         continue;
                     }
@@ -512,7 +506,9 @@ public class LeaseUpdater {
                     // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
                     // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
                     // leaseholders at all.
-                    if (isLeaseOutdated(lease)) {
+                    if (isLeaseOutdated) {
+                        LOG.info("Lease is expired, creating a new one [groupId={}, lease={}, candidate={}]", grpId, lease, candidate);
+
                         // New lease is granted.
                         Lease newLease = writeNewLease(grpId, candidate, renewedLeases);
 
@@ -529,9 +525,6 @@ public class LeaseUpdater {
             }
 
             ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
-
-            this.activeLeaseCount = activeLeaseCount;
-            this.leaseWithoutCandidateCount = leaseWithoutCandidateCount;
 
             // This condition allows to skip the meta storage invoke when there are no leases to update (renewedLeases.isEmpty()).
             // However there is the case when we need to save empty leases collection: when the assignments are empty and
@@ -616,8 +609,7 @@ public class LeaseUpdater {
             InternalClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedCandidate);
 
             if (candidate == null) {
-                leaseWithoutCandidateCount++;
-
+                logGroupWithoutCandidateOnce(grpId, true);
                 return;
             }
 
@@ -651,6 +643,8 @@ public class LeaseUpdater {
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
+
+            groupsWithoutCandidatesAlreadyLogged.remove(grpId);
 
             return renewedLease;
         }
@@ -713,12 +707,11 @@ public class LeaseUpdater {
                     : pendingTokenizedAssignments.nodes();
         }
 
-        int activeLeaseCount() {
-            return activeLeaseCount;
-        }
-
-        int leaseWithoutCandidatesCount() {
-            return leaseWithoutCandidateCount;
+        private void logGroupWithoutCandidateOnce(ReplicationGroupId grpId, boolean onCreation) {
+            if (groupsWithoutCandidatesAlreadyLogged.add(grpId)) {
+                String action = onCreation ? "create" : "prolong";
+                LOG.info("Replication group has no candidate for leaseholder, can't {} lease [groupId={}]", action, grpId);
+            }
         }
     }
 

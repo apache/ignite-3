@@ -176,8 +176,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         return lease == null ? emptyLease(grpId) : lease;
     }
 
-    /** Returns collection of leases, ordered by replication group. */
-    public Leases leasesCurrent() {
+    /** Returns collection of latest leases, ordered by replication group. Shows all latest leases including expired ones. */
+    public Leases leasesLatest() {
         return leases;
     }
 
