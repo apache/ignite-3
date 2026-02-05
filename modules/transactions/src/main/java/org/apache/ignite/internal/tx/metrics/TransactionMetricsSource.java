@@ -36,7 +36,7 @@ import org.jetbrains.annotations.TestOnly;
  **/
 public class TransactionMetricsSource extends AbstractMetricSource<TransactionMetricsSource.Holder> {
     /** Metric name for unresolved (uncommitted) write intents. */
-    public static final String METRIC_PENDING_WRITE_INTENTS = "pendingWriteIntents";
+    public static final String METRIC_PENDING_WRITE_INTENTS = "PendingWriteIntents";
 
     /** Histogram buckets for duration metrics in milliseconds. */
     private static final long[] HISTOGRAM_BUCKETS =

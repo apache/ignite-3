@@ -365,8 +365,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<ChangeLowWatermarkEventParameters> onLowWatermarkChangedListener = this::onLwmChanged;
 
     private final MetricManager metricManager;
-    @Nullable
-    private TransactionMetricsSource transactionMetricsSource;
+
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionTableStatsMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
     private final Map<TablePartitionId, LongSupplier> pendingWriteIntentsSuppliers = new ConcurrentHashMap<>();
@@ -525,7 +524,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            transactionMetricsSource = transactionMetricsSource();
+            TransactionMetricsSource transactionMetricsSource = transactionMetricsSource();
             if (transactionMetricsSource != null) {
                 transactionMetricsSource.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
             }
@@ -1118,10 +1117,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
-
+        TransactionMetricsSource transactionMetricsSource = transactionMetricsSource();
         if (transactionMetricsSource != null) {
             transactionMetricsSource.setPendingWriteIntentsSupplier(null);
-            transactionMetricsSource = null;
         }
 
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
