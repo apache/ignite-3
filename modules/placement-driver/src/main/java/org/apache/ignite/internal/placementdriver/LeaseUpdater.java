@@ -498,7 +498,7 @@ public class LeaseUpdater {
 
                     // If we couldn't find a candidate neither stable nor pending assignments set, so skip iteration.
                     if (candidate == null) {
-                        logGroupWithoutCandidateOnce(grpId, isLeaseOutdated);
+                        logGroupWithoutCandidateOnce(grpId, isLeaseOutdated, stableAssignments, pendingAssignments);
 
                         continue;
                     }
@@ -609,7 +609,7 @@ public class LeaseUpdater {
             InternalClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedCandidate);
 
             if (candidate == null) {
-                logGroupWithoutCandidateOnce(grpId, true);
+                logGroupWithoutCandidateOnce(grpId, true, stableAssignments, pendingAssignments);
                 return;
             }
 
@@ -707,10 +707,16 @@ public class LeaseUpdater {
                     : pendingTokenizedAssignments.nodes();
         }
 
-        private void logGroupWithoutCandidateOnce(ReplicationGroupId grpId, boolean onCreation) {
+        private void logGroupWithoutCandidateOnce(
+                ReplicationGroupId grpId,
+                boolean onCreation,
+                Set<Assignment> stableAssignments,
+                Set<Assignment> pendingAssignments
+        ) {
             if (groupsWithoutCandidatesAlreadyLogged.add(grpId)) {
                 String action = onCreation ? "create" : "prolong";
-                LOG.info("Replication group has no candidate for leaseholder, can't {} lease [groupId={}]", action, grpId);
+                LOG.info("Replication group has no candidate for leaseholder, can't {} lease [groupId={}, "
+                        + "stableAssignments={}, pendingAssignments={}]", action, grpId, stableAssignments, pendingAssignments);
             }
         }
     }
