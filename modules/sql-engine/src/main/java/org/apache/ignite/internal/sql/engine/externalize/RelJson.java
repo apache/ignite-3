@@ -17,24 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isApproximateNumeric;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.internal.util.ArrayUtils.asList;
-import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Modifier;
+import com.google.common.collect.ImmutableRangeSet;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,14 +47,11 @@ import org.apache.calcite.avatica.AvaticaUtils;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.avatica.util.TimeUnitRange;
-import org.apache.calcite.linq4j.tree.BlockBuilder;
-import org.apache.calcite.linq4j.tree.Expressions;
-import org.apache.calcite.linq4j.tree.MethodDeclaration;
-import org.apache.calcite.linq4j.tree.ParameterExpression;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollationImpl;
 import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
@@ -64,6 +60,7 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rel.externalize.RelEnumTypes;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
@@ -73,15 +70,19 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexFieldCollation;
+import org.apache.calcite.rex.RexLambda;
+import org.apache.calcite.rex.RexLambdaRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.rex.RexSlot;
+import org.apache.calcite.rex.RexUnknownAs;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVariable;
 import org.apache.calcite.rex.RexWindow;
 import org.apache.calcite.rex.RexWindowBound;
 import org.apache.calcite.rex.RexWindowBounds;
+import org.apache.calcite.rex.RexWindowExclusion;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlAggFunction;
@@ -105,9 +106,14 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatchers;
+import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.NlsString;
+import org.apache.calcite.util.RangeSets;
+import org.apache.calcite.util.Sarg;
+import org.apache.calcite.util.TimeString;
+import org.apache.calcite.util.TimestampString;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -119,105 +125,40 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Utilities for converting {@link RelNode} into JSON format.
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
+@SuppressWarnings({"rawtypes", "unchecked", "MethodMayBeStatic"})
 class RelJson {
-    @SuppressWarnings("PublicInnerClass")
-    @FunctionalInterface
-    public interface RelFactory extends Function<RelInput, RelNode> {
-        /** {@inheritDoc} */
-        @Override
-        RelNode apply(RelInput input);
-    }
+    private static final ObjectMapper OBJECT_MAPPER = IgniteRelJsonUtils.OBJECT_MAPPER;
 
-    private static final LoadingCache<String, RelFactory> FACTORIES_CACHE = Caffeine.newBuilder()
-            .build(RelJson::relFactory);
+    private static final List<Class> VALUE_CLASSES =
+            ImmutableList.of(NlsString.class, BigDecimal.class, ByteString.class,
+                    Boolean.class, TimestampString.class, DateString.class, TimeString.class);
 
-    private static RelFactory relFactory(String typeName) {
-        Class<?> clazz = null;
-
-        if (!typeName.contains(".")) {
-            for (String pckg : PACKAGES) {
-                if ((clazz = classForName(pckg + typeName, true)) != null) {
-                    break;
-                }
-            }
-        }
-
-        if (clazz == null) {
-            clazz = classForName(typeName, false);
-        }
-
-        assert RelNode.class.isAssignableFrom(clazz);
-
-        Constructor<RelNode> constructor;
-
-        try {
-            constructor = (Constructor<RelNode>) clazz.getConstructor(RelInput.class);
-        } catch (NoSuchMethodException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, "class does not have required constructor, "
-                    + clazz + "(RelInput)");
-        }
-
-        BlockBuilder builder = new BlockBuilder();
-        ParameterExpression input = Expressions.parameter(RelInput.class);
-        builder.add(Expressions.new_(constructor, input));
-        MethodDeclaration declaration = Expressions.methodDecl(
-                Modifier.PUBLIC, RelNode.class, "apply", asList(input), builder.toBlock());
-        return Commons.compile(RelFactory.class, Expressions.toString(asList(declaration), "\n", true));
-    }
-
-    private static final Map<String, Enum<?>> ENUM_BY_NAME;
-
-    static {
-        // Build a mapping from enum constants (e.g. LEADING) to the enum
-        // that contains them (e.g. SqlTrimFunction.Flag). If there two
-        // enum constants have the same name, the builder will throw.
-        final Map<String, Enum<?>> enumByName = new HashMap<>();
-
-        register(enumByName, JoinConditionType.class);
-        register(enumByName, JoinType.class);
-        register(enumByName, Direction.class);
-        register(enumByName, NullDirection.class);
-        register(enumByName, SqlTypeName.class);
-        register(enumByName, SqlKind.class);
-        register(enumByName, SqlSyntax.class);
-        register(enumByName, SqlExplainFormat.class);
-        register(enumByName, SqlExplainLevel.class);
-        register(enumByName, SqlInsertKeyword.class);
-        register(enumByName, SqlJsonConstructorNullClause.class);
-        register(enumByName, SqlJsonQueryWrapperBehavior.class);
-        register(enumByName, SqlJsonValueEmptyOrErrorBehavior.class);
-        register(enumByName, SqlMatchRecognize.AfterOption.class);
-        register(enumByName, SqlSelectKeyword.class);
-        register(enumByName, SqlTrimFunction.Flag.class);
-        register(enumByName, TimeUnitRange.class);
-
-        ENUM_BY_NAME = Map.copyOf(enumByName);
-    }
-
-    private static void register(Map<String, Enum<?>> map, Class<? extends Enum> aclass) {
-        String preffix = aclass.getSimpleName() + "#";
-        for (Enum enumConstant : aclass.getEnumConstants()) {
-            map.put(preffix + enumConstant.name(), enumConstant);
-        }
-    }
-
-    private static Class<?> classForName(String typeName, boolean skipNotFound) {
-        try {
-            return IgniteUtils.forName(typeName, igniteClassLoader());
-        } catch (ClassNotFoundException e) {
-            if (!skipNotFound) {
-                throw new IgniteInternalException(INTERNAL_ERR, "RelJson unable to load type: " + typeName);
-            }
-        }
-
-        return null;
-    }
+    private static final IgniteRelJsonEnumCache ENUM_BY_NAME = IgniteRelJsonEnumCache.builder()
+            .register(JoinConditionType.class)
+            .register(JoinType.class)
+            .register(RexUnknownAs.class)
+            .register(Direction.class)
+            .register(NullDirection.class)
+            .register(SqlTypeName.class)
+            .register(SqlKind.class)
+            .register(SqlSyntax.class)
+            .register(SqlExplainFormat.class)
+            .register(SqlExplainLevel.class)
+            .register(SqlInsertKeyword.class)
+            .register(SqlJsonConstructorNullClause.class)
+            .register(SqlJsonQueryWrapperBehavior.class)
+            .register(SqlJsonValueEmptyOrErrorBehavior.class)
+            .register(SqlMatchRecognize.AfterOption.class)
+            .register(SqlSelectKeyword.class)
+            .register(SqlTrimFunction.Flag.class)
+            .register(TimeUnitRange.class)
+            .build();
 
     private static final List<String> PACKAGES =
             List.of(
@@ -230,15 +171,10 @@ class RelJson {
                     "org.apache.calcite.adapter.jdbc.",
                     "org.apache.calcite.adapter.jdbc.JdbcRules$");
 
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    RelJson() {
-    }
+    private static final IgniteRelJsonTypesCache TYPE_FACTORIES = new IgniteRelJsonTypesCache(PACKAGES);
 
     Function<RelInput, RelNode> factory(String type) {
-        return FACTORIES_CACHE.get(type);
+        return TYPE_FACTORIES.factory(type);
     }
 
     String classToTypeName(Class<? extends RelNode> cls) {
@@ -258,7 +194,8 @@ class RelJson {
         return canonicalName;
     }
 
-    Object toJson(Object value) {
+    @Nullable
+    Object toJson(@Nullable Object value) {
         if (value == null
                 || value instanceof Number
                 || value instanceof String
@@ -309,6 +246,14 @@ class RelJson {
             return toJson((ByteString) value);
         } else if (value instanceof SearchBounds) {
             return toJson((SearchBounds) value);
+        } else if (value instanceof RelDistribution) {
+            return toJson((RelDistribution) value);
+        } else if (value instanceof Sarg) {
+            return toJson((Sarg) value);
+        } else if (value instanceof RangeSet) {
+            return toJson((RangeSet) value);
+        } else if (value instanceof Range) {
+            return toJson((Range) value);
         } else {
             throw new UnsupportedOperationException("type not serializable: "
                     + value + " (type " + value.getClass().getCanonicalName() + ")");
@@ -341,6 +286,40 @@ class RelJson {
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
         map.put("rexList", toJson(node.rexList));
+        return map;
+    }
+
+    private <C extends Comparable<C>> Object toJson(Sarg<C> node) {
+        Map<String, @Nullable Object> map = map();
+        map.put("rangeSet", toJson(node.rangeSet));
+        map.put("nullAs", RelEnumTypes.fromEnum(node.nullAs));
+        return map;
+    }
+
+    private <C extends Comparable<C>> List<List<String>> toJson(RangeSet<C> rangeSet) {
+        List<List<String>> list = new ArrayList<>();
+        try {
+            RangeSets.forEach(rangeSet, RangeToJsonConverter.<C>instance().andThen(list::add));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize RangeSet: ", e);
+        }
+        return list;
+    }
+
+    /**
+     * Serializes a {@link Range} that can be deserialized using
+     * {@link org.apache.calcite.rel.externalize.RelJson#rangeFromJson(List, RelDataType)}.
+     */
+    private <C extends Comparable<C>> List<String> toJson(Range<C> range) {
+        return RangeSets.map(range, RangeToJsonConverter.instance());
+    }
+
+    private Object toJson(RelDistribution relDistribution) {
+        Map<String, @Nullable Object> map = map();
+        map.put("type", relDistribution.getType().name());
+        if (!relDistribution.getKeys().isEmpty()) {
+            map.put("keys", relDistribution.getKeys());
+        }
         return map;
     }
 
@@ -409,6 +388,16 @@ class RelJson {
 
         Map<String, Object> map;
         switch (node.getKind()) {
+            case DYNAMIC_PARAM:
+                map = map();
+                RexDynamicParam rexDynamicParam = (RexDynamicParam) node;
+                RelDataType rdpType = rexDynamicParam.getType();
+                map.put("input", rexDynamicParam.getIndex());
+                map.put("name", ((RexVariable) node).getName());
+                map.put("type", toJson(rdpType));
+                map.put("dynamic", true);
+
+                return map;
             case FIELD_ACCESS:
                 map = map();
                 RexFieldAccess fieldAccess = (RexFieldAccess) node;
@@ -420,7 +409,10 @@ class RelJson {
                 RexLiteral literal = (RexLiteral) node;
                 Object value = literal.getValue3();
                 map = map();
-                map.put("literal", toJson(value));
+                map.put("literal",
+                        value instanceof Enum
+                                ? toJson((Enum) value)
+                                : toJson(value));
                 map.put("type", toJson(node.getType()));
 
                 return map;
@@ -428,14 +420,6 @@ class RelJson {
                 map = map();
                 map.put("input", ((RexSlot) node).getIndex());
                 map.put("name", ((RexVariable) node).getName());
-
-                return map;
-            case DYNAMIC_PARAM:
-                map = map();
-                map.put("input", ((RexDynamicParam) node).getIndex());
-                map.put("name", ((RexVariable) node).getName());
-                map.put("type", toJson(node.getType()));
-                map.put("dynamic", true);
 
                 return map;
             case LOCAL_REF:
@@ -451,6 +435,27 @@ class RelJson {
                 map.put("type", toJson(node.getType()));
 
                 return map;
+
+            case LAMBDA_REF:
+                RexLambdaRef ref = (RexLambdaRef) node;
+                map = map();
+                map.put("index", ref.getIndex());
+                map.put("name", ref.getName());
+                map.put("type", toJson(ref.getType()));
+                return map;
+
+            case LAMBDA:
+                RexLambda lambda = (RexLambda) node;
+                map = map();
+                final List<@Nullable Object> parameters = list();
+                for (RexLambdaRef param : lambda.getParameters()) {
+                    parameters.add(toJson(param));
+                }
+                map.put("op", "lambda");
+                map.put("parameters", parameters);
+                map.put("expression", toJson(lambda.getExpression()));
+                return map;
+
             default:
                 if (node instanceof RexCall) {
                     RexCall call = (RexCall) node;
@@ -572,7 +577,10 @@ class RelJson {
             map.put("type", windowBound.isPreceding() ? "UNBOUNDED_PRECEDING" : "UNBOUNDED_FOLLOWING");
         } else {
             map.put("type", windowBound.isPreceding() ? "PRECEDING" : "FOLLOWING");
-            map.put("offset", toJson(windowBound.getOffset()));
+            RexNode offset =
+                    requireNonNull(windowBound.getOffset(),
+                            () -> "getOffset for window bound " + windowBound);
+            map.put("offset", toJson(offset));
         }
         return map;
     }
@@ -590,6 +598,7 @@ class RelJson {
         return map;
     }
 
+    @SuppressWarnings("DataFlowIssue") // Bounds fields are final, so null checks are reliable
     private Object toJson(SearchBounds val) {
         Map map = map();
         map.put("type", val.type().name());
@@ -720,7 +729,7 @@ class RelJson {
             boolean nullable = Boolean.TRUE.equals(map.get("nullable"));
 
             if (clazz != null) {
-                RelDataType type = typeFactory.createJavaType(classForName(clazz, false));
+                RelDataType type = typeFactory.createJavaType(IgniteRelJsonUtils.classForName(clazz));
 
                 if (nullable) {
                     type = typeFactory.createTypeWithNullability(type, true);
@@ -814,9 +823,21 @@ class RelJson {
                         upperBound = null;
                         physical = false;
                     }
+
+                    final RexWindowExclusion exclude;
+                    if (window.get("exclude") != null) {
+                        exclude = toRexWindowExclusion((Map) window.get("exclude"));
+                    } else {
+                        exclude = RexWindowExclusion.EXCLUDE_NO_OTHER;
+                    }
+
                     boolean distinct = (Boolean) map.get("distinct");
                     return rexBuilder.makeOver(type, operator, rexOperands, partitionKeys,
-                            ImmutableList.copyOf(orderKeys), lowerBound, upperBound, physical,
+                            ImmutableList.copyOf(orderKeys),
+                            requireNonNull(lowerBound, "lowerBound"),
+                            requireNonNull(upperBound, "upperBound"),
+                            requireNonNull(exclude, "exclude"),
+                            physical,
                             true, false, distinct, false);
                 } else {
                     SqlOperator operator = toOp(opMap);
@@ -873,6 +894,12 @@ class RelJson {
                     return rexBuilder.makeNullLiteral(type);
                 }
 
+                if (literal instanceof Map
+                        && ((Map<?, ?>) literal).containsKey("rangeSet")) {
+                    Sarg sarg = sargFromJson((Map) literal, type);
+                    return rexBuilder.makeSearchArgumentLiteral(sarg, type);
+                }
+
                 // RexBuilder can transform literal which holds exact numeric representation into E notation form.
                 // I.e. 100 can be presented like 1E2 which is also correct form but can differs from serialized plan notation.
                 // near "if" branch is only matters for fragments serialization\deserialization correctness check
@@ -904,6 +931,24 @@ class RelJson {
                 return rexBuilder.makeLiteral(literal, type, true);
             }
 
+            if (map.containsKey("sargLiteral")) {
+                Object sargObject = map.get("sargLiteral");
+                if (sargObject == null) {
+                    final RelDataType type = toType(typeFactory, map.get("type"));
+                    return rexBuilder.makeNullLiteral(type);
+                }
+                final RelDataType type = toType(typeFactory, map.get("type"));
+                Sarg sarg = sargFromJson((Map) sargObject, type);
+                return rexBuilder.makeSearchArgumentLiteral(sarg, type);
+            }
+
+            if (map.containsKey("dynamicParam")) {
+                final Object dynamicParamObject = requireNonNull(map.get("dynamicParam"));
+                final Integer index = (Integer) dynamicParamObject;
+                final RelDataType type = toType(typeFactory, map.get("type"));
+                return rexBuilder.makeDynamicParam(type, index);
+            }
+
             throw new UnsupportedOperationException("cannot convert to rex " + o);
         } else if (o instanceof Boolean) {
             return rexBuilder.makeLiteral((Boolean) o);
@@ -923,6 +968,116 @@ class RelJson {
         }
     }
 
+    private static <C extends Comparable<C>> Sarg<C> sargFromJson(Map<String, Object> map, RelDataType type) {
+        final String nullAs = requireNonNull((String) map.get("nullAs"), "nullAs");
+        final List<List<String>> rangeSet =
+                requireNonNull((List<List<String>>) map.get("rangeSet"), "rangeSet");
+        return Sarg.of(ENUM_BY_NAME.get(nullAs),
+                RelJson.<C>rangeSetFromJson(rangeSet, type));
+    }
+
+    /** Converts a JSON list to a {@link RangeSet} with supplied value typing. */
+    private static <C extends Comparable<C>> RangeSet<C> rangeSetFromJson(
+            List<List<String>> rangeSetsJson, RelDataType type) {
+        final ImmutableRangeSet.Builder<C> builder = ImmutableRangeSet.builder();
+        try {
+            rangeSetsJson.forEach(list -> builder.add(rangeFromJson(list, type)));
+        } catch (Exception e) {
+            throw new RuntimeException("Error creating RangeSet from JSON: ", e);
+        }
+        return builder.build();
+    }
+
+    /**
+     * Creates a {@link Range} from a JSON object.
+     *
+     * <p>The JSON object is as serialized using {@link #toJson(Range)},
+     * e.g. {@code ["[", ")", 10, "-"]}.
+     */
+    private static <C extends Comparable<C>> Range<C> rangeFromJson(
+            List<String> list, RelDataType type) {
+        switch (list.get(0)) {
+            case "all":
+                return Range.all();
+            case "atLeast":
+                return Range.atLeast(rangeEndPointFromJson(list.get(1), type));
+            case "atMost":
+                return Range.atMost(rangeEndPointFromJson(list.get(1), type));
+            case "greaterThan":
+                return Range.greaterThan(rangeEndPointFromJson(list.get(1), type));
+            case "lessThan":
+                return Range.lessThan(rangeEndPointFromJson(list.get(1), type));
+            case "singleton":
+                return Range.singleton(rangeEndPointFromJson(list.get(1), type));
+            case "closed":
+                return Range.closed(rangeEndPointFromJson(list.get(1), type),
+                        rangeEndPointFromJson(list.get(2), type));
+            case "closedOpen":
+                return Range.closedOpen(rangeEndPointFromJson(list.get(1)),
+                        rangeEndPointFromJson(list.get(2), type));
+            case "openClosed":
+                return Range.openClosed(rangeEndPointFromJson(list.get(1)),
+                        rangeEndPointFromJson(list.get(2), type));
+            case "open":
+                return Range.open(rangeEndPointFromJson(list.get(1), type),
+                        rangeEndPointFromJson(list.get(2), type));
+            default:
+                throw new AssertionError("unknown range type " + list.get(0));
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @Deprecated
+    private static <C extends Comparable<C>> C rangeEndPointFromJson(Object o) {
+        Exception e = null;
+        for (Class clsType : VALUE_CLASSES) {
+            try {
+                return (C) OBJECT_MAPPER.readValue((String) o, clsType);
+            } catch (JsonProcessingException ex) {
+                e = ex;
+            }
+        }
+        throw new RuntimeException(
+                "Error deserializing range endpoint (did not find compatible type): ",
+                e);
+    }
+
+    private static <C extends Comparable<C>> C rangeEndPointFromJson(Object o, RelDataType type) {
+        Exception e;
+        try {
+            Class clsType = determineRangeEndpointValueClass(type);
+            return (C) OBJECT_MAPPER.readValue((String) o, clsType);
+        } catch (JsonProcessingException ex) {
+            e = ex;
+        }
+        throw new RuntimeException(
+                "Error deserializing range endpoint (did not find compatible type): ",
+                e);
+    }
+
+    private static Class determineRangeEndpointValueClass(RelDataType type) {
+        SqlTypeName typeName = RexLiteral.strictTypeName(type);
+        switch (typeName) {
+            case DECIMAL:
+                return BigDecimal.class;
+            case DOUBLE:
+                return Double.class;
+            case CHAR:
+                return NlsString.class;
+            case BOOLEAN:
+                return Boolean.class;
+            case TIMESTAMP:
+                return TimestampString.class;
+            case DATE:
+                return DateString.class;
+            case TIME:
+                return TimeString.class;
+            default:
+                throw new RuntimeException(
+                        "Error deserializing range endpoint (did not find compatible type)");
+        }
+    }
+
     SqlOperator toOp(Map<String, Object> map) {
         // in case different operator has the same kind, check with both name and kind.
         String name = map.get("name").toString();
@@ -933,7 +1088,7 @@ class RelJson {
         List<SqlOperator> operators = new ArrayList<>();
 
         FRAMEWORK_CONFIG.getOperatorTable().lookupOperatorOverloads(
-                new SqlIdentifier(name, new SqlParserPos(0, 0)),
+                new SqlIdentifier(name, SqlParserPos.ZERO),
                 null,
                 sqlSyntax,
                 operators,
@@ -975,18 +1130,16 @@ class RelJson {
         return new LinkedHashMap<>();
     }
 
+    @SuppressWarnings("DataFlowIssue")
     private <T extends Enum<T>> T toEnum(Object o) {
         if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>) o;
             String cls = (String) map.get("class");
             String name = map.get("name").toString();
-            return Util.enumVal((Class<T>) classForName(cls, false), name);
+            return Util.enumVal((Class<T>) IgniteRelJsonUtils.classForName(cls), name);
         }
 
-        assert o instanceof String && ENUM_BY_NAME.containsKey(o);
-
-        String name = (String) o;
-        return (T) ENUM_BY_NAME.get(name);
+        return ENUM_BY_NAME.resolveFrom(o);
     }
 
     private ByteString toByteString(Object o) {
@@ -1010,7 +1163,7 @@ class RelJson {
         List<RexFieldCollation> list = new ArrayList<>();
         for (Map<String, Object> o : order) {
             RexNode expr = toRex(relInput, o.get("expr"));
-            Set<SqlKind> directions = new HashSet<>();
+            Set<SqlKind> directions = EnumSet.noneOf(SqlKind.class);
             if (toEnum(o.get("direction")) == Direction.DESCENDING) {
                 directions.add(SqlKind.DESCENDING);
             }
@@ -1022,6 +1175,26 @@ class RelJson {
             list.add(new RexFieldCollation(expr, directions));
         }
         return list;
+    }
+
+    private static @Nullable RexWindowExclusion toRexWindowExclusion(@Nullable Map<String, Object> map) {
+        if (map == null) {
+            return null;
+        }
+
+        String type = (String) map.get("type");
+        switch (type) {
+            case "CURRENT_ROW":
+                return RexWindowExclusion.EXCLUDE_CURRENT_ROW;
+            case "GROUP":
+                return RexWindowExclusion.EXCLUDE_GROUP;
+            case "TIES":
+                return RexWindowExclusion.EXCLUDE_TIES;
+            case "NO OTHERS":
+                return RexWindowExclusion.EXCLUDE_NO_OTHER;
+            default:
+                throw new UnsupportedOperationException("cannot convert " + type + " to rex window exclusion");
+        }
     }
 
     private RexWindowBound toRexWindowBound(RelInput input, Map<String, Object> map) {
@@ -1061,5 +1234,78 @@ class RelJson {
             list.add(toRex(relInput, operand));
         }
         return list;
+    }
+
+    /**
+     * Implementation of {@link RangeSets.Handler} that converts a {@link Range} event to a list of strings.
+     *
+     * @param <V> Range value type
+     */
+    private static class RangeToJsonConverter<V>
+            implements RangeSets.Handler<@NonNull V, List<String>> {
+        @SuppressWarnings("rawtypes")
+        private static final RangeToJsonConverter INSTANCE = new RangeToJsonConverter<>();
+
+        private static <C extends Comparable<C>> RangeToJsonConverter<C> instance() {
+            return INSTANCE;
+        }
+
+        @Override
+        public List<String> all() {
+            return ImmutableList.of("all");
+        }
+
+        @Override
+        public List<String> atLeast(@NonNull V lower) {
+            return ImmutableList.of("atLeast", toJson(lower));
+        }
+
+        @Override
+        public List<String> atMost(@NonNull V upper) {
+            return ImmutableList.of("atMost", toJson(upper));
+        }
+
+        @Override
+        public List<String> greaterThan(@NonNull V lower) {
+            return ImmutableList.of("greaterThan", toJson(lower));
+        }
+
+        @Override
+        public List<String> lessThan(@NonNull V upper) {
+            return ImmutableList.of("lessThan", toJson(upper));
+        }
+
+        @Override
+        public List<String> singleton(@NonNull V value) {
+            return ImmutableList.of("singleton", toJson(value));
+        }
+
+        @Override
+        public List<String> closed(@NonNull V lower, @NonNull V upper) {
+            return ImmutableList.of("closed", toJson(lower), toJson(upper));
+        }
+
+        @Override
+        public List<String> closedOpen(@NonNull V lower, @NonNull V upper) {
+            return ImmutableList.of("closedOpen", toJson(lower), toJson(upper));
+        }
+
+        @Override
+        public List<String> openClosed(@NonNull V lower, @NonNull V upper) {
+            return ImmutableList.of("openClosed", toJson(lower), toJson(upper));
+        }
+
+        @Override
+        public List<String> open(@NonNull V lower, @NonNull V upper) {
+            return ImmutableList.of("open", toJson(lower), toJson(upper));
+        }
+
+        private static String toJson(Object o) {
+            try {
+                return OBJECT_MAPPER.writeValueAsString(o);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("Failed to serialize Range endpoint: ", e);
+            }
+        }
     }
 }
