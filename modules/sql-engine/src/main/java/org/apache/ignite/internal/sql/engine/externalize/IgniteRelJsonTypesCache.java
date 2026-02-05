@@ -30,9 +30,8 @@ class IgniteRelJsonTypesCache {
                 .build(this::relFactory);
     }
 
-    @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
-    interface RelFactory extends Function<RelInput, RelNode> {
+    public interface RelFactory extends Function<RelInput, RelNode> {
         /** {@inheritDoc} */
         @Override
         RelNode apply(RelInput input);
