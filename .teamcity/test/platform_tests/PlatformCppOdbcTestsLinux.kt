@@ -23,7 +23,8 @@ object PlatformCppOdbcTestsLinux : BuildType({
     params {
         param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
         param("PATH__CMAKE_BUILD_DIRECTORY", "%PATH__WORKING_DIR%/cmake-build-debug")
-        param("PATH__CMAKE_BUILD_DIRECTORY_DOCKER", "%PATH__WORKING_DIR%/cmake-build-debug-docker")
+        param("PATH__CMAKE_BUILD_DIRECTORY_ROCKYLINUX", "%PATH__WORKING_DIR%/cmake-build-debug-rockylinux")
+        param("PATH__CMAKE_BUILD_DIRECTORY_UBUNTU", "%PATH__WORKING_DIR%/cmake-build-debug-ubuntu")
         param("PATH__ODBC_TEST_RESULTS", "%PATH__WORKING_DIR%/odbc_tests_results.xml")
         text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         text("PATH__IGNITE_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
@@ -64,8 +65,8 @@ object PlatformCppOdbcTestsLinux : BuildType({
                 
                 cd %PATH__IGNITE_DIR%
                 ./gradlew :ignite-runner:integrationTestClasses
-                mkdir %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 2
-                cd %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 3
+                mkdir %PATH__CMAKE_BUILD_DIRECTORY_ROCKYLINUX%  || exit 2
+                cd %PATH__CMAKE_BUILD_DIRECTORY_ROCKYLINUX%  || exit 3
 
                 cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
@@ -87,8 +88,8 @@ object PlatformCppOdbcTestsLinux : BuildType({
                 
                 cd %PATH__IGNITE_DIR%
                 ./gradlew :ignite-runner:integrationTestClasses
-                mkdir %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 2
-                cd %PATH__CMAKE_BUILD_DIRECTORY_DOCKER%  || exit 3
+                mkdir %PATH__CMAKE_BUILD_DIRECTORY_UBUNTU%  || exit 2
+                cd %PATH__CMAKE_BUILD_DIRECTORY_UBUNTU%  || exit 3
 
                 cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
