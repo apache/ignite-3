@@ -177,6 +177,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     @Override
     public void start() throws StorageException {
+        super.start();
+
         int pageSize = engineConfig.pageSizeBytes().value();
 
         try {

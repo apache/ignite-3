@@ -118,6 +118,8 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
 
     @Override
     public void start() throws StorageException {
+        super.start();
+
         for (StorageProfileView storageProfileView : storageConfig.profiles().value()) {
             if (storageProfileView instanceof VolatilePageMemoryProfileView) {
                 String profileName = storageProfileView.name();

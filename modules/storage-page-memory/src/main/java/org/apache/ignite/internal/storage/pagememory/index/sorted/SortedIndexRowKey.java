@@ -46,6 +46,6 @@ public class SortedIndexRowKey implements IndexRowKey {
     /** Cached accessor instance for the {@link #indexColumns}. Used to avoid constant reallocations. */
     public final UnsafeByteBufferAccessor myAccessor;
 
-    /** Cached accessor instance for the arbitrary buffer. Used to avoid reallocations. */
+    /** Cached accessor instance for the arbitrary buffer. Used to avoid constant reallocations. */
     public final UnsafeByteBufferAccessor otherAccessor;
 }

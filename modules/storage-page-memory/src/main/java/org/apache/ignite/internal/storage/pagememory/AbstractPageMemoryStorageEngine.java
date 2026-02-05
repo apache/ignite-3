@@ -44,8 +44,9 @@ import org.jetbrains.annotations.VisibleForTesting;
 
 /** Abstract implementation of the storage engine based on memory {@link PageMemory}. */
 public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
-    public static final String LEGACY_PAGE_MEMERY_SORTED_INDEX_COMPARATOR_PROPERTY = "legacyPageMemorySortedIndexComparator";
+    public static final String LEGACY_PAGE_MEMORY_SORTED_INDEX_COMPARATOR_PROPERTY = "legacyPageMemorySortedIndexComparator";
 
+    /** Making it nullable simplifies testing of the component. Usually tests don't need any system configuration. */
     protected final @Nullable SystemLocalConfiguration systemLocalConfig;
 
     private final HybridClock clock;
@@ -77,7 +78,7 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
     public void start() throws StorageException {
         if (systemLocalConfig != null) {
             SystemPropertyView legacyComparator = systemLocalConfig.value().properties()
-                    .get(LEGACY_PAGE_MEMERY_SORTED_INDEX_COMPARATOR_PROPERTY);
+                    .get(LEGACY_PAGE_MEMORY_SORTED_INDEX_COMPARATOR_PROPERTY);
 
             if (legacyComparator != null && "true".equalsIgnoreCase(legacyComparator.propertyValue())) {
                 useLegacySortedIndexComparator = true;
@@ -153,7 +154,7 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
         }
 
         cachedSortedIndexComparators.compute(indexDescriptor, (desc, cmp) -> {
-            assert cmp != null;
+            assert cmp != null : "Disposing a comparator that was not created before [desc=" + desc + "]";
 
             return cmp.decrementUsage();
         });

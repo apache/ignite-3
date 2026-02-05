@@ -279,7 +279,10 @@
     <Method name="awaitCondition"/>
   </Match>
   <Match>
-    <!-- Done that way on purpose. -->
+    <!--
+    Done that way on purpose. Technically, this is a false-positive failure of the check, because this is not even a result of "compareTo",
+    but rather a result of another asymmetric "compare" method where we can't change the order of arguments.
+    -->
     <Bug pattern="RV_NEGATING_RESULT_OF_COMPARETO"/>
     <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo"/>
     <Method name="compare"/>
