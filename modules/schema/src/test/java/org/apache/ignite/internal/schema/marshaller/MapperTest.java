@@ -297,6 +297,9 @@ public class MapperTest {
             assertEquals("longCol", mapper.fieldForColumn("LONGCOL"));
             assertEquals("stringCol", mapper.fieldForColumn("STRINGCOL"));
             assertNull(mapper.fieldForColumn("val"));
+            assertNotNull(mapper.declaredFieldForColumn("ID"));
+            assertNotNull(mapper.declaredFieldForColumn("LONGCOL"));
+            assertNotNull(mapper.declaredFieldForColumn("STRINGCOL"));
         }
 
         // Automap call order
@@ -305,7 +308,9 @@ public class MapperTest {
                                                                              .map("id", "col1").automap().build();
 
             assertEquals("id", mapper.fieldForColumn("COL1"));
+            assertNotNull(mapper.declaredFieldForColumn("COL1"));
             assertNull(mapper.fieldForColumn("id"));
+            assertNull(mapper.declaredFieldForColumn("id"));
             assertEquals("longCol", mapper.fieldForColumn("LONGCOL"));
             assertEquals("stringCol", mapper.fieldForColumn("STRINGCOL"));
             assertNull(mapper.fieldForColumn("val"));
@@ -317,7 +322,9 @@ public class MapperTest {
                                                                              .automap().map("id", "col1").build();
 
             assertEquals("id", mapper.fieldForColumn("COL1"));
+            assertNotNull(mapper.declaredFieldForColumn("COL1"));
             assertNull(mapper.fieldForColumn("id"));
+            assertNull(mapper.declaredFieldForColumn("id"));
             assertEquals("longCol", mapper.fieldForColumn("LONGCOL"));
             assertEquals("stringCol", mapper.fieldForColumn("STRINGCOL"));
             assertNull(mapper.fieldForColumn("val"));

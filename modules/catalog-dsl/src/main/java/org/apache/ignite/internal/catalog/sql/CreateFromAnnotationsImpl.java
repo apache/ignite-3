@@ -25,6 +25,7 @@ import static org.apache.ignite.table.mapper.Mapper.nativelySupported;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
@@ -201,7 +202,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
     }
 
     private static void processColumnsInPojo(CreateTableImpl createTable, Class<?> clazz, List<ColumnSorted> idColumns) {
-        for (Field f : clazz.getDeclaredFields()) {
+        for (Field f : getAllFields(clazz)) {
             if (Modifier.isStatic(f.getModifiers()) || Modifier.isTransient(f.getModifiers())) {
                 continue;
             }
@@ -228,6 +229,19 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
                 idColumns.add(column(columnName, id.value()));
             }
         }
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any).
+     */
+    private static List<Field> getAllFields(Class<?> clazz) {
+        var result = new ArrayList<Field>();
+        var current = clazz;
+        while (current != null) {
+            Collections.addAll(result, current.getDeclaredFields());
+            current = current.getSuperclass();
+        }
+        return result;
     }
 
 }

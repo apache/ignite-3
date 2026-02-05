@@ -87,7 +87,29 @@ abstract class FieldAccessor {
     ) {
         try {
             Field field = type.getDeclaredField(fldName);
+            return create(type, field, col, colIdx, typeConverter);
+        } catch (NoSuchFieldException | SecurityException ex) {
+            throw new IllegalArgumentException(ex);
+        }
+    }
 
+    /**
+     * Create accessor for the field.
+     *
+     * @param type Object class.
+     * @param field Object field.
+     * @param col A column the field is mapped to.
+     * @param colIdx Column index in the schema.
+     * @return Accessor.
+     */
+    static FieldAccessor create(
+            Class<?> type,
+            Field field,
+            MarshallerColumn col,
+            int colIdx,
+            @Nullable TypeConverter<?, ?> typeConverter
+    ) {
+        try {
             if (typeConverter == null) {
                 validateColumnType(col, field.getType());
             }
@@ -130,7 +152,7 @@ abstract class FieldAccessor {
             }
 
             return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
-        } catch (NoSuchFieldException | SecurityException | IllegalAccessException ex) {
+        } catch (SecurityException | IllegalAccessException ex) {
             throw new IllegalArgumentException(ex);
         }
     }

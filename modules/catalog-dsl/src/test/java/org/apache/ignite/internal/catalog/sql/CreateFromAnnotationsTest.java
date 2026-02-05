@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -61,6 +62,12 @@ class CreateFromAnnotationsTest {
         assertThat(m.fieldForColumn("F_NAME"), is("firstName"));
         assertThat(m.fieldForColumn("L_NAME"), is("lastName"));
         assertThat(m.fieldForColumn("STR"), is("str"));
+
+        assertNotNull(m.declaredFieldForColumn("ID"));
+        assertNotNull(m.declaredFieldForColumn("ID_STR"));
+        assertNotNull(m.declaredFieldForColumn("F_NAME"));
+        assertNotNull(m.declaredFieldForColumn("L_NAME"));
+        assertNotNull(m.declaredFieldForColumn("STR"));
     }
 
     @Test
@@ -216,6 +223,61 @@ class CreateFromAnnotationsTest {
                         + "DOUBLECOL DOUBLE, DECIMALCOL DECIMAL, BOOLCOL BOOLEAN, BYTESCOL VARBINARY, UUIDCOL UUID, "
                         + "DATECOL DATE, TIMECOL TIME, DATETIMECOL TIMESTAMP, INSTANTCOL TIMESTAMP WITH LOCAL TIME ZONE, "
                         + "PRIMARY KEY (STR));")
+        );
+    }
+
+    @Test
+    void inheritance() {
+        // Record class
+        CreateFromAnnotationsImpl fromAnnotations = createTable().processRecordClass(PojoValueExtended.class);
+        String sqlFromAnnotations = fromAnnotations.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_EXTENDED_TEST ("
+                        + "F_NAME_EXTENDED VARCHAR, F_NAME VARCHAR, L_NAME VARCHAR, STR VARCHAR);"
+                        + System.lineSeparator()
+                        + "CREATE INDEX IF NOT EXISTS IX_POJO ON PUBLIC.POJO_VALUE_EXTENDED_TEST (F_NAME, L_NAME DESC, F_NAME_EXTENDED);")
+        );
+
+        TableDefinition definition = TableDefinition.builder("pojo_value_extended_test")
+                .ifNotExists()
+                .record(PojoValueExtended.class)
+                .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc(), column("f_name_extended"))
+                .build();
+        CreateFromDefinitionImpl fromDefinition = new CreateFromDefinitionImpl(null).from(definition);
+        String sqlFromDefinition = fromDefinition.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is(sqlFromDefinition)
+        );
+
+        // Key Value class
+        fromAnnotations = createTable().processKeyValueClasses(PojoKeyExtended.class, PojoValueExtended.class);
+        sqlFromAnnotations = fromAnnotations.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_EXTENDED_TEST ("
+                        + "ID_STR_EXTENDED VARCHAR(20), ID INT, ID_STR VARCHAR(20), F_NAME_EXTENDED VARCHAR, F_NAME VARCHAR, "
+                        + "L_NAME VARCHAR, STR VARCHAR, PRIMARY KEY (ID_STR_EXTENDED, ID, ID_STR));"
+                        + System.lineSeparator()
+                        + "CREATE INDEX IF NOT EXISTS IX_POJO ON PUBLIC.POJO_VALUE_EXTENDED_TEST (F_NAME, L_NAME DESC, F_NAME_EXTENDED);")
+        );
+
+        definition = TableDefinition.builder("pojo_value_extended_test")
+                .ifNotExists()
+                .key(PojoKeyExtended.class)
+                .value(PojoValueExtended.class)
+                .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc(), column("f_name_extended"))
+                .build();
+        fromDefinition = new CreateFromDefinitionImpl(null).from(definition);
+        sqlFromDefinition = fromDefinition.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is(sqlFromDefinition)
         );
     }
 
@@ -400,6 +462,25 @@ class CreateFromAnnotationsTest {
         String lastName;
 
         String str;
+    }
+
+    static class PojoKeyExtended extends PojoKey {
+        @Id
+        @Column(value = "id_str_extended", length = 20)
+        String idStrExtended;
+    }
+
+    @Table(
+            value = "pojo_value_extended_test",
+            indexes = @Index(value = "ix_pojo", columns = {
+                    @ColumnRef("f_name"),
+                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
+                    @ColumnRef("f_name_extended"),
+            })
+    )
+    static class PojoValueExtended extends PojoValue {
+        @Column("f_name_extended")
+        String firstNameExtended;
     }
 
     private static CreateFromAnnotationsImpl createTable() {

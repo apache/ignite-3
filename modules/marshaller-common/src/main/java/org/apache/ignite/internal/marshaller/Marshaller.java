@@ -20,6 +20,7 @@ package org.apache.ignite.internal.marshaller;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.marshaller.FieldAccessor.createIdentityAccessor;
 
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Set;
 import java.util.TreeSet;
@@ -125,9 +126,9 @@ public abstract class Marshaller {
             MarshallerColumn col = cols[i];
             String columnName = col.name();
 
-            String fieldName = mapper.fieldForColumn(columnName);
+            Field field = mapper.declaredFieldForColumn(columnName);
 
-            if (fieldName == null) {
+            if (field == null) {
                 if (requireAllFields) {
                     throw new MarshallerException(format("No mapped object field found for column '{}'", columnName));
                 }
@@ -137,8 +138,7 @@ public abstract class Marshaller {
                 usedFields++;
 
                 TypeConverter<Object, Object> converter = mapper.converterForColumn(columnName);
-
-                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, i, converter);
+                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), field, col, i, converter);
             }
 
             fieldAccessors[i]
