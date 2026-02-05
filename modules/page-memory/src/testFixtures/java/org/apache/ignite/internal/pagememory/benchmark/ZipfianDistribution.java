@@ -67,11 +67,11 @@ public class ZipfianDistribution {
         return Math.min(index, itemCount - 1);
     }
 
-    public int getItemCount() {
+    public int itemCount() {
         return itemCount;
     }
 
-    public double getSkew() {
+    public double skew() {
         return skew;
     }
 }

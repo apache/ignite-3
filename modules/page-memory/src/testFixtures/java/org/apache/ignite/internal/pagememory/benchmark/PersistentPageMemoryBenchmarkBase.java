@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
@@ -54,41 +55,39 @@ import org.apache.ignite.internal.util.OffheapReadWriteLock;
  * file stores, and partition metadata.
  */
 public class PersistentPageMemoryBenchmarkBase {
-    protected static final long REGION_SIZE = Constants.GiB;
-
-    protected static final int PAGE_SIZE = 4 * Constants.KiB;
-
     protected static final int GROUP_ID = 1;
 
-    protected static final int PARTITION_ID = 0;
-
-    protected long regionSizeOverride = -1;
+    private static final long DEFAULT_REGION_SIZE = Constants.GiB;
+    private static final int DEFAULT_PAGE_SIZE = 4 * Constants.KiB;
+    private static final int DEFAULT_CHECKPOINT_BUFFER_SIZE = 10 * Constants.MiB;
 
     private static final String NODE_NAME = "benchmark-node";
 
-    private static final int CHECKPOINT_BUFFER_SIZE = 10 * Constants.MiB;
+    private PersistentPageMemory persistentPageMemory;
+    private CheckpointManager checkpointManager;
+    private FilePageStoreManager filePageStoreManager;
+    private PartitionMetaManager partitionMetaManager;
 
-    protected PersistentPageMemory persistentPageMemory;
+    private Path workDir;
+    private ExecutorService executorService;
 
-    protected FilePageStoreManager filePageStoreManager;
+    protected Config config() {
+        return Config.builder().build();
+    }
 
-    protected CheckpointManager checkpointManager;
+    protected PersistentPageMemory persistentPageMemory() {
+        return persistentPageMemory;
+    }
 
-    protected PartitionMetaManager partitionMetaManager;
-
-    protected Path workDir;
-
-    protected ExecutorService executorService;
-
-    protected ReplacementMode replacementMode = ReplacementMode.CLOCK;
+    protected CheckpointManager checkpointManager() {
+        return checkpointManager;
+    }
 
     /** Starts page memory infrastructure including file stores, checkpoint manager, and pre-allocates a free list. */
     public void setup() throws Exception {
-        workDir = Path.of(System.getProperty("java.io.tmpdir"), "ignite-benchmark-" + System.nanoTime());
-        if (!workDir.toFile().mkdirs()) {
-            throw new IllegalStateException("Failed to create work directory: " + workDir);
-        }
+        Config config = config();
 
+        workDir = Files.createTempDirectory("ignite-benchmark-" + System.nanoTime());
         executorService = Executors.newCachedThreadPool();
 
         FailureManager failureManager = mock(FailureManager.class);
@@ -100,11 +99,11 @@ public class PersistentPageMemoryBenchmarkBase {
                 NODE_NAME,
                 workDir,
                 new RandomAccessFileIoFactory(),
-                PAGE_SIZE,
+                DEFAULT_PAGE_SIZE,
                 failureManager
         );
 
-        partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, FakePartitionMeta.FACTORY);
+        partitionMetaManager = new PartitionMetaManager(ioRegistry, DEFAULT_PAGE_SIZE, FakePartitionMeta.FACTORY);
 
         var dataRegionList = new ArrayList<DataRegion<PersistentPageMemory>>();
 
@@ -120,21 +119,19 @@ public class PersistentPageMemoryBenchmarkBase {
                 mock(LogSyncer.class),
                 executorService,
                 new CheckpointMetricSource("benchmark"),
-                PAGE_SIZE
+                DEFAULT_PAGE_SIZE
         );
-
-        long actualRegionSize = regionSizeOverride > 0 ? regionSizeOverride : REGION_SIZE;
 
         persistentPageMemory = new PersistentPageMemory(
                 PersistentDataRegionConfiguration.builder()
-                        .pageSize(PAGE_SIZE)
-                        .size(actualRegionSize)
-                        .replacementMode(replacementMode)
+                        .pageSize(DEFAULT_PAGE_SIZE)
+                        .size(config.regionSize())
+                        .replacementMode(config.replacementMode())
                         .build(),
                 new PersistentPageMemoryMetricSource("benchmark"),
                 ioRegistry,
-                new long[]{actualRegionSize},
-                CHECKPOINT_BUFFER_SIZE,
+                new long[]{config.regionSize()},
+                DEFAULT_CHECKPOINT_BUFFER_SIZE,
                 filePageStoreManager,
                 checkpointManager::writePageToFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
@@ -148,7 +145,10 @@ public class PersistentPageMemoryBenchmarkBase {
         checkpointManager.start();
         persistentPageMemory.start();
 
-        createPartitionFilePageStores();
+        int partitionsCount = config.partitionsCount();
+        for (int i = 0; i < partitionsCount; i++) {
+            createPartitionFilePageStore(i);
+        }
     }
 
     /** Stops page memory infrastructure and cleans up temporary files. */
@@ -156,25 +156,19 @@ public class PersistentPageMemoryBenchmarkBase {
         IgniteUtils.closeAll(
                 checkpointManager == null ? null : checkpointManager::stop,
                 persistentPageMemory == null ? null : () -> persistentPageMemory.stop(true),
-                filePageStoreManager == null ? null : filePageStoreManager::stop
+                filePageStoreManager == null ? null : filePageStoreManager::stop,
+                executorService == null ? null : executorService::shutdown,
+                () -> {
+                    if (workDir != null) {
+                        IgniteUtils.deleteIfExists(workDir);
+                    }
+                }
         );
-
-        if (executorService != null) {
-            executorService.shutdown();
-        }
-
-        if (workDir != null) {
-            IgniteUtils.deleteIfExists(workDir);
-        }
-    }
-
-    private void createPartitionFilePageStores() throws Exception {
-        createPartitionFilePageStore(PARTITION_ID);
     }
 
     /** Create partition file page store. */
     protected void createPartitionFilePageStore(int partitionId) throws Exception {
-        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+        ByteBuffer buffer = allocateBuffer(DEFAULT_PAGE_SIZE);
 
         try {
             var groupPartitionId = new GroupPartitionId(GROUP_ID, partitionId);
@@ -205,6 +199,124 @@ public class PersistentPageMemoryBenchmarkBase {
             partitionMetaManager.addMeta(groupPartitionId, partitionMeta);
         } finally {
             freeBuffer(buffer);
+        }
+    }
+
+    /**
+     * Configuration of the benchmark infrastructure.
+     */
+    public static class Config {
+        private final long regionSize;
+        private final long pageSize;
+        private final ReplacementMode replacementMode;
+        private final int partitionsCount;
+        private final int checkpointBufferSize;
+
+        private Config(long regionSize, long pageSize, ReplacementMode replacementMode, int partitionsCount, int checkpointBufferSize) {
+            this.regionSize = regionSize;
+            this.pageSize = pageSize;
+            this.replacementMode = replacementMode;
+            this.partitionsCount = partitionsCount;
+            this.checkpointBufferSize = checkpointBufferSize;
+        }
+
+        public long regionSize() {
+            return regionSize;
+        }
+
+        public long pageSize() {
+            return pageSize;
+        }
+
+        public ReplacementMode replacementMode() {
+            return replacementMode;
+        }
+
+        public int partitionsCount() {
+            return partitionsCount;
+        }
+
+        public int getCheckpointBufferSize() {
+            return checkpointBufferSize;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        /**
+         * {@code Config} builder static inner class.
+         */
+        public static final class Builder {
+            private long regionSize = DEFAULT_REGION_SIZE;
+            private long pageSize = DEFAULT_PAGE_SIZE;
+            private ReplacementMode replacementMode = ReplacementMode.CLOCK;
+            private int partitionsCount = 1;
+            private int checkpointBufferSize = DEFAULT_CHECKPOINT_BUFFER_SIZE;
+
+            /**
+             * Sets the {@code regionSize} and returns a reference to this Builder enabling method chaining.
+             *
+             * @param regionSize the {@code regionSize} to set
+             * @return a reference to this Builder
+             */
+            public Builder regionSize(long regionSize) {
+                this.regionSize = regionSize;
+                return this;
+            }
+
+            /**
+             * Sets the {@code pageSize} and returns a reference to this Builder enabling method chaining.
+             *
+             * @param pageSize the {@code pageSize} to set
+             * @return a reference to this Builder
+             */
+            public Builder pageSize(long pageSize) {
+                this.pageSize = pageSize;
+                return this;
+            }
+
+            /**
+             * Sets the {@code replacementMode} and returns a reference to this Builder enabling method chaining.
+             *
+             * @param replacementMode the {@code replacementMode} to set
+             * @return a reference to this Builder
+             */
+            public Builder replacementMode(ReplacementMode replacementMode) {
+                this.replacementMode = replacementMode;
+                return this;
+            }
+
+            /**
+             * Sets the {@code partiitonsCount} and returns a reference to this Builder enabling method chaining.
+             *
+             * @param partiitonsCount the {@code partiitonsCount} to set
+             * @return a reference to this Builder
+             */
+            public Builder partitionsCount(int partiitonsCount) {
+                this.partitionsCount = partiitonsCount;
+                return this;
+            }
+
+            /**
+             * Sets the {@code checkpointBufferSize} and returns a reference to this Builder enabling method chaining.
+             *
+             * @param checkpointBufferSize the {@code checkpointBufferSize} to set
+             * @return a reference to this Builder
+             */
+            public Builder checkpointBufferSize(int checkpointBufferSize) {
+                this.checkpointBufferSize = checkpointBufferSize;
+                return this;
+            }
+
+            /**
+             * Returns a {@code Config} built from the parameters previously set.
+             *
+             * @return a {@code Config} built with parameters of this {@code Config.Builder}
+             */
+            public Config build() {
+                return new Config(regionSize, pageSize, replacementMode, partitionsCount, checkpointBufferSize);
+            }
         }
     }
 }

@@ -28,6 +28,7 @@ import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePag
 import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
+import org.apache.ignite.internal.util.Constants;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -61,11 +62,11 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 10, time = 2)
 @Fork(1)
 @State(Scope.Benchmark)
-public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmarkBase {
-
+public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase {
     private static final long SMALL_REGION_SIZE = 20L * 1024 * 1024;
-
-    private static final int EXPECTED_PAGE_SIZE = 4 * 1024;
+    private static final int PAGE_SIZE = 4 * Constants.KiB;
+    private static final long REGION_CAPACITY_PAGES = SMALL_REGION_SIZE / PAGE_SIZE;
+    private static final long MAX_WORKING_SET_SIZE = 1_000_000;
 
     /** 0.99 = very skewed, most accesses hit few pages. */
     private static final double ZIPFIAN_SKEW = 0.99;
@@ -90,8 +91,6 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
     public CachePressure cachePressure;
 
     private long[] pageIds;
-
-    private long regionCapacityPages;
 
     private int workingSetSize;
 
@@ -126,25 +125,15 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
         private ZipfianDistribution zipfianDistribution;
         private boolean checkpointLockAcquired;
         private int threadIndex;
-        private PageCacheReplacementBenchmark benchmark;
+        private PageReplacementBenchmark benchmark;
 
         /** Setup trial. */
         @Setup(Level.Trial)
-        public void setupTrial(ThreadParams threadParams, PageCacheReplacementBenchmark benchmark) {
-            if (benchmark == null) {
-                throw new IllegalStateException("Benchmark instance is null - JMH contract violated");
-            }
-
-            if (benchmark.checkpointManager == null) {
-                throw new IllegalStateException(
-                        "CheckpointManager is null - benchmark.setup() did not run or failed"
-                );
-            }
-
+        public void setupTrial(ThreadParams threadParams, PageReplacementBenchmark benchmark) {
             this.benchmark = benchmark;
             this.threadIndex = threadParams.getThreadIndex();
 
-            long minWorkingSetSize = Math.round(benchmark.regionCapacityPages * MIN_WORKING_SET_RATIO);
+            long minWorkingSetSize = Math.round(benchmark.REGION_CAPACITY_PAGES * MIN_WORKING_SET_RATIO);
             if (benchmark.workingSetSize < minWorkingSetSize) {
                 throw new IllegalStateException(String.format(
                         "Benchmark not properly initialized: workingSetSize=%,d < minimum %,d (%.0f%% of capacity)",
@@ -167,13 +156,7 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
          */
         @Setup(Level.Iteration)
         public void setupIteration() {
-            if (benchmark == null || benchmark.checkpointManager == null) {
-                throw new IllegalStateException(
-                        "ThreadState not properly initialized - setupTrial() did not run"
-                );
-            }
-
-            benchmark.checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+            benchmark.checkpointManager().checkpointTimeoutLock().checkpointReadLock();
             checkpointLockAcquired = true;
         }
 
@@ -181,7 +164,7 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
         @TearDown(Level.Iteration)
         public void tearDownIteration() {
             if (checkpointLockAcquired) {
-                benchmark.checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+                benchmark.checkpointManager().checkpointTimeoutLock().checkpointReadUnlock();
                 checkpointLockAcquired = false;
             }
         }
@@ -190,7 +173,7 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
             return zipfianDistribution.next();
         }
 
-        int getThreadIndex() {
+        int threadIndex() {
             return threadIndex;
         }
     }
@@ -216,12 +199,6 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
     /** Print metrics delta after iteration. */
     @TearDown(Level.Iteration)
     public void tearDownIteration() {
-        if (beforeMetrics == null) {
-            throw new IllegalStateException(
-                    "setupIteration() did not run - JMH contract violated"
-            );
-        }
-
         MetricsSnapshot afterMetrics = captureMetrics();
         printMetricsDelta(beforeMetrics, afterMetrics);
     }
@@ -240,25 +217,27 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
 
     private MetricsSnapshot captureMetrics() {
         return new MetricsSnapshot(
-                persistentPageMemory.metrics().cacheHits(),
-                persistentPageMemory.metrics().cacheMisses(),
-                persistentPageMemory.metrics().replacements()
+                persistentPageMemory().metrics().cacheHits(),
+                persistentPageMemory().metrics().cacheMisses(),
+                persistentPageMemory().metrics().replacements()
         );
+    }
+
+    @Override
+    protected Config config() {
+        return Config.builder()
+                .regionSize(SMALL_REGION_SIZE)
+                .pageSize(PAGE_SIZE)
+                .replacementMode(replacementModeParam)
+                .partitionsCount(PARTITION_COUNT)
+                .build();
     }
 
     @Setup
     @Override
     public void setup() throws Exception {
         validateConfiguration();
-
-        this.regionSizeOverride = SMALL_REGION_SIZE;
-        this.replacementMode = replacementModeParam;
-
         super.setup();
-
-        for (int i = 1; i < PARTITION_COUNT; i++) {
-            createPartitionFilePageStore(i);
-        }
 
         allocateWorkingSet();
 
@@ -271,15 +250,15 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
     }
 
     private void validateConfiguration() {
-        regionCapacityPages = SMALL_REGION_SIZE / PAGE_SIZE;
-        workingSetSize = cachePressure.computeWorkingSetSize(regionCapacityPages);
+        workingSetSize = cachePressure.computeWorkingSetSize(REGION_CAPACITY_PAGES);
 
-        if (workingSetSize > 10_000_000) {
+        if (workingSetSize > MAX_WORKING_SET_SIZE) {
             throw new IllegalStateException(String.format(
-                    "Working set too large: %,d pages (max: 10,000,000). "
+                    "Working set too large: %,d pages (max: %,d). "
                             + "This would require %,d GB of actual page memory and %,d MB for pageId array. "
                             + "Reduce cache pressure or region size.",
                     workingSetSize,
+                    MAX_WORKING_SET_SIZE,
                     ((long) workingSetSize * PAGE_SIZE) / (1024L * 1024 * 1024),
                     (workingSetSize * 8L) / (1024 * 1024)
             ));
@@ -293,7 +272,7 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
         pageIds = new long[workingSetSize];
 
         // Allocate 80% of capacity at a time to avoid hitting dirty pages limit.
-        int batchSize = (int) Math.round(regionCapacityPages * 0.8);
+        int batchSize = (int) Math.round(REGION_CAPACITY_PAGES * 0.8);
 
         TestSimpleValuePageIo pageIo = new TestSimpleValuePageIo();
 
@@ -303,31 +282,31 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
         for (int batchStart = 0; batchStart < workingSetSize; batchStart += batchSize) {
             int batchEnd = Math.min(batchStart + batchSize, workingSetSize);
 
-            checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+            checkpointManager().checkpointTimeoutLock().checkpointReadLock();
             try {
                 // Distribute pages randomly across partitions.
                 for (int i = batchStart; i < batchEnd; i++) {
                     int partitionId = partitionRandom.nextInt(PARTITION_COUNT);
-                    pageIds[i] = persistentPageMemory.allocatePage(null, GROUP_ID, partitionId, FLAG_DATA);
+                    pageIds[i] = persistentPageMemory().allocatePage(null, GROUP_ID, partitionId, FLAG_DATA);
                 }
 
                 for (int i = batchStart; i < batchEnd; i++) {
                     long pageId = pageIds[i];
-                    long page = persistentPageMemory.acquirePage(GROUP_ID, pageId);
+                    long page = persistentPageMemory().acquirePage(GROUP_ID, pageId);
                     try {
-                        long pageAddr = persistentPageMemory.writeLock(GROUP_ID, pageId, page);
+                        long pageAddr = persistentPageMemory().writeLock(GROUP_ID, pageId, page);
                         try {
                             pageIo.initNewPage(pageAddr, pageId, PAGE_SIZE);
                             TestSimpleValuePageIo.setLongValue(pageAddr, pageId);
                         } finally {
-                            persistentPageMemory.writeUnlock(GROUP_ID, pageId, page, true);
+                            persistentPageMemory().writeUnlock(GROUP_ID, pageId, page, true);
                         }
                     } finally {
-                        persistentPageMemory.releasePage(GROUP_ID, pageId, page);
+                        persistentPageMemory().releasePage(GROUP_ID, pageId, page);
                     }
                 }
             } finally {
-                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+                checkpointManager().checkpointTimeoutLock().checkpointReadUnlock();
             }
 
             if (batchEnd < workingSetSize) {
@@ -337,14 +316,14 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
     }
 
     private void flushDirtyPages() throws Exception {
-        CheckpointProgress progress = checkpointManager.forceCheckpoint("Flush dirty pages after allocation");
+        CheckpointProgress progress = checkpointManager().forceCheckpoint("Flush dirty pages after allocation");
 
         try {
             progress.futureFor(CheckpointState.FINISHED).get(CHECKPOINT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-            long dirtyPages = persistentPageMemory.dirtyPagesCount();
-            int usedCpBuf = persistentPageMemory.usedCheckpointBufferPages();
-            int maxCpBuf = persistentPageMemory.maxCheckpointBufferPages();
+            long dirtyPages = persistentPageMemory().dirtyPagesCount();
+            int usedCpBuf = persistentPageMemory().usedCheckpointBufferPages();
+            int maxCpBuf = persistentPageMemory().maxCheckpointBufferPages();
 
             throw new IllegalStateException(String.format(
                     "Checkpoint timed out after %d seconds [reason='Flush dirty pages after allocation', "
@@ -356,13 +335,13 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
             throw new IllegalStateException(String.format(
                     "Checkpoint failed [reason='Flush dirty pages after allocation', "
                             + "dirtyPages=%,d, cause=%s]",
-                    persistentPageMemory.dirtyPagesCount(), e.getCause()
+                    persistentPageMemory().dirtyPagesCount(), e.getCause()
             ), e);
         }
     }
 
     private void warmupCache() throws IgniteInternalCheckedException {
-        int warmupPages = (int) Math.round(regionCapacityPages * WARMUP_MULTIPLIER);
+        int warmupPages = (int) Math.round(REGION_CAPACITY_PAGES * WARMUP_MULTIPLIER);
         ZipfianDistribution warmupDistribution = new ZipfianDistribution(
                 workingSetSize,
                 ZIPFIAN_SKEW,
@@ -371,40 +350,40 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
 
         long accumulator = 0;
 
-        checkpointManager.checkpointTimeoutLock().checkpointReadLock();
+        checkpointManager().checkpointTimeoutLock().checkpointReadLock();
         try {
             for (int i = 0; i < warmupPages; i++) {
                 int index = warmupDistribution.next();
                 long pageId = pageIds[index];
 
-                long page = persistentPageMemory.acquirePage(GROUP_ID, pageId);
+                long page = persistentPageMemory().acquirePage(GROUP_ID, pageId);
                 try {
-                    long pageAddr = persistentPageMemory.readLock(GROUP_ID, pageId, page);
+                    long pageAddr = persistentPageMemory().readLock(GROUP_ID, pageId, page);
                     try {
                         accumulator += TestSimpleValuePageIo.getLongValue(pageAddr);
                     } finally {
-                        persistentPageMemory.readUnlock(GROUP_ID, pageId, page);
+                        persistentPageMemory().readUnlock(GROUP_ID, pageId, page);
                     }
                 } finally {
-                    persistentPageMemory.releasePage(GROUP_ID, pageId, page);
+                    persistentPageMemory().releasePage(GROUP_ID, pageId, page);
                 }
             }
         } finally {
-            checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+            checkpointManager().checkpointTimeoutLock().checkpointReadUnlock();
         }
 
         warmupAccumulator = accumulator;
     }
 
     private void validateCacheWarmed() {
-        long loadedPages = persistentPageMemory.loadedPages();
-        double capacityUtilization = (loadedPages * 100.0) / regionCapacityPages;
+        long loadedPages = persistentPageMemory().loadedPages();
+        double capacityUtilization = (loadedPages * 100.0) / REGION_CAPACITY_PAGES;
 
         if (capacityUtilization < 95.0) {
             throw new IllegalStateException(String.format(
                     "Cache not sufficiently warmed: loaded %,d pages but capacity is %,d (%.1f%% full). "
                             + "Benchmark requires >=95%% capacity to measure replacement behavior.",
-                    loadedPages, regionCapacityPages, capacityUtilization
+                    loadedPages, REGION_CAPACITY_PAGES, capacityUtilization
             ));
         }
     }
@@ -453,39 +432,29 @@ public class PageCacheReplacementBenchmark extends PersistentPageMemoryBenchmark
 
     private void accessPageReadOnly(long pageId, ThreadState state, Blackhole blackhole)
             throws IgniteInternalCheckedException {
-        long page = persistentPageMemory.acquirePage(GROUP_ID, pageId);
+        long page = persistentPageMemory().acquirePage(GROUP_ID, pageId);
 
         if (page == 0) {
             throw new IllegalStateException(String.format(
                     "Failed to acquire page [pageId=0x%x, policy=%s, pressure=%s, thread=%s (index=%d), "
                             + "loadedPages=%,d/%,d]",
                     pageId, replacementModeParam, cachePressure,
-                    Thread.currentThread().getName(), state.getThreadIndex(),
-                    persistentPageMemory.loadedPages(), regionCapacityPages
+                    Thread.currentThread().getName(), state.threadIndex(),
+                    persistentPageMemory().loadedPages(), REGION_CAPACITY_PAGES
             ));
         }
 
         try {
-            readPageData(pageId, page, blackhole);
+            blackhole.consume(page);
         } finally {
-            persistentPageMemory.releasePage(GROUP_ID, pageId, page);
-        }
-    }
-
-    private void readPageData(long pageId, long page, Blackhole blackhole) throws IgniteInternalCheckedException {
-        long pageAddr = persistentPageMemory.readLock(GROUP_ID, pageId, page);
-        try {
-            long value = TestSimpleValuePageIo.getLongValue(pageAddr);
-            blackhole.consume(value);
-        } finally {
-            persistentPageMemory.readUnlock(GROUP_ID, pageId, page);
+            persistentPageMemory().releasePage(GROUP_ID, pageId, page);
         }
     }
 
     /** Run benchmark from IDE or command line. */
     public static void main(String[] args) throws Exception {
         Options opts = new OptionsBuilder()
-                .include(PageCacheReplacementBenchmark.class.getSimpleName())
+                .include(PageReplacementBenchmark.class.getSimpleName())
                 .build();
 
         new Runner(opts).run();
