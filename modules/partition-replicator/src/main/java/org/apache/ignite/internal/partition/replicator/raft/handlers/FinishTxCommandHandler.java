@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.raft.handlers;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,7 +109,13 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
             return new CommandResult(result, true);
         }
 
-        assert txMetaBeforeCas != null : "txMetaBeforeCas is null, but CAS has failed for " + txId;
+        if (txMetaBeforeCas == null) {
+            throw new IgniteInternalException(
+                    INTERNAL_ERR,
+                    "txMetaBeforeCas is null, but CAS has failed for {}",
+                    txId
+            );
+        }
 
         TransactionResult existingResult = new TransactionResult(txMetaBeforeCas.txState(), txMetaBeforeCas.commitTimestamp());
 
@@ -129,7 +136,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
 
     private static void logTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
         String errorMsg = format("Finish command skipped, transaction txId = {} transaction state is already set,"
-                        + " expected state = {}, state to set = {}",
+                        + " existing state = {}, state to set = {}",
                 txId,
                 txMetaBeforeCas,
                 txMetaToSet
