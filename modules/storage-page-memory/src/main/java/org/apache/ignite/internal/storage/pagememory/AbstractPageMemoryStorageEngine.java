@@ -57,6 +57,10 @@ public abstract class AbstractPageMemoryStorageEngine implements StorageEngine {
      * This map is used to reuse comparators for sorted indexes with the same set of columns and their collations. It is beneficial to reuse
      * comparators because otherwise every comparator will use its own generated class, which bloats metaspace and doesn't allow JVM's JIT
      * to be as efficient.
+     *
+     * <p>The choice of {@link ConcurrentSkipListMap} is dictated by the need to have a non-default {@code equals} behavior which would
+     * ignore the names of the columns and other such an information. Having a separate key class that would implement such {@code equals}
+     * and {@code hashCode} has been considered and tried, it lead to a large volume of boilerplate and was hard to read.
      */
     private final ConcurrentMap<StorageSortedIndexDescriptor, CachedComparator> cachedSortedIndexComparators
             = new ConcurrentSkipListMap<>(comparing(
