@@ -25,7 +25,8 @@ object PlatformCppOdbcTestsLinux : BuildType({
         param("PATH__CMAKE_BUILD_DIRECTORY", "%PATH__WORKING_DIR%/cmake-build-debug")
         param("PATH__CMAKE_BUILD_DIRECTORY_ROCKYLINUX", "%PATH__WORKING_DIR%/cmake-build-debug-rockylinux")
         param("PATH__CMAKE_BUILD_DIRECTORY_UBUNTU", "%PATH__WORKING_DIR%/cmake-build-debug-ubuntu")
-        param("PATH__ODBC_TEST_RESULTS", "%PATH__WORKING_DIR%/odbc_tests_results.xml")
+        param("PATH__ODBC_TEST_RESULTS_ROCKYLINUX", "%PATH__WORKING_DIR%/odbc_tests_results_rockylinux.xml")
+        param("PATH__ODBC_TEST_RESULTS_UBUNTU", "%PATH__WORKING_DIR%/odbc_tests_results_ubuntu.xml")
         text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         text("PATH__IGNITE_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.CPP_STAGING", "/tmp/cpp_staging")
@@ -71,7 +72,7 @@ object PlatformCppOdbcTestsLinux : BuildType({
                 cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
                                              
-                ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
+                ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS_ROCKYLINUX%
             """.trimIndent()
         }
 
@@ -94,7 +95,7 @@ object PlatformCppOdbcTestsLinux : BuildType({
                 cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
                                              
-                ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
+                ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS_UBUNTU%
             """.trimIndent()
         }
 
@@ -135,8 +136,8 @@ object PlatformCppOdbcTestsLinux : BuildType({
         xmlReport {
             reportType = XmlReport.XmlReportType.GOOGLE_TEST
             rules = """
-                +:%PATH__ODBC_TEST_RESULTS%
-                +:%PATH__CMAKE_BUILD_DIRECTORY%/Testing/Result/*.xml
+                +:%PATH__ODBC_TEST_RESULTS_ROCKYLINUX%
+                +:%PATH__ODBC_TEST_RESULTS_UBUNTU%
             """.trimIndent()
             verbose = true
         }
