@@ -68,7 +68,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -97,8 +96,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
     private final PersistentPageMemoryProfileConfiguration cfg;
 
-    /** Can only be null in tests. Saves us from a bunch of mocking. */
-    private final @Nullable SystemLocalConfiguration systemLocalConfig;
+    private final SystemLocalConfiguration systemLocalConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -135,7 +133,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     public PersistentPageMemoryDataRegion(
             MetricManager metricManager,
             PersistentPageMemoryProfileConfiguration cfg,
-            @Nullable SystemLocalConfiguration systemLocalConfig,
+            SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
