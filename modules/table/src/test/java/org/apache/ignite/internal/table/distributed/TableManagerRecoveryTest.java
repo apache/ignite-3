@@ -438,6 +438,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 NODE_NAME,
                 clusterService,
                 mock(ClusterManagementGroupManager.class, RETURNS_DEEP_STUBS),
+                groupId -> completedFuture(Assignments.EMPTY),
                 clockService,
                 Set.of(),
                 placementDriver,
