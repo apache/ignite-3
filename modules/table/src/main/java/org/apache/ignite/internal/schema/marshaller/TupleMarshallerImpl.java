@@ -70,17 +70,27 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         this.schema = schema;
         this.tableNameSupplier = tableNameSupplier;
 
-        keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
-                .map(Column::type)
-                .filter(NativeType::fixedLength)
-                .mapToInt(NativeType::sizeInBytes)
-                .sum();
+        keyOnlyFixedLengthColumnSize = fixedLengthColumnSize(schema.keyColumns());
+        valueOnlyFixedLengthColumnSize = fixedLengthColumnSize(schema.valueColumns());
+    }
 
-        valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
-                .map(Column::type)
-                .filter(NativeType::fixedLength)
-                .mapToInt(NativeType::sizeInBytes)
-                .sum();
+    /**
+     * {@link TupleMarshallerImpl}'s constructor can be a very hot piece of code. For this reason we do not use streams and iterators here.
+     */
+    private static int fixedLengthColumnSize(List<Column> columns) {
+        int sum = 0;
+
+        //noinspection ForLoopReplaceableByForEach
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            NativeType type = column.type();
+
+            if (type.fixedLength()) {
+                sum += type.sizeInBytes();
+            }
+        }
+
+        return sum;
     }
 
     @Override
@@ -341,7 +351,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
         for (int i = 0; i < schema.length(); i++) {
             Column col = schema.column(i);
-            Object val = tuple.value(i);
+            Object val = tuple.value(i); // Allocations
 
             col.validate(val);
         }

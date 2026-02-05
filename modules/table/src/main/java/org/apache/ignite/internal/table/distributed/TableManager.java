@@ -138,6 +138,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -734,15 +735,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogSchemaDescriptor schemaDescriptor
     ) {
         return inBusyLockAsync(busyLock, () -> {
-            TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
             int tableId = tableDescriptor.id();
 
-            tables.put(tableId, table);
-
             return schemaManager.schemaRegistry(causalityToken, tableId)
                     .thenAccept(schemaRegistry -> inBusyLock(busyLock, () -> {
-                        table.schemaView(schemaRegistry);
+                        TableImpl table = createTableImpl(
+                                causalityToken,
+                                tableDescriptor,
+                                zoneDescriptor,
+                                schemaDescriptor,
+                                schemaRegistry
+                        );
+
+                        tables.put(tableId, table);
 
                         addTableToZone(zoneDescriptor.id(), table);
 
@@ -767,8 +773,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogTableDescriptor tableDescriptor,
             CatalogSchemaDescriptor schemaDescriptor
     ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
-
         int tableId = tableDescriptor.id();
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
@@ -776,20 +780,28 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return failedFuture(e);
             }
 
-            return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
+            return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(schemaRegistry -> {
+                TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor, schemaRegistry);
+
+                tables.put(tableId, table);
+            });
         }));
 
-        // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
-        // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
-        CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
-        try {
-            return loadTableToZoneOnTableCreateHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, table)
-                    .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
-        } catch (Throwable e) {
-            unlockZoneForRead(zoneDescriptor, acquisitionFuture);
+        return tablesVv.get(causalityToken).thenCompose(unused -> {
+            var table = (TableImpl) tables.get(tableId);
 
-            return failedFuture(e);
-        }
+            // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
+            // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
+            CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
+            try {
+                return loadTableToZoneOnTableCreateHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, table)
+                        .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
+            } catch (Throwable e) {
+                unlockZoneForRead(zoneDescriptor, acquisitionFuture);
+
+                return failedFuture(e);
+            }
+        });
     }
 
     private CompletableFuture<Void> loadTableToZoneOnTableCreateHavingZoneReadLock(
@@ -839,8 +851,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }
             }), ioExecutor);
         });
-
-        tables.put(tableId, table);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> {
@@ -1160,13 +1170,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distribution zone descriptor.
      * @param schemaDescriptor Catalog schema descriptor.
+     * @param schemaRegistry
      * @return Table instance.
      */
     private TableImpl createTableImpl(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            CatalogSchemaDescriptor schemaDescriptor
+            CatalogSchemaDescriptor schemaDescriptor,
+            SchemaRegistry schemaRegistry
     ) {
         QualifiedName tableName = QualifiedNameHelper.fromNormalized(schemaDescriptor.name(), tableDescriptor.name());
 
@@ -1206,7 +1218,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 sql.get(),
                 failureProcessor,
                 tableDescriptor.primaryKeyIndexId(),
-                new TableStatsStalenessConfiguration(descProps.staleRowsFraction(), descProps.minStaleRowsCount())
+                new TableStatsStalenessConfiguration(descProps.staleRowsFraction(), descProps.minStaleRowsCount()),
+                schemaRegistry
         );
     }
 
