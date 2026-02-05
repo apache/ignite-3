@@ -252,7 +252,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
-import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -1449,8 +1448,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.messagingService()
             );
 
-            TransactionMetricsSource txMetrics = new TransactionMetricsSource(clockService);
-
             txManager = new TxManagerImpl(
                     txConfiguration,
                     systemDistributedConfiguration,
@@ -1467,8 +1464,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     transactionInflights,
                     lowWatermark,
                     commonScheduledExecutorService,
-                    metricManager,
-                    txMetrics
+                    metricManager
             );
 
             replicaManager = spy(new ReplicaManager(
@@ -1577,7 +1573,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     mock(LockManager.class),
                     replicaSvc,
                     txManager,
-                    txMetrics,
                     dataStorageMgr,
                     sharedTxStateStorage,
                     metaStorageManager,

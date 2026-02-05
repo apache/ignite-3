@@ -123,7 +123,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -566,8 +565,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         sm = new SchemaManager(revisionUpdater, catalogManager);
 
-        TestClockService clockService = new TestClockService(clock);
-
         var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -581,7 +578,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 mock(LockManager.class),
                 mock(ReplicaService.class),
                 tm,
-                new TransactionMetricsSource(clockService),
                 dsm,
                 sharedTxStateStorage,
                 msm,
@@ -589,7 +585,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 scheduledExecutor,
-                clockService,
+                new TestClockService(clock),
                 new OutgoingSnapshotsManager(node.name(), clusterService.messagingService(), failureProcessor),
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,

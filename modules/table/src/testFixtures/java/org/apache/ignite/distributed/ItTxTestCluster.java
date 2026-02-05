@@ -179,7 +179,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -627,8 +626,7 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new TestMetricManager(),
-                new TransactionMetricsSource(clockService)
+                new TestMetricManager()
         );
     }
 
@@ -1297,8 +1295,7 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new TestMetricManager(),
-                new TransactionMetricsSource(clientClockService)
+                new TestMetricManager()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(

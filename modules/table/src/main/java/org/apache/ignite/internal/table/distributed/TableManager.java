@@ -178,7 +178,6 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
-import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -214,9 +213,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Transaction manager. */
     private final TxManager txManager;
-
-    /** Transaction metrics source. */
-    private final TransactionMetricsSource txMetrics;
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
@@ -383,7 +379,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
      * @param txManager Transaction manager.
-     * @param txMetrics Transaction metrics source.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
      * @param ioExecutor Separate executor for IO operations like partition storage initialization or partition raft group meta data
@@ -416,7 +411,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             LockManager lockMgr,
             ReplicaService replicaSvc,
             TxManager txManager,
-            TransactionMetricsSource txMetrics,
             DataStorageManager dataStorageMgr,
             TxStateRocksDbSharedStorage txStateRocksDbSharedStorage,
             MetaStorageManager metaStorageMgr,
@@ -448,7 +442,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.lockMgr = lockMgr;
         this.replicaSvc = replicaSvc;
         this.txManager = txManager;
-        this.txMetrics = txMetrics;
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
@@ -528,7 +521,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            txMetrics.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
+            txManager.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
 
             mvGc.start();
 
@@ -1119,7 +1112,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         }
 
-        txMetrics.setPendingWriteIntentsSupplier(null);
+        txManager.setPendingWriteIntentsSupplier(null);
 
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);

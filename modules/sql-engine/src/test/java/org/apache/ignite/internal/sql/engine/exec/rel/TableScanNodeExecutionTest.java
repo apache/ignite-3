@@ -96,7 +96,6 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
-import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
@@ -196,8 +195,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     transactionInflights,
                     new TestLowWatermark(),
                     commonExecutor,
-                    new NoOpMetricManager(),
-                    new TransactionMetricsSource(clockService)
+                    new NoOpMetricManager()
             );
 
             assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
