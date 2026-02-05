@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
@@ -49,7 +48,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<TransactionMe
     /** Clock service to calculate a timestamp for rolled back transactions. */
     private final ClockService clockService;
 
-    private final AtomicReference<LongSupplier> pendingWriteIntentsSupplierRef = new AtomicReference<>(() -> 0L);
+    private volatile LongSupplier pendingWriteIntentsSupplier;
 
     /**
      * Creates a new instance of {@link TransactionMetricsSource}.
@@ -66,7 +65,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<TransactionMe
      * @param supplier Supplier, or {@code null} to reset to default (always returns {@code 0}).
      */
     public void setPendingWriteIntentsSupplier(@Nullable LongSupplier supplier) {
-        pendingWriteIntentsSupplierRef.set(supplier == null ? () -> 0L : supplier);
+        pendingWriteIntentsSupplier = supplier == null ? () -> 0L : supplier;
     }
 
     /**
@@ -162,7 +161,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<TransactionMe
 
     @Override
     protected Holder createHolder() {
-        return new Holder(() -> pendingWriteIntentsSupplierRef.get().getAsLong());
+        return new Holder(() -> pendingWriteIntentsSupplier.getAsLong());
     }
 
     private long calculateTransactionDuration(UUID transactionId) {
