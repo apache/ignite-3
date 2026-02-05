@@ -193,6 +193,13 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     }
 
     @Override
+    public long requiredOffHeapMemorySize() {
+        return regions.values().stream()
+                .mapToLong(VolatilePageMemoryDataRegion::regionSize)
+                .sum();
+    }
+
+    @Override
     public Set<Integer> tableIdsOnDisk() {
         return emptySet();
     }

@@ -63,7 +63,7 @@ public class Assignments {
     /**
      * Constructor.
      */
-    private Assignments(Collection<Assignment> nodes, boolean force, long timestamp, boolean fromReset) {
+    public Assignments(Collection<Assignment> nodes, boolean force, long timestamp, boolean fromReset) {
         // A set of nodes must be a HashSet in order for serialization to produce stable results,
         // that could be compared as byte arrays.
         this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);

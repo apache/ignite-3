@@ -217,7 +217,7 @@ explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 20)),
   t2(y) AS (SELECT * FROM system_range(1, 15))
-SELECT  /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('MergeJoinConverterRule', 'HashJoinConverter', 'NestedLoopJoinConverter') */
+SELECT  /*+ disable_decorrelation , ENFORCE_JOIN_ORDER, DISABLE_RULE('MergeJoinConverterRule', 'HashJoinConverter', 'NestedLoopJoinConverter') */
   * FROM t1 WHERE EXISTS(SELECT * FROM t2 WHERE t1.x = t2.y)
 ----
 CorrelatedNestedLoopJoin

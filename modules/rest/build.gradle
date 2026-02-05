@@ -51,12 +51,14 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
+    implementation libs.micronaut.management
     implementation libs.micronaut.openapi
     implementation libs.micronaut.security
     implementation libs.micronaut.security.annotations
     // TODO It might worth shadowing reactor library https://issues.apache.org/jira/browse/IGNITE-18942
     implementation libs.micronaut.reactor
     implementation libs.micronaut.reactor.http.client
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config

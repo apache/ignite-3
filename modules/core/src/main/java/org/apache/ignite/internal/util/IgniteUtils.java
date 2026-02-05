@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -74,6 +75,8 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -132,6 +135,14 @@ public class IgniteUtils {
 
     /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
     public static final String JMX_METRIC_GROUP_TYPE = "metrics";
+
+    /** The error message displayed when attempting to convert a {@code null} value to a primitive data type. */
+    public static final String NULL_TO_PRIMITIVE_ERROR_MESSAGE =
+            "The value of field at index {} is null and cannot be converted to a primitive data type.";
+
+    /** The error message displayed when attempting to convert a {@code null} value to a primitive data type. */
+    public static final String NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE =
+            "The value of field '{}' is null and cannot be converted to a primitive data type.";
 
     /**
      * Get JDK version.
@@ -1174,50 +1185,45 @@ public class IgniteUtils {
     }
 
     /**
-     * Retries operation until it succeeds or fails with exception that is different than the given.
+     * Retries operation until it succeeds or timeout occurs.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
-     *         stopped.
+     * @param timeout Timeout in milliseconds.
      * @param executor Executor to make retry in.
      * @return Future that is completed when operation is successful or failed with other exception than the given.
      */
-    public static <T> CompletableFuture<T> retryOperationUntilSuccess(
+    public static <T> CompletableFuture<T> retryOperationUntilSuccessOrTimeout(
             Supplier<CompletableFuture<T>> operation,
-            Function<Throwable, Boolean> stopRetryCondition,
+            long timeout,
             Executor executor
     ) {
-        CompletableFuture<T> fut = new CompletableFuture<>();
+        CompletableFuture<T> futureWithTimeout = new CompletableFuture<T>().orTimeout(timeout, TimeUnit.MILLISECONDS);
 
-        retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor);
+        retryOperationUntilSuccessOrFutureDone(operation, futureWithTimeout, executor);
 
-        return fut;
+        return futureWithTimeout;
     }
 
     /**
-     * Retries operation until it succeeds or fails with exception that is different than the given.
+     * Retries operation until it succeeds or provided future is done.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
-     *         stopped.
+     * @param future Future to track.
      * @param executor Executor to make retry in.
-     * @param fut Future that is completed when operation is successful or failed with other exception than the given.
      */
-    public static <T> void retryOperationUntilSuccess(
+    private static <T> void retryOperationUntilSuccessOrFutureDone(
             Supplier<CompletableFuture<T>> operation,
-            Function<Throwable, Boolean> stopRetryCondition,
-            CompletableFuture<T> fut,
+            CompletableFuture<T> future,
             Executor executor
     ) {
+
         operation.get()
                 .whenComplete((res, e) -> {
-                    if (e == null) {
-                        fut.complete(res);
-                    } else {
-                        if (stopRetryCondition.apply(e)) {
-                            fut.completeExceptionally(e);
+                    if (!future.isDone()) {
+                        if (e == null) {
+                            future.complete(res);
                         } else {
-                            executor.execute(() -> retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor));
+                            executor.execute(() -> retryOperationUntilSuccessOrFutureDone(operation, future, executor));
                         }
                     }
                 });
@@ -1308,6 +1314,29 @@ public class IgniteUtils {
 
             return array;
         }
+    }
+
+    /**
+     * Makes array from the given arguments, if any argument is an array itself, its elements are added into result instead of it.
+     *
+     * @param arguments Arguments.
+     * @return Flat array.
+     */
+    public static Object[] flatArray(Object... arguments) {
+        List<Object> list = new ArrayList<>();
+
+        for (Object arg : arguments) {
+            if (arg != null && arg.getClass().isArray()) {
+                int length = Array.getLength(arg);
+                for (int i = 0; i < length; i++) {
+                    list.add(Array.get(arg, i));
+                }
+            } else {
+                list.add(arg);
+            }
+        }
+
+        return list.toArray();
     }
 
     private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
@@ -1426,6 +1455,20 @@ public class IgniteUtils {
             // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
             // let's switch: false negative can produce assertion errors.
             return true;
+        }
+    }
+
+    /** Throws the {@link NullPointerException} if the provided tuple has a {@code null} value at the specified index. */
+    public static void ensureNotNull(InternalTuple tuple, int fieldIndex, int displayIndex) {
+        if (tuple.hasNullValue(fieldIndex)) {
+            throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_ERROR_MESSAGE, displayIndex));
+        }
+    }
+
+    /** Throws the {@link NullPointerException} if the provided tuple has a {@code null} value at the specified index. */
+    public static void ensureNotNull(InternalTuple tuple, int fieldIndex, String fieldName) {
+        if (tuple.hasNullValue(fieldIndex)) {
+            throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, fieldName));
         }
     }
 

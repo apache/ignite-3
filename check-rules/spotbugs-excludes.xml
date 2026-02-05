@@ -267,6 +267,18 @@
     <Class name="org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff"/>
   </Match>
   <Match>
+    <!-- Timeout is handled by other means. -->
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"/>
+    <Class name="org.apache.ignite.internal.util.OffheapReadWriteLock"/>
+    <Method name="awaitCondition"/>
+  </Match>
+  <Match>
+    <!-- Loop is outside of this method. -->
+    <Bug pattern="WA_AWAIT_NOT_IN_LOOP"/>
+    <Class name="org.apache.ignite.internal.util.OffheapReadWriteLock"/>
+    <Method name="awaitCondition"/>
+  </Match>
+  <Match>
     <!-- Done that way on purpose. -->
     <Bug pattern="RV_NEGATING_RESULT_OF_COMPARETO"/>
     <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo"/>

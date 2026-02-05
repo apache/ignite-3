@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest;
 import static org.apache.ignite.internal.rest.PathAvailability.available;
 import static org.apache.ignite.internal.rest.PathAvailability.unavailable;
 
+import io.micronaut.management.endpoint.health.HealthEndpoint;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -43,11 +44,13 @@ public class RestManager {
             "/management/v1/cluster/init",
             "/management/v1/cluster/topology/physical",
             "/management/v1/node",
-            "/management/v1/recovery/cluster"
+            "/management/v1/recovery/cluster",
+            "/" + HealthEndpoint.NAME
     };
 
     private static final String[] DEFAULT_AVAILABLE_DURING_INITIALIZATION_ENDPOINTS = {
-            "/management/v1/recovery/cluster"
+            "/management/v1/recovery/cluster",
+            "/" + HealthEndpoint.NAME
     };
 
     private final String[] availableOnStartEndpoints;

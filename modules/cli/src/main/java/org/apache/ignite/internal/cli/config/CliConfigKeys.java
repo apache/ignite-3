@@ -77,7 +77,19 @@ public enum CliConfigKeys {
 
     SQL_MULTILINE(Constants.SQL_MULTILINE),
 
-    SYNTAX_HIGHLIGHTING(Constants.SYNTAX_HIGHLIGHTING);
+    SYNTAX_HIGHLIGHTING(Constants.SYNTAX_HIGHLIGHTING),
+
+    /** Pager enabled property name. */
+    PAGER_ENABLED(Constants.PAGER_ENABLED),
+
+    /** Pager command property name. */
+    PAGER_COMMAND(Constants.PAGER_COMMAND),
+
+    /** Output truncation enabled property name. */
+    OUTPUT_TRUNCATE(Constants.OUTPUT_TRUNCATE),
+
+    /** Maximum column width property name. */
+    OUTPUT_MAX_COLUMN_WIDTH(Constants.OUTPUT_MAX_COLUMN_WIDTH);
 
     private final String value;
 
@@ -147,6 +159,14 @@ public enum CliConfigKeys {
         public static final String SQL_MULTILINE = "ignite.cli.sql.multiline";
 
         public static final String SYNTAX_HIGHLIGHTING = "ignite.cli.syntax-highlighting";
+
+        public static final String PAGER_ENABLED = "ignite.cli.pager.enabled";
+
+        public static final String PAGER_COMMAND = "ignite.cli.pager.command";
+
+        public static final String OUTPUT_TRUNCATE = "ignite.cli.output.truncate";
+
+        public static final String OUTPUT_MAX_COLUMN_WIDTH = "ignite.cli.output.max-column-width";
     }
 
     CliConfigKeys(String value) {

@@ -17,6 +17,7 @@ object Project : Project({
         CliRpm,
         Deb,
         Docs,
+        Docker,
         DotnetBinariesDocs,
         JavaBinariesDocs,
         OdbcDeb,

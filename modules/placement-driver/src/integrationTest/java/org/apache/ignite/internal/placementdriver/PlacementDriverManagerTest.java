@@ -165,7 +165,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
-    private final AtomicInteger nextTableOrZoneId = new AtomicInteger();
+    private final AtomicInteger nextZoneId = new AtomicInteger();
 
     private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
@@ -425,7 +425,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testPrimaryReplicaEvents() throws Exception {
         PartitionGroupId grpPart0 =
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp);
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp);
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
@@ -553,8 +553,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testLeaseRemovedAfterExpirationAndAssignmetnsRemoval() throws Exception {
         List<PartitionGroupId> groupIds = List.of(
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp),
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp)
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp),
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp)
         );
 
         Map<PartitionGroupId, AtomicBoolean> leaseExpirationMap =
@@ -738,7 +738,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private PartitionGroupId createAssignments() {
         return createAssignments(
                 metaStorageManager,
-                nextTableOrZoneId.incrementAndGet(),
+                nextZoneId.incrementAndGet(),
                 List.of(nodeName, anotherNodeName),
                 assignmentsTimestamp
         );

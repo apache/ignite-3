@@ -31,9 +31,9 @@ import org.hamcrest.TypeSafeMatcher;
 public class HttpResponseMatcher<T> extends TypeSafeMatcher<HttpResponse<T>> {
     private final Matcher<Integer> statusCodeMatcher;
 
-    private final Matcher<T> bodyMatcher;
+    private final Matcher<? super T> bodyMatcher;
 
-    private HttpResponseMatcher(Matcher<Integer> statusCodeMatcher, Matcher<T> bodyMatcher) {
+    private HttpResponseMatcher(Matcher<Integer> statusCodeMatcher, Matcher<? super T> bodyMatcher) {
         this.statusCodeMatcher = statusCodeMatcher;
         this.bodyMatcher = bodyMatcher;
     }
@@ -50,7 +50,7 @@ public class HttpResponseMatcher<T> extends TypeSafeMatcher<HttpResponse<T>> {
         return new HttpResponseMatcher<>(is(statusCode), equalTo(body));
     }
 
-    public static <T> HttpResponseMatcher<T> hasStatusCodeAndBody(int statusCode, Matcher<T> bodyMatcher) {
+    public static <T> HttpResponseMatcher<T> hasStatusCodeAndBody(int statusCode, Matcher<? super T> bodyMatcher) {
         return new HttpResponseMatcher<>(is(statusCode), bodyMatcher);
     }
 

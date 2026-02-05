@@ -945,8 +945,10 @@ public class ConfigurationUtilTest {
 
         generator.compileRootSchema(schemaClass, Map.of(), Map.of());
 
-        SuperRoot superRoot = new SuperRoot(
-                s -> new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))
+        SuperRoot superRoot = new SuperRoot(s ->
+                s.equals(schemaKey.key())
+                        ? new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))
+                        : null
         );
 
         assertThrows(NoSuchElementException.class, () -> superRoot.construct(schemaKey.key(), null, false));

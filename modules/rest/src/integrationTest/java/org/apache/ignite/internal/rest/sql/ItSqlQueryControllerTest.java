@@ -43,6 +43,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -148,7 +149,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         IgniteSql igniteSql = CLUSTER.aliveNode().sql();
         Statement stmt = igniteSql.statementBuilder().query(sql).pageSize(1).build();
 
-        return CLUSTER.aliveNode().sql().execute(null, stmt);
+        return CLUSTER.aliveNode().sql().execute((Transaction) null, stmt);
     }
 
     private static Map<UUID, SqlQueryInfo> getSqlQueries(HttpClient client) {

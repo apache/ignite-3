@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -122,7 +123,7 @@ import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -198,7 +199,7 @@ public class InternalTableImpl implements InternalTable {
     /** Default read-only transaction timeout. */
     private final Supplier<Long> defaultReadTxTimeout;
 
-    private final TableMetricSource metrics;
+    private final ReadWriteMetricSource metrics;
 
     /**
      * Constructor.
@@ -236,7 +237,7 @@ public class InternalTableImpl implements InternalTable {
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
             Supplier<Long> defaultReadTxTimeout,
-            TableMetricSource metrics
+            ReadWriteMetricSource metrics
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -333,7 +334,7 @@ public class InternalTableImpl implements InternalTable {
             return failedFuture(
                     new TransactionException(
                             TX_FAILED_READ_WRITE_OPERATION_ERR,
-                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                            failedReadWriteOperationMsg(tx)
                     )
             );
         }
@@ -413,7 +414,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Enlists a single row into a transaction.
+     * Enlists collection of rows into a transaction.
      *
      * @param keyRows Rows.
      * @param tx The transaction.
@@ -438,7 +439,7 @@ public class InternalTableImpl implements InternalTable {
             return failedFuture(
                     new TransactionException(
                             TX_FAILED_READ_WRITE_OPERATION_ERR,
-                            "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                            failedReadWriteOperationMsg(tx)
                     )
             );
         }
@@ -1645,7 +1646,7 @@ public class InternalTableImpl implements InternalTable {
 
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
-        return new PartitionScanPublisher<>(new ReadOnlyInflightBatchRequestTracker(transactionInflights, txContext.txId())) {
+        return new PartitionScanPublisher<>(new ReadOnlyInflightBatchRequestTracker(transactionInflights, txContext.txId(), txManager)) {
             @Override
             protected CompletableFuture<Collection<BinaryRow>> retrieveBatch(long scanId, int batchSize) {
                 ReadOnlyScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
@@ -1692,7 +1693,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             throw new TransactionException(
                     TX_FAILED_READ_WRITE_OPERATION_ERR,
-                    "Failed to enlist read-write operation into read-only transaction txId={" + tx.id() + '}'
+                    failedReadWriteOperationMsg(tx)
             );
         }
 
@@ -1800,6 +1801,17 @@ public class InternalTableImpl implements InternalTable {
                 return completeScan(txContext.txId(), replicationGroupId, scanId, th, recipient.name(), intentionallyClose);
             }
         };
+    }
+
+    /**
+     * Returns message used to create {@code TransactionException} with {@code ErrorGroups.TX_FAILED_READ_WRITE_OPERATION_ERR}.
+     *
+     * @param tx Internal transaction
+     * @return message
+     */
+    private String failedReadWriteOperationMsg(InternalTransaction tx) {
+        return format("Failed to enlist read-write operation into read-only transaction {}.",
+                formatTxInfo(tx.id(), txManager));
     }
 
     /**
@@ -2085,9 +2097,12 @@ public class InternalTableImpl implements InternalTable {
 
         private final UUID txId;
 
-        ReadOnlyInflightBatchRequestTracker(TransactionInflights transactionInflights, UUID txId) {
+        private final TxManager txManager;
+
+        ReadOnlyInflightBatchRequestTracker(TransactionInflights transactionInflights, UUID txId, TxManager txManager) {
             this.transactionInflights = transactionInflights;
             this.txId = txId;
+            this.txManager = txManager;
         }
 
         @Override
@@ -2095,8 +2110,8 @@ public class InternalTableImpl implements InternalTable {
             // Track read only requests which are able to create cursors.
             if (!transactionInflights.addScanInflight(txId)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                        "Transaction is already finished () [txId={}, readOnly=true].",
-                        txId
+                        "Transaction is already finished [{}, readOnly=true].",
+                        formatTxInfo(txId, txManager, false)
                 ));
             }
         }
@@ -2299,13 +2314,13 @@ public class InternalTableImpl implements InternalTable {
         return replicaMeta.getStartTime().longValue();
     }
 
-    private static void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
+    private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
             throw new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished () [txId={}, readOnly={}].",
-                            transaction.id(),
+                    format("Transaction is already finished [{}, readOnly={}].",
+                            formatTxInfo(transaction.id(), txManager, false),
                             transaction.isReadOnly()
                     ));
         }
@@ -2323,7 +2338,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public TableMetricSource metrics() {
+    public ReadWriteMetricSource metrics() {
         return metrics;
     }
 }

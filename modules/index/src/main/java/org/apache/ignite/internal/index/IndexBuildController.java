@@ -253,7 +253,7 @@ class IndexBuildController implements ManuallyCloseable {
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
-                Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+                Catalog catalog = catalogService.latestCatalog();
 
                 CatalogZoneDescriptor zoneDescriptor = catalog.zone(primaryReplicaId.zoneId());
                 // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed zone by LWM

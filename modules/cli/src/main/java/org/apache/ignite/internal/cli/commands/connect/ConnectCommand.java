@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
 
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 import java.net.URL;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.ReplManager;
@@ -50,11 +51,12 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     private ConnectWizardCall connectCall;
 
     @Inject
-    private ReplManager replManager;
+    private Provider<ReplManager> replManagerProvider;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
+        ReplManager replManager = replManagerProvider.get();
         // We need to do this before the connect call since it will fire events even before repl start.
         replManager.subscribe();
 

@@ -99,6 +99,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.rebalance.RaftCommandWithRetry;
+import org.apache.ignite.internal.raft.rebalance.RaftPeerConfigurationException;
 import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -802,9 +803,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         Loza loza = (Loza) raftManager;
         Status status = loza.resetPeers(raftNodeId, peersAndLearners, sequenceToken);
 
-        // Stale configuration change will not be retried.
-        if (!status.isOk() && status.getRaftError() == RaftError.ESTALE) {
-            throw new IgniteException(INTERNAL_ERR, new RaftStaleUpdateException(status.getErrorMsg()));
+        if (!status.isOk()) {
+            RaftError error = status.getRaftError();
+
+            // Stale configuration change will not be retried.
+            if (error == RaftError.ESTALE) {
+                throw new IgniteException(INTERNAL_ERR, new RaftStaleUpdateException(status.getErrorMsg()));
+            }
+
+            // EBUSY means there's an ongoing configuration change - retriable, will eventually complete.
+            if (error == RaftError.EBUSY) {
+                throw new IgniteException(INTERNAL_ERR, "Configuration change in progress, will retry: " + status);
+            }
+
+            // EPERM (node not active) and EINVAL (invalid args) are not retriable.
+            throw new IgniteException(INTERNAL_ERR, new RaftPeerConfigurationException("Failed to reset peers: " + status));
         }
     }
 

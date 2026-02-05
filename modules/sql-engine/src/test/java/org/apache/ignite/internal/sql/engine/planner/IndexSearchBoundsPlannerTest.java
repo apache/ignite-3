@@ -339,18 +339,10 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         // Implicit cast of 2 to VARCHAR.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-27391
-        assertPlan("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2::VARCHAR, '3')", 
-                List.of(publicSchema), nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
-                        .and(scan -> {
-                            boolean boundsMatch = matchBounds(scan.searchBounds(), exact(1));
-                            String condition = scan.condition() != null ? scan.condition().toString() : null;
-                            String expected = 
-                                    "AND(=($t0, 1), OR(=(CAST($t1):VARCHAR CHARACTER SET \"UTF-8\", _UTF-8'2'), =($t1, _UTF-8'3')))";
-                            boolean conditionMatch = Objects.equals(condition, expected);
-                            return boundsMatch && conditionMatch;
-                        })), List.of(),
-                "LogicalTableScanConverterRule", "UnionConverterRule");
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2::VARCHAR, '3')",
+                exact(1),
+                multi(exact("2"), exact("3"))
+        );
     }
 
     /** Tests bounds with dynamic parameters. */
@@ -373,12 +365,13 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds with correlated value. */
     @Test
     public void testBoundsWithCorrelate() throws Exception {
-        assertBounds("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 = t1.C1) FROM TEST t1",
+        assertBounds("SELECT /*+ disable_decorrelation */ (SELECT C1 FROM TEST t2 WHERE t2.C1 = t1.C1) FROM TEST t1",
                 exact("$cor0.C1")
         );
 
         assertBounds(
-                "SELECT (SELECT C1 FROM TEST t2 WHERE C1 = 1 AND C2 = 'a' AND C3 IN (t1.C3, 0, 1, 2)) FROM TEST t1",
+                "SELECT /*+ disable_decorrelation */ (SELECT C1 FROM TEST t2 WHERE C1 = 1 AND C2 = 'a' AND C3 IN (t1.C3, 0, 1, 2))" 
+                        + " FROM TEST t1",
                 exact(1),
                 exact("a"),
                 empty()
@@ -438,13 +431,14 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 empty()
         );
 
-        assertBounds("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 = t1.C1 + t1.C3 * ?) FROM TEST t1", List.of(1), publicSchema,
+        assertBounds("SELECT /*+ disable_decorrelation */ (SELECT C1 FROM TEST t2 WHERE t2.C1 = t1.C1 + t1.C3 * ?)" 
+                        + " FROM TEST t1", List.of(1), publicSchema,
                 exact("+($cor0.C1, *($cor0.C3, ?0))")
         );
 
         assertPlan("SELECT * FROM TEST WHERE C1 = ? + C3", publicSchema, isTableScan("TEST"), List.of(1));
 
-        assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 < t1.C1 + t2.C1) FROM TEST t1", publicSchema,
+        assertPlan("SELECT /*+ disable_decorrelation */ (SELECT C1 FROM TEST t2 WHERE t2.C1 < t1.C1 + t2.C1) FROM TEST t1", publicSchema,
                 nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
 
         // Here we have two OR sets in CNF, second set can't be used, since it contains condition on C1 and C2 columns,
@@ -458,7 +452,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         // Don't support expanding OR with correlate to bounds.
-        assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE C1 in (t1.C1, 1, ?)) FROM TEST t1", publicSchema,
+        assertPlan("SELECT /*+ disable_decorrelation */ (SELECT C1 FROM TEST t2 WHERE C1 in (t1.C1, 1, ?)) FROM TEST t1", publicSchema,
                 nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
 
         // Here "BETWEEN" generates AND condition, and we have two OR sets in CNF, so we can't correctly use range

@@ -103,10 +103,10 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 2, NODES FILTER '$[?(@.region == \"US\")]') "
+            session.execute("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 2, NODES FILTER '$[?(@.region == \"US\")]') "
                     + "STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
-            session.execute(null, "INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
+            session.execute("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
+            session.execute("INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
         });
 
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
@@ -119,7 +119,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET (NODES FILTER '$[?(@.zone == \"global\")]')");
+            session.execute("ALTER ZONE " + ZONE_NAME + " SET (NODES FILTER '$[?(@.zone == \"global\")]')");
         });
 
         // Check that metastore node schedule the rebalance procedure.
@@ -146,10 +146,10 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
+            session.execute("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
                     + "NODES FILTER '$[?(@.zone == \"global\")]') STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
-            session.execute(null, "INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
+            session.execute("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
+            session.execute("INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
         });
 
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
@@ -162,7 +162,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 2)");
+            session.execute("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 2)");
         });
 
         // Check that metastore node schedule the rebalance procedure.
@@ -193,10 +193,10 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(3);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
+            session.execute("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
                     + "NODES FILTER '$[?(@.region == \"US\")]') STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
-            session.execute(null, "INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
+            session.execute("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
+            session.execute("INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
         });
 
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
@@ -205,7 +205,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         stopNode(3);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 2, NODES FILTER '$[?(@.zone == \"global\")]')");
+            session.execute("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 2, NODES FILTER '$[?(@.zone == \"global\")]')");
         });
 
         // Check that new replica from 'global' zone received the data and rebalance really happened.

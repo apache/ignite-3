@@ -100,15 +100,14 @@ public final class ReplicaTestUtils {
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if it cannot be found.
      *
      * @param node Ignite node with raft client.
-     * @param tableOrZoneId Table or zone identifier.
+     * @param zoneId Table or zone identifier.
      * @param partId Partition number.
      *
      * @return Leader node of the partition group corresponding to the partition
      */
     @TestOnly
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
-    public static InternalClusterNode leaderAssignment(Ignite node, int tableOrZoneId, int partId) {
-        return leaderAssignment(getReplicaManager(node), getTopologyService(node), tableOrZoneId, partId);
+    public static InternalClusterNode leaderAssignment(Ignite node, int zoneId, int partId) {
+        return leaderAssignment(getReplicaManager(node), getTopologyService(node), zoneId, partId);
     }
 
     /**
