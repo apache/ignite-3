@@ -28,7 +28,8 @@ object PlatformCppOdbcTestsLinux : BuildType({
         text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         text("PATH__IGNITE_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.CPP_STAGING", "/tmp/cpp_staging")
-        param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
+        param("ROCKYLINUX_CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
+        param("UBUNTU_CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk-amd64/")
     }
 
     dependencies {
@@ -53,7 +54,7 @@ object PlatformCppOdbcTestsLinux : BuildType({
         script {
             name = "Install ODBC and build C++ tests in Rockylinux 8 container"
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
-            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
+            dockerRunParameters = "-e JAVA_HOME=%ROCKYLINUX_CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
             scriptContent = """
                 clang --version
                 clang++ --version
@@ -76,7 +77,7 @@ object PlatformCppOdbcTestsLinux : BuildType({
         script {
             name = "Install ODBC and build C++ tests in Ubuntu 22.04 container"
             dockerImage = "docker.gridgain.com/ci/tc-ubuntu22_04-odbc:v1.0"
-            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
+            dockerRunParameters = "-e JAVA_HOME=%UBUNTU_CONTAINER_JAVA_HOME% --ulimit nofile=32768:32768"
             scriptContent = """
                 clang --version
                 clang++ --version
