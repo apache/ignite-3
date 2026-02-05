@@ -1097,7 +1097,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         .build();
             }
 
-            System.out.println("qqq 2 " + System.identityHashCode(clusterNetSvc.messagingService()));
             clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
         });
     }

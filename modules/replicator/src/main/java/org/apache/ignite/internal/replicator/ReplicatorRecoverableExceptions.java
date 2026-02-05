@@ -23,7 +23,6 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -37,7 +36,6 @@ public class ReplicatorRecoverableExceptions {
             IOException.class,
             UnresolvableConsistentIdException.class,
             ReplicationException.class,
-            ReplicaUnavailableException.class,
             ReplicationTimeoutException.class,
             PrimaryReplicaMissException.class,
             GroupOverloadedException.class
