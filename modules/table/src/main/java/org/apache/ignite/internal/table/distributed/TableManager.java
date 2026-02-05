@@ -807,10 +807,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int tableId
     ) {
         CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
+        CompletableFuture<Void> readLockFutureEx = allOf(readLockAcquisitionFuture, tablesByIdFuture);
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
-                (ignore, throwable) -> inBusyLock(busyLock, () -> allOf(readLockAcquisitionFuture, tablesByIdFuture).thenComposeAsync(unused -> {
+                (ignore, throwable) -> inBusyLock(busyLock, () -> readLockFutureEx.thenComposeAsync(unused -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     for (int i = 0; i < zoneDescriptor.partitions(); i++) {
@@ -826,7 +827,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 // If the table is already closed, it's not a problem (probably the node is stopping).
                 .exceptionally(ignoreTableClosedException())
         );
-
 
         CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {
@@ -1171,7 +1171,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distribution zone descriptor.
      * @param schemaDescriptor Catalog schema descriptor.
-     * @param schemaRegistry
+     * @param schemaRegistry Schema registry.
      * @return Table instance.
      */
     private TableImpl createTableImpl(
