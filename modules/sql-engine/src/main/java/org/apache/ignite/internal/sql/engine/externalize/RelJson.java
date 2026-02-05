@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableRangeSet;
@@ -267,7 +266,7 @@ class RelJson {
     private Object toJson(Enum<?> enum0) {
         String key = enum0.getDeclaringClass().getSimpleName() + "#" + enum0.name();
 
-        if (ENUM_BY_NAME.get(key) == enum0) {
+        if (ENUM_BY_NAME.getNullable(key) == enum0) {
             return key;
         }
 
@@ -409,10 +408,7 @@ class RelJson {
                 RexLiteral literal = (RexLiteral) node;
                 Object value = literal.getValue3();
                 map = map();
-                map.put("literal",
-                        value instanceof Enum
-                                ? toJson((Enum) value)
-                                : toJson(value));
+                map.put("literal", toJson(value));
                 map.put("type", toJson(node.getType()));
 
                 return map;
