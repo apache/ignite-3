@@ -52,6 +52,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -119,7 +120,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clockService,
                 clusterService.topologyService(),
                 clusterService.messagingService(),
-                new ExecutorInclinedPlacementDriver(placementDriver, executor),
+                new PlacementDriverHelper(new ExecutorInclinedPlacementDriver(placementDriver, executor), clockService),
                 new TxMessageSender(clusterService.messagingService(), replicaService, clockService)
         );
 

@@ -170,6 +170,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -730,7 +731,7 @@ public class ItTxTestCluster {
                         clockServices.get(assignment),
                         nodeResolver,
                         clusterServices.get(assignment).messagingService(),
-                        placementDriver,
+                        new PlacementDriverHelper(placementDriver, clockServices.get(assignment)),
                         txMessageSender
                 );
                 transactionStateResolver.start();
@@ -967,6 +968,7 @@ public class ItTxTestCluster {
                         schemaSyncService,
                         catalogService,
                         placementDriver,
+                        new PlacementDriverHelper(placementDriver, clockService),
                         clusterNodeResolver,
                         raftClient,
                         new NoOpFailureManager(),
@@ -1315,7 +1317,7 @@ public class ItTxTestCluster {
                 clientClockService,
                 nodeResolver,
                 client.messagingService(),
-                placementDriver,
+                new PlacementDriverHelper(placementDriver, clientClockService),
                 new TxMessageSender(
                         client.messagingService(),
                         clientReplicaSvc,

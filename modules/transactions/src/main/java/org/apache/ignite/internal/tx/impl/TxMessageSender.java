@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessageNullable;
 
@@ -42,8 +43,8 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
+import org.apache.ignite.internal.tx.message.RowIdMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.jetbrains.annotations.Nullable;
@@ -185,30 +186,26 @@ public class TxMessageSender {
     /**
      * Send TxStateCommitPartitionRequest.
      *
+     * @param p Transaction state resolution parameters.
      * @param primaryConsistentId Node id to send the request to.
-     * @param txId Transaction id.
-     * @param commitGrpId Partition to store a transaction state.
      * @param consistencyToken Enlistment consistency token.
-     * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
-     * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}.
      * @return Completable future of {@link TransactionMeta}.
      */
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
+            TxStateResolutionParameters p,
             String primaryConsistentId,
-            UUID txId,
-            ZonePartitionId commitGrpId,
-            Long consistencyToken,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId
+            Long consistencyToken
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
-                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
-                        .txId(txId)
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, p.commitGroupId()))
+                        .txId(p.txId())
                         .enlistmentConsistencyToken(consistencyToken)
-                        .senderCurrentConsistencyToken(senderCurrentConsistencyToken)
-                        .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, senderGroupId))
+                        .senderCurrentConsistencyToken(p.senderCurrentConsistencyToken())
+                        .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, p.senderGroupId()))
+                        .rowId(p.rowIdMessage(TX_MESSAGES_FACTORY))
+                        .newestCommitTimestamp(p.newestCommitTimestamp())
                         .build()
         );
     }
@@ -216,27 +213,21 @@ public class TxMessageSender {
     /**
      * Send TxStateCoordinatorRequest.
      *
+     * @param p Transaction state resolution parameters.
      * @param coordinatorClusterNode Node to send the request to.
-     * @param txId Transaction id.
-     * @param timestamp Timestamp to pass to target node.
-     * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
-     * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}
      * @return Completable future of {@link TxStateResponse}.
      */
     public CompletableFuture<TxStateResponse> resolveTxStateFromCoordinator(
-            InternalClusterNode coordinatorClusterNode,
-            UUID txId,
-            HybridTimestamp timestamp,
-            @Nullable Long senderCurrentConsistencyToken,
-            @Nullable ZonePartitionId senderGroupId
+            TxStateResolutionParameters p,
+            InternalClusterNode coordinatorClusterNode
     ) {
         return messagingService.invoke(
                         coordinatorClusterNode,
                         TX_MESSAGES_FACTORY.txStateCoordinatorRequest()
-                                .readTimestamp(timestamp)
-                                .txId(txId)
-                                .senderCurrentConsistencyToken(senderCurrentConsistencyToken)
-                                .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, senderGroupId))
+                                .readTimestamp(p.readTimestamp())
+                                .txId(p.txId())
+                                .senderCurrentConsistencyToken(p.senderCurrentConsistencyToken())
+                                .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, p.senderGroupId()))
                                 .build(),
                         RPC_TIMEOUT_MILLIS)
                 .thenApply(resp -> {
@@ -244,6 +235,35 @@ public class TxMessageSender {
 
                     return (TxStateResponse) resp;
                 });
+    }
+
+    /**
+     * Send TxStateCommitPartitionRequest.
+     *
+     * @param p Transaction state resolution parameters.
+     * @param primaryConsistentId Node id to send the request to.
+     * @param consistencyToken Enlistment consistency token.
+     * @return Completable future of {@link TransactionMeta}.
+     */
+    public CompletableFuture<TransactionMeta> resolveTxStateFromPrimaryReplica(
+            TxStateResolutionParameters p,
+            String primaryConsistentId,
+            Long consistencyToken
+    ) {
+        RowIdMessage rowId = p.rowIdMessage(TX_MESSAGES_FACTORY);
+
+        requireNonNull(rowId, "RowIdMessage is required to resolve transaction state from primary replica");
+
+        return replicaService.invoke(
+                primaryConsistentId,
+                TX_MESSAGES_FACTORY.txStatePrimaryReplicaRequest()
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, p.commitGroupId()))
+                        .txId(p.txId())
+                        .enlistmentConsistencyToken(consistencyToken)
+                        .rowId(rowId)
+                        .newestCommitTimestamp(p.newestCommitTimestamp())
+                        .build()
+        );
     }
 
     /**

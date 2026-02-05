@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
+import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
@@ -3481,11 +3482,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 : replicaMeta.getStartTime().longValue();
 
         return transactionStateResolver.resolveTxState(
-                        txId,
-                        new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()),
-                        timestamp,
-                        currentConsistencyToken,
-                        replicationGroupId
+                        txStateResolutionParameters()
+                                .txId(txId)
+                                .commitGroupId(new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()))
+                                .readTimestamp(timestamp)
+                                .senderGroupId(replicationGroupId)
+                                .senderCurrentConsistencyToken(currentConsistencyToken)
+                                .rowIdAndNewestCommitTimestamp(writeIntent.rowId(), writeIntent.newestCommitTimestamp())
+                                .build()
                 )
                 .thenApply(transactionMeta -> {
                     if (isFinalState(transactionMeta.txState())) {

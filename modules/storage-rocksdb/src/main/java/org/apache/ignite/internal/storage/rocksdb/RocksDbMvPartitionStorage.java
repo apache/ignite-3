@@ -1188,6 +1188,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     RowId rowId = getRowId(keyBuf);
 
                     RowMeta row;
+
                     if (isWriteIntent) {
                         ByteBuffer transactionState = ByteBuffer.wrap(it.value());
 
@@ -1196,14 +1197,31 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         int commitZoneId = transactionState.getInt();
                         int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
 
-                        row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId);
+                        HybridTimestamp newestCommitTimestamp = null;
+
+                        it.next();
+
+                        ByteBuffer dataIdKey = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
+
+                        int keyLen = it.key(dataIdKey);
+
+                        dataIdKey.position(0).limit(keyLen);
+
+                        if (matches(rowId, dataIdKey)) {
+                            newestCommitTimestamp = readTimestampDesc(dataIdKey);
+                        }
+
+                        row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId, newestCommitTimestamp);
                     } else {
                         row = RowMeta.withoutWriteIntent(rowId);
                     }
 
                     result.add(row);
 
-                    it.next();
+                    // If write intent, it.next() was done already.
+                    if (!isWriteIntent) {
+                        it.next();
+                    }
                 }
             } catch (RocksDBException e) {
                 throw new IgniteRocksDbException("Error finding following Row IDs", e);

@@ -133,6 +133,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -516,6 +517,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 placementDriver,
+                new PlacementDriverHelper(placementDriver, CLOCK_SERVICE),
                 mock(ClusterNodeResolver.class),
                 svc,
                 mock(FailureProcessor.class),

@@ -246,6 +246,34 @@ public class TxStateMeta implements TransactionMeta {
     }
 
     /**
+     * Finalizes transaction state meta.
+     *
+     * @param old Old meta.
+     * @param finalState Final transaction state.
+     * @param commitTimestamp Commit timestamp, if present.
+     * @return Finalized transaction state meta.
+     */
+    public static TxStateMeta finalizeState(
+            @Nullable TxStateMeta old,
+            TxState finalState,
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable Long cleanupCompletionTimestamp
+    ) {
+        TxStateMetaBuilder builder = old == null ? builder(finalState) : old.mutate().txState(finalState);
+
+        if (commitTimestamp != null) {
+            builder.commitTimestamp(commitTimestamp);
+        }
+
+        if (cleanupCompletionTimestamp != null) {
+            builder.initialVacuumObservationTimestamp(cleanupCompletionTimestamp);
+            builder.cleanupCompletionTimestamp(cleanupCompletionTimestamp);
+        }
+
+        return builder.build();
+    }
+
+    /**
      * Builder for TxStateMeta.
      */
     public static class TxStateMetaBuilder {
