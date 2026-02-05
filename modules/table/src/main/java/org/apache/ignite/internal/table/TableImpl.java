@@ -102,7 +102,7 @@ public class TableImpl implements TableViewInternal {
      * @param sql Ignite SQL facade.
      * @param failureProcessor Failure processor.
      * @param pkId ID of a primary index.
-     * @param schemaRegistry
+     * @param schemaRegistry Table schema registry.
      */
     public TableImpl(
             InternalTable tbl,
