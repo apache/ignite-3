@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -79,6 +80,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     private static int fixedLengthColumnSize(List<Column> columns) {
         int sum = 0;
+
+        assert columns instanceof RandomAccess : columns;
 
         //noinspection ForLoopReplaceableByForEach
         for (int i = 0; i < columns.size(); i++) {
@@ -351,7 +354,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
         for (int i = 0; i < schema.length(); i++) {
             Column col = schema.column(i);
-            Object val = tuple.value(i); // Allocations
+            Object val = tuple.value(i);
 
             col.validate(val);
         }
