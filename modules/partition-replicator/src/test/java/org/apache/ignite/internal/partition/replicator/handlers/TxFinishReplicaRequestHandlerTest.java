@@ -109,7 +109,7 @@ class TxFinishReplicaRequestHandlerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = new HybridTimestamp(123, 456);
 
         when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
-        when(txStatePartitionStorage.get(txId)).thenReturn(new TxMeta(TxState.ABORTED, List.of(), commitTimestamp));
+        when(txStatePartitionStorage.get(txId)).thenReturn(new TxMeta(TxState.ABORTED, List.of(), null));
 
         TxFinishReplicaRequest request = txMessagesFactory.txFinishReplicaRequest()
                 .commitTimestamp(commitTimestamp)
