@@ -112,6 +112,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -178,6 +179,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -363,6 +365,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<ChangeLowWatermarkEventParameters> onLowWatermarkChangedListener = this::onLwmChanged;
 
     private final MetricManager metricManager;
+    @Nullable
+    private TransactionMetricsSource transactionMetricsSource;
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionTableStatsMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
     private final Map<TablePartitionId, LongSupplier> pendingWriteIntentsSuppliers = new ConcurrentHashMap<>();
@@ -521,7 +525,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            txManager.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
+            transactionMetricsSource = transactionMetricsSource();
+            if (transactionMetricsSource != null) {
+                transactionMetricsSource.setPendingWriteIntentsSupplier(this::totalPendingWriteIntents);
+            }
 
             mvGc.start();
 
@@ -1112,7 +1119,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return nullCompletedFuture();
         }
 
-        txManager.setPendingWriteIntentsSupplier(null);
+        if (transactionMetricsSource != null) {
+            transactionMetricsSource.setPendingWriteIntentsSupplier(null);
+            transactionMetricsSource = null;
+        }
 
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
         partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
@@ -1715,6 +1725,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return sum;
+    }
+
+    private @Nullable TransactionMetricsSource transactionMetricsSource() {
+        for (MetricSource source : metricManager.metricSources()) {
+            if (TransactionMetricsSource.SOURCE_NAME.equals(source.name()) && source instanceof TransactionMetricsSource) {
+                return (TransactionMetricsSource) source;
+            }
+        }
+
+        return null;
     }
 
     /**

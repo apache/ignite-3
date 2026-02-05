@@ -411,11 +411,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         txMetrics = new TransactionMetricsSource(clockService);
     }
 
-    @Override
-    public void setPendingWriteIntentsSupplier(@Nullable LongSupplier supplier) {
-        txMetrics.setPendingWriteIntentsSupplier(supplier);
-    }
-
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
             Consumer<ZonePartitionId> action
