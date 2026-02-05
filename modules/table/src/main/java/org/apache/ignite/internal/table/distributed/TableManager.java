@@ -787,31 +787,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             });
         }));
 
-        return tablesVv.get(causalityToken).thenCompose(unused -> {
-            var table = (TableImpl) tables.get(tableId);
+        // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
+        // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
+        CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
+        try {
+            return loadTableToZoneOnTableCreateHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, tableId)
+                    .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
+        } catch (Throwable e) {
+            unlockZoneForRead(zoneDescriptor, acquisitionFuture);
 
-            // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
-            // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
-            CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
-            try {
-                return loadTableToZoneOnTableCreateHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, table)
-                        .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
-            } catch (Throwable e) {
-                unlockZoneForRead(zoneDescriptor, acquisitionFuture);
-
-                return failedFuture(e);
-            }
-        });
+            return failedFuture(e);
+        }
     }
 
     private CompletableFuture<Void> loadTableToZoneOnTableCreateHavingZoneReadLock(
             CompletableFuture<Long> readLockAcquisitionFuture,
             long causalityToken,
             CatalogZoneDescriptor zoneDescriptor,
-            TableImpl table
+            int tableId
     ) {
-        int tableId = table.tableId();
-
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
                 (ignore, throwable) -> inBusyLock(busyLock, () -> readLockAcquisitionFuture.thenComposeAsync(unused -> {
@@ -822,6 +816,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             parts.set(i);
                         }
                     }
+
+                    var table = (TableImpl) tables.get(tableId);
 
                     return createPartitionStoragesIfAbsent(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
                 }, ioExecutor))
@@ -837,6 +833,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             return allOf(localPartsUpdateFuture, tablesByIdFuture).thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                var table = (TableImpl) tables.get(tableId);
+
                 for (int i = 0; i < zoneDescriptor.partitions(); i++) {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
 
@@ -854,6 +852,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> {
+            var table = (TableImpl) tables.get(tableId);
+
             startedTables.put(tableId, table);
 
             addTableToZone(zoneDescriptor.id(), table);
