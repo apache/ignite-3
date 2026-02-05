@@ -128,7 +128,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
     }
 
     private static void logTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
-        String errorMsg = format("Finish command skipped, transaction txId = {} because of inconsistent state,"
+        String errorMsg = format("Finish command skipped, transaction txId = {} transaction state is already set,"
                         + " expected state = {}, state to set = {}",
                 txId,
                 txMetaBeforeCas,

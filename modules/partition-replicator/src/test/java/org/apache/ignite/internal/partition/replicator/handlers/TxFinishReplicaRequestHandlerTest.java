@@ -21,13 +21,14 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -41,8 +42,9 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
-import org.apache.ignite.internal.tx.TransactionResult;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -101,18 +103,38 @@ class TxFinishReplicaRequestHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void finishReturnsMismatchingOutcomeAfterRaftWhenCommandNotApplied() {
-        UUID txId = UUID.randomUUID();
-        HybridTimestamp now = new HybridTimestamp(1, 1);
+    void finishReturnsMismatchingOutcomeWhenCommitRequestedButAlreadyAborted() {
+        HybridTimestamp beginTimestamp = new HybridTimestamp(1, 1);
+        UUID txId = TransactionIds.transactionId(beginTimestamp, 1);
+        HybridTimestamp commitTimestamp = new HybridTimestamp(123, 456);
 
-        when(clockService.now()).thenReturn(now);
         when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
-        when(catalogService.activeCatalogVersion(anyLong())).thenReturn(1);
-        when(txStatePartitionStorage.get(txId)).thenReturn(null);
+        when(txStatePartitionStorage.get(txId)).thenReturn(new TxMeta(TxState.ABORTED, List.of(), commitTimestamp));
 
-        TransactionResult committedResult = new TransactionResult(TxState.COMMITTED, now);
+        TxFinishReplicaRequest request = txMessagesFactory.txFinishReplicaRequest()
+                .commitTimestamp(commitTimestamp)
+                .groupId(toZonePartitionIdMessage(replicaMessagesFactory, replicationGroupId))
+                .commitPartitionId(toZonePartitionIdMessage(replicaMessagesFactory, replicationGroupId))
+                .txId(txId)
+                .groups(Map.of(
+                        toZonePartitionIdMessage(replicaMessagesFactory, replicationGroupId),
+                        partitionEnlistmentMessage("node", Set.of())
+                ))
+                .commit(true)
+                .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
+                .build();
 
-        when(raftCommandRunner.run(any())).thenReturn(completedFuture(committedResult));
+        assertThat(handler.handle(request), willThrow(MismatchingTransactionOutcomeInternalException.class));
+
+        verify(txManager, never()).cleanup(any(), any(Map.class), anyBoolean(), any(), any());
+    }
+
+    @Test
+    void finishReturnsMismatchingOutcomeWhenAbortRequestedButAlreadyCommitted() {
+        UUID txId = UUID.randomUUID();
+        HybridTimestamp commitTimestamp = new HybridTimestamp(1, 1);
+
+        when(txStatePartitionStorage.get(txId)).thenReturn(new TxMeta(TxState.COMMITTED, List.of(), commitTimestamp));
 
         TxFinishReplicaRequest request = txMessagesFactory.txFinishReplicaRequest()
                 .groupId(toZonePartitionIdMessage(replicaMessagesFactory, replicationGroupId))
@@ -126,7 +148,7 @@ class TxFinishReplicaRequestHandlerTest extends BaseIgniteAbstractTest {
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build();
 
-        assertThat(handler.handle(request), willThrow(MismatchingTransactionOutcomeInternalException.class));
+        assertThrows(MismatchingTransactionOutcomeInternalException.class, () -> handler.handle(request));
 
         verify(txManager, never()).cleanup(any(), any(Map.class), anyBoolean(), any(), any());
     }
