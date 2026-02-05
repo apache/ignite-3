@@ -81,14 +81,14 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         IgniteSql sql = client.sql();
 
         for (int i = 0; i < 10; i++) {
-            sql.execute(null, "INSERT INTO t VALUES (?, ?)", i, i).close();
+            sql.execute("INSERT INTO t VALUES (?, ?)", i, i).close();
         }
 
         cluster.stopNode(0);
         assertThat(client.connections().size(), is(2));
 
         for (int i = 10; i < 20; i++) {
-            sql.execute(null, "INSERT INTO t VALUES (?, ?)", i, i).close();
+            sql.execute("INSERT INTO t VALUES (?, ?)", i, i).close();
         }
     }
 
@@ -97,14 +97,14 @@ public class ItThinConnectionFailoverTest extends ClusterPerTestIntegrationTest 
         IgniteSql sql = client.sql();
 
         for (int i = 0; i < 10; i++) {
-            sql.execute(null, "SELECT " + i).close();
+            sql.execute("SELECT " + i).close();
         }
 
         cluster.stopNode(0);
         assertThat(client.connections().size(), is(2));
 
         for (int i = 10; i < 20; i++) {
-            sql.execute(null, "SELECT " + i).close();
+            sql.execute("SELECT " + i).close();
         }
     }
 

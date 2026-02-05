@@ -70,8 +70,6 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     @BeforeEach
     protected void beforeEach() throws Exception {
         pageMem = createPageMemory();
-
-        pageMem.start();
     }
 
     @AfterEach

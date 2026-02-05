@@ -51,7 +51,7 @@ public class ItThinClientTablesGetListTest extends ItAbstractThinClientTest {
         Ignite server = server();
 
         for (Table table : server().tables().tables()) {
-            try (ResultSet<?> rs = server.sql().execute(null, "DROP TABLE " + table.qualifiedName().toCanonicalForm())) {
+            try (ResultSet<?> rs = server.sql().execute("DROP TABLE " + table.qualifiedName().toCanonicalForm())) {
                 assertNotNull(rs);
             }
         }

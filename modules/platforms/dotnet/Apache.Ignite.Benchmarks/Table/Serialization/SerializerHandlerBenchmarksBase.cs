@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System;
+    using System.Collections.Generic;
     using BenchmarkDotNet.Engines;
     using Ignite.Sql;
     using Ignite.Table;
@@ -25,6 +26,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using Internal.Buffers;
     using Internal.Table;
     using Internal.Table.Serialization;
+    using Internal.Table.Serialization.Mappers;
 
     /// <summary>
     /// Base class for <see cref="IRecordSerializerHandler{T}"/> benchmarks.
@@ -62,6 +64,8 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
         internal static readonly IRecordSerializerHandler<Car> MapperSerializerHandler = new MapperSerializerHandler<Car>(new CarMapper());
 
         internal static readonly IRecordSerializerHandler<Car> MapperKnownOrderSerializerHandler = new MapperSerializerHandler<Car>(new CarMapperKnownOrder());
+
+        internal static readonly IRecordSerializerHandler<KvPair<Guid, string>> MapperPairSerializerHandler = new MapperPairSerializerHandler<Guid, string>(KeyValueMappers.TryCreate<Guid, string>()!);
 
         protected Consumer Consumer { get; } = new();
 

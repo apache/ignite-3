@@ -120,7 +120,7 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
     /** Measures performance of scan over a table. */
     @Benchmark
     public void forceTableScan(ForceTableScanState state, Blackhole bh) {
-        try (var rs = sql.execute(null, state.query, startDate, limit)) {
+        try (var rs = sql.execute(state.query, startDate, limit)) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }
@@ -130,7 +130,7 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
     /** Measures performance of scan over an index. */
     @Benchmark
     public void forceIndexScan(ForceIndexScanState state, Blackhole bh) {
-        try (var rs = sql.execute(null, state.query, startDate, limit)) {
+        try (var rs = sql.execute(state.query, startDate, limit)) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }
@@ -140,7 +140,7 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
     /** Measures performance of an optimizer's decision about what to use for particular query. */
     @Benchmark
     public void optimizatorChoiceScan(OptimizatorChoiceState state, Blackhole bh) {
-        try (var rs = sql.execute(null, state.query, startDate, limit)) {
+        try (var rs = sql.execute(state.query, startDate, limit)) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }

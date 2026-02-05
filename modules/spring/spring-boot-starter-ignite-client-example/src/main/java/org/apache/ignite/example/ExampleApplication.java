@@ -45,8 +45,8 @@ public class ExampleApplication {
             private IgniteClient client;
 
             @Override public void run(ApplicationArguments args) throws Exception {
-                client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id INT PRIMARY KEY, name VARCHAR)");
-                client.sql().execute(null, "INSERT INTO Person (id, name) values (1, 'John')");
+                client.sql().execute("CREATE TABLE IF NOT EXISTS Person (id INT PRIMARY KEY, name VARCHAR)");
+                client.sql().execute("INSERT INTO Person (id, name) values (1, 'John')");
 
             }
         };

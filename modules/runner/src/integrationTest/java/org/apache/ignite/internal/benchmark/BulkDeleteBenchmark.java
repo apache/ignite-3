@@ -40,6 +40,7 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -199,13 +200,13 @@ public class BulkDeleteBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         void executeQuery(int key) {
-            try (ResultSet<?> rs = sql.execute(null, statement, key)) {
+            try (ResultSet<?> rs = sql.execute((Transaction) null, statement, key)) {
                 // NO-OP
             }
         }
 
         void executeInlinedQuery(int key) {
-            try (ResultSet<?> rs = sql.execute(null, createDeleteStatement(key))) {
+            try (ResultSet<?> rs = sql.execute(createDeleteStatement(key))) {
                 // NO-OP
             }
         }
@@ -247,7 +248,7 @@ public class BulkDeleteBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         void executeQuery(int key) {
-            sql.execute(null, statement, key);
+            sql.execute((Transaction) null, statement, key);
         }
     }
 
