@@ -27,6 +27,7 @@ import java.util.function.Function;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.Transaction;
 
 class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
     private final String viewName;
@@ -51,7 +52,7 @@ class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
 
     @Override
     public CompletableFuture<List<T>> executeAsync() {
-        return sql.executeAsync(null, toString()).thenCompose(resultSet -> {
+        return sql.executeAsync((Transaction) null, toString()).thenCompose(resultSet -> {
             List<T> result = new ArrayList<>();
             return iterate(resultSet, mapper, result).thenApply(unused -> result);
         });

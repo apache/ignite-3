@@ -79,7 +79,6 @@ import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -133,8 +132,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         ioRegistry = null;
     }
 
-    @BeforeEach
-    void setUp() throws Exception {
+    private void setUp(ThrottlingPolicyFactory throttleFactory) throws Exception {
         FailureManager failureManager = mock(FailureManager.class);
         when(failureManager.process(any())).thenThrow(new AssertionError("Unexpected error"));
 
@@ -161,7 +159,11 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         );
 
         pageMemory = new PersistentPageMemory(
-                PersistentDataRegionConfiguration.builder().pageSize(PAGE_SIZE).size(SEGMENT_SIZE + CHECKPOINT_BUFFER_SIZE).build(),
+                PersistentDataRegionConfiguration.builder()
+                        .pageSize(PAGE_SIZE)
+                        .size(SEGMENT_SIZE + CHECKPOINT_BUFFER_SIZE)
+                        .throttlingPolicyFactory(throttleFactory)
+                        .build(),
                 new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 new long[]{SEGMENT_SIZE},
@@ -182,7 +184,6 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         );
 
         pageStoreManager.start();
-        pageMemory.start();
 
         dataRegion = new TestDataRegion<>(pageMemory);
         dataRegions.add(dataRegion);
@@ -224,7 +225,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     void pageAllocationNotifiedThrottler() throws Exception {
         PagesWriteThrottlePolicy writeThrottle = mock(PagesWriteThrottlePolicy.class);
 
-        pageMemory.initThrottling(writeThrottle);
+        setUp(pm -> writeThrottle);
 
         checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
@@ -244,7 +245,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     void pageUnlockWithoutMarkingDirty() throws Exception {
         PagesWriteThrottlePolicy writeThrottle = mock(PagesWriteThrottlePolicy.class);
 
-        pageMemory.initThrottling(writeThrottle);
+        setUp(pm -> writeThrottle);
 
         long pageId;
 
@@ -276,10 +277,10 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
      * Tests that two consecutive page updates lead to a single {@link PagesWriteThrottlePolicy#onMarkDirty(boolean)} call.
      */
     @Test
-    void pageMarkedDirtyOnlyOnce() {
+    void pageMarkedDirtyOnlyOnce() throws Exception {
         PagesWriteThrottlePolicy writeThrottle = mock(PagesWriteThrottlePolicy.class);
 
-        pageMemory.initThrottling(writeThrottle);
+        setUp(pm -> writeThrottle);
 
         AtomicLong pageId = new AtomicLong();
 
@@ -306,10 +307,10 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
      * Tests that checkpoint events are properly propagated to the throttler.
      */
     @Test
-    void checkpointEvents() {
+    void checkpointEvents() throws Exception {
         PagesWriteThrottlePolicy writeThrottle = mock(PagesWriteThrottlePolicy.class);
 
-        pageMemory.initThrottling(writeThrottle);
+        setUp(pm -> writeThrottle);
 
         AtomicLong pageId = new AtomicLong();
 
@@ -334,7 +335,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     @Test
     void wakeupThrottledThreads() throws Exception {
         PagesWriteThrottlePolicy writeThrottle = mock(PagesWriteThrottlePolicy.class);
-        pageMemory.initThrottling(writeThrottle);
+
+        setUp(pm -> writeThrottle);
 
         int pages = CHECKPOINT_BUFFER_SIZE / PAGE_SIZE * 9 / 10;
         long[] pageIds = new long[pages];
@@ -378,19 +380,19 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
      */
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void hugeLoadDoesNotBreakCheckpointReadLock(boolean speedBasedThrottling) {
+    void hugeLoadDoesNotBreakCheckpointReadLock(boolean speedBasedThrottling) throws Exception {
         PersistentPageMemoryMetricSource metricSource = new PersistentPageMemoryMetricSource("test");
 
-        PagesWriteThrottlePolicy writeThrottle;
+        ThrottlingPolicyFactory throttleFactory;
         if (speedBasedThrottling) {
-            writeThrottle = new PagesWriteSpeedBasedThrottle(
+            throttleFactory = pageMemory -> new PagesWriteSpeedBasedThrottle(
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
                     checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                     metricSource
             );
         } else {
-            writeThrottle = new TargetRatioPagesWriteThrottle(
+            throttleFactory = pageMemory -> new TargetRatioPagesWriteThrottle(
                     DEFAULT_LOGGING_THRESHOLD,
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
@@ -399,7 +401,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
             );
         }
 
-        pageMemory.initThrottling(writeThrottle);
+        setUp(throttleFactory);
 
         long[] pageIds = new long[SEGMENT_SIZE / PAGE_SIZE * 2];
 

@@ -136,7 +136,7 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testSqlColumnMeta() {
-        try (var cursor = client().sql().execute(null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
+        try (var cursor = client().sql().execute((Transaction) null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
             ResultSetMetadata meta = cursor.metadata();
             assertNotNull(meta);
 
@@ -204,7 +204,7 @@ public interface ClientCompatibilityTests {
                 .pageSize(10)
                 .build();
 
-        try (var cursor = client().sql().execute(null, statement, minId)) {
+        try (var cursor = client().sql().execute((Transaction) null, statement, minId)) {
             AtomicInteger rowCnt = new AtomicInteger();
             cursor.forEachRemaining(x -> rowCnt.incrementAndGet());
 

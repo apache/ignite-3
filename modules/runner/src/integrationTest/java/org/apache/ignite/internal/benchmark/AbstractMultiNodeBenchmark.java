@@ -111,7 +111,7 @@ public class AbstractMultiNodeBenchmark {
         var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " (partitions " + partitionCount()
                 + ", replicas " + replicaCount() + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
 
-        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createZoneStatement)) {
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(createZoneStatement)) {
             // No-op.
         }
     }
@@ -152,7 +152,7 @@ public class AbstractMultiNodeBenchmark {
 
         createTableStatement += "\nZONE " + ZONE_NAME;
 
-        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createTableStatement)) {
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(createTableStatement)) {
             // No-op.
         }
     }
