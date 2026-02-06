@@ -49,7 +49,6 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // Edit link disabled - docs not yet in upstream repository
           editUrl: undefined,
-          routeBasePath: '/', // Serve docs at the site root
           // Versioning configuration
           includeCurrentVersion: true, // Include the current (unversioned) docs
           lastVersion: 'current', // The most recent version
@@ -90,7 +89,7 @@ const config: Config = {
         indexDocs: true, // Index documentation pages
         indexBlog: false, // Don't index blog (disabled)
         indexPages: false, // Don't index static pages (docs-only site)
-        docsRouteBasePath: '/', // Docs are served at root
+        docsRouteBasePath: 'docs', // Docs route base path
 
         // Search UI options
         searchResultLimits: 10, // Maximum number of search results
