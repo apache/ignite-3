@@ -23,6 +23,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -37,6 +38,7 @@ import static org.mockito.Mockito.when;
 import java.net.NoRouteToHostException;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -57,9 +59,11 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -89,6 +93,15 @@ class TopologyAwareRaftGroupServiceRetriesTest extends BaseIgniteAbstractTest {
 
     @Mock
     private TopologyService topologyService;
+
+    private LogInspector logInspector;
+
+    @AfterEach
+    void cleanup() {
+        if (logInspector != null) {
+            logInspector.stop();
+        }
+    }
 
     /**
      * The test is about a situation when some node gets added to the Logical Topology (LT) in v1, then gets removed from it and gets
@@ -152,6 +165,8 @@ class TopologyAwareRaftGroupServiceRetriesTest extends BaseIgniteAbstractTest {
         // Then we attempt to subscribe to it.
         verify(messagingService, inReasonableTime().atLeastOnce()).invoke(eq(nodeV1), any(), anyLong());
 
+        CountDownLatch witnessedRetriesStop = prepareRetriesStopWitness();
+
         // When v1 is replaced with v2...
         listener.onNodeLeft(nodeV1, new LogicalTopologySnapshot(3, Set.of(), clusterId));
         listener.onNodeJoined(anotherNodeV2, new LogicalTopologySnapshot(4, Set.of(anotherNodeV2), clusterId));
@@ -159,13 +174,16 @@ class TopologyAwareRaftGroupServiceRetriesTest extends BaseIgniteAbstractTest {
         // Then we attempt to subscribe to v2...
         verify(messagingService, inReasonableTime().atLeastOnce()).invoke(eq(anotherNodeV2), any(), anyLong());
 
-        allowRetriesToStop();
+        // But subscription attempts to v1 are stopped.
 
+        // Here, we want to make sure that no new attempts are made for v1 after they are stopped.
+        // To do it, we wait for attempts to actually stop, then we clear invocations.
+        assertTrue(witnessedRetriesStop.await(10, SECONDS), "Did not see retries stopping in time");
         clearInvocations(messagingService);
 
+        // Now, we want to make sure that no new attempts for v1 are made. This happens asynchronously, so we first have to
+        // let any rogue v1 attempt to happen and only then verify that they didn't happen.
         allowRetriesToHappen();
-
-        // But subscription attempts to v1 are stopped.
         verify(messagingService, never()).invoke(eq(nodeV1), any(), anyLong());
     }
 
@@ -173,8 +191,17 @@ class TopologyAwareRaftGroupServiceRetriesTest extends BaseIgniteAbstractTest {
         return timeout(SECONDS.toMillis(10));
     }
 
-    private static void allowRetriesToStop() throws InterruptedException {
-        Thread.sleep(500);
+    private CountDownLatch prepareRetriesStopWitness() {
+        CountDownLatch witnessedRetriesStop = new CountDownLatch(1);
+
+        logInspector = LogInspector.create(TopologyAwareRaftGroupService.class, true);
+        logInspector.addHandler(
+                event -> event.getMessage().getFormattedMessage().startsWith(
+                        "Could not subscribe to leader update from a specific node, because the node had left the logical topology"
+                ),
+                witnessedRetriesStop::countDown
+        );
+        return witnessedRetriesStop;
     }
 
     private static void allowRetriesToHappen() throws InterruptedException {
