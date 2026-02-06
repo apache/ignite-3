@@ -59,8 +59,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  *
  * <p>Limitations: read-only workload, checkpoint lock held during measurements, cache is pre-warmed.
  */
-@Warmup(iterations = 5, time = 2)
-@Measurement(iterations = 10, time = 2)
+@Warmup(iterations = 3, time = 2)
+@Measurement(iterations = 5, time = 2)
 @Fork(1)
 @State(Scope.Benchmark)
 public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase {
