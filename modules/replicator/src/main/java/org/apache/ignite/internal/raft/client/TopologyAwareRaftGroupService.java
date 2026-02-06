@@ -143,11 +143,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         topologyEventsListener = new LogicalTopologyEventListener() {
             @Override
             public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-                LOG.info("Topology leap event received [grpId={}, topology={}].",
-                        groupId(),
-                        newTopology
-                );
-                //TODO:https://issues.apache.org/jira/browse/IGNITE-27770
+                LOG.info("Topology leap event received [grpId={}, topology={}].", groupId(), newTopology);
+                // TODO: IGNITE-27770 - Need to re-establish subscriptions to all peers after topology leap
             }
 
             @Override
