@@ -168,20 +168,20 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                     subscribeToNode(appearedNode, peer, leftWhileSubscribing)
                             .thenComposeAsync(subscribed -> {
                                 if (subscribed) {
-                                    LOG.info("Successfully subscribed to new peer for "
-                                                + "leader election notifications [grpId={}, consistentId={}]",
-                                        groupId(),
-                                        peer.consistentId()
-                                );
+                                    LOG.info("Successfully subscribed to new peer for leader election notifications "
+                                            + "[grpId={}, consistentId={}]",
+                                            groupId(),
+                                            peer.consistentId()
+                                    );
 
-                                return refreshAndGetLeaderWithTerm()
-                                        .thenAcceptAsync(leaderWithTerm -> {
-                                            if (!leaderWithTerm.isEmpty()
-                                                    && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
-                                                serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
-                                            }
-                                        }, executor);
-                            }
+                                    return refreshAndGetLeaderWithTerm()
+                                            .thenAcceptAsync(leaderWithTerm -> {
+                                                if (!leaderWithTerm.isEmpty()
+                                                        && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
+                                                    serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
+                                                }
+                                            }, executor);
+                                }
 
                                 return nullCompletedFuture();
                             }, executor)
