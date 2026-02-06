@@ -72,7 +72,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "10");
 
         // Execute SQL in non-interactive mode (will use paged fetching)
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -90,7 +90,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         Files.writeString(scriptFile, "SELECT * FROM " + TEST_TABLE + ";");
 
         // Use default page size (1000)
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -110,7 +110,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "-10");
 
         // Execute SQL - should fall back to default
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -126,7 +126,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         Files.writeString(scriptFile, "SELECT * FROM " + TEST_TABLE + " WHERE id = 1;");
 
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "10");
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -142,7 +142,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         Files.writeString(scriptFile, "SELECT * FROM " + TEST_TABLE + " WHERE id > 1000;");
 
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "10");
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -157,7 +157,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         Files.writeString(scriptFile, "UPDATE " + TEST_TABLE + " SET value = 999 WHERE id = 1;");
 
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "10");
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -173,7 +173,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         Files.writeString(scriptFile, "SELECT * FROM " + TEST_TABLE + " LIMIT 5;");
 
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "1");
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -189,7 +189,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
         Files.writeString(scriptFile, "SELECT * FROM " + TEST_TABLE + ";");
 
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "10000");
-        execute("sql", "--jdbc-url", JDBC_URL, "--script-file", scriptFile.toString());
+        execute("sql", "--jdbc-url", JDBC_URL, "--file", scriptFile.toString());
 
         assertAll(
                 this::assertExitCodeIsZero,

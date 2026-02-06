@@ -32,40 +32,28 @@ public class SqlQueryCall implements Call<StringCallInput, SqlQueryResult> {
 
     private final SqlManager sqlManager;
 
-    private final int resultLimit;
-
     /**
      * Constructor.
      *
      * @param sqlManager SQL manager.
      */
     public SqlQueryCall(SqlManager sqlManager) {
-        this(sqlManager, 0);
-    }
-
-    /**
-     * Constructor with result limit.
-     *
-     * @param sqlManager SQL manager.
-     * @param resultLimit maximum number of rows to return (0 = unlimited).
-     */
-    public SqlQueryCall(SqlManager sqlManager, int resultLimit) {
         this.sqlManager = sqlManager;
-        this.resultLimit = resultLimit;
     }
 
     /** {@inheritDoc} */
     @Override
     public CallOutput<SqlQueryResult> execute(StringCallInput input) {
         try {
-            SqlQueryResult result = sqlManager.execute(trimQuotes(input.getString()), resultLimit);
+            SqlQueryResult result = sqlManager.execute(trimQuotes(input.getString()));
             return DefaultCallOutput.success(result);
         } catch (SQLException e) {
             return DefaultCallOutput.failure(e);
         }
     }
 
-    private static String trimQuotes(String input) {
+    /** Trims surrounding double quotes from the input string. */
+    public static String trimQuotes(String input) {
         if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
             return input.substring(1, input.length() - 1);
         }

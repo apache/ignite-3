@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -29,12 +30,10 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.cli.sql.table.Table;
 import org.junit.jupiter.api.Test;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 
 /**
  * Unit tests for {@link PagedSqlResult}.
@@ -233,35 +232,13 @@ class PagedSqlResultTest {
             when(metaData.getColumnLabel(i)).thenReturn("col" + i);
         }
 
-        // Track current row for getString calls
-        final int[] currentRow = {0};
-        final List<Boolean> nextResults = new ArrayList<>();
-        for (int i = 0; i < numRows; i++) {
-            nextResults.add(true);
-        }
-        nextResults.add(false); // Last call returns false
+        AtomicInteger currentRow = new AtomicInteger(0);
 
-        when(rs.next()).thenAnswer(new Answer<Boolean>() {
-            private int callCount = 0;
+        when(rs.next()).thenAnswer(inv -> currentRow.incrementAndGet() <= numRows);
 
-            @Override
-            public Boolean answer(InvocationOnMock invocation) {
-                if (callCount >= nextResults.size()) {
-                    return false;
-                }
-                boolean result = nextResults.get(callCount);
-                if (result) {
-                    currentRow[0]++;
-                }
-                callCount++;
-                return result;
-            }
-        });
-
-        // Mock getString to return "row{rowNum}_col{colNum}"
-        when(rs.getString(org.mockito.ArgumentMatchers.anyInt())).thenAnswer(invocation -> {
-            int colIndex = invocation.getArgument(0);
-            return "row" + currentRow[0] + "_col" + colIndex;
+        when(rs.getString(anyInt())).thenAnswer(inv -> {
+            int colIndex = inv.getArgument(0);
+            return "row" + currentRow.get() + "_col" + colIndex;
         });
 
         return rs;

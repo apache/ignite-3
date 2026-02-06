@@ -42,7 +42,11 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
+import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.sql.help.IgniteSqlCommandCompleter;
 import org.apache.ignite.internal.cli.commands.treesitter.highlighter.SqlAttributedStringHighlighter;
@@ -63,6 +67,7 @@ import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
@@ -255,9 +260,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
         int pageSize = getPageSize();
 
-        // Create pager support for output
-        org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport pagerSupport =
-                new org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport(terminal, configManagerProvider);
+        PagerSupport pagerSupport = new PagerSupport(terminal, configManagerProvider);
 
         // Return a pipeline that executes paged SQL with interactive "load more" functionality
         return new PagedSqlExecutionPipeline(sqlManager, line, pageSize, truncationConfig, pagerSupport);
@@ -290,10 +293,10 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
         private final String sql;
         private final int pageSize;
         private final TruncationConfig truncationConfig;
-        private final org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport pagerSupport;
+        private final PagerSupport pagerSupport;
 
         PagedSqlExecutionPipeline(SqlManager sqlManager, String sql, int pageSize, TruncationConfig truncationConfig,
-                org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport pagerSupport) {
+                PagerSupport pagerSupport) {
             this.sqlManager = sqlManager;
             this.sql = sql;
             this.pageSize = pageSize;
@@ -308,7 +311,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
             // Force auto-flush for real-time output
             PrintWriter autoFlushOut = new PrintWriter(terminal.output(), true);
 
-            try (PagedSqlResult pagedResult = sqlManager.executePaged(trimQuotes(sql), pageSize)) {
+            try (PagedSqlResult pagedResult = sqlManager.executePaged(SqlQueryCall.trimQuotes(sql), pageSize)) {
                 if (!pagedResult.hasResultSet()) {
                     // Non-SELECT query (INSERT, UPDATE, DELETE, etc.)
                     int updateCount = pagedResult.getUpdateCount();
@@ -321,7 +324,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
                 // SELECT query - fetch and display pages
                 int totalRows = 0;
-                java.util.List<String> allContent = new java.util.ArrayList<>();
+                List<String> allContent = new ArrayList<>();
                 String[] columnNames = null;
 
                 while (true) {
@@ -332,7 +335,6 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
                     totalRows += page.getRowCount();
 
-                    // Get column names from first page
                     if (columnNames == null) {
                         columnNames = page.header();
                     }
@@ -346,15 +348,13 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                     }
 
                     if (page.hasMoreRows()) {
-                        // If pager is disabled, use manual paging with prompts
                         if (!pagerSupport.isPagerEnabled()) {
                             // Render and display what we have so far as a single table
-                            Table<String> displayTable = new Table<>(java.util.Arrays.asList(columnNames),
-                                    new java.util.ArrayList<>(allContent), false);
+                            Table<String> displayTable = new Table<>(Arrays.asList(columnNames),
+                                    new ArrayList<>(allContent), false);
                             TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(displayTable);
                             autoFlushOut.print(tableOutput.toTerminalString());
-                            allContent.clear(); // Clear for next batch
-                            columnNames = null; // Will be set again on next page
+                            allContent.clear();
 
                             // More rows available - prompt user
                             autoFlushOut.println("-- " + totalRows + " rows shown. Press Enter to load more, or 'q' to stop --");
@@ -376,7 +376,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
                 // Display final output as a single continuous table
                 if (!allContent.isEmpty() && columnNames != null) {
-                    Table<String> finalTable = new Table<>(java.util.Arrays.asList(columnNames), allContent, false);
+                    Table<String> finalTable = new Table<>(Arrays.asList(columnNames), allContent, false);
                     TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(finalTable);
 
                     if (pagerSupport.isPagerEnabled()) {
@@ -399,7 +399,6 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
         private String readUserInput() {
             try {
-                // Read a line from terminal - user presses Enter to continue or types 'q' to quit
                 StringBuilder sb = new StringBuilder();
                 while (true) {
                     int c = terminal.reader().read();
@@ -407,21 +406,13 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                         return "q";
                     }
                     if (c == '\n' || c == '\r') {
-                        String input = sb.toString().trim();
-                        return input.equalsIgnoreCase("q") ? "q" : "";
+                        return sb.toString().trim().equalsIgnoreCase("q") ? "q" : "";
                     }
                     sb.append((char) c);
                 }
             } catch (IOException e) {
                 return "q";
             }
-        }
-
-        private String trimQuotes(String input) {
-            if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
-                return input.substring(1, input.length() - 1);
-            }
-            return input;
         }
     }
 
