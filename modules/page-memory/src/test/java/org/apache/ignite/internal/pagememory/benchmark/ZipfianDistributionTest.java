@@ -19,27 +19,30 @@ package org.apache.ignite.internal.pagememory.benchmark;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link ZipfianDistribution}.
  */
 class ZipfianDistributionTest {
+    private static final Random RANDOM = new Random();
 
     @Test
     void testZipfianProduces80_20Pattern() {
         // 10,000 items with high skew (0.99) should give ~80% accesses to top 20%
         int itemCount = 10_000;
         double skew = 0.99;
-        ZipfianDistribution dist = new ZipfianDistribution(itemCount, skew, 42);
+        int seed = RANDOM.nextInt();
+        ZipfianDistribution dist = new ZipfianDistribution(itemCount, skew, seed);
 
         // Sample 100k times
         int sampleSize = 100_000;
@@ -69,8 +72,8 @@ class ZipfianDistributionTest {
         // Zipfian(0.99) should give ~80-85% to top 20%
         // We use 75%-90% to allow for statistical variance
         assertThat(
-                String.format("Top 20%% of items should get 75%%-90%% of accesses, got %.1f%%",
-                        top20Ratio * 100),
+                String.format("Top 20%% of items should get 75%%-90%% of accesses, got %.1f%% (seed: %d)",
+                        top20Ratio * 100, seed),
                 top20Ratio,
                 is(allOf(greaterThanOrEqualTo(0.75), lessThanOrEqualTo(0.90)))
         );
@@ -78,8 +81,10 @@ class ZipfianDistributionTest {
 
     @Test
     void testProducesItemsWithinRange() {
+        int testSeed = RANDOM.nextInt();
+
         int itemCount = 100;
-        ZipfianDistribution dist = new ZipfianDistribution(itemCount, 0.99, 42);
+        ZipfianDistribution dist = new ZipfianDistribution(itemCount, 0.99, testSeed);
 
         for (int i = 0; i < 1_000; i++) {
             int index = dist.next();
@@ -93,18 +98,29 @@ class ZipfianDistributionTest {
 
     @Test
     void testSameSeedsProduceSameSequence() {
-        ZipfianDistribution dist1 = new ZipfianDistribution(1000, 0.99, 42);
-        ZipfianDistribution dist2 = new ZipfianDistribution(1000, 0.99, 42);
+        int testSeed = RANDOM.nextInt();
+        ZipfianDistribution dist1 = new ZipfianDistribution(1000, 0.99, testSeed);
+        ZipfianDistribution dist2 = new ZipfianDistribution(1000, 0.99, testSeed);
 
         for (int i = 0; i < 100; i++) {
-            assertEquals(dist1.next(), dist2.next(), "Same seed should produce same sequence");
+            assertThat(
+                    String.format("Same seed should produce same sequence (seed %d)", testSeed),
+                    dist1.next(),
+                    is(equalTo(dist2.next()))
+            );
         }
     }
 
     @Test
     void testDifferentSeedsProduceDifferentSequences() {
-        ZipfianDistribution dist1 = new ZipfianDistribution(1000, 0.99, 42);
-        ZipfianDistribution dist2 = new ZipfianDistribution(1000, 0.99, 43);
+        int testSeed = RANDOM.nextInt();
+        int otherSeed = RANDOM.nextInt();
+        while (otherSeed == testSeed) {
+            otherSeed = RANDOM.nextInt();
+        }
+
+        ZipfianDistribution dist1 = new ZipfianDistribution(1000, 0.99, testSeed);
+        ZipfianDistribution dist2 = new ZipfianDistribution(1000, 0.99, otherSeed);
 
         int differences = 0;
         for (int i = 0; i < 100; i++) {
@@ -114,17 +130,22 @@ class ZipfianDistributionTest {
         }
 
         // Different seeds should produce mostly different sequences
-        assertThat("Different seeds should produce different sequences", differences, is(greaterThan(50)));
+        assertThat(
+                String.format("Different seeds should produce different sequences (seeds: %d, %d)", testSeed, otherSeed),
+                differences,
+                is(greaterThan(50))
+        );
     }
 
     @Test
     void testLowerSkewIsLessConcentrated() {
         int itemCount = 10_000;
         int sampleSize = 100_000;
+        int testSeed = RANDOM.nextInt();
 
         // High skew (0.99) vs lower skew (0.5)
-        ZipfianDistribution highSkew = new ZipfianDistribution(itemCount, 0.99, 42);
-        ZipfianDistribution lowSkew = new ZipfianDistribution(itemCount, 0.5, 42);
+        ZipfianDistribution highSkew = new ZipfianDistribution(itemCount, 0.99, testSeed);
+        ZipfianDistribution lowSkew = new ZipfianDistribution(itemCount, 0.5, testSeed);
 
         int[] highSkewCounts = new int[itemCount];
         int[] lowSkewCounts = new int[itemCount];
@@ -148,8 +169,8 @@ class ZipfianDistributionTest {
 
         // Lower skew should hit more different items (less concentrated)
         assertThat(
-                String.format("Lower skew should hit more items: low=%d, high=%d",
-                        lowSkewHitItems, highSkewHitItems),
+                String.format("Lower skew should hit more items: low=%d, high=%d (seed=%d)",
+                        lowSkewHitItems, highSkewHitItems, testSeed),
                 lowSkewHitItems,
                 is(greaterThan(highSkewHitItems))
         );
