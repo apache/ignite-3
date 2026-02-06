@@ -183,7 +183,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.placementDriver = createPlacementDriver();
         this.metricManager = metricManager;
-        this.metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker);
+        this.metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker, clockService);
     }
 
     @Override
