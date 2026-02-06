@@ -17,11 +17,9 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Maps object fields to columns by name.
@@ -33,9 +31,7 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
     private final Class<T> targetType;
 
     /** Column-to-field name mapping. */
-    private final Map<String, String> columnToFieldName;
-
-    private final Map<String, Field> columnToField;
+    private final Map<String, String> mapping;
 
     private final Map<String, TypeConverter<?, ?>> converters;
 
@@ -43,23 +39,17 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
      * Creates a mapper for a given type.
      *
      * @param targetType Target type.
-     * @param columnToFieldName    Column-to-field name mapping.
+     * @param mapping    Column-to-field name mapping.
      * @param converters Column converters.
      */
-    PojoMapperImpl(
-            Class<T> targetType,
-            Map<String, String> columnToFieldName,
-            Map<String, Field> columnToField,
-            Map<String, TypeConverter<?, ?>> converters
-    ) {
+    PojoMapperImpl(Class<T> targetType, Map<String, String> mapping, Map<String, TypeConverter<?, ?>> converters) {
         this.converters = converters;
-        if (Objects.requireNonNull(columnToFieldName).isEmpty()) {
+        if (Objects.requireNonNull(mapping).isEmpty()) {
             throw new IllegalArgumentException("Empty mapping isn't allowed.");
         }
 
         this.targetType = targetType;
-        this.columnToFieldName = columnToFieldName;
-        this.columnToField = columnToField;
+        this.mapping = mapping;
     }
 
     /** {@inheritDoc} */
@@ -71,18 +61,13 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
     /** {@inheritDoc} */
     @Override
     public String fieldForColumn(String columnName) {
-        return columnToFieldName.get(columnName);
-    }
-
-    @Override
-    public @Nullable Field declaredFieldForColumn(String columnName) {
-        return columnToField.get(columnName);
+        return mapping.get(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<String> fields() {
-        return columnToFieldName.values();
+        return mapping.values();
     }
 
     /** {@inheritDoc} */

@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,7 +52,6 @@ public final class MapperBuilder<T> {
 
     /** Column-to-field name mapping. */
     private final Map<String, String> columnToFields;
-    private final Map<String, Field> columnToDeclaredFields;
 
     /** Column converters. */
     private final Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
@@ -75,7 +75,6 @@ public final class MapperBuilder<T> {
 
         mappedToColumn = null;
         columnToFields = new HashMap<>(targetType.getDeclaredFields().length);
-        columnToDeclaredFields = new HashMap<>(targetType.getDeclaredFields().length);
     }
 
     /**
@@ -91,7 +90,6 @@ public final class MapperBuilder<T> {
 
         mappedToColumn = mappedColumn;
         columnToFields = null;
-        columnToDeclaredFields = null;
     }
 
     /**
@@ -277,11 +275,10 @@ public final class MapperBuilder<T> {
             return new OneColumnMapperImpl<>(targetType, mappedToColumn, (TypeConverter<T, ?>) columnConverters.get(mappedToColumn));
         }
 
-        Map<String, String> columnToFieldName = this.columnToFields;
-        Map<String, Field> columnToField = this.columnToDeclaredFields;
+        Map<String, String> mapping = this.columnToFields;
 
-        HashSet<String> fields = new HashSet<>(columnToFieldName.size());
-        for (String fldName : columnToFieldName.values()) {
+        HashSet<String> fields = new HashSet<>(mapping.size());
+        for (String fldName : mapping.values()) {
             if (!fields.add(fldName)) {
                 throw new IllegalStateException("More than one column is mapped to the field: field=" + fldName);
             }
@@ -290,27 +287,20 @@ public final class MapperBuilder<T> {
         if (automapFlag) {
             getAllFields(targetType).stream()
                     .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
-                    .forEach(fld -> {
-                        String fldName = fld.getName();
-
-                        if (!fields.contains(fldName)) {
-                            // Ignore manually mapped fields/columns.
-                            String columnName = columnName(fld);
-                            columnToFieldName.putIfAbsent(columnName, fldName);
-                            columnToField.putIfAbsent(columnName, fld);
-                        } else {
-                            for (var e : columnToFieldName.entrySet()) {
-                                if (fldName.equals(e.getValue())) {
-                                    String columnNameManual = e.getKey();
-                                    columnToField.putIfAbsent(columnNameManual, fld);
-                                    break;
-                                }
-                            }
-                        }
-                    });
+                    .map(MapperBuilder::getColumnToFieldMapping)
+                    .filter(entry -> !fields.contains(entry.getValue()))
+                    // Ignore manually mapped fields/columns.
+                    .forEach(entry -> mapping.putIfAbsent(entry.getKey(), entry.getValue()));
         }
 
-        return new PojoMapperImpl<>(targetType, columnToFieldName, columnToField, columnConverters);
+        return new PojoMapperImpl<>(targetType, mapping, columnConverters);
+    }
+
+    private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
+        String fldName = fld.getName();
+        var column = fld.getAnnotation(Column.class);
+        var columnName = column != null && !column.value().isEmpty() ? column.value() : fldName;
+        return new SimpleEntry<>(parseIdentifier(columnName), fldName);
     }
 
     /**
@@ -324,12 +314,5 @@ public final class MapperBuilder<T> {
             current = current.getSuperclass();
         }
         return result;
-    }
-
-    private static String columnName(Field fld) {
-        String fldName = fld.getName();
-        var column = fld.getAnnotation(Column.class);
-        var columnName = column != null && !column.value().isEmpty() ? column.value() : fldName;
-        return parseIdentifier(columnName);
     }
 }

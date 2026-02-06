@@ -17,7 +17,6 @@
 
 package org.apache.ignite.table.mapper;
 
-import java.lang.reflect.Field;
 import java.util.Collection;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,14 +36,6 @@ public interface PojoMapper<T> extends Mapper<T> {
      * @throws IllegalStateException If the entire object is mapped to a single column.
      */
     @Nullable String fieldForColumn(String columnName);
-
-    /**
-     * Returns a declared field for a given column name when POJO individual fields are mapped to columns, otherwise fails.
-     *
-     * @param columnName Column name.
-     * @return Declared field or {@code null} if no field is mapped to the column.
-     */
-    @Nullable Field declaredFieldForColumn(String columnName);
 
     /**
      * Returns all fields that should be mapped to columns.

@@ -86,30 +86,8 @@ abstract class FieldAccessor {
             @Nullable TypeConverter<?, ?> typeConverter
     ) {
         try {
-            Field field = type.getDeclaredField(fldName);
-            return create(type, field, col, colIdx, typeConverter);
-        } catch (NoSuchFieldException | SecurityException ex) {
-            throw new IllegalArgumentException(ex);
-        }
-    }
+            Field field = getField(type, fldName);
 
-    /**
-     * Create accessor for the field.
-     *
-     * @param type Object class.
-     * @param field Object field.
-     * @param col A column the field is mapped to.
-     * @param colIdx Column index in the schema.
-     * @return Accessor.
-     */
-    static FieldAccessor create(
-            Class<?> type,
-            Field field,
-            MarshallerColumn col,
-            int colIdx,
-            @Nullable TypeConverter<?, ?> typeConverter
-    ) {
-        try {
             if (typeConverter == null) {
                 validateColumnType(col, field.getType());
             }
@@ -152,9 +130,26 @@ abstract class FieldAccessor {
             }
 
             return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
-        } catch (SecurityException | IllegalAccessException ex) {
+        } catch (NoSuchFieldException | SecurityException | IllegalAccessException ex) {
             throw new IllegalArgumentException(ex);
         }
+    }
+
+    /**
+     * Gets an accessible field by name of the given class and its parents (if any).
+     */
+    private static Field getField(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+        var current = clazz;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException ignored) {
+                // ignore
+            }
+
+            current = current.getSuperclass();
+        }
+        throw new NoSuchFieldException(fieldName);
     }
 
     /**
