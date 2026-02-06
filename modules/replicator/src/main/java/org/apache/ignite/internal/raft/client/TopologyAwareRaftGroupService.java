@@ -149,6 +149,12 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
         topologyEventsListener = new LogicalTopologyEventListener() {
             @Override
+            public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
+                LOG.info("Topology leap event received [grpId={}, topology={}].", groupId(), newTopology);
+                // TODO: IGNITE-27770 - Need to re-establish subscriptions to all peers after topology leap
+            }
+
+            @Override
             public void onNodeJoined(LogicalNode appearedNode, LogicalTopologySnapshot newTopology) {
                 Peer peer = new Peer(appearedNode.name(), 0);
 
@@ -162,6 +168,12 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                     subscribeToNode(appearedNode, peer, leftWhileSubscribing)
                             .thenComposeAsync(subscribed -> {
                                 if (subscribed) {
+                                    LOG.info("Successfully subscribed to new peer for leader election notifications "
+                                            + "[grpId={}, consistentId={}]",
+                                            groupId(),
+                                            peer.consistentId()
+                                    );
+
                                     return refreshAndGetLeaderWithTerm()
                                             .thenAcceptAsync(leaderWithTerm -> {
                                                 if (!leaderWithTerm.isEmpty()
@@ -314,14 +326,17 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 sendWithRetry(node, msg, msgSendFut, leftWhileCalling);
             } else if (invokeCause instanceof RecipientLeftException) {
                 LOG.info(
-                        "Could not subscribe to leader update from a specific node, because the node had left the cluster: [node={}]",
-                        node
+                        "Could not subscribe to leader update from a specific node, "
+                                + "because the node had left the cluster: [node={}, grpId={}].",
+                        node,
+                        groupId()
                 );
 
                 msgSendFut.complete(false);
             } else {
                 if (!(invokeCause instanceof NodeStoppingException)) {
-                    LOG.error("Could not send the subscribe message to the node: [node={}, msg={}]", invokeThrowable, node, msg);
+                    LOG.error("Could not send the subscribe message to the node: [node={}, grpId={}, msg={}]",
+                            invokeThrowable, node, groupId(), msg);
                 }
 
                 msgSendFut.completeExceptionally(invokeThrowable);
@@ -394,7 +409,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                     leaderWithTerm.term()
                             );
                         } else {
-                            LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
+                            LOG.warn("Leader host occurred to leave the topology [nodeId={}, grpId={}].",
+                                    leaderWithTerm.leader().consistentId(),
+                                    groupId()
+                            );
                         }
                     }
                 }, executor);

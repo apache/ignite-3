@@ -198,7 +198,7 @@ public class LeaseUpdater {
                 return;
             }
 
-            LOG.info("Placement driver active actor is starting.");
+            LOG.info("Placement driver active actor is starting [nodeName={}].", nodeName);
 
             leaseNegotiator = new LeaseNegotiator(clusterService, throttledLogExecutor);
 
@@ -223,7 +223,7 @@ public class LeaseUpdater {
                 return;
             }
 
-            LOG.info("Placement driver active actor is stopping.");
+            LOG.info("Placement driver active actor is stopping [nodeName={}].", nodeName);
 
             leaseNegotiator = null;
 
