@@ -129,7 +129,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             if (!deadPeers.contains(peerId)) {
                 deadPeers.add(peerId);
 
-                LOG.error("Fail to connect {}, exception: {}.", peerId, e.getMessage());
+                LOG.warn("Fail to connect {}, exception: {}.", peerId, e.getMessage());
             }
         }
 
