@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -70,17 +71,29 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         this.schema = schema;
         this.tableNameSupplier = tableNameSupplier;
 
-        keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
-                .map(Column::type)
-                .filter(NativeType::fixedLength)
-                .mapToInt(NativeType::sizeInBytes)
-                .sum();
+        keyOnlyFixedLengthColumnSize = fixedLengthColumnSize(schema.keyColumns());
+        valueOnlyFixedLengthColumnSize = fixedLengthColumnSize(schema.valueColumns());
+    }
 
-        valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
-                .map(Column::type)
-                .filter(NativeType::fixedLength)
-                .mapToInt(NativeType::sizeInBytes)
-                .sum();
+    /**
+     * {@link TupleMarshallerImpl}'s constructor can be a very hot piece of code. For this reason we do not use streams and iterators here.
+     */
+    private static int fixedLengthColumnSize(List<Column> columns) {
+        int sum = 0;
+
+        assert columns instanceof RandomAccess : columns;
+
+        //noinspection ForLoopReplaceableByForEach
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            NativeType type = column.type();
+
+            if (type.fixedLength()) {
+                sum += type.sizeInBytes();
+            }
+        }
+
+        return sum;
     }
 
     @Override

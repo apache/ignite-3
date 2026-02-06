@@ -158,6 +158,22 @@ public class Assignments {
     }
 
     /**
+     * Checks whether the assignments contain an assignment for a node with the given consistent ID, either peer assignment or not.
+     *
+     * @param consistentId Consistent ID of the node.
+     * @return {@code true} if the assignments contain an assignment for a node with the given consistent ID.
+     */
+    public boolean contains(String consistentId) {
+        for (Assignment a : nodes) {
+            if (a.consistentId().equals(consistentId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Serializes the instance into an array of bytes.
      */
     public byte[] toBytes() {

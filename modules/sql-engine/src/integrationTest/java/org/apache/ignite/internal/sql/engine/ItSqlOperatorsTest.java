@@ -265,7 +265,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20162")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19332")
     public void testCollections() {
         assertExpression("MAP['a', 1, 'A', 2]").returns(Map.of("a", 1, "A", 2)).check();
         assertExpression("ARRAY[1, 2, 3]").returns(List.of(1, 2, 3)).check();

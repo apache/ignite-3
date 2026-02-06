@@ -107,6 +107,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -490,6 +491,7 @@ public class ItTxTestCluster {
                     nodeName,
                     clusterService,
                     cmgManager,
+                    groupId -> completedFuture(Assignments.EMPTY),
                     clockService,
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
