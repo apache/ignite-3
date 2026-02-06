@@ -88,11 +88,11 @@ public class KeyValueViewExample {
                     .set("accountNumber", 123456);
 
             Tuple value = Tuple.create()
-                    .set("firstName", "Val")
-                    .set("lastName", "Kulichenko")
+                    .set("firstName", "Jane")
+                    .set("lastName", "Doe")
                     .set("balance", 100.00d);
 
-            kvView.put(null, key, value);
+            kvView.put(key, value);
 
             //--------------------------------------------------------------------------------------
             //
@@ -102,7 +102,7 @@ public class KeyValueViewExample {
 
             System.out.println("\nRetrieving a value using KeyValueView API...");
 
-            value = kvView.get(null, key);
+            value = kvView.get(key);
 
             System.out.println(
                     "\nRetrieved value:\n"
