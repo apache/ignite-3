@@ -59,7 +59,6 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.externalize.RelEnumTypes;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
@@ -291,7 +290,7 @@ class RelJson {
     private <C extends Comparable<C>> Object toJson(Sarg<C> node) {
         Map<String, @Nullable Object> map = map();
         map.put("rangeSet", toJson(node.rangeSet));
-        map.put("nullAs", RelEnumTypes.fromEnum(node.nullAs));
+        map.put("nullAs", toJson(node.nullAs));
         return map;
     }
 
@@ -323,34 +322,32 @@ class RelJson {
     }
 
     private Object toJson(RelDataType node) {
+        final Map<String, @Nullable Object> map = map();
+
         if (node instanceof JavaType) {
-            Map<String, Object> map = map();
             map.put("class", ((JavaType) node).getJavaClass().getName());
             if (node.isNullable()) {
                 map.put("nullable", true);
             }
 
-            return map;
-        }
-        if (node.isStruct()) {
+        } else if (node.isStruct()) {
             List<Object> list = list();
             for (RelDataTypeField field : node.getFieldList()) {
                 list.add(toJson(field));
             }
-            return list;
+            map.put("fields", list);
+            map.put("nullable", node.isNullable());
+
         } else if (node.getSqlTypeName() == SqlTypeName.ARRAY) {
-            Map<String, Object> map = map();
             map.put("type", toJson(node.getSqlTypeName()));
             map.put("elementType", toJson(node.getComponentType()));
-            return map;
+
         } else if (node.getSqlTypeName() == SqlTypeName.MAP) {
-            Map<String, Object> map = map();
             map.put("type", toJson(node.getSqlTypeName()));
             map.put("keyType", toJson(node.getKeyType()));
             map.put("valueType", toJson(node.getValueType()));
-            return map;
+
         } else {
-            Map<String, Object> map = map();
             map.put("type", toJson(node.getSqlTypeName()));
             if (node.isNullable()) {
                 map.put("nullable", true);
@@ -361,18 +358,12 @@ class RelJson {
             if (node.getSqlTypeName().allowsScale()) {
                 map.put("scale", node.getScale());
             }
-            return map;
         }
+        return map;
     }
 
     private Object toJson(RelDataTypeField node) {
-        Map<String, Object> map;
-        if (node.getType().isStruct()) {
-            map = map();
-            map.put("fields", toJson(node.getType()));
-        } else {
-            map = (Map<String, Object>) toJson(node.getType());
-        }
+        Map<String, Object> map = (Map<String, Object>) toJson(node.getType());
         map.put("name", node.getName());
         return map;
     }
