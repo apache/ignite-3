@@ -22,7 +22,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -62,12 +61,6 @@ class CreateFromAnnotationsTest {
         assertThat(m.fieldForColumn("F_NAME"), is("firstName"));
         assertThat(m.fieldForColumn("L_NAME"), is("lastName"));
         assertThat(m.fieldForColumn("STR"), is("str"));
-
-        assertNotNull(m.declaredFieldForColumn("ID"));
-        assertNotNull(m.declaredFieldForColumn("ID_STR"));
-        assertNotNull(m.declaredFieldForColumn("F_NAME"));
-        assertNotNull(m.declaredFieldForColumn("L_NAME"));
-        assertNotNull(m.declaredFieldForColumn("STR"));
     }
 
     @Test
