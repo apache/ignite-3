@@ -64,8 +64,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Fork(1)
 @State(Scope.Benchmark)
 public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase {
-    private static final long SMALL_REGION_SIZE = 20L * 1024 * 1024;
-    private static final int PAGE_SIZE = 4 * Constants.KiB;
+    private static final long SMALL_REGION_SIZE = 20L * Constants.MiB;
+    private static final int PAGE_SIZE = Config.DEFAULT_PAGE_SIZE;
     private static final long REGION_CAPACITY_PAGES = SMALL_REGION_SIZE / PAGE_SIZE;
     private static final long MAX_WORKING_SET_SIZE = 1_000_000;
 
@@ -114,8 +114,32 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
 
         int computeWorkingSetSize(long capacity) {
             long result = Math.round(capacity * multiplier);
-            assert result <= Integer.MAX_VALUE : "Working set too large: " + result;
+            validateWorkingSetSize(result);
             return (int) result;
+        }
+
+        private static void validateWorkingSetSize(long workingSetSize) {
+            assert workingSetSize <= Integer.MAX_VALUE : "Working set too large: " + workingSetSize;
+
+            if (workingSetSize > MAX_WORKING_SET_SIZE) {
+                throw new IllegalStateException(String.format(
+                        "Working set too large: %,d pages (max: %,d). "
+                                + "This would require %,d GB of actual page memory and %,d MB for pageId array. "
+                                + "Reduce cache pressure or region size.",
+                        workingSetSize,
+                        MAX_WORKING_SET_SIZE,
+                        (workingSetSize * PAGE_SIZE) / Constants.GiB,
+                        (workingSetSize * 8L) / Constants.MiB
+                ));
+            }
+
+            long minWorkingSetSize = Math.round(REGION_CAPACITY_PAGES * MIN_WORKING_SET_RATIO);
+            if (workingSetSize < minWorkingSetSize) {
+                throw new IllegalStateException(String.format(
+                        "Benchmark not properly initialized: workingSetSize=%,d < minimum %,d (%.0f%% of capacity)",
+                        workingSetSize, minWorkingSetSize, MIN_WORKING_SET_RATIO * 100
+                ));
+            }
         }
     }
 
@@ -132,14 +156,6 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
         public void setupTrial(ThreadParams threadParams, PageReplacementBenchmark benchmark) {
             this.benchmark = benchmark;
             this.threadIndex = threadParams.getThreadIndex();
-
-            long minWorkingSetSize = Math.round(REGION_CAPACITY_PAGES * MIN_WORKING_SET_RATIO);
-            if (benchmark.workingSetSize < minWorkingSetSize) {
-                throw new IllegalStateException(String.format(
-                        "Benchmark not properly initialized: workingSetSize=%,d < minimum %,d (%.0f%% of capacity)",
-                        benchmark.workingSetSize, minWorkingSetSize, MIN_WORKING_SET_RATIO * 100
-                ));
-            }
 
             // Give each thread a different seed so they don't all access the same pages.
             long threadSeed = BASE_SEED + (threadIndex * 1000003L);
@@ -228,7 +244,7 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
      */
     @Setup
     public void setup(Blackhole blackhole) throws Exception {
-        validateBenchmarkConfiguration();
+        workingSetSize = cachePressure.computeWorkingSetSize(REGION_CAPACITY_PAGES);
         Config infrastructureConfig = Config.builder()
                 .regionSize(SMALL_REGION_SIZE)
                 .pageSize(PAGE_SIZE)
@@ -240,22 +256,6 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
 
         warmupCache(blackhole);
         validateCacheWarmed();
-    }
-
-    private void validateBenchmarkConfiguration() {
-        workingSetSize = cachePressure.computeWorkingSetSize(REGION_CAPACITY_PAGES);
-
-        if (workingSetSize > MAX_WORKING_SET_SIZE) {
-            throw new IllegalStateException(String.format(
-                    "Working set too large: %,d pages (max: %,d). "
-                            + "This would require %,d GB of actual page memory and %,d MB for pageId array. "
-                            + "Reduce cache pressure or region size.",
-                    workingSetSize,
-                    MAX_WORKING_SET_SIZE,
-                    ((long) workingSetSize * PAGE_SIZE) / (1024L * 1024 * 1024),
-                    (workingSetSize * 8L) / (1024 * 1024)
-            ));
-        }
     }
 
     /**
@@ -301,22 +301,15 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
 
         try {
             progress.futureFor(CheckpointState.FINISHED).get(CHECKPOINT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
+        } catch (TimeoutException | ExecutionException e) {
             long dirtyPages = persistentPageMemory().dirtyPagesCount();
             int usedCpBuf = persistentPageMemory().usedCheckpointBufferPages();
             int maxCpBuf = persistentPageMemory().maxCheckpointBufferPages();
 
             throw new IllegalStateException(String.format(
-                    "Checkpoint timed out after %d seconds [reason='Flush dirty pages after allocation', "
-                            + "dirtyPages=%,d, checkpointBuffer=%d/%d]. "
+                    "Checkpoint failed [dirtyPages=%,d, checkpointBuffer=%d/%d]. "
                             + "Check disk health and system logs.",
                     CHECKPOINT_TIMEOUT_SECONDS, dirtyPages, usedCpBuf, maxCpBuf
-            ), e);
-        } catch (ExecutionException e) {
-            throw new IllegalStateException(String.format(
-                    "Checkpoint failed [reason='Flush dirty pages after allocation', "
-                            + "dirtyPages=%,d, cause=%s]",
-                    persistentPageMemory().dirtyPagesCount(), e.getCause()
             ), e);
         }
     }

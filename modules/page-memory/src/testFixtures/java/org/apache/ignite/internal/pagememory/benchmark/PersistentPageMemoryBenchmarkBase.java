@@ -195,9 +195,9 @@ public class PersistentPageMemoryBenchmarkBase {
      * Configuration of the benchmark infrastructure.
      */
     public static class Config {
-        private static final long DEFAULT_REGION_SIZE = Constants.GiB;
-        private static final int DEFAULT_PAGE_SIZE = 4 * Constants.KiB;
-        private static final int DEFAULT_CHECKPOINT_BUFFER_SIZE = 10 * Constants.MiB;
+        public static final long DEFAULT_REGION_SIZE = Constants.GiB;
+        public static final int DEFAULT_PAGE_SIZE = 4 * Constants.KiB;
+        public static final int DEFAULT_CHECKPOINT_BUFFER_SIZE = 10 * Constants.MiB;
 
         private final long regionSize;
         private final int pageSize;
