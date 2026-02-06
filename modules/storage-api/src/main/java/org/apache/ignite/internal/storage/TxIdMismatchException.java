@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /** Exception describing the situation where transaction IDs do not match when performing an operation. */
 public class TxIdMismatchException extends IgniteException {
@@ -38,11 +39,27 @@ public class TxIdMismatchException extends IgniteException {
      * @param conflictingTxId Conflicting transaction ID.
      */
     public TxIdMismatchException(UUID expectedTxId, UUID conflictingTxId) {
-        super(INTERNAL_ERR, S.toString(
-                "Mismatched transaction id",
-                "expectedTxId", expectedTxId, false,
-                "actualTxId", conflictingTxId, false
-        ));
+        this(expectedTxId, conflictingTxId, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param expectedTxId Expected transaction ID.
+     * @param conflictingTxId Conflicting transaction ID.
+     * @param formattedMessage Optional pre-formatted message with transaction labels. If null, a default message is used.
+     */
+    public TxIdMismatchException(UUID expectedTxId, UUID conflictingTxId, @Nullable String formattedMessage) {
+        super(
+                INTERNAL_ERR,
+                formattedMessage != null
+                        ? formattedMessage :
+                        S.toString(
+                                "Mismatched transaction id",
+                                "expectedTxId", expectedTxId, false,
+                                "actualTxId", conflictingTxId, false
+                        )
+        );
 
         expectedTransactionId = expectedTxId;
         conflictingTransactionId = conflictingTxId;

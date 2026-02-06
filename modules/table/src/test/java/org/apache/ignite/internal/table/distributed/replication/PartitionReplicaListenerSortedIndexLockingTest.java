@@ -62,7 +62,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacy;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -104,7 +104,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
@@ -118,8 +117,8 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
@@ -242,7 +241,6 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 () -> Map.of(),
                 CLOCK_SERVICE,
                 safeTime,
-                new TestTxStatePartitionStorage(),
                 mock(TransactionStateResolver.class),
                 new StorageUpdateHandler(
                         PART_ID,
@@ -262,7 +260,6 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
                 new NoOpFailureManager(),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("test_table"))
         );
 
@@ -295,6 +292,10 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         }).when(txManager).updateTxMeta(any(), any());
 
         return txManager;
+    }
+
+    private static ReplicaPrimacy validRwPrimacy() {
+        return ReplicaPrimacy.forPrimaryReplicaRequest(1);
     }
 
     @BeforeEach
@@ -369,7 +370,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 
@@ -448,7 +449,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
+        CompletableFuture<?> fut = partitionReplicaListener.process(request, validRwPrimacy(), LOCAL_NODE_ID);
 
         await(fut);
 
@@ -528,7 +529,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
         private final RequestType type;
         private final LockMode expectedLockOnSortedPk;
 
-        public ReadWriteTestArg(
+        ReadWriteTestArg(
                 RequestType type,
                 LockMode expectedLockOnSortedPk
         ) {

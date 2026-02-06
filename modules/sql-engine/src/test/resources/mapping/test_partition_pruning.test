@@ -219,7 +219,7 @@ Fragment#3
 # Prune partitions from left arm statically, and pass meta to the right arm.
 # Same set of nodes.
 N0
-SELECT * FROM t1_n1n2n3 as cor WHERE cor.id = 42 and EXISTS (SELECT 1 FROM t3_n1n2n3 as t2 WHERE t2.id = cor.id)
+SELECT /*+ disable_decorrelation */ * FROM t1_n1n2n3 as cor WHERE cor.id = 42 and EXISTS (SELECT 1 FROM t3_n1n2n3 as t2 WHERE t2.id = cor.id)
 ---
 Fragment#2 root
   distribution: single
@@ -233,6 +233,7 @@ Fragment#2 root
         predicate: true
         type: inner
         correlates: [$cor3]
+        correlationFieldNames: [ID]
         est: (rows=1)
       Receiver
           fieldNames: [ID, C1, C2]
@@ -306,7 +307,7 @@ Fragment#5 correlated
 # Prune partitions from left arm statically, and pass meta to the right arm.
 # Different sets of nodes.
 N0
-SELECT * FROM t1_n1n2n3 as cor WHERE cor.id = 42 and EXISTS (SELECT 1 FROM t2_n4n5 as t2 WHERE t2.id = cor.id)
+SELECT /*+ disable_decorrelation */ * FROM t1_n1n2n3 as cor WHERE cor.id = 42 and EXISTS (SELECT 1 FROM t2_n4n5 as t2 WHERE t2.id = cor.id)
 ---
 Fragment#2 root
   distribution: single
@@ -320,6 +321,7 @@ Fragment#2 root
         predicate: true
         type: inner
         correlates: [$cor3]
+        correlationFieldNames: [ID]
         est: (rows=1)
       Receiver
           fieldNames: [ID, C1, C2]

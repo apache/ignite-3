@@ -21,10 +21,14 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator;
 import static org.apache.ignite.lang.ErrorGroups.Transactions;
 
 import java.util.List;
+import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlPlanOutdatedException;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
@@ -75,6 +79,32 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
     static boolean errorHandler(Query query, Throwable th) {
         if (canRecover(query, th)) {
             query.error.set(null);
+
+            if (multiStepPlanOutdated(th)) {
+                assert query.plan instanceof MultiStepPlan;
+                assert query.currentPhase() == ExecutionPhase.CURSOR_INITIALIZATION : query.currentPhase();
+
+                SqlOperationContext context = query.operationContext;
+                QueryTransactionWrapper tx = query.usedTransaction;
+
+                assert context != null;
+                assert tx != null;
+
+                query.operationContext = context.withTransactionForRetry(tx);
+
+                query.moveTo(ExecutionPhase.OPTIMIZING);
+
+                return true;
+            }
+
+            if (fastPlanSchemaVersionMismatch(th) || incompatibleSchemaChange(th)) {
+                query.operationContext = null;
+
+                query.moveTo(ExecutionPhase.OPTIMIZING);
+
+                return true;
+            }
+
             if (query.currentPhase() == ExecutionPhase.CURSOR_PUBLICATION) {
                 // Should initialize a new cursor.
                 query.moveTo(ExecutionPhase.CURSOR_INITIALIZATION);
@@ -95,7 +125,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 return true;
             }
 
-            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
+            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || replicaAbsent(th);
         }
 
         return false;
@@ -114,7 +144,8 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             return false;
         }
 
-        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
+        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || replicaAbsent(th)
+                || multiStepPlanOutdated(th) || incompatibleSchemaChange(th) || fastPlanSchemaVersionMismatch(th);
     }
 
     private static boolean nodeLeft(Throwable th) {
@@ -131,5 +162,21 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     private static boolean groupOverloaded(Throwable th) {
         return ExceptionUtils.extractCodeFrom(th) == Replicator.GROUP_OVERLOADED_ERR;
+    }
+
+    private static boolean replicaAbsent(Throwable th) {
+        return ExceptionUtils.extractCodeFrom(th) == Replicator.REPLICA_ABSENT_ERR;
+    }
+
+    private static boolean multiStepPlanOutdated(Throwable th)  {
+        return th instanceof SqlPlanOutdatedException;
+    }
+
+    private static boolean incompatibleSchemaChange(Throwable th) {
+        return ExceptionUtils.extractCodeFrom(th) == Transactions.TX_INCOMPATIBLE_SCHEMA_ERR;
+    }
+
+    private static boolean fastPlanSchemaVersionMismatch(Throwable th) {
+        return ExceptionUtils.hasCause(th, InternalSchemaVersionMismatchException.class);
     }
 }

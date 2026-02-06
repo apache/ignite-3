@@ -89,5 +89,29 @@ class CustomBuildSteps {
             step(result)
             return result
         }
+
+
+        /**
+         * Custom PYTHON build step
+         *
+         * @param filename: name of script file (without path)
+         * @param scriptArgs: arguments for running python script
+         */
+        fun BuildSteps.customPython(
+                filename: String = "",
+                scriptArgs: String = "",
+                init: PythonBuildStep.() -> Unit
+        ): PythonBuildStep {
+            val result = PythonBuildStep(init)
+            val file = if (filename == "") Teamcity.getBashScriptFileName(result.name) else filename
+
+            val scriptContent = PythonBuildStep.Command.Script()
+            scriptContent.content = File("files/scripts/python/${file}.py").readText()
+            scriptContent.scriptArguments = scriptArgs
+            result.command = scriptContent
+
+            step(result)
+            return result
+        }
     }
 }

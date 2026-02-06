@@ -34,6 +34,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,7 +71,7 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNormalFlow() throws Exception {
-        sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        sql.execute("SELECT * from " + DEFAULT_TABLE_NAME);
 
         // default pageSize greater than number of rows in a table, thus cursor will be closed immediately
         assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
@@ -80,14 +81,14 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
                 .pageSize(1)
                 .build();
 
-        ResultSet<SqlRow> rs1 = sql.execute(null, statement);
+        ResultSet<SqlRow> rs1 = sql.execute((Transaction) null, statement);
 
         assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
         rs1.forEachRemaining(c -> {});
         assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
-        ResultSet<SqlRow> rs2 = sql.execute(null, statement);
-        ResultSet<SqlRow> rs3 = sql.execute(null, statement);
+        ResultSet<SqlRow> rs2 = sql.execute((Transaction) null, statement);
+        ResultSet<SqlRow> rs3 = sql.execute((Transaction) null, statement);
 
         assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
@@ -108,10 +109,10 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
                 "Failed to parse query",
-                () -> sql.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
+                () -> sql.execute("SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
         assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
-        assertInternalSqlException("Column 'A' not found in any table", () -> sql.execute(null, "SELECT a from " + DEFAULT_TABLE_NAME));
+        assertInternalSqlException("Column 'A' not found in any table", () -> sql.execute("SELECT a from " + DEFAULT_TABLE_NAME));
         assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 

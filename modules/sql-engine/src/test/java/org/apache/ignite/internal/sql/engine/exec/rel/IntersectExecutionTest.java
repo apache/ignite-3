@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
@@ -38,7 +38,7 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
 
         switch (type) {
             case MAP:
-                rowSchema = NativeTypes.rowBuilder()
+                rowSchema = NativeTypes.structBuilder()
                         // input columns
                         .addField("C1", NativeTypes.STRING, false)
                         // counters
@@ -50,7 +50,7 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
                 break;
             case REDUCE:
             case SINGLE:
-                rowSchema = NativeTypes.rowBuilder()
+                rowSchema = NativeTypes.structBuilder()
                         .addField("C1", NativeTypes.STRING, false)
                         .addField("C2", NativeTypes.INT32, false)
                         .build();
@@ -59,7 +59,7 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
                 throw new IllegalArgumentException("Unexpected aggregate type: " + type);
         }
 
-        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<Object[]> outputRowFactory = ctx.rowFactoryFactory().create(rowSchema);
 
         return new IntersectNode<>(ctx, columnCount, type, all, outputRowFactory, inputsCnt);
     }

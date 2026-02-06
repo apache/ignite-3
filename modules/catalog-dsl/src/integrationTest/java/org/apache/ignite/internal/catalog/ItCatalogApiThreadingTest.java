@@ -40,7 +40,6 @@ import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -77,9 +76,6 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(CatalogAsyncOperation.class)
-    @Disabled("IGNITE-22687 or IGNITE-24204")
-    // TODO: enable this after IGNITE-22687 is fixed or after IGNITE-24204 (which will give possibility to distinguish the common FJP from
-    // the user-supplied async continuation executor).
     void catalogFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(CatalogAsyncOperation operation) {
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(catalogForInternalUse())

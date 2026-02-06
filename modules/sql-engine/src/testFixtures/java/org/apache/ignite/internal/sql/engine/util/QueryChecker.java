@@ -126,6 +126,21 @@ public interface QueryChecker {
     }
 
     /**
+     * Ignite index scan matcher.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @param idxName Index name.
+     * @param searchBounds Search bounds.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScan(String schema, String tblName, String idxName, String searchBounds) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName
+                + ".*?searchBounds: " + Pattern.quote(searchBounds));
+    }
+
+    /**
      * Ignite index scan matcher which ignores search bounds.
      *
      * @param schema Schema name.

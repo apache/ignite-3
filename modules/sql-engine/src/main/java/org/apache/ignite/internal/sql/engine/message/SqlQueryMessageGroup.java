@@ -46,4 +46,10 @@ public final class SqlQueryMessageGroup {
 
     /** See {@link CancelOperationResponse} for the details. */
     public static final short OPERATION_CANCEL_RESPONSE = 7;
+
+    /** See {@link SharedStateMessage} for the details. */
+    public static final short SHARED_STATE_MESSAGE = 8;
+
+    /** See {@link DecimalValueMessage} for the details. */
+    public static final short DECIMAL_VALUE_MESSAGE = 9;
 }

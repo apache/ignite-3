@@ -46,7 +46,6 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -61,6 +60,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * RAFT client aware of a logical topology to handle distributed events.
+ * TODO: IGNITE-27257 Refactor the class to make it more readable and maintainable.
  */
 public class TopologyAwareRaftGroupService implements RaftGroupService {
 
@@ -638,5 +638,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         subscribersMap.put(peer, fut);
 
         return fut;
+    }
+
+    @Override
+    public void markAsStopping() {
+        raftClient.markAsStopping();
     }
 }

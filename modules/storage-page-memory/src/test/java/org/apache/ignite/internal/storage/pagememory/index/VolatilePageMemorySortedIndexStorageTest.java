@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -41,16 +42,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedIndexStorageTest {
     private VolatilePageMemoryStorageEngine engine;
 
+    @InjectConfiguration
+    protected SystemLocalConfiguration systemConfig;
+
     @BeforeEach
     void setUp(
-            @InjectConfiguration("mock.profiles.default = {engine = aimem}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}") StorageConfiguration storageConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, ioRegistry, mock(FailureProcessor.class), clock);
+        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, systemConfig, ioRegistry, mock(FailureProcessor.class), clock);
 
         engine.start();
 

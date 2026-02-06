@@ -20,35 +20,26 @@ package org.apache.ignite.internal.cli.commands.recovery.cluster.reset;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_CMG_NODES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_METASTORAGE_REPLICATION_OPTION;
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-import static org.mockserver.model.JsonBody.json;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockserver.model.MediaType;
 
 /** Unit tests for {@link ResetClusterCommand}. */
 public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
+    @Override
+    protected Class<?> getCommandClass() {
+        return ResetClusterCommand.class;
+    }
+
     @Test
     @DisplayName("Reset cluster with CMG nodes specified")
     void resetWithCmgNodesSpecified() {
         String nodeNames = "node1,node2";
 
-        String expectedSentContent = "{"
-                + "    \"cmgNodeNames\": [\"node1\", \"node2\"],"
-                + "}";
+        String expectedSentContent = "{\"cmgNodeNames\": [\"node1\", \"node2\"]}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/cluster/reset")
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/recovery/cluster/reset", expectedSentContent);
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_CMG_NODES_OPTION, nodeNames
@@ -63,18 +54,9 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
     void resetWithReplicationFactorSpecified() {
         String replicationFactor = "5";
 
-        String expectedSentContent = "{"
-                + "     \"metastorageReplicationFactor\" : 5"
-                + "}";
+        String expectedSentContent = "{\"metastorageReplicationFactor\" : 5}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/cluster/reset")
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/recovery/cluster/reset", expectedSentContent);
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_METASTORAGE_REPLICATION_OPTION, replicationFactor
@@ -92,17 +74,10 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
 
         String expectedSentContent = "{"
                 + "    \"cmgNodeNames\": [\"node1\", \"node2\"],"
-                + "     \"metastorageReplicationFactor\" : 5"
+                + "    \"metastorageReplicationFactor\" : 5"
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/recovery/cluster/reset")
-                        .withBody(json(expectedSentContent))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/recovery/cluster/reset", expectedSentContent);
 
         execute(CLUSTER_URL_OPTION, mockUrl,
                 RECOVERY_CMG_NODES_OPTION, nodeNames,
@@ -119,12 +94,5 @@ public class ResetClusterCommandTest extends IgniteCliInterfaceTestBase {
         execute(CLUSTER_URL_OPTION, mockUrl);
 
         assertErrOutputContains("Missing required argument(s): ");
-    }
-
-    @Override
-    protected void execute(String... args) {
-        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "cluster", "reset"}, args);
-
-        super.execute(fullArgs);
     }
 }

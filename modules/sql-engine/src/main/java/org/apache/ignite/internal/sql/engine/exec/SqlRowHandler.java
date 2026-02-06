@@ -34,6 +34,9 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -57,10 +60,10 @@ import org.jetbrains.annotations.Nullable;
  * create rows without any additional conversions. But the fields in
  * binary tuple must match the factory {@link StructNativeType row schema}.
  */
-public class SqlRowHandler implements RowHandler<RowWrapper> {
-    public static final RowHandler<RowWrapper> INSTANCE = new SqlRowHandler();
+public class SqlRowHandler implements RowHandler<RowWrapper>, RowFactoryFactory<RowWrapper> {
+    public static final SqlRowHandler INSTANCE = new SqlRowHandler();
 
-    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.rowBuilder().build(), new Object[0]);
+    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.structBuilder().build(), new Object[0]);
 
     private SqlRowHandler() {
     }
@@ -78,14 +81,14 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     }
 
     @Override
-    public int columnCount(RowWrapper row) {
+    public int columnsCount(RowWrapper row) {
         return row.columnsCount();
     }
 
     @Override
     public String toString(RowWrapper row) {
         IgniteStringBuilder buf = new IgniteStringBuilder("Row[");
-        int maxIdx = columnCount(row) - 1;
+        int maxIdx = columnsCount(row) - 1;
 
         for (int i = 0; i <= maxIdx; i++) {
             buf.app(row.get(i));
@@ -104,16 +107,10 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     }
 
     @Override
-    public RowFactory<RowWrapper> factory(StructNativeType rowSchema) {
+    public RowFactory<RowWrapper> create(StructNativeType rowSchema) {
         int schemaLen = rowSchema.fields().size();
 
         return new RowFactory<>() {
-            /** {@inheritDoc} */
-            @Override
-            public RowHandler<RowWrapper> handler() {
-                return SqlRowHandler.this;
-            }
-
             @Override
             public RowBuilder<RowWrapper> rowBuilder() {
                 return new RowBuilderImpl(rowSchema);

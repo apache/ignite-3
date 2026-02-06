@@ -17,19 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.hamcrest.Matchers.not;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /** Tests colocated data. */
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItColocatedDataTest extends BaseSqlIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {

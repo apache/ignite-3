@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Common validator for node filter. This is the best-effort validation because the topology may change before the actual

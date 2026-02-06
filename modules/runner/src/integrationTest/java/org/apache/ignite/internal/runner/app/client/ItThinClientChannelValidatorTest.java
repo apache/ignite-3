@@ -43,6 +43,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.client.RetryReadPolicy;
 import org.apache.ignite.internal.client.ChannelValidator;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.ProtocolContext;
@@ -124,7 +125,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
             Awaitility.await().timeout(3, TimeUnit.SECONDS)
                     .untilAsserted(() -> assertThat(client.connections().size(), is(1)));
 
-            client.sql().execute(null, "SELECT 1").close();
+            client.sql().execute("SELECT 1").close();
 
             // Make sure there are no new connections.
             Thread.sleep(reconnectInterval * 2);
@@ -207,14 +208,15 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
                 null,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
                 IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
-                new RetryLimitPolicy(),
+                new RetryReadPolicy(),
                 null,
                 null,
                 false,
                 null,
                 IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
                 IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE,
-                null
+                null,
+                IgniteClientConfiguration.DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL
         );
 
         return await(TcpIgniteClient.startAsync(

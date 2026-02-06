@@ -34,7 +34,7 @@ class FieldGetter extends CommonFieldGetter {
         Expression row = list.append("row", this.row);
 
         Expression field = Expressions.call(hnd,
-                IgniteMethod.ROW_HANDLER_GET.method(),
+                IgniteMethod.ROW_ACCESSOR_GET.method(),
                 Expressions.constant(index), row);
 
         return field;

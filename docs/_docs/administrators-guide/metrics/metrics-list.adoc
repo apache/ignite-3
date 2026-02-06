@@ -94,13 +94,9 @@ The metrics for Ignite Java Virtual Machine resource use.
 |=======================================================================
 | Metric name | Description
 
-| ActiveLeasesCount | The number of currently active leases.
-| CurrentPendingAssignmentsSize | The current size of pending assignments over all partitions.
-| CurrentStableAssignmentsSize | The current size of stable assignments over all partitions.
-| LeasesCreated | The total number of created leases.
-| LeasesProlonged | The total number of prolonged leases.
-| LeasesPublished | The total number of published leases.
-| LeasesWithoutCandidates | The total number of leases without candidates currently existing.
+| AcceptedLeases | The number of active leases. Equals the number of replication groups for which a primary replica has been elected.
+| LeaseNegotiations | The number of leases currently in negotiation. Represents the number of replication groups for which the primary replica has not yet been selected.
+| ReplicationGroups | The total number of replication groups. Each group first appears in `LeaseNegotiations`. After the primary is elected, its entry moves to `AcceptedLeases` and is removed from `LeaseNegotiations`.
 |=======================================================================
 
 == raft
@@ -109,14 +105,15 @@ The metrics for Ignite Java Virtual Machine resource use.
 |=======================================================================
 | Metric name | Description
 
-| raft.fsmcaller.disruptor.Stripes | The histogram of distribution data by stripes in the state machine for partitions.
-| raft.fsmcaller.disruptor.Batch | The histogram of the batch size to handle in the state machine for partitions.
-| raft.logmanager.disruptor.Batch | The histogram of the batch size to handle in the log for partitions.
-| raft.logmanager.disruptor.Stripes | The histogram of distribution data by stripes in the log for partitions.
-| raft.nodeimpl.disruptor.Batch | The histogram of the batch size to handle node operations for partitions.
-| raft.nodeimpl.disruptor.Stripes | The histogram of distribution data by stripes for node operations for partitions.
-| raft.readonlyservice.disruptor.Stripes | The histogram of distribution data by stripes for read-only operations for partitions.
-| raft.readonlyservice.disruptor.Batch | The histogram of the batch size to handle read-only operations for partitions.
+| fsmcaller.disruptor.Stripes | The histogram of distribution data by stripes in the state machine for partitions.
+| fsmcaller.disruptor.Batch | The histogram of the batch size to handle in the state machine for partitions.
+| logmanager.disruptor.Batch | The histogram of the batch size to handle in the log for partitions.
+| logmanager.disruptor.Stripes | The histogram of distribution data by stripes in the log for partitions.
+| nodeimpl.disruptor.Batch | The histogram of the batch size to handle node operations for partitions.
+| nodeimpl.disruptor.Stripes | The histogram of distribution data by stripes for node operations for partitions.
+| readonlyservice.disruptor.Stripes | The histogram of distribution data by stripes for read-only operations for partitions.
+| readonlyservice.disruptor.Batch | The histogram of the batch size to handle read-only operations for partitions.
+| groups.localLeadersCount | Number of raft groups where this node is the leader.
 |=======================================================================
 
 == resource.vacuum
@@ -215,6 +212,21 @@ Table metrics.
 | Writes | The total number of write operations for this table.
 |=======================================================================
 
+== index.builder
+
+Index builder metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| TotalIndexesBuilding | Total number of indexes that node builds at the moment.
+| IndexesReadingStorage | Number of indexes that are currently reading data from storage.
+| IndexesWaitingForTransactions | Number of indexes that are currently waiting for transactions to complete.
+| TransactionsWaitingFor | Number of transactions that indexes are currently waiting for.
+| IndexesWaitingForReplica | Number of indexes that are currently waiting for replica response.
+|=======================================================================
+
 == thread.pools.{thread-pool-executor-name}
 
 [width="100%",cols="20%,80%",opts="header"]
@@ -284,4 +296,22 @@ Transaction metrics.
 
 | LocalUnrebalancedPartitionsCount | The number of partitions that should be moved to this node.
 | TotalUnrebalancedPartitionsCount | The total number of partitions that should be moved to a new owner.
+|=======================================================================
+
+== raft.snapshots
+
+Metrics related to Raft snapshots of partition replicas.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+| Metric name | Description
+
+| IncomingSnapshots | The number of incoming Raft snapshots in progress.
+| IncomingSnapshotsLoadingMeta | The number of incoming Raft snapshots loading metadata.
+| IncomingSnapshotsWaitingCatalog | The number of incoming Raft snapshots waiting for catalog.
+| IncomingSnapshotsPreparingStorages | The number of incoming Raft snapshots preparing storages.
+| IncomingSnapshotsPreparingIndexForBuild | The number of incoming Raft snapshots preparing indexes for build.
+| IncomingSnapshotsLoadingMvData | The number of incoming Raft snapshots loading multi-versioned data.
+| IncomingSnapshotsLoadingTxMeta | The number of incoming Raft snapshots loading transaction metadata.
+| OutgoingSnapshots | The number of outgoing Raft snapshots in progress.
 |=======================================================================

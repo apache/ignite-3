@@ -181,7 +181,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 304, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 319, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(

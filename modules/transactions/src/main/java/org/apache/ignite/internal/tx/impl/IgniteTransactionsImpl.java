@@ -72,7 +72,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      * @return The started transaction.
      */
     public InternalTransaction beginImplicit(boolean readOnly) {
-        return txManager.beginImplicit(observableTimestampTracker, readOnly);
+        return txManager.beginImplicit(observableTimestampTracker, readOnly, null);
     }
 
     @TestOnly

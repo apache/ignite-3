@@ -57,6 +57,11 @@ namespace Apache.Ignite
         public static readonly TimeSpan DefaultReconnectInterval = TimeSpan.FromSeconds(30);
 
         /// <summary>
+        /// Default DNS re-resolve interval.
+        /// </summary>
+        public static readonly TimeSpan DefaultReResolveAddressesInterval = TimeSpan.FromSeconds(30);
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
         /// </summary>
         public IgniteClientConfiguration()
@@ -96,6 +101,7 @@ namespace Apache.Ignite
             ReconnectInterval = other.ReconnectInterval;
             SslStreamFactory = other.SslStreamFactory;
             Authenticator = other.Authenticator;
+            ReResolveAddressesInterval = other.ReResolveAddressesInterval;
         }
 
         /// <summary>
@@ -112,7 +118,7 @@ namespace Apache.Ignite
         /// <para />
         /// Use <see cref="Timeout.InfiniteTimeSpan"/> for infinite timeout.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        [DefaultValue("00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
 
         /// <summary>
@@ -121,7 +127,7 @@ namespace Apache.Ignite
         /// An "operation" is a single client request to the server. Some public API calls may involve multiple operations, in
         /// which case the operation timeout is applied to each individual network call.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
+        [DefaultValue("-00:00:00.001")]
         public TimeSpan OperationTimeout { get; set; } = DefaultOperationTimeout;
 
         /// <summary>
@@ -163,7 +169,7 @@ namespace Apache.Ignite
         /// When client connection is idle (no operations are performed), heartbeat messages are sent periodically
         /// to keep the connection alive and detect potential half-open state.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        [DefaultValue("00:00:30")]
         public TimeSpan HeartbeatInterval { get; set; } = DefaultHeartbeatInterval;
 
         /// <summary>
@@ -176,13 +182,25 @@ namespace Apache.Ignite
         /// However, "secondary" connections can be lost (due to network issues, or node restarts). This property controls how ofter Ignite
         /// client will check all configured endpoints and try to reconnect them in case of failure.
         /// </summary>
-        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        [DefaultValue("00:00:30")]
         public TimeSpan ReconnectInterval { get; set; } = DefaultReconnectInterval;
+
+        /// <summary>
+        /// Gets or sets how long the resolved addresses will be considered valid.
+        /// <para />
+        /// Default is <see cref="DefaultReResolveAddressesInterval"/>.
+        /// Set to <see cref="TimeSpan.Zero"/> to disable periodic DNS re-resolve.
+        /// <para />
+        /// Ignite client resolves the provided hostnames into multiple IP addresses, each corresponds to a cluster node.
+        /// This property controls how often the client will re-resolve provided hostnames.
+        /// </summary>
+        [DefaultValue("00:00:30")]
+        public TimeSpan ReResolveAddressesInterval { get; set; } = DefaultReResolveAddressesInterval;
 
         /// <summary>
         /// Gets or sets the SSL stream factory.
         /// <para />
-        /// When not null, secure socket connection will be established.
+        /// When not null, a secure socket connection will be established.
         /// <para />
         /// See <see cref="SslStreamFactory"/>.
         /// </summary>

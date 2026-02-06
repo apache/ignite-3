@@ -175,8 +175,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate newly created table
         assertEquals(TABLE_NAME, table.name());
         assertEquals(catalog.defaultZone().id(), table.zoneId());
-        assertEquals(List.of("key1", "key2"), table.primaryKeyColumnNames());
-        assertEquals(List.of("key2"), table.colocationColumnNames());
+        assertEquals(IntList.of(0, 1), table.primaryKeyColumns());
+        assertEquals(IntList.of(1), table.colocationColumns());
 
         // Validate newly created pk index
         assertEquals(pkIndexName(TABLE_NAME), pkIndex.name());
@@ -260,7 +260,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME_2));
 
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = manager.latestCatalog();
         assertNotNull(catalog);
 
         CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
@@ -572,8 +572,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     @Test
     public void testCreateDefaultZoneLazilyIfNoZonesProvided() {
         // Check that initially there no default zone and zones at all.
-        int initialVersion = manager.latestCatalogVersion();
-        Catalog initialCatalog = manager.catalog(initialVersion);
+        Catalog initialCatalog = manager.latestCatalog();
         assertThat(initialCatalog.zones(), empty());
         assertThat(initialCatalog.defaultZone(), nullValue());
 
@@ -592,8 +591,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     @Test
     public void testDefaultZoneCreationIsIdempotent() {
         // Check that initially there no default zone and zones at all.
-        int initialVersion = manager.latestCatalogVersion();
-        Catalog initialCatalog = manager.catalog(initialVersion);
+        Catalog initialCatalog = manager.latestCatalog();
         assertThat(initialCatalog.zones(), empty());
         assertThat(initialCatalog.defaultZone(), nullValue());
 
@@ -613,8 +611,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     @Test
     public void testDefaultZoneCannotBeCreatedIfDefaultNameIsAlreadyInUse() {
         // Check that initially there no default zone and zones at all.
-        int initialVersion = manager.latestCatalogVersion();
-        Catalog initialCatalog = manager.catalog(initialVersion);
+        Catalog initialCatalog = manager.latestCatalog();
         assertThat(initialCatalog.zones(), empty());
         assertThat(initialCatalog.defaultZone(), nullValue());
 
@@ -629,8 +626,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 )
         );
 
-        int lastVersion = manager.latestCatalogVersion();
-        Catalog lastCatalog = manager.catalog(lastVersion);
+        Catalog lastCatalog = manager.latestCatalog();
         assertThat(lastCatalog.zones(), hasSize(1));
         assertThat(initialCatalog.defaultZone(), nullValue());
     }
@@ -666,8 +662,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
-        assertThat(curDescriptor.colocationColumnNames(), is(prevDescriptor.colocationColumnNames()));
-        assertThat(curDescriptor.primaryKeyColumnNames(), is(prevDescriptor.primaryKeyColumnNames()));
+        assertThat(curDescriptor.colocationColumns(), is(prevDescriptor.colocationColumns()));
+        assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
         assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));
@@ -1308,7 +1304,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         tryApplyAndExpectApplied(createTableCmd);
 
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = manager.latestCatalog();
 
         CatalogZoneDescriptor defaultZoneDescriptor = catalog.zone(DEFAULT_ZONE_NAME);
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(customZoneName);
@@ -1377,7 +1373,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
             tryApplyAndExpectApplied(tableCmdWithEverything);
         }
 
-        assertThat(manager.catalog(manager.latestCatalogVersion()).tables(), hasItems(
+        assertThat(manager.latestCatalog().tables(), hasItems(
                 tableThatSatisfies("table with stale rows conf that matches defaults", d -> 
                         "defaults".equals(d.name())
                                 && d.properties().minStaleRowsCount() == CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT

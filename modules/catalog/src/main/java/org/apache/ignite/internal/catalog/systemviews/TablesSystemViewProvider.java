@@ -27,11 +27,14 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogSystemViewProvider;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
+import org.apache.ignite.internal.util.FlatteningIterator;
 import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,7 +76,8 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("TABLE_PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
                 .addColumn("ZONE_NAME", STRING, entry -> entry.zoneName)
                 .addColumn("STORAGE_PROFILE", STRING, entry -> entry.table.storageProfile())
-                .addColumn("TABLE_COLOCATION_COLUMNS", STRING, entry -> concatColumns(entry.table.colocationColumnNames()))
+                .addColumn("TABLE_COLOCATION_COLUMNS", STRING, entry ->
+                        concatColumns(CatalogUtils.resolveColumnNames(entry.table, entry.table.colocationColumns())))
                 .addColumn("SCHEMA_ID", INT32, entry -> entry.table.schemaId())
                 .addColumn("ZONE_ID", INT32, entry -> entry.table.zoneId())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
@@ -82,7 +86,8 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("NAME", STRING, entry -> entry.table.name())
                 .addColumn("ID", INT32, entry -> entry.table.id())
                 .addColumn("PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
-                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumnNames()))
+                .addColumn("COLOCATION_KEY_INDEX", STRING, entry ->
+                        concatColumns(CatalogUtils.resolveColumnNames(entry.table, entry.table.colocationColumns())))
                 .addColumn("ZONE", STRING, entry -> entry.zoneName)
                 .dataProvider(viewDataPublisher)
                 .build();
@@ -99,16 +104,19 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         Iterable<ColumnMetadata> viewData = () -> {
             Catalog catalog = catalogSupplier.get();
 
-            return catalog.tables().stream()
-                    .flatMap(table -> table.columns().stream()
-                            .map(columnDescriptor -> new ColumnMetadata(
-                                            catalog.schema(table.schemaId()).name(),
-                                            table,
-                                            columnDescriptor
-                                    )
-                            )
+            return new FlatteningIterator<>(
+                    new TransformingIterator<>(
+                            catalog.tables().iterator(),
+                            table -> {
+                                String schemaName = catalog.schema(table.schemaId()).name();
+
+                                return TransformingIterator.newIterable(
+                                        table.columns(),
+                                        column -> new ColumnMetadata(schemaName, table, column)
+                                );
+                            }
                     )
-                    .iterator();
+            );
         };
 
         Publisher<ColumnMetadata> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
@@ -157,16 +165,16 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         }
 
         int columnOrdinal() {
-            return tableDescriptor.columnIndex(columnDescriptor.name());
+            return tableDescriptor.columnIndexById(columnDescriptor.id());
         }
 
         @Nullable Integer pkColumnOrdinal() {
-            int idx = tableDescriptor.primaryKeyColumnNames().indexOf(columnDescriptor.name());
+            int idx = tableDescriptor.primaryKeyColumns().indexOf(columnDescriptor.id());
             return idx >= 0 ? idx : null;
         }
 
         @Nullable Integer colocationColumnOrdinal() {
-            int idx = tableDescriptor.colocationColumnNames().indexOf(columnDescriptor.name());
+            int idx = tableDescriptor.colocationColumns().indexOf(columnDescriptor.id());
             return idx >= 0 ? idx : null;
         }
     }

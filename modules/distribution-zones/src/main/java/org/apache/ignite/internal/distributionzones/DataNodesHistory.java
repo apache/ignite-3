@@ -63,6 +63,26 @@ public class DataNodesHistory {
     }
 
     /**
+     * Copies existing history and compacts it to the given timestamp inclusively. Leaves at least one entry.
+     *
+     * @param toTimestamp Minimal timestamp to leave in the history.
+     * @return New data nodes history.
+     */
+    DataNodesHistory compactIfNeeded(HybridTimestamp toTimestamp) {
+        DataNodesHistory compacted = new DataNodesHistory(new TreeMap<>(this.history.tailMap(toTimestamp, true)));
+
+        if (compacted.isEmpty()) {
+            Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> lastEntry = this.history.lastEntry();
+
+            if (lastEntry != null) {
+                compacted = compacted.addHistoryEntry(lastEntry.getKey(), lastEntry.getValue());
+            }
+        }
+
+        return compacted;
+    }
+
+    /**
      * Checks that the exact timestamp is present in history.
      *
      * @param timestamp Timestamp.
@@ -70,6 +90,15 @@ public class DataNodesHistory {
      */
     public boolean entryIsPresentAtExactTimestamp(HybridTimestamp timestamp) {
         return history.containsKey(timestamp);
+    }
+
+    /**
+     * Returns the size of the history.
+     *
+     * @return Size of the history.
+     */
+    public int size() {
+        return history.size();
     }
 
     /**

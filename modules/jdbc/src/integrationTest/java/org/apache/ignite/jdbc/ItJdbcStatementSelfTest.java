@@ -510,7 +510,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         final String sqlText = "select * from TEST;";
 
         assertThrowsSqlException(
-                "Invalid SQL statement type",
+                "Statement of type \"Query\" is not allowed in current context",
                 () -> stmt.executeUpdate(sqlText));
     }
 
@@ -786,7 +786,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         stmt.executeQuery("select 1;");
 
         assertThrowsSqlException(
-                "Invalid SQL statement type",
+                "Statement of type \"Query\" is not allowed in current context",
                 () -> stmt.executeUpdate("select 1;")
         );
 
@@ -796,7 +796,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testStatementTypeMismatchUpdate() throws Exception {
         assertThrowsSqlException(
-                "Invalid SQL statement type",
+                "Statement of type \"DML\" is not allowed in current context",
                 () -> stmt.executeQuery("update TEST set NAME='28' where ID=1")
         );
 

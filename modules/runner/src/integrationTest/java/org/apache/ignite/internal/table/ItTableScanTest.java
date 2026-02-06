@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -35,6 +36,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -55,8 +57,6 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -77,7 +77,9 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.PossibleDeadlockOnLockAcquireException;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
@@ -89,6 +91,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -203,11 +206,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Index id.
      */
     private int getIndexId(IgniteImpl ignite, String idxName) {
-        CatalogManager catalogManager = ignite.catalogManager();
-
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-
-        return catalog.indexes().stream()
+        return ignite.catalogManager().latestCatalog().indexes().stream()
                 .filter(index -> {
                     log.info("Scanned idx " + index.name());
 
@@ -538,11 +537,8 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3")),
-                "Failed to acquire a lock due to a possible deadlock"
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3"))
         );
 
         kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
@@ -612,16 +608,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(3, scannedRows.size());
 
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8")),
-                "Failed to acquire a lock due to a possible deadlock");
-        IgniteTestUtils.assertThrowsWithCode(
-                TransactionException.class,
-                Transactions.ACQUIRE_LOCK_ERR,
-                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")),
-                "Failed to acquire a lock due to a possible deadlock");
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"))
+        );
+
+        assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(
+                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9"))
+        );
 
         Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -696,7 +689,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                                 Tuple.create().set("valInt", intValue).set("valStr", "Str_" + intValue));
                     } catch (TransactionException e) {
                         // May happen, this is a race after all.
-                        assertThat(e.getMessage(), containsString("Failed to acquire a lock"));
+                        Throwable rootCause = unwrapRootCause(e);
+                        assertInstanceOf(LockException.class, rootCause);
+                        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock"));
                     }
                 };
 
@@ -943,11 +938,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * Gets an index id.
      */
     private static int getSortedIndexId() {
-        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
-
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-
-        return catalog.indexes().stream()
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog().indexes().stream()
                 .filter(index -> SORTED_IDX.equalsIgnoreCase(index.name()))
                 .mapToInt(CatalogObjectDescriptor::id)
                 .findFirst()
@@ -1075,5 +1066,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         tx.assignCommitPartition(replicationGroupId);
 
         return tx;
+    }
+
+    private static void assertPossibleDeadLockExceptionOnReadWriteSingleRowOperation(Executable operation) {
+        TransactionException transactionException = (TransactionException) IgniteTestUtils.assertThrowsWithCode(
+                TransactionException.class,
+                Transactions.ACQUIRE_LOCK_ERR,
+                operation,
+                "Failed to acquire a lock during request handling"
+        );
+
+        Throwable rootCause = unwrapRootCause(transactionException);
+        assertInstanceOf(PossibleDeadlockOnLockAcquireException.class, rootCause);
+        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock due to a possible deadlock"));
     }
 }

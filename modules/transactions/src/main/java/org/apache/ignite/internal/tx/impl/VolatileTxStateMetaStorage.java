@@ -32,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -40,6 +40,7 @@ import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.Persistent
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.VacuumizableTx;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
@@ -47,6 +48,18 @@ import org.jetbrains.annotations.Nullable;
 public class VolatileTxStateMetaStorage {
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+
+    /**
+     * Creates and starts the storage.
+     *
+     * <p>Intended for tests/benchmarks where the storage is used directly without a full component lifecycle.
+     */
+    @TestOnly
+    public static VolatileTxStateMetaStorage createStarted() {
+        VolatileTxStateMetaStorage storage = new VolatileTxStateMetaStorage();
+        storage.start();
+        return storage;
+    }
 
     /**
      * Starts the storage.
@@ -66,9 +79,17 @@ public class VolatileTxStateMetaStorage {
      * Initializes the meta state for a created transaction.
      *
      * @param tx Transaction object.
+     * @param txLabel Transaction label.
      */
-    public void initialize(InternalTransaction tx) {
-        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx, null));
+    public void initialize(InternalTransaction tx, @Nullable String txLabel) {
+        TxStateMeta previous = txStateMap.put(
+                tx.id(),
+                TxStateMeta.builder(PENDING)
+                        .txCoordinatorId(tx.coordinatorId())
+                        .tx(tx)
+                        .txLabel(txLabel)
+                        .build()
+        );
 
         assert previous == null : "Transaction state has already defined [txId=" + tx.id() + ", state=" + previous.txState() + ']';
     }
@@ -140,14 +161,10 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-            // Should be changed to ZonePartitionId.
-            Function<Map<ReplicationGroupId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp,
+            Function<Map<ZonePartitionId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp,
             ResourceVacuumMetrics resourceVacuumMetrics
     ) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-        // Should be changed to ZonePartitionId.
-        Map<ReplicationGroupId, Set<VacuumizableTx>> txIds = new HashMap<>();
+        Map<ZonePartitionId, Set<VacuumizableTx>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
 
         var skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger();
@@ -174,8 +191,6 @@ public class VolatileTxStateMetaStorage {
 
                             return null;
                         } else {
-                            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-                            // Should be changed to ZonePartitionId.
                             Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
                             ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));
 

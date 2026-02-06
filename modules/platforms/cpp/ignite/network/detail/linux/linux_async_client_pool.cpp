@@ -101,7 +101,7 @@ void linux_async_client_pool::close_and_release(uint64_t id, std::optional<ignit
     }
 }
 
-bool linux_async_client_pool::add_client(std::shared_ptr<linux_async_client> client) {
+bool linux_async_client_pool::add_client(const std::shared_ptr<linux_async_client>& client) {
     if (m_stopping)
         return false;
 
@@ -113,7 +113,7 @@ bool linux_async_client_pool::add_client(std::shared_ptr<linux_async_client> cli
         client_id = ++m_id_gen;
         client->set_id(client_id);
 
-        m_client_id_map[client_id] = std::move(client);
+        m_client_id_map[client_id] = client;
     }
 
     handle_connection_success(client_addr, client_id);

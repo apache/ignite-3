@@ -44,7 +44,7 @@ public class TableExample {
                 .build()
         ) {
             // Create a table to work with later
-            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (" +
+            client.sql().execute("CREATE TABLE IF NOT EXISTS Person (" +
                     "id int primary key," +
                     "city_id int," +
                     "name varchar," +

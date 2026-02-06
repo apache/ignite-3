@@ -70,8 +70,10 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
     }
 
     @Override
-    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
-            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
-        return decorateFuture(super.awaitNonEmptyAssignments(replicationGroupIds, clusterTimeToAwait, timeoutMillis));
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long timeoutMillis
+    ) {
+        return decorateFuture(super.awaitNonEmptyAssignments(replicationGroupIds, timeoutMillis));
     }
 }

@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClientTest {
     @Test
     void testStaleMapping() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         ClientTable table = (ClientTable) table();
 
@@ -75,7 +75,7 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
         ignite.restartAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         Table srvTable = server0.tables().table(TABLE_NAME);
-        srvTable.partitionManager().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
+        srvTable.partitionDistribution().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         Tuple k2 = tuples2.get(0);
         Tuple v2 = val(tuples2.get(0).intValue(0) + "");

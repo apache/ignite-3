@@ -25,15 +25,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
+import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionEvaluationException;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
+import org.apache.ignite.internal.sql.engine.message.SharedStateMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -110,7 +113,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .fragmentId(fragmentId)
                         .exchangeId(exchangeId)
                         .amountOfBatches(amountOfBatches)
-                        .sharedState(state)
+                        .sharedStateMessage(SharedStateMessageConverter.toMessage(state))
                         .build()
         );
     }
@@ -121,8 +124,10 @@ public class ExchangeServiceImpl implements ExchangeService {
         Throwable traceableErr = ExceptionUtils.unwrapCause(error);
 
         if (!(traceableErr instanceof TraceableException)) {
-            traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
+            traceableErr = new IgniteInternalException(INTERNAL_ERR, error);
+        }
 
+        if (((TraceableException) traceableErr).code() == INTERNAL_ERR) {
             LOG.info(format("Failed to execute query fragment: traceId={}, executionId={}, fragmentId={}",
                     ((TraceableException) traceableErr).traceId(), executionId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
@@ -149,16 +154,20 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         Consumer<Outbox<?>> onRequestHandler = outbox -> {
             try {
-                SharedState state = msg.sharedState();
+                SharedStateMessage sharedStateMessage = msg.sharedStateMessage();
+                SharedState state = SharedStateMessageConverter.fromMessage(sharedStateMessage);
+
                 if (state != null) {
                     outbox.onRewindRequest(node.name(), state, msg.amountOfBatches());
                 } else {
                     outbox.onRequest(node.name(), msg.amountOfBatches());
                 }
             } catch (Throwable e) {
-                outbox.onError(e);
+                Throwable toUse = convertEvaluationException(e);
 
-                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
+                outbox.onError(toUse);
+
+                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", toUse);
             }
         };
 
@@ -177,18 +186,28 @@ public class ExchangeServiceImpl implements ExchangeService {
             try {
                 inbox.onBatchReceived(node.name(), msg.batchId(), msg.last(), msg.rows());
             } catch (Throwable e) {
-                inbox.onError(e);
+                Throwable toUse = convertEvaluationException(e);
 
-                if (e instanceof IgniteException) {
+                inbox.onError(toUse);
+
+                if (toUse instanceof IgniteException) {
                     return;
                 }
 
-                LOG.warn("Unexpected exception", e);
+                LOG.warn("Unexpected exception", toUse);
             }
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale batch message received: [nodeName={}, executionId={}, fragmentId={}, exchangeId={}, batchId={}]",
                     node.name(), executionId, msg.fragmentId(), msg.exchangeId(), msg.batchId());
         }
+    }
+
+    private static Throwable convertEvaluationException(Throwable e) {
+        if (e instanceof ExpressionEvaluationException) {
+            return SqlExceptionMapperUtil.mapToPublicSqlException(e);
+        }
+
+        return e;
     }
 
     /** {@inheritDoc} */

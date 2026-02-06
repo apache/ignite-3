@@ -40,6 +40,15 @@ public class CommandLineContextProvider {
     }
 
     /**
+     * Sets the context directly.
+     *
+     * @param ctx the context to set (can be null)
+     */
+    public static void setContext(CommandLineContext ctx) {
+        context = ctx;
+    }
+
+    /**
      * Sets a context from {@link CommandLine} instance.
      *
      * @param cmd {@link CommandLine} instance

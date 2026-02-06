@@ -61,6 +61,7 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.CreateTableDefaultsView;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -74,7 +75,8 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
@@ -83,6 +85,7 @@ import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
+import org.apache.ignite.internal.sql.engine.expressions.SqlExpressionFactoryAdapter;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -207,6 +210,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final EventLog eventLog;
 
+    private final SqlExpressionFactory expressionFactory;
+
     /** Constructor. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -246,21 +251,33 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
-        this.txTracker = new InflightTransactionalOperationTracker(transactionInflights);
+        this.txTracker = new InflightTransactionalOperationTracker(transactionInflights, txManager);
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;
         this.eventLog = eventLog;
 
-        StatisticAggregatorImpl statAggregator =
-                new StatisticAggregatorImpl(() -> logicalTopologyService.localLogicalTopology().nodes(),
-                        clusterSrvc.messagingService());
-        sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark, commonScheduler, statAggregator);
+        StatisticAggregatorImpl statAggregator = new StatisticAggregatorImpl(
+                () -> logicalTopologyService.localLogicalTopology().nodes(),
+                clusterSrvc.messagingService()
+        );
+        sqlStatisticManager = new SqlStatisticManagerImpl(
+                tableManager, 
+                catalogManager, 
+                lowWaterMark,
+                commonScheduler,
+                statAggregator,
+                clusterCfg.statistics().autoRefresh().staleRowsCheckIntervalSeconds()
+        );
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
                 CACHE_FACTORY,
                 SCHEMA_CACHE_SIZE
+        );
+
+        expressionFactory = new SqlExpressionFactoryImpl(
+                Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
         );
     }
 
@@ -369,6 +386,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 ddlCommandHandler,
                 taskExecutor,
                 SqlRowHandler.INSTANCE,
+                SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
                 mappingService,
@@ -377,10 +395,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 tableFunctionRegistry,
                 clockService,
                 killCommandHandler,
-                new ExpressionFactoryImpl<>(
-                        Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
-                ),
-                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
+                expressionFactory,
+                EXECUTION_SERVICE_SHUTDOWN_TIMEOUT,
+                SqlPlanToTxSchemaVersionValidator.create(schemaSyncService, catalogManager)
         ));
 
         queryExecutor = registerService(new QueryExecutor(
@@ -578,6 +595,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return sqlStatisticManager;
     }
 
+    @TestOnly
+    public SqlDistributedConfiguration clusterConfig() {
+        return clusterCfg;
+    }
+
     private ParsedResult parseAndCache(String sql) {
         ParsedResult result = queryExecutor.parse(sql);
 
@@ -621,6 +643,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     @Override
     public CompletableFuture<Void> invalidatePlannerCache(Set<String> tableNames) {
         return prepareSvc.invalidateCache(tableNames);
+    }
+
+    /** Returns an expression factory to create executable expressions. */
+    public ExpressionFactory expressionFactory() {
+        return new SqlExpressionFactoryAdapter(expressionFactory);
     }
 
     /** Completes the provided future when the callback is called. */

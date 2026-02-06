@@ -48,7 +48,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -111,11 +110,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     private final Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider;
 
-    /** Resolver of zone id by table id (result may be {@code null}). */
-    private final Function<Integer, Integer> zoneIdByTableIdResolver;
-
-    private final NodeProperties nodeProperties;
-
     /**
      * Constructor.
      *
@@ -126,16 +120,12 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             MetaStorageManager msManager,
             ClusterNodeResolver clusterNodeResolver,
             ClockService clockService,
-            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider,
-            Function<Integer, Integer> zoneIdByTableIdResolver,
-            NodeProperties nodeProperties
+            Function<Integer, CompletableFuture<Set<String>>> currentDataNodesProvider
     ) {
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
         this.clockService = clockService;
         this.currentDataNodesProvider = currentDataNodesProvider;
-        this.zoneIdByTableIdResolver = zoneIdByTableIdResolver;
-        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -366,18 +356,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     private CompletableFuture<Void> checkDataNodes(ReplicationGroupId groupId) {
-        Integer zoneId = extractZoneIdFromGroupId(groupId, nodeProperties.colocationEnabled(), zoneIdByTableIdResolver);
+        int zoneId = extractZoneIdFromGroupId(groupId);
 
-        if (zoneId != null) {
-            return currentDataNodesProvider.apply(zoneId)
-                    .thenAccept(dataNodes -> {
-                        if (dataNodes.isEmpty()) {
-                            throw new EmptyDataNodesException(zoneId);
-                        }
-                    });
-        } else {
-            return nullCompletedFuture();
-        }
+        return currentDataNodesProvider.apply(zoneId)
+                .thenAccept(dataNodes -> {
+                    if (dataNodes.isEmpty()) {
+                        throw new EmptyDataNodesException(zoneId);
+                    }
+                });
     }
 
     private boolean isValidReplicaMeta(@Nullable ReplicaMeta replicaMeta) {

@@ -623,13 +623,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         return relShuttle.visit(rel);
     }
 
-    private IgniteSqlToRelConvertor sqlToRelConverter(SqlValidator validator, CalciteCatalogReader reader,
+    private IgniteSqlToRelConverter sqlToRelConverter(SqlValidator validator, CalciteCatalogReader reader,
             SqlToRelConverter.Config config) {
-        return new IgniteSqlToRelConvertor(this, validator, reader, cluster(), convertletTbl, config);
+        return new IgniteSqlToRelConverter(this, validator, reader, cluster(), convertletTbl, config);
     }
 
     /** Returns converter from ast to rel node tree. */
-    public IgniteSqlToRelConvertor sqlToRelConverter() {
+    public IgniteSqlToRelConverter sqlToRelConverter() {
         return sqlToRelConverter(validator(), catalogReader, sqlToRelConverterCfg);
     }
 

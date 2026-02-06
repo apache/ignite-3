@@ -25,11 +25,16 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL
 
 import jakarta.inject.Inject;
 import java.net.URL;
+import org.apache.ignite.internal.cli.commands.ProfileMixin;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManager;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.ArgGroup;
+import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 /**
@@ -39,6 +44,13 @@ public class NodeUrlMixin {
 
     @ArgGroup
     private Options options;
+
+    /** Profile to get default values from. */
+    @Mixin
+    private ProfileMixin profile;
+
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
 
     @Inject
     private NodeNameRegistry nodeNameRegistry;
@@ -83,6 +95,11 @@ public class NodeUrlMixin {
                         .orElseThrow(() -> new IgniteCliException("Node " + options.nodeName
                                 + " not found. Provide a valid name or use a URL"));
             }
+        }
+        String profileName = profile.getProfileName();
+        if (profileName != null) {
+            ConfigManager configManager = configManagerProvider.get();
+            return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName);
         }
         return null;
     }

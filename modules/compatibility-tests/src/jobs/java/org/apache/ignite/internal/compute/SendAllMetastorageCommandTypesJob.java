@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 
 import java.lang.reflect.Method;
@@ -41,35 +43,47 @@ import org.apache.ignite.internal.wrapper.Wrappers;
 public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
+        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
-        try {
-            IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
+        byte[] value = "value".getBytes(StandardCharsets.UTF_8);
 
-            byte[] value = "value".getBytes(StandardCharsets.UTF_8);
+        MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
 
-            MetaStorageManagerImpl metastorage = (MetaStorageManagerImpl) igniteImpl.metaStorageManager();
+        CompletableFuture<Void> sendCommandsFuture = allOf(
+                metastorage.put(ByteArray.fromString("put"), value),
+                metastorage.putAll(Map.of(ByteArray.fromString("putAll"), value)),
+                metastorage.remove(ByteArray.fromString("remove")),
+                metastorage.removeAll(Set.of(ByteArray.fromString("removeAll"))),
+                metastorage.removeByPrefix(ByteArray.fromString("removeByPrefix")),
+                metastorage.invoke(
+                        notExists(ByteArray.fromString("invoke")),
+                        put(ByteArray.fromString("invoke"), value),
+                        noop()
+                ),
+                metastorage.invoke(
+                        iif(
+                                notExists(ByteArray.fromString("iff")),
+                                ops(put(ByteArray.fromString("iff"), value)).yield(),
+                                ops().yield()
+                        )
+                ),
+                metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE)
+        );
 
-            return allOf(
-                    metastorage.put(ByteArray.fromString("put"), value),
-                    metastorage.putAll(Map.of(ByteArray.fromString("putAll"), value)),
-                    metastorage.remove(ByteArray.fromString("remove")),
-                    metastorage.removeAll(Set.of(ByteArray.fromString("removeAll"))),
-                    metastorage.removeByPrefix(ByteArray.fromString("removeByPrefix")),
-                    metastorage.invoke(exists(ByteArray.fromString("key")), noop(), noop()),
-                    metastorage.invoke(
-                            iif(exists(ByteArray.fromString("key")), ops().yield(), ops().yield())),
-                    metastorage.evictIdempotentCommandsCache(HybridTimestamp.MAX_VALUE),
-                    sendCompactionCommand(metastorage)
-            ).thenCompose((v) -> metastorage.storage().flush());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return sendCommandsFuture
+                // Send compaction command after other commands have been applied to guarantee a non-zero applied index.
+                .thenCompose(v -> sendCompactionCommand(metastorage))
+                .thenCompose(v -> metastorage.storage().flush());
     }
 
-    private static CompletableFuture<Void> sendCompactionCommand(MetaStorageManagerImpl metastorage)
-            throws Exception {
-        Method sendCompactionCommand = metastorage.getClass().getDeclaredMethod("sendCompactionCommand", long.class);
-        sendCompactionCommand.setAccessible(true);
-        return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, metastorage.appliedRevision());
+    private static CompletableFuture<Void> sendCompactionCommand(MetaStorageManagerImpl metastorage) {
+        try {
+            Method sendCompactionCommand = metastorage.getClass().getDeclaredMethod("sendCompactionCommand", long.class);
+            sendCompactionCommand.setAccessible(true);
+
+            return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, 0);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
     }
 }

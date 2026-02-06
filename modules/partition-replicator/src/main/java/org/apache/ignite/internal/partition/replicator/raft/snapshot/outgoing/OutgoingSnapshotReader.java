@@ -24,6 +24,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.SnapshotUri;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -45,7 +46,11 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     /**
      * Constructor.
      */
-    public OutgoingSnapshotReader(UUID snapshotId, PartitionSnapshotStorage snapshotStorage) {
+    public OutgoingSnapshotReader(
+            UUID snapshotId,
+            PartitionSnapshotStorage snapshotStorage,
+            RaftSnapshotsMetricsSource snapshotMetricsSource
+    ) {
         this.snapshotStorage = snapshotStorage;
 
         id = snapshotId;
@@ -55,7 +60,8 @@ public class OutgoingSnapshotReader extends SnapshotReader {
                 snapshotStorage.partitionKey(),
                 snapshotStorage.partitionsByTableId(),
                 snapshotStorage.txState(),
-                snapshotStorage.catalogService()
+                snapshotStorage.catalogService(),
+                snapshotMetricsSource
         );
 
         LOG.info("Starting snapshot reader [{}, snapshotId={}]", createPartitionInfo(), id);

@@ -236,6 +236,20 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         super.validateInsert(insert);
     }
 
+    @Override
+    public void validateQuery(SqlNode node, SqlValidatorScope scope, RelDataType targetRowType) {
+        super.validateQuery(node, scope, targetRowType);
+
+        if (node.getKind() == SqlKind.VALUES) {
+            // Row type for VALUES node derived as least restrictive type among all the tuples.
+            // We have to make sure that all the tuples indeed match the derived type.
+            RelDataType valuesType = deriveType(scope, node);
+            for (int i = 0; i < targetRowType.getFieldCount(); i++) {
+                getTypeCoercion().rowTypeCoercion(scope, node, i, valuesType.getFieldList().get(i).getType());
+            }
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void validateUpdate(SqlUpdate call) {
@@ -421,80 +435,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         return (IgniteTable) dataSource;
-    }
-
-    /**
-     * The copy of {@link SqlValidatorImpl#checkTypeAssignment(SqlValidatorScope, SqlValidatorTable, RelDataType, RelDataType, SqlNode)}
-     * with a fixed condition to skip dynamic parameters + this method does not try to find a location of a type error.
-     */
-    private void doCheckTypeAssignment(
-            @Nullable SqlValidatorScope sourceScope,
-            SqlValidatorTable table,
-            RelDataType sourceRowType,
-            RelDataType targetRowType,
-            final SqlNode query) {
-        // NOTE jvs 23-Feb-2006: subclasses may allow for extra targets
-        // representing system-maintained columns, so stop after all sources
-        // matched
-        boolean isUpdateModifiableViewTable = false;
-        if (query instanceof SqlUpdate) {
-            final SqlNodeList targetColumnList =
-                    requireNonNull(((SqlUpdate) query).getTargetColumnList());
-            final int targetColumnCount = targetColumnList.size();
-            targetRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, targetRowType,
-                            targetColumnCount);
-            sourceRowType =
-                    SqlTypeUtil.extractLastNFields(typeFactory, sourceRowType,
-                            targetColumnCount);
-            isUpdateModifiableViewTable =
-                    table.unwrap(ModifiableViewTable.class) != null;
-        }
-        if (SqlTypeUtil.equalAsStructSansNullability(typeFactory,
-                sourceRowType, targetRowType, null)) {
-            // Returns early if source and target row type equals sans nullability.
-            return;
-        }
-        if (config().typeCoercionEnabled() && !isUpdateModifiableViewTable) {
-            // Try type coercion first if implicit type coercion is allowed.
-            boolean coerced =
-                    getTypeCoercion().querySourceCoercion(sourceScope, sourceRowType,
-                            targetRowType, query);
-            if (coerced) {
-                return;
-            }
-        }
-
-        // Fall back to default behavior: compare the type families.
-        List<RelDataTypeField> sourceFields = sourceRowType.getFieldList();
-        List<RelDataTypeField> targetFields = targetRowType.getFieldList();
-        final int sourceCount = sourceFields.size();
-        for (int i = 0; i < sourceCount; ++i) {
-            RelDataType sourceType = sourceFields.get(i).getType();
-            RelDataType targetType = targetFields.get(i).getType();
-            if (!SqlTypeUtil.canAssignFrom(targetType, sourceType)) {
-                // A correct condition for skipping dynamic parameters.
-                if (sourceType == unknownType) {
-                    continue;
-                }
-                String targetTypeString;
-                String sourceTypeString;
-                if (SqlTypeUtil.areCharacterSetsMismatched(
-                        sourceType,
-                        targetType)) {
-                    sourceTypeString = sourceType.getFullTypeString();
-                    targetTypeString = targetType.getFullTypeString();
-                } else {
-                    sourceTypeString = sourceType.toString();
-                    targetTypeString = targetType.toString();
-                }
-                // Always use a query as an error source.
-                throw newValidationError(query,
-                        RESOURCE.typeNotAssignable(
-                                targetFields.get(i).getName(), targetTypeString,
-                                sourceFields.get(i).getName(), sourceTypeString));
-            }
-        }
     }
 
     private static void syncSelectList(SqlMerge call) {
@@ -1130,7 +1070,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             SqlSelect expandedQry = new SqlSelect(SqlParserPos.ZERO, null,
                     SqlNodeList.of(SqlIdentifier.star(SqlParserPos.ZERO)), src, null, null, null,
-                    null, null, null, null, null);
+                    null, null, null, null, null, null);
 
             return SqlValidatorUtil.addAlias(expandedQry, alias);
         } else {
@@ -1276,7 +1216,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public static boolean isSystemColumnName(String alias) {
         return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
                 || alias.equals(Commons.PART_COL_NAME)
-                || alias.equals(Commons.PART_COL_NAME_LEGACY);
+                || alias.equals(Commons.PART_COL_NAME_LEGACY1)
+                || alias.equals(Commons.PART_COL_NAME_LEGACY2);
     }
 
     // We use these scopes to filter out valid usages of a ROW operator.

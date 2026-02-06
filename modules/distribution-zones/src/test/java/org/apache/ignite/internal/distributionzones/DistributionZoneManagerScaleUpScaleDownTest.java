@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createDefaultZone;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.dataNodeHistoryContext;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.logicalNodeFromNode;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -46,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -219,70 +217,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         alterZone(defaultZone.name(), INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes2, keyValueStorage);
-    }
-
-    @Test
-    void testDropZoneDoNotPropagateDataNodesAfterScaleUp() throws Exception {
-        startDistributionZoneManager();
-
-        topology.putNode(NODE_A);
-
-        topology.putNode(NODE_B);
-
-        Set<LogicalNode> clusterNodes2 = Set.of(NODE_A, NODE_B);
-
-        assertLogicalTopology(clusterNodes2, keyValueStorage);
-
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, null, null);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-
-        DataNodesHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertTrue(context.scaleUpTimerPresent());
-        assertTrue(context.scaleDownTimerPresent());
-
-        dropZone(ZONE_NAME);
-
-        // Data nodes history should not be dropped after zone drop. Deferred removal should happen on LWM move.
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-        context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertFalse(context.scaleUpTimerPresent());
-        assertFalse(context.scaleDownTimerPresent());
-    }
-
-    @Test
-    void testDropZoneDoNotPropagateDataNodesAfterScaleDown() throws Exception {
-        startDistributionZoneManager();
-
-        topology.putNode(NODE_A);
-
-        topology.putNode(NODE_B);
-
-        topology.removeNodes(Set.of(NODE_B));
-
-        Set<LogicalNode> clusterNodes2 = Set.of(NODE_A);
-
-        assertLogicalTopology(clusterNodes2, keyValueStorage);
-
-        createZone(ZONE_NAME, null, IMMEDIATE_TIMER_VALUE, null);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-
-        DataNodesHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertTrue(context.scaleUpTimerPresent());
-        assertTrue(context.scaleDownTimerPresent());
-
-        dropZone(ZONE_NAME);
-
-        // Data nodes history should not be dropped after zone drop. Deferred removal should happen on LWM move.
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-        context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertFalse(context.scaleUpTimerPresent());
-        assertFalse(context.scaleDownTimerPresent());
     }
 
     @Test

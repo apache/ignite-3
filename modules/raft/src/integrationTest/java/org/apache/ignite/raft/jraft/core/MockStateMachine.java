@@ -62,7 +62,7 @@ public class MockStateMachine extends StateMachineAdapter {
     }
 
     public MockStateMachine(final PeerId peerId) {
-        super();
+        super("test");
         this.peerId = peerId;
     }
 

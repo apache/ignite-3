@@ -152,7 +152,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
         List<RexNode> expressions = modifyNode.expressions();
 
-        SqlRowProvider<RowT> rowSupplier = ctx.expressionFactory()
+        SqlRowProvider rowSupplier = ctx.expressionFactory()
                 .rowSource(expressions);
 
         UpdatableTable table = execTable.updatableTable();
@@ -197,11 +197,11 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
     private static class InsertExecution<RowT> extends Performable<RowT> {
         private final UpdatableTable table;
-        private final SqlRowProvider<RowT> rowSupplier;
+        private final SqlRowProvider rowSupplier;
 
         private InsertExecution(
                 UpdatableTable table,
-                SqlRowProvider<RowT> rowSupplier
+                SqlRowProvider rowSupplier
         ) {
             this.table = table;
             this.rowSupplier = rowSupplier;
@@ -216,11 +216,11 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
     private static class DeleteExecution<RowT> extends Performable<RowT> {
         private final UpdatableTable table;
-        private final SqlRowProvider<RowT> rowSupplier;
+        private final SqlRowProvider rowSupplier;
 
         private DeleteExecution(
                 UpdatableTable table,
-                SqlRowProvider<RowT> rowSupplier
+                SqlRowProvider rowSupplier
         ) {
             this.table = table;
             this.rowSupplier = rowSupplier;

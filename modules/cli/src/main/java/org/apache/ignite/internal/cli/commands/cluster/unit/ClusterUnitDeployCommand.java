@@ -29,7 +29,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Command to deploy a unit. */
-@Command(name = "deploy", description = "Deploys a unit from file or a directory (non-recursively)")
+@Command(name = "deploy", description = "Deploys a unit from file or a directory (use --recursive for subdirectories)")
 public class ClusterUnitDeployCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin

@@ -187,7 +187,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         return  new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex);
     }
 
-    private static void changePrimaryReplica(IgniteImpl currentPrimary) throws InterruptedException {
+    private static void changePrimaryReplica(IgniteImpl currentPrimary) {
         IgniteImpl nextPrimary = CLUSTER.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
                 .filter(n -> n != currentPrimary)
@@ -242,7 +242,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         // stuck with timeouts. We don't need to wait for the operation to complete, as we wait for the necessary invariants further
         // below.
         CLUSTER.aliveNode().sql()
-                .executeAsync(null, format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME))
+                .executeAsync(format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME))
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         log.error("Failed to create index", ex);

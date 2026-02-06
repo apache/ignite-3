@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
@@ -167,7 +166,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         IgniteSql sql = ignite1.sql();
 
-        ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
+        ResultSet<SqlRow> res = sql.execute("SELECT valint2 FROM tbl1");
 
         for (int i = 0; i < 10; ++i) {
             assertNotNull(res.next().iterator().next());
@@ -183,7 +182,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         res.close();
 
-        res = sql.execute(null, "SELECT sum(valint4) FROM tbl1");
+        res = sql.execute("SELECT sum(valint4) FROM tbl1");
 
         assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
 
@@ -293,9 +292,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     private static void waitForStableAssignments(Ignite node, int zoneId) throws Exception {
         IgniteImpl nodeImpl = unwrapIgniteImpl(node);
 
-        Catalog catalog = nodeImpl.catalogManager().catalog(nodeImpl.catalogManager().latestCatalogVersion());
-
-        int numberOfPartitions = catalog.zone(zoneId).partitions();
+        int numberOfPartitions = nodeImpl.catalogManager().latestCatalog().zone(zoneId).partitions();
 
         boolean res = waitForCondition(() -> {
             var stableAssignmentsAreReady = new AtomicBoolean(true);

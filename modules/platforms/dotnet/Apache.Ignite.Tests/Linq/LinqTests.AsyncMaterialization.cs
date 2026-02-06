@@ -21,9 +21,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Table;
 using Ignite.Sql;
 using NUnit.Framework;
-using Table;
 
 /// <summary>
 /// Linq async materialization tests (retrieving results in async manner, such as CountAsync or ToListAsync).

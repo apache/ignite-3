@@ -33,8 +33,10 @@ import java.util.function.Consumer;
 import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * Synchronous API operation.
@@ -61,6 +63,7 @@ enum SyncApiOperation {
     TABLE_TYPED_RECORD_VIEW(refs -> refs.table.recordView(Record.class)),
     TABLE_MAPPED_RECORD_VIEW(refs -> refs.table.recordView(Mapper.of(Record.class))),
     TABLE_PARTITION_MANAGER(refs -> refs.table.partitionManager()),
+    TABLE_PARTITION_DISTRIBUTION(refs -> refs.table.partitionDistribution()),
 
     TABLE_FROM_TABLE_ASYNC_PUT(refs -> refs.tableFromTableAsync.keyValueView().put(null, KEY_TUPLE, VALUE_TUPLE)),
     TABLE_FROM_TABLES_PUT(refs -> refs.tableFromTables.keyValueView().put(null, KEY_TUPLE, VALUE_TUPLE)),
@@ -115,6 +118,20 @@ enum SyncApiOperation {
 
     MAPPED_RECORD_VIEW_GET(refs -> refs.mappedRecordView.get(null, new Record(1, ""))),
 
+    PARTITION_MANAGER_PARTITIONS(refs -> refs.partitionManager.partitions()),
+    PARTITION_MANAGER_PRIMARY_REPLICA(refs -> refs.partitionManager.primaryReplica(new HashPartition(0))),
+    PARTITION_MANAGER_PRIMARY_REPLICAS(refs -> refs.partitionManager.primaryReplicas()),
+    PARTITION_MANAGER_PRIMARY_REPLICAS_BY_NODE(refs -> refs.partitionManager.primaryReplicas(refs.clusterNodes.iterator().next())),
+    PARTITION_MANAGER_PARTITION_BY_KEY(refs -> refs.partitionManager.partition(1, Mapper.of(Integer.class))),
+    PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionManager.partition(KEY_TUPLE)),
+
+    PARTITION_DISTRIBUTION_PARTITIONS(refs -> refs.partitionDistribution.partitions()),
+    PARTITION_DISTRIBUTION_PRIMARY_REPLICA(refs -> refs.partitionDistribution.primaryReplica(new HashPartition(0))),
+    PARTITION_DISTRIBUTION_PRIMARY_REPLICAS(refs -> refs.partitionDistribution.primaryReplicas()),
+    PARTITION_DISTRIBUTION_PRIMARY_REPLICAS_BY_NODE(refs -> refs.partitionManager.primaryReplicas(refs.clusterNodes.iterator().next())),
+    PARTITION_DISTRIBUTION_PARTITION_BY_KEY(refs -> refs.partitionDistribution.partition(1, Mapper.of(Integer.class))),
+    PARTITION_DISTRIBUTION_PARTITION_BY_TUPLE(refs -> refs.partitionDistribution.partition(KEY_TUPLE)),
+
     TRANSACTIONS_BEGIN(refs -> refs.transactions.begin()),
     TRANSACTIONS_BEGIN_WITH_OPTS(refs -> refs.transactions.begin(null)),
     TRANSACTIONS_RUN_CONSUMER_IN_TRANSACTION(refs -> refs.transactions.runInTransaction(tx -> {})),
@@ -124,8 +141,8 @@ enum SyncApiOperation {
 
     SQL_CREATE_STATEMENT(refs -> refs.sql.createStatement(SELECT_IDS_QUERY)),
     SQL_STATEMENT_BUILDER(refs -> refs.sql.statementBuilder()),
-    SQL_EXECUTE(refs -> refs.sql.execute(null, SELECT_IDS_QUERY)),
-    SQL_EXECUTE_STATEMENT(refs -> refs.sql.execute(null, refs.selectIdsStatement)),
+    SQL_EXECUTE(refs -> refs.sql.execute(SELECT_IDS_QUERY)),
+    SQL_EXECUTE_STATEMENT(refs -> refs.sql.execute((Transaction) null, refs.selectIdsStatement)),
     // TODO: IGNITE-18695 - uncomment the following 2 lines.
     // SQL_EXECUTE_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), SELECT_IDS_QUERY)),
     // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), refs.selectIdsStatement)),

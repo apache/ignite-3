@@ -75,6 +75,11 @@ public class ThreadAssertingStorageEngine implements StorageEngine, Wrapper {
     }
 
     @Override
+    public long requiredOffHeapMemorySize() {
+        return storageEngine.requiredOffHeapMemorySize();
+    }
+
+    @Override
     public Set<Integer> tableIdsOnDisk() {
         assertThreadAllowsToRead();
 

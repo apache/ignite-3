@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -158,27 +159,18 @@ public class ClusterConfiguration {
             // Process from parent to child
             for (int i = hierarchy.size() - 1; i >= 0; i--) {
                 Class<?> clazz = hierarchy.get(i);
-                ConfigOverride clsOverride = clazz.getAnnotation(ConfigOverride.class);
-                if (clsOverride != null) {
-                    annotations.add(clsOverride);
-                }
 
-                ConfigOverrides clsOverrideMultiple = clazz.getAnnotation(ConfigOverrides.class);
-                if (clsOverrideMultiple != null) {
-                    annotations.addAll(List.of(clsOverrideMultiple.value()));
+                ConfigOverride[] clsOverrides = clazz.getAnnotationsByType(ConfigOverride.class);
+                if (clsOverrides.length > 0) {
+                    annotations.addAll(Arrays.asList(clsOverrides));
                 }
             }
         });
 
         testInfo.getTestMethod().ifPresent(method -> {
-            ConfigOverride methodOverride = method.getAnnotation(ConfigOverride.class);
-            if (methodOverride != null) {
-                annotations.add(methodOverride);
-            }
-
-            ConfigOverrides methodOverrideMultiple = method.getAnnotation(ConfigOverrides.class);
-            if (methodOverrideMultiple != null) {
-                annotations.addAll(List.of(methodOverrideMultiple.value()));
+            ConfigOverride[] methodOverrides = method.getAnnotationsByType(ConfigOverride.class);
+            if (methodOverrides.length > 0) {
+                annotations.addAll(Arrays.asList(methodOverrides));
             }
         });
 

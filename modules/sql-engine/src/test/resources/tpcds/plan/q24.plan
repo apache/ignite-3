@@ -6,7 +6,7 @@ Sort
       projection: [C_LAST_NAME, C_FIRST_NAME, S_STORE_NAME, PAID]
       est: (rows=9961)
     NestedLoopJoin
-        predicate: >(PAID, CAST(EXPR$0):DECIMAL(32767, 2))
+        predicate: >(CAST(PAID):DECIMAL(44, 18), CAST(EXPR$0):DECIMAL(44, 18))
         type: inner
         est: (rows=9961)
       ColocatedHashAggregate
@@ -185,7 +185,7 @@ Sort
       projection: [C_LAST_NAME, C_FIRST_NAME, S_STORE_NAME, PAID]
       est: (rows=9961)
     NestedLoopJoin
-        predicate: >(PAID, CAST(EXPR$0):DECIMAL(32767, 2))
+        predicate: >(CAST(PAID):DECIMAL(44, 18), CAST(EXPR$0):DECIMAL(44, 18))
         type: inner
         est: (rows=9961)
       ColocatedHashAggregate

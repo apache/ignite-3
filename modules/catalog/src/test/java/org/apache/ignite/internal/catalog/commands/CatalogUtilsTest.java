@@ -190,7 +190,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     void testClusterWideEnsuredActivationTimestamp() {
         createTable(TABLE_NAME);
 
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.latestCatalog();
 
         HybridTimestamp expClusterWideActivationTs = HybridTimestamp.hybridTimestamp(catalog.time())
                 .addPhysicalTime(TEST_MAX_CLOCK_SKEW_MILLIS)

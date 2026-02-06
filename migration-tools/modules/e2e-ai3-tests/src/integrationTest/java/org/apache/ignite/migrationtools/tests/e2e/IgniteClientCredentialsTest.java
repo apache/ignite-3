@@ -45,7 +45,9 @@ public class IgniteClientCredentialsTest {
     private static final Network network = Network.newNetwork();
 
     @Container
-    private static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network).withCredentials(credentials);
+    private static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network)
+            .withCredentials(credentials)
+            .withLabel(IgniteClientCredentialsTest.class.getSimpleName());
 
     @Container
     private static final MigrationToolsContainer migrationToolsContainer = new MigrationToolsContainer(network);

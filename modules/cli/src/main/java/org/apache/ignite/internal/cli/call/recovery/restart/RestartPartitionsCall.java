@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.recovery.restart;
 
-import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.Constants.DISASTER_RECOVERY_TIMEOUT_MILLIS;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -26,7 +26,6 @@ import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.RestartPartitionsRequest;
 import org.apache.ignite.rest.client.model.RestartZonePartitionsRequest;
 
 /** Call to restart partitions. */
@@ -40,34 +39,19 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
 
     @Override
     public DefaultCallOutput<String> execute(RestartPartitionsCallInput input) {
-        RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
+        RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()).setReadTimeout(DISASTER_RECOVERY_TIMEOUT_MILLIS));
 
         try {
-            if (nullOrEmpty(input.tableName())) {
-                RestartZonePartitionsRequest command = new RestartZonePartitionsRequest();
+            RestartZonePartitionsRequest command = new RestartZonePartitionsRequest();
 
-                command.setPartitionIds(input.partitionIds());
-                command.setNodeNames(input.nodeNames());
-                command.setZoneName(input.zoneName());
+            command.setPartitionIds(input.partitionIds());
+            command.setNodeNames(input.nodeNames());
+            command.setZoneName(input.zoneName());
 
-                if (input.withCleanup()) {
-                    client.restartZonePartitionsWithCleanup(command);
-                } else {
-                    client.restartZonePartitions(command);
-                }
+            if (input.withCleanup()) {
+                client.restartZonePartitionsWithCleanup(command);
             } else {
-                RestartPartitionsRequest command = new RestartPartitionsRequest();
-
-                command.setPartitionIds(input.partitionIds());
-                command.setNodeNames(input.nodeNames());
-                command.setTableName(input.tableName());
-                command.setZoneName(input.zoneName());
-
-                if (input.withCleanup()) {
-                    client.restartPartitionsWithCleanup(command);
-                } else {
-                    client.restartPartitions(command);
-                }
+                client.restartZonePartitions(command);
             }
 
             return DefaultCallOutput.success(

@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.storage.snapshot;
 import java.io.Closeable;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Snapshot reader.
@@ -28,7 +29,7 @@ public abstract class SnapshotReader extends Snapshot implements Closeable, Life
     /**
      * Load the snapshot metadata.
      */
-    public abstract SnapshotMeta load();
+    public abstract @Nullable SnapshotMeta load();
 
     /**
      * Generate uri for other peers to copy this snapshot. Return an empty string if some error has occur.

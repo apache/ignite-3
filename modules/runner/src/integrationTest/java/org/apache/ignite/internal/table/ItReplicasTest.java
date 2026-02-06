@@ -50,8 +50,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -178,12 +176,11 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         return ZoneRebalanceUtil.zoneStableAssignments(ignite.metaStorageManager(), zoneId, new int[]{0}).join().get(0).nodes();
     }
 
-    private static ZonePartitionId partitionGroupId(Ignite node, String zoneName, String tableName, int partId) {
-        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
-        CatalogManager catalogManager = igniteImpl.catalogManager();
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-
-        return new ZonePartitionId(catalog.zone(zoneName).id(), partId);
+    private static ZonePartitionId partitionGroupId(Ignite node, String zoneName, int partId) {
+        return new ZonePartitionId(
+                unwrapIgniteImpl(node).catalogManager().latestCatalog().zone(zoneName).id(),
+                partId
+        );
     }
 
     private static int getZoneId(Ignite node, String tableName) {
@@ -221,14 +218,14 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         };
     }
 
-    private static Function<Ignite, ReplicaListener> toReplicaListener(String zoneName, String tableName, int partId) {
+    private static Function<Ignite, ReplicaListener> toReplicaListener(String zoneName, int partId) {
         return node -> {
             try {
                 CompletableFuture<Replica> replicaFut = unwrapIgniteImpl(node).replicaManager()
-                        .replica(partitionGroupId(node, zoneName, tableName, partId));
+                        .replica(partitionGroupId(node, zoneName, partId));
 
                 if (replicaFut == null) {
-                    throw new AssertionError(format("Replica not found for table {} in node {}", tableName, node.name()));
+                    throw new AssertionError(format("Replica not found for zone {} in node {}", zoneName, node.name()));
                 }
 
                 Replica replica = replicaFut.get(30, TimeUnit.SECONDS);
@@ -281,7 +278,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
             this.partId = partId;
             this.schema = unwrapTableViewInternal(node.tables().table("TEST")).schemaView().lastKnownSchema();
             this.marshaller = new ReflectionMarshallerFactory().create(schema, keyClass, valClass);
-            this.replicaListener = of(node).map(toReplicaListener(zoneName, tableName, partId)).orElseThrow();
+            this.replicaListener = of(node).map(toReplicaListener(zoneName, partId)).orElseThrow();
         }
 
         Request readOnlySingleRowPkReplicaRequest(K pk) {
@@ -292,7 +289,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
             ReadOnlySingleRowPkReplicaRequest request = new PartitionReplicationMessagesFactory()
                     .readOnlySingleRowPkReplicaRequest()
-                    .groupId(groupIdMessage(node, zoneName, tableName, partId))
+                    .groupId(groupIdMessage(node, zoneName, partId))
                     .tableId(table.tableId())
                     .readTimestamp(node.clock().now())
                     .schemaVersion(pkRow.schemaVersion())
@@ -313,7 +310,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
             ReadOnlyMultiRowPkReplicaRequest request = new PartitionReplicationMessagesFactory()
                     .readOnlyMultiRowPkReplicaRequest()
-                    .groupId(groupIdMessage(node, zoneName, tableName, partId))
+                    .groupId(groupIdMessage(node, zoneName, partId))
                     .tableId(table.tableId())
                     .readTimestamp(node.clock().now())
                     .schemaVersion(pkRow.schemaVersion())
@@ -332,7 +329,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
             ReadOnlyScanRetrieveBatchReplicaRequest request = new PartitionReplicationMessagesFactory()
                     .readOnlyScanRetrieveBatchReplicaRequest()
-                    .groupId(groupIdMessage(node, zoneName, tableName, partId))
+                    .groupId(groupIdMessage(node, zoneName, partId))
                     .tableId(table.tableId())
                     .readTimestamp(node.clock().now())
                     .scanId(1)
@@ -343,8 +340,8 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
             return new Request(request);
         }
 
-        private static ReplicationGroupIdMessage groupIdMessage(IgniteImpl node, String zoneName, String tableName, int partId) {
-            PartitionGroupId partitionGroupId = partitionGroupId(node, zoneName, tableName, partId);
+        private static ReplicationGroupIdMessage groupIdMessage(IgniteImpl node, String zoneName, int partId) {
+            PartitionGroupId partitionGroupId = partitionGroupId(node, zoneName, partId);
             var replicaMessagesFactory = new ReplicaMessagesFactory();
             return toZonePartitionIdMessage(replicaMessagesFactory, ((ZonePartitionId) partitionGroupId));
         }

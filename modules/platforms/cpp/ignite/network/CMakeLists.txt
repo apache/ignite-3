@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-network)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-network)
 
 find_package(OpenSSL)
 if (EXISTS ${OPENSSL_INCLUDE_DIR})

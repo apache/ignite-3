@@ -66,6 +66,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -170,13 +171,11 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
         checkpointManager.start();
-
-        pageMemory.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
@@ -237,13 +236,11 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
         checkpointManager.start();
-
-        pageMemory.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
@@ -320,13 +317,11 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
         checkpointManager.start();
-
-        pageMemory.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
@@ -384,13 +379,11 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 (pageMemory0, fullPageId, buffer) -> flushDirtyPageForReplacementFuture.complete(null)
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
 
         checkpointManager.start();
-
-        pageMemory.start();
 
         CompletableFuture<?> startWriteMetaToBufferFuture = new CompletableFuture<>();
         CompletableFuture<?> finishWaitWriteMetaToBufferFuture = new CompletableFuture<>();
@@ -485,11 +478,10 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 shouldNotHappenFlushDirtyPageForReplacement()
         );
 
-        dataRegions.add(() -> pageMemory);
+        dataRegions.add(new TestDataRegion<>(pageMemory));
 
         filePageStoreManager.start();
         checkpointManager.start();
-        pageMemory.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
@@ -529,7 +521,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         filePageStoreManager.start();
         checkpointManager.start();
-        pageMemory2.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory2);
@@ -696,8 +687,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     public void testLoadedPagesCount() {
         PageMemory mem = memory();
 
-        mem.start();
-
         int expPages = MAX_MEMORY_SIZE / mem.systemPageSize();
 
         try {
@@ -763,8 +752,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     private void runWithStartedPersistentPageMemory(ConsumerX<PersistentPageMemory> c) throws Exception {
         PersistentPageMemory mem = (PersistentPageMemory) memory();
-
-        mem.start();
 
         try {
             c.accept(mem);

@@ -66,6 +66,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -150,6 +153,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final TopologyService topologyService;
 
+    private final LowWatermark lowWatermark;
+
     private final RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider;
 
     private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
@@ -161,7 +166,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
      */
     private volatile @Nullable String compactionCoordinatorNodeName;
 
-    private volatile HybridTimestamp lowWatermark;
+    private volatile HybridTimestamp lowWatermarkValue;
 
     private volatile UUID localNodeId;
 
@@ -178,6 +183,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
             ClockService clockService,
             SchemaSyncService schemaSyncService,
             TopologyService topologyService,
+            LowWatermark lowWatermark,
             ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
             MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
             RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
@@ -189,6 +195,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.topologyService = topologyService;
+        this.lowWatermark = lowWatermark;
         this.placementDriver = placementDriver;
         this.replicaService = replicaService;
         this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
@@ -199,6 +206,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
+                params -> onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
+
         messagingService.addMessageHandler(CatalogCompactionMessageGroup.class, new CatalogCompactionMessageHandler());
 
         localNodeId = topologyService.localMember().id();
@@ -223,7 +233,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
     public void updateCoordinator(InternalClusterNode newCoordinator) {
         compactionCoordinatorNodeName = newCoordinator.name();
 
-        triggerCompaction(lowWatermark);
+        triggerCompaction(lowWatermarkValue);
     }
 
     /** Returns local view of the node on who is currently compaction coordinator. For test purposes only. */
@@ -238,8 +248,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     }
 
     /** Called when the low watermark has been changed. */
-    public CompletableFuture<Boolean> onLowWatermarkChanged(HybridTimestamp newLowWatermark) {
-        lowWatermark = newLowWatermark;
+    CompletableFuture<Boolean> onLowWatermarkChanged(HybridTimestamp newLowWatermark) {
+        lowWatermarkValue = newLowWatermark;
 
         triggerCompaction(newLowWatermark);
 
@@ -709,7 +719,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         }
 
         private void handleMinimumTimesRequest(InternalClusterNode sender, Long correlationId) {
-            HybridTimestamp lwm = lowWatermark;
+            HybridTimestamp lwm = lowWatermarkValue;
             LocalMinTime minLocalTime;
 
             if (lwm != null) {

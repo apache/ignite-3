@@ -51,6 +51,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -82,14 +83,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.NodeProperties;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngineV2;
+import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -102,6 +101,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -157,7 +157,7 @@ public class DistributionZoneManager extends
     private final WatchListener topologyWatchListener;
 
     /** Rebalance engine. */
-    private final DistributionZoneRebalanceEngineV2 rebalanceEngine;
+    private final DistributionZoneRebalanceEngine rebalanceEngine;
 
     /** Catalog manager. */
     private final CatalogManager catalogManager;
@@ -207,7 +207,8 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            MetricManager metricManager
+            MetricManager metricManager,
+            LowWatermark lowWatermark
     ) {
         this(
                 nodeName,
@@ -219,8 +220,8 @@ public class DistributionZoneManager extends
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                metricManager
+                metricManager,
+                lowWatermark
         );
     }
 
@@ -236,6 +237,8 @@ public class DistributionZoneManager extends
      * @param catalogManager Catalog manager.
      * @param systemDistributedConfiguration System distributed configuration.
      * @param clockService Clock service.
+     * @param metricManager Metric manager.
+     * @param lowWatermark Low watermark manager.
      */
     public DistributionZoneManager(
             String nodeName,
@@ -247,8 +250,8 @@ public class DistributionZoneManager extends
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
-            NodeProperties nodeProperties,
-            MetricManager metricManager
+            MetricManager metricManager,
+            LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -262,7 +265,7 @@ public class DistributionZoneManager extends
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
         //noinspection ThisEscapedInObjectConstruction
-        rebalanceEngine = new DistributionZoneRebalanceEngineV2(
+        rebalanceEngine = new DistributionZoneRebalanceEngine(
                 busyLock,
                 metaStorageManager,
                 this,
@@ -287,7 +290,8 @@ public class DistributionZoneManager extends
                 failureProcessor,
                 partitionResetClosure,
                 partitionDistributionResetTimeoutConfiguration::currentValue,
-                this::logicalTopology
+                this::logicalTopology,
+                lowWatermark
         );
 
         this.metricManager = metricManager;
@@ -375,7 +379,7 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
+     * Gets data nodes of the zone using timestamp and catalog version. {@code timestamp} must be agreed
      * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
      * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
      * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
@@ -404,10 +408,6 @@ public class DistributionZoneManager extends
         }
 
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
-    }
-
-    public static Set<Node> dataNodes(Map<Node, Integer> dataNodesMap) {
-        return dataNodesMap.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).collect(toSet());
     }
 
     /**
@@ -696,9 +696,7 @@ public class DistributionZoneManager extends
      * Returns the current zones in the Catalog. Must always be called from the meta storage thread.
      */
     private Collection<CatalogZoneDescriptor> currentZones() {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        return catalogManager.catalog(catalogVersion).zones();
+        return catalogManager.latestCatalog().zones();
     }
 
     /**
@@ -799,7 +797,8 @@ public class DistributionZoneManager extends
         }));
 
         catalogManager.listen(ZONE_DROP, (DropZoneEventParameters parameters) -> inBusyLock(busyLock, () -> {
-            return onDropZoneBusy(parameters).thenApply((ignored) -> false);
+            onDropZoneBusy(parameters);
+            return falseCompletedFuture();
         }));
 
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
@@ -887,14 +886,12 @@ public class DistributionZoneManager extends
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<?> onDropZoneBusy(DropZoneEventParameters parameters) {
+    private void onDropZoneBusy(DropZoneEventParameters parameters) {
         unregisterMetricSource(parameters.zoneId());
+    }
 
-        long causalityToken = parameters.causalityToken();
-
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
-
-        return dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp);
+    public CompletableFuture<?> onDropZoneDestroy(int zoneId, int dropZoneCatalogVersion) {
+        return dataNodesManager.onZoneDestroy(zoneId, dropZoneCatalogVersion);
     }
 
     private class ManagerCatalogAlterZoneEventListener extends CatalogAlterZoneEventListener {

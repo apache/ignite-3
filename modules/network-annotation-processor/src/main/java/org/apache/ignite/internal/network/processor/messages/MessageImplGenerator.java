@@ -215,6 +215,15 @@ public class MessageImplGenerator {
                 .addMethods(methodImpls)
                 .addMethod(constructor(fields, notNullFieldNames, marshallableFieldNames));
 
+        if (message.generateMessageSerialVersionUid()) {
+            messageImpl.addField(
+                    FieldSpec.builder(long.class, "serialVersionUID")
+                            .addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                            .initializer("$LL", message.messageSerialVersionUid())
+                            .build()
+            );
+        }
+
         if (message.isAutoSerializable()) {
             messageImpl.addMethod(MethodSpec.methodBuilder("serializer")
                     .returns(MessageSerializer.class)

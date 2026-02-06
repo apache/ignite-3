@@ -171,10 +171,11 @@ class DeployFiles {
 
         assertThat(deploy, willBe(true));
 
-        Unit unit = new Unit(entryNode, workDir, id, version, files);
+        Unit unit = new Unit(entryNode, id, version, files);
 
         for (DeployFile file : files) {
             unit.verify(file, entryNode);
+            unit.verifyByRest(entryNode);
         }
 
         return unit;

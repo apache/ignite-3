@@ -15,14 +15,14 @@
 # limitations under the License.
 #
 
-# ignite_install_headers(FILES <header>... DESTINATION <dest>)
+# ignite_install_headers(FILES <header>... DESTINATION <dest> COMPONENT <component>)
 #
 # Function to install header files.
 function(ignite_install_headers)
-    cmake_parse_arguments(IGNITE_INSTALL "" "DESTINATION" "FILES" ${ARGN})
+    cmake_parse_arguments(IGNITE_INSTALL "" "DESTINATION" "FILES;COMPONENT" ${ARGN})
 
     foreach(HEADER ${IGNITE_INSTALL_FILES})
         get_filename_component(SUBDIR ${HEADER} DIRECTORY)
-        install(FILES ${HEADER} DESTINATION ${IGNITE_INSTALL_DESTINATION}/${SUBDIR} COMPONENT Development)
+        install(FILES ${HEADER} DESTINATION ${IGNITE_INSTALL_DESTINATION}/${SUBDIR} COMPONENT ${IGNITE_INSTALL_COMPONENT})
     endforeach()
 endfunction()

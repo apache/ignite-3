@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaAbandonedMessage;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Abandoned transaction state meta.
@@ -41,13 +42,17 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * Constructor.
      *
      * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group ID.
+     * @param commitPartitionId Commit partition replication group id.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
+     * @param txLabel Transaction label.
      */
     public TxStateMetaAbandoned(
-            UUID txCoordinatorId,
-            ReplicationGroupId commitPartitionId
+            @Nullable UUID txCoordinatorId,
+            @Nullable ZonePartitionId commitPartitionId,
+            @Nullable InternalTransaction tx,
+            @Nullable String txLabel
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null, null, null);
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, tx, null, null, null, txLabel);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
     }
@@ -66,18 +71,19 @@ public class TxStateMetaAbandoned extends TxStateMeta {
             ReplicaMessagesFactory replicaMessagesFactory,
             TxMessagesFactory txMessagesFactory
     ) {
-        ReplicationGroupId commitPartitionId = commitPartitionId();
+        ZonePartitionId commitPartitionId = commitPartitionId();
 
         return txMessagesFactory.txStateMetaAbandonedMessage()
                 .txState(txState())
                 .txCoordinatorId(txCoordinatorId())
                 .commitPartitionId(
-                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                        commitPartitionId == null ? null : toZonePartitionIdMessage(replicaMessagesFactory, commitPartitionId)
                 )
                 .commitTimestamp(commitTimestamp())
                 .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
                 .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
                 .lastAbandonedMarkerTs(lastAbandonedMarkerTs)
+                .txLabel(txLabel())
                 .build();
     }
 
@@ -110,5 +116,28 @@ public class TxStateMetaAbandoned extends TxStateMeta {
     @Override
     public String toString() {
         return S.toString(TxStateMetaAbandoned.class, this);
+    }
+
+    @Override
+    public TxStateMetaAbandonedBuilder mutate() {
+        return new TxStateMetaAbandonedBuilder(this);
+    }
+
+    /**
+     * Builder for {@link TxStateMetaAbandoned} instances.
+     */
+    public static class TxStateMetaAbandonedBuilder extends TxStateMetaBuilder {
+        TxStateMetaAbandonedBuilder(TxStateMeta old) {
+            super(old);
+        }
+
+        @Override
+        public TxStateMeta build() {
+            if (txState == ABANDONED) {
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel);
+            } else {
+                return super.build();
+            }
+        }
     }
 }

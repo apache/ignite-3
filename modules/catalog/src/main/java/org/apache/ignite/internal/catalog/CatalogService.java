@@ -137,7 +137,6 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      *
      * @return The latest registered catalog
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-26939
     Catalog latestCatalog();
 
     /**

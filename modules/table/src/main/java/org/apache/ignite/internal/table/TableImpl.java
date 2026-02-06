@@ -47,7 +47,7 @@ import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.sql.IgniteSql;
@@ -56,6 +56,7 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -76,8 +77,8 @@ public class TableImpl implements TableViewInternal {
 
     private final FailureProcessor failureProcessor;
 
-    /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
-    private volatile SchemaRegistry schemaReg;
+    /** Schema registry. */
+    private final SchemaRegistry schemaReg;
 
     private final Map<Integer, IndexWrapper> indexWrapperById = new ConcurrentHashMap<>();
 
@@ -86,6 +87,10 @@ public class TableImpl implements TableViewInternal {
     private final int pkId;
 
     private volatile TableStatsStalenessConfiguration configuration;
+
+    private final RecordBinaryViewImpl recordView;
+
+    private final KeyValueBinaryViewImpl keyValueView;
 
     /**
      * Constructor.
@@ -97,6 +102,7 @@ public class TableImpl implements TableViewInternal {
      * @param sql Ignite SQL facade.
      * @param failureProcessor Failure processor.
      * @param pkId ID of a primary index.
+     * @param schemaRegistry Table schema registry.
      */
     public TableImpl(
             InternalTable tbl,
@@ -106,7 +112,8 @@ public class TableImpl implements TableViewInternal {
             IgniteSql sql,
             FailureProcessor failureProcessor,
             int pkId,
-            TableStatsStalenessConfiguration tableStatsStalenessConfiguration
+            TableStatsStalenessConfiguration tableStatsStalenessConfiguration,
+            SchemaRegistry schemaRegistry
     ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
@@ -116,6 +123,10 @@ public class TableImpl implements TableViewInternal {
         this.failureProcessor = failureProcessor;
         this.pkId = pkId;
         this.configuration = tableStatsStalenessConfiguration;
+        this.schemaReg = schemaRegistry;
+
+        this.recordView = new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers);
+        this.keyValueView = new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers);
     }
 
     /**
@@ -145,10 +156,9 @@ public class TableImpl implements TableViewInternal {
                 sql,
                 new FailureManager(new NoOpFailureHandler()),
                 pkId,
-                new TableStatsStalenessConfiguration(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT)
+                new TableStatsStalenessConfiguration(CatalogUtils.DEFAULT_STALE_ROWS_FRACTION, CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT),
+                schemaReg
         );
-
-        this.schemaReg = schemaReg;
     }
 
     @Override
@@ -176,6 +186,11 @@ public class TableImpl implements TableViewInternal {
         return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
     }
 
+    @Override
+    public PartitionDistribution partitionDistribution() {
+        return partitionManager();
+    }
+
     @Override public QualifiedName qualifiedName() {
         return tbl.name();
     }
@@ -191,20 +206,13 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public void schemaView(SchemaRegistry schemaReg) {
-        Objects.requireNonNull(schemaReg, () -> "Schema registry must not be null [tableName=" + name() + ']');
-
-        this.schemaReg = schemaReg;
-    }
-
-    @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers);
+        return recordView;
     }
 
     @Override
@@ -214,7 +222,7 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers);
+        return keyValueView;
     }
 
     @Override
@@ -223,7 +231,7 @@ public class TableImpl implements TableViewInternal {
 
         // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
         // columns never change (so they are the same for all schema versions of the table),
-        Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
+        Row keyRow = new TupleMarshallerImpl(tbl::name, schemaReg.lastKnownSchema()).marshalKey(key);
 
         return tbl.partitionId(keyRow);
     }
@@ -315,7 +323,7 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public TableMetricSource metrics() {
+    public ReadWriteMetricSource metrics() {
         return tbl.metrics();
     }
 

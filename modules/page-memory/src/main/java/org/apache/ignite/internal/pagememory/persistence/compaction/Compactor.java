@@ -20,16 +20,11 @@ package org.apache.ignite.internal.pagememory.persistence.compaction;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Objects;
-import java.util.Queue;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -46,7 +41,6 @@ import org.apache.ignite.internal.pagememory.persistence.WriteSpeedFormatter;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -67,6 +61,10 @@ import org.jetbrains.annotations.Nullable;
  *  <li>Fsync of the partition file.</li>
  *  <li>Remove delta file from {@link FilePageStore} and file system.</li>
  * </ul>
+ *
+ * <p>Optimization has been implemented to speed up checkpointing. When a checkpoint starts, compaction is stopped to allow for the IO
+ * operations for it. However, this is only true as long as the total number of delta files does not exceed 3 * partitions, to prevent
+ * errors due to a large number of open files.</p>
  */
 public class Compactor extends IgniteWorker {
     /** Logger. */
@@ -92,8 +90,11 @@ public class Compactor extends IgniteWorker {
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
 
-    /** Guarded by {@link #mux}. */
-    private boolean paused;
+    /** Flag indicating whether a checkpoint has started. Guarded by {@link #mux}. */
+    private boolean isCheckpointStarted;
+
+    /** Current compaction round, {@code null} means the round has either not started yet or has finished. */
+    private volatile @Nullable CompactionRound currentCompactionRound;
 
     /**
      * Creates new ignite worker with given parameters.
@@ -167,7 +168,7 @@ public class Compactor extends IgniteWorker {
     void waitDeltaFiles() {
         try {
             synchronized (mux) {
-                while ((!addedDeltaFiles || paused) && !isCancelled()) {
+                while (!addedDeltaFiles && !isCancelled()) {
                     blockingSectionBegin();
 
                     try {
@@ -206,106 +207,107 @@ public class Compactor extends IgniteWorker {
      * pages, we must look for it from the oldest delta file.
      */
     void doCompaction() {
-        while (!isPaused()) {
-            // Let's collect one delta file for each partition.
-            Queue<DeltaFileForCompaction> queue = filePageStoreManager.allPageStores()
-                    .map(groupPartitionFilePageStore -> {
-                        DeltaFilePageStoreIo deltaFileToCompaction = groupPartitionFilePageStore.pageStore().getDeltaFileToCompaction();
+        while (true) {
+            CompactionRound compactionRound = CompactionRound.create(filePageStoreManager);
 
-                        if (deltaFileToCompaction == null) {
-                            return null;
-                        }
-
-                        return new DeltaFileForCompaction(groupPartitionFilePageStore, deltaFileToCompaction);
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(toCollection(ConcurrentLinkedQueue::new));
-
-            if (queue.isEmpty()) {
+            if (compactionRound.queue.isEmpty()) {
                 break;
             }
 
-            String compactionId = UUID.randomUUID().toString();
+            setCurrentCompactionRound(compactionRound);
 
-            if (LOG.isInfoEnabled()) {
-                LOG.info("Starting new compaction round [compactionId={}, files={}]", compactionId, queue.size());
-            }
+            try {
+                if (shouldStopCompaction()) {
+                    break;
+                }
 
-            CompactionMetricsTracker tracker = new CompactionMetricsTracker();
+                if (LOG.isInfoEnabled()) {
+                    LOG.info(
+                            "Starting new compaction round [compactionId={}, files={}]",
+                            compactionRound.id,
+                            compactionRound.queue.size()
+                    );
+                }
 
-            updateHeartbeat();
+                CompactionMetricsTracker tracker = new CompactionMetricsTracker();
 
-            int threads = threadPoolExecutor == null ? 1 : threadPoolExecutor.getMaximumPoolSize();
+                updateHeartbeat();
 
-            CompletableFuture<?>[] futures = new CompletableFuture[threads];
+                int threads = threadPoolExecutor == null ? 1 : threadPoolExecutor.getMaximumPoolSize();
 
-            for (int i = 0; i < threads; i++) {
-                CompletableFuture<?> future = futures[i] = new CompletableFuture<>();
+                CompletableFuture<?>[] futures = new CompletableFuture[threads];
 
-                Runnable merger = () -> {
-                    DeltaFileForCompaction toMerge;
+                for (int i = 0; i < threads; i++) {
+                    CompletableFuture<?> future = futures[i] = new CompletableFuture<>();
 
-                    try {
-                        while (true) {
-                            toMerge = queue.poll();
+                    Runnable merger = () -> {
+                        DeltaFileForCompaction toMerge;
 
-                            if (toMerge == null) {
-                                break;
+                        try {
+                            while (true) {
+                                toMerge = compactionRound.queue.poll();
+
+                                if (toMerge == null) {
+                                    break;
+                                }
+
+                                GroupPartitionId groupPartitionId = toMerge.groupPartitionFilePageStore.groupPartitionId();
+
+                                Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(groupPartitionId)
+                                        .readLock();
+
+                                partitionDestructionLock.lock();
+
+                                try {
+                                    mergeDeltaFileToMainFile(
+                                            toMerge.groupPartitionFilePageStore.pageStore(),
+                                            toMerge.deltaFilePageStoreIo,
+                                            tracker
+                                    );
+                                } finally {
+                                    partitionDestructionLock.unlock();
+                                }
                             }
-
-                            GroupPartitionId groupPartitionId = toMerge.groupPartitionFilePageStore.groupPartitionId();
-
-                            Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(groupPartitionId).readLock();
-
-                            partitionDestructionLock.lock();
-
-                            try {
-                                mergeDeltaFileToMainFile(
-                                        toMerge.groupPartitionFilePageStore.pageStore(),
-                                        toMerge.deltaFilePageStoreIo,
-                                        tracker
-                                );
-                            } finally {
-                                partitionDestructionLock.unlock();
-                            }
+                        } catch (Throwable ex) {
+                            future.completeExceptionally(ex);
                         }
-                    } catch (Throwable ex) {
-                        future.completeExceptionally(ex);
+
+                        future.complete(null);
+                    };
+
+                    if (isCancelled()) {
+                        return;
                     }
 
-                    future.complete(null);
-                };
-
-                if (isCancelled()) {
-                    return;
+                    if (threadPoolExecutor == null) {
+                        merger.run();
+                    } else {
+                        threadPoolExecutor.execute(merger);
+                    }
                 }
 
-                if (threadPoolExecutor == null) {
-                    merger.run();
-                } else {
-                    threadPoolExecutor.execute(merger);
+                updateHeartbeat();
+
+                // Wait and check for errors.
+                CompletableFuture.allOf(futures).join();
+
+                tracker.onCompactionEnd();
+
+                if (LOG.isInfoEnabled()) {
+                    long totalWriteBytes = (long) pageSize * tracker.dataPagesWritten();
+                    long totalDurationInNanos = tracker.totalDuration(NANOSECONDS);
+
+                    LOG.info(
+                            "Compaction round finished [compactionId={}, pages={}, skipped={}, duration={}ms, avgWriteSpeed={}MB/s]",
+                            compactionRound.id,
+                            tracker.dataPagesWritten(),
+                            tracker.dataPagesSkipped(),
+                            tracker.totalDuration(MILLISECONDS),
+                            WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
+                    );
                 }
-            }
-
-            updateHeartbeat();
-
-            // Wait and check for errors.
-            CompletableFuture.allOf(futures).join();
-
-            tracker.onCompactionEnd();
-
-            if (LOG.isInfoEnabled()) {
-                long totalWriteBytes = (long) pageSize * tracker.dataPagesWritten();
-                long totalDurationInNanos = tracker.totalDuration(NANOSECONDS);
-
-                LOG.info(
-                        "Compaction round finished [compactionId={}, pages={}, skipped={}, duration={}ms, avgWriteSpeed={}MB/s]",
-                        compactionId,
-                        tracker.dataPagesWritten(),
-                        tracker.dataPagesSkipped(),
-                        tracker.totalDuration(MILLISECONDS),
-                        WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
-                );
+            } finally {
+                resetCurrentCompactionRound();
             }
         }
     }
@@ -357,8 +359,6 @@ public class Compactor extends IgniteWorker {
         }
 
         synchronized (mux) {
-            paused = false;
-
             // Do not interrupt runner thread.
             isCancelled.set(true);
 
@@ -487,38 +487,21 @@ public class Compactor extends IgniteWorker {
     }
 
     /**
-     * Delta file for compaction.
+     * Notifies about the start of a checkpoint. It is expected that this method will not be called multiple times in parallel and
+     * subsequent calls will strictly be calls after {@link #notifyCheckpointFinish}.
      */
-    private static class DeltaFileForCompaction {
-        private final GroupPartitionPageStore<FilePageStore> groupPartitionFilePageStore;
+    public void notifyCheckpointStart() {
+        synchronized (mux) {
+            assert !isCheckpointStarted : "Expected to be called after a checkpoint is finished";
 
-        private final DeltaFilePageStoreIo deltaFilePageStoreIo;
-
-        private DeltaFileForCompaction(
-                GroupPartitionPageStore<FilePageStore> groupPartitionFilePageStore,
-                DeltaFilePageStoreIo deltaFilePageStoreIo
-        ) {
-            this.groupPartitionFilePageStore = groupPartitionFilePageStore;
-            this.deltaFilePageStoreIo = deltaFilePageStoreIo;
+            isCheckpointStarted = true;
         }
     }
 
-    /**
-     * Pauses the compactor until it is resumed or compactor is stopped. It is expected that this method will not be called multiple times
-     * in parallel and subsequent calls will strictly be calls after {@link #resume}.
-     */
-    public void pause() {
+    /** Notifies about the finish of a checkpoint. It is expected that this method will not be called multiple times in parallel. */
+    public void notifyCheckpointFinish() {
         synchronized (mux) {
-            assert !paused : "It is expected that a further pause will only occur after resume";
-
-            paused = true;
-        }
-    }
-
-    /** Resumes the compactor if it was paused. It is expected that this method will not be called multiple times in parallel. */
-    public void resume() {
-        synchronized (mux) {
-            paused = false;
+            isCheckpointStarted = false;
 
             // Force compaction as we could stop somewhere in the middle and we need to continue compaction.
             addedDeltaFiles = true;
@@ -527,14 +510,37 @@ public class Compactor extends IgniteWorker {
         }
     }
 
-    /** Must be called before each IO operation to pause the current compaction and to provide IO resources to other components. */
-    private boolean isPaused() {
+    private boolean shouldStopCompaction(FilePageStore filePageStore) {
+        return filePageStore.isMarkedToDestroy() || shouldStopCompaction();
+    }
+
+    private boolean shouldStopCompaction() {
+        if (isCancelled()) {
+            return true;
+        }
+
         synchronized (mux) {
-            return paused;
+            // We only need to stop compaction if a checkpoint has occurred in parallel and the total number of delta files is not yet high
+            // enough. The number 3 is based on observations of failed tests and intuition; it may change in the future.
+            return isCheckpointStarted && currentCompactionRound().totalDeltaFileCount < (3 * currentCompactionRound().partitionFileCount);
         }
     }
 
-    private boolean shouldStopCompaction(FilePageStore filePageStore) {
-        return isCancelled() || filePageStore.isMarkedToDestroy() || isPaused();
+    private void setCurrentCompactionRound(CompactionRound compactionRound) {
+        assert currentCompactionRound == null : "Previous round is expected to be completed";
+
+        currentCompactionRound = compactionRound;
+    }
+
+    private void resetCurrentCompactionRound() {
+        currentCompactionRound = null;
+    }
+
+    private CompactionRound currentCompactionRound() {
+        CompactionRound compactionRound = currentCompactionRound;
+
+        assert compactionRound != null : "Compaction round has not yet started";
+
+        return compactionRound;
     }
 }

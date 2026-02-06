@@ -81,10 +81,8 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     void clearCatalog() {
         Commons.resetFastQueryOptimizationFlag();
 
-        int version = CLUSTER.catalogManager().latestCatalogVersion();
-
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().latestCatalog().tables()) {
             commands.add(
                     DropTableCommand.builder()
                             .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)

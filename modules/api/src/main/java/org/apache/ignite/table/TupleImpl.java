@@ -184,85 +184,85 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -436,5 +436,27 @@ class TupleImpl implements Tuple, Serializable {
         b.append(']');
 
         return b.toString();
+    }
+
+    private <T> T valueNotNull(int columnIndex) {
+        T value = value(columnIndex);
+
+        if (value == null) {
+            throw new NullPointerException("The value of field at index " + columnIndex
+                    + " is null and cannot be converted to a primitive data type.");
+        }
+
+        return value;
+    }
+
+    private <T> T valueNotNull(String columnName) {
+        T value = value(columnName);
+
+        if (value == null) {
+            throw new NullPointerException("The value of field '" + columnName
+                    + "' is null and cannot be converted to a primitive data type.");
+        }
+
+        return value;
     }
 }

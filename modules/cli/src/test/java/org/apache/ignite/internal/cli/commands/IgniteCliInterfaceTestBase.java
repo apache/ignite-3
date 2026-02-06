@@ -17,20 +17,38 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON_UTF8;
+
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockserver.integration.ClientAndServer;
-import org.mockserver.junit.jupiter.MockServerExtension;
 
 /**
  * Base class for testing CLI interface.
  */
-@ExtendWith(MockServerExtension.class)
+@WireMockTest
 public class IgniteCliInterfaceTestBase extends CliCommandTestBase {
-    protected static ClientAndServer clientAndServer;
-
     protected static String mockUrl;
+
+    protected static void returnOkForPostWithJson(String partitionsRestartEndpoint, String expectedSentContent) {
+        returnOkForPostWithJson(partitionsRestartEndpoint, expectedSentContent, false);
+    }
+
+    protected static void returnOkForPostWithJson(
+            String partitionsRestartEndpoint,
+            String expectedSentContent,
+            boolean ignoreExtraElements
+    ) {
+        stubFor(post(partitionsRestartEndpoint)
+                .withRequestBody(equalToJson(expectedSentContent, false, ignoreExtraElements))
+                .withHeader("Content-Type", equalTo(APPLICATION_JSON_UTF8))
+                .willReturn(ok()));
+    }
 
     @Override
     protected Class<?> getCommandClass() {
@@ -38,13 +56,7 @@ public class IgniteCliInterfaceTestBase extends CliCommandTestBase {
     }
 
     @BeforeAll
-    static void initMockServer(ClientAndServer clientAndServer) {
-        IgniteCliInterfaceTestBase.clientAndServer = clientAndServer;
-        mockUrl = "http://localhost:" + clientAndServer.getPort();
-    }
-
-    @BeforeEach
-    void resetMockServer() {
-        clientAndServer.reset();
+    static void initMockServer(WireMockRuntimeInfo wmRuntimeInfo) {
+        mockUrl = wmRuntimeInfo.getHttpBaseUrl();
     }
 }

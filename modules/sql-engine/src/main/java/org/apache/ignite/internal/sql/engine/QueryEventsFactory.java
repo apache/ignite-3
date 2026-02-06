@@ -59,7 +59,7 @@ public class QueryEventsFactory {
 
         SqlQueryType queryType = queryInfo.queryType();
 
-        fields.put(FieldNames.TYPE, queryType == null ? null : queryType.name());
+        fields.put(FieldNames.TYPE, queryType == null ? null : queryType.displayName());
 
         Throwable error = queryInfo.error();
 

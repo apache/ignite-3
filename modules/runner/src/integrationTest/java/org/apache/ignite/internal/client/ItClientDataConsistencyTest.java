@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.table.ItDataConsistencyTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -31,6 +32,11 @@ public class ItClientDataConsistencyTest extends ItDataConsistencyTest {
     @BeforeEach
     public void startClient() {
         client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+    }
+
+    @AfterEach
+    void closeClient() {
+        client.close();
     }
 
     @Override

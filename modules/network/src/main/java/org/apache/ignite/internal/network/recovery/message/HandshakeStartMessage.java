@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * This message is sent from an acceptor to an initiator at the connection opening.
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START)
-public interface HandshakeStartMessage extends InternalMessage {
+public interface HandshakeStartMessage extends StaleNodeHandlingParameters, InternalMessage {
     /** Returns the acceptor node that sends this. */
     ClusterNodeMessage serverNode();
 
@@ -41,4 +41,7 @@ public interface HandshakeStartMessage extends InternalMessage {
 
     /** Product version of the node that sends the message. */
     String productVersion();
+
+    @Override
+    long topologyVersion();
 }

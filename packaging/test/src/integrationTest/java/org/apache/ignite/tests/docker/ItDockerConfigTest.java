@@ -41,7 +41,7 @@ import org.testcontainers.utility.MountableFile;
 /**
  * Basic tests for Docker configuration.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15373")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-27471")
 public class ItDockerConfigTest {
     private static final String DOCKER_IMAGE = "apacheignite/ignite:latest";
     private static final int CLUSTER_SIZE = 3;

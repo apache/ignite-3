@@ -28,6 +28,9 @@ namespace Apache.Ignite.Tests.Compute
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Common;
+    using Common.Compute;
+    using Common.Table;
     using Ignite.Compute;
     using Ignite.Marshalling;
     using Ignite.Table;
@@ -38,7 +41,8 @@ namespace Apache.Ignite.Tests.Compute
     using Network;
     using NodaTime;
     using NUnit.Framework;
-    using Table;
+    using static Common.Compute.JavaJobs;
+    using static Common.Table.TestTables;
     using TaskStatus = Ignite.Compute.TaskStatus;
 
     /// <summary>
@@ -46,44 +50,6 @@ namespace Apache.Ignite.Tests.Compute
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
-        public const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
-
-        public const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
-
-        public static readonly JobDescriptor<object?, string> NodeNameJob = new(ItThinClientComputeTest + "$NodeNameJob");
-
-        public static readonly JobDescriptor<string?, string> ConcatJob = new(ItThinClientComputeTest + "$ConcatJob");
-
-        public static readonly JobDescriptor<string, string> ErrorJob = new(ItThinClientComputeTest + "$IgniteExceptionJob");
-
-        public static readonly JobDescriptor<object?, object> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
-
-        public static readonly JobDescriptor<object, string> ToStringJob = new(ItThinClientComputeTest + "$ToStringJob");
-
-        public static readonly JobDescriptor<int, string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
-
-        public static readonly JobDescriptor<string, BigDecimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
-
-        public static readonly JobDescriptor<string, string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
-
-        public static readonly JobDescriptor<string, string> DropTableJob = new(PlatformTestNodeRunner + "$DropTableJob");
-
-        public static readonly JobDescriptor<object, object> ExceptionJob = new(PlatformTestNodeRunner + "$ExceptionJob");
-
-        public static readonly JobDescriptor<string, object> CheckedExceptionJob = new(PlatformTestNodeRunner + "$CheckedExceptionJob");
-
-        public static readonly JobDescriptor<long, int> PartitionJob = new(PlatformTestNodeRunner + "$PartitionJob");
-
-        public static readonly TaskDescriptor<string, string> NodeNameTask = new(ItThinClientComputeTest + "$MapReduceNodeNameTask");
-
-        public static readonly TaskDescriptor<int, object?> SleepTask = new(PlatformTestNodeRunner + "$SleepTask");
-
-        public static readonly TaskDescriptor<object?, object?> SplitExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnSplitTask");
-
-        public static readonly TaskDescriptor<object?, object?> ReduceExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnReduceTask");
-
-        public static readonly JobDescriptor<int, string> ExceptionCodeAsStringJob = new(PlatformTestNodeRunner + "$ExceptionCodeAsStringJob");
-
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -313,12 +279,16 @@ namespace Apache.Ignite.Tests.Compute
             var resNodeName3 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPocoStruct), NodeNameJob, null);
             var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
+            var resNodeName4 = await client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(TableName), keyPoco, new PocoMapper()), NodeNameJob, null);
+            var requestTargetNodeName4 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
+
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
             var expectedNodeName = PlatformTestNodeRunner + nodeName;
 
             Assert.AreEqual(expectedNodeName, await resNodeName.GetResultAsync());
             Assert.AreEqual(expectedNodeName, await resNodeName2.GetResultAsync());
             Assert.AreEqual(expectedNodeName, await resNodeName3.GetResultAsync());
+            Assert.AreEqual(expectedNodeName, await resNodeName4.GetResultAsync());
 
             // We only connect to 2 of 4 nodes because of different auth settings.
             if (nodeIdx < 3)
@@ -326,6 +296,7 @@ namespace Apache.Ignite.Tests.Compute
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName);
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName2);
                 Assert.AreEqual(expectedNodeName, requestTargetNodeName3);
+                Assert.AreEqual(expectedNodeName, requestTargetNodeName4);
             }
         }
 
@@ -420,12 +391,22 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.AreEqual("Job execution failed: java.lang.RuntimeException: Test exception: foo-bar", ex!.Message);
             Assert.IsNotNull(ex.InnerException);
+            Assert.IsInstanceOf<IgniteServerException>(ex.InnerException);
+
+            var innerEx = (IgniteServerException)ex.InnerException!;
+            Assert.AreEqual("org.apache.ignite.compute.ComputeException", innerEx.ServerExceptionClass);
+            StringAssert.StartsWith(
+                "org.apache.ignite.compute.ComputeException: IGN-COMPUTE-9 Job execution failed: " +
+                "java.lang.RuntimeException: Test exception: foo-bar",
+                innerEx.ServerStackTrace);
 
             var str = ex.ToString();
 
             StringAssert.Contains(
                 "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.executeAsync(PlatformTestNodeRunner.java:",
                 str);
+
+            StringAssert.Contains("---- End of server-side stack trace ----", str);
         }
 
         [Test]

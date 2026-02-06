@@ -26,11 +26,14 @@ dependencies {
     annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.micronaut.openapi
 
+    compileOnly libs.spotbugs.annotations
+
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.annotations
     implementation libs.jackson.databind
     implementation libs.jakarta.annotations
@@ -51,6 +54,7 @@ dependencies {
     testFixturesApi libs.micronaut.http.core // exposed by the MicronautHttpResponseMatcher
     testFixturesImplementation testFixtures(project(":ignite-core"))
     testFixturesImplementation libs.micronaut.http.client
+    testFixturesCompileOnly libs.swaggerv3.annotations // Fix unknown enum constant warning
 }
 
 ext {

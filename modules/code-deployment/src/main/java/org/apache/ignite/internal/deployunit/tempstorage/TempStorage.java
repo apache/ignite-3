@@ -42,4 +42,11 @@ public interface TempStorage {
      * Closes the temporary storage, releasing any resources held.
      */
     void close();
+
+    /**
+     * Returns whether the underlying file system is case-insensitive.
+     *
+     * @return {@code true} if the file system is case-insensitive, {@code false} otherwise.
+     */
+    boolean isCaseInsensitiveFileSystem();
 }

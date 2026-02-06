@@ -30,9 +30,10 @@ public class TestScaleCubeClusterServiceFactory extends ScaleCubeClusterServiceF
         return ClusterConfig.defaultLocalConfig()
                 // Theoretical suspicious timeout for 5 node cluster: 500 * 1 * log(5) = 349ms
                 // Short sync interval is required for faster convergence on node restarts.
-                .membership(opts -> opts.syncInterval(1000).suspicionMult(1))
+                .membership(opts -> opts.syncInterval(1_000).syncTimeout(3_000).suspicionMult(1))
                 // Theoretical upper bound for detection of faulty node by some other node: 500 * (e / (e - 1)) = 790ms
                 .failureDetector(opts -> opts.pingInterval(500).pingReqMembers(1))
-                .gossip(opts -> opts.gossipInterval(10));
+                .gossip(opts -> opts.gossipInterval(10))
+                .metadataTimeout(3_000);
     }
 }

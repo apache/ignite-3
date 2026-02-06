@@ -59,6 +59,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
+import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -72,6 +76,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -103,6 +108,8 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final ClockService clockService;
 
+    private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     private final FailureProcessor failureProcessor;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -119,6 +126,7 @@ class IndexBuildController implements ManuallyCloseable {
             ClusterService clusterService,
             PlacementDriver placementDriver,
             ClockService clockService,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
             FailureProcessor failureProcessor
     ) {
         this.indexBuilder = indexBuilder;
@@ -127,6 +135,7 @@ class IndexBuildController implements ManuallyCloseable {
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+        this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.failureProcessor = failureProcessor;
     }
 
@@ -168,11 +177,12 @@ class IndexBuildController implements ManuallyCloseable {
             assert indexDescriptor != null : "Failed to find an index descriptor for the specified index [indexId="
                     + parameters.indexId() + ", catalogVersion=" + parameters.catalogVersion() + "].";
 
-            assert catalog.table(indexDescriptor.tableId()) != null : "Failed to find a table descriptor for the specified index [indexId="
+            CatalogTableDescriptor tableDescriptor = catalog.table(indexDescriptor.tableId());
+            assert tableDescriptor != null : "Failed to find a table descriptor for the specified index [indexId="
                     + parameters.indexId() + ", tableId=" + indexDescriptor.tableId()
                     + ", catalogVersion=" + parameters.catalogVersion() + "].";
 
-            CatalogZoneDescriptor zoneDescriptor = catalog.zone(catalog.table(indexDescriptor.tableId()).zoneId());
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
 
             assert zoneDescriptor != null : "Failed to find a zone descriptor for the specified table [indexId="
                     + parameters.indexId() + ", tableId=" + indexDescriptor.tableId()
@@ -243,7 +253,7 @@ class IndexBuildController implements ManuallyCloseable {
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
-                Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+                Catalog catalog = catalogService.latestCatalog();
 
                 CatalogZoneDescriptor zoneDescriptor = catalog.zone(primaryReplicaId.zoneId());
                 // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed zone by LWM
@@ -409,6 +419,18 @@ class IndexBuildController implements ManuallyCloseable {
             long enlistmentConsistencyToken,
             HybridTimestamp initialOperationTimestamp
     ) {
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionId);
+        ZonePartitionResources resources = partitionReplicaLifecycleManager.zonePartitionResourcesOrNull(zonePartitionId);
+        if (resources == null) {
+            // Already stopped/destroyed, ignore.
+            return;
+        }
+
+        TableTxRwOperationTracker txRwOperationTracker = txRwOperationTracker(zonePartitionId, tableId, resources, indexDescriptor);
+        if (txRwOperationTracker == null) {
+            return;
+        }
+
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
@@ -420,6 +442,8 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
+                txRwOperationTracker,
+                resources.safeTimeTracker(),
                 localNode(),
                 enlistmentConsistencyToken,
                 initialOperationTimestamp
@@ -435,6 +459,18 @@ class IndexBuildController implements ManuallyCloseable {
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionId);
+        ZonePartitionResources resources = partitionReplicaLifecycleManager.zonePartitionResourcesOrNull(zonePartitionId);
+        if (resources == null) {
+            // Already stopped/destroyed, ignore.
+            return;
+        }
+
+        TableTxRwOperationTracker txRwOperationTracker = txRwOperationTracker(zonePartitionId, tableId, resources, indexDescriptor);
+        if (txRwOperationTracker == null) {
+            return;
+        }
+
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, partitionId, indexDescriptor);
@@ -446,10 +482,39 @@ class IndexBuildController implements ManuallyCloseable {
                 indexDescriptor.id(),
                 indexStorage,
                 mvPartition,
+                txRwOperationTracker,
+                resources.safeTimeTracker(),
                 localNode(),
                 enlistmentConsistencyToken,
                 clockService.current()
         );
+    }
+
+    private static @Nullable TableTxRwOperationTracker txRwOperationTracker(
+            ZonePartitionId zonePartitionId,
+            int tableId,
+            ZonePartitionResources resources,
+            CatalogIndexDescriptor indexDescriptor
+    ) {
+        CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture = resources.replicaListenerFuture();
+        assert replicaListenerFuture.isDone() : "Replica listener future is not done for [zonePartitionId=" + zonePartitionId + "].";
+
+        ZonePartitionReplicaListener replicaListener = replicaListenerFuture.join();
+        @Nullable TableTxRwOperationTracker txRwOperationTracker = replicaListener.txRwOperationTracker(tableId);
+
+        if (txRwOperationTracker == null) {
+            // Null means that the table has been removed due to table destruction.
+            LOG.info(
+                    "Tracker is null, skipping index build scheduling "
+                            + "[zoneId={}, tableId={}, partitionId={}, indexId={}]",
+                    zonePartitionId.zoneId(),
+                    tableId,
+                    zonePartitionId.partitionId(),
+                    indexDescriptor.id()
+            );
+        }
+
+        return txRwOperationTracker;
     }
 
     private InternalClusterNode localNode() {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 
 /**
  * Converts rows between storage and execution engine representation.
@@ -60,7 +61,7 @@ public interface TableRowConverter {
     <RowT> RowT toRow(
             ExecutionContext<RowT> ectx,
             BinaryRow tableRow,
-            RowHandler.RowFactory<RowT> factory
+            RowFactory<RowT> factory
     );
 
 }

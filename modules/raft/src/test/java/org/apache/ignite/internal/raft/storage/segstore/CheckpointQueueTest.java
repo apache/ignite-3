@@ -179,7 +179,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
         int numEntries = 10_000;
 
         RunnableX producerTask = () -> {
-            for (int i = 0; i < numEntries; i++) {
+            for (int i = 1; i <= numEntries; i++) {
                 ReadModeIndexMemTable mockTable = mock(ReadModeIndexMemTable.class);
 
                 var segmentInfo = new SegmentInfo(0);
@@ -193,7 +193,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
         };
 
         RunnableX consumerTask = () -> {
-            for (int i = 0; i < numEntries; i++) {
+            for (int i = 1; i <= numEntries; i++) {
                 Entry entry = queue.peekHead();
 
                 assertThat(entry.memTable().segmentInfo(0).getOffset(0), is(i));
@@ -212,7 +212,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
         int numEntries = 10_000;
 
         RunnableX producerTask = () -> {
-            for (int i = 0; i < numEntries; i++) {
+            for (int i = 1; i <= numEntries; i++) {
                 ReadModeIndexMemTable mockTable = mock(ReadModeIndexMemTable.class);
 
                 var segmentInfo = new SegmentInfo(0);
@@ -226,7 +226,7 @@ class CheckpointQueueTest extends BaseIgniteAbstractTest {
         };
 
         RunnableX consumerTask = () -> {
-            for (int i = 0; i < numEntries; i++) {
+            for (int i = 1; i <= numEntries; i++) {
                 Entry entry = queue.peekHead();
 
                 assertThat(entry.memTable().segmentInfo(0).getOffset(0), is(i));

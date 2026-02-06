@@ -21,10 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_INITIAL_DELAY;
-import static org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl.PLAN_UPDATER_REFRESH_PERIOD;
-import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.INITIAL_DELAY;
-import static org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl.REFRESH_PERIOD;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.nodeRowCount;
 import static org.hamcrest.Matchers.is;
 
@@ -32,6 +28,7 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -44,11 +41,20 @@ import org.junit.jupiter.api.Test;
 /** Integration test to check SQL statistics. */
 public class ItStatisticTest extends BaseSqlIntegrationTest {
     private SqlStatisticManagerImpl sqlStatisticManager;
+    private SqlDistributedConfiguration sqlClusterConfig;
     private static final int PARTITIONS = 3;
+
+    private static final long REFRESH_PERIOD_MILLIS = 5_000;
+
+    private static final Duration REFRESH_CHECK_TIMEOUT = Duration.ofSeconds(20);
+
+    private static final Duration REFRESH_POLL_INTERVAL = Duration.ofMillis(50);
 
     @BeforeAll
     void beforeAll() {
         sqlStatisticManager = (SqlStatisticManagerImpl) queryProcessor().sqlStatisticManager();
+        sqlClusterConfig = queryProcessor().clusterConfig();
+        sqlClusterConfig.statistics().autoRefresh().staleRowsCheckIntervalSeconds().update((int) REFRESH_PERIOD_MILLIS / 1000).join();
 
         sql(format("CREATE ZONE zone_with_repl (replicas 2, partitions {}) storage profiles ['"
                 + DEFAULT_STORAGE_PROFILE + "']", PARTITIONS));
@@ -78,12 +84,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         AtomicInteger inc = new AtomicInteger();
 
-        long timeout = calcStatisticUpdateTimeout();
-        // max 10 times cache pollution
-        long pollInterval = timeout / 10;
-
-        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() ->
+        Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
                         assertQuery(format("select {} from t", inc.incrementAndGet()))
                                 .matches(nodeRowCount("TableScan", is((int) update)))
                                 .check()
@@ -96,20 +98,15 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
         long updates1 = insert(0L, milestone);
 
-        long timeout = calcStatisticUpdateTimeout();
+        Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() -> {
+                            sqlStatisticManager.forceUpdateAll();
+                            sqlStatisticManager.lastUpdateStatisticFuture().join();
 
-        // max 10 times cache pollution
-        long pollInterval = timeout / 10;
-
-        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-                    sqlStatisticManager.forceUpdateAll();
-                    sqlStatisticManager.lastUpdateStatisticFuture().join();
-
-                    assertQuery("select 1 from t")
-                            .matches(nodeRowCount("TableScan", is((int) updates1)))
-                            .check();
-                }
+                            assertQuery("select 1 from t")
+                                    .matches(nodeRowCount("TableScan", is((int) updates1)))
+                                    .check();
+                        }
         );
 
         milestone = computeNextMilestone(milestone, DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
@@ -120,15 +117,12 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         sqlStatisticManager.lastUpdateStatisticFuture().join();
 
         // query not cached in plans
-        Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                .timeout(timeout, TimeUnit.MILLISECONDS).untilAsserted(() -> {
-                    sqlStatisticManager.forceUpdateAll();
-                    sqlStatisticManager.lastUpdateStatisticFuture().join();
-
-                    assertQuery("select 1 from t")
-                            .matches(nodeRowCount("TableScan", is((int) updates2)))
-                            .check();
-                }
+        Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() -> {
+                            assertQuery("select 1 from t")
+                                    .matches(nodeRowCount("TableScan", is((int) updates2)))
+                                    .check();
+                        }
         );
     }
 
@@ -148,13 +142,9 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
                     + "j1.* FROM j2, j1 WHERE j2.id = j1.id";
 
-            long statRefresh = calcStatisticUpdateTimeout();
-
-            // max 10 times cache pollution
-            long pollInterval = statRefresh / 10;
-
-            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT)
+                    .untilAsserted(() ->
                             assertQuery(query)
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
@@ -167,8 +157,8 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             sqlStatisticManager.forceUpdateAll();
             sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
 
-            Awaitility.await().pollInterval(Duration.ofMillis(pollInterval))
-                    .timeout(statRefresh, TimeUnit.MILLISECONDS).untilAsserted(() ->
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
                             assertQuery(query)
                                     // expecting right source has less rows than left
                                     .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
@@ -181,15 +171,52 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
         }
     }
 
-    private static long calcStatisticUpdateTimeout() {
-        long inc = TimeUnit.SECONDS.toMillis(2);
-        // need to wait at least 2 statistic updates.
-        long statisticAggregationTimeout = INITIAL_DELAY + 2 * REFRESH_PERIOD;
+    @Test
+    public void statisticUpdatesChangeQueryPlansWhenAutoRefreshIshUpdated() throws Exception {
+        try {
+            sqlScript(""
+                    + "CREATE TABLE j1(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl;"
+                    + "CREATE TABLE j2(ID INTEGER PRIMARY KEY, VAL INTEGER) ZONE zone_with_repl;"
+            );
 
-        return PLAN_UPDATER_INITIAL_DELAY > statisticAggregationTimeout
-                ? PLAN_UPDATER_INITIAL_DELAY + PLAN_UPDATER_REFRESH_PERIOD
-                // need to wait at least one planner cache re-calculation step with a bit timeout for it.
-                : statisticAggregationTimeout + PLAN_UPDATER_REFRESH_PERIOD + inc;
+            sql("INSERT INTO j1 SELECT x, x FROM system_range(?, ?)", 0, 10);
+
+            sqlStatisticManager.forceUpdateAll();
+            sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
+
+            String query = "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ "
+                    + "j1.* FROM j2, j1 WHERE j2.id = j1.id";
+
+            long newRefreshInterval = REFRESH_PERIOD_MILLIS / 2;
+
+            sqlClusterConfig.statistics().autoRefresh().staleRowsCheckIntervalSeconds()
+                    .update((int) (newRefreshInterval / 1000)).join();
+
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
+                            assertQuery(query)
+                                    // expecting right source has less rows than left
+                                    .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J1.*TableScan.*PUBLIC.J2.*"))
+                                    .returnNothing()
+                                    .check());
+
+            sql("INSERT INTO j2 SELECT x, x FROM system_range(?, ?)", 0, 3 * DEFAULT_MIN_STALE_ROWS_COUNT);
+
+            sqlStatisticManager.forceUpdateAll();
+            sqlStatisticManager.lastUpdateStatisticFuture().get(5, TimeUnit.SECONDS);
+
+            Awaitility.await().pollInterval(REFRESH_POLL_INTERVAL)
+                    .timeout(REFRESH_CHECK_TIMEOUT).untilAsserted(() ->
+                            assertQuery(query)
+                                    // expecting right source has less rows than left
+                                    .matches(QueryChecker.matches(".*TableScan.*PUBLIC.J2.*TableScan.*PUBLIC.J1.*"))
+                                    .check()
+            );
+        } finally {
+            sqlScript(""
+                    + "DROP TABLE IF EXISTS j1;"
+                    + "DROP TABLE IF EXISTS j2;");
+        }
     }
 
     // copy-paste from private method: PartitionModificationCounter#computeNextMilestone

@@ -44,6 +44,7 @@ import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.raft.client.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftView;
 import org.apache.ignite.internal.raft.configuration.VolatileRaftConfiguration;

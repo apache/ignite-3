@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-odbc-test)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-odbc-test)
 
 find_package(ODBC REQUIRED)
 

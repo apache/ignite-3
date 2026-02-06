@@ -17,15 +17,14 @@
 
 namespace Apache.Ignite.Internal.Sql;
 
-using System.Collections.Generic;
-using Ignite.Sql;
 using Proto.BinaryTuple;
 
 /// <summary>
 /// Row reader delegate.
 /// </summary>
-/// <param name="cols">Columns.</param>
+/// <param name="metadata">Metadata.</param>
 /// <param name="tupleReader">Tuple reader.</param>
+/// <param name="arg">Argument.</param>
 /// <typeparam name="T">Result type.</typeparam>
 /// <returns>Resulting row.</returns>
-internal delegate T RowReader<out T>(IReadOnlyList<IColumnMetadata> cols, ref BinaryTupleReader tupleReader);
+internal delegate T RowReader<out T>(ResultSetMetadata metadata, ref BinaryTupleReader tupleReader, object? arg);

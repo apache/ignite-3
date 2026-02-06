@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -33,8 +34,11 @@ import org.junit.jupiter.params.provider.ValueSource;
         tables = TpchTables.class,
         queryLoader = "getQueryString",
         planLoader = "getQueryPlan"
+//        , planUpdater = "updateQueryPlan" // uncomment the line to regenerate plans
 )
 public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
+    private static final String TEST_TYPE = "tpch";
+
     @ParameterizedTest
     @ValueSource(strings = {
             "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
@@ -51,28 +55,12 @@ public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
     static String getQueryPlan(String queryId) {
-        // variant query ends with "v"
-        boolean variant = queryId.endsWith("v");
-        int numericId;
-
-        if (variant) {
-            String idString = queryId.substring(0, queryId.length() - 1);
-            numericId = Integer.parseInt(idString);
-        } else {
-            numericId = Integer.parseInt(queryId);
-        }
-
-        if (variant) {
-            var variantQueryFile = String.format("tpch/plan/variant_q%d.plan", numericId);
-            return loadFromResource(variantQueryFile);
-        } else {
-            var queryFile = String.format("tpch/plan/q%s.plan", numericId);
-            return loadFromResource(queryFile);
-        }
+        return getQueryPlan(queryId, TEST_TYPE);
     }
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
-    static void updateQueryPlan(String queryId, String newPlan) {
-        TpcdsQueryPlannerTest.updateQueryPlan(queryId, newPlan);
+    static void updateQueryPlan(String queryId, String... newPlans) {
+        Path targetDirectory = Path.of("./src/test/resources", TEST_TYPE, "plan");
+        updateQueryPlan(queryId, targetDirectory, newPlans);
     }
 }

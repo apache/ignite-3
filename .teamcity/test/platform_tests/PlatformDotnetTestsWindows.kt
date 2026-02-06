@@ -61,7 +61,7 @@ object PlatformDotnetTestsWindows : BuildType({
             workingDir = "%PATH__WORKING_DIR%"
             configuration = "Debug"
             skipBuild = true
-            args = "-p:BuildInParallel=false -m:1"
+            args = "-p:BuildInParallel=false -m:1 --filter TestCategory!=LONG_TEST"
             sdk = "3.1 6"
         }
         dotnetTest {
@@ -69,7 +69,7 @@ object PlatformDotnetTestsWindows : BuildType({
             workingDir = "%PATH__WORKING_DIR%"
             configuration = "Release"
             skipBuild = true
-            args = "-p:BuildInParallel=false -m:1"
+            args = "-p:BuildInParallel=false -m:1 --filter TestCategory!=LONG_TEST"
             sdk = "3.1 6"
         }
     }

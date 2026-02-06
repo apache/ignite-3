@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableImpl;
@@ -70,7 +68,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             + "}";
 
     @BeforeEach
-    public void setup() throws Exception {
+    public void setup() {
         String zoneSql = "create zone test_zone (partitions 1, replicas 3) storage profiles ['" + DEFAULT_AIPERSIST_PROFILE_NAME + "']";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone TEST_ZONE";
 
@@ -106,14 +104,12 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     }
 
     @Test
-    public void testFullTxConsistency() throws InterruptedException {
+    public void testFullTxConsistency() {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         int partId = 0;
 
-        var replicationGrp = colocationEnabled()
-                ? new ZonePartitionId(tbl.zoneId(), partId)
-                : new TablePartitionId(tbl.tableId(), partId);
+        var replicationGrp = new ZonePartitionId(tbl.zoneId(), partId);
 
         String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), replicationGrp).getLeaseholder();
 

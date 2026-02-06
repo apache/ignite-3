@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.tx.TransactionException;
 
@@ -30,9 +32,11 @@ import org.apache.ignite.tx.TransactionException;
  */
 class InflightTransactionalOperationTracker implements TransactionalOperationTracker {
     private final TransactionInflights delegate;
+    private final TxManager txManager;
 
-    InflightTransactionalOperationTracker(TransactionInflights delegate) {
+    InflightTransactionalOperationTracker(TransactionInflights delegate, TxManager txManager) {
         this.delegate = delegate;
+        this.txManager = txManager;
     }
 
     @Override
@@ -41,7 +45,8 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
             boolean result = tx.isReadOnly() ? delegate.addScanInflight(tx.id()) : delegate.track(tx.id());
 
             if (!result) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
+                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}, {}]",
+                        tx, formatTxInfo(tx.id(), txManager, false)));
             }
         }
     }

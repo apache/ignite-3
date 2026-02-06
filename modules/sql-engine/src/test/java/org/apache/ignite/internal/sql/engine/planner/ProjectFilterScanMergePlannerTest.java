@@ -178,7 +178,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
         // Inner query contains correlate, it prevents filter to be moved below project, and after HEP_FILTER_PUSH_DOWN
         // phase we should have chain Project - Filter - Project - Scan. Whole this chain should be merged into a single
         // table scan on the next phases. Order of merge: (((scan + inner project) + filter) + outer project).
-        String sql = "SELECT /*+ DISABLE_RULE('ExposeIndexRule') */(SELECT a+2 FROM (SELECT c, a+1 AS a FROM tbl) "
+        String sql = "SELECT /*+ disable_decorrelation, DISABLE_RULE('ExposeIndexRule') */(SELECT a+2 FROM (SELECT c, a+1 AS a FROM tbl) "
                 + "AS t2 WHERE t2.c = t1.c) FROM tbl AS t1";
 
         assertPlan(sql, publicSchema, hasChildThat(isInstanceOf(IgniteAggregate.class)
@@ -195,7 +195,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     public void testIdentityFilterProjectMerge() throws Exception {
         // The same as two projects merge, but outer project is identity and should be eliminated together with inner
         // project by project to scan merge rule.
-        String sql = "SELECT (SELECT a FROM (SELECT a, a+1 FROM tbl) AS t2 WHERE t2.a = t1.a) FROM tbl AS t1";
+        String sql = "SELECT /*+ disable_decorrelation */ (SELECT a FROM (SELECT a, a+1 FROM tbl) AS t2 WHERE t2.a = t1.a) FROM tbl AS t1";
 
         assertPlan(sql, publicSchema, hasChildThat(isInstanceOf(IgniteAggregate.class)
                 .and(input(isInstanceOf(IgniteTableScan.class)
@@ -206,7 +206,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
                 ))), "ProjectFilterTransposeRule");
 
         // Filter on project that is not permutation should be merged too.
-        sql = "SELECT (SELECT a FROM (SELECT a+1 AS a FROM tbl) AS t2 WHERE t2.a = t1.a) FROM tbl AS t1";
+        sql = "SELECT /*+ disable_decorrelation */ (SELECT a FROM (SELECT a+1 AS a FROM tbl) AS t2 WHERE t2.a = t1.a) FROM tbl AS t1";
 
         assertPlan(sql, publicSchema, hasChildThat(isInstanceOf(IgniteAggregate.class)
                 .and(input(isInstanceOf(IgniteTableScan.class)
@@ -222,7 +222,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     public void testProjectFilterIdentityMerge() throws Exception {
         // The same as two projects merge, but inner project is identity and should be eliminated by project to scan
         // merge rule.
-        String sql = "SELECT (SELECT a+2 FROM (SELECT a, c FROM tbl) AS t2 WHERE t2.c = t1.c) FROM tbl AS t1";
+        String sql = "SELECT /*+ disable_decorrelation */ (SELECT a+2 FROM (SELECT a, c FROM tbl) AS t2 WHERE t2.c = t1.c) FROM tbl AS t1";
 
         assertPlan(sql, publicSchema, hasChildThat(isInstanceOf(IgniteAggregate.class)
                 .and(input(isInstanceOf(IgniteTableScan.class)
@@ -238,7 +238,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     public void testIdentityFilterIdentityMerge() throws Exception {
         // The same as two projects merge, but projects are identity and should be eliminated by project to scan
         // merge rule.
-        String sql = "SELECT (SELECT c FROM (SELECT a AS c FROM tbl) AS t2 WHERE t2.c = t1.c) FROM tbl AS t1";
+        String sql = "SELECT /*+ disable_decorrelation */ (SELECT c FROM (SELECT a AS c FROM tbl) AS t2 WHERE t2.c = t1.c) FROM tbl AS t1";
 
         assertPlan(sql, publicSchema, hasChildThat(isInstanceOf(IgniteAggregate.class)
                 .and(input(isInstanceOf(IgniteTableScan.class)

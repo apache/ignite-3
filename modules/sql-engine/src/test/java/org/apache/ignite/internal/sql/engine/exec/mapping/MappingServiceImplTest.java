@@ -44,8 +44,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.TestHybridClock;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -68,7 +66,6 @@ import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.SubscriptionUtils;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -252,10 +249,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         List<String> nodeNames = List.of(localNodeName, "NODE1");
 
         Function<String, PrimaryReplicaEventParameters> prepareEvtParams = (name) -> {
-            CatalogService catalogService = cluster.catalogManager();
-            Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
-
-            @Nullable CatalogZoneDescriptor zoneDescriptor = catalog.zone(name);
+            CatalogZoneDescriptor zoneDescriptor = cluster.catalogManager().latestCatalog().zone(name);
 
             assertNotNull(zoneDescriptor);
 

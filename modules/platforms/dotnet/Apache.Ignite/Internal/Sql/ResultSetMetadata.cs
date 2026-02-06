@@ -20,15 +20,32 @@ namespace Apache.Ignite.Internal.Sql
     using System.Collections.Generic;
     using Common;
     using Ignite.Sql;
+    using Ignite.Table.Mapper;
 
     /// <summary>
     /// Result set metadata.
     /// </summary>
-    /// <param name="Columns">Columns.</param>
-    internal sealed record ResultSetMetadata(IReadOnlyList<IColumnMetadata> Columns) : IResultSetMetadata
+    internal sealed record ResultSetMetadata : IResultSetMetadata, IMapperSchema
     {
+        private readonly ColumnMetadata[] _columns;
+
         /** Column index by name. Initialized on first access. */
         private Dictionary<string, int>? _indices;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ResultSetMetadata"/> class.
+        /// </summary>
+        /// <param name="columns">Columns.</param>
+        internal ResultSetMetadata(ColumnMetadata[] columns)
+        {
+            _columns = columns;
+        }
+
+        /// <inheritdoc/>
+        public IReadOnlyList<IColumnMetadata> Columns => _columns;
+
+        /// <inheritdoc/>
+        IReadOnlyList<IMapperColumn> IMapperSchema.Columns => _columns;
 
         /// <inheritdoc/>
         public int IndexOf(string columnName)
@@ -37,17 +54,17 @@ namespace Apache.Ignite.Internal.Sql
 
             if (indices == null)
             {
-                indices = new Dictionary<string, int>(Columns.Count);
+                indices = new Dictionary<string, int>(_columns.Length);
 
-                for (var i = 0; i < Columns.Count; i++)
+                for (var i = 0; i < _columns.Length; i++)
                 {
-                    indices[Columns[i].Name] = i;
+                    indices[_columns[i].Name] = i;
                 }
 
                 _indices = indices;
             }
 
-            return indices.TryGetValue(columnName, out var idx) ? idx : -1;
+            return indices.GetValueOrDefault(columnName, -1);
         }
 
         /// <inheritdoc/>

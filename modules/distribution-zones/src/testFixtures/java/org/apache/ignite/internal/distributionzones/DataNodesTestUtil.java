@@ -61,7 +61,7 @@ public final class DataNodesTestUtil {
 
         CatalogManager catalogManager = node.catalogManager();
 
-        CatalogZoneDescriptor zoneDesc = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName);
+        CatalogZoneDescriptor zoneDesc = catalogManager.latestCatalog().zone(zoneName);
 
         assertNotNull(zoneDesc);
     }

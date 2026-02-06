@@ -20,8 +20,10 @@ namespace Apache.Ignite.Tests.Table
     using System;
     using System.Linq;
     using System.Threading.Tasks;
+    using Common.Table;
     using Ignite.Table;
     using NUnit.Framework;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Tests for <see cref="ITables"/>.

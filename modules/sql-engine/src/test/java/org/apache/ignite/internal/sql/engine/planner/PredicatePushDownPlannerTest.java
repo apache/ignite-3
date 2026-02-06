@@ -38,7 +38,7 @@ public class PredicatePushDownPlannerTest extends AbstractPlannerTest {
         );
 
         String sql = ""
-                + " SELECT * "
+                + " SELECT /*+ disable_decorrelation */ * "
                 + "   FROM t ot"
                 + "  WHERE ot.c2 > 10"
                 + "    AND EXISTS ("

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Controller;
 import jakarta.inject.Named;
 import java.util.concurrent.CompletableFuture;
@@ -42,7 +43,7 @@ public class NodeConfigurationController extends AbstractConfigurationController
      * @return the whole node configuration in HOCON format.
      */
     @Override
-    public String getConfiguration() {
+    public HttpResponse<String> getConfiguration() {
         return super.getConfiguration();
     }
 
@@ -53,7 +54,7 @@ public class NodeConfigurationController extends AbstractConfigurationController
      * @return system configuration in HOCON format represented by given path.
      */
     @Override
-    public String getConfigurationByPath(String path) {
+    public HttpResponse<String> getConfigurationByPath(String path) {
         return super.getConfigurationByPath(path);
     }
 

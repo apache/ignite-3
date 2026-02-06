@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnType;
@@ -53,8 +51,6 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 /**
  * Tests for the data colocation.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22522
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /** Rows count ot test. */

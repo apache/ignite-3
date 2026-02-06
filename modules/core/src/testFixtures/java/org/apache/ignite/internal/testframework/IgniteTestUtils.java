@@ -52,6 +52,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -78,6 +79,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.awaitility.Awaitility;
 import org.hamcrest.CustomMatcher;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestInfo;
@@ -1090,5 +1092,44 @@ public final class IgniteTestUtils {
      */
     public static UUID deriveUuidFrom(String str) {
         return new UUID(str.hashCode(), new StringBuilder(str).reverse().toString().hashCode());
+    }
+
+    /**
+     * Non-concurrent executor service for test purposes.
+     *
+     * @return Executor service.
+     */
+    public static ExecutorService testSyncExecutorService() {
+        return new AbstractExecutorService() {
+            @Override
+            public void shutdown() {
+                // No-op.
+            }
+
+            @Override
+            public @NotNull List<Runnable> shutdownNow() {
+                return List.of();
+            }
+
+            @Override
+            public boolean isShutdown() {
+                return false;
+            }
+
+            @Override
+            public boolean isTerminated() {
+                return false;
+            }
+
+            @Override
+            public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+                return false;
+            }
+
+            @Override
+            public void execute(Runnable command) {
+                command.run();
+            }
+        };
     }
 }

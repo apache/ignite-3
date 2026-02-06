@@ -32,6 +32,7 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.Sarg;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
@@ -84,7 +85,10 @@ public class OutOfRangeLiteralComparisonReductionShuttle extends RexShuttle {
 
                 RelDataType probingType = expression != null ? expression.getType() : null;
 
-                if (probingType != null && probingType.getFamily() == SqlTypeFamily.NUMERIC) {
+                if (probingType != null
+                        && SqlTypeUtil.isExactNumeric(probingType)
+                        && SqlTypeUtil.isExactNumeric(possibleLiteral.getType())
+                ) {
                     assert expression != null && possibleLiteral != null;
 
                     if (possibleLiteral instanceof RexLiteral) {

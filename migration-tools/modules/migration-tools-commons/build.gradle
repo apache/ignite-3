@@ -28,6 +28,7 @@ dependencies {
     implementation libs.commons.lang3
     implementation libs.commons.collections4
     implementation libs.slf4j.api
+    compileOnly libs.jsr305 // Fix unknown enum constant warning
 
     testImplementation project(":migration-tools-commons-tests")
     testImplementation testFixtures(project(":migration-tools-ai2-test-fixtures"))

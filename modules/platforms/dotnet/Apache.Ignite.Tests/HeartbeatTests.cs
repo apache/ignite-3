@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Threading.Tasks;
+    using Common;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 

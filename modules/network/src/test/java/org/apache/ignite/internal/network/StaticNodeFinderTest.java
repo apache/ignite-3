@@ -24,25 +24,29 @@ import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.StaticNodeFinder.HostNameResolver;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(WorkDirectoryExtension.class)
-class StaticNodeFinderTest {
-    @WorkDirectory
-    private Path workDir;
-
+class StaticNodeFinderTest extends IgniteAbstractTest {
     @Test
     void returnsIpAddresses() {
         NetworkAddress ipv4 = new NetworkAddress("1.2.3.4", 3001);
@@ -50,6 +54,39 @@ class StaticNodeFinderTest {
         NodeFinder finder = new StaticNodeFinder(List.of(ipv4, ipv6));
 
         assertThat(finder.findNodes(), contains(ipv4, ipv6));
+    }
+
+    @Test
+    void removesDuplicateIpAddresses() {
+        NetworkAddress ip1 = new NetworkAddress("1.2.3.4", 3001);
+        NetworkAddress ip2 = new NetworkAddress("1.2.3.4", 3001);
+        NodeFinder finder = new StaticNodeFinder(List.of(ip1,  ip2));
+
+        assertThat(finder.findNodes(), contains(ip1));
+    }
+
+    @Test
+    void returnsEmptyResultForEmptyInput() {
+        NodeFinder finder = new StaticNodeFinder(List.of());
+
+        assertEquals(0, finder.findNodes().size());
+    }
+
+    @Test
+    void failsForNoResolvedIpAddresses() {
+        NetworkAddress ip1 = new NetworkAddress("badIpString", 3001);
+        NodeFinder finder = new StaticNodeFinder(List.of(ip1));
+
+        assertThrows(IgniteInternalException.class, finder::findNodes);
+    }
+
+    @Test
+    void succeedsForAtLeastOneResolvedIpAddresses() {
+        NetworkAddress ip1 = new NetworkAddress("badIpString", 3001);
+        NetworkAddress ip2 = new NetworkAddress("1.2.3.4", 3001);
+        NodeFinder finder = new StaticNodeFinder(List.of(ip1, ip2));
+
+        assertThat(finder.findNodes(), contains(ip2));
     }
 
     @Test
@@ -106,6 +143,23 @@ class StaticNodeFinderTest {
         );
 
         assertThat(foundAddresses, contains(new NetworkAddress("1.2.3.4", 3001)));
+    }
+
+    @Test
+    void makesSeveralAttemptsToResolveHost() throws Exception {
+        NetworkAddress addr = new NetworkAddress("unknownHost", 3001);
+
+        HostNameResolver hostNameResolver = mock(HostNameResolver.class);
+
+        when(hostNameResolver.getAllByName(anyString())).thenThrow(new UnknownHostException());
+
+        int nameResolutionAttempts = 3;
+
+        NodeFinder finder = new StaticNodeFinder(List.of(addr), hostNameResolver, nameResolutionAttempts);
+
+        assertThrows(IgniteInternalException.class, finder::findNodes);
+
+        verify(hostNameResolver, times(nameResolutionAttempts)).getAllByName(addr.host());
     }
 
     /**

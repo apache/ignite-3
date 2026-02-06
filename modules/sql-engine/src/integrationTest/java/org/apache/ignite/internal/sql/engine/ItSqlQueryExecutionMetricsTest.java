@@ -50,6 +50,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.Transaction;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -138,7 +139,7 @@ public class ItSqlQueryExecutionMetricsTest extends BaseSqlIntegrationTest {
             CancelHandle cancelHandle = CancelHandle.create();
 
             assertMetricIncreased(() -> assertThrows(CompletionException.class, () -> {
-                CompletableFuture<AsyncResultSet<SqlRow>> f = sql.executeAsync(null, cancelHandle.token(),
+                CompletableFuture<AsyncResultSet<SqlRow>> f = sql.executeAsync((Transaction) null, cancelHandle.token(),
                         "SELECT x FROM system_range(1, 10000000000)");
                 cancelHandle.cancelAsync();
                 f.join();
@@ -165,7 +166,7 @@ public class ItSqlQueryExecutionMetricsTest extends BaseSqlIntegrationTest {
                     .queryTimeout(timeoutSeconds, timeoutUnit)
                     .build();
 
-            try (ResultSet<SqlRow> rs = sql.execute(null, statement)) {
+            try (ResultSet<SqlRow> rs = sql.execute((Transaction) null, statement)) {
                 timeoutUnit.sleep(timeoutSeconds);
                 // Triggers timeout
                 while (rs.hasNext()) {

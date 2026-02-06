@@ -25,4 +25,9 @@ public interface DataRegion<T extends PageMemory> {
      * Returns page memory.
      */
     T pageMemory();
+
+    /**
+     * Returns the region size in bytes.
+     */
+    long regionSize();
 }

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -48,15 +47,13 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorConstants;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -299,12 +296,8 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-            PartitionListener listener;
-            if (colocationEnabled()) {
-                listener = (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
-            } else {
-                listener = (PartitionListener) fsm.getListener();
-            }
+            TablePartitionProcessor listener = (TablePartitionProcessor) ((ZonePartitionRaftListener) fsm.getListener())
+                    .tableProcessor(table.tableId());
 
             MvPartitionStorage storage = listener.getMvStorage();
 
@@ -381,9 +374,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         return Tuple.create().set("name", name);
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove TablePartitionId part.
-    protected static ReplicationGroupId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
-        return colocationEnabled() ? new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex) :
-                new TablePartitionId(tableViewInternal.tableId(), partitionIndex);
+    protected static ZonePartitionId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
+        return new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex);
     }
 }

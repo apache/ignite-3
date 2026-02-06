@@ -25,6 +25,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(Python_FIND_VIRTUALENV FIRST)
 find_package(Python3 COMPONENTS Interpreter Development)
 
+message("Python3_ROOT_DIR:${Python3_ROOT_DIR}")
 message("Python3_FOUND:${Python3_FOUND}")
 message("Python3_VERSION:${Python3_VERSION}")
 message("Python3_Development_FOUND:${Python3_Development_FOUND}")

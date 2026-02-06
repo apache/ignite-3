@@ -18,8 +18,10 @@
 namespace Apache.Ignite.Table
 {
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
+    using Internal.Linq;
     using Sql;
     using Transactions;
 
@@ -215,6 +217,7 @@ namespace Apache.Ignite.Table
         /// <param name="transaction">Optional transaction.</param>
         /// <param name="options">Options.</param>
         /// <returns><see cref="IQueryable{T}"/>.</returns>
+        [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
         IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null);
     }
 }

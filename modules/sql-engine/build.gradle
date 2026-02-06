@@ -66,6 +66,7 @@ dependencies {
     implementation libs.value.annotations
     implementation libs.janino.compiler
     implementation libs.janino.core
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.jackson.annotations

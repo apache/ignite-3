@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -107,5 +108,44 @@ public class ClientFutureUtilsTest {
 
         var ex = assertThrows(CompletionException.class, fut::join);
         assertEquals("fail1", ex.getCause().getMessage());
+    }
+
+    @Test
+    public void testDoWithRetryAsyncPreventsDuplicatesAndSelfReferenceInSuppressedExceptions() {
+        var counter = new AtomicInteger();
+
+        var ex1 = new Exception("1");
+        var ex2 = new Exception("2");
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+                () -> {
+                    switch (counter.get()) {
+                        case 0: // Self.
+                            return CompletableFuture.failedFuture(ex1);
+
+                        case 1: // Other.
+                            return CompletableFuture.failedFuture(ex2);
+
+                        case 2: // Self wrapped.
+                            return CompletableFuture.failedFuture(new Exception(ex1));
+
+                        case 3: // Other wrapped.
+                            return CompletableFuture.failedFuture(new Exception(ex2));
+
+                        default:
+                            return CompletableFuture.failedFuture(new Exception("Other"));
+                    }
+                },
+                ctx -> counter.incrementAndGet() < 4
+        );
+
+        var completionEx = assertThrows(CompletionException.class, fut::join);
+        var ex = (Exception) completionEx.getCause();
+
+        assertEquals(ex1, ex, "Expected the first exception to be the main one.");
+
+        Throwable[] suppressed = ex.getSuppressed();
+        assertEquals(1, suppressed.length, "Should not have duplicate suppressed exceptions.");
+        assertEquals(ex2, unwrapCause(suppressed[0]));
     }
 }

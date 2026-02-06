@@ -96,10 +96,48 @@ public class DeployUnitClient {
             @Nullable List<String> initialNodes,
             ApiCallback<Boolean> callback
     ) {
+        return buildDeployCall(unitId, unitContent, unitVersion, deployMode, initialNodes, callback, false);
+    }
+
+    /**
+     * Deploy unit from ZIP file asynchronously.
+     *
+     * @param unitId The ID of the deployment unit.
+     * @param zipFile The ZIP file to deploy.
+     * @param unitVersion The version of the deployment unit.
+     * @param deployMode The deployment mode.
+     * @param initialNodes The initial set of nodes where unit will be deployed.
+     * @param callback The callback for tracking progress.
+     * @return Request call.
+     */
+    public Call deployZipUnitAsync(
+            String unitId,
+            File zipFile,
+            String unitVersion,
+            @Nullable DeployMode deployMode,
+            @Nullable List<String> initialNodes,
+            ApiCallback<Boolean> callback
+    ) {
+        Call call = buildDeployCall(unitId, List.of(zipFile), unitVersion, deployMode, initialNodes, callback, true);
+        apiClient.executeAsync(call, Boolean.class, callback);
+        return call;
+    }
+
+    private Call buildDeployCall(
+            String unitId,
+            List<File> unitContent,
+            String unitVersion,
+            @Nullable DeployMode deployMode,
+            @Nullable List<String> initialNodes,
+            ApiCallback<Boolean> callback,
+            boolean isZip
+    ) {
         StringBuilder url = new StringBuilder(apiClient.getBasePath());
-        url
-                .append("/management/v1/deployment/units")
-                .append('/').append(apiClient.escapeString(unitId))
+        url.append("/management/v1/deployment/units");
+        if (isZip) {
+            url.append("/zip");
+        }
+        url.append('/').append(apiClient.escapeString(unitId))
                 .append('/').append(apiClient.escapeString(unitVersion));
 
         List<Pair> queryParams = new ArrayList<>();

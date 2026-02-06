@@ -250,7 +250,8 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
 
         PartitionPruningMetadata actual = extractMetadata(extractor,
-                "SELECT * FROM t1 as cor WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.c1 = cor.c1 OR t2.c1=42)", table1, table2);
+                "SELECT /*+ disable_decorrelation */ * FROM t1 as cor WHERE" 
+                        + " EXISTS (SELECT 1 FROM t2 WHERE t2.c1 = cor.c1 OR t2.c1=42)", table1, table2);
 
         PartitionPruningColumns cols = actual.get(2);
         assertNotNull(cols, "No metadata for source=2");

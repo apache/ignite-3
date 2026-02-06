@@ -25,6 +25,7 @@
 #include "ignite/network/ssl/secure_data_filter.h"
 #include "ignite/protocol/writer.h"
 
+#include <algorithm>
 #include <iterator>
 
 namespace ignite::detail {

@@ -24,9 +24,11 @@ import org.apache.ignite.internal.failure.NodeStopper;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Handler will try to stop node if {@code tryStop} value is {@code true}.
@@ -41,6 +43,9 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
      * to auto-stop the Ignite JVM process without restarting.
      */
     private static final int KILL_EXIT_CODE = 130;
+
+    /** Ignite node name. */
+    private String nodeName;
 
     /** Node stopper. */
     @IgniteToStringExclude
@@ -59,6 +64,7 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
      * @param tryStop Try stop.
      * @param timeout Stop node timeout in milliseconds.
      */
+    @TestOnly
     public StopNodeOrHaltFailureHandler(NodeStopper nodeStopper, boolean tryStop, long timeout) {
         this.nodeStopper = nodeStopper;
         this.tryStop = tryStop;
@@ -68,10 +74,12 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
     /**
      * Creates a new instance of a failure processor.
      *
+     * @param nodeName Node name.
      * @param nodeStopper Node stopper.
      * @param view Configuration view.
      */
-    public StopNodeOrHaltFailureHandler(NodeStopper nodeStopper, StopNodeOrHaltFailureHandlerView view) {
+    public StopNodeOrHaltFailureHandler(String nodeName, NodeStopper nodeStopper, StopNodeOrHaltFailureHandlerView view) {
+        this.nodeName = nodeName;
         this.nodeStopper = nodeStopper;
         tryStop = view.tryStop();
         timeout = view.timeoutMillis();
@@ -82,18 +90,33 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
         if (tryStop) {
             CountDownLatch latch = new CountDownLatch(1);
 
-            Thread stopperThread = new Thread(
+            IgniteThreadFactory stopThreadFactory = IgniteThreadFactory.create(
+                    nodeName,
+                    "node-stopper",
+                    true,
+                    LOG,
+                    ThreadOperation.values()
+            );
+
+            Thread stopperThread = stopThreadFactory.newThread(
                     () -> {
                         nodeStopper.stopNode();
 
                         latch.countDown();
-                    },
-                    "node-stopper"
+                    }
             );
-            stopperThread.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
+
             stopperThread.start();
 
-            Thread haltOnStopTimeoutThread = new Thread(
+            IgniteThreadFactory haltThreadFactory = IgniteThreadFactory.create(
+                    nodeName,
+                    "jvm-halt-on-stop-timeout",
+                    true,
+                    LOG,
+                    ThreadOperation.values()
+            );
+
+            Thread haltOnStopTimeoutThread = haltThreadFactory.newThread(
                     () -> {
                         try {
                             if (!latch.await(timeout, TimeUnit.MILLISECONDS)) {
@@ -102,10 +125,9 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
                         } catch (InterruptedException e) {
                             // No-op.
                         }
-                    },
-                    "jvm-halt-on-stop-timeout"
+                    }
             );
-            haltOnStopTimeoutThread.setUncaughtExceptionHandler(new LogUncaughtExceptionHandler(LOG));
+
             haltOnStopTimeoutThread.start();
         } else {
             Runtime.getRuntime().halt(KILL_EXIT_CODE);

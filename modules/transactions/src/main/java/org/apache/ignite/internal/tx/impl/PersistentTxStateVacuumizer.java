@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -44,9 +44,10 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
@@ -102,9 +103,7 @@ public class PersistentTxStateVacuumizer {
      * @return A future, result is the set of successfully processed txn states and count of persistent states that were vacuumized.
      */
     public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-            // Should be changed to ZonePartitionId.
-            Map<ReplicationGroupId, Set<VacuumizableTx>> txIds
+            Map<ZonePartitionId, Set<VacuumizableTx>> txIds
     ) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<?>> futures = new ArrayList<>();
@@ -139,9 +138,7 @@ public class PersistentTxStateVacuumizer {
 
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                    // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-                                    // Should be changed to ZonePartitionId.
-                                    .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
+                                    .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                                     .transactionIds(filteredTxIds)
                                     .build();
 
@@ -190,7 +187,8 @@ public class PersistentTxStateVacuumizer {
                 // the persistent tx state.
                 // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
                 // happen on another node.
-                AwaitReplicaTimeoutException.class
+                AwaitReplicaTimeoutException.class,
+                ReplicaUnavailableException.class
         );
     }
 

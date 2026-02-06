@@ -17,10 +17,12 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using Ignite.Table.Mapper;
     using Proto.BinaryTuple;
 
     /// <summary>
@@ -47,6 +49,20 @@ namespace Apache.Ignite.Internal.Table
         IHashedColumnIndexProvider HashedColumnIndexProvider,
         IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
     {
+        private readonly Lazy<IMapperSchema> _mapperSchema =
+            new(() => new MapperSchema(Columns.Cast<IMapperColumn>().ToArray()));
+
+        private readonly Lazy<IMapperSchema> _mapperSchemaKeyOnly =
+            new(() => new MapperSchema(KeyColumns.Cast<IMapperColumn>().ToArray()));
+
+        /// <summary>
+        /// Gets the mapper schema.
+        /// </summary>
+        /// <param name="keyOnly">Whether to get a key-only schema.</param>
+        /// <returns>Mapper schema.</returns>
+        public IMapperSchema GetMapperSchema(bool keyOnly) =>
+            keyOnly ? _mapperSchemaKeyOnly.Value : _mapperSchema.Value;
+
         /// <summary>
         /// Gets column by name.
         /// </summary>

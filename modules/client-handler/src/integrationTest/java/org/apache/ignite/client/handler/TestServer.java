@@ -28,7 +28,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -141,8 +140,8 @@ public class TestServer {
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
                 new TestLowWatermark(),
-                new SystemPropertiesNodeProperties(),
-                Runnable::run
+                Runnable::run,
+                () -> true
         );
 
         module.startAsync(componentContext).join();

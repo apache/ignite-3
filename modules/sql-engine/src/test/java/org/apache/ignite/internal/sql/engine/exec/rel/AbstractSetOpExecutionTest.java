@@ -34,6 +34,7 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
@@ -144,7 +145,7 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest<O
         }
 
         RelCollation collation = RelCollations.of(ImmutableIntList.of(IntStream.range(0, COLUMN_NUN).toArray()));
-        SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results.
         SortNode<Object[]> sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
@@ -167,6 +168,11 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest<O
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

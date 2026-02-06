@@ -22,11 +22,9 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.nio.file.Path;
-import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.configuration.IgnitePaths;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
@@ -45,15 +43,6 @@ class ItIndexRecoveryTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
         return 0;
-    }
-
-    private static void aggressiveLowWatermarkIncrease(InitParametersBuilder builder) {
-        builder.clusterConfiguration("{\n"
-                + "  ignite.gc.lowWatermark {\n"
-                + "    dataAvailabilityTimeMillis: 1000,\n"
-                + "    updateIntervalMillis: 100\n"
-                + "  }\n"
-                + "}");
     }
 
     @ParameterizedTest
@@ -75,7 +64,7 @@ class ItIndexRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private void testNodeRecoveryWithDroppedIndexBelowLwm(Runnable creator, Runnable dropper, boolean createCatalogVersionAfterDrop) {
-        cluster.startAndInit(1, ItIndexRecoveryTest::aggressiveLowWatermarkIncrease);
+        cluster.startAndInit(1, builder -> builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig()));
         IgniteImpl ignite0 = unwrapIgniteImpl(cluster.node(0));
         Path workDir0 = ((IgniteServerImpl) cluster.server(0)).workDir();
 
@@ -132,8 +121,7 @@ class ItIndexRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private static HybridTimestamp latestCatalogVersionTs(IgniteImpl ignite) {
-        Catalog latestCatalog = ignite.catalogManager().catalog(ignite.catalogManager().latestCatalogVersion());
-        return HybridTimestamp.hybridTimestamp(latestCatalog.time());
+        return HybridTimestamp.hybridTimestamp(ignite.catalogManager().latestCatalog().time());
     }
 
     private static void raisePersistedLwm(Path workDir, HybridTimestamp newLwm) {

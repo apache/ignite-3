@@ -321,6 +321,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
+    [UnconditionalSuppressMessage("Trimming", "IL2111", Justification = "All column types are known.")]
     public override DataTable GetSchemaTable()
     {
         var table = new DataTable("SchemaTable");
@@ -459,6 +460,7 @@ public sealed class IgniteDbDataReader : DbDataReader, IDbColumnSchemaGenerator
     }
 
     /// <inheritdoc/>
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicProperties)]
     public override Type GetFieldType(int ordinal) => Metadata.Columns[ordinal].Type.ToClrType();
 
     /// <inheritdoc/>

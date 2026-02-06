@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.cli.commands.cluster;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.copyResourceToTempFile;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
-import static org.mockserver.model.HttpRequest.request;
-import static org.mockserver.model.HttpResponse.response;
-import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
-import static org.mockserver.model.JsonBody.json;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
@@ -39,13 +38,13 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockserver.model.MediaType;
 
 /** Tests "cluster init" command. */
 @DisplayName("cluster init")
 @ExtendWith(WorkDirectoryExtension.class)
 class ClusterInitTest extends IgniteCliInterfaceTestBase {
-    private static final Pattern PATTERN = Pattern.compile("\"");
+    private static final Pattern QUOTE_PATTERN = Pattern.compile("\"");
+    private static final Pattern CR_PATTERN = Pattern.compile("\n");
 
     @Override
     protected Class<?> getCommandClass() {
@@ -68,7 +67,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
     @Test
     void wrongConfigFilePath() {
-        clientAndServer.when(request().withMethod("POST").withPath("/management/v1/cluster/init")).respond(response(null));
+        stubFor(post("/management/v1/cluster/init")
+                .willReturn(ok()));
 
         execute(
                 "--url", mockUrl,
@@ -115,14 +115,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
                 + "\"clusterName\":\"cluster\"}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -141,14 +134,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "\"cmgNodes\":[],"
                 + "\"clusterName\":\"cluster\"}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -167,27 +153,20 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         Path clusterConfigurationFile = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").toPath();
         String clusterConfiguration = Files.readString(clusterConfigurationFile);
 
-        String expectedSentContent = "{\n"
-                + "  \"metaStorageNodes\": [\n"
-                + "    \"node1ConsistentId\",\n"
-                + "    \"node2ConsistentId\"\n"
-                + "  ],\n"
-                + "  \"cmgNodes\": [\n"
-                + "    \"node2ConsistentId\",\n"
-                + "    \"node3ConsistentId\"\n"
-                + "  ],\n"
-                + "  \"clusterName\": \"cluster\",\n"
-                + "  \"clusterConfiguration\": \"" + escapedJson(clusterConfiguration) + "\"\n"
+        String expectedSentContent = "{"
+                + "  \"metaStorageNodes\": ["
+                + "    \"node1ConsistentId\","
+                + "    \"node2ConsistentId\""
+                + "  ],"
+                + "  \"cmgNodes\": ["
+                + "    \"node2ConsistentId\","
+                + "    \"node3ConsistentId\""
+                + "  ],"
+                + "  \"clusterName\": \"cluster\","
+                + "  \"clusterConfiguration\": \"" + escapedJson(clusterConfiguration) + "\""
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -202,15 +181,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
     @Test
     void initError() {
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                )
-                .respond(response()
-                        .withStatusCode(INTERNAL_SERVER_ERROR_500.code())
-                        .withBody("{\"status\":500, \"detail\":\"Oops\"}")
-                );
+        stubFor(post("/management/v1/cluster/init")
+                .willReturn(serverError().withBody("{\"status\":500, \"detail\":\"Oops\"}")));
 
         execute(
                 "--url", mockUrl,
@@ -234,14 +206,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
                 + "\"clusterName\":\"cluster\"}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -255,7 +220,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("--url http://localhost:10300 --metastorage-group node2ConsistentId, node3ConsistentId")
     void cmgNodesAreNotMandatoryForInit() {
-        clientAndServer.when(request().withMethod("POST").withPath("/management/v1/cluster/init")).respond(response(null));
+        stubFor(post("/management/v1/cluster/init").willReturn(ok()));
 
         execute(
                 "--url", mockUrl,
@@ -310,25 +275,18 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "ignite.system.idleSafeTimeSyncIntervalMillis: 10,\n"
                 + "ignite.replication.idleSafeTimePropagationDurationMillis: 100";
 
-        String expectedSentContent = "{\n"
-                + "  \"metaStorageNodes\": [\n"
-                + "    \"node1ConsistentId\"\n"
-                + "  ],\n"
-                + "  \"cmgNodes\": [\n"
-                + "    \"node2ConsistentId\"\n"
-                + "  ],\n"
-                + "  \"clusterName\": \"cluster\",\n"
-                + "  \"clusterConfiguration\": \"" + escapedJson(expectedClusterConfiguration) + "\"\n"
+        String expectedSentContent = "{"
+                + "  \"metaStorageNodes\": ["
+                + "    \"node1ConsistentId\""
+                + "  ],"
+                + "  \"cmgNodes\": ["
+                + "    \"node2ConsistentId\""
+                + "  ],"
+                + "  \"clusterName\": \"cluster\","
+                + "  \"clusterConfiguration\": \"" + escapedJson(expectedClusterConfiguration) + "\""
                 + "}";
 
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                        .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
-                        .withContentType(MediaType.APPLICATION_JSON_UTF_8)
-                )
-                .respond(response(null));
+        returnOkForPostWithJson("/management/v1/cluster/init", expectedSentContent, true);
 
         execute(
                 "--url", mockUrl,
@@ -345,6 +303,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         String json = ConfigFactory.parseString(configuration)
                 .root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(true));
 
-        return PATTERN.matcher(json).replaceAll("\\\\\"");
+        String quoted = QUOTE_PATTERN.matcher(json).replaceAll("\\\\\"");
+
+        return CR_PATTERN.matcher(quoted).replaceAll("\\\\n");
     }
 }

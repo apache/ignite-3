@@ -157,7 +157,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(arg, descriptor.argumentMarshaller());
+        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(
+                arg, descriptor.argumentMarshaller(), observableTimestampTracker.getLong());
+
         ExecutionContext executionContext = new ExecutionContext(descriptor, metadataBuilder, argHolder);
 
         if (target instanceof AnyNodeJobTarget) {
@@ -241,7 +243,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         } else if (target instanceof TableJobTarget) {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
             return requiredTable(tableJobTarget.tableName())
-                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync()
+                    .thenCompose(table -> table.partitionDistribution().primaryReplicasAsync()
                             .thenCompose(replicas -> toBroadcastExecution(replicas.entrySet().stream()
                                     .map(entry -> new IgniteBiTuple<>(entry.getKey(), findNodeByConsistentId(entry.getValue())))
                                     .filter(entry -> entry.getValue() != null)
@@ -685,7 +687,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 deploymentUnits,
                 getReceiverJobClassName(options.executorType()),
                 ComputeEventMetadata.builder(Type.DATA_RECEIVER),
-                SharedComputeUtils.marshalArgOrResult(payload, null)
+                SharedComputeUtils.marshalArgOrResult(payload, null, observableTimestampTracker.getLong())
         );
 
         // Use Compute to execute receiver on the target node with failover, class loading, scheduling.

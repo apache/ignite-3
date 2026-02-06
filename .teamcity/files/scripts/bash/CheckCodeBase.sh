@@ -10,6 +10,6 @@ echo $SOURCE
 
 if grep -IER --exclude-dir={.git,.idea} '.' -e ".*${SOURCE}.*"; then
     echo
-    echo "Code base contains mention ticket!"
+    echo "Ticket $SOURCE is still mentioned in one or more TODOs in the code"
     echo
 fi

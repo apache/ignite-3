@@ -25,12 +25,12 @@ option disabled.
 
 USE_LOCAL_DEPS option set to OFF implies that dependencies will be downloaded, so you will need an internet connection.
 If you want to build project with your local dependencies you can set option USE_LOCAL_DEPS to ON. In this case you need 
-to specify location of the MbedTLS source code library with the MBEDTLS_SOURCE_DIR variable. 
+to specify location of the TF-PSA source code library with the TF_PSA_SOURCE_DIR variable. 
 In this case you have to install: 
  * msgpack-c >= 4.0.0 development package (for Ubuntu: libmsgpack-dev) 
  * Google test library >= 1.12.0 (for Ubuntu: libgtest-dev) if you want to build tests (ENABLE_TESTS = ON)
  * Google mock library >= 1.12.0 (for Ubuntu: libgmock-dev) if you want to build tests (ENABLE_TESTS = ON)
- * MbedTLS == v3.6.0 Source code needed as MbedTLS should be built with the ignite-3 config included
+ * TF-PSA-Crypto == v1.0.0 Source code needed as TF-PSA-Crypto should be built with the ignite-3 config included
 
 You should also specify the general (build type) CMake options. There are two types of build available - `Release` and `Debug`. The choice depends on how are you going to use the resulting artifacts. If you are going to use them in production, use the `Release` build type. If you are planning to just submit a patch for the project, use `Debug`.
 
@@ -194,3 +194,9 @@ To enable compatibility test pass `-DENABLE_COMPATIBILITY_TESTS=ON` to cmake bui
 If you are debugging then it is recommended to run one version at once by providing environment variable e.g `IGNITE_CPP_TESTS_COMPATIBILITY_VERSIONS_OVERRIDE=3.0.0`
 To start tests run in modules/platforms/cpp/tests/compatibility-tests
 `./cmake-build-debug/bin/ignite-client-compatibility-test`
+
+### Include what you use tool
+
+To enable IWYU (include-what-you-use) turn option ENABLE_IWYU on. This tool should be installed separately, and binary
+`iwyu` or `include-what-you-use` should be reachable with the PATH system variable. Build will produce messages about 
+missing includes in the source files. 

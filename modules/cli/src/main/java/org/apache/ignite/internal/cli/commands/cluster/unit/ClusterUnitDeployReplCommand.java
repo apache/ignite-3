@@ -29,7 +29,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Command to deploy a unit in REPL mode. */
-@Command(name = "deploy", description = "Deploys a unit")
+@Command(name = "deploy", description = "Deploys a unit from file or a directory (use --recursive for subdirectories)")
 public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnable {
 
     @Mixin

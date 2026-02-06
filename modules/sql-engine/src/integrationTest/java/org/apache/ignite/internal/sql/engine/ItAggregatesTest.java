@@ -818,6 +818,13 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    void testDivisionOfSumsOfDecimals() {
+        assertQuery("SELECT sum(c1) / sum(c2) FROM (SELECT decimal '10.2382' AS c1, decimal '2.06' AS c2)")
+                .returns(new BigDecimal("4.97000000000"))
+                .check();
+    }
+
     private static Stream<Arguments> rulesForGroupingSets() {
         List<Object[]> rules = Arrays.asList(
                 // Use map/reduce aggregates for grouping sets

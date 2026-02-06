@@ -165,10 +165,6 @@ All clients in Ignite 3 are "thin", and use a similar `clientConnector` configur
 
 Data eviction is performed on volatile storage based on link:administrators-guide/storage/storage-overview[storage engine] configuration.
 
-==== Expiry Policies
-
-Expiry policies are now configured on a per-table basis by creating a column with `timestamp` data type and specifying it with a `EXPIRE AT` command. See the link:sql-reference/ddl[SQL DDL] reference.
-
 ==== Network Configuration
 
 Node network configuration is now performed in  the `network` section of the link:administrators-guide/config/node-config[node configuration].

@@ -44,6 +44,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -125,7 +126,7 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     private CompletableFuture<Collection<SqlQueryInfo>> sqlQueryInfos(String query) {
         Statement sqlQueryStmt = igniteSql.createStatement(query);
-        return igniteSql.executeAsync(null, sqlQueryStmt)
+        return igniteSql.executeAsync((Transaction) null, sqlQueryStmt)
                 .thenCompose(resultSet -> iterate(resultSet, new ArrayList<>()));
     }
 

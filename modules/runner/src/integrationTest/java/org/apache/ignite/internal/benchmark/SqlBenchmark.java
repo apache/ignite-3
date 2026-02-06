@@ -68,7 +68,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT count(*)` query over entire table. */
     @Benchmark
     public void countAll(Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT count(*) FROM usertable")) {
+        try (var rs = sql.execute("SELECT count(*) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -76,7 +76,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT count(1)` query over entire table. */
     @Benchmark
     public void count1(Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT count(1) FROM usertable")) {
+        try (var rs = sql.execute("SELECT count(1) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -84,7 +84,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT count(key)` query over entire table. */
     @Benchmark
     public void countKey(Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT count(ycsb_key) FROM usertable")) {
+        try (var rs = sql.execute("SELECT count(ycsb_key) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -92,7 +92,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT count(val)` query over entire table. */
     @Benchmark
     public void countVal(Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT count(field2) FROM usertable")) {
+        try (var rs = sql.execute("SELECT count(field2) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -100,7 +100,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT *` query over entire table. */
     @Benchmark
     public void selectAll(Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT * FROM usertable")) {
+        try (var rs = sql.execute("SELECT * FROM usertable")) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }
@@ -113,7 +113,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void selectAllFromSystemRange(Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT * FROM TABLE(system_range(0, 1))")) {
+        try (var rs = sql.execute("SELECT * FROM TABLE(system_range(0, 1))")) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }

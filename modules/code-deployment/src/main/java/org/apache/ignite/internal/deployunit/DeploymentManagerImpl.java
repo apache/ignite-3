@@ -56,6 +56,7 @@ import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -219,9 +220,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                         }
                         LOG.warn("Failed to deploy meta of unit " + id + ":" + version + " to metastore. "
                                 + "Already exists.");
-                        return failedFuture(
-                                new DeploymentUnitAlreadyExistsException(id,
-                                        "Unit " + id + ":" + version + " already exists"));
+                        return failedFuture(new DeploymentUnitAlreadyExistsException("Unit " + id + ":" + version + " already exists"));
                     }
                 });
     }
@@ -352,6 +351,20 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
         return deploymentUnitStore.getNodeStatus(nodeName, id, version)
                 .thenApply(DeploymentManagerImpl::extractDeploymentStatus);
+    }
+
+    @Override
+    public CompletableFuture<UnitFolder> nodeUnitFileStructure(String id, Version version) {
+        checkId(id);
+        Objects.requireNonNull(version);
+
+        return deploymentUnitStore.getNodeStatus(nodeName, id, version).thenCompose(nodeStatus -> {
+            if (nodeStatus == null) {
+                return failedFuture(new DeploymentUnitNotFoundException(id, version));
+            }
+
+            return deployer.getUnitStructure(id, version);
+        });
     }
 
     @Override

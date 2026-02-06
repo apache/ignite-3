@@ -32,7 +32,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -41,7 +40,8 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
@@ -61,7 +61,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Runtime context allowing access to the tables in a database.
  */
-public class ExecutionContext<RowT> implements DataContext {
+public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
 
     /**
@@ -85,8 +85,9 @@ public class ExecutionContext<RowT> implements DataContext {
     private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
+    private final RowFactoryFactory<RowT> rowFactoryFactory;
 
-    private final ExpressionFactory<RowT> expressionFactory;
+    private final SqlExpressionFactory sqlExpressionFactory;
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
@@ -115,13 +116,14 @@ public class ExecutionContext<RowT> implements DataContext {
     /**
      * Constructor.
      *
-     * @param expressionFactory Expression factory.
+     * @param sqlExpressionFactory Expression factory.
      * @param executor Task executor.
      * @param executionId Execution ID.
      * @param localNode Local node.
      * @param originatingNodeName Name of the node that initiated the query.
      * @param description Partitions information.
      * @param handler Row handler.
+     * @param rowFactoryFactory Factory that produces factories to create row..
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
@@ -131,7 +133,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param topologyVersion Topology version the query was mapped on.
      */
     public ExecutionContext(
-            ExpressionFactory<RowT> expressionFactory,
+            SqlExpressionFactory sqlExpressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
             InternalClusterNode localNode,
@@ -139,6 +141,7 @@ public class ExecutionContext<RowT> implements DataContext {
             UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
+            RowFactoryFactory<RowT> rowFactoryFactory,
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
@@ -147,11 +150,12 @@ public class ExecutionContext<RowT> implements DataContext {
             @Nullable String username,
             @Nullable Long topologyVersion
     ) {
-        this.expressionFactory = expressionFactory;
+        this.sqlExpressionFactory = sqlExpressionFactory;
         this.executor = executor;
         this.executionId = executionId;
         this.description = description;
         this.handler = handler;
+        this.rowFactoryFactory = rowFactoryFactory;
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
@@ -227,18 +231,21 @@ public class ExecutionContext<RowT> implements DataContext {
         return description.group(sourceId);
     }
 
-    /**
-     * Get handler to access row fields.
-     */
-    public RowHandler<RowT> rowHandler() {
+    @Override
+    public RowHandler<RowT> rowAccessor() {
         return handler;
+    }
+
+    @Override
+    public RowFactoryFactory<RowT> rowFactoryFactory() {
+        return rowFactoryFactory;
     }
 
     /**
      * Get expression factory.
      */
-    public ExpressionFactory<RowT> expressionFactory() {
-        return expressionFactory;
+    public SqlExpressionFactory expressionFactory() {
+        return sqlExpressionFactory;
     }
 
     /**
@@ -350,23 +357,18 @@ public class ExecutionContext<RowT> implements DataContext {
         return TypeUtils.toInternal(param, nativeType.spec());
     }
 
-    /**
-     * Gets correlated value.
-     *
-     * @param id Correlation ID.
-     * @return Correlated value.
-     */
-    public Object correlatedVariable(int id) {
+    @Override
+    public @Nullable Object correlatedVariable(long id) {
         return sharedState.correlatedVariable(id);
     }
 
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(Object value, int id) {
+    public void correlatedVariable(long id, @Nullable Object value) {
         sharedState.correlatedVariable(id, value);
     }
 

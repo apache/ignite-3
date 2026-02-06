@@ -38,7 +38,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.table.QualifiedName.DEFAULT_SCHEMA_NAME;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -69,7 +68,6 @@ import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -243,11 +241,8 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
 
         DisasterRecoveryManager recoveryMgr = aliveNode.disasterRecoveryManager();
-        CompletableFuture<Void> resetFut = TestDisasterRecoveryUtils.resetPartitions(
-                recoveryMgr,
+        CompletableFuture<Void> resetFut = recoveryMgr.resetPartitions(
                 ZONE_NAME,
-                DEFAULT_SCHEMA_NAME,
-                TABLE_NAME,
                 emptySet(),
                 true,
                 -1
@@ -467,9 +462,8 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         IgniteImpl ignite = raftLeader().leaderHost;
         Catalog catalog = latestCatalog(ignite);
         int zoneId = catalog.zone(ZONE_NAME).id();
-        int tableId = catalog.table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
         return TestDisasterRecoveryUtils.getRealAssignments(
-                ignite.disasterRecoveryManager(), ZONE_NAME, zoneId, tableId, 0);
+                ignite.disasterRecoveryManager(), ZONE_NAME, zoneId, 0);
     }
 
     private boolean isNotMetastoreNode(Peer p) {
@@ -511,8 +505,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     private static Catalog latestCatalog(Ignite ignite) {
-        CatalogManager catalogManager = unwrapIgniteImpl(ignite).catalogManager();
-        return catalogManager.catalog(catalogManager.latestCatalogVersion());
+        return unwrapIgniteImpl(ignite).catalogManager().latestCatalog();
     }
 
     /**

@@ -1,0 +1,305 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.raft.client;
+
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.ThrottlingContextHolder;
+import org.apache.ignite.raft.jraft.util.Utils;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Represents a context containing data for {@code RaftGroupServiceImpl#sendWithRetry} methods.
+ *
+ * <p>Not thread-safe. It is expected that every context is confined within a single {@code sendWithRetry} chain and, therefore,
+ * happens-before relationship (i.e. visibility of changes to the mutable state) is achieved through consecutive {@code Executor.submit}
+ * calls.
+ */
+class RetryContext {
+    /** Indicates that default response timeout should be used. */
+    static final long USE_DEFAULT_RESPONSE_TIMEOUT = -1;
+
+    private static final int MAX_RETRY_REASONS = 25;
+
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS").withZone(ZoneId.systemDefault());
+
+    private final String groupId;
+
+    private Peer targetPeer;
+
+    private final Supplier<@Nullable String> originDescription;
+
+    private final Function<Peer, ? extends NetworkMessage> requestFactory;
+
+    /**
+     * Request that will be sent to the target peer.
+     */
+    private NetworkMessage request;
+
+    /**
+     * Timestamp that denotes the point in time up to which retry attempts will be made.
+     */
+    private final long stopTime;
+
+    /**
+     * Number of retries made. sendWithRetry method has a recursion nature, in case of recoverable exceptions or peer
+     * unavailability it'll be scheduled for a next attempt. Generally a request will be retried until success or timeout.
+     */
+    private int retryCount = 0;
+
+    /**
+     * Set of peers that should be excluded when choosing a node to send a request to.
+     */
+    private final Set<Peer> unavailablePeers = new HashSet<>();
+
+    /**
+     * Set of peers that returned "no leader" response (EPERM with leaderId==null).
+     * Unlike {@link #unavailablePeers}, this set is NOT reset when all peers are exhausted.
+     * Instead, when all peers are in this set, we wait for leader notification.
+     */
+    private final Set<Peer> noLeaderPeers = new HashSet<>();
+
+    /**
+     * List of last {@value MAX_RETRY_REASONS} retry reasons. {@link LinkedList} in order to allow fast head removal upon overflow.
+     */
+    private final List<RetryReason> retryReasons = new LinkedList<>();
+
+    /**
+     * Trace ID that is used to track exceptions that happened during a particular chain of retries.
+     *
+     * <p>Will be generated on first access.
+     */
+    @Nullable
+    private UUID errorTraceId;
+
+    private final long startTime;
+
+    private long attemptScheduleTime;
+
+    private long attemptStartTime;
+
+    private final long responseTimeoutMillis;
+
+    /**
+     * If {@code true} then all peers will be retried only once.
+     */
+    private final boolean singleShotRequest;
+
+    /**
+     * Creates a context.
+     *
+     * @param groupId Replication group ID.
+     * @param targetPeer Target peer to send the request to.
+     * @param originDescription Supplier describing the origin request from which this one depends, or returning {@code null} if
+     *         this request is independent.
+     * @param requestFactory Factory for creating requests to the target peer.
+     * @param sendWithRetryTimeoutMillis Timeout for entire request sending (with retries) in milliseconds, a negative value means no
+     *         timeout.
+     * @param responseTimeoutMillis Response timeout for each attempt (up to {@code stopTime}) in milliseconds, {@code -1} if using
+     *      {@link ThrottlingContextHolder#peerRequestTimeoutMillis} (default).
+     */
+    RetryContext(
+            String groupId,
+            Peer targetPeer,
+            Supplier<@Nullable String> originDescription,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            long sendWithRetryTimeoutMillis,
+            long responseTimeoutMillis
+    ) {
+        this.groupId = groupId;
+        this.targetPeer = targetPeer;
+        this.originDescription = originDescription;
+        this.requestFactory = requestFactory;
+        this.request = requestFactory.apply(targetPeer);
+        this.stopTime = Utils.monotonicMsAfter(sendWithRetryTimeoutMillis);
+        this.startTime = Utils.monotonicMs();
+        this.attemptScheduleTime = this.startTime;
+        this.attemptStartTime = this.startTime;
+        this.responseTimeoutMillis = responseTimeoutMillis;
+        this.singleShotRequest = sendWithRetryTimeoutMillis == 0;
+    }
+
+    Peer targetPeer() {
+        return targetPeer;
+    }
+
+    NetworkMessage request() {
+        return request;
+    }
+
+    @Nullable String originCommandDescription() {
+        return originDescription.get();
+    }
+
+    long stopTime() {
+        return stopTime;
+    }
+
+    Set<Peer> unavailablePeers() {
+        return unavailablePeers;
+    }
+
+    UUID errorTraceId() {
+        if (errorTraceId == null) {
+            errorTraceId = UUID.randomUUID();
+        }
+
+        return errorTraceId;
+    }
+
+    boolean singleShotRequest() {
+        return singleShotRequest;
+    }
+
+    void resetUnavailablePeers() {
+        unavailablePeers.clear();
+    }
+
+    void resetNoLeaderPeers() {
+        noLeaderPeers.clear();
+    }
+
+    Set<Peer> noLeaderPeers() {
+        return noLeaderPeers;
+    }
+
+    /**
+     * Updates this context by changing the target peer and adding the previous target peer to the "no leader" set.
+     * Used when a peer returns EPERM with no leader information.
+     *
+     * @return {@code this}.
+     */
+    RetryContext nextAttemptForNoLeaderPeer(Peer newTargetPeer, String shortReasonMessage) {
+        noLeaderPeers.add(targetPeer);
+
+        return nextAttempt(newTargetPeer, shortReasonMessage);
+    }
+
+    /**
+     * Updates this context by changing the target peer.
+     *
+     * @return {@code this}.
+     */
+    RetryContext nextAttempt(Peer newTargetPeer, String shortReasonMessage) {
+        // Used for duration calculation.
+        long currentTime = Utils.monotonicMs();
+        // Used for printing current time.
+        long currentWallClockTime = System.currentTimeMillis();
+
+        String reasonMessage = shortReasonMessage
+                + "; attemptWaitDuration=" + (attemptStartTime - attemptScheduleTime)
+                + ", attemptDuration=" + (currentTime - attemptStartTime)
+                + ", attemptStartTime=" + timestampToString(currentWallClockTime);
+
+        retryReasons.add(new RetryReason(reasonMessage, currentWallClockTime));
+
+        attemptScheduleTime = currentTime;
+
+        if (retryReasons.size() > MAX_RETRY_REASONS) {
+            retryReasons.remove(0);
+        }
+
+        request = requestFactory.apply(newTargetPeer);
+
+        targetPeer = newTargetPeer;
+
+        retryCount++;
+
+        return this;
+    }
+
+    private static String timestampToString(long timestamp) {
+        return TIMESTAMP_FORMATTER.format(Instant.ofEpochMilli(timestamp));
+    }
+
+    /**
+     * Updates this context by changing the target peer and adding the previous target peer to the "unavailable set".
+     *
+     * @return {@code this}.
+     */
+    RetryContext nextAttemptForUnavailablePeer(Peer newTargetPeer, String shortReasonMessage) {
+        unavailablePeers.add(targetPeer);
+
+        return nextAttempt(newTargetPeer, shortReasonMessage);
+    }
+
+    TimeoutException createTimeoutException() {
+        long currentTime = Utils.monotonicMs();
+
+        return new TimeoutException(format(
+                "Send with retry timed out [retryCount = {}, groupId = {}, traceId = {}, request = {}, originCommand = {},"
+                        + " retryReasons = {}, stopTime = {}, currentTime = {}, startTime = {}, duration = {}, currentWallTime = {}].",
+                retryCount,
+                groupId,
+                errorTraceId,
+                request.toStringForLightLogging(),
+                originDescription.get(),
+                retryReasons.toString(),
+                stopTime,
+                currentTime,
+                startTime,
+                currentTime - startTime,
+                System.currentTimeMillis()
+        ));
+    }
+
+    /**
+     * Called when a new attempt is started (sends a request).
+     */
+    void onNewAttempt() {
+        attemptStartTime = Utils.monotonicMs();
+    }
+
+    private static class RetryReason {
+        final long timestamp;
+        final String reason;
+
+        RetryReason(String reason, long currentTime) {
+            this.timestamp = currentTime;
+            this.reason = reason;
+        }
+
+        @Override
+        public String toString() {
+            // Purposefully make it shorter than "S.toString".
+            return "[time=" + timestamp + ", msg=" + reason + "]";
+        }
+    }
+
+    /**
+     * Returns response timeout for each attempt (up to {@code stopTime}) in milliseconds, {@code -1} if using
+     * {@link ThrottlingContextHolder#peerRequestTimeoutMillis} (default).
+     */
+    long responseTimeoutMillis() {
+        return responseTimeoutMillis;
+    }
+}

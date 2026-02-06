@@ -195,22 +195,83 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
                             expectedFileOrdinal
                     );
 
-                    var expectedMetaWithoutOverlap = new IndexFileMeta(
-                            expectedFirstLogIndex + overlap - logEntriesPerFile,
-                            expectedFirstLogIndex + overlap - 1,
-                            0,
-                            expectedFileOrdinal - 1
-                    );
+                    if (expectedFirstLogIndex == 0) {
+                        assertThat(logIndex + " -> " + indexFileMeta, indexFileMeta, is(expectedMetaWithOverlap));
+                    } else {
+                        var expectedMetaWithoutOverlap = new IndexFileMeta(
+                                expectedFirstLogIndex + overlap - logEntriesPerFile,
+                                expectedFirstLogIndex + overlap - 1,
+                                0,
+                                expectedFileOrdinal - 1
+                        );
 
-                    // We can possibly be reading from two different metas - from the newer one (that overlaps the older one) or
-                    // the older one.
-                    assertThat(
-                            logIndex + " -> " + indexFileMeta,
-                            indexFileMeta, either(is(expectedMetaWithOverlap)).or(is(expectedMetaWithoutOverlap)));
+                        // We can possibly be reading from two different metas - from the newer one (that overlaps the older one) or
+                        // the older one.
+                        assertThat(
+                                logIndex + " -> " + indexFileMeta,
+                                indexFileMeta, either(is(expectedMetaWithOverlap)).or(is(expectedMetaWithoutOverlap))
+                        );
+                    }
                 }
             }
         };
 
         runRace(writer, reader, reader, reader);
+    }
+
+    @Test
+    void testTruncatePrefix() {
+        var meta1 = new IndexFileMeta(1, 100, 0, 0);
+        var meta2 = new IndexFileMeta(42, 100, 42, 1);
+        var meta3 = new IndexFileMeta(100, 120, 66, 2);
+        var meta4 = new IndexFileMeta(110, 200, 95, 3);
+
+        var groupMeta = new GroupIndexMeta(meta1);
+
+        groupMeta.addIndexMeta(meta2);
+        groupMeta.addIndexMeta(meta3);
+        groupMeta.addIndexMeta(meta4);
+
+        assertThat(groupMeta.firstLogIndexInclusive(), is(1L));
+        assertThat(groupMeta.lastLogIndexExclusive(), is(200L));
+
+        assertThat(groupMeta.indexMeta(10), is(meta1));
+        assertThat(groupMeta.indexMeta(42), is(meta2));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+        assertThat(groupMeta.indexMeta(110), is(meta4));
+
+        groupMeta.truncatePrefix(43);
+
+        assertThat(groupMeta.indexMeta(10), is(nullValue()));
+        assertThat(groupMeta.indexMeta(42), is(nullValue()));
+
+        // Payload offset is shifted 4 bytes in order to skip the truncated entry.
+        var trimmedMeta = new IndexFileMeta(43, 100, 46, 1);
+
+        assertThat(groupMeta.indexMeta(43), is(trimmedMeta));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+        assertThat(groupMeta.indexMeta(110), is(meta4));
+
+        groupMeta.truncatePrefix(110);
+
+        assertThat(groupMeta.indexMeta(43), is(nullValue()));
+        assertThat(groupMeta.indexMeta(100), is(nullValue()));
+        assertThat(groupMeta.indexMeta(110), is(meta4));
+    }
+
+    @Test
+    void testTruncatePrefixRemovesAllEntriesWhenKeptAfterLast() {
+        var meta1 = new IndexFileMeta(1, 10, 0, 0);
+        var meta2 = new IndexFileMeta(10, 20, 100, 1);
+
+        var groupMeta = new GroupIndexMeta(meta1);
+        groupMeta.addIndexMeta(meta2);
+
+        // Truncate to the end of last meta - everything should be removed.
+        groupMeta.truncatePrefix(20);
+
+        assertThat(groupMeta.indexMeta(0), is(nullValue()));
+        assertThat(groupMeta.indexMeta(19), is(nullValue()));
+        assertThat(groupMeta.firstLogIndexInclusive(), is(-1L));
     }
 }

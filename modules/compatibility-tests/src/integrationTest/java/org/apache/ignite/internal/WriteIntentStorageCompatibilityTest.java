@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.compute.DisableWriteIntentSwitchExecutionJob;
+import org.apache.ignite.internal.compute.FlushTablePartitionsJob;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,8 @@ class WriteIntentStorageCompatibilityTest extends CompatibilityTestBase {
             view.put(tx, 2, "two");
             view.put(tx, 3, "three");
         });
+
+        DeploymentUtils.runJob(cluster, FlushTablePartitionsJob.class, TEST_TABLE);
     }
 
     private void disableWriteIntentSwitchExecution() {

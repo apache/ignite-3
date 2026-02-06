@@ -214,6 +214,8 @@ class CheckpointWorkflow {
         try {
             updateHeartbeat.run();
 
+            tracker.onBeforeCheckpointBeginStart();
+
             for (CheckpointListener listener : listeners) {
                 listener.beforeCheckpointBegin(curr, executor);
 
@@ -225,6 +227,8 @@ class CheckpointWorkflow {
             if (executor != null) {
                 executor.awaitPendingTasksFinished();
             }
+
+            tracker.onBeforeCheckpointBeginEnd();
         } finally {
             checkpointReadWriteLock.readUnlock();
         }

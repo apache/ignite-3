@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-test-common)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-test-common)
 
 set(SOURCES
     basic_auth_test_suite.h

@@ -67,6 +67,7 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -100,8 +101,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
-import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
-import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -124,6 +123,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
@@ -188,9 +188,9 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -392,6 +392,8 @@ public class Node {
 
         partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
 
+        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+
         RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
@@ -550,15 +552,15 @@ public class Node {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureManager,
-                nodeProperties,
                 replicationConfiguration,
                 Runnable::run,
                 metricManager,
-                zoneId -> completedFuture(Set.of()),
-                zoneId -> null
+                zoneId -> completedFuture(Set.of())
         );
 
-        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService, txStateVolatileStorage);
 
         var cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -599,7 +601,7 @@ public class Node {
                         dir.resolve("storage"),
                         null,
                         failureManager,
-                        partitionsLogStorageFactory,
+                        partitionsLogSyncer,
                         hybridClock,
                         scheduledExecutorService
                 ),
@@ -621,6 +623,7 @@ public class Node {
                 clusterService,
                 replicaSvc,
                 lockManager,
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(address.port()),
                 placementDriverManager.placementDriver(),
@@ -639,6 +642,7 @@ public class Node {
                 name,
                 clusterService,
                 cmgManager,
+                groupId -> completedFuture(Assignments.EMPTY),
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
@@ -689,14 +693,12 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
+                lowWatermark,
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
 
         metaStorageManager.addElectionListener(catalogCompactionRunner::updateCoordinator);
-
-        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
-                params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
         SystemDistributedConfiguration systemDistributedConfiguration =
                 clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
@@ -710,7 +712,8 @@ public class Node {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                metricManager
+                metricManager,
+                lowWatermark
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -718,7 +721,7 @@ public class Node {
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 failureManager
         );
 
@@ -732,7 +735,6 @@ public class Node {
                 clusterService.topologyService(),
                 lowWatermark,
                 failureManager,
-                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -744,7 +746,10 @@ public class Node {
                 txManager,
                 schemaManager,
                 dataStorageMgr,
-                outgoingSnapshotsManager
+                outgoingSnapshotsManager,
+                metricManager,
+                clusterService.messagingService(),
+                replicaSvc
         );
 
         resourceVacuumManager = new ResourceVacuumManager(
@@ -791,9 +796,8 @@ public class Node {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                partitionsLogStorageFactory,
+                partitionsLogSyncer,
                 partitionReplicaLifecycleManager,
-                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
@@ -819,14 +823,6 @@ public class Node {
                 }).when(storage).getMvPartition(anyInt());
 
                 return storage;
-            }
-
-            @Override
-            protected TxStateStorage createTxStateTableStorage(
-                    CatalogTableDescriptor tableDescriptor,
-                    CatalogZoneDescriptor zoneDescriptor
-            ) {
-                return createSpy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
             }
         };
 
@@ -854,7 +850,9 @@ public class Node {
                 clockService,
                 failureManager,
                 lowWatermark,
-                txManager
+                txManager,
+                partitionReplicaLifecycleManager,
+                metricManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -45,21 +47,27 @@ public class WriteIntentSwitchProcessor {
     /** Topology service. */
     private final TopologyService topologyService;
 
+    /** Volatile transaction state meta storage. */
+    private final VolatileTxStateMetaStorage volatileTxStateMetaStorage;
+
     /**
      * The constructor.
      *
      * @param placementDriverHelper Placement driver helper.
      * @param txMessageSender Transaction message creator.
      * @param topologyService Topology service.
+     * @param volatileTxStateMetaStorage Volatile transaction state meta storage.
      */
     public WriteIntentSwitchProcessor(
             PlacementDriverHelper placementDriverHelper,
             TxMessageSender txMessageSender,
-            TopologyService topologyService
+            TopologyService topologyService,
+            VolatileTxStateMetaStorage volatileTxStateMetaStorage
     ) {
         this.placementDriverHelper = placementDriverHelper;
         this.txMessageSender = txMessageSender;
         this.topologyService = topologyService;
+        this.volatileTxStateMetaStorage = volatileTxStateMetaStorage;
     }
 
     /**
@@ -93,13 +101,15 @@ public class WriteIntentSwitchProcessor {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
                         if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
-                            LOG.debug("Failed to switch write intents for Tx. The operation will be retried [txId={}, exception={}].",
-                                    txId, ex.getClass().getSimpleName() + ": " + ex.getMessage());
+                            LOG.debug("Failed to switch write intents for txn. The operation will be retried [{}, exception={}].",
+                                    formatTxInfo(txId, volatileTxStateMetaStorage, false),
+                                    ex.getClass().getSimpleName() + ": " + ex.getMessage());
 
                             return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
                         }
 
-                        LOG.info("Failed to switch write intents for Tx [txId={}].", txId, ex);
+                        LOG.info("Failed to switch write intents for txn {}.", ex,
+                                formatTxInfo(txId, volatileTxStateMetaStorage));
 
                         return CompletableFuture.<WriteIntentSwitchReplicatedInfo>failedFuture(ex);
                     }

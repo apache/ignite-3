@@ -50,6 +50,7 @@ public class SqlManager implements AutoCloseable {
 
         SqlQueryResultBuilder sqlQueryResultBuilder = new SqlQueryResultBuilder();
 
+        long startTime = System.currentTimeMillis();
         try (Statement statement = connection.createStatement()) {
             statement.execute(sql);
 
@@ -63,6 +64,7 @@ public class SqlManager implements AutoCloseable {
                 }
             } while (statement.getMoreResults() || statement.getUpdateCount() != -1);
 
+            sqlQueryResultBuilder.setDurationMs(System.currentTimeMillis() - startTime);
             return sqlQueryResultBuilder.build();
         }
     }

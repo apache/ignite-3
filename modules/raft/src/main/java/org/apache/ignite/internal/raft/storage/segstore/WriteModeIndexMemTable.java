@@ -49,6 +49,16 @@ interface WriteModeIndexMemTable {
     void truncateSuffix(long groupId, long lastLogIndexKept);
 
     /**
+     * Removes all offsets for the given Raft group which log indices are strictly smaller than {@code firstIndexKept}.
+     */
+    void truncatePrefix(long groupId, long firstIndexKept);
+
+    /**
+     * Removes all offsets for the given Raft group, leaving only offset which log index is equal to {@code nextLogIndex}.
+     */
+    void reset(long groupId, long nextLogIndex);
+
+    /**
      * Returns the read-only version of this memtable.
      */
     ReadModeIndexMemTable transitionToReadMode();

@@ -35,6 +35,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -61,6 +63,8 @@ import org.rocksdb.WriteBatch;
  * Table storage implementation based on {@link RocksDB} instance.
  */
 public class RocksDbTableStorage implements MvTableStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbTableStorage.class);
+
     private final SharedRocksDbInstance rocksDb;
 
     /** Partition storages. */
@@ -307,6 +311,10 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Starting rebalance for partition [tableId={}, partitionId={}]", getTableId(), partitionId);
+            }
+
             try (WriteBatch writeBatch = new WriteBatch()) {
                 mvPartitionStorage.startRebalance(writeBatch);
 

@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -148,6 +149,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         .Select(static x => x.Val);
 
     /// <inheritdoc/>
+    [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
     public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
     {
         var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options, _recordView.Table.Socket.Configuration.Configuration);

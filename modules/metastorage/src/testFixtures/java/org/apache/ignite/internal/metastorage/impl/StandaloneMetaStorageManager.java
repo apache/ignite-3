@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
@@ -159,10 +160,14 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             HybridClock clock,
             ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
+        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
+
+        when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
+
         return new StandaloneMetaStorageManager(
                 mockClusterService(),
                 mockClusterGroupManager(),
-                mock(LogicalTopologyService.class),
+                logicalTopologyService,
                 mockRaftManager(),
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),

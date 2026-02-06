@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests.Table
 {
     using System;
     using System.Threading.Tasks;
+    using Common.Table;
     using Ignite.Table;
     using NUnit.Framework;
 

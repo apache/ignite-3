@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Common.Compute;
 using Compute;
 using Ignite.Compute;
 using NUnit.Framework;
@@ -72,7 +73,7 @@ public class ExceptionCodeAsStringTests : IgniteTestsBase
     private async Task<string> GetCodeAsStringJava(int errorCode)
     {
         var nodes = await Client.GetClusterNodesAsync();
-        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(nodes), ComputeTests.ExceptionCodeAsStringJob, errorCode);
+        var jobExec = await Client.Compute.SubmitAsync(JobTarget.AnyNode(nodes), JavaJobs.ExceptionCodeAsStringJob, errorCode);
         return await jobExec.GetResultAsync();
     }
 }

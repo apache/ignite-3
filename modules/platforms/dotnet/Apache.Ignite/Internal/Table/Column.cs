@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table;
 
 using Ignite.Sql;
+using Ignite.Table.Mapper;
 
 /// <summary>
 /// Schema column.
@@ -31,6 +32,7 @@ internal record Column(
     int SchemaIndex,
     int Scale,
     int Precision)
+    : IMapperColumn
 {
     /// <summary>
     /// Gets a value indicating whether this column is a part of the key.
@@ -41,6 +43,9 @@ internal record Column(
     /// Gets a value indicating whether this column is a part of the colocation key.
     /// </summary>
     public bool IsColocation => ColocationIndex >= 0;
+
+    /// <inheritdoc/>
+    public bool Nullable => IsNullable;
 
     /// <summary>
     /// Gets the column index within a binary tuple.

@@ -715,6 +715,15 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         assertEquals(1, rs.getInt("NULLABLE"));
         assertEquals(64, rs.getInt("COLUMN_SIZE"));
 
+        assertTrue(rs.next());
+        assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+        assertEquals("TRANSACTIONS", rs.getString("TABLE_NAME"));
+        assertEquals("TRANSACTION_LABEL", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
+        assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(64, rs.getInt("COLUMN_SIZE"));
+
         assertFalse(rs.next());
     }
 

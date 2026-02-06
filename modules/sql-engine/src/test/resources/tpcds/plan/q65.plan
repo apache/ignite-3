@@ -7,7 +7,7 @@ Sort
       projection: [S_STORE_NAME, I_ITEM_DESC, REVENUE, I_CURRENT_PRICE, I_WHOLESALE_COST, I_BRAND]
       est: (rows=5040261776)
     HashJoin
-        predicate: AND(<=(REVENUE, CAST(*(0.1:DECIMAL(2, 1), AVE)):DECIMAL(32767, 2)), =(SS_STORE_SK$0, SS_STORE_SK))
+        predicate: AND(<=(CAST(REVENUE):DECIMAL(30, 17), *(0.1:DECIMAL(2, 1), AVE)), =(SS_STORE_SK$0, SS_STORE_SK))
         fieldNames: [I_ITEM_SK, I_ITEM_DESC, I_CURRENT_PRICE, I_WHOLESALE_COST, I_BRAND, SS_STORE_SK, SS_ITEM_SK, REVENUE, S_STORE_SK, S_STORE_NAME, SS_STORE_SK$0, AVE]
         type: inner
         est: (rows=5040261776)

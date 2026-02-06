@@ -20,6 +20,7 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.util.Collection;
+import org.apache.ignite.internal.network.annotations.MessageSerialVersionUid;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -53,6 +54,7 @@ public final class RaftOutter {
     }
 
     @Transferable(RaftMessageGroup.RaftOutterMessageGroup.SNAPSHOT_META)
+    @MessageSerialVersionUid(7302290474182723103L)
     public interface SnapshotMeta extends Message {
         long lastIncludedIndex();
 

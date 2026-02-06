@@ -153,6 +153,55 @@ public class IgniteServiceCollectionExtensionsTests
             (s, key) => s.AddIgniteClientGroupKeyed(key, (_, _) => CreateGroupConfig(), lifetime));
     }
 
+    [Test]
+    public void TestAutomaticLoggerFactorySetFromServices()
+    {
+        var services = new ServiceCollection();
+
+        var diLoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        services.AddSingleton(diLoggerFactory);
+
+        var config = new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)
+        };
+
+        services.AddIgniteClientGroup(config);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        using var group = serviceProvider.GetRequiredService<IgniteClientGroup>();
+
+        var actualLoggerFactory = group.Configuration.ClientConfiguration.LoggerFactory;
+        Assert.AreSame(diLoggerFactory, actualLoggerFactory);
+    }
+
+    [Test]
+    public void TestCustomLoggerFactoryIsPreserved()
+    {
+        var services = new ServiceCollection();
+
+        var diLoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        services.AddSingleton(diLoggerFactory);
+
+        var customLoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+        var config = new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)
+            {
+                LoggerFactory = customLoggerFactory
+            }
+        };
+
+        services.AddIgniteClientGroup(config);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        using var group = serviceProvider.GetRequiredService<IgniteClientGroup>();
+
+        var actualLoggerFactory = group.Configuration.ClientConfiguration.LoggerFactory;
+        Assert.AreSame(customLoggerFactory, actualLoggerFactory);
+        Assert.AreNotSame(diLoggerFactory, actualLoggerFactory);
+    }
+
     private static async Task ValidateRegisterSingleClient(Action<ServiceCollection> register, Func<IServiceProvider, IgniteClientGroup?> resolve)
     {
         var services = new ServiceCollection();

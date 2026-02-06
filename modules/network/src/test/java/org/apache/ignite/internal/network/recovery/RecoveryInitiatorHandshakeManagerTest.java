@@ -46,11 +46,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
@@ -123,6 +125,9 @@ class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
 
     private final AtomicBoolean initiatorHandshakeManagerStopping = new AtomicBoolean(false);
 
+    @Mock
+    private TopologyService topologyService;
+
     @BeforeEach
     void initMocks() {
         lenient().when(thisContext.channel()).thenReturn(thisChannel);
@@ -189,7 +194,9 @@ class RecoveryInitiatorHandshakeManagerTest extends HandshakeManagerTest {
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                topologyService,
+                new NoOpFailureManager()
         );
 
         manager.onInit(thisContext);

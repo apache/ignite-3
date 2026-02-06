@@ -55,7 +55,7 @@ public class InternalSqlRowImpl<RowT> implements InternalSqlRow {
     /** {@inheritDoc} */
     @Override
     public int fieldCount() {
-        return rowHandler.columnCount(row);
+        return rowHandler.columnsCount(row);
     }
 
     /** {@inheritDoc} */

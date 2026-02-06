@@ -19,18 +19,18 @@ package org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming;
 
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Helper class for starting rebalancing for the replication log. */
 class ReplicationLogStorageKey {
     @IgniteToStringInclude
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
 
     private final boolean isVolatile;
 
-    private ReplicationLogStorageKey(ReplicationGroupId replicationGroupId, boolean isVolatile) {
+    private ReplicationLogStorageKey(ZonePartitionId replicationGroupId, boolean isVolatile) {
         this.replicationGroupId = replicationGroupId;
         this.isVolatile = isVolatile;
     }
@@ -39,7 +39,7 @@ class ReplicationLogStorageKey {
         return new ReplicationLogStorageKey(snapshotStorage.partitionKey().toReplicationGroupId(), mvStorage.isVolatile());
     }
 
-    ReplicationGroupId replicationGroupId() {
+    ZonePartitionId replicationGroupId() {
         return replicationGroupId;
     }
 

@@ -172,8 +172,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return attached(view -> view.remove(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return attached(view -> view.removeExact(tx, key, val));
     }
 
     @Override
@@ -182,8 +182,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
-        return attachedAsync(view -> view.removeAsync(tx, key, val));
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
+        return attachedAsync(view -> view.removeExactAsync(tx, key, val));
     }
 
     @Override
@@ -233,8 +233,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
-        return attached(view -> view.replace(tx, key, oldValue, newValue));
+    public boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
+        return attached(view -> view.replaceExact(tx, key, oldValue, newValue));
     }
 
     @Override
@@ -243,8 +243,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        return attachedAsync(view -> view.replaceAsync(tx, key, oldVal, newVal));
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+        return attachedAsync(view -> view.replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     @Override

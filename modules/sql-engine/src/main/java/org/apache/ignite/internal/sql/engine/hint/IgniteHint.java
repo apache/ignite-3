@@ -34,7 +34,10 @@ public enum IgniteHint {
     /** Disables index usage. **/
     NO_INDEX(true),
     /** Forces index usage. */
-    FORCE_INDEX(true);
+    FORCE_INDEX(true),
+    /** Disable optimizations related to subquery decorrelation. */
+    DISABLE_DECORRELATION,
+    ;
 
     private final boolean paramSupport;
 

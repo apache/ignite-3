@@ -29,7 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,8 +49,6 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     private final List<ReplicaMeta> primaryReplicas;
 
     private boolean returnError;
-
-    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;
@@ -81,8 +77,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     public void updateReplica(@Nullable String replica, int tableId, int zoneId, int partition, long leaseStartTime) {
         UUID leaseHolderId = replica == null ? null : deriveUuidFrom(replica);
         primaryReplicas.set(partition, getReplicaMeta(replica, leaseHolderId, leaseStartTime));
-        ReplicationGroupId groupId = enabledColocation ? new ZonePartitionId(zoneId, partition)
-                : new TablePartitionId(tableId, partition);
+        ZonePartitionId groupId = new ZonePartitionId(zoneId, partition);
 
         PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
                 0,
@@ -96,8 +91,12 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
-            TimeUnit unit) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
         PartitionGroupId id = (PartitionGroupId) groupId;
 
         return returnError
@@ -131,8 +130,10 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
-    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
-            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long timeoutMillis
+    ) {
         return failedFuture(new UnsupportedOperationException("awaitNonEmptyAssignments() is not supported in FakePlacementDriver yet."));
     }
 

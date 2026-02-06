@@ -25,10 +25,13 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.DefaultApplicationContext;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.DefaultConversionService;
+import io.micronaut.http.HttpMethod;
 import io.micronaut.http.server.exceptions.ServerStartupException;
 import io.micronaut.http.ssl.ClientAuthentication;
+import io.micronaut.management.endpoint.health.HealthEndpoint;
 import io.micronaut.runtime.Micronaut;
 import io.micronaut.runtime.exceptions.ApplicationStartupException;
+import io.micronaut.security.rules.SecurityRule;
 import io.netty.handler.ssl.ClientAuth;
 import java.net.BindException;
 import java.net.InetAddress;
@@ -226,12 +229,21 @@ public class RestComponent implements IgniteComponent {
         result.put("micronaut.server.cors.enabled", "true");
         result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
         result.put("micronaut.security.intercept-url-map[0].pattern", "/**");
-        result.put("micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
+        result.put("micronaut.security.intercept-url-map[0].access", SecurityRule.IS_AUTHENTICATED);
         result.put("micronaut.server.max-request-size", Integer.MAX_VALUE);
         result.put("micronaut.server.multipart.max-file-size", Integer.MAX_VALUE);
 
         // If deserialized as doubles, Instant objects can lose precision, see InstantDeserializationTest
         result.put("jackson.deserialization", Map.of(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true));
+
+        // Enable health endpoint only and allow anonymous access to it.
+        result.put("endpoints.all.enabled", false);
+        result.put("endpoints.health.enabled", true);
+        result.put("micronaut.security.intercept-url-map[1].pattern", "/" + HealthEndpoint.NAME + "/**");
+        result.put("micronaut.security.intercept-url-map[1].access", SecurityRule.IS_ANONYMOUS);
+        // If a given request URI matches more than one intercept url map, the one that specifies an http method that matches the request
+        // method will be used.
+        result.put("micronaut.security.intercept-url-map[1].httpMethod", HttpMethod.GET);
 
         if (sslEnabled) {
             KeyStoreView keyStore = restSslView.keyStore();

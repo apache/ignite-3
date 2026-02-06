@@ -1417,4 +1417,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
         return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.sendCompactionCommand(compactionRevision)));
     }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark component as stopping.
+     */
+    public void markAsStopping() {
+        metaStorageSvcFut.thenAccept(MetaStorageServiceImpl::markAsStopping);
+    }
 }

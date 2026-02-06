@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemory
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_TYPE_SYSTEM_PROPERTY;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
+import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -65,7 +68,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -94,12 +96,13 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
     private final PersistentPageMemoryProfileConfiguration cfg;
 
-    /** Can only be null in tests. Saves us from a bunch of mocking. */
-    private final @Nullable SystemLocalConfiguration systemLocalConfig;
+    private final SystemLocalConfiguration systemLocalConfig;
 
     private final PageIoRegistry ioRegistry;
 
     private final int pageSize;
+
+    private volatile long regionSize;
 
     private final FilePageStoreManager filePageStoreManager;
 
@@ -130,7 +133,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     public PersistentPageMemoryDataRegion(
             MetricManager metricManager,
             PersistentPageMemoryProfileConfiguration cfg,
-            @Nullable SystemLocalConfiguration systemLocalConfig,
+            SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
@@ -166,6 +169,13 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
             );
         }
 
+        this.regionSize = sizeBytes;
+
+        long checkpointReadLockTimeout = checkpointManager.checkpointTimeoutLock().checkpointReadLockTimeout();
+        OffheapReadWriteLock offheapReadWriteLock = checkpointReadLockTimeout == 0L
+                ? new OffheapReadWriteLock(DEFAULT_CONCURRENCY_LEVEL)
+                : new OffheapReadWriteLock(DEFAULT_CONCURRENCY_LEVEL, checkpointReadLockTimeout, MILLISECONDS);
+
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 regionConfiguration(dataRegionConfigView, sizeBytes, pageSize),
                 metricSource,
@@ -175,13 +185,9 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 filePageStoreManager,
                 this::flushDirtyPageOnReplacement,
                 checkpointManager.checkpointTimeoutLock(),
-                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL),
+                offheapReadWriteLock,
                 checkpointManager.partitionDestructionLockManager()
         );
-
-        initThrottling(pageMemory);
-
-        pageMemory.start();
 
         initMetrics();
 
@@ -193,7 +199,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         this.pageMemory = pageMemory;
     }
 
-    private static PersistentDataRegionConfiguration regionConfiguration(
+    private PersistentDataRegionConfiguration regionConfiguration(
             PersistentPageMemoryProfileView cfg,
             long sizeBytes,
             int pageSize
@@ -203,29 +209,28 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 .pageSize(pageSize)
                 .size(sizeBytes)
                 .replacementMode(ReplacementMode.valueOf(cfg.replacementMode()))
+                .throttlingPolicyFactory(throttlingPolicyFactory())
                 .build();
     }
 
-    // TODO IGNITE-24933 refactor.
-    private void initThrottling(PersistentPageMemory pageMemory) {
+    private ThrottlingPolicyFactory throttlingPolicyFactory() {
         ThrottlingType throttlingType = getThrottlingType();
 
         switch (throttlingType) {
             case DISABLED:
-                break;
+                return pageMemory -> null;
 
             case TARGET_RATIO:
-                pageMemory.initThrottling(new TargetRatioPagesWriteThrottle(
+                return pageMemory -> new TargetRatioPagesWriteThrottle(
                         getLoggingThreshold(),
                         pageMemory,
                         checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                         metricSource
-                ));
-                break;
+                );
 
             case SPEED_BASED:
-                pageMemory.initThrottling(new PagesWriteSpeedBasedThrottle(
+                return pageMemory -> new PagesWriteSpeedBasedThrottle(
                         getLoggingThreshold(),
                         getMinDirtyPages(),
                         getMaxDirtyPages(),
@@ -233,11 +238,10 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                         checkpointManager::currentCheckpointProgressForThrottling,
                         checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
                         metricSource
-                ));
-                break;
+                );
 
             default:
-                assert false : "Impossible throttling type: " + throttlingType;
+                throw new IllegalArgumentException("Impossible throttling type: " + throttlingType);
         }
     }
 
@@ -250,7 +254,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     }
 
     private long getLoggingThreshold() {
-        return TimeUnit.MILLISECONDS.toNanos(getSystemConfig(
+        return MILLISECONDS.toNanos(getSystemConfig(
                 THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY,
                 TimeUnit.NANOSECONDS.toMillis(PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD),
                 value -> {
@@ -515,5 +519,10 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         FilePageStore store = filePageStoreManager.getStore(new GroupPartitionId(tableId, partitionId));
 
         return store == null ? 0 : store.pages();
+    }
+
+    @Override
+    public long regionSize() {
+        return regionSize;
     }
 }

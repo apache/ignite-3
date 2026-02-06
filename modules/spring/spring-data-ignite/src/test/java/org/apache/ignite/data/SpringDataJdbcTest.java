@@ -89,7 +89,7 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
         cluster = new Cluster(clusterConfiguration);
         cluster.startAndInit(1);
 
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS Person ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS Person ("
                 + "    id INT,"
                 + "    name VARCHAR,"
                 + "    flag BOOLEAN,"
@@ -98,18 +98,18 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
                 + "    Primary key(id)"
                 + ");");
 
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS ROOT ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS ROOT ("
                 + "    ID   BIGINT PRIMARY KEY,"
                 + "    NAME VARCHAR(100)"
                 + ");");
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS INTERMEDIATE ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS INTERMEDIATE ("
                 + "    ID       BIGINT  PRIMARY KEY,"
                 + "    NAME     VARCHAR(100),"
                 + "    ROOT     BIGINT,"
                 + "    ROOT_ID  BIGINT,"
                 + "    ROOT_KEY INTEGER"
                 + ");");
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS LEAF ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS LEAF ("
                 + "    ID               BIGINT PRIMARY KEY,"
                 + "    NAME             VARCHAR(100),"
                 + "    INTERMEDIATE     BIGINT,"

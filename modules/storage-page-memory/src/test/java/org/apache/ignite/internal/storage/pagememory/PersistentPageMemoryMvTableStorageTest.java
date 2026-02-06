@@ -46,10 +46,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -76,6 +78,7 @@ import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -96,6 +99,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = " + Constants.GiB + "}")
     private StorageConfiguration storageConfig;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemConfig;
 
     private PersistentPageMemoryStorageEngine engine;
 
@@ -119,7 +125,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 "test",
                 metricManager,
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,
@@ -564,6 +570,36 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                     () -> assertThat(forceCheckpointAsync(), willCompleteSuccessfully())
             );
         }
+    }
+
+    @Test
+    void testRebalanceWithLotsOfWriteIntents() {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        for (int i = 0; i < 50; i++) {
+            addWriteUncommitted(partitionStorage);
+        }
+
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+        try {
+            addWriteUncommitted(partitionStorage);
+        } finally {
+            assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+        }
+    }
+
+    private void addWriteUncommitted(MvPartitionStorage partitionStorage0) {
+        String randomString = IgniteTestUtils.randomString(ThreadLocalRandom.current(), 256);
+        BinaryRow binaryRow = binaryRow(new TestKey(0, randomString), new TestValue(0, randomString));
+
+        partitionStorage0.runConsistently(locker -> {
+            RowId rowId = new RowId(PARTITION_ID);
+
+            locker.lock(rowId);
+
+            return partitionStorage0.addWrite(rowId, binaryRow, newTransactionId(), 1, 1);
+        });
     }
 
     private CompletableFuture<Void> forceCheckpointAsync() {

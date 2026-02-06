@@ -27,6 +27,8 @@ dependencies {
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')
     implementation project(':ignite-api')
+
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.core
     implementation libs.jackson.databind
 
@@ -42,4 +44,3 @@ dependencies {
     integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation testFixtures(project(':ignite-core'))
 }
-

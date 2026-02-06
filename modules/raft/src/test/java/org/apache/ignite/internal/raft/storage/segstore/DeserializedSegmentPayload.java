@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.CRC_SIZE_BYTES;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.GROUP_ID_SIZE_BYTES;
-import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.HASH_SIZE_BYTES;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.LENGTH_SIZE_BYTES;
 import static org.apache.ignite.internal.raft.util.VarlenEncoder.readLong;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -63,9 +63,9 @@ class DeserializedSegmentPayload {
 
         int payloadLength = readFully(channel, LENGTH_SIZE_BYTES).getInt();
 
-        ByteBuffer remaining = readFully(channel, payloadLength + HASH_SIZE_BYTES);
+        ByteBuffer remaining = readFully(channel, payloadLength + CRC_SIZE_BYTES);
 
-        ByteBuffer fullEntry = ByteBuffer.allocate(payloadLength + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE_BYTES)
+        ByteBuffer fullEntry = ByteBuffer.allocate(payloadLength + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + CRC_SIZE_BYTES)
                 .order(SegmentFile.BYTE_ORDER)
                 .putLong(groupId)
                 .putInt(payloadLength)
@@ -113,7 +113,7 @@ class DeserializedSegmentPayload {
     }
 
     int size() {
-        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payload.length + HASH_SIZE_BYTES;
+        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + payload.length + CRC_SIZE_BYTES;
     }
 
     private static ByteBuffer readFully(ReadableByteChannel byteChannel, int len) throws IOException {

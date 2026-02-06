@@ -62,7 +62,7 @@ public class IndexMeta {
      * @param currentStatus Current status of the index
      * @param statusChanges <b>Immutable</b> map of index statuses with change info (for example catalog version) in which they appeared.
      */
-    IndexMeta(
+    public IndexMeta(
             int catalogVersion,
             int indexId,
             int tableId,

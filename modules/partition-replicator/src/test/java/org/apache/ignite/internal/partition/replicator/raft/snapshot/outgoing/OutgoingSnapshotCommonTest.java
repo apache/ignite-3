@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
+import static java.util.stream.StreamSupport.stream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -32,13 +33,14 @@ import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -68,9 +70,11 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private final PartitionReplicationMessagesFactory messagesFactory = new PartitionReplicationMessagesFactory();
 
-    private final PartitionKey partitionKey = new ZonePartitionKey(ZONE_ID, 1);
+    private final PartitionKey partitionKey = new PartitionKey(ZONE_ID, 1);
 
     private static final int REQUIRED_CATALOG_VERSION = 42;
+
+    private RaftSnapshotsMetricsSource snapshotsMetricsSource;
 
     @BeforeEach
     void createTestInstance(
@@ -86,12 +90,17 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
 
+        UUID snapshotId = UUID.randomUUID();
+
+        snapshotsMetricsSource = new RaftSnapshotsMetricsSource();
+
         snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 partitionsByTableId,
                 mock(PartitionTxStateAccess.class),
-                catalogService
+                catalogService,
+                snapshotsMetricsSource
         );
     }
 
@@ -178,5 +187,45 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         snapshot.close();
 
         assertThat(getNullableSnapshotMetaResponse(), is(nullValue()));
+    }
+
+    @Test
+    void metricsCalculateCorrectly() {
+        when(partitionAccess1.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
+                13L, 37L, 111L, 110L, List.of(), List.of(), null, null
+        ));
+
+        // Given metric source enabled.
+
+        snapshotsMetricsSource.enable();
+
+        Metric metric = retrieveOutgoingSnapshotMetric();
+
+        // Before outgoing snapshot is started TotalOutgoingSnapshots metric should return 0.
+
+        assertThat(metric.getValueAsString(), is("0"));
+
+        // After outgoing snapshot is started TotalOutgoingSnapshots metric should return 1.
+
+        snapshot.freezeScopeUnderMvLock();
+
+        metric = retrieveOutgoingSnapshotMetric();
+
+        assertThat(metric.getValueAsString(), is("1"));
+
+        // And finally after outgoing snapshot is closed TotalOutgoingSnapshots metric should return 0.
+
+        snapshot.close();
+
+        metric = retrieveOutgoingSnapshotMetric();
+
+        assertThat(metric.getValueAsString(), is("0"));
+    }
+
+    private Metric retrieveOutgoingSnapshotMetric() {
+        return stream(snapshotsMetricsSource.holder().metrics().spliterator(), false)
+                .filter(metric -> "OutgoingSnapshots".equals(metric.name()))
+                .findAny()
+                .get();
     }
 }

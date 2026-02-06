@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -70,6 +68,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -125,9 +124,8 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -138,7 +136,11 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
@@ -191,13 +193,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private final Object raftServiceMutex = new Object();
 
+    private final TxStateStorage txStateStorage;
+
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
     private static final ScheduledExecutorService COMMON_SCHEDULER = Executors.newSingleThreadScheduledExecutor(
             IgniteThreadFactory.create("node", "DummyInternalTable-common-scheduler-", true, LOG)
     );
-
-    private final boolean enabledColocation = colocationEnabled();
 
     /**
      * Creates a new local table.
@@ -258,7 +260,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txConfiguration,
                 systemCfg,
                 new RemotelyTriggeredResourceRegistry(),
-                new TransactionInflights(placementDriver, CLOCK_SERVICE)
+                new TransactionInflights(placementDriver, CLOCK_SERVICE, VolatileTxStateMetaStorage.createStarted())
         );
     }
 
@@ -301,7 +303,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new SingleClusterNodeResolver(LOCAL_NODE),
                 txManager(replicaSvc, placementDriver, txConfiguration, systemCfg, resourcesRegistry),
                 mock(MvTableStorage.class),
-                new TestTxStateStorage(),
                 replicaSvc,
                 CLOCK_SERVICE,
                 tracker,
@@ -311,9 +312,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled(),
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
+
+        txStateStorage = new TestTxStateStorage();
 
         RaftGroupService svc = mock(RaftGroupService.class);
 
@@ -470,7 +472,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(ZONE_ID, PART_ID);
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, PART_ID);
 
         var tableReplicaListener = new PartitionReplicaListener(
                 mvPartStorage,
@@ -478,14 +479,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 this.txManager.lockManager(),
                 Runnable::run,
-                tablePartitionId,
+                zonePartitionId,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 Map::of,
                 CLOCK_SERVICE,
                 safeTime,
-                txStateStorage().getOrCreatePartitionStorage(PART_ID),
                 transactionStateResolver,
                 storageUpdateHandler,
                 new DummyValidationSchemasSource(schemaManager),
@@ -499,46 +499,45 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
                 new TableMetricSource(QualifiedName.fromSimple("dummy_table"))
         );
 
-        if (enabledColocation) {
-            ZonePartitionReplicaListener zoneReplicaListener = new ZonePartitionReplicaListener(
-                    txStateStorage().getOrCreatePartitionStorage(PART_ID),
-                    CLOCK_SERVICE,
-                    this.txManager,
-                    new DummyValidationSchemasSource(schemaManager),
-                    new AlwaysSyncedSchemaSyncService(),
-                    catalogService,
-                    placementDriver,
-                    mock(ClusterNodeResolver.class),
-                    svc,
-                    mock(FailureProcessor.class),
-                    new SystemPropertiesNodeProperties(),
-                    LOCAL_NODE,
-                    zonePartitionId
-            );
+        TxMessageSender txMessageSender = new TxMessageSender(
+                mock(MessagingService.class),
+                replicaSvc,
+                CLOCK_SERVICE
+        );
 
-            zoneReplicaListener.addTableReplicaProcessor(tableId, raftClient -> tableReplicaListener);
+        ZonePartitionReplicaListener zoneReplicaListener = new ZonePartitionReplicaListener(
+                txStateStorage.getOrCreatePartitionStorage(PART_ID),
+                CLOCK_SERVICE,
+                this.txManager,
+                new DummyValidationSchemasSource(schemaManager),
+                new AlwaysSyncedSchemaSyncService(),
+                catalogService,
+                placementDriver,
+                mock(ClusterNodeResolver.class),
+                svc,
+                mock(FailureProcessor.class),
+                LOCAL_NODE,
+                zonePartitionId,
+                transactionStateResolver,
+                txMessageSender
+        );
 
-            replicaListener = zoneReplicaListener;
-        } else {
-            replicaListener = tableReplicaListener;
-        }
+        zoneReplicaListener.addTableReplicaProcessor(tableId, (raftClient, txStateResolver) -> tableReplicaListener);
+
+        replicaListener = zoneReplicaListener;
 
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(clock.current());
 
         PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
-        var tablePartitionListener = new PartitionListener(
+        var tablePartitionListener = new TablePartitionProcessor(
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
-                txStateStorage().getOrCreatePartitionStorage(PART_ID),
-                safeTime,
-                storageIndexTracker,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),
@@ -547,27 +546,22 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
-                new SystemPropertiesNodeProperties(),
-                enabledColocation ? zonePartitionId : tablePartitionId
+                zonePartitionId
         );
 
-        if (enabledColocation) {
-            ZonePartitionRaftListener zoneRaftListener = new ZonePartitionRaftListener(
-                    zonePartitionId,
-                    txStateStorage().getOrCreatePartitionStorage(PART_ID),
-                    this.txManager,
-                    safeTime,
-                    storageIndexTracker,
-                    new NoOpPartitionsSnapshots(),
-                    mock(Executor.class)
-            );
+        ZonePartitionRaftListener zoneRaftListener = new ZonePartitionRaftListener(
+                zonePartitionId,
+                txStateStorage.getOrCreatePartitionStorage(PART_ID),
+                this.txManager,
+                safeTime,
+                storageIndexTracker,
+                new NoOpPartitionsSnapshots(),
+                mock(Executor.class)
+        );
 
-            zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);
+        zoneRaftListener.addTableProcessor(tableId, tablePartitionListener);
 
-            partitionListener = zoneRaftListener;
-        } else {
-            partitionListener = tablePartitionListener;
-        }
+        partitionListener = zoneRaftListener;
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
@@ -688,7 +682,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE, txStateVolatileStorage);
 
         var txManager = new TxManagerImpl(
                 txConfiguration,
@@ -696,6 +692,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 clusterService,
                 replicaSvc,
                 HeapLockManager.smallInstance(),
+                txStateVolatileStorage,
                 CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,

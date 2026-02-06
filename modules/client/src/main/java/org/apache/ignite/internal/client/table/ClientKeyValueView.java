@@ -420,8 +420,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return sync(removeAsync(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return sync(removeExactAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -439,7 +439,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(val, valSer.mapper().targetType());
@@ -561,10 +561,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, V oldVal, V newVal) {
+    public boolean replaceExact(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key, "key");
 
-        return sync(replaceAsync(tx, key, oldVal, newVal));
+        return sync(replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
@@ -584,7 +584,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(oldVal, valSer.mapper().targetType());
@@ -749,16 +749,18 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
                     for (Entry<K, V> e : items) {
                         boolean del = deleted != null && deleted.get(i++);
-                        int colCount = del ? s.keyColumns().length : s.columns().length;
+                        ClientColumn[] columns = del ? s.keyColumns() : s.columns();
 
                         noValueSet.clear();
-                        var builder = new BinaryTupleBuilder(colCount);
+                        var builder = new BinaryTupleBuilder(columns.length);
                         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
-                        keyMarsh.writeObject(e.getKey(), writer);
-
-                        if (!del) {
-                            valMarsh.writeObject(e.getValue(), writer);
+                        for (var column : columns) {
+                            if (column.key()) {
+                                keyMarsh.writeField(e.getKey(), writer, column.keyIndex());
+                            } else {
+                                valMarsh.writeField(e.getValue(), writer, column.valIndex());
+                            }
                         }
 
                         w.out().packBinaryTuple(builder, noValueSet);

@@ -19,7 +19,7 @@ namespace Apache.Ignite.Benchmarks;
 
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
-using Tests;
+using Tests.Common;
 
 public abstract class ServerBenchmarkBase
 {

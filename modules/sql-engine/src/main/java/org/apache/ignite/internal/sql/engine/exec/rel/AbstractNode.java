@@ -24,9 +24,12 @@ import java.util.List;
 import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionEvaluationException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -131,7 +134,11 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
             checkState();
 
-            task.run();
+            try {
+                task.run();
+            } catch (ExpressionEvaluationException evaluationException) {
+                throw new SqlException(Sql.RUNTIME_ERR, evaluationException);
+            }
         }, this::onError);
     }
 

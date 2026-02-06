@@ -17,13 +17,10 @@
 
 namespace Apache.Ignite.Internal.Sql;
 
-using System.Collections.Generic;
-using Ignite.Sql;
-
 /// <summary>
 /// Row reader factory.
 /// </summary>
-/// <param name="cols">Columns.</param>
+/// <param name="metadata">Metadata.</param>
 /// <typeparam name="T">Result type.</typeparam>
 /// <returns>Resulting row.</returns>
-internal delegate RowReader<T> RowReaderFactory<out T>(IReadOnlyList<IColumnMetadata> cols);
+internal delegate RowReader<T> RowReaderFactory<out T>(ResultSetMetadata metadata);

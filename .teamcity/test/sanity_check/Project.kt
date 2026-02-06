@@ -19,9 +19,16 @@ object Project : Project({
     ).forEach {
         buildType(
             ApacheIgnite3CustomBuildType.Builder(it)
-                .ignite3VCS().ignite3BuildDependency()
+                .ignite3VCS().ignite3BuildDependency().setupMavenProxy()
                 .defaultBuildTypeSettings().requireLinux()
                 .build().buildType
         )
     }
+
+    buildType(
+        ApacheIgnite3CustomBuildType.Builder(CodeStyleJava17)
+            .ignite3VCS().ignite3Java17().ignite3BuildDependency()
+            .defaultBuildTypeSettings().requireLinux()
+            .build().buildType
+    )
 })

@@ -23,8 +23,8 @@ import java.util.function.Predicate;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -52,7 +52,7 @@ public class DataSourceScanNode<RowT> extends StorageScanNode<RowT> {
      */
     public DataSourceScanNode(
             ExecutionContext<RowT> ctx,
-            RowHandler.RowFactory<RowT> rowFactory,
+            RowFactory<RowT> rowFactory,
             BinaryTupleSchema schema,
             ScannableDataSource dataSource,
             @Nullable Predicate<RowT> filters,

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.lang.Thread.sleep;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 
 import java.lang.reflect.Field;
@@ -63,7 +64,7 @@ public class CheckpointJob implements ComputeJob<Boolean, Void> {
                 }
             });
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            return failedFuture(e);
         }
     }
 

@@ -233,7 +233,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
 
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
-                    "Invalid SQL statement type.",
+                    "Statement of type \"Transaction control statement\" is not allowed in current context",
                     () -> runSql((Transaction) null, null, modifiers, query)
             );
         }

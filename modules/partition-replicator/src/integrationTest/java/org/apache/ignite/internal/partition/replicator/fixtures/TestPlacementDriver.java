@@ -128,8 +128,10 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
-    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
-            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long timeoutMillis
+    ) {
         List<TokenizedAssignments> assignments = tokenizedAssignments;
 
         if (assignments == null) {
@@ -148,7 +150,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             throw new IllegalStateException("Primary replica is not defined in test PlacementDriver");
         }
 
-        return CompletableFuture.completedFuture(primary);
+        return completedFuture(primary);
     }
 
     @Override

@@ -91,10 +91,10 @@ public class ItCachedQueryPlansSystemViewTest extends AbstractSystemViewTest {
                         + "FROM (VALUES ROW(1, 2)) AS `T` (`X`, `Y`)", "DML", plan4)
                 .returns(node1, v2, "PUBLIC", "SELECT *\n"
                         + "FROM `TEST_TABLE`\n"
-                        + "WHERE `ID` = 1", "QUERY", plan5)
-                .returns(node1, v1, "PUBLIC", "SELECT 1", "QUERY", plan1)
-                .returns(node2, v1, "PUBLIC", "SELECT 2", "QUERY", plan2)
-                .returns(node1, v2, "TEST_SCHEMA", "SELECT 3", "QUERY", plan3)
+                        + "WHERE `ID` = 1", "Query", plan5)
+                .returns(node1, v1, "PUBLIC", "SELECT 1", "Query", plan1)
+                .returns(node2, v1, "PUBLIC", "SELECT 2", "Query", plan2)
+                .returns(node1, v2, "TEST_SCHEMA", "SELECT 3", "Query", plan3)
                 .ordered()
                 .check();
     }

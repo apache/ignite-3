@@ -43,14 +43,16 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -93,7 +95,9 @@ public class IndexBuildingManager implements IgniteComponent {
             ClockService clockService,
             FailureProcessor failureProcessor,
             LowWatermark lowWatermark,
-            TxManager txManager
+            TxManager txManager,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            MetricManager metricManager
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -124,7 +128,8 @@ public class IndexBuildingManager implements IgniteComponent {
                 replicaService,
                 failureProcessor,
                 new RetryingFinalTransactionStateResolver(transactionStateResolver, executor),
-                indexMetaStorage
+                indexMetaStorage,
+                metricManager
         );
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, failureProcessor, indexBuilder);
@@ -136,6 +141,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService,
                 placementDriver,
                 clockService,
+                partitionReplicaLifecycleManager,
                 failureProcessor
         );
 

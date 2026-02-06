@@ -81,7 +81,6 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -115,8 +114,8 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -205,14 +204,17 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = new TestClockService(clock);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
                 systemDistributedConfiguration,
                 clusterService,
                 replicaService,
-                new HeapLockManager(systemLocalConfiguration),
+                new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage),
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
@@ -227,11 +229,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
-                    ReplicationGroupId commitPartition,
+                    ZonePartitionId commitPartition,
                     boolean commitIntent,
                     boolean timeoutExceeded,
                     boolean recovery,
-                    Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
+                    boolean noRemoteWrites,
+                    Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();
@@ -241,7 +244,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
-        Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
+        Map<ZonePartitionId, RaftGroupService> groupRafts = new HashMap<>();
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
@@ -357,7 +360,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                new TestTxStateStorage(),
                 replicaService,
                 clockService,
                 observableTimestampTracker,
@@ -367,7 +369,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                true,
                 new TableMetricSource(QualifiedName.fromSimple("TEST"))
         );
     }
@@ -478,11 +479,13 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         tbl = new TableImpl(intTable, schemaRegistry, lockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
 
-        marshaller = new TupleMarshallerImpl(schema);
+        marshaller = new TupleMarshallerImpl(tbl::qualifiedName, schema);
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

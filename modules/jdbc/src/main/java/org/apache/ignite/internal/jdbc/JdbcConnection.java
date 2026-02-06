@@ -47,7 +47,6 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -124,6 +123,8 @@ public class JdbcConnection implements Connection {
 
     private final JdbcDatabaseMetadata metadata;
 
+    private final int queryTimeoutSeconds;
+
     private volatile boolean closed;
 
     private String schemaName;
@@ -154,6 +155,7 @@ public class JdbcConnection implements Connection {
         igniteSql = client.sql();
         autoCommit = true;
         networkTimeoutMillis = props.getConnectionTimeout();
+        queryTimeoutSeconds = props.getQueryTimeout();
         txIsolation = TRANSACTION_SERIALIZABLE;
         schemaName = readSchemaName(props.getSchema());
         properties = props;
@@ -182,7 +184,7 @@ public class JdbcConnection implements Connection {
 
         checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
 
-        JdbcStatement statement = new JdbcStatement(this, igniteSql, schemaName, resSetHoldability);
+        JdbcStatement statement = new JdbcStatement(this, igniteSql, schemaName, resSetHoldability, queryTimeoutSeconds);
 
         lock.lock();
         try {
@@ -231,7 +233,7 @@ public class JdbcConnection implements Connection {
 
         checkCursorOptions(resSetType, resSetConcurrency, resSetHoldability);
 
-        return new JdbcPreparedStatement(this, igniteSql, schemaName, resSetHoldability, sql);
+        return new JdbcPreparedStatement(this, igniteSql, schemaName, resSetHoldability, sql, queryTimeoutSeconds);
     }
 
     /** {@inheritDoc} */
@@ -837,7 +839,7 @@ public class JdbcConnection implements Connection {
 
     @TestOnly
     public int channelsCount() {
-        return ((TcpIgniteClient) igniteClient).channel().channels().size();
+        return igniteClient.connections().size();
     }
 
     private static void checkCursorOptions(

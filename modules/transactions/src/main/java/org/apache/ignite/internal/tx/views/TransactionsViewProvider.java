@@ -73,14 +73,18 @@ public class TransactionsViewProvider {
                 .name("TRANSACTIONS")
                 .nodeNameColumnAlias("COORDINATOR_NODE_ID")
                 .<String>addColumn("TRANSACTION_STATE", stringType, tx -> tx.state)
-                .<String>addColumn("TRANSACTION_ID", stringType, tx -> tx.id)
+                .<String>addColumn("TRANSACTION_ID", stringType, tx -> tx.id.toString())
                 .<Instant>addColumn("TRANSACTION_START_TIME", timestampType, tx -> tx.startTime)
                 .<String>addColumn("TRANSACTION_TYPE", stringType, tx -> tx.type)
                 .<String>addColumn("TRANSACTION_PRIORITY", stringType, tx -> tx.priority)
+                .<String>addColumn("TRANSACTION_LABEL", stringType, tx -> {
+                    TxStateMeta meta = dataSource.txStates.get(tx.id);
+                    return meta != null ? meta.txLabel() : null;
+                })
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
                 //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .<String>addColumn("STATE", stringType, tx -> tx.state)
-                .<String>addColumn("ID", stringType, tx -> tx.id)
+                .<String>addColumn("ID", stringType, tx -> tx.id.toString())
                 .<Instant>addColumn("START_TIME", timestampType, tx -> tx.startTime)
                 .<String>addColumn("TYPE", stringType, tx -> tx.type)
                 .<String>addColumn("PRIORITY", stringType, tx -> tx.priority)
@@ -133,14 +137,14 @@ public class TransactionsViewProvider {
     }
 
     static class TxInfo {
-        private final String id;
+        private final UUID id;
         private final String state;
         private final Instant startTime;
         private final String type;
         private final String priority;
 
         TxInfo(UUID txId, TxState txState, String type) {
-            this.id = txId.toString();
+            this.id = txId;
             this.state = txState.name();
             this.startTime = Instant.ofEpochMilli(TransactionIds.beginTimestamp(txId).getPhysical());
             this.type = type;

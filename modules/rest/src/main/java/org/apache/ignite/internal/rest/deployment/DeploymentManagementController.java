@@ -19,10 +19,11 @@ package org.apache.ignite.internal.rest.deployment;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.deployment.version.Version.parseVersion;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.multipart.CompletedFileUpload;
-import io.micronaut.http.multipart.FileUpload;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -30,12 +31,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.deployunit.structure.UnitFile;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -44,11 +48,12 @@ import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
+import org.apache.ignite.internal.rest.api.deployment.UnitEntry;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
 import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
 /**
  * Implementation of {@link DeploymentCodeApi}.
@@ -98,10 +103,21 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
             version = parseVersion(unitVersion);
             tempStorage = tempStorageProvider.tempStorage(unitId, version);
         } catch (Exception e) {
-            // In case of any exception during initialization of temp storage we need to discard the uploaded file.
-            // In case of normal operation the Netty resource will be properly released
-            // by the CompletedFileUpload#getInputStream call in the CompletedFileUploadSubscriber.
-            return Mono.from(unitContent).doOnNext(FileUpload::discard).toFuture()
+            // In case of any exception during initialization of temp storage we need to discard uploaded files. For some reason (probably
+            // a bug in micronaut discarding the CompletedFileUpload can lead to buffer leaks. Let's close the underlying buffer directly
+            // by getting the input stream and closing it.
+            // In case of normal operation the Netty resource will be properly released by the CompletedFileUpload#getInputStream call in
+            // the CompletedFileUploadSubscriber.
+            return Flux.from(unitContent)
+                    .doOnNext(completedFileUpload -> {
+                        try {
+                            completedFileUpload.getInputStream().close();
+                        } catch (IOException ignored) {
+                            // Ignore exceptions thrown from close
+                        }
+                    })
+                    .collectList()
+                    .toFuture()
                     .thenCompose(unused -> failedFuture(e));
         }
 
@@ -111,17 +127,24 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
                 .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
 
-        return subscriber.result().thenCompose(deploymentUnit ->
-                deployment.deployAsync(unitId, version, deploymentUnit, nodesToDeploy)
-                        .whenComplete((unitStatus, throwable) -> {
-                            tempStorage.close();
-                            try {
-                                deploymentUnit.close();
-                            } catch (Exception e) {
-                                LOG.error("Failed to close subscriber", e);
-                            }
-                        })
-        );
+        return subscriber.result()
+                .handle((deploymentUnit, throwable) -> {
+                    if (throwable != null) {
+                        // Close temp storage in case deployment unit future fails.
+                        tempStorage.close();
+                        sneakyThrow(throwable);
+                    }
+                    return deployment.deployAsync(unitId, version, deploymentUnit, nodesToDeploy)
+                            .whenComplete((unitStatus, throwable1) -> {
+                                tempStorage.close();
+                                try {
+                                    deploymentUnit.close();
+                                } catch (Exception e) {
+                                    LOG.error("Failed to close subscriber", e);
+                                }
+                            });
+                })
+                .thenCompose(Function.identity());
     }
 
     @Override
@@ -249,6 +272,28 @@ public class DeploymentManagementController implements DeploymentCodeApi, Resour
 
     private static DeploymentStatus fromDeploymentStatus(org.apache.ignite.internal.deployunit.DeploymentStatus status) {
         return DeploymentStatus.valueOf(status.name());
+    }
+
+    @Override
+    public CompletableFuture<UnitEntry.UnitFolder> unitStructure(String unitId, String unitVersion) {
+        return deployment.nodeUnitFileStructure(unitId, parseVersion(unitVersion)).thenApply(DeploymentManagementController::toDto);
+    }
+
+    private static UnitEntry.UnitFolder toDto(UnitFolder unitFolder) {
+        return new UnitEntry.UnitFolder(
+                unitFolder.name(),
+                unitFolder.children().stream()
+                        .map(DeploymentManagementController::toDto)
+                        .collect(Collectors.toList())
+        );
+    }
+
+    private static UnitEntry toDto(org.apache.ignite.internal.deployunit.structure.UnitEntry entry) {
+        if (entry instanceof UnitFile) {
+            return new UnitEntry.UnitFile(entry.name(), entry.size());
+        } else {
+            return toDto((UnitFolder) entry);
+        }
     }
 
     @Override

@@ -45,7 +45,7 @@ import org.apache.ignite.internal.metrics.UuidGauge;
  */
 public class MetricSetMbean implements DynamicMBean {
     /** Metric set. */
-    private MetricSet metricSet;
+    private final MetricSet metricSet;
 
     /**
      * Constructs new MBean.
@@ -63,6 +63,9 @@ public class MetricSetMbean implements DynamicMBean {
         }
 
         Metric metric = metricSet.get(attribute);
+        if (metric == null) {
+            throw new AttributeNotFoundException("Attribute not found [attribute=" + attribute + ']');
+        }
 
         if (metric instanceof DoubleMetric) {
             return ((DoubleMetric) metric).value();
@@ -81,18 +84,21 @@ public class MetricSetMbean implements DynamicMBean {
             return ((UuidGauge) metric).value();
         }
 
-        throw new AttributeNotFoundException("Unknown metric class [class=" + metric.getClass().getName() + ']');
+        throw new AttributeNotFoundException(
+                "Unknown metric class [attribute=" + attribute + ", class=" + metric.getClass().getName() + ']');
     }
 
     @Override
     public AttributeList getAttributes(String[] attributes) {
         AttributeList list = new AttributeList();
+        List<Attribute> attrList = list.asList();
 
         try {
             for (String attribute : attributes) {
+                // getAttribute must return a value of the attribute, not Attribute instance.
                 Object val = getAttribute(attribute);
 
-                list.add(val);
+                attrList.add(new Attribute(attribute, val));
             }
         } catch (AttributeNotFoundException e) {
             throw new IllegalArgumentException(e);

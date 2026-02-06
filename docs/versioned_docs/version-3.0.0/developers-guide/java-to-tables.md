@@ -1,0 +1,220 @@
+---
+title: Creating Tables from Java Classes
+sidebar_label: Creating Tables from Java Classes
+---
+
+{/*
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/}
+
+## Overview
+
+While [SQL DDL](../sql-reference/ddl.md) supports a comprehensive set of table manipulation commands, you can also create tables and build indexes directly from a POJO using a simple Java API.
+
+This API supports custom annotations and simple builders; it works seamlessly with the Mapper interface, thus facilitating [KeyValueView and RecordView](table-api.md).
+
+The Java API lets you perform the following operations:
+
+* CREATE ZONE
+* CREATE TABLE
+* CREATE INDEX
+* DROP ZONE
+* DROP TABLE
+* DROP INDEX
+* CREATE SCHEMA
+* DROP SCHEMA
+
+Use the @Table and other annotations located in the `org.apache.ignite.catalog.annotations` package.
+
+## Examples
+
+### Key-Value POJO Compatible with KeyValueView
+
+The example below creates a table called `kv_pojo` by using the POJO compatible with `KeyValueView`:
+
+```java
+@Table(value = "kv_pojo",
+        zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+        colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+        indexes = @Index(value = "ix", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+
+public static class PojoKey {
+    @Id
+    Integer id;
+
+    @Id(SortOrder.DEFAULT)
+    @Column(value = "id_str", length = 20)
+    String idStr;
+
+    public PojoKey(Integer id, String idStr) {
+        this.id = id;
+        this.idStr = idStr;
+    }
+}
+
+public static class PojoValue {
+    @Column("f_name")
+    private String firstName;
+
+    @Column("l_name")
+    private String lastName;
+
+    public PojoValue(String firstName, String lastName) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+}
+
+
+public static void main(String[] args) {
+
+    System.out.println("\nConnecting to server...");
+
+    try (IgniteClient client = IgniteClient.builder()
+            .addresses("127.0.0.1:10800")
+            .build()
+    ) {
+
+        org.apache.ignite.table.Table myTable = client.catalog().createTable(PojoKey.class, PojoValue.class);
+
+        KeyValueView<PojoKey, PojoValue> kvView = myTable.keyValueView(PojoKey.class, PojoValue.class);
+        PojoKey key = new PojoKey(1, "sample");
+        PojoValue putValue = new PojoValue("John", "Smith");
+        kvView.put(null, key, putValue);
+
+        PojoValue getValue = kvView.get(null, key);
+        System.out.println(
+                "\nRetrieved values:\n"
+                        + "    Account ID: " + key.id + '\n'
+                        + "    First name: " + getValue.firstName + '\n'
+                        + "    Last name" + getValue.lastName);
+
+    }
+}
+```
+
+:::note
+You need to create a storage profile in node configuration by using the CLI tool. See the Storage documentation for details.
+:::
+
+The result is equivalent to the following SQL multi-statement:
+
+```sql
+CREATE ZONE IF NOT EXISTS zone_test WITH PARTITIONS=2, STORAGE_PROFILES='default';
+
+CREATE TABLE IF NOT EXISTS kv_pojo (
+	id int,
+	id_str varchar(20),
+	f_name varchar,
+	l_name varchar,
+	str varchar,
+	PRIMARY KEY (id, id_str)
+)
+COLOCATE BY (id, id_str)
+WITH PRIMARY_ZONE='ZONE';
+
+CREATE INDEX ix (f_name, l_name desc nulls last);
+```
+
+### Single POJO Compatible with RecordView
+
+The example below creates the `pojo_sample` table by using the POJO compatible with `RecordView`:
+
+```java
+@Table(value = "pojo_sample",
+        zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+        colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+        indexes = @Index(value = "ix_sample", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+
+public static class Pojo {
+    @Id
+    Integer id;
+
+    @Id(SortOrder.DEFAULT)
+    @Column(value = "id_str", length = 20)
+    String idStr;
+
+    @Column("f_name")
+    String firstName;
+
+    @Column("l_name")
+    String lastName;
+
+    String str;
+}
+
+public static void main(String[] args) {
+
+    System.out.println("\nConnecting to server...");
+
+    try (IgniteClient client = IgniteClient.builder()
+            .addresses("127.0.0.1:10800")
+            .build()
+    ) {
+
+        org.apache.ignite.table.Table myTable = client.catalog().createTable(Pojo.class);
+
+        RecordView<Tuple> view = myTable.recordView();
+        Tuple insertTuple = Tuple.create()
+                .set("id", 1)
+                .set("id_str", "sample")
+                .set("f_name", "John")
+                .set("l_name", "Smith");
+        view.insert(null, insertTuple);
+
+        Tuple getTuple = view.get(null, insertTuple);
+        System.out.println(
+                "\nRetrieved record: " +
+                        getTuple.stringValue("f_name")
+        );
+    }
+}
+```
+
+### The Builder Alternative to the @Table Annotation
+
+The example below uses a builder to create a table instead on creating it from a Java class:
+
+:::note
+When using builders, only the `@Id` and `@Column` annotations on fields are supported.
+:::
+
+```java
+IgniteCatalog catalog = client.catalog();
+
+catalog.createTable(
+        TableDefinition.builder("sampleTable3")
+                .primaryKey("myKey")
+                .columns(
+                        column("myKey", ColumnType.INT32),
+                        column("myValue", ColumnType.VARCHAR)
+                )
+                .build()
+);
+
+Table myTable = client.tables().table("sampleTable3");
+myTable.keyValueView().put(null, Tuple.create().set("myKey", 1), Tuple.create().set("myValue", "John"));
+
+Tuple value = myTable.keyValueView().get(null, Tuple.create().set("myKey", 1));
+System.out.println(
+        "\nRetrieved value:\n" +
+        value.stringValue("myValue")
+);
+```
+
+## Next Steps
+
+Once you have created a table using the Java API, you can manipulate it using the [SQL commands](../sql-reference/ddl.md).

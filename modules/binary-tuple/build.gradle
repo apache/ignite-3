@@ -27,6 +27,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
 
+    testImplementation platform(libs.jackson.bom)
     testImplementation libs.jackson.core
     testImplementation libs.jackson.databind
     testImplementation libs.jackson.datatype.jsr310

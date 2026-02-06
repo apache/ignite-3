@@ -45,7 +45,7 @@ Limit
                 projection: [C_CUSTOMER_SK]
                 est: (rows=288040)
               NestedLoopJoin
-                  predicate: >(SSALES, CAST(*(0.950000:DECIMAL(17, 6), TPCDS_CMAX)):DECIMAL(32767, 2))
+                  predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
                   type: inner
                   est: (rows=288040)
                 ColocatedHashAggregate
@@ -209,7 +209,7 @@ Limit
                 projection: [C_CUSTOMER_SK]
                 est: (rows=288040)
               NestedLoopJoin
-                  predicate: >(SSALES, CAST(*(0.950000:DECIMAL(17, 6), TPCDS_CMAX)):DECIMAL(32767, 2))
+                  predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
                   type: inner
                   est: (rows=288040)
                 ColocatedHashAggregate
@@ -401,7 +401,7 @@ Sort
                   projection: [C_CUSTOMER_SK]
                   est: (rows=288040)
                 NestedLoopJoin
-                    predicate: >(SSALES, CAST(*(0.950000:DECIMAL(17, 6), TPCDS_CMAX)):DECIMAL(32767, 2))
+                    predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
                     type: inner
                     est: (rows=288040)
                   ColocatedHashAggregate
@@ -582,7 +582,7 @@ Sort
                   projection: [C_CUSTOMER_SK]
                   est: (rows=288040)
                 NestedLoopJoin
-                    predicate: >(SSALES, CAST(*(0.950000:DECIMAL(17, 6), TPCDS_CMAX)):DECIMAL(32767, 2))
+                    predicate: >(CAST(SSALES):DECIMAL(51, 8), *(0.950000:DECIMAL(17, 6), TPCDS_CMAX))
                     type: inner
                     est: (rows=288040)
                   ColocatedHashAggregate

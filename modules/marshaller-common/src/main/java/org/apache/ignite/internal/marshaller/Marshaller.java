@@ -21,12 +21,9 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.marshaller.FieldAccessor.createIdentityAccessor;
 
 import java.util.Collection;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
-import org.apache.ignite.internal.util.Factory;
-import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
@@ -115,7 +112,7 @@ public abstract class Marshaller {
      * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Pojo marshaller.
      */
-    private static PojoMarshaller pojoMarshaller(
+    private static Marshaller pojoMarshaller(
             MarshallerColumn[] cols,
             PojoMapper<?> mapper,
             boolean requireAllFields,
@@ -143,6 +140,9 @@ public abstract class Marshaller {
 
                 fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, i, converter);
             }
+
+            fieldAccessors[i]
+                    .withColumnName(columnName);
         }
 
         if (!allowUnmappedFields) {
@@ -166,7 +166,7 @@ public abstract class Marshaller {
             }
         }
 
-        return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
+        return new PojoMarshaller(mapper.targetType(), fieldAccessors);
     }
 
     /**
@@ -182,11 +182,10 @@ public abstract class Marshaller {
      * Reads object from a row.
      *
      * @param reader Row reader.
-     * @param target Optional target object. When not specified, a new object will be created.
      * @return Object.
      * @throws MarshallerException If failed.
      */
-    public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
+    public abstract Object readObject(MarshallerReader reader, Object target) throws MarshallerException;
 
     /**
      * Write an object to a row.
@@ -261,17 +260,17 @@ public abstract class Marshaller {
         private final FieldAccessor[] fieldAccessors;
 
         /** Object factory. */
-        private final Factory<?> factory;
+        private final Creator creator;
 
         /**
          * Creates a marshaller for POJOs.
          *
-         * @param factory        Object factory.
+         * @param targetType Object target type.
          * @param fieldAccessors Object field accessors for mapped columns.
          */
-        PojoMarshaller(Factory<?> factory, FieldAccessor[] fieldAccessors) {
+        PojoMarshaller(Class<?> targetType, FieldAccessor[] fieldAccessors) {
             this.fieldAccessors = fieldAccessors;
-            this.factory = Objects.requireNonNull(factory);
+            this.creator = Creator.of(targetType);
         }
 
         /** {@inheritDoc} */
@@ -283,13 +282,8 @@ public abstract class Marshaller {
         /** {@inheritDoc} */
         @Override
         public Object readObject(MarshallerReader reader, Object target) throws MarshallerException {
-            Object obj = target == null ? factory.create() : target;
-
-            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                fieldAccessors[fldIdx].read(reader, obj);
-            }
-
-            return obj;
+            // target is always null, but this exact API is used by migration tools
+            return creator.createInstance(fieldAccessors, reader);
         }
 
         /** {@inheritDoc} */
@@ -314,7 +308,7 @@ public abstract class Marshaller {
         }
 
         @Override
-        public Object readObject(MarshallerReader reader, @Nullable Object target) {
+        public Object readObject(MarshallerReader reader, Object target) {
             return null;
         }
 

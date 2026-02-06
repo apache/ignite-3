@@ -84,6 +84,8 @@ public class MinimumActiveTxTimeCommandHandler extends AbstractCommandHandler<Up
                     }
                 });
 
+        // This command does not update last applied index because it does not change the storage state.
+
         return EMPTY_APPLIED_RESULT;
     }
 }

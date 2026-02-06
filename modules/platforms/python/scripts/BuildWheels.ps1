@@ -27,8 +27,8 @@
 .PARAMETER PyVers
     Python versions to use, through coma.
 .EXAMPLE
-    PS> .\scripts\BuildWheels.ps1 -PyVers "3.9,3.10,3.11,3.12,3.13"
-    Build wheels for Python versions 3.9-3.13
+    PS> .\scripts\BuildWheels.ps1 -PyVers "3.10,3.11,3.12,3.13,3.14"
+    Build wheels for Python versions 3.10-3.14
 .EXAMPLE
     PS> .\scripts\BuildWheels.ps1 -PyVers 3.11
     Build wheels for Python versions 3.11 only

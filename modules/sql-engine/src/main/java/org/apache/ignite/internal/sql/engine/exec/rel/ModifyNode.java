@@ -29,9 +29,9 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
@@ -77,7 +77,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
 
-    private static final StructNativeType MODIFY_RESULT = NativeTypes.rowBuilder()
+    private static final StructNativeType MODIFY_RESULT = NativeTypes.structBuilder()
             .addField("UPDATE_COUNT", NativeTypes.INT64, false)
             .build();
 
@@ -147,8 +147,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         StructNativeType mappedRowSchema =  mapping != null ? TypeUtils.map(inputRowType, mapping) : inputRowType;
         StructNativeType mappedInsertRowSchema =  insertRowMapping != null ? TypeUtils.map(inputRowType, insertRowMapping) : inputRowType;
 
-        this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
-        this.mappedInsertRowFactory = ctx.rowHandler().factory(mappedInsertRowSchema);
+        this.mappedRowFactory = ctx.rowFactoryFactory().create(mappedRowSchema);
+        this.mappedInsertRowFactory = ctx.rowFactoryFactory().create(mappedInsertRowSchema);
     }
 
     /** {@inheritDoc} */
@@ -232,7 +232,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
 
         if (waiting == NOT_WAITING && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
-            downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
+            downstream().push(context().rowFactoryFactory().create(MODIFY_RESULT).create(updatedRows));
 
             requested = 0;
             downstream().end();
@@ -337,7 +337,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      *     element is list of rows to update (or null if there is no such rows).
      */
     private Pair<@Nullable List<RowT>, @Nullable List<RowT>> splitMerge(List<RowT> rows) {
-        RowHandler<RowT> handler = context().rowHandler();
+        RowHandler<RowT> handler = context().rowAccessor();
 
         if (nullOrEmpty(updateColumns)) {
             return new Pair<>(rows, null);
@@ -348,7 +348,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         List<RowT> rowsToInsert = null;
         List<RowT> rowsToUpdate;
 
-        int rowSize = handler.columnCount(rows.get(0));
+        int rowSize = handler.columnsCount(rows.get(0));
 
         // we already handled WHEN NOT MATCHED clause only, thus the possible formats of rows
         // are [full row type] + [columns to update] and [insert row type] + [full row type] + [columns to update].

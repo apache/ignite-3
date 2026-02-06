@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Ignite.Table;
 using NodaTime;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for key-value POCO view.
@@ -110,6 +111,16 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await view.GetAsync(null, 2));
         Assert.AreEqual("Can't map 'System.Int64' to column 'VAL' - column is nullable, but field is not.", ex!.Message);
+    }
+
+    [Test]
+    public async Task TestTypeMismatch()
+    {
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
+        var view = table!.GetKeyValueView<long, double?>();
+
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await view.GetAsync(null, 2));
+        Assert.AreEqual("Can't read a value of type 'Double' from column 'VAL' of type 'Int64'.", ex!.Message);
     }
 
     [Test]
@@ -380,6 +391,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await TestKey(instant, (Instant?)instant, TableTimestampName);
 
         await TestKey(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3, 4 }, TableBytesName);
+        await TestKey(Guid.NewGuid(), Guid.NewGuid(), TableUuidName);
     }
 
     [Test]

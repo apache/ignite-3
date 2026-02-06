@@ -32,13 +32,16 @@ public class DeployUnitCallInput implements CallInput {
 
     private final List<String> nodes;
 
+    private final boolean recursive;
+
     private final String clusterUrl;
 
-    private DeployUnitCallInput(String id, String version, Path path, List<String> nodes, String clusterUrl) {
+    private DeployUnitCallInput(String id, String version, Path path, List<String> nodes, boolean recursive, String clusterUrl) {
         this.id = id;
         this.version = version;
         this.path = path;
         this.nodes = nodes;
+        this.recursive = recursive;
         this.clusterUrl = clusterUrl;
     }
 
@@ -62,6 +65,10 @@ public class DeployUnitCallInput implements CallInput {
         return nodes;
     }
 
+    public boolean recursive() {
+        return recursive;
+    }
+
     public String clusterUrl() {
         return clusterUrl;
     }
@@ -75,6 +82,8 @@ public class DeployUnitCallInput implements CallInput {
         private Path path;
 
         private List<String> nodes;
+
+        private boolean recursive;
 
         private String clusterUrl;
 
@@ -98,13 +107,18 @@ public class DeployUnitCallInput implements CallInput {
             return this;
         }
 
+        public DeployUnitCallBuilder recursive(boolean recursive) {
+            this.recursive = recursive;
+            return this;
+        }
+
         public DeployUnitCallBuilder clusterUrl(String clusterUrl) {
             this.clusterUrl = clusterUrl;
             return this;
         }
 
         public DeployUnitCallInput build() {
-            return new DeployUnitCallInput(id, version, path, nodes, clusterUrl);
+            return new DeployUnitCallInput(id, version, path, nodes, recursive, clusterUrl);
         }
     }
 }

@@ -206,23 +206,23 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
      */
     @Test
     public void testCurrentUser() {
-        server().sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        server().sql().execute("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
 
-        IgniteClient client2WithAuth = IgniteClient.builder()
+        try (IgniteClient client2WithAuth = IgniteClient.builder()
                 .authenticator(BasicAuthenticator.builder()
                         .username(USERNAME_2)
                         .password(PASSWORD_2)
                         .build())
                 .addresses(getClientAddresses().toArray(new String[0]))
-                .build();
-
-        validateCurrentUser(clientWithAuth, USERNAME_1);
-        validateCurrentUser(client2WithAuth, USERNAME_2);
+                .build()) {
+            validateCurrentUser(clientWithAuth, USERNAME_1);
+            validateCurrentUser(client2WithAuth, USERNAME_2);
+        }
     }
 
     private static void validateCurrentUser(IgniteClient client, String expectedUsername) {
         AsyncResultSet<SqlRow> resultSet = client.sql()
-                .executeAsync(null, "SELECT CURRENT_USER")
+                .executeAsync("SELECT CURRENT_USER")
                 .join();
 
         SqlRow row = resultSet.currentPage().iterator().next();
@@ -231,9 +231,9 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.STRING, resultSet.metadata().columns().get(0).type());
         assertEquals(expectedUsername, row.stringValue(0));
 
-        client.sql().execute(null, format("INSERT INTO t1 (id, val) VALUES ({}, CURRENT_USER)", expectedUsername.hashCode())).close();
+        client.sql().execute(format("INSERT INTO t1 (id, val) VALUES ({}, CURRENT_USER)", expectedUsername.hashCode())).close();
 
-        try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+        try (ResultSet<SqlRow> rs = client.sql().execute("SELECT val FROM t1 WHERE val = CURRENT_USER")) {
             assertTrue(rs.hasNext());
             assertEquals(expectedUsername, rs.next().stringValue(0));
             assertFalse(rs.hasNext());
@@ -241,7 +241,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     }
 
     private static CompletableFuture<Void> checkConnection(IgniteClient client) {
-        return client.sql().executeAsync(null, "select 1 as num, 'hello' as str")
+        return client.sql().executeAsync("select 1 as num, 'hello' as str")
                 .thenApply(ignored -> null);
     }
 

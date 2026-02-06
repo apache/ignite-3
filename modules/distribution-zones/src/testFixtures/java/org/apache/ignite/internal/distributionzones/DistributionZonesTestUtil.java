@@ -684,7 +684,19 @@ public class DistributionZonesTestUtil {
         alterZone(catalogManager, zoneName, replicas, null, null, null);
     }
 
-    private static void alterZone(
+    /**
+     * Alters a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param replicas New number of zone replicas, {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void alterZone(
             CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer replicas,
@@ -760,7 +772,7 @@ public class DistributionZonesTestUtil {
 
         setDefaultZone(catalogManager, DEFAULT_ZONE_NAME);
 
-        Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog latestCatalog = catalogManager.latestCatalog();
 
         assertNotNull(latestCatalog.defaultZone());
     }

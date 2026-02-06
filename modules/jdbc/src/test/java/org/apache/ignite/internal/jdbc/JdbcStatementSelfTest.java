@@ -447,7 +447,7 @@ public class JdbcStatementSelfTest extends BaseIgniteAbstractTest {
 
     protected Statement createStatement(Connection connection) {
         IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
-        return new JdbcStatement(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT);
+        return new JdbcStatement(connection, igniteSql, "PUBLIC", ResultSet.HOLD_CURSORS_OVER_COMMIT, 0);
     }
 
     static void expectClosed(Executable method) {

@@ -154,7 +154,8 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
                 marshallers
         );
 
-        BinaryRow resultRow = new TupleMarshallerImpl(simpleSchema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
+        BinaryRow resultRow = new TupleMarshallerImpl(internalTable::name, simpleSchema)
+                .marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
 
         doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
                 .doReturn(completedFuture(resultRow))
@@ -182,7 +183,8 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
                 marshallers
         );
 
-        BinaryRow resultRow = new TupleMarshallerImpl(simpleSchema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
+        BinaryRow resultRow = new TupleMarshallerImpl(internalTable::name, simpleSchema)
+                .marshal(Tuple.create().set("id", 1L).set("val", 2L));
 
         doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
                 .doReturn(completedFuture(resultRow))

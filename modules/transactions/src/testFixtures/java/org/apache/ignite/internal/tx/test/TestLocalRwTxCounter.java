@@ -48,4 +48,9 @@ public class TestLocalRwTxCounter implements LocalRwTxCounter {
             lock.unlock();
         }
     }
+
+    @Override
+    public void clear() {
+        // No-op.
+    }
 }

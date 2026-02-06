@@ -57,10 +57,9 @@ public interface RaftGroupService extends RaftCommandRunner {
     @Nullable Peer leader();
 
     /**
-     * Returns a list of voting peers or {@code null} if it has not been yet initialized. The order is corresponding to the time of joining
-     *      to the replication group.
+     * Returns a list of voting peers. The order is corresponding to the time of joining to the replication group.
      */
-    @Nullable List<Peer> peers();
+    List<Peer> peers();
 
     /**
      * Returns a list of leaners or {@code null} if it has not been yet initialized. The order is corresponding to the time of joining to
@@ -257,4 +256,12 @@ public interface RaftGroupService extends RaftCommandRunner {
      * @param configuration Peers and learners configuration.
      */
     void updateConfiguration(PeersAndLearners configuration);
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark service as stopping.
+     */
+    default void markAsStopping() {
+        // No-op
+    }
 }

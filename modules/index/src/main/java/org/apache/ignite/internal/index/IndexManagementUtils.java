@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.List;
 import java.util.Objects;
@@ -236,11 +236,12 @@ class IndexManagementUtils {
                 .execute(MakeIndexAvailableCommand.builder().indexId(indexId).build())
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        Throwable unwrappedCause = unwrapCause(throwable);
-
-                        if (!(unwrappedCause instanceof IndexNotFoundValidationException)
-                                && !(unwrappedCause instanceof ChangeIndexStatusValidationException)
-                                && !(unwrappedCause instanceof NodeStoppingException)) {
+                        if (!hasCause(
+                                throwable,
+                                IndexNotFoundValidationException.class,
+                                ChangeIndexStatusValidationException.class,
+                                NodeStoppingException.class
+                        )) {
                             String errorMessage = "Error processing the command to make the index available: " + indexId;
                             failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }

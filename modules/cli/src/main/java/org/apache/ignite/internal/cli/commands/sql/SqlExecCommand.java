@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
 
 import java.io.File;
 import java.io.IOException;
@@ -56,6 +58,9 @@ public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;
 
+    @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
+    private boolean timed;
+
     @ArgGroup(multiplicity = "1")
     private ExecOptions execOptions;
 
@@ -83,7 +88,7 @@ public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
             return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                     .inputProvider(() -> new StringCallInput(executeCommand))
                     .exceptionHandler(SqlExceptionHandler.INSTANCE)
-                    .decorator(new SqlQueryResultDecorator(plain))
+                    .decorator(new SqlQueryResultDecorator(plain, timed))
             );
         } catch (SQLException e) {
             ExceptionWriter exceptionWriter = ExceptionWriter.fromPrintWriter(spec.commandLine().getErr());

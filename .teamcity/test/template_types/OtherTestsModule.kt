@@ -1,8 +1,6 @@
 package test.template_types
 
 import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity.Companion.getId
@@ -35,11 +33,15 @@ class OtherTestsModule(
             name = "Clean Up Remaining Processes"
         }
 
+        customScript(type = "bash") {
+            name = "Setup Docker Proxy"
+        }
+
         customGradle {
             id = "RunTests"
             name = "Run tests"
             tasks = configuration.testTask + " " +
-                excludeModules.map { "-x " + it.buildTask(configuration.testTask) }.joinToString(" ")
+                    excludeModules.joinToString(" ") { "-x " + it.mainTask(configuration.testTask) }
             workingDir = "%VCSROOT__IGNITE3%"
             gradleParams = "%env.GRADLE_OPTS%"
             this.jvmArgs = """

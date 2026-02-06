@@ -30,14 +30,13 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.lang.IgniteTuple3;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.tx.TransactionException;
 
@@ -54,6 +53,7 @@ public class ClientTransactionCommitRequest {
      * @param clockService Clock service.
      * @param igniteTables Tables.
      * @param enableDirectMapping Enable direct mapping flag.
+     * @param sendRemoteWritesFlag Send remote writes flag.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -63,6 +63,7 @@ public class ClientTransactionCommitRequest {
             ClockService clockService,
             IgniteTablesInternal igniteTables,
             boolean enableDirectMapping,
+            boolean sendRemoteWritesFlag,
             HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
@@ -72,49 +73,54 @@ public class ClientTransactionCommitRequest {
         if (enableDirectMapping && !tx.isReadOnly()) {
             int cnt = in.unpackInt(); // Number of direct enlistments.
 
-            List<IgniteTuple3<TablePartitionId, String, Long>> list = new ArrayList<>();
+            List<Enlistment> list = new ArrayList<>();
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
                 int partId = in.unpackInt();
                 String consistentId = in.unpackString();
                 long token = in.unpackLong();
 
-                list.add(new IgniteTuple3<>(new TablePartitionId(tableId, partId), consistentId, token));
+                list.add(new Enlistment(tableId, partId, consistentId, token));
             }
 
             if (cnt > 0) {
                 long causality = in.unpackLong();
 
-                // Update causality.
+                // Update causality. Used to assign commit timestamp after all enlistments.
                 clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
+
+                ReadWriteTransactionImpl tx0 = (ReadWriteTransactionImpl) tx;
+
+                // Enforce cleanup.
+                tx0.noRemoteWrites(sendRemoteWritesFlag && in.unpackBoolean());
             }
 
             Exception ex = null;
 
-            for (IgniteTuple3<TablePartitionId, String, Long> enlistment : list) {
-                TableViewInternal table = igniteTables.cachedTable(enlistment.get1().tableId());
+            for (Enlistment enlistment : list) {
+                TableViewInternal table = igniteTables.cachedTable(enlistment.tableId());
 
                 if (table == null) {
-                    ex = new TransactionException(TX_COMMIT_ERR, "Table not found [id=" + enlistment.get1().tableId() + ']');
+                    ex = new TransactionException(TX_COMMIT_ERR, "Table not found [id=" + enlistment.tableId() + ']');
                     break;
                 }
 
-                if (!merge(table.internalTable(), enlistment.get1().partitionId(), enlistment.get2(), enlistment.get3(), tx, true)) {
-                    ex = new TransactionException(TX_COMMIT_ERR, "Invalid enlistment token [id=" + enlistment.get1().tableId() + ']');
+                if (!merge(table.internalTable(), enlistment.partitionId(), enlistment.consistentId(), enlistment.token(), tx, true)) {
+                    ex = new TransactionException(TX_COMMIT_ERR, "Invalid enlistment token [id=" + enlistment.tableId() + ']');
                     break;
                 }
             }
 
             if (ex != null) {
                 // Perform enlistment for rollback.
-                for (IgniteTuple3<TablePartitionId, String, Long> enlistment : list) {
-                    TableViewInternal table = igniteTables.cachedTable(enlistment.get1().tableId());
+                for (Enlistment enlistment : list) {
+                    TableViewInternal table = igniteTables.cachedTable(enlistment.tableId());
 
                     if (table == null) {
                         continue;
                     }
 
-                    merge(table.internalTable(), enlistment.get1().partitionId(), enlistment.get2(), enlistment.get3(), tx, false);
+                    merge(table.internalTable(), enlistment.partitionId(), enlistment.consistentId(), enlistment.token(), tx, false);
                 }
 
                 Exception finalEx = ex;
@@ -161,7 +167,7 @@ public class ClientTransactionCommitRequest {
      * @return {@code True} if merged.
      */
     public static boolean merge(InternalTable table, int partId, String consistentId, long token, InternalTransaction tx, boolean commit) {
-        ReplicationGroupId replicationGroupId = table.targetReplicationGroupId(partId);
+        ZonePartitionId replicationGroupId = table.targetReplicationGroupId(partId);
         PendingTxPartitionEnlistment existing = tx.enlistedPartition(replicationGroupId);
         if (existing == null) {
             tx.enlist(replicationGroupId, table.tableId(), consistentId, token);
@@ -171,5 +177,35 @@ public class ClientTransactionCommitRequest {
         }
 
         return true;
+    }
+
+    private static class Enlistment {
+        final int tableId;
+        final int partitionId;
+        final String consistentId;
+        final long token;
+
+        Enlistment(int tableId, int partitionId, String consistentId, long token) {
+            this.tableId = tableId;
+            this.partitionId = partitionId;
+            this.consistentId = consistentId;
+            this.token = token;
+        }
+
+        int tableId() {
+            return tableId;
+        }
+
+        int partitionId() {
+            return partitionId;
+        }
+
+        String consistentId() {
+            return consistentId;
+        }
+
+        long token() {
+            return token;
+        }
     }
 }

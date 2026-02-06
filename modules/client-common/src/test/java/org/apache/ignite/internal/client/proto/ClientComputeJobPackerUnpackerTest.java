@@ -145,12 +145,12 @@ class ClientComputeJobPackerUnpackerTest {
     @ParameterizedTest
     void notMarshalledArgument(Object arg, ComputeJobDataType type) {
         // When pack job argument without marshaller.
-        packJobArgument(arg, null, messagePacker);
+        packJobArgument(arg, null, messagePacker, null);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
-            var res = unpackJobArgumentWithoutMarshaller(messageUnpacker);
+            var res = unpackJobArgumentWithoutMarshaller(messageUnpacker, false);
 
             // Then argument is unpacked but not unmarshalled.
             ComputeJobDataHolder argument = assertInstanceOf(ComputeJobDataHolder.class, res);

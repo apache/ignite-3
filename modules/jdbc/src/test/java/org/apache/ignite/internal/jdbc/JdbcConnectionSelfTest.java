@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -38,6 +42,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.IgniteSql;
@@ -49,6 +54,8 @@ import org.mockito.Mockito;
  * Tests for {@link JdbcConnection}.
  */
 public class JdbcConnectionSelfTest extends BaseIgniteAbstractTest {
+    /** Dummy connection url. */
+    private static final String URL = "jdbc:ignite:thin://127.0.0.1:10800/";
 
     @Test
     public void nativeSql() throws SQLException {
@@ -412,13 +419,13 @@ public class JdbcConnectionSelfTest extends BaseIgniteAbstractTest {
 
         try (Connection conn = createConnection((props) -> {
             props.setSchema("Abc");
-        })) {
+        }, URL)) {
             assertEquals("Abc", conn.getSchema());
         }
 
         try (Connection conn = createConnection((props) -> {
             props.setSchema("\"Abc\"");
-        })) {
+        }, URL)) {
             assertEquals("\"Abc\"", conn.getSchema());
         }
     }
@@ -444,18 +451,145 @@ public class JdbcConnectionSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Connection createConnection() throws SQLException {
-        return createConnection((props) -> {});
+    @Test
+    void testQueryTimeoutProperty() throws SQLException {
+        String propName = "queryTimeoutSeconds";
+        String urlPrefix = URL + "?" + propName;
+
+        SqlThrowingFunction<String, Number> valueGetter = url -> {
+            try (Connection conn = createConnection(url)) {
+                try (Statement stmt = conn.createStatement();
+                        PreparedStatement pstmt = conn.prepareStatement("SELECT 1")) {
+
+                    assertThat(stmt.getQueryTimeout(), is(pstmt.getQueryTimeout()));
+
+                    return stmt.getQueryTimeout();
+                }
+            }
+        };
+
+        assertThat(valueGetter.apply(URL), is(0));
+        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), is(Integer.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0));
+
+        expectConnectionException(urlPrefix + "=A",
+                format("Failed to parse int property [name={}, value=A]", propName));
+
+        expectConnectionException(urlPrefix + "=-1",
+                format("Property cannot be lower than 0 [name={}, value=-1]", propName));
+
+        expectConnectionException(urlPrefix + "=2147483648",
+                format("Failed to parse int property [name={}, value=2147483648]", propName));
+
+        // Check deprecated name "connectionTimeout"
+        assertThat(valueGetter.apply(URL + "?queryTimeout=100"), is(100));
+
+        // If both names are specified, the deprecated property name should be ignored
+        assertThat(valueGetter.apply(URL + "?queryTimeoutSeconds=50&queryTimeout=100"), is(50));
     }
 
-    private static Connection createConnection(Consumer<ConnectionProperties> setup) throws SQLException {
+    @Test
+    void testConnectionTimeoutProperty() throws SQLException {
+        String propName = "connectionTimeoutMillis";
+        String urlPrefix = URL + "?" + propName;
+
+        SqlThrowingFunction<String, Number> valueGetter = url -> {
+            try (JdbcConnection conn = (JdbcConnection) createConnection(url)) {
+                return conn.properties().getConnectionTimeout();
+            }
+        };
+
+        assertThat(valueGetter.apply(URL), is(0));
+        assertThat(valueGetter.apply(urlPrefix + "=2147483647"), is(Integer.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0));
+
+        expectConnectionException(urlPrefix + "=A",
+                format("Failed to parse int property [name={}, value=A]", propName));
+
+        expectConnectionException(urlPrefix + "=-1",
+                format("Property cannot be lower than 0 [name={}, value=-1]", propName));
+
+        expectConnectionException(urlPrefix + "=2147483648",
+                format("Failed to parse int property [name={}, value=2147483648]", propName));
+
+        // Check deprecated name "connectionTimeout"
+        assertThat(valueGetter.apply(URL + "?connectionTimeout=100"), is(100));
+
+        // If both names are specified, the deprecated property name should be ignored
+        assertThat(valueGetter.apply(URL + "?connectionTimeoutMillis=50&connectionTimeout=100"), is(50));
+    }
+
+    @Test
+    public void testChangeBackgroundReconnectIntervalProperty() throws SQLException {
+        String propertyName = "backgroundReconnectIntervalMillis";
+        String urlPrefix = URL + "?" + propertyName;
+
+        SqlThrowingFunction<String, Number> valueGetter = url -> {
+            try (JdbcConnection conn = (JdbcConnection) createConnection(url)) {
+                return conn.properties().getBackgroundReconnectInterval();
+            }
+        };
+
+        assertThat(valueGetter.apply(URL), is(IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL));
+        assertThat(valueGetter.apply(urlPrefix + "=9223372036854775807"), is(Long.MAX_VALUE));
+        assertThat(valueGetter.apply(urlPrefix + "=0"), is(0L));
+
+        expectConnectionException(urlPrefix + "=A",
+                format("Failed to parse int property [name={}, value=A]", propertyName));
+
+        expectConnectionException(urlPrefix + "=-1",
+                format("Property cannot be lower than 0 [name={}, value=-1]", propertyName));
+
+        expectConnectionException(urlPrefix + "=9223372036854775808",
+                format("Failed to parse int property [name={}, value=9223372036854775808]", propertyName));
+    }
+
+    @Test
+    public void testChangePartitionAwarenessCacheSizeProperty() throws SQLException {
+        // Default value.
+        try (JdbcConnection conn = (JdbcConnection) createConnection(URL)) {
+            assertEquals(
+                    IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE,
+                    conn.properties().getPartitionAwarenessMetadataCacheSize()
+            );
+        }
+
+        String urlPrefix = URL + "?partitionAwarenessMetadataCacheSize";
+
+        expectConnectionException(urlPrefix + "=A",
+                "Failed to parse int property [name=partitionAwarenessMetadataCacheSize, value=A]");
+
+        expectConnectionException(urlPrefix + "=-1",
+                "Property cannot be lower than 0 [name=partitionAwarenessMetadataCacheSize, value=-1]");
+
+        expectConnectionException(urlPrefix + "=2147483648",
+                "Failed to parse int property [name=partitionAwarenessMetadataCacheSize, value=2147483648]");
+
+        try (JdbcConnection conn = (JdbcConnection) createConnection(urlPrefix + "=2147483647")) {
+            assertEquals(Integer.MAX_VALUE, conn.properties().getPartitionAwarenessMetadataCacheSize());
+        }
+
+        try (JdbcConnection conn = (JdbcConnection) createConnection(urlPrefix + "=0")) {
+            assertEquals(0, conn.properties().getPartitionAwarenessMetadataCacheSize());
+        }
+    }
+
+    private static Connection createConnection() throws SQLException {
+        return createConnection((props) -> {}, URL);
+    }
+
+    private static Connection createConnection(String url) throws SQLException {
+        return createConnection((props) -> {}, url);
+    }
+
+    private static Connection createConnection(Consumer<ConnectionProperties> setup, String url) throws SQLException {
         IgniteClient ignite = Mockito.mock(IgniteClient.class);
         IgniteSql igniteSql = Mockito.mock(IgniteSql.class);
 
         when(ignite.sql()).thenReturn(igniteSql);
 
-        ConnectionProperties properties = new ConnectionPropertiesImpl();
-        properties.setUrl("jdbc:ignite:thin://127.0.0.1:10800/");
+        ConnectionPropertiesImpl properties = new ConnectionPropertiesImpl();
+        properties.init(url, new Properties());
 
         setup.accept(properties);
 
@@ -470,5 +604,25 @@ public class JdbcConnectionSelfTest extends BaseIgniteAbstractTest {
 
     private static void expectNotSupported(Executable method) {
         assertThrows(SQLFeatureNotSupportedException.class, method);
+    }
+
+    @SuppressWarnings({"ThrowableNotThrown", "resource"})
+    private static void expectConnectionException(String url, String errMsg) {
+        assertThrowsSqlException(errMsg, () -> createConnection(url));
+    }
+
+    /**
+     * Function that can throw an {@link SQLException}.
+     */
+    @FunctionalInterface
+    public interface SqlThrowingFunction<T, R> {
+        /**
+         * Applies the function to a given argument.
+         *
+         * @param t Argument.
+         * @return Application result.
+         * @throws SQLException If something goes wrong.
+         */
+        R apply(T t) throws SQLException;
     }
 }

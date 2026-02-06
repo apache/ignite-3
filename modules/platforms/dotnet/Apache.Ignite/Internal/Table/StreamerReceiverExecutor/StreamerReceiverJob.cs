@@ -20,15 +20,16 @@ namespace Apache.Ignite.Internal.Table.StreamerReceiverExecutor;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
-using Apache.Ignite.Internal.Buffers;
-using Apache.Ignite.Internal.Compute.Executor;
-using Apache.Ignite.Table;
+using Buffers;
+using Compute.Executor;
+using Ignite.Table;
 using Serialization;
 
 /// <summary>
 /// Internal compute job that executes user-defined data streamer receiver.
 /// </summary>
 [SuppressMessage("ReSharper", "UnusedType.Global", Justification = "Called via reflection from Java.")]
+[RequiresUnreferencedCode(ComputeJobExecutor.TrimWarning)]
 internal static class StreamerReceiverJob
 {
     /// <summary>

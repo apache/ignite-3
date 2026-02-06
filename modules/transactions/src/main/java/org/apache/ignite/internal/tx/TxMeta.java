@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.Collections.unmodifiableCollection;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -80,7 +80,7 @@ public class TxMeta implements TransactionMeta {
         for (EnlistedPartitionGroup enlistedPartition : enlistedPartitions) {
             enlistedPartitionMessages.add(
                     txMessagesFactory.enlistedPartitionGroupMessage()
-                            .groupId(toReplicationGroupIdMessage(replicaMessagesFactory, enlistedPartition.groupId()))
+                            .groupId(toZonePartitionIdMessage(replicaMessagesFactory, enlistedPartition.groupId()))
                             .tableIds(enlistedPartition.tableIds())
                             .build()
             );

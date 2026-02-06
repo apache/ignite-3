@@ -148,7 +148,7 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
 
     private static Row marshalTuple(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
-        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
+        var marshaller = new TupleMarshallerImpl(table::qualifiedName, schemaReg.lastKnownSchema());
 
         return marshaller.marshal(tuple);
     }
@@ -214,7 +214,9 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
 
         CatalogManager catalogManager = unwrapIgniteImpl(cluster.aliveNode()).catalogManager();
 
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
+        return catalogManager.latestCatalog()
+                .tables()
+                .stream()
                 .filter(t -> t.name().equals(tableName))
                 .findFirst().get().id();
     }

@@ -20,14 +20,19 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Sql;
 using Ignite.Table;
+using Ignite.Table.Mapper;
 using NodaTime;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests record view with single-column mapping to a primitive type.
 /// </summary>
-public class RecordViewPrimitiveTests : IgniteTestsBase
+[TestFixture("reflective")]
+[TestFixture("mapper")]
+public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: mode == "mapper")
 {
     [Test]
     public async Task TestLongKey() => await TestKey(7L, Table.GetRecordView<long>());
@@ -49,13 +54,14 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
         await TestKey(new LocalTime(3, 4, 5), TableTimeName);
         await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), TableTimestampName);
         await TestKey(new byte[] { 1, 2, 3 }, TableBytesName);
+        await TestKey(Guid.NewGuid(), TableUuidName);
     }
 
     [Test]
     public void TestColumnTypeMismatchThrowsException()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey(1f, Table.GetRecordView<float>()));
-        Assert.AreEqual("Can't map 'System.Single' to column 'KEY' of type 'System.Int64' - types do not match.", ex!.Message);
+        Assert.AreEqual("Can't write a value of type 'Float' to column 'KEY' of type 'Int64'.", ex!.Message);
     }
 
     [Test]
@@ -88,6 +94,113 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
 
         Assert.IsNotNull(table, "Table must exist: " + tableName);
 
-        await TestKey(val, table!.GetRecordView<T>());
+        var recordView = UseMapper
+            ? table!.GetRecordView(new PrimitiveMapper<T>())
+            : table!.GetRecordView<T>();
+
+        await TestKey(val, recordView);
+    }
+
+    private class PrimitiveMapper<T> : IMapper<T>
+        where T : notnull
+    {
+        public void Write(T obj, ref RowWriter rowWriter, IMapperSchema schema)
+        {
+            var col = schema.Columns[0];
+
+            switch (col.Type)
+            {
+                case ColumnType.Boolean:
+                    rowWriter.WriteBool((bool)(object)obj);
+                    break;
+                case ColumnType.Int8:
+                    rowWriter.WriteByte((sbyte)(object)obj);
+                    break;
+                case ColumnType.Int16:
+                    rowWriter.WriteShort((short)(object)obj);
+                    break;
+                case ColumnType.Int32:
+                    rowWriter.WriteInt((int)(object)obj);
+                    break;
+                case ColumnType.Int64:
+                    rowWriter.WriteLong((long)(object)obj);
+                    break;
+                case ColumnType.Float:
+                    rowWriter.WriteFloat((float)(object)obj);
+                    break;
+                case ColumnType.Double:
+                    rowWriter.WriteDouble((double)(object)obj);
+                    break;
+                case ColumnType.Decimal:
+                    if (obj is BigDecimal bd)
+                    {
+                        rowWriter.WriteBigDecimal(bd);
+                    }
+                    else
+                    {
+                        rowWriter.WriteDecimal((decimal)(object)obj);
+                    }
+
+                    break;
+                case ColumnType.String:
+                    rowWriter.WriteString((string)(object)obj);
+                    break;
+                case ColumnType.Date:
+                    rowWriter.WriteDate((LocalDate)(object)obj);
+                    break;
+                case ColumnType.Time:
+                    rowWriter.WriteTime((LocalTime)(object)obj);
+                    break;
+                case ColumnType.Datetime:
+                    rowWriter.WriteDateTime((LocalDateTime)(object)obj);
+                    break;
+                case ColumnType.Timestamp:
+                    rowWriter.WriteTimestamp((Instant)(object)obj);
+                    break;
+                case ColumnType.Uuid:
+                    rowWriter.WriteGuid((Guid)(object)obj);
+                    break;
+                case ColumnType.ByteArray:
+                    rowWriter.WriteBytes((byte[])(object)obj);
+                    break;
+                default:
+                    Assert.Fail("Unsupported column type: " + col.Type);
+                    break;
+            }
+
+            for (int i = 1; i < schema.Columns.Count; i++)
+            {
+                rowWriter.Skip();
+            }
+        }
+
+        public T Read(ref RowReader rowReader, IMapperSchema schema)
+        {
+            var col = schema.Columns[0];
+
+            return col.Type switch
+            {
+                ColumnType.Boolean => (T)(object)rowReader.ReadBool()!,
+                ColumnType.Int8 => (T)(object)rowReader.ReadByte()!,
+                ColumnType.Int16 => (T)(object)rowReader.ReadShort()!,
+                ColumnType.Int32 => (T)(object)rowReader.ReadInt()!,
+                ColumnType.Int64 => (T)(object)rowReader.ReadLong()!,
+                ColumnType.Float => (T)(object)rowReader.ReadFloat()!,
+                ColumnType.Double => (T)(object)rowReader.ReadDouble()!,
+                ColumnType.Decimal => typeof(T) == typeof(BigDecimal)
+                    ? (T)(object)rowReader.ReadBigDecimal()!
+                    : (T)(object)rowReader.ReadDecimal()!,
+                ColumnType.String => (T)(object)rowReader.ReadString()!,
+                ColumnType.Date => (T)(object)rowReader.ReadDate()!,
+                ColumnType.Time => (T)(object)rowReader.ReadTime()!,
+                ColumnType.Datetime => (T)(object)rowReader.ReadDateTime()!,
+                ColumnType.Timestamp => (T)(object)rowReader.ReadTimestamp()!,
+                ColumnType.Uuid => (T)(object)rowReader.ReadGuid()!,
+                ColumnType.ByteArray => (T)(object)rowReader.ReadBytes()!,
+
+                // ReSharper disable PatternIsRedundant
+                ColumnType.Null or ColumnType.Period or ColumnType.Duration or _ => default!
+            };
+        }
     }
 }

@@ -28,9 +28,8 @@ import java.util.List;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
@@ -215,7 +214,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
      * @param outputProjection Output projection.
      */
     public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType leftRowType,
-            RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp, @Nullable SqlJoinProjection<RowT> outputProjection) {
+            RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp, @Nullable SqlJoinProjection outputProjection) {
         switch (joinType) {
             case INNER: {
                 assert outputProjection != null;
@@ -227,7 +226,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 assert outputProjection != null;
 
                 StructNativeType rightRowSchema = convertStructuredType(rightRowType);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new LeftJoin<>(ctx, comp, outputProjection, rightRowFactory);
             }
@@ -236,7 +235,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 assert outputProjection != null;
 
                 StructNativeType leftRowSchema = convertStructuredType(leftRowType);
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
 
                 return new RightJoin<>(ctx, comp, outputProjection, leftRowFactory);
             }
@@ -247,8 +246,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 StructNativeType leftRowSchema = convertStructuredType(leftRowType);
                 StructNativeType rightRowSchema = convertStructuredType(rightRowType);
 
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new FullOuterJoin<>(ctx, comp, outputProjection, leftRowFactory, rightRowFactory);
             }
@@ -271,7 +270,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     private static class InnerJoin<RowT> extends MergeJoinNode<RowT> {
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private RowT left;
 
@@ -291,7 +290,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
          * @param comp Join expression comparator.
          * @param outputProjection Output projection.
          */
-        private InnerJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp, SqlJoinProjection<RowT> outputProjection) {
+        private InnerJoin(ExecutionContext<RowT> ctx, Comparator<RowT> comp, SqlJoinProjection outputProjection) {
             super(ctx, comp);
 
             this.outputProjection = outputProjection;
@@ -436,9 +435,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
     private static class LeftJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
+        private final RowFactory<RowT> rightRowFactory;
 
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private RowT left;
 
@@ -465,7 +464,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private LeftJoin(
                 ExecutionContext<RowT> ctx,
                 Comparator<RowT> comp,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> rightRowFactory
         ) {
             super(ctx, comp);
@@ -633,9 +632,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
     private static class RightJoin<RowT> extends MergeJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
+        private final RowFactory<RowT> leftRowFactory;
 
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private RowT left;
 
@@ -662,8 +661,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private RightJoin(
                 ExecutionContext<RowT> ctx,
                 Comparator<RowT> comp,
-                SqlJoinProjection<RowT> outputProjection,
-                RowHandler.RowFactory<RowT> leftRowFactory
+                SqlJoinProjection outputProjection,
+                RowFactory<RowT> leftRowFactory
         ) {
             super(ctx, comp);
 
@@ -842,12 +841,12 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
     private static class FullOuterJoin<RowT> extends MergeJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
+        private final RowFactory<RowT> leftRowFactory;
 
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
+        private final RowFactory<RowT> rightRowFactory;
 
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         private RowT left;
 
@@ -878,9 +877,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         private FullOuterJoin(
                 ExecutionContext<RowT> ctx,
                 Comparator<RowT> comp,
-                SqlJoinProjection<RowT> outputProjection,
-                RowHandler.RowFactory<RowT> leftRowFactory,
-                RowHandler.RowFactory<RowT> rightRowFactory
+                SqlJoinProjection outputProjection,
+                RowFactory<RowT> leftRowFactory,
+                RowFactory<RowT> rightRowFactory
         ) {
             super(ctx, comp);
 

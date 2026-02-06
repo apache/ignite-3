@@ -34,7 +34,8 @@ class HoconDecoratorTest {
                 arguments("foo=[bar, baz]", "foo=[\n    bar,\n    baz\n]\n"),
                 arguments("foo=bar", "foo=bar\n"),
                 arguments("foo=[]", "foo=[]\n"),
-                arguments("[bar, baz]", "[\n    bar,\n    baz\n]"), // top-level list
+                arguments("[bar, baz]", "[\n    \"bar\",\n    \"baz\"\n]"), // top-level list
+                arguments("[{bar=baz}]", "[\n    {\n        \"bar\" : \"baz\"\n    }\n\n]"), // top-level list with objects
                 arguments("[]", "[]") // top-level list
         );
     }

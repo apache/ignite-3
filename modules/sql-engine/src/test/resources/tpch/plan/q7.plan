@@ -43,7 +43,7 @@ Sort
                 est: (rows=14)
               TableScan
                   table: PUBLIC.NATION
-                  predicate: SEARCH(N_NAME, Sarg[_UTF-8'FRANCE':CHAR(7) CHARACTER SET "UTF-8", _UTF-8'GERMANY']:CHAR(7) CHARACTER SET "UTF-8")
+                  predicate: SEARCH(N_NAME, Sarg[_UTF-8'FRANCE':VARCHAR(7) CHARACTER SET "UTF-8", _UTF-8'GERMANY':VARCHAR(7) CHARACTER SET "UTF-8"]:VARCHAR(7) CHARACTER SET "UTF-8")
                   fieldNames: [N_NATIONKEY, N_NAME]
                   est: (rows=14)
         HashJoin
@@ -73,6 +73,6 @@ Sort
                 est: (rows=14)
               TableScan
                   table: PUBLIC.NATION
-                  predicate: SEARCH(N_NAME, Sarg[_UTF-8'FRANCE':CHAR(7) CHARACTER SET "UTF-8", _UTF-8'GERMANY']:CHAR(7) CHARACTER SET "UTF-8")
+                  predicate: SEARCH(N_NAME, Sarg[_UTF-8'FRANCE':VARCHAR(7) CHARACTER SET "UTF-8", _UTF-8'GERMANY':VARCHAR(7) CHARACTER SET "UTF-8"]:VARCHAR(7) CHARACTER SET "UTF-8")
                   fieldNames: [N_NATIONKEY, N_NAME]
                   est: (rows=14)

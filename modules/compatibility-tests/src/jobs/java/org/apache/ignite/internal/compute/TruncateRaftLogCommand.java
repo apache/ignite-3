@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.JobsCommon.unwrapIgniteImpl;
-
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 
@@ -33,22 +31,18 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.SnapshotRequest;
 public class TruncateRaftLogCommand implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String groupId) {
-        try {
-            IgniteImpl igniteImpl = unwrapIgniteImpl(context.ignite());
+        IgniteImpl igniteImpl = Wrappers.unwrap(context.ignite(), IgniteImpl.class);
 
-            SnapshotRequest request = new RaftMessagesFactory().snapshotRequest()
-                    .groupId(groupId)
-                    .peerId(igniteImpl.name())
-                    .build();
+        SnapshotRequest request = new RaftMessagesFactory().snapshotRequest()
+                .groupId(groupId)
+                .peerId(igniteImpl.name())
+                .build();
 
-            MessagingService messagingService = igniteImpl.raftManager().messagingService();
+        MessagingService messagingService = igniteImpl.raftManager().messagingService();
 
-            // Version 3.0.0 doesn't have "forced" snapshot, so we have to request it twice.
-            return messagingService.invoke(igniteImpl.name(), request, 10_000L)
-                    .thenCompose(ignored -> messagingService.invoke(igniteImpl.name(), request, 10_000L))
-                    .thenApply(ignored -> null);
-        } catch (Exception e) {
-            throw new CompletionException(e);
-        }
+        // Version 3.0.0 doesn't have "forced" snapshot, so we have to request it twice.
+        return messagingService.invoke(igniteImpl.name(), request, 10_000L)
+                .thenCompose(ignored -> messagingService.invoke(igniteImpl.name(), request, 10_000L))
+                .thenApply(ignored -> null);
     }
 }

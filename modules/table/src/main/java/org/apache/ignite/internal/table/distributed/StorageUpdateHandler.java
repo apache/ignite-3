@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -27,6 +30,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -46,6 +51,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -54,6 +60,8 @@ import org.jetbrains.annotations.TestOnly;
 
 /** Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests. */
 public class StorageUpdateHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(StorageUpdateHandler.class);
+
     /** Partition id. */
     private final int partitionId;
 
@@ -72,6 +80,9 @@ public class StorageUpdateHandler {
     /** Partition modification counter. */
     private final PartitionModificationCounter modificationCounter;
 
+    /** Transaction manager to retrieve labels for logging. */
+    private final TxManager txManager;
+
     /**
      * The constructor.
      *
@@ -88,16 +99,80 @@ public class StorageUpdateHandler {
             ReplicationConfiguration replicationConfiguration,
             PartitionModificationCounter modificationCounter
     ) {
+        this(partitionId, storage, indexUpdateHandler, replicationConfiguration, modificationCounter, null);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param partitionId Partition id.
+     * @param storage Partition data storage.
+     * @param indexUpdateHandler Partition index update handler.
+     * @param replicationConfiguration Configuration for the replication.
+     * @param modificationCounter Partition modification counter.
+     * @param txManager tx manager to retrieve label for logging.
+     */
+    public StorageUpdateHandler(
+            int partitionId,
+            PartitionDataStorage storage,
+            IndexUpdateHandler indexUpdateHandler,
+            ReplicationConfiguration replicationConfiguration,
+            PartitionModificationCounter modificationCounter,
+            @Nullable TxManager txManager
+    ) {
         this.partitionId = partitionId;
         this.storage = storage;
         this.indexUpdateHandler = indexUpdateHandler;
         this.replicationConfiguration = replicationConfiguration;
         this.modificationCounter = modificationCounter;
+        this.txManager = txManager;
     }
 
     /** Returns partition ID of the storage. */
     public int partitionId() {
         return partitionId;
+    }
+
+    /**
+     * Starts the handler.
+     *
+     * @param onNodeRecovery {@code true} if called on node recovery, {@code false} otherwise.
+     */
+    public void start(boolean onNodeRecovery) {
+        if (onNodeRecovery) {
+            recoverPendingRows();
+        }
+    }
+
+    private void recoverPendingRows() {
+        long startNanos = System.nanoTime();
+
+        int count = 0;
+        try (Cursor<RowId> writeIntentRowIds = storage.getStorage().scanWriteIntents()) {
+            for (RowId rowId : writeIntentRowIds) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-27234 - only read row metadata.
+                ReadResult result = storage.getStorage().read(rowId, HybridTimestamp.MAX_VALUE);
+
+                if (result.isWriteIntent()) {
+                    UUID txId = result.transactionId();
+                    assert txId != null : "Transaction ID is null for a write intent [rowId=" + rowId + "]";
+
+                    pendingRows.addPendingRowId(txId, rowId);
+                }
+
+                count++;
+            }
+        }
+
+        if (count != 0 && LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Recovered pending rows [tableId={}, partitionId={}, count={}, duration={}ms]",
+                    storage.tableId(),
+                    storage.partitionId(),
+                    count,
+                    NANOSECONDS.toMillis(System.nanoTime() - startNanos)
+            );
+        }
     }
 
     /**
@@ -253,7 +328,7 @@ public class StorageUpdateHandler {
                     batchLength += row.tupleSliceLength();
                 }
 
-                if (!processedRowIds.isEmpty() && batchLength > maxBatchLength) {
+                if (!processedRowIds.isEmpty() && (locker.shouldRelease() || batchLength > maxBatchLength)) {
                     break;
                 }
 
@@ -353,6 +428,7 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
+        assert !(commit && commitTimestamp == null) : "Commit timestamp cant be null when tx is set to commit: " + txId;
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
         // for example, when primary (PartitionReplicaListener) is collocated with the raft node (PartitionListener)
@@ -361,23 +437,46 @@ public class StorageUpdateHandler {
         // However, we still need to run `onApplication` if it is not null, e.g. called in TxCleanupCommand handler in PartitionListener
         // to update indexes. In this case it should be executed under `runConsistently`.
         if (!pendingRowIds.isEmpty() || onApplication != null) {
-            storage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
+            Iterator<RowId> pendingRowIdsIterator = pendingRowIds.iterator();
+            boolean finished = false;
+            while (!finished) {
+                finished = storage.runConsistently(locker -> {
+                    int modificationsCount = 0;
+                    boolean shouldRelease = false;
+                    while (pendingRowIdsIterator.hasNext()) {
+                        RowId rowId = pendingRowIdsIterator.next();
+                        locker.lock(rowId);
 
-                // Here we don't need to check for mismatch of the transaction that created the write intent and commits it. Since the
-                // commit can happen in #handleUpdate and #handleUpdateAll.
-                if (commit) {
-                    performCommitWrite(txId, pendingRowIds, commitTimestamp);
-                } else {
-                    performAbortWrite(txId, pendingRowIds, indexIds);
-                }
+                        // Here we don't need to check for mismatch of the transaction that created the write intent and commits it.
+                        // Since the commit can happen in #handleUpdate and #handleUpdateAll.
+                        if (commit) {
+                            storage.commitWrite(rowId, commitTimestamp, txId);
+                            modificationsCount++;
+                        } else {
+                            performAbortWrite(txId, rowId, indexIds);
+                        }
 
-                if (onApplication != null) {
-                    onApplication.run();
-                }
+                        shouldRelease = locker.shouldRelease();
+                        if (shouldRelease) {
+                            break;
+                        }
+                    }
 
-                return null;
-            });
+                    if (commit) {
+                        modificationCounter.updateValue(modificationsCount, commitTimestamp);
+                    }
+
+                    if (shouldRelease) {
+                        return false;
+                    }
+
+                    if (onApplication != null) {
+                        onApplication.run();
+                    }
+
+                    return true;
+                });
+            }
         }
     }
 
@@ -406,29 +505,27 @@ public class StorageUpdateHandler {
      * <p>Transaction that created write intent is expected to abort it.</p>
      *
      * @param txId Transaction ID.
-     * @param pendingRowIds Row IDs of write-intents to be aborted.
+     * @param rowId Row ID of write-intent to be aborted.
      * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
-        for (RowId rowId : pendingRowIds) {
-            AbortResult abortResult = storage.abortWrite(rowId, txId);
+    private void performAbortWrite(UUID txId, RowId rowId, @Nullable List<Integer> indexIds) {
+        AbortResult abortResult = storage.abortWrite(rowId, txId);
 
-            if (abortResult.status() == AbortResultStatus.TX_MISMATCH) {
-                continue;
-            }
+        if (abortResult.status() == AbortResultStatus.TX_MISMATCH) {
+            return;
+        }
 
-            if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.previousWriteIntent() == null) {
-                continue;
-            }
+        if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.previousWriteIntent() == null) {
+            return;
+        }
 
-            try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                indexUpdateHandler.tryRemoveFromIndexes(
-                        abortResult.previousWriteIntent(),
-                        rowId,
-                        cursor,
-                        indexIds
-                );
-            }
+        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
+            indexUpdateHandler.tryRemoveFromIndexes(
+                    abortResult.previousWriteIntent(),
+                    rowId,
+                    cursor,
+                    indexIds
+            );
         }
     }
 
@@ -484,7 +581,13 @@ public class StorageUpdateHandler {
             UUID wiTxId = result.currentWriteIntentTxId();
 
             if (lastCommitTs == null) {
-                throw new TxIdMismatchException(wiTxId, txId);
+
+                String formattedMessage = txManager != null ? format(
+                        "Mismatched transaction id [expectedTxId={}, conflictingTxId={}]",
+                        formatTxInfo(wiTxId, txManager),
+                        formatTxInfo(txId, txManager)) : null;
+
+                throw new TxIdMismatchException(wiTxId, txId, formattedMessage);
             }
 
             performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.latestCommitTimestamp(), indexIds);
@@ -549,7 +652,7 @@ public class StorageUpdateHandler {
             // So if we got up to here, it means that the previous transaction was aborted,
             // but the storage was not cleaned after it.
             // Action: abort this write intent.
-            performAbortWrite(writeIntentTxId, Set.of(rowId), indexIds);
+            performAbortWrite(writeIntentTxId, rowId, indexIds);
         }
     }
 

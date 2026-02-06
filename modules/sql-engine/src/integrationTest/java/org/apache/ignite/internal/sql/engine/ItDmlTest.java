@@ -619,6 +619,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 () -> sql("select val as \"__p_key\" from t"));
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __part is reserved name",
                 () -> sql("select val as \"__part\" from t"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal alias. __PARTITION_ID is reserved name",
+                () -> sql("select val as __partition_id from t"));
     }
 
     private static Stream<DefaultValueArg> defaultValueArgs() {
@@ -1133,6 +1135,18 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         // make sure state is consistent
         assertQuery("SELECT COUNT(*), COUNT(DISTINCT val) FROM my")
                 .returns(4L, 1L)
+                .check();
+    }
+
+    @Test
+    void ensureLiteralsInValueAreCorrectlyCoerced() {
+        sql("CREATE TABLE test (id INT PRIMARY KEY, val REAL)");
+        sql("INSERT INTO test VALUES (1, 1), (2, NULL), (3, 3)");
+
+        assertQuery("SELECT * FROM test")
+                .returns(1, 1.0F)
+                .returns(2, null)
+                .returns(3, 3.0F)
                 .check();
     }
 

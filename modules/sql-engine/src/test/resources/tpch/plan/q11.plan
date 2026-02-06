@@ -6,7 +6,7 @@ Sort
       projection: [PS_PARTKEY, VAL]
       est: (rows=26640)
     NestedLoopJoin
-        predicate: >(VAL, CAST(EXPR$0):DECIMAL(32767, 2))
+        predicate: >(CAST(VAL):DECIMAL(55, 6) NOT NULL, EXPR$0)
         type: inner
         est: (rows=26640)
       ColocatedHashAggregate

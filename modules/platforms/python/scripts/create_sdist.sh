@@ -19,7 +19,7 @@ set -e -u -x
 PACKAGE_NAME="pyignite_dbapi"
 PY_VERS=$1
 
-# Converting input from '3.9,3.10...' to '39 310...'
+# Converting input from '3.10,3.11...' to '310 311...'
 PREPARED_VERS=$(echo $PY_VERS | sed -r 's/\.//g' | tr ',' ' ')
 
 # Copying cpp directory.

@@ -19,15 +19,18 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.avatica.util.DateTimeUtils.dateStringToUnixDate;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.Year;
+import java.time.ZoneOffset;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.runtime.SqlFunctions;
-import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
@@ -136,73 +139,39 @@ public class IgniteSqlDateTimeUtils {
         return date;
     }
 
-    /**
-     * Helper for CAST({time} AS VARCHAR(n)).
-     *
-     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
-     *          with the only difference being that it does not add trailing zeros.
-     */
+    /** Helper for CAST({time} AS VARCHAR(n)). */
     public static String unixTimeToString(int time, int precision) {
-        IgniteStringBuilder buf = new IgniteStringBuilder(8 + (precision > 0 ? 1 + precision : 0));
-
-        unixTimeToString(buf, time, precision);
-
-        return buf.toString();
+        return DateTimeUtils.unixTimeToString(time, precision);
     }
 
-    private static void unixTimeToString(IgniteStringBuilder buf, int time, int precision) {
-        int h = time / 3600000;
-        int time2 = time % 3600000;
-        int m = time2 / 60000;
-        int time3 = time2 % 60000;
-        int s = time3 / 1000;
-        int ms = time3 % 1000;
-
-        buf.app((char) ('0' + (h / 10) % 10))
-                .app((char) ('0' + h % 10))
-                .app(':')
-                .app((char) ('0' + (m / 10) % 10))
-                .app((char) ('0' + m % 10))
-                .app(':')
-                .app((char) ('0' + (s / 10) % 10))
-                .app((char) ('0' + s % 10));
-
-        if (precision == 0 || ms == 0) {
-            return;
-        }
-
-        buf.app('.');
-        do {
-            buf.app((char) ('0' + (ms / 100)));
-
-            ms = ms % 100;
-            ms = ms * 10;
-            --precision;
-        } while (ms > 0 && precision > 0);
-    }
-
-    /**
-     * Helper for CAST({timestamp} AS VARCHAR(n)).
-     *
-     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
-     *          with the only difference being that it does not add trailing zeros.
-     */
+    /** Helper for CAST({timestamp} AS VARCHAR(n)). */
     public static String unixTimestampToString(long timestamp, int precision) {
-        IgniteStringBuilder buf = new IgniteStringBuilder(17);
-        int date = (int) (timestamp / DateTimeUtils.MILLIS_PER_DAY);
-        int time = (int) (timestamp % DateTimeUtils.MILLIS_PER_DAY);
+        return DateTimeUtils.unixTimestampToString(timestamp, precision);
+    }
 
-        if (time < 0) {
-            --date;
+    /** Helper for CAST({timestamp with local time zone} AS VARCHAR(n)). */
+    public static String timestampWithLocalTimeZoneToString(long timestamp, int precision, TimeZone zone) {
+        // Step 1: Timestamp ltz represented by millis since epoch.
+        // Create Instant object to ease timezone adjustment. 
+        Instant ts = Instant.ofEpochMilli(timestamp);
 
-            time += (int) DateTimeUtils.MILLIS_PER_DAY;
-        }
+        // Step 2: Adjust timestamp with time zone provided.
+        LocalDateTime localDateTime = ts.atZone(zone.toZoneId()).toLocalDateTime();
+        long adjustedTs = (long) TypeUtils.toInternal(localDateTime, ColumnType.DATETIME);
 
-        buf.app(DateTimeUtils.unixDateToString(date)).app(' ');
+        return unixTimestampToString(adjustedTs, precision) + " " + zone.getID();
+    }
 
-        unixTimeToString(buf, time, precision);
+    /** Helper for CAST({timestamp} AS TIMESTAMP WITH LOCAL TIME ZONE). */
+    public static Long toTimestampWithLocalTimeZone(long timestamp, TimeZone zone) {
+        // Step 1: Extract the date/time components by treating millis as UTC
+        Instant incorrectInstant = Instant.ofEpochMilli(timestamp);
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(incorrectInstant, ZoneOffset.UTC);
 
-        return buf.toString();
+        // Step 2: Interpret that local date/time in the correct timezone
+        Instant correctedInstant = localDateTime.atZone(zone.toZoneId()).toInstant();
+
+        return correctedInstant.toEpochMilli();
     }
 
     /**

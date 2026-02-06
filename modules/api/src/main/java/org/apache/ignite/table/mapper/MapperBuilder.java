@@ -115,12 +115,20 @@ public final class MapperBuilder<T> {
         }
 
         try {
-            type.getDeclaredConstructor();
-
-            return type;
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+            boolean isRecord = RecordSupport.isRecord(type);
+            if (!isRecord) {
+                try {
+                    type.getDeclaredConstructor();
+                } catch (NoSuchMethodException e) {
+                    throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+                }
+            }
+        } catch (IllegalAccessException e) {
+            // Alternatively, we can skip the check instead of raising the error.
+            throw new RuntimeException("Could not check if the provided class is a record", e);
         }
+
+        return type;
     }
 
     /**

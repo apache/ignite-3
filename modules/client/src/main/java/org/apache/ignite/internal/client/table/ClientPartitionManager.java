@@ -20,8 +20,11 @@ package org.apache.ignite.internal.client.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -54,11 +57,24 @@ class ClientPartitionManager implements PartitionManager {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
-        if (!(partition instanceof HashPartition)) {
-            throw new IllegalArgumentException("Unsupported partition type: " + partition);
+    public CompletableFuture<List<Partition>> partitionsAsync() {
+        int partitionCount = tbl.tryGetPartitionCount();
+
+        if (partitionCount != -1) {
+            return completedFuture(getPartitions(partitionCount));
         }
 
+        return tbl.getPartitionAssignment()
+                .thenApply(pa -> getPartitions(pa.size()));
+    }
+
+    @Override
+    public List<Partition> partitions() {
+        return sync(partitionsAsync());
+    }
+
+    @Override
+    public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
         ClusterNode clusterNode = getClusterNode(partition);
 
         if (clusterNode != null) {
@@ -67,6 +83,11 @@ class ClientPartitionManager implements PartitionManager {
 
         return primaryReplicasAsync()
                 .thenApply(map -> map.get(partition));
+    }
+
+    @Override
+    public ClusterNode primaryReplica(Partition partition) {
+        return sync(primaryReplicaAsync(partition));
     }
 
     @Override
@@ -99,6 +120,32 @@ class ClientPartitionManager implements PartitionManager {
     }
 
     @Override
+    public CompletableFuture<List<Partition>> primaryReplicasAsync(ClusterNode node) {
+        return primaryReplicasAsync()
+                .thenApply(map -> {
+                    List<Partition> parts = new ArrayList<>(map.size());
+
+                    for (Map.Entry<Partition, ClusterNode> entry : map.entrySet()) {
+                        if (entry.getValue().equals(node)) {
+                            parts.add(entry.getKey());
+                        }
+                    }
+
+                    return parts;
+                });
+    }
+
+    @Override
+    public Map<Partition, ClusterNode> primaryReplicas() {
+        return sync(primaryReplicasAsync());
+    }
+
+    @Override
+    public List<Partition> primaryReplicas(ClusterNode node) {
+        return sync(primaryReplicasAsync(node));
+    }
+
+    @Override
     public <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper) {
         Objects.requireNonNull(key, "Key is null.");
         Objects.requireNonNull(mapper, "Mapper is null.");
@@ -111,6 +158,16 @@ class ClientPartitionManager implements PartitionManager {
         Objects.requireNonNull(key, "Key is null.");
 
         return getPartition(getPartitionAwarenessProvider(key));
+    }
+
+    @Override
+    public <K> Partition partition(K key, Mapper<K> mapper) {
+        return sync(partitionAsync(key, mapper));
+    }
+
+    @Override
+    public Partition partition(Tuple key) {
+        return sync(partitionAsync(key));
     }
 
     private @Nullable ClusterNode getClusterNode(Partition partition) {
@@ -166,5 +223,15 @@ class ClientPartitionManager implements PartitionManager {
 
                     return new HashPartition(Math.abs(hash % partitions.size()));
                 }));
+    }
+
+    private static List<Partition> getPartitions(int partitionCount) {
+        List<Partition> parts = new ArrayList<>(partitionCount);
+
+        for (int i = 0; i < partitionCount; i++) {
+            parts.add(new HashPartition(i));
+        }
+
+        return parts;
     }
 }

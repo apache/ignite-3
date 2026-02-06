@@ -74,7 +74,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     ClientKeyValueBinaryView(ClientTable tbl, ClientSql sql) {
         super(tbl, sql);
 
-        ser = new ClientTupleSerializer(tbl.tableId());
+        ser = new ClientTupleSerializer(tbl.tableId(), tbl::qualifiedName);
     }
 
     /** {@inheritDoc} */
@@ -91,7 +91,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
+                (s, r) -> ser.readValueTuple(s, r.in()),
                 null,
                 getPartitionAwarenessProvider(key),
                 tx);
@@ -355,8 +355,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@Nullable Transaction tx, Tuple key, Tuple val) {
-        return sync(removeAsync(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, Tuple key, Tuple val) {
+        return sync(removeExactAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -374,7 +374,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
@@ -483,8 +483,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
-        return sync(replaceAsync(tx, key, oldVal, newVal));
+    public boolean replaceExact(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
+        return sync(replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
@@ -503,7 +503,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(oldVal, "oldVal");
         Objects.requireNonNull(newVal, "newVal");

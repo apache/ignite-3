@@ -131,7 +131,7 @@ public class Ignite2PersistentCacheTools {
             if (streamJobOpt.isPresent()) {
                 CompletableFuture<Void> streamJob = streamJobOpt.get();
                 try {
-                    // TODO: GG-40802 Allow more control on the converters side.
+                    // TODO: IGNITE-27629 Allow more control on the converters side.
                     GridCursor<? extends CacheDataRow> cu = cs.cursor();
 
                     while (cu.next()) {
@@ -187,7 +187,7 @@ public class Ignite2PersistentCacheTools {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Could not find the requested cache: " + cacheName));
 
-        // TODO: GG-40802 Allow injecting custom aliases/fieldNameForColumn mappings
+        // TODO: IGNITE-27629 Allow injecting custom aliases/fieldNameForColumn mappings
         QualifiedName qualifiedName = SqlDdlGenerator.qualifiedName(cacheCfg);
         @Nullable ClientTable table = (ClientTable) client.tables().table(qualifiedName);
         SqlDdlGenerator.GenerateTableResult tableDefinition = sqlGenerator.generate(cacheCfg);
@@ -195,7 +195,7 @@ public class Ignite2PersistentCacheTools {
         if (table == null) {
             TableDefinition tblDef = tableDefinition.tableDefinition();
             if (!"PUBLIC".equals(tblDef.schemaName())) {
-                client.sql().executeAsync(null, "CREATE SCHEMA IF NOT EXISTS " + tblDef.schemaName() + ";").join();
+                client.sql().executeAsync("CREATE SCHEMA IF NOT EXISTS " + tblDef.schemaName() + ";").join();
             }
 
             table = (ClientTable) client.catalog()
@@ -207,7 +207,7 @@ public class Ignite2PersistentCacheTools {
         ClientSchema schema = SchemaUtils.getLatestSchemaForTable(table).join();
         String tableName = table.name();
 
-        // TODO: GG-40802 Allow more control on the converters side.
+        // TODO: IGNITE-27629 Allow more control on the converters side.
         // Call dump table
         publishCacheCursor(nodeContexts, cacheName, (cacheTuplesPublisher, partId) ->
                 Optional.ofNullable(columnsProcessorFactory.createSubscribed(

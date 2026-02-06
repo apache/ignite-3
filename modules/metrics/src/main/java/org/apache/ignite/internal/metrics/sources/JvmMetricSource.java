@@ -102,6 +102,10 @@ public class JvmMetricSource implements MetricSource {
                 "memory.heap.Max",
                 "Maximum amount of heap memory",
                 () -> heapMemoryUsage.get().getMax());
+        metricSetBuilder.doubleGauge(
+                "memory.heap.FreePercent",
+                "Percentage of free heap memory",
+                () -> calculateHeapFreePercent(heapMemoryUsage.get()));
 
         CachedMemoryUsage nonHeapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getNonHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
         metricSetBuilder.longGauge(
@@ -126,6 +130,11 @@ public class JvmMetricSource implements MetricSource {
                 "Approximate total time spent on garbage collection in milliseconds, summed across all collectors.",
                 this::totalCollectionTime);
 
+        metricSetBuilder.doubleGauge(
+                "gc.CollectionTimePercent",
+                "Percentage of time spent on garbage collection relative to JVM uptime.",
+                this::gcTimePercent);
+
         metricSetBuilder.longGauge(
                 "UpTime",
                 "The uptime of the Java virtual machine in milliseconds.",
@@ -148,6 +157,38 @@ public class JvmMetricSource implements MetricSource {
         }
 
         return total;
+    }
+
+    private double gcTimePercent() {
+        long totalGcTime = totalCollectionTime();
+        long uptime = runtimeBean.getUptime();
+
+        if (uptime > 0) {
+            return (totalGcTime * 100.0) / uptime;
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Calculates the free heap memory percentage.
+     *
+     * @param heapUsage Current heap memory usage.
+     * @return Free heap memory percentage.
+     */
+    private double calculateHeapFreePercent(MemoryUsage heapUsage) {
+        long used = heapUsage.getUsed();
+        long max = heapUsage.getMax();
+        long committed = heapUsage.getCommitted();
+
+        // Calculate free percentage based on max if available, otherwise committed.
+        if (max > 0) {
+            return (Math.max(max - used, 0) * 100.0) / max;
+        } else if (committed > 0) {
+            return (Math.max(committed - used, 0) * 100.0) / committed;
+        }
+
+        return 0.0;
     }
 
     @Override

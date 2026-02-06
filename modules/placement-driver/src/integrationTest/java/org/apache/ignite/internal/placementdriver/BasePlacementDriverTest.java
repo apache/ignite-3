@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 
 import java.util.HashMap;
@@ -26,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -34,17 +32,14 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 
 /** Base class for testing the placement driver. */
 abstract class BasePlacementDriverTest extends IgniteAbstractTest {
-    protected final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
-
-    protected PartitionGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
-        return enabledColocation ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId);
+    private static ZonePartitionId targetReplicationGroupId(int zoneId, int partId) {
+        return new ZonePartitionId(zoneId, partId);
     }
 
     /**
@@ -54,18 +49,18 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
      */
     protected PartitionGroupId createAssignments(
             MetaStorageManager metastore,
-            int tableOrZoneId,
+            int zoneId,
             List<String> dataNodes,
-            long assignmentsTimestamp) {
+            long assignmentsTimestamp
+    ) {
         List<Set<Assignment>> assignments = calculateAssignments(dataNodes, 1, dataNodes.size(), dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 
         for (int i = 0; i < assignments.size(); i++) {
-            PartitionGroupId replicationGroupId = targetReplicationGroupId(tableOrZoneId, i);
-            ByteArray stableAssignmentsKey = enabledColocation
-                    ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) replicationGroupId)
-                    : stablePartAssignmentsKey((TablePartitionId) replicationGroupId);
+            ZonePartitionId replicationGroupId = targetReplicationGroupId(zoneId, i);
+            ByteArray stableAssignmentsKey = ZoneRebalanceUtil.stablePartAssignmentsKey(replicationGroupId);
+
             partitionAssignments.put(
                     stableAssignmentsKey,
                     Assignments.toBytes(assignments.get(i), assignmentsTimestamp));
@@ -73,9 +68,9 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
 
         metastore.putAll(partitionAssignments).join();
 
-        PartitionGroupId grpPart0 = targetReplicationGroupId(tableOrZoneId, 0);
+        ZonePartitionId grpPart0 = targetReplicationGroupId(zoneId, 0);
 
-        log.info("Fake table created [id={}, repGrp={}]", tableOrZoneId, grpPart0);
+        log.info("Fake table created [id={}, replicationGroup={}]", zoneId, grpPart0);
 
         return grpPart0;
     }
