@@ -20,7 +20,9 @@ package org.apache.ignite.internal.deployunit;
 import static java.util.Collections.emptyList;
 import static org.apache.ignite.deployment.version.Version.parseVersion;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -36,14 +38,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * Observes a predefined directory with statically provisioned deployment units and registers their presence in the deployment store.
@@ -75,41 +76,92 @@ public class StaticUnitDeployer {
     }
 
     /**
-     * Scans the filesystem for statically deployed units and registers their cluster and node statuses if they are not yet present in the
-     * store.
+     * Performs startup deployment unit synchronization.
      *
-     * <p>Already registered unit versions for this node are skipped. New ones are registered as DEPLOYED.
+     * <ol>
+     *     <li>Scans the filesystem for statically deployed units and registers them if not yet present in the store.</li>
+     *     <li>Checks for units marked as DEPLOYED in metastorage but missing on disk, and resets them to UPLOADING to trigger on-demand
+     *     deployment from another node.</li>
+     * </ol>
      */
-    public CompletableFuture<Void> searchAndDeployStaticUnits() {
-        StaticUnits allUnits = collectStaticUnits();
+    CompletableFuture<Void> syncDeployedUnits() {
+        StaticUnits unitsOnDisk = collectStaticUnits();
 
         return deploymentUnitStore.getNodeStatuses(nodeName).thenCompose(statuses -> {
-            List<CompletableFuture<?>> futures = new ArrayList<>();
+            List<String> recoveredUnits = new ArrayList<>();
+            List<CompletableFuture<Boolean>> recoveredUnitFutures = new ArrayList<>();
 
+            // Process existing statuses: filter out from static units and recover missing units
             for (UnitNodeStatus status : statuses) {
-                allUnits.filter(status.id(), status.version());
-            }
-            LOG.info("Start processing static deployment units {}", allUnits);
-            allUnits.forEach((id, version) -> {
-                CompletableFuture<Boolean> future = deploymentUnitStore.createClusterStatus(id, version, Set.of(nodeName))
-                        .thenCompose(status -> {
-                            if (status == null) {
-                                return deploymentUnitStore.getClusterStatus(id, version).thenCompose(it ->
-                                        deploymentUnitStore.createNodeStatus(nodeName, id, version, it.opId(), DEPLOYED)
-                                );
-                            } else {
-                                return deploymentUnitStore.createNodeStatus(nodeName, id, version, status.opId(), DEPLOYED);
-                            }
-                        });
-                futures.add(future);
-            });
+                String id = status.id();
+                Version version = status.version();
 
-            return allOf(futures).whenComplete((unused, t) -> {
-                if (!futures.isEmpty()) {
-                    LOG.info("Finished static units deploy {}", t, allUnits);
+                unitsOnDisk.filter(id, version);
+
+                if (status.status() == DEPLOYED) {
+                    Path unitPath = deploymentUnitsRoot.resolve(id).resolve(version.render());
+                    if (Files.notExists(unitPath)) {
+                        recoveredUnits.add(id + ":" + version);
+                        recoveredUnitFutures.add(checkAndRecoverUnit(status));
+                    }
                 }
-            });
+            }
+
+            LOG.info("Start processing static deployment units {}", unitsOnDisk);
+            List<CompletableFuture<Boolean>> staticUnits = new ArrayList<>();
+            unitsOnDisk.forEach((id, version) -> staticUnits.add(deployStaticUnit(id, version)));
+
+            return allOf(List.of(
+                    allOf(recoveredUnitFutures).whenComplete((unused, throwable) -> {
+                        if (!recoveredUnitFutures.isEmpty()) {
+                            LOG.info("Finished recovered units deploy {}", throwable, recoveredUnits);
+                        }
+                    }),
+                    allOf(staticUnits).whenComplete((unused, throwable) -> {
+                        if (!staticUnits.isEmpty()) {
+                            LOG.info("Finished static units deploy {}", throwable, unitsOnDisk);
+                        }
+                    })
+            ));
         });
+    }
+
+    private CompletableFuture<Boolean> deployStaticUnit(String id, Version version) {
+        return deploymentUnitStore.createClusterStatus(id, version, Set.of(nodeName))
+                .thenCompose(status -> {
+                    if (status == null) {
+                        return deploymentUnitStore.getClusterStatus(id, version).thenCompose(it ->
+                                deploymentUnitStore.createNodeStatus(nodeName, id, version, it.opId(), DEPLOYED)
+                        );
+                    } else {
+                        return deploymentUnitStore.createNodeStatus(nodeName, id, version, status.opId(), DEPLOYED);
+                    }
+                });
+    }
+
+    private CompletableFuture<Boolean> checkAndRecoverUnit(UnitNodeStatus status) {
+        String id = status.id();
+        Version version = status.version();
+
+        LOG.info("Unit {}:{} is in DEPLOYED state but files are missing, resetting to UPLOADING", id, version);
+
+        // Delete the old status and recreate with UPLOADING state, since updateNodeStatus doesn't allow backward transitions
+        return deploymentUnitStore.removeNodeStatus(nodeName, id, version, status.opId())
+                .thenCompose(removed -> {
+                    if (removed) {
+                        return deploymentUnitStore.getClusterStatus(id, version)
+                                .thenCompose(clusterStatus -> {
+                                    if (clusterStatus == null) {
+                                        LOG.warn("Cluster status not found for {}:{}, skipping recovery", id, version);
+                                        return falseCompletedFuture();
+                                    }
+                                    return deploymentUnitStore.createNodeStatus(nodeName, id, version, clusterStatus.opId(),
+                                            UPLOADING);
+                                });
+                    }
+                    LOG.warn("Unit status {}:{} was not removed, skipping recovery", id, version);
+                    return falseCompletedFuture();
+                });
     }
 
     private StaticUnits collectStaticUnits() {
@@ -151,7 +203,6 @@ public class StaticUnitDeployer {
     }
 
     private static class StaticUnits {
-        @IgniteToStringInclude
         private final Map<String, Set<Version>> units = new HashMap<>();
 
         void filter(String id, Version version) {
@@ -175,7 +226,9 @@ public class StaticUnitDeployer {
 
         @Override
         public String toString() {
-            return S.toString(this);
+            return units.entrySet().stream()
+                    .flatMap(e -> e.getValue().stream().map(version -> e.getKey() + ":" + version))
+                    .collect(Collectors.joining(", "));
         }
     }
 }
