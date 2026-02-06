@@ -68,6 +68,8 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
     private static final int PAGE_SIZE = Config.DEFAULT_PAGE_SIZE;
     private static final long REGION_CAPACITY_PAGES = SMALL_REGION_SIZE / PAGE_SIZE;
     private static final long MAX_WORKING_SET_SIZE = 1_000_000;
+    private static final double MIN_WORKING_SET_RATIO = 0.1;
+    private static final long MIN_WORKING_SET_SIZE = Math.round(REGION_CAPACITY_PAGES * MIN_WORKING_SET_RATIO);
 
     /** 0.99 = very skewed, most accesses hit few pages. */
     private static final double ZIPFIAN_SKEW = 0.99;
@@ -80,8 +82,6 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
     private static final int PARTITION_COUNT = 16;
 
     private static final double WARMUP_MULTIPLIER = 1.1;
-
-    private static final double MIN_WORKING_SET_RATIO = 0.1;
 
     private static final int CHECKPOINT_TIMEOUT_SECONDS = 30;
 
@@ -133,11 +133,10 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
                 ));
             }
 
-            long minWorkingSetSize = Math.round(REGION_CAPACITY_PAGES * MIN_WORKING_SET_RATIO);
-            if (workingSetSize < minWorkingSetSize) {
+            if (workingSetSize < MIN_WORKING_SET_SIZE) {
                 throw new IllegalStateException(String.format(
                         "Benchmark not properly initialized: workingSetSize=%,d < minimum %,d (%.0f%% of capacity)",
-                        workingSetSize, minWorkingSetSize, MIN_WORKING_SET_RATIO * 100
+                        workingSetSize, MIN_WORKING_SET_SIZE, MIN_WORKING_SET_RATIO * 100
                 ));
             }
         }
