@@ -55,6 +55,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
+    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
 
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.auto.service.annotations

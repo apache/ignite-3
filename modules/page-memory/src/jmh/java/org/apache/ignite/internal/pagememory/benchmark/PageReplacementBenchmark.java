@@ -223,30 +223,26 @@ public class PageReplacementBenchmark extends PersistentPageMemoryBenchmarkBase 
         );
     }
 
-    @Override
-    protected Config config() {
-        return Config.builder()
-                .regionSize(SMALL_REGION_SIZE)
-                .pageSize(PAGE_SIZE)
-                .replacementMode(replacementModeParam)
-                .partitionsCount(PARTITION_COUNT)
-                .build();
-    }
-
     /**
      * Prepare benchmark infrastructure and data.
      */
     @Setup
     public void setup(Blackhole blackhole) throws Exception {
-        validateConfiguration();
-        setup();
+        validateBenchmarkConfiguration();
+        Config infrastructureConfig = Config.builder()
+                .regionSize(SMALL_REGION_SIZE)
+                .pageSize(PAGE_SIZE)
+                .replacementMode(replacementModeParam)
+                .partitionsCount(PARTITION_COUNT)
+                .build();
+        setup(infrastructureConfig);
         prepareWorkingSet();
 
         warmupCache(blackhole);
         validateCacheWarmed();
     }
 
-    private void validateConfiguration() {
+    private void validateBenchmarkConfiguration() {
         workingSetSize = cachePressure.computeWorkingSetSize(REGION_CAPACITY_PAGES);
 
         if (workingSetSize > MAX_WORKING_SET_SIZE) {

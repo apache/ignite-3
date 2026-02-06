@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.benchmark;
 
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
-import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -27,8 +26,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestDataRegion;
@@ -57,10 +57,6 @@ import org.apache.ignite.internal.util.OffheapReadWriteLock;
 public class PersistentPageMemoryBenchmarkBase {
     protected static final int GROUP_ID = 1;
 
-    private static final long DEFAULT_REGION_SIZE = Constants.GiB;
-    private static final int DEFAULT_PAGE_SIZE = 4 * Constants.KiB;
-    private static final int DEFAULT_CHECKPOINT_BUFFER_SIZE = 10 * Constants.MiB;
-
     private static final String NODE_NAME = "benchmark-node";
 
     private PersistentPageMemory persistentPageMemory;
@@ -71,10 +67,6 @@ public class PersistentPageMemoryBenchmarkBase {
     private Path workDir;
     private ExecutorService executorService;
 
-    protected Config config() {
-        return Config.builder().build();
-    }
-
     protected PersistentPageMemory persistentPageMemory() {
         return persistentPageMemory;
     }
@@ -84,13 +76,12 @@ public class PersistentPageMemoryBenchmarkBase {
     }
 
     /** Starts page memory infrastructure including file stores, checkpoint manager, and pre-allocates a free list. */
-    public void setup() throws Exception {
-        Config config = config();
-
-        workDir = Files.createTempDirectory("ignite-benchmark-" + System.nanoTime());
+    public void setup(Config config) throws Exception {
+        String tempDirectoryName = getClass().getSimpleName();
+        workDir = Files.createTempDirectory(tempDirectoryName + "-" + System.nanoTime());
         executorService = Executors.newCachedThreadPool();
 
-        FailureManager failureManager = mock(FailureManager.class);
+        FailureManager failureManager = new NoOpFailureManager();
 
         var ioRegistry = new TestPageIoRegistry();
         ioRegistry.loadFromServiceLoader();
@@ -99,11 +90,11 @@ public class PersistentPageMemoryBenchmarkBase {
                 NODE_NAME,
                 workDir,
                 new RandomAccessFileIoFactory(),
-                DEFAULT_PAGE_SIZE,
+                config.pageSize(),
                 failureManager
         );
 
-        partitionMetaManager = new PartitionMetaManager(ioRegistry, DEFAULT_PAGE_SIZE, FakePartitionMeta.FACTORY);
+        partitionMetaManager = new PartitionMetaManager(ioRegistry, config.pageSize(), FakePartitionMeta.FACTORY);
 
         var dataRegionList = new ArrayList<DataRegion<PersistentPageMemory>>();
 
@@ -116,22 +107,22 @@ public class PersistentPageMemoryBenchmarkBase {
                 partitionMetaManager,
                 dataRegionList,
                 ioRegistry,
-                mock(LogSyncer.class),
+                new NoOpLogSyncer(),
                 executorService,
                 new CheckpointMetricSource("benchmark"),
-                DEFAULT_PAGE_SIZE
+                config.pageSize()
         );
 
         persistentPageMemory = new PersistentPageMemory(
                 PersistentDataRegionConfiguration.builder()
-                        .pageSize(DEFAULT_PAGE_SIZE)
+                        .pageSize(config.pageSize())
                         .size(config.regionSize())
                         .replacementMode(config.replacementMode())
                         .build(),
                 new PersistentPageMemoryMetricSource("benchmark"),
                 ioRegistry,
                 new long[]{config.regionSize()},
-                DEFAULT_CHECKPOINT_BUFFER_SIZE,
+                config.checkpointBufferSize(),
                 filePageStoreManager,
                 checkpointManager::writePageToFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
@@ -147,28 +138,26 @@ public class PersistentPageMemoryBenchmarkBase {
 
         int partitionsCount = config.partitionsCount();
         for (int i = 0; i < partitionsCount; i++) {
-            createPartitionFilePageStore(i);
+            createPartitionFilePageStore(i, config.pageSize());
         }
     }
 
     /** Stops page memory infrastructure and cleans up temporary files. */
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                checkpointManager == null ? null : checkpointManager::stop,
-                persistentPageMemory == null ? null : () -> persistentPageMemory.stop(true),
-                filePageStoreManager == null ? null : filePageStoreManager::stop,
-                executorService == null ? null : executorService::shutdown,
+                checkpointManager::stop,
+                () -> persistentPageMemory.stop(true),
+                filePageStoreManager::stop,
+                executorService::shutdown,
                 () -> {
-                    if (workDir != null) {
-                        IgniteUtils.deleteIfExists(workDir);
-                    }
+                    IgniteUtils.deleteIfExists(workDir);
                 }
         );
     }
 
     /** Create partition file page store. */
-    protected void createPartitionFilePageStore(int partitionId) throws Exception {
-        ByteBuffer buffer = allocateBuffer(DEFAULT_PAGE_SIZE);
+    private void createPartitionFilePageStore(int partitionId, int pageSize) throws Exception {
+        ByteBuffer buffer = allocateBuffer(pageSize);
 
         try {
             var groupPartitionId = new GroupPartitionId(GROUP_ID, partitionId);
@@ -206,13 +195,17 @@ public class PersistentPageMemoryBenchmarkBase {
      * Configuration of the benchmark infrastructure.
      */
     public static class Config {
+        private static final long DEFAULT_REGION_SIZE = Constants.GiB;
+        private static final int DEFAULT_PAGE_SIZE = 4 * Constants.KiB;
+        private static final int DEFAULT_CHECKPOINT_BUFFER_SIZE = 10 * Constants.MiB;
+
         private final long regionSize;
-        private final long pageSize;
+        private final int pageSize;
         private final ReplacementMode replacementMode;
         private final int partitionsCount;
         private final int checkpointBufferSize;
 
-        private Config(long regionSize, long pageSize, ReplacementMode replacementMode, int partitionsCount, int checkpointBufferSize) {
+        private Config(long regionSize, int pageSize, ReplacementMode replacementMode, int partitionsCount, int checkpointBufferSize) {
             this.regionSize = regionSize;
             this.pageSize = pageSize;
             this.replacementMode = replacementMode;
@@ -224,7 +217,7 @@ public class PersistentPageMemoryBenchmarkBase {
             return regionSize;
         }
 
-        public long pageSize() {
+        public int pageSize() {
             return pageSize;
         }
 
@@ -236,7 +229,7 @@ public class PersistentPageMemoryBenchmarkBase {
             return partitionsCount;
         }
 
-        public int getCheckpointBufferSize() {
+        public int checkpointBufferSize() {
             return checkpointBufferSize;
         }
 
@@ -249,7 +242,7 @@ public class PersistentPageMemoryBenchmarkBase {
          */
         public static final class Builder {
             private long regionSize = DEFAULT_REGION_SIZE;
-            private long pageSize = DEFAULT_PAGE_SIZE;
+            private int pageSize = DEFAULT_PAGE_SIZE;
             private ReplacementMode replacementMode = ReplacementMode.CLOCK;
             private int partitionsCount = 1;
             private int checkpointBufferSize = DEFAULT_CHECKPOINT_BUFFER_SIZE;
@@ -271,7 +264,7 @@ public class PersistentPageMemoryBenchmarkBase {
              * @param pageSize the {@code pageSize} to set
              * @return a reference to this Builder
              */
-            public Builder pageSize(long pageSize) {
+            public Builder pageSize(int pageSize) {
                 this.pageSize = pageSize;
                 return this;
             }
