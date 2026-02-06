@@ -48,7 +48,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<TransactionMe
     /** Clock service to calculate a timestamp for rolled back transactions. */
     private final ClockService clockService;
 
-    private volatile LongSupplier pendingWriteIntentsSupplier = zeroSupplier();
+    private volatile LongSupplier pendingWriteIntentsSupplier = () -> 0L;
 
     /**
      * Creates a new instance of {@link TransactionMetricsSource}.
@@ -65,16 +65,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<TransactionMe
      * @param supplier Supplier, or {@code null} to reset to default (always returns {@code 0}).
      */
     public void setPendingWriteIntentsSupplier(@Nullable LongSupplier supplier) {
-        pendingWriteIntentsSupplier = supplier == null ? zeroSupplier() : supplier;
-    }
-
-    /**
-     * Zero supplier.
-     *
-     * @return supplier which always returns zero
-     */
-    private static LongSupplier zeroSupplier() {
-        return () -> 0L;
+        pendingWriteIntentsSupplier = supplier == null ? () -> 0L : supplier;
     }
 
     /**
