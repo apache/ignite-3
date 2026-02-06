@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.benchmark;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
@@ -41,7 +47,6 @@ class ZipfianDistributionTest {
 
         for (int i = 0; i < sampleSize; i++) {
             int index = dist.next();
-            assertTrue(index >= 0 && index < itemCount, "Index out of bounds: " + index);
             accessCounts[index]++;
         }
 
@@ -62,14 +67,28 @@ class ZipfianDistributionTest {
         double top20Ratio = top20Accesses / (double) sampleSize;
 
         // Zipfian(0.99) should give ~80-85% to top 20%
-        // We use 75% minimum to allow for statistical variance
-        assertTrue(top20Ratio >= 0.75,
-                String.format("Top 20%% of items should get at least 75%% of accesses, got %.1f%%",
-                        top20Ratio * 100));
+        // We use 75%-90% to allow for statistical variance
+        assertThat(
+                String.format("Top 20%% of items should get 75%%-90%% of accesses, got %.1f%%",
+                        top20Ratio * 100),
+                top20Ratio,
+                is(allOf(greaterThanOrEqualTo(0.75), lessThanOrEqualTo(0.90)))
+        );
+    }
 
-        assertTrue(top20Ratio <= 0.90,
-                String.format("Top 20%% of items should get at most 90%% of accesses, got %.1f%%",
-                        top20Ratio * 100));
+    @Test
+    void testProducesItemsWithinRange() {
+        int itemCount = 100;
+        ZipfianDistribution dist = new ZipfianDistribution(itemCount, 0.99, 42);
+
+        for (int i = 0; i < 1_000; i++) {
+            int index = dist.next();
+            assertThat(
+                    "Index should be within bounds [0," + itemCount + ")",
+                    index,
+                    is(allOf(greaterThanOrEqualTo(0), lessThan(itemCount)))
+            );
+        }
     }
 
     @Test
@@ -95,7 +114,7 @@ class ZipfianDistributionTest {
         }
 
         // Different seeds should produce mostly different sequences
-        assertTrue(differences > 50, "Different seeds should produce different sequences");
+        assertThat("Different seeds should produce different sequences", differences, is(greaterThan(50)));
     }
 
     @Test
@@ -128,8 +147,11 @@ class ZipfianDistributionTest {
         }
 
         // Lower skew should hit more different items (less concentrated)
-        assertTrue(lowSkewHitItems > highSkewHitItems,
+        assertThat(
                 String.format("Lower skew should hit more items: low=%d, high=%d",
-                        lowSkewHitItems, highSkewHitItems));
+                        lowSkewHitItems, highSkewHitItems),
+                lowSkewHitItems,
+                is(greaterThan(highSkewHitItems))
+        );
     }
 }
