@@ -129,44 +129,22 @@ public class Table<T> {
      *
      * @param resultSet coming result set.
      * @return instance of {@link Table}.
+     * @throws SQLException if a database access error occurs.
      */
-    public static Table<String> fromResultSet(ResultSet resultSet) {
-        return fromResultSet(resultSet, 0);
-    }
-
-    /**
-     * Create method with row limit.
-     *
-     * @param resultSet coming result set.
-     * @param limit maximum number of rows to read (0 = unlimited).
-     * @return instance of {@link Table} with truncation metadata.
-     */
-    public static Table<String> fromResultSet(ResultSet resultSet, int limit) {
-        try {
-            ResultSetMetaData metaData = resultSet.getMetaData();
-            int columnCount = metaData.getColumnCount();
-            List<String> ids = new ArrayList<>();
-            for (int i = 1; i <= columnCount; i++) {
-                ids.add(metaData.getColumnLabel(i));
-            }
-            List<String> content = new ArrayList<>();
-            int rowsRead = 0;
-            boolean hasMoreRows = false;
-
-            while (resultSet.next()) {
-                if (limit > 0 && rowsRead >= limit) {
-                    // We've reached the limit, but there's at least one more row
-                    hasMoreRows = true;
-                    break;
-                }
-                for (int i = 1; i <= columnCount; i++) {
-                    content.add(resultSet.getString(i));
-                }
-                rowsRead++;
-            }
-            return new Table<>(ids, content, hasMoreRows);
-        } catch (SQLException e) {
-            return null;
+    public static Table<String> fromResultSet(ResultSet resultSet) throws SQLException {
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        List<String> ids = new ArrayList<>();
+        for (int i = 1; i <= columnCount; i++) {
+            ids.add(metaData.getColumnLabel(i));
         }
+        List<String> content = new ArrayList<>();
+
+        while (resultSet.next()) {
+            for (int i = 1; i <= columnCount; i++) {
+                content.add(resultSet.getString(i));
+            }
+        }
+        return new Table<>(ids, content);
     }
 }

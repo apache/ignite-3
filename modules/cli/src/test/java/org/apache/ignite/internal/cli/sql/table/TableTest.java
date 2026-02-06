@@ -73,10 +73,10 @@ class TableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void fromResultSetWithoutLimit() throws SQLException {
+    public void fromResultSet() throws SQLException {
         ResultSet rs = createMockResultSet(5, 2);
 
-        Table<String> table = Table.fromResultSet(rs, 0);
+        Table<String> table = Table.fromResultSet(rs);
 
         Assertions.assertEquals(5, table.getRowCount());
         Assertions.assertFalse(table.hasMoreRows());
@@ -84,51 +84,10 @@ class TableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void fromResultSetWithLimitLessThanRows() throws SQLException {
-        ResultSet rs = createMockResultSet(10, 2);
-
-        Table<String> table = Table.fromResultSet(rs, 3);
-
-        Assertions.assertEquals(3, table.getRowCount());
-        Assertions.assertTrue(table.hasMoreRows(), "Should indicate more rows available");
-        Assertions.assertArrayEquals(new String[]{"col1", "col2"}, table.header());
-    }
-
-    @Test
-    public void fromResultSetWithLimitEqualToRows() throws SQLException {
-        ResultSet rs = createMockResultSet(5, 2);
-
-        Table<String> table = Table.fromResultSet(rs, 5);
-
-        Assertions.assertEquals(5, table.getRowCount());
-        Assertions.assertFalse(table.hasMoreRows(), "Should not indicate more rows when exactly at limit");
-    }
-
-    @Test
-    public void fromResultSetWithLimitGreaterThanRows() throws SQLException {
-        ResultSet rs = createMockResultSet(3, 2);
-
-        Table<String> table = Table.fromResultSet(rs, 100);
-
-        Assertions.assertEquals(3, table.getRowCount());
-        Assertions.assertFalse(table.hasMoreRows(), "Should not indicate more rows when limit exceeds data");
-    }
-
-    @Test
-    public void fromResultSetWithLimitOne() throws SQLException {
-        ResultSet rs = createMockResultSet(100, 1);
-
-        Table<String> table = Table.fromResultSet(rs, 1);
-
-        Assertions.assertEquals(1, table.getRowCount());
-        Assertions.assertTrue(table.hasMoreRows(), "Should indicate more rows available");
-    }
-
-    @Test
     public void fromResultSetEmptyResultSet() throws SQLException {
         ResultSet rs = createMockResultSet(0, 2);
 
-        Table<String> table = Table.fromResultSet(rs, 10);
+        Table<String> table = Table.fromResultSet(rs);
 
         Assertions.assertEquals(0, table.getRowCount());
         Assertions.assertFalse(table.hasMoreRows());

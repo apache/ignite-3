@@ -55,18 +55,6 @@ public class SqlManager implements AutoCloseable {
      * @throws SQLException in any case when SQL command can't be executed.
      */
     public SqlQueryResult execute(String sql) throws SQLException {
-        return execute(sql, 0);
-    }
-
-    /**
-     * Execute provided string as SQL request with row limit.
-     *
-     * @param sql incoming string representation of SQL command.
-     * @param resultLimit maximum number of rows to return (0 = unlimited).
-     * @return result of provided SQL command in terms of {@link Table}.
-     * @throws SQLException in any case when SQL command can't be executed.
-     */
-    public SqlQueryResult execute(String sql, int resultLimit) throws SQLException {
         logConnectionInfo();
         CliLoggers.verboseLog(1, "--> SQL " + sql);
 
@@ -81,7 +69,7 @@ public class SqlManager implements AutoCloseable {
                 ResultSet rs = statement.getResultSet();
                 if (rs != null) {
                     logColumnMetadata(rs.getMetaData());
-                    Table<String> table = Table.fromResultSet(rs, resultLimit);
+                    Table<String> table = Table.fromResultSet(rs);
                     totalRows += table.content().length;
                     sqlQueryResultBuilder.addTable(table);
                 } else {

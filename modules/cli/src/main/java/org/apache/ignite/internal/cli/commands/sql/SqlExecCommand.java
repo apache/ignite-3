@@ -85,8 +85,7 @@ public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-            // In non-interactive mode, fetch all rows (no paging)
-            return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager, 0))
+            return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                     .inputProvider(() -> new StringCallInput(executeCommand))
                     .exceptionHandler(SqlExceptionHandler.INSTANCE)
                     .decorator(new SqlQueryResultDecorator(plain, timed))
