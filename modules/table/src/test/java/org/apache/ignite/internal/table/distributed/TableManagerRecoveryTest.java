@@ -159,6 +159,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -427,6 +428,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
+        when(txManager.transactionMetricsSource()).thenReturn(mock(TransactionMetricsSource.class));
 
         PlacementDriver placementDriver = new TestPlacementDriver(node);
         ClockService clockService = new TestClockService(clock);
@@ -438,6 +440,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 NODE_NAME,
                 clusterService,
                 mock(ClusterManagementGroupManager.class, RETURNS_DEEP_STUBS),
+                groupId -> completedFuture(Assignments.EMPTY),
                 clockService,
                 Set.of(),
                 placementDriver,

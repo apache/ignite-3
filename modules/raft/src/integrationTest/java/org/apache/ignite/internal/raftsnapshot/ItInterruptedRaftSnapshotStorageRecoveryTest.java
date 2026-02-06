@@ -40,6 +40,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -81,6 +82,9 @@ class ItInterruptedRaftSnapshotStorageRecoveryTest extends ClusterPerTestIntegra
 
     @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = " + Constants.GiB + "}")
     private StorageConfiguration storageConfig;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemConfig;
 
     @InjectExecutorService
     private ExecutorService executor;
@@ -224,7 +228,7 @@ class ItInterruptedRaftSnapshotStorageRecoveryTest extends ClusterPerTestIntegra
                 "test",
                 metricManager,
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 storagePath,
                 null,

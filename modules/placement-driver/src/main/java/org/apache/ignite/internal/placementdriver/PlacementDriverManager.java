@@ -345,8 +345,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
             @Override
             public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
-                    List<? extends ReplicationGroupId> replicationGroupIds, HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
-                return assignmentsTracker.awaitNonEmptyAssignments(replicationGroupIds, clusterTimeToAwait, timeoutMillis);
+                    List<? extends ReplicationGroupId> replicationGroupIds, long timeoutMillis) {
+                return assignmentsTracker.awaitNonEmptyAssignments(replicationGroupIds, timeoutMillis);
             }
 
             @Override

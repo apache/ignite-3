@@ -216,6 +216,7 @@ Project
       predicate: true
       type: left
       correlates: [$cor0]
+      correlationFieldNames: [RENAMED_C1]
       est: (rows=1)
     Exchange
         distribution: single
@@ -256,6 +257,7 @@ Project
       predicate: true
       type: left
       correlates: [$cor0]
+      correlationFieldNames: [DOUBLED_C1]
       est: (rows=1)
     Exchange
         distribution: single

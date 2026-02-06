@@ -42,6 +42,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1469,5 +1470,28 @@ public class IgniteUtils {
         if (tuple.hasNullValue(fieldIndex)) {
             throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, fieldName));
         }
+    }
+
+    /**
+     * Creates a comparator of lists that compares them lexicographically using the provided comparator for list elements.
+     *
+     * @param comparator Comparator for list elements.
+     * @param <T> Type of list's elements.
+     * @return Comparator of lists.
+     */
+    public static <T> Comparator<List<T>> lexicographicListComparator(Comparator<? super T> comparator) {
+        return (l, r) -> {
+            int length = Math.min(l.size(), r.size());
+
+            for (int i = 0; i < length; i++) {
+                int cmp = comparator.compare(l.get(i), r.get(i));
+
+                if (cmp != 0) {
+                    return cmp;
+                }
+            }
+
+            return Integer.compare(l.size(), r.size());
+        };
     }
 }
