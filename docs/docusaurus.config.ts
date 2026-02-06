@@ -52,6 +52,7 @@ const config: Config = {
           routeBasePath: '/', // Serve docs at the site root
           // Versioning configuration
           includeCurrentVersion: true, // Include the current (unversioned) docs
+          lastVersion: 'current', // The most recent version
           onlyIncludeVersions: ['current', '3.0.0'], // Limit which versions are included
           versions: {
             current: {
