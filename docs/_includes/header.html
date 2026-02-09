@@ -1,0 +1,99 @@
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<header>
+    <!--#include virtual="/includes/promotion_banner.html" -->
+    <div class="container">
+        <button type='button' class='menu' title='Docs menu'>
+        <img src="{{'assets/images/menu-icon.svg'|relative_url}}" width="18" height="12" alt="menu icon" />
+        </button>
+        <div class='home'>
+            <a href="/" class='home' title='Apache Ignite home'>
+                <img src="{{'assets/images/apache_ignite_logo.svg'|relative_url}}" alt="Apache Ignite logo" width="103" height="36" >
+            </a>
+        </div>
+
+        {% assign major_version = site.attrs.version | split: "." | first %}
+        {% if site.attrs.section == 'extensions' %}
+        <div id="search-button"></div>
+        {% else %}
+        <select id="product-selector">
+            <option value="/docs/latest" {% if major_version == '2' %}selected{% endif %}>Ignite 2</option>
+            <option value="/docs/ignite3/latest"{% if major_version == '3' %}selected{% endif %}>Ignite 3</option>
+        </select>
+
+        <select id="version-selector">
+            <option value="{{site.attrs.version}}">{{site.attrs.version}}</option>
+        </select>
+
+
+        <nav id="api-docs"><ul>
+            <li><a href="#">APIs</a>
+                <nav class='dropdown'>
+                    <ul>
+                    {% if major_version == '3' %}
+                    <li class="dropdown-item"><a href="/releases/{{site.attrs.version}}/javadoc/index.html">Java</a></li>
+                    <li class="dropdown-item"><a href="/releases/{{site.attrs.version}}/dotnetdoc/">C#/.NET</a></li>
+                    <li class="dropdown-item"><a href="/releases/{{site.attrs.version}}/cppdoc/index.html">C++</a></li>
+                    <li class="dropdown-item"><a href="https://iggusev.github.io/openapi-ignite3.github.io/">OpenAPI</a></li>
+                    {% else %}
+                    <li class="dropdown-item"><a href="/releases/latest/javadoc/index.html">Java</a></li>
+                    <li class="dropdown-item"><a href="/releases/latest/dotnetdoc/api/">C#/.NET</a></li>
+                    <li class="dropdown-item"><a href="/releases/latest/cppdoc/index.html">C++</a></li>
+                    {% endif %}
+                    </ul>
+                </nav>
+            </li>
+
+            <li><a href="#">Examples</a>
+                <nav class="dropdown">
+                    <ul>
+                    <li class="dropdown-item"><a href="https://github.com/apache/ignite/tree/master/examples" target="_blank" rel="noopener" title="Apache Ignite Java examples">Java</a></li>
+
+                    <li class="dropdown-item"><a href="https://github.com/apache/ignite/tree/master/modules/platforms/dotnet/examples" target="_blank" rel="noopener" title="Apache Ignite C#/.NET examples">C#/.NET</a></li>
+
+                    <li class="dropdown-item"><a href="https://github.com/apache/ignite/tree/master/modules/platforms/cpp/examples" target="_blank" rel="noopener" title="Apache Ignite C++ examples">C++</a></li>
+
+                    <li class="dropdown-item"><a href="https://github.com/apache/ignite/tree/master/modules/platforms/python/examples" target="_blank" rel="noopener" title="Apache Ignite Python examples">Python</a></li>
+
+                    <li class="dropdown-item"><a href="https://github.com/apache/ignite/tree/master/modules/platforms/nodejs/examples" target="_blank" rel="noopener" title="Apache Ignite NodeJS examples">NodeJS</a></li>
+
+                    <li class="dropdown-item"><a href="https://github.com/apache/ignite/tree/master/modules/platforms/php/examples" target="_blank" rel="noopener" title="Apache Ignite PHP examples">PHP</a></li>
+                </ul>
+                </nav>
+                </li></ul>
+        </nav>
+
+
+
+        <div id="search-button"></div>
+
+        <nav id="lang-selector"><ul>
+            <li><a href="#"><img src="{{'assets/images/icon_lang_en_75x75.jpg'|relative_url}}" alt="English language icon"  width="25" height="25" /><span>▼</span></a>
+                <nav class="dropdown">
+                    <li class="dropdown-item"><a href="/docs/latest/" ><img src="{{'assets/images/icon_lang_en_75x75.jpg'|relative_url}}" alt="English language icon" width="25" height="25" /><span>English</span></a></li>
+                    <li class="dropdown-item"><a href="https://www.ignite-service.cn/doc/java/" target="_blank" rel="noopener"><img src="{{'assets/images/icon_lang_cn_75x75.jpg'|relative_url}}"  width="25" height="25" alt="Chinese language icon" /><span>Chinese</span></a></li>
+                </nav>
+            </li></ul>
+        </nav>
+
+        <button type='button' class='top-nav-toggle'>⋮</button>
+        {% endif %}
+    </div>
+    <div id="search-wrapper">
+        <div id="search"></div>
+    </div>
+</header>
