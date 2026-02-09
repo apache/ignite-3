@@ -354,6 +354,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                                     new ArrayList<>(allContent), false);
                             TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(displayTable);
                             autoFlushOut.print(tableOutput.toTerminalString());
+                            autoFlushOut.flush();
                             allContent.clear();
 
                             // More rows available - prompt user
@@ -383,6 +384,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                         pagerSupport.write(tableOutput.toTerminalString());
                     } else {
                         autoFlushOut.print(tableOutput.toTerminalString());
+                        autoFlushOut.flush();
                     }
                 }
 
