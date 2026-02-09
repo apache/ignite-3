@@ -32,9 +32,8 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.table.metrics.TableMetricSource;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -326,7 +325,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-only.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-27293 improve test coverage for this method.
     Publisher<BinaryRow> scan(int partId, @Nullable InternalTransaction tx);
 
     /**
@@ -386,7 +384,6 @@ public interface InternalTable extends ManuallyCloseable {
      * @throws TransactionException If proposed {@code tx} is read-only.
      * @see #scan(int, InternalTransaction)
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-27293 improve test coverage for this method.
     Publisher<BinaryRow> scan(
             int partId,
             @Nullable InternalTransaction tx,
@@ -408,20 +405,6 @@ public interface InternalTable extends ManuallyCloseable {
      */
     @Override
     void close();
-
-    /**
-     * Returns the partition safe time tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<HybridTimestamp, Void> getPartitionSafeTimeTracker(int partitionId);
-
-    /**
-     * Returns the partition storage index tracker, {@code null} means not added.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 
     /**
      * Gets the streamer flush executor service.
@@ -469,5 +452,5 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Table metrics source.
      */
-    TableMetricSource metrics();
+    ReadWriteMetricSource metrics();
 }

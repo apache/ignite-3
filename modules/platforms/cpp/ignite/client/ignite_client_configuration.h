@@ -21,14 +21,14 @@
 #include <ignite/client/ignite_logger.h>
 #include <ignite/client/ssl_mode.h>
 
+#include <ignite/common/detail/config.h>
 #include <ignite/common/ignite_error.h>
 
+#include <chrono>
 #include <initializer_list>
 #include <memory>
-#include <chrono>
 #include <string>
 #include <vector>
-#include <detail/config.h>
 
 namespace ignite {
 
@@ -204,8 +204,7 @@ public:
      * This configuration only applies to each of those requests separately but not to its combination therefore real
      * execution times of compute jobs could be greater than operation timeout.
      *
-     * @return Operation timeout
-     * .
+     * @return Operation timeout.
      */
     [[nodiscard]] std::chrono::milliseconds get_operation_timeout() const { return m_operation_timeout; }
 

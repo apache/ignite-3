@@ -25,14 +25,19 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.partition.replicator.TxRecoveryEngine;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.jetbrains.annotations.Nullable;
@@ -49,19 +54,23 @@ public class TxStateCommitPartitionReplicaRequestHandler {
 
     private final TxRecoveryEngine txRecoveryEngine;
 
+    private final TxMessageSender txMessageSender;
+
     /** Constructor. */
     public TxStateCommitPartitionReplicaRequestHandler(
             TxStatePartitionStorage txStatePartitionStorage,
             TxManager txManager,
             ClusterNodeResolver clusterNodeResolver,
             InternalClusterNode localNode,
-            TxRecoveryEngine txRecoveryEngine
+            TxRecoveryEngine txRecoveryEngine,
+            TxMessageSender txMessageSender
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.txManager = txManager;
         this.clusterNodeResolver = clusterNodeResolver;
         this.localNode = localNode;
         this.txRecoveryEngine = txRecoveryEngine;
+        this.txMessageSender = txMessageSender;
     }
 
     /**
@@ -82,7 +91,15 @@ public class TxStateCommitPartitionReplicaRequestHandler {
         } else if (txMeta == null || !isFinalState(txMeta.txState())) {
             // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
             // in response.
-            return triggerTxRecoveryOnTxStateResolutionIfNeeded(txId, txMeta);
+            ZonePartitionId zonePartitionId = request.senderGroupId() == null ? null : request.senderGroupId().asReplicationGroupId();
+
+            return triggerTxRecoveryOnTxStateResolutionIfNeeded(
+                    txId,
+                    txMeta,
+                    request.readTimestamp(),
+                    request.senderCurrentConsistencyToken(),
+                    zonePartitionId
+            );
         } else {
             return completedFuture(txMeta);
         }
@@ -93,11 +110,18 @@ public class TxStateCommitPartitionReplicaRequestHandler {
      *
      * @param txId Transaction id.
      * @param txStateMeta Transaction meta.
+     * @param readTimestamp If the recovery is triggered by RO transaction, the the read timestamp of that transaction,
+     *                     otherwise {@code null}.
+     * @param senderCurrentConsistencyToken See {@link TxStateCommitPartitionRequest#senderCurrentConsistencyToken()}.
+     * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}.
      * @return Tx recovery future, or completed future if the recovery isn't needed, or failed future if the recovery is not possible.
      */
     private CompletableFuture<TransactionMeta> triggerTxRecoveryOnTxStateResolutionIfNeeded(
             UUID txId,
-            @Nullable TxStateMeta txStateMeta
+            @Nullable TxStateMeta txStateMeta,
+            @Nullable HybridTimestamp readTimestamp,
+            @Nullable Long senderCurrentConsistencyToken,
+            @Nullable ZonePartitionId senderGroupId
     ) {
         // The state is either null or PENDING or ABANDONED, other states have been filtered out previously.
         assert txStateMeta == null || txStateMeta.txState() == PENDING || txStateMeta.txState() == ABANDONED
@@ -106,11 +130,15 @@ public class TxStateCommitPartitionReplicaRequestHandler {
         TxMeta txMeta = txStatePartitionStorage.get(txId);
 
         if (txMeta == null) {
+            InternalClusterNode coordinator = (txStateMeta == null || txStateMeta.txCoordinatorId() == null)
+                    ? null
+                    : clusterNodeResolver.getById(txStateMeta.txCoordinatorId());
+
             // This means the transaction is pending and we should trigger the recovery if there is no tx coordinator in topology.
             if (txStateMeta == null
                     || txStateMeta.txState() == ABANDONED
                     || txStateMeta.txCoordinatorId() == null
-                    || clusterNodeResolver.getById(txStateMeta.txCoordinatorId()) == null) {
+                    || coordinator == null) {
                 // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
                 // that as the coordinator (or information about it) is missing, there is no need to wait a finish request from
@@ -118,7 +146,44 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                 return txRecoveryEngine.triggerTxRecovery(txId, localNode.id())
                         .handle((v, ex) ->
                                 CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
-                        .thenCompose(v -> v);
+                        .thenCompose(Function.identity());
+            } else if (coordinator != null) {
+                // If there is coordinator in the cluster we should fallback to coordinator request. It's possible that coordinator
+                // was not seen in topology on another node which requested the state from commit partition, but can be seen here.
+                HybridTimestamp timestamp = readTimestamp == null ? HybridTimestamp.MIN_VALUE : readTimestamp;
+
+                return txMessageSender.resolveTxStateFromCoordinator(
+                                coordinator,
+                                txId,
+                                timestamp,
+                                senderCurrentConsistencyToken,
+                                senderGroupId
+                        )
+                        .handle((response, e) -> {
+                            if (e == null) {
+                                if (response.txStateMeta() == null) {
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-21910 should be fixed correctly by
+                                    // TODO WI resolution primary replica path.
+                                    // This may be possible if tx cleanup command was already committed in partition's replication group,
+                                    // and tx state was vacuumized on coordinator. This transaction already had a final state,
+                                    // but tx cleanup was not applied on replica yet due to replication lag. To prevent switching of
+                                    // write intent on replica side (because we don't know the final state), we respond with PENDING state.
+                                    return completedFuture((TransactionMeta) TxStateMeta.builder(PENDING).build());
+                                } else {
+                                    return completedFuture(response.txStateMeta().asTransactionMeta());
+                                }
+                            } else {
+                                if (e.getCause() instanceof RecipientLeftException) {
+                                    markAbandoned(txId);
+                                }
+
+                                return txRecoveryEngine.triggerTxRecovery(txId, localNode.id())
+                                        .handle((v, ex) ->
+                                                CompletableFuture.<TransactionMeta>completedFuture(txManager.stateMeta(txId)))
+                                        .thenCompose(Function.identity());
+                            }
+                        })
+                        .thenCompose(Function.identity());
             } else {
                 assert txStateMeta != null && txStateMeta.txState() == PENDING : "Unexpected transaction state: " + txStateMeta;
 
@@ -126,9 +191,19 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             }
         } else {
             // Recovery is not needed.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-27494 Add UNKNOWN state handling.
             assert isFinalState(txMeta.txState()) : "Unexpected transaction state: " + txMeta;
 
             return completedFuture(txMeta);
         }
+    }
+
+    /**
+     * Marks the transaction as abandoned due to the absence of coordinator.
+     *
+     * @param txId Transaction id.
+     */
+    private void markAbandoned(UUID txId) {
+        txManager.updateTxMeta(txId, stateMeta -> stateMeta != null ? stateMeta.abandoned() : null);
     }
 }

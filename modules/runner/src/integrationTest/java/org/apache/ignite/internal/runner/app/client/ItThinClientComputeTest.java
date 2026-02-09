@@ -440,7 +440,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
     }
 
     @Test
@@ -456,7 +456,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
     }
 
     @ParameterizedTest
@@ -660,7 +660,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
 
-        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+        assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
     }
 
     private static void assertComputeExceptionWithStackTrace(IgniteException cause) {
@@ -825,7 +825,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteColocatedEscapedTableName() {
         var tableName = "\"TBL ABC\"";
-        client().sql().execute(null, "CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
+        client().sql().execute("CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
 
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
         TestPojo pojoKey = new TestPojo(1);
@@ -892,7 +892,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             assertNotNull(cause.getCause());
             String hint = cause.getCause().getMessage();
 
-            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
+            assertEquals("To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server", hint);
         }
     }
 

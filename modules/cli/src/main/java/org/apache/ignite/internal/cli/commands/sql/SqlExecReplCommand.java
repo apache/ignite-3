@@ -20,10 +20,16 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.treesitter.parser.Parser.isTreeSitterParserAvailable;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
@@ -52,11 +58,13 @@ import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializ
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
+import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
 import org.apache.ignite.internal.util.StringUtils;
@@ -71,6 +79,7 @@ import org.jline.reader.SyntaxError;
 import org.jline.reader.impl.DefaultHighlighter;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.completer.AggregateCompleter;
+import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedString;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -87,6 +96,15 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
     private boolean plain;
+
+    @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
+    private boolean timed;
+
+    @Option(names = MAX_COL_WIDTH_OPTION, description = MAX_COL_WIDTH_OPTION_DESC)
+    private Integer maxColWidth;
+
+    @Option(names = NO_TRUNCATE_OPTION, description = NO_TRUNCATE_OPTION_DESC)
+    private boolean noTruncate;
 
     @ArgGroup
     private ExecOptions execOptions;
@@ -110,6 +128,9 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
     @Inject
     private ApiClientFactory clientFactory;
+
+    @Inject
+    private Terminal terminal;
 
     private static String extract(File file) {
         try {
@@ -214,11 +235,22 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     }
 
     private CallExecutionPipeline<?, ?> createSqlExecPipeline(SqlManager sqlManager, String line) {
+        TruncationConfig truncationConfig = TruncationConfig.fromConfig(
+                configManagerProvider,
+                terminal::getWidth,
+                maxColWidth,
+                noTruncate,
+                plain
+        );
+
+        // Use CommandLineContextProvider to get the current REPL's output writer,
+        // not the outer command's writer. This ensures SQL output goes through
+        // the nested REPL's output capture for proper pager support.
         return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                 .inputProvider(() -> new StringCallInput(line))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new SqlQueryResultDecorator(plain))
+                .output(CommandLineContextProvider.getContext().out())
+                .errOutput(CommandLineContextProvider.getContext().err())
+                .decorator(new SqlQueryResultDecorator(plain, timed, truncationConfig))
                 .verbose(verbose)
                 .exceptionHandler(SqlExceptionHandler.INSTANCE)
                 .build();
@@ -229,8 +261,8 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
             String line) {
         return CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new StringCallInput(dropSemicolon(line)))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
+                .output(CommandLineContextProvider.getContext().out())
+                .errOutput(CommandLineContextProvider.getContext().err())
                 .exceptionHandlers(exceptionHandlers)
                 .verbose(verbose)
                 .build();

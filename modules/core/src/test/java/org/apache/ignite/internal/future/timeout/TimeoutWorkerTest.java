@@ -35,8 +35,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.jetbrains.annotations.Nullable;
@@ -48,18 +47,16 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for {@link TimeoutWorker}.
  */
 @WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "1")
-public class TimeoutWorkerTest {
-    private static final IgniteLogger LOG = Loggers.forClass(TimeoutWorkerTest.class);
-
-    private TimeoutWorker createTimeoutWorker(String name, ConcurrentMap reqMap, FailureProcessor failureProcessor) {
-        return new TimeoutWorker(LOG, "node", name, reqMap, failureProcessor);
+public class TimeoutWorkerTest extends BaseIgniteAbstractTest {
+    private TimeoutWorker createTimeoutWorker(String name, ConcurrentMap reqMap, @Nullable FailureProcessor failureProcessor) {
+        return new TimeoutWorker(log, "node", name, reqMap, failureProcessor);
     }
 
     @Test
     public void testTimeout() {
-        ConcurrentMap<Long, TimeoutObject> reqMap = new ConcurrentHashMap<>();
+        ConcurrentMap<Long, TimeoutObject<?>> reqMap = new ConcurrentHashMap<>();
 
-        CompletableFuture<?> timeoutFuture = new CompletableFuture<>();
+        CompletableFuture<Void> timeoutFuture = new CompletableFuture<>();
 
         TimeoutWorker worker = createTimeoutWorker("testWorker", reqMap, null);
 
@@ -71,13 +68,13 @@ public class TimeoutWorkerTest {
         assertThat(timeoutFuture, willThrow(TimeoutException.class));
         assertTrue(reqMap.isEmpty());
 
-        awaitForWorkersStop(List.of(worker), true, LOG);
+        awaitForWorkersStop(List.of(worker), true, log);
     }
 
     @ParameterizedTest
     @MethodSource("throwableProcessors")
     public void testThrowableProcessor(@Nullable ThrowableProcessor processor) {
-        ConcurrentMap<Long, TimeoutObject> reqMap = new ConcurrentHashMap<>();
+        ConcurrentMap<Long, TimeoutObject<?>> reqMap = new ConcurrentHashMap<>();
 
         RuntimeException testException = new RuntimeException("test");
 
@@ -94,7 +91,7 @@ public class TimeoutWorkerTest {
             assertEquals(testException, processor.throwableFuture.join());
         }
 
-        awaitForWorkersStop(List.of(worker), true, LOG);
+        awaitForWorkersStop(List.of(worker), true, log);
     }
 
     private static List<ThrowableProcessor> throwableProcessors() {
@@ -112,11 +109,11 @@ public class TimeoutWorkerTest {
         }
     }
 
-    private static class TestTimeoutObject implements TimeoutObject {
+    private static class TestTimeoutObject implements TimeoutObject<Void> {
         final Supplier<Long> endTimeSup;
-        final CompletableFuture<?> future;
+        final CompletableFuture<Void> future;
 
-        private TestTimeoutObject(Supplier<Long> endTimeSup, CompletableFuture<?> future) {
+        private TestTimeoutObject(Supplier<Long> endTimeSup, CompletableFuture<Void> future) {
             this.endTimeSup = endTimeSup;
             this.future = future;
         }
@@ -127,7 +124,7 @@ public class TimeoutWorkerTest {
         }
 
         @Override
-        public CompletableFuture<?> future() {
+        public CompletableFuture<Void> future() {
             return future;
         }
     }

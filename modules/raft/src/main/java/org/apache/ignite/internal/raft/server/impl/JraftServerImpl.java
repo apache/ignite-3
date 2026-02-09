@@ -319,7 +319,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("fsmcaller.disruptor")
             ));
         }
 
@@ -333,7 +333,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("nodeimpl.disruptor")
             ));
         }
 
@@ -347,7 +347,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("readonlyservice.disruptor")
             ));
         }
 
@@ -361,7 +361,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getLogStripesCount(),
                     true,
                     opts.isLogYieldStrategy(),
-                    opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("logmanager.disruptor")
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
@@ -509,7 +509,8 @@ public class JraftServerImpl implements RaftServer {
                 nodeOptions.setCommandsMarshaller(groupOptions.commandsMarshaller());
             }
 
-            nodeOptions.setFsm(new DelegatingStateMachine(lsnr, nodeOptions.getCommandsMarshaller(), failureManager));
+            nodeOptions.setFsm(
+                    new DelegatingStateMachine(nodeId, lsnr, nodeOptions, failureManager));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
@@ -633,7 +634,7 @@ public class JraftServerImpl implements RaftServer {
         StorageDestructionIntent intent = groupStoragesContextResolver.getIntent(nodeId, groupOptions.volatileStores());
 
         if (durable) {
-            groupStoragesDestructionIntents.saveStorageDestructionIntent(nodeId.groupId(), intent);
+            groupStoragesDestructionIntents.saveStorageDestructionIntent(intent);
         }
 
         destroyStorages(
@@ -836,16 +837,29 @@ public class JraftServerImpl implements RaftServer {
 
         private final FailureManager failureManager;
 
+        private final RaftNodeId nodeId;
+
+        private final RaftMetricSource raftMetrics;
+
         /**
          * Constructor.
          *
-         * @param listener The listener.
-         * @param marshaller Marshaller.
+         * @param nodeId Node ID.
+         * @param listener Listener.
+         * @param opts Node options.
          * @param failureManager Failure processor that is used to handle critical errors.
          */
-        public DelegatingStateMachine(RaftGroupListener listener, Marshaller marshaller, FailureManager failureManager) {
+        public DelegatingStateMachine(
+                RaftNodeId nodeId,
+                RaftGroupListener listener,
+                NodeOptions opts,
+                FailureManager failureManager
+        ) {
+            super(nodeId.groupId().toString());
+            this.nodeId = nodeId;
             this.listener = listener;
-            this.marshaller = marshaller;
+            this.raftMetrics = opts.getRaftMetrics();
+            this.marshaller = opts.getCommandsMarshaller();
             this.failureManager = failureManager;
         }
 
@@ -855,11 +869,13 @@ public class JraftServerImpl implements RaftServer {
 
         @Override
         public void onApply(Iterator iter) {
-            var writeCommandIterator = new WriteCommandIterator(iter, marshaller);
+            var iterWrapper = new WriteCommandIterator(iter, marshaller);
 
             try {
-                listener.onWrite(writeCommandIterator);
+                listener.onWrite(iterWrapper);
             } catch (Throwable err) {
+                LOG.error("Unexpected error while processing command [label={}]", err, label);
+
                 Status st;
 
                 if (err.getMessage() != null) {
@@ -868,13 +884,9 @@ public class JraftServerImpl implements RaftServer {
                     st = new Status(RaftError.ESTATEMACHINE, "Unknown state machine error.");
                 }
 
-                // This is necessary so that IndexOutOfBoundsException is not thrown in a situation where the listener, when processing a
-                // command, catch any exception and does clo.result(throwable) (that actually advances the iterator) and then throws the
-                // caught exception.
-                Closure done = writeCommandIterator.doneForExceptionHandling();
-
-                if (done != null) {
-                    done.run(st);
+                if (iterWrapper.done != null) {
+                    // Trigger internal error for state machine.
+                    iterWrapper.done.run(st);
                 }
 
                 iter.setErrorAndRollback(1, st);
@@ -963,14 +975,18 @@ public class JraftServerImpl implements RaftServer {
         public void onLeaderStart(long term) {
             super.onLeaderStart(term);
 
-            listener.onLeaderStart();
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStart(nodeId);
+            }
         }
 
         @Override
         public void onLeaderStop(Status status) {
             super.onLeaderStop(status);
 
-            listener.onLeaderStop();
+            if (raftMetrics != null) {
+                raftMetrics.onLeaderStop(nodeId);
+            }
         }
     }
 
@@ -979,7 +995,7 @@ public class JraftServerImpl implements RaftServer {
 
         private final Marshaller marshaller;
 
-        private @Nullable Closure latestDone;
+        private @Nullable Closure done;
 
         private WriteCommandIterator(Iterator iter, Marshaller marshaller) {
             this.iter = iter;
@@ -993,15 +1009,14 @@ public class JraftServerImpl implements RaftServer {
 
         @Override
         public CommandClosure<WriteCommand> next() {
-            @Nullable Closure currentDone = iter.done();
-            latestDone = currentDone;
+            done = iter.done(); // Save for later error processing.
 
-            @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) currentDone;
+            @Nullable CommandClosure<WriteCommand> localDone = (CommandClosure<WriteCommand>) done;
             ByteBuffer data = iter.getData();
 
-            // done != null means we are on the leader, otherwise a command has been read from the log.
-            WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
-            HybridTimestamp safeTs = done == null ? command.safeTime() : done.safeTimestamp();
+            // localDone != null means we are on the leader, otherwise a command has been read from the log.
+            WriteCommand command = localDone == null ? marshaller.unmarshall(data) : localDone.command();
+            HybridTimestamp safeTs = localDone == null ? command.safeTime() : localDone.safeTimestamp();
 
             long commandIndex = iter.getIndex();
             long commandTerm = iter.getTerm();
@@ -1029,21 +1044,13 @@ public class JraftServerImpl implements RaftServer {
 
                 @Override
                 public void result(Serializable res) {
-                    if (done != null) {
-                        done.result(res);
+                    if (localDone != null) {
+                        localDone.result(res);
                     }
 
                     iter.next();
                 }
             };
-        }
-
-        private @Nullable Closure doneForExceptionHandling() {
-            if (latestDone == null) {
-                latestDone = iter.done();
-            }
-
-            return latestDone;
         }
     }
 }

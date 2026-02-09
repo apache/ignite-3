@@ -26,6 +26,8 @@ import static org.awaitility.Awaitility.await;
 
 import jakarta.inject.Inject;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
@@ -223,5 +225,87 @@ public class ItDeployUndeployCallsTest extends CliIntegrationTest {
             Assertions.assertThat(unisStatuses.get(0).getVersionToStatus())
                     .containsExactly((new UnitVersionStatus()).version("1.1.0").status(DEPLOYED));
         });
+    }
+
+    @Test
+    @DisplayName("Should deploy unit recursively from directory with subdirectories")
+    void deployRecursive() throws IOException {
+        // Given a directory with subdirectories
+        Path recursiveDir = Files.createTempDirectory(WORK_DIR, "recursive");
+        Path subDir = Files.createDirectory(recursiveDir.resolve("subdir"));
+        Files.createFile(recursiveDir.resolve("root.txt"));
+        Files.createFile(subDir.resolve("nested.txt"));
+
+        DeployUnitCallInput input = DeployUnitCallInput.builder()
+                .id("recursive.test.id")
+                .version("1.0.0")
+                .path(recursiveDir)
+                .recursive(true)
+                .clusterUrl(NODE_URL)
+                .build();
+
+        // When deploy unit recursively
+        CallOutput<String> deployOutput = get(
+                deployUnitCallFactory.create(tracker()).execute(input)
+        );
+
+        // Then
+        assertThat(deployOutput.hasError()).isFalse();
+        assertThat(deployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
+
+        await().untilAsserted(() -> {
+            // And list contains the deployed unit
+            List<UnitStatus> unitStatuses = listUnitCall.execute(listIdInput("recursive.test.id")).body();
+            assertThat(unitStatuses.size()).isEqualTo(1);
+            Assertions.assertThat(unitStatuses.get(0).getVersionToStatus())
+                    .containsExactly((new UnitVersionStatus()).version("1.0.0").status(DEPLOYED));
+        });
+
+        // Cleanup
+        CallOutput<String> undeployOutput = undeployUnitCall.execute(undeployInput("recursive.test.id", "1.0.0"));
+        assertThat(undeployOutput.hasError()).isFalse();
+        await().untilAsserted(() -> assertThat(listUnitCall.execute(listIdInput("recursive.test.id")).isEmpty()).isTrue());
+    }
+
+    @Test
+    @DisplayName("Should deploy unit recursively from deeply nested directory")
+    void deployRecursiveDeepNesting() throws IOException {
+        // Given a directory with deeply nested subdirectories
+        Path deepDir = Files.createTempDirectory(WORK_DIR, "deep");
+        Path level1 = Files.createDirectory(deepDir.resolve("level1"));
+        Path level2 = Files.createDirectory(level1.resolve("level2"));
+        Files.createFile(deepDir.resolve("root.txt"));
+        Files.createFile(level1.resolve("file1.txt"));
+        Files.createFile(level2.resolve("file2.txt"));
+
+        DeployUnitCallInput input = DeployUnitCallInput.builder()
+                .id("deep.recursive.test.id")
+                .version("1.0.0")
+                .path(deepDir)
+                .recursive(true)
+                .clusterUrl(NODE_URL)
+                .build();
+
+        // When deploy unit recursively
+        CallOutput<String> deployOutput = get(
+                deployUnitCallFactory.create(tracker()).execute(input)
+        );
+
+        // Then
+        assertThat(deployOutput.hasError()).isFalse();
+        assertThat(deployOutput.body()).isEqualTo(MessageUiComponent.from(UiElements.done()).render());
+
+        await().untilAsserted(() -> {
+            // And list contains the deployed unit
+            List<UnitStatus> unitStatuses = listUnitCall.execute(listIdInput("deep.recursive.test.id")).body();
+            assertThat(unitStatuses.size()).isEqualTo(1);
+            Assertions.assertThat(unitStatuses.get(0).getVersionToStatus())
+                    .containsExactly((new UnitVersionStatus()).version("1.0.0").status(DEPLOYED));
+        });
+
+        // Cleanup
+        CallOutput<String> undeployOutput = undeployUnitCall.execute(undeployInput("deep.recursive.test.id", "1.0.0"));
+        assertThat(undeployOutput.hasError()).isFalse();
+        await().untilAsserted(() -> assertThat(listUnitCall.execute(listIdInput("deep.recursive.test.id")).isEmpty()).isTrue());
     }
 }

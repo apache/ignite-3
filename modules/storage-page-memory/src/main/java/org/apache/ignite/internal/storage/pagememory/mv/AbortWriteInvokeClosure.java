@@ -110,13 +110,6 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return operationType;
     }
 
-    @Override
-    public void onUpdate() {
-        if (toRemove != null) {
-            toRemove.operations().removeFromWriteIntentsList(storage, this::abortWriteInfo);
-        }
-    }
-
     /**
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
@@ -125,6 +118,10 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
                 abortWriteInfo() + ", toRemove=" + toRemove + ", op=" + operationType;
 
         if (toRemove != null) {
+            // We don't zero out removed write intent's WI links because we already unlinked it everywhere except for WI list itself,
+            // so no one can read its WI links, and we are going to remove it from WI list under the WI list lock.
+            toRemove.operations().removeFromWriteIntentsList(storage, this::abortWriteInfo);
+
             storage.removeRowVersion(toRemove);
         }
     }

@@ -36,6 +36,7 @@ import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * Synchronous API operation.
@@ -140,8 +141,8 @@ enum SyncApiOperation {
 
     SQL_CREATE_STATEMENT(refs -> refs.sql.createStatement(SELECT_IDS_QUERY)),
     SQL_STATEMENT_BUILDER(refs -> refs.sql.statementBuilder()),
-    SQL_EXECUTE(refs -> refs.sql.execute(null, SELECT_IDS_QUERY)),
-    SQL_EXECUTE_STATEMENT(refs -> refs.sql.execute(null, refs.selectIdsStatement)),
+    SQL_EXECUTE(refs -> refs.sql.execute(SELECT_IDS_QUERY)),
+    SQL_EXECUTE_STATEMENT(refs -> refs.sql.execute((Transaction) null, refs.selectIdsStatement)),
     // TODO: IGNITE-18695 - uncomment the following 2 lines.
     // SQL_EXECUTE_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), SELECT_IDS_QUERY)),
     // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.execute(null, Mapper.of(Integer.class), refs.selectIdsStatement)),

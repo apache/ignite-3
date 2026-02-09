@@ -31,11 +31,16 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.table.distributed.replicator.StaleTransactionOperationException;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -43,9 +48,10 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ExecutorServiceExtension.class)
 class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
@@ -82,11 +88,12 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27349")
     void raceBetweenIndexBuildAndWriteFromDeadCoordinatorDoesNotCauseIndexIncompleteness() {
         createTestTable(cluster, 1, 1);
 
-        List<Transaction> transactions = IntStream.range(0, 2)
+        int operationCount = 100;
+
+        List<Transaction> transactions = IntStream.range(0, operationCount)
                 .mapToObj(n -> cluster.node(0).transactions().begin())
                 .collect(toUnmodifiableList());
 
@@ -96,15 +103,15 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
 
         KeyValueView<Integer, Integer> kvView = cluster.aliveNode().tables().table(TABLE_NAME).keyValueView(Integer.class, Integer.class);
 
-        int failedTransactions = 0;
-        for (int i = 0; i < transactions.size(); i++) {
+        int failedOperations = 0;
+        for (int i = 0; i < operationCount; i++) {
             Transaction tx = transactions.get(i);
             try {
-                kvView.put(tx, i, 11);
+                kvView.put(tx, i, 42);
                 tx.commit();
             } catch (RuntimeException e) {
                 if (ExceptionUtils.hasCause(e, StaleTransactionOperationException.class)) {
-                    failedTransactions++;
+                    failedOperations++;
                 } else {
                     throw e;
                 }
@@ -115,13 +122,65 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
                 .atMost(10, SECONDS)
                 .until(() -> isIndexAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
 
-        assertThat(rowsInIndex(cluster.aliveNode()), is(transactions.size() - failedTransactions));
-        assertThat((long) rowsInIndex(cluster.aliveNode()), is(rowCountInTable()));
+        int successfulOperations = transactions.size() - failedOperations;
+
+        assertAll(
+                () -> assertThat(rowsInIndex(cluster.aliveNode()), is(successfulOperations)),
+                () -> assertThat((long) rowsInIndex(cluster.aliveNode()), is(rowCountInTable()))
+        );
     }
 
     private long rowCountInTable() {
-        try (ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute(null, "SELECT COUNT(*) FROM " + TABLE_NAME)) {
+        try (ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute("SELECT COUNT(*) FROM " + TABLE_NAME)) {
             return resultSet.next().longValue(0);
         }
+    }
+
+    @Test
+    void raceBetweenIndexBuildAndWriteFromDeadCoordinatorDoesNotCauseIndexIncompletenessForImplicitTransactions(
+            @InjectExecutorService ExecutorService executor
+    ) {
+        createTestTable(cluster, 1, 1);
+
+        CompletableFuture<Void> startedOperationsFuture = new CompletableFuture<>();
+
+        CompletableFuture<Void> indexBuildCompleted = startedOperationsFuture.thenRunAsync(() -> {
+            createIndex(cluster, INDEX_NAME);
+
+            simulateCoordinatorLeaveToMakeIndexBuildStart();
+
+            await("Index must become available in time")
+                    .atMost(10, SECONDS)
+                    .until(() -> isIndexAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
+        }, executor);
+
+        KeyValueView<Integer, Integer> kvView = cluster.aliveNode().tables().table(TABLE_NAME).keyValueView(Integer.class, Integer.class);
+
+        int failedOperations = 0;
+        int i = 0;
+        while (!indexBuildCompleted.isDone()) {
+            try {
+                kvView.put(null, i, 42);
+            } catch (RuntimeException e) {
+                if (ExceptionUtils.hasCause(e, StaleTransactionOperationException.class)) {
+                    failedOperations++;
+                } else {
+                    throw e;
+                }
+            }
+
+            if (i == 0) {
+                startedOperationsFuture.complete(null);
+            }
+
+            i++;
+        }
+
+        int successfulOperations = i - failedOperations;
+
+        assertAll(
+                () -> assertThat(rowsInIndex(cluster.aliveNode()), is(successfulOperations)),
+                () -> assertThat((long) rowsInIndex(cluster.aliveNode()), is(rowCountInTable()))
+        );
     }
 }

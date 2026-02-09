@@ -28,7 +28,6 @@ import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.util.BuiltInMethod;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -44,8 +43,7 @@ public class IgniteMdDistribution implements MetadataHandler<BuiltInMetadata.Dis
      * Metadata provider, responsible for distribution type request. It uses this implementation class under the hood.
      */
     public static final RelMetadataProvider SOURCE =
-            ReflectiveRelMetadataProvider.reflectiveSource(
-                    BuiltInMethod.DISTRIBUTION.method, new IgniteMdDistribution());
+            ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdDistribution(), BuiltInMetadata.Distribution.Handler.class);
 
     /** {@inheritDoc} */
     @Override

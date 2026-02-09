@@ -71,15 +71,11 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
-import org.apache.ignite.internal.compute.loader.JobContext;
-import org.apache.ignite.internal.compute.loader.JobContextManager;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelRequest;
@@ -93,11 +89,12 @@ import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.deployunit.DeploymentStatus;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
-import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderContext;
+import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -145,7 +142,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private ComputeConfiguration computeConfiguration;
 
     @Mock
-    private JobContextManager jobContextManager;
+    private UnitsContextManager unitsContextManager;
 
     private ComputeComponentImpl computeComponent;
 
@@ -163,9 +160,9 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
         lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
-        JobClassLoader classLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
-        JobContext jobContext = new JobContext(classLoader, ignored -> {});
-        lenient().when(jobContextManager.acquireClassLoader(anyList()))
+        UnitsClassLoader classLoader = new UnitsClassLoader(List.of(), getClass().getClassLoader());
+        UnitsClassLoaderContext jobContext = new UnitsClassLoaderContext(classLoader, ignored -> {});
+        lenient().when(unitsContextManager.acquireClassLoader(anyList(), anyString()))
                 .thenReturn(completedFuture(jobContext));
 
         doAnswer(invocation -> {
@@ -182,10 +179,11 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 messagingService,
                 topologyService,
                 logicalTopologyService,
-                jobContextManager,
+                unitsContextManager,
                 computeExecutor,
                 computeConfiguration,
-                EventLog.NOOP
+                EventLog.NOOP,
+                HybridTimestampTracker.emptyTracker()
         );
 
         assertThat(computeComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -219,13 +217,14 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void testLongPreExecutionInitialization() {
         CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
 
+        String className = SimpleJob.class.getName();
         doReturn(infiniteFuture)
-                .when(jobContextManager).acquireClassLoader(List.of());
+                .when(unitsContextManager).acquireClassLoader(List.of(), className);
 
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
-                new ExecutionContext(DEFAULT, List.of(), SimpleJob.class.getName(), ComputeEventMetadata.builder(), null),
+                new ExecutionContext(DEFAULT, List.of(), className, ComputeEventMetadata.builder(), null),
                 cancelHandle.token()
         );
 
@@ -668,36 +667,6 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(
                 executeLocally(Object.class.getName()),
                 willThrow(Exception.class, "'java.lang.Object' does not implement ComputeJob interface")
-        );
-    }
-
-    @Test
-    void executionOfNotExistingDeployedUnit() {
-        List<DeploymentUnit> units = List.of(new DeploymentUnit("unit", "1.0.0"));
-        doReturn(CompletableFuture.failedFuture(new DeploymentUnitNotFoundException("unit", Version.parseVersion("1.0.0"))))
-                .when(jobContextManager).acquireClassLoader(units);
-
-        assertThat(
-                executeLocally(units, "com.example.Maim"),
-                willThrow(ClassNotFoundException.class)
-        );
-    }
-
-    @Test
-    void executionOfNotAvailableDeployedUnit() {
-        List<DeploymentUnit> units = List.of(new DeploymentUnit("unit", "1.0.0"));
-        DeploymentUnitUnavailableException toBeThrown = new DeploymentUnitUnavailableException(
-                "unit",
-                Version.parseVersion("1.0.0"),
-                DeploymentStatus.OBSOLETE,
-                DeploymentStatus.REMOVING
-        );
-        doReturn(CompletableFuture.failedFuture(toBeThrown))
-                .when(jobContextManager).acquireClassLoader(units);
-
-        assertThat(
-                executeLocally(units, "com.example.Maim"),
-                willThrow(ClassNotFoundException.class)
         );
     }
 

@@ -67,11 +67,11 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
@@ -95,6 +95,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.StructNativeType;
@@ -174,7 +175,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             HybridClock clock = new HybridClockImpl();
             ClockService clockService = new TestClockService(clock);
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
@@ -182,6 +185,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     clusterService,
                     replicaSvc,
                     HeapLockManager.smallInstance(),
+                    txStateVolatileStorage,
                     clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,
@@ -274,7 +278,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 .mapToObj(i -> new PartitionWithConsistencyToken(1, 42L))
                 .collect(Collectors.toList());
 
-        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
+        StructNativeType schema = NativeTypes.structBuilder().addField("C1", NativeTypes.INT32, false).build();
         RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));

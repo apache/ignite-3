@@ -25,7 +25,7 @@ import static org.hamcrest.Matchers.is;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -58,7 +58,7 @@ class OutgoingSnapshotStatsTest {
 
     private static final int CATALOG_VERSION = 10;
 
-    private final OutgoingSnapshotStats stats = new OutgoingSnapshotStats(UUID.randomUUID(), new ZonePartitionKey(0, 0));
+    private final OutgoingSnapshotStats stats = new OutgoingSnapshotStats(UUID.randomUUID(), new PartitionKey(0, 0));
 
     @Test
     void totalSnapshotDuration() throws InterruptedException {

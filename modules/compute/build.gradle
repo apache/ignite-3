@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-core')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-code-deployment-classloader')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-binary-tuple')
@@ -51,6 +52,7 @@ dependencies {
     testImplementation libs.awaitility
 
     integrationTestImplementation libs.awaitility
+    integrationTestImplementation platform(libs.jackson.bom)
     integrationTestImplementation libs.jackson.core
     integrationTestImplementation libs.jackson.databind
     integrationTestImplementation project(':ignite-api')

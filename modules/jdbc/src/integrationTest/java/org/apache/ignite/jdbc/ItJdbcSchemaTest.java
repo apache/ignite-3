@@ -198,7 +198,7 @@ public class ItJdbcSchemaTest extends AbstractJdbcSelfTest {
                 assertEquals(1, rs.getLong(1));
 
                 ResultSetMetaData metaData = rs.getMetaData();
-                assertEquals("ScheMa1", metaData.getSchemaName(1));
+                assertEquals("\"ScheMa1\"", metaData.getSchemaName(1));
             }
 
             stmt.executeUpdate("DROP TABLE \"ScheMa1\".t1");
@@ -223,8 +223,8 @@ public class ItJdbcSchemaTest extends AbstractJdbcSelfTest {
                 assertEquals(1, rs.getLong(1));
 
                 ResultSetMetaData metaData = rs.getMetaData();
-                assertEquals("Ta ble1", metaData.getTableName(1));
-                assertEquals("Sche Ma1", metaData.getSchemaName(1));
+                assertEquals("\"Ta ble1\"", metaData.getTableName(1));
+                assertEquals("\"Sche Ma1\"", metaData.getSchemaName(1));
             }
 
             stmt.executeUpdate("DROP TABLE \"Sche Ma1\".\"Ta ble1\"");

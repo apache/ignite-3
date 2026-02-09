@@ -116,6 +116,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.ReplicaPrimacyEngine;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -184,7 +185,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
@@ -203,6 +203,7 @@ import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
@@ -452,6 +453,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private IndexMetaStorage indexMetaStorage;
 
+    private ReplicaPrimacyEngine primacyEngine;
+
     private static UUID nodeId(int id) {
         return new UUID(0, id);
     }
@@ -621,6 +624,14 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
         FailureManager failureManager = new NoOpFailureManager();
 
+        ReplicaService replicaService = mock(ReplicaService.class);
+
+        var txMessageSender = new TxMessageSender(
+                messagingService,
+                replicaService,
+                clockService
+        );
+
         zonePartitionReplicaListener = new ZonePartitionReplicaListener(
                 txStateStorage,
                 clockService,
@@ -633,7 +644,9 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 mockRaftClient,
                 failureManager,
                 localNode,
-                zonePartitionId
+                zonePartitionId,
+                transactionStateResolver,
+                txMessageSender
         );
 
         tableReplicaProcessor = new PartitionReplicaListener(
@@ -674,6 +687,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         kvMarshaller = marshallerFor(schemaDescriptor);
 
         when(lowWatermark.tryLock(any(), any())).thenReturn(true);
+
+        primacyEngine = new ReplicaPrimacyEngine(placementDriver, clockService, grpId, localNode);
 
         reset();
     }
@@ -952,7 +967,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
 
         doAnswer(invocation -> nullCompletedFuture())
-                .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
+                .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).cleanup(any(), anyString(), any());
     }
@@ -1330,7 +1345,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
-            UUID txId = invocation.getArgument(6);
+            UUID txId = invocation.getArgument(7);
 
             txManager.updateTxMeta(txId, old -> TxStateMeta.builder(ABORTED)
                     .txCoordinatorId(localNode.id())
@@ -1339,7 +1354,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
             );
 
             return nullCompletedFuture();
-        }).when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
+        }).when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
 
         CompletableFuture<ReplicaResult> fut = zonePartitionReplicaListener.invoke(TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
                 .groupId(zonePartitionIdMessage(grpId))
@@ -1383,7 +1398,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testWriteIntentOnPrimaryReplicaSingleUpdate() {
-        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, mocked -> tableReplicaProcessor);
+        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, (mocked, unused) -> tableReplicaProcessor);
 
         UUID txId = newTxId();
         AtomicInteger counter = new AtomicInteger();
@@ -1416,7 +1431,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testWriteIntentOnPrimaryReplicaUpdateAll() {
-        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, mocked -> tableReplicaProcessor);
+        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, (mocked, unused) -> tableReplicaProcessor);
 
         UUID txId = newTxId();
         AtomicInteger counter = new AtomicInteger();
@@ -1469,7 +1484,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         when(catalogService.activeCatalog(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
         when(catalogService.earliestCatalog()).thenReturn(mockEarliestCatalog);
 
-        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, mocked -> tableReplicaProcessor);
+        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, (mocked, unused) -> tableReplicaProcessor);
 
         CompletableFuture<ReplicaResult> invokeFuture = zonePartitionReplicaListener.invoke(
                 TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
@@ -1519,7 +1534,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         });
         when(catalogWithoutTable.table(TABLE_ID)).thenReturn(null);
 
-        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, mocked -> tableReplicaProcessor);
+        zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, (mocked, unused) -> tableReplicaProcessor);
 
         CompletableFuture<ReplicaResult> invokeFuture = zonePartitionReplicaListener.invoke(
                 TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
@@ -1881,7 +1896,12 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 .timestamp(clock.now())
                 .build();
 
-        return tableReplicaProcessor.invoke(message, localNode.id());
+        return processWithPrimacy(message);
+    }
+
+    private CompletableFuture<ReplicaResult> processWithPrimacy(ReplicaRequest request) {
+        return primacyEngine.validatePrimacy(request)
+                .thenCompose(primacy -> tableReplicaProcessor.process(request, primacy, localNode.id()));
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyMultiGet(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {

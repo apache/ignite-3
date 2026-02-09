@@ -16,9 +16,8 @@
  */
 
 #include "tcp_client_channel.h"
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+
+#include <algorithm>
 
 namespace ignite {
 std::vector<std::byte> tcp_client_channel::read_next_n_bytes(size_t n) {
@@ -45,12 +44,12 @@ std::vector<std::byte> tcp_client_channel::read_next_n_bytes(size_t n) {
     return res;
 }
 
-void tcp_client_channel::send_message(std::vector<std::byte> msg) {
-    ::send(m_cl_fd, msg.data(), msg.size(), 0);
+void tcp_client_channel::send_message(const std::vector<std::byte>& msg) {
+    m_cl_sock.send_message(msg);
 }
 
 void tcp_client_channel::receive_next_packet() {
-    int received = ::recv(m_cl_fd, m_buf, sizeof(m_buf), 0);
+    int64_t received = m_cl_sock.receive_next_packet(m_buf, sizeof(m_buf));
 
     if (received == 0) {
         m_logger->log_debug( "connection was closed");
@@ -61,7 +60,7 @@ void tcp_client_channel::receive_next_packet() {
     if (received < 0 && !m_stopped) {
         std::stringstream ss;
 
-        ss << "connection was closed with error: " << strerror(errno);
+        ss << "connection was closed with error: " << LAST_SOCKET_ERROR();
         throw ignite_error(ss.str());
     }
 
@@ -70,17 +69,14 @@ void tcp_client_channel::receive_next_packet() {
 }
 
 void tcp_client_channel::start() {
-    sockaddr_in cl_addr{};
+    m_logger->log_debug("waiting for client to connect");
 
-    socklen_t addr_len = sizeof(cl_addr);
+    auto cl_fd = m_srv_sock.accept();
+    m_cl_sock = client_socket_adapter(cl_fd);
 
-    m_logger->log_debug("waiting for client to connect srv_fd = " +  std::to_string(m_srv_fd));
-
-    m_cl_fd = accept(m_srv_fd, reinterpret_cast<sockaddr *>(&cl_addr), &addr_len);
-
-    if (m_cl_fd < 0 && !m_stopped) {
+    if (!m_cl_sock.is_valid() && !m_stopped) {
         std::stringstream ss;
-        ss << "connection acceptance failed " << strerror(errno);
+        ss << "connection acceptance failed " << LAST_SOCKET_ERROR();
         throw std::runtime_error(ss.str());
     }
 
@@ -89,8 +85,9 @@ void tcp_client_channel::start() {
 
 void tcp_client_channel::stop() {
     m_stopped.store(true);
-    if (m_cl_fd > 0) {
-        ::close(m_cl_fd);
+
+    if (m_cl_sock.is_valid()) {
+        m_cl_sock.close();
     }
 }
 }; // namespace ignite

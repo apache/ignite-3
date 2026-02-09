@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.time.Clock;
@@ -41,7 +40,8 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
@@ -87,7 +87,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     private final RowHandler<RowT> handler;
     private final RowFactoryFactory<RowT> rowFactoryFactory;
 
-    private final ExpressionFactory expressionFactory;
+    private final SqlExpressionFactory sqlExpressionFactory;
 
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
@@ -116,7 +116,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     /**
      * Constructor.
      *
-     * @param expressionFactory Expression factory.
+     * @param sqlExpressionFactory Expression factory.
      * @param executor Task executor.
      * @param executionId Execution ID.
      * @param localNode Local node.
@@ -133,7 +133,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
      * @param topologyVersion Topology version the query was mapped on.
      */
     public ExecutionContext(
-            ExpressionFactory expressionFactory,
+            SqlExpressionFactory sqlExpressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
             InternalClusterNode localNode,
@@ -150,7 +150,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
             @Nullable String username,
             @Nullable Long topologyVersion
     ) {
-        this.expressionFactory = expressionFactory;
+        this.sqlExpressionFactory = sqlExpressionFactory;
         this.executor = executor;
         this.executionId = executionId;
         this.description = description;
@@ -244,8 +244,8 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     /**
      * Get expression factory.
      */
-    public ExpressionFactory expressionFactory() {
-        return expressionFactory;
+    public SqlExpressionFactory expressionFactory() {
+        return sqlExpressionFactory;
     }
 
     /**
@@ -358,17 +358,17 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     }
 
     @Override
-    public RowT correlatedVariable(int id) {
-        return cast(sharedState.correlatedVariable(id));
+    public @Nullable Object correlatedVariable(long id) {
+        return sharedState.correlatedVariable(id);
     }
 
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(Object value, int id) {
+    public void correlatedVariable(long id, @Nullable Object value) {
         sharedState.correlatedVariable(id, value);
     }
 

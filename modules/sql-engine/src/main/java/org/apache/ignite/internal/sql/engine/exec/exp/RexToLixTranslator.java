@@ -60,6 +60,7 @@ import org.apache.calcite.linq4j.tree.ParameterExpression;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.linq4j.tree.Statement;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexCallBinding;
@@ -72,6 +73,7 @@ import org.apache.calcite.rex.RexLambdaRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexNodeAndFieldIndex;
 import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.rex.RexPatternFieldRef;
 import org.apache.calcite.rex.RexProgram;
@@ -82,6 +84,7 @@ import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.runtime.SpatialTypeFunctions;
 import org.apache.calcite.runtime.rtti.RuntimeTypeInformation;
+import org.apache.calcite.runtime.variant.VariantValue;
 import org.apache.calcite.schema.FunctionContext;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlOperator;
@@ -117,8 +120,8 @@ import org.locationtech.jts.geom.Geometry;
  *      Cast TIME to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_TIME).
  *      Cast DATE to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_DATE).
  *      Cast TIMESTAMP to VARCHAR with format is updated to use our implementation (see IgniteMethod.FORMAT_TIMESTAMP).
- *      Cast TIMESTAMP LTZ to VARCHAR with format is updated to use our implementation 
- *      (see IgniteMethod.FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
+ *      Cast TIMESTAMP LTZ to VARCHAR with and w/o format both updated to use our implementation 
+ *      (see {@link IgniteMethod#FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE}, {@link IgniteMethod#TIMESTAMP_LTZ_TO_STRING_PRECISION_AWARE)).
  *      Added support cast to decimal, see ConverterUtils.convertToDecimal
  *      Removed original casts to numeric types and used own ConverterUtils.convert
  *      Added pad-truncate from CHARACTER to INTERVAL types
@@ -129,6 +132,8 @@ import org.locationtech.jts.geom.Geometry;
  *      see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  *      Cast between TIME, TIMESTAMP amd TIMESTAMP_LTZ takes precision into account (see {@link IgniteMethod#ADJUST_TIMESTAMP_MILLIS}).
+ *      Cast TIME/TIMESTAMP to TIMESTAMP_LTZ is updated to use our implementation (see
+ *      {@link IgniteMethod#TIMESTAMP_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  * 6. Translate literals changes:
  *      DECIMAL use own implementation see IgniteSqlFunctions.class, "toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
@@ -354,53 +359,54 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     final Supplier<Expression> defaultExpression = () ->
             ConverterUtils.convert(operand, targetType);
 
-//    if (sourceType.getSqlTypeName() == SqlTypeName.VARIANT) {
-//      // Converting VARIANT to VARIANT uses the default conversion
-//      if (targetType.getSqlTypeName() == SqlTypeName.VARIANT) {
-//        return defaultExpression.get();
-//      }
-//      // Converting a VARIANT to any other type calls the Variant.cast method
-//      // First cast operand to a VariantValue (it may be an Object)
-//      Expression operandCast = Expressions.convert_(operand, VariantValue.class);
-//      Expression cast =
-//              Expressions.call(operandCast, BuiltInMethod.VARIANT_CAST.method,
-//                      RuntimeTypeInformation.createExpression(targetType));
-//      // The cast returns an Object, so we need a convert to the expected Java type
-//      RelDataType nullableTarget = typeFactory.createTypeWithNullability(targetType, true);
-//      return Expressions.convert_(cast, typeFactory.getJavaClass(nullableTarget));
-//    }
-//
-//    if (targetType.getSqlTypeName() == SqlTypeName.ROW) {
-//      assert sourceType.getSqlTypeName() == SqlTypeName.ROW;
-//      List<RelDataTypeField> targetTypes = targetType.getFieldList();
-//      List<RelDataTypeField> sourceTypes = sourceType.getFieldList();
-//      assert targetTypes.size() == sourceTypes.size();
-//      List<Expression> fields = new ArrayList<>();
-//      for (int i = 0; i < targetTypes.size(); i++) {
-//        RelDataTypeField targetField = targetTypes.get(i);
-//        RelDataTypeField sourceField = sourceTypes.get(i);
-//        Expression field = Expressions.arrayIndex(operand, Expressions.constant(i));
-//        // In the generated Java code 'field' is an Object,
-//        // we need to also cast it to the correct type to enable correct method dispatch in Java.
-//        // We force the type to be nullable; this way, instead of (int) we get (Integer).
-//        // Casting an object ot an int is not legal.
-//        RelDataType nullableSourceFieldType =
-//                typeFactory.createTypeWithNullability(sourceField.getType(), true);
-//        Type javaType = typeFactory.getJavaClass(nullableSourceFieldType);
-//        if (!javaType.getTypeName().equals("java.lang.Void")
-//                && !nullableSourceFieldType.isStruct()) {
-//          // Cannot cast to Void - this is the type of NULL literals.
-//          field = Expressions.convert_(field, javaType);
-//        }
-//        Expression convert =
-//                getConvertExpression(sourceField.getType(), targetField.getType(), field, format);
-//        fields.add(convert);
-//      }
-//      return Expressions.call(BuiltInMethod.ARRAY.method, fields);
-//    }
+    if (sourceType.getSqlTypeName() == SqlTypeName.VARIANT) {
+      // Converting VARIANT to VARIANT uses the default conversion
+      if (targetType.getSqlTypeName() == SqlTypeName.VARIANT) {
+        return defaultExpression.get();
+      }
+      // Converting a VARIANT to any other type calls the Variant.cast method
+      // First cast operand to a VariantValue (it may be an Object)
+      Expression operandCast = Expressions.convert_(operand, VariantValue.class);
+      Expression cast =
+              Expressions.call(operandCast, BuiltInMethod.VARIANT_CAST.method,
+                      RuntimeTypeInformation.createExpression(targetType));
+      // The cast returns an Object, so we need a convert to the expected Java type
+      RelDataType nullableTarget = typeFactory.createTypeWithNullability(targetType, true);
+      return Expressions.convert_(cast, typeFactory.getJavaClass(nullableTarget));
+    }
+
+    if (targetType.getSqlTypeName() == SqlTypeName.ROW) {
+      assert sourceType.getSqlTypeName() == SqlTypeName.ROW;
+      List<RelDataTypeField> targetTypes = targetType.getFieldList();
+      List<RelDataTypeField> sourceTypes = sourceType.getFieldList();
+      assert targetTypes.size() == sourceTypes.size();
+      List<Expression> fields = new ArrayList<>();
+      for (int i = 0; i < targetTypes.size(); i++) {
+        RelDataTypeField targetField = targetTypes.get(i);
+        RelDataTypeField sourceField = sourceTypes.get(i);
+        Expression field = Expressions.arrayIndex(operand, Expressions.constant(i));
+        // In the generated Java code 'field' is an Object,
+        // we need to also cast it to the correct type to enable correct method dispatch in Java.
+        // We force the type to be nullable; this way, instead of (int) we get (Integer).
+        // Casting an object ot an int is not legal.
+        RelDataType nullableSourceFieldType =
+                typeFactory.createTypeWithNullability(sourceField.getType(), true);
+        Type javaType = typeFactory.getJavaClass(nullableSourceFieldType);
+        if (!javaType.getTypeName().equals("java.lang.Void")
+                && !nullableSourceFieldType.isStruct()) {
+          // Cannot cast to Void - this is the type of NULL literals.
+          field = Expressions.convert_(field, javaType);
+        }
+        Expression convert =
+                getConvertExpression(sourceField.getType(), targetField.getType(), field, format);
+        fields.add(convert);
+      }
+      return Expressions.call(BuiltInMethod.ARRAY.method, fields);
+    }
 
     switch (targetType.getSqlTypeName()) {
     case ARRAY:
+    case MULTISET:
       final RelDataType sourceDataType = sourceType.getComponentType();
       final RelDataType targetDataType = targetType.getComponentType();
       assert sourceDataType != null;
@@ -520,7 +526,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         Expression getTimeZone = Expressions.call(BuiltInMethod.TIME_ZONE.method, root);
           
         return RexImpTable.optimize2(operand, Expressions.isConstantNull(format) 
-                ? Expressions.call(BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_STRING.method, operand, getTimeZone)
+                ? Expressions.call(IgniteMethod.TIMESTAMP_LTZ_TO_STRING_PRECISION_AWARE.method(), operand,
+                constant(sourceType.getPrecision()), getTimeZone)
                 : Expressions.call(IgniteMethod.FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(), format, operand, getTimeZone));
 
       case INTERVAL_YEAR:
@@ -984,21 +991,19 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
               );
 
     case TIME:
-      return
-            Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                RexImpTable.optimize2(operand,
-                    Expressions.call(
-                        IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
-                        Expressions.add(
-                            Expressions.multiply(
-                                Expressions.convert_(
-                                    Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
-                                    long.class),
-                                Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
-                            Expressions.convert_(operand, long.class)),
-                        constant(targetType.getPrecision())
-                    )),
-                Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+      return adjustTimestampMillis(sourceType, targetType,
+              RexImpTable.optimize2(operand,
+                Expressions.call(
+                    IgniteMethod.TIMESTAMP_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(),
+                    Expressions.add(
+                        Expressions.multiply(
+                            Expressions.convert_(
+                                Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
+                                long.class),
+                            Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
+                        Expressions.convert_(operand, long.class)),
+                    Expressions.call(BuiltInMethod.TIME_ZONE.method, root)
+                )));
 
     case TIME_WITH_LOCAL_TIME_ZONE:
       return
@@ -1012,17 +1017,15 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                   operand));
 
     case TIMESTAMP:
-      return
+      return adjustTimestampMillis(sourceType, targetType,
               Expressions.call(
                       IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
-                      Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                          RexImpTable.optimize2(operand,
-                              Expressions.call(
-                                      IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
-                                      operand,
-                                      Expressions.constant(targetType.getPrecision()))),
-                          Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
-              );
+                      RexImpTable.optimize2(operand,
+                          Expressions.call(
+                                  IgniteMethod.TIMESTAMP_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(),
+                                  operand,
+                                  Expressions.call(BuiltInMethod.TIME_ZONE.method, root)))
+              ));
 
     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
       return adjustTimestampMillis(sourceType, targetType, operand);
@@ -1908,6 +1911,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     return new Result(isNullVariable, valueVariable);
   }
 
+  @Override
+  public Result visitNodeAndFieldIndex(RexNodeAndFieldIndex nodeAndFieldIndex) {
+    throw new RuntimeException("cannot translate expression " + nodeAndFieldIndex);
+  }
+  
   Expression checkNull(Expression expr) {
     if (Primitive.flavor(expr.getType())
         == Primitive.Flavor.PRIMITIVE) {

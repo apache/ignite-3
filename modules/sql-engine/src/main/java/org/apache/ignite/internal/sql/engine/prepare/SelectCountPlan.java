@@ -161,6 +161,22 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         return 1;
     }
 
+    @Override
+    public boolean lazyCursorPublication() {
+        // Fast SelectCount does not support transactions; therefore, when running concurrently with DML
+        // statements, it may return a non-transactionally-consistent result. For example, if a table is
+        // empty and two statements are executed in parallel -- one inserting 1,000 rows and another executing
+        // `SELECT count(*) FROM table` -- SelectCount may return any number in the range [0, 1000].
+        // This is not considered a problem when SelectCount runs independently (it is considered
+        // eventually consistent), but such behavior contradicts another guarantee we want to preserve:
+        // within a script, statements are executed sequentially, one after another.
+        //
+        // Lazy publication allows a race in which a subsequent DML statement can outrun the execution of
+        // the SelectCount plan, resulting in a situation where the SelectCount result includes changes
+        // made by that DML statement.
+        return false;
+    }
+
     private <RowT> Function<Long, Iterator<InternalSqlRow>> createResultProjection(ExecutionContext<RowT> ctx) {
         RelDataType getCountType = new RelDataTypeFactory.Builder(ctx.getTypeFactory())
                 .add("ROWCOUNT", SqlTypeName.BIGINT)
@@ -171,7 +187,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
 
         RowHandler<RowT> rowHandler = ctx.rowAccessor();
         SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
-        StructNativeType rowType = NativeTypes.rowBuilder()
+        StructNativeType rowType = NativeTypes.structBuilder()
                 .addField("COUNT", NativeTypes.INT64, false)
                 .build();
 

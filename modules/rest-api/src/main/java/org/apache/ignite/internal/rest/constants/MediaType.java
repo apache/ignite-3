@@ -29,6 +29,11 @@ public final class MediaType {
     public static final String APPLICATION_JSON = "application/json";
 
     /**
+     * application/json media type with UTF-8 charset.
+     */
+    public static final String APPLICATION_JSON_UTF8 = "application/json; charset=UTF-8";
+
+    /**
      * application/problem+json media type.
      */
     public static final String PROBLEM_JSON = "application/problem+json";

@@ -82,7 +82,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -132,6 +131,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
@@ -158,6 +158,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
@@ -316,7 +318,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     public void raftListenersAreRecoveredOnRecovery() throws Exception {
         DistributionZonesTestUtil.createDefaultZone(catalogManager);
 
-        int defaultZonePartitions = catalogManager.catalog(catalogManager.latestCatalogVersion())
+        int defaultZonePartitions = catalogManager.latestCatalog()
                 .defaultZone()
                 .partitions();
 
@@ -340,7 +342,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         int zoneId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).zoneId();
         ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
+        long assignmentsTimestamp = catalogManager.latestCatalog().time();
 
         AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
                 .stable(Assignments.of(Set.of(Assignment.forPeer(node.name()), Assignment.forPeer(node2.name())), assignmentsTimestamp))
@@ -426,15 +428,19 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
+        when(txManager.transactionMetricsSource()).thenReturn(mock(TransactionMetricsSource.class));
 
         PlacementDriver placementDriver = new TestPlacementDriver(node);
         ClockService clockService = new TestClockService(clock);
         FailureProcessor failureProcessor = mock(FailureProcessor.class);
 
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
         replicaMgr = spy(new ReplicaManager(
                 NODE_NAME,
                 clusterService,
                 mock(ClusterManagementGroupManager.class, RETURNS_DEEP_STUBS),
+                groupId -> completedFuture(Assignments.EMPTY),
                 clockService,
                 Set.of(),
                 placementDriver,
@@ -500,7 +506,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
-        dsm = createDataStorageManager();
+        var metricManager = new NoOpMetricManager();
+
+        dsm = createDataStorageManager(metricManager);
 
         AlwaysSyncedSchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
@@ -531,7 +539,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 topologyService,
                 lowWatermark,
                 failureProcessor,
-                new SystemPropertiesNodeProperties(),
                 ForkJoinPool.commonPool(),
                 mock(ScheduledExecutorService.class),
                 partitionOperationsExecutor,
@@ -543,7 +550,10 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 txManager,
                 sm,
                 dsm,
-                outgoingSnapshotManager
+                outgoingSnapshotManager,
+                metricManager,
+                clusterService.messagingService(),
+                mock(ReplicaService.class)
         ));
 
         tableManager = new TableManager(
@@ -576,14 +586,13 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 lowWatermark,
-                new TransactionInflights(placementDriver, clockService),
+                new TransactionInflights(placementDriver, clockService, txStateVolatileStorage),
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
-                new SystemPropertiesNodeProperties(),
                 minTimeCollectorService,
                 systemDistributedConfiguration,
-                new NoOpMetricManager(),
+                metricManager,
                 TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER_FACTORY
         ) {
 
@@ -648,7 +657,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         );
     }
 
-    private DataStorageManager createDataStorageManager() {
+    private DataStorageManager createDataStorageManager(MetricManager metricManager) {
         ConfigurationRegistry mockedRegistry = mock(ConfigurationRegistry.class);
 
         when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(nodeConfiguration);
@@ -658,7 +667,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         NODE_NAME,
-                        mock(MetricManager.class),
+                        metricManager,
                         mockedRegistry,
                         workDir,
                         null,

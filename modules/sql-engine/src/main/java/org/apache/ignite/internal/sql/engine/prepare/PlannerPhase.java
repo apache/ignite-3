@@ -76,7 +76,6 @@ import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteMultiJoinOptimizeBushyRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteProjectCorrelateTransposeRule;
-import org.apache.ignite.internal.sql.engine.rule.logical.IgniteSubQueryRemoveRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -89,8 +88,18 @@ public enum PlannerPhase {
             "Heuristic phase to convert subqueries into correlates",
             CoreRules.FILTER_SUB_QUERY_TO_CORRELATE,
             CoreRules.PROJECT_SUB_QUERY_TO_CORRELATE,
-            // revert into CoreRules.JOIN_SUB_QUERY_TO_CORRELATE after https://issues.apache.org/jira/browse/IGNITE-25801
-            IgniteSubQueryRemoveRule.INSTANCE
+            CoreRules.JOIN_SUB_QUERY_TO_CORRELATE
+    ) {
+        /** {@inheritDoc} */
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return hep(getRules(ctx));
+        }
+    },
+
+    HEP_PROJECT_TO_WINDOW(
+            "Heuristic phase to convert projection with window expression into Window relation",
+            CoreRules.PROJECT_TO_LOGICAL_PROJECT_AND_WINDOW
     ) {
         /** {@inheritDoc} */
         @Override

@@ -35,12 +35,18 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Concurrent test for {@link TransactionExpirationRegistry}. */
 class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest {
 
-    private final TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+    private TransactionExpirationRegistry registry;
+
+    @BeforeEach
+    void setUp() {
+        registry = new TransactionExpirationRegistry(VolatileTxStateMetaStorage.createStarted());
+    }
 
     @Test
     void registerExpireUnregister() {

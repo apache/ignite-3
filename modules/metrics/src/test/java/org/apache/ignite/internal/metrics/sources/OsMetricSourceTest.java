@@ -22,28 +22,34 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.lang.management.OperatingSystemMXBean;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.metrics.DoubleMetric;
+import org.apache.ignite.internal.metrics.IntMetric;
 import org.junit.jupiter.api.Test;
 
 class OsMetricSourceTest {
     @Test
     void testOsMetrics() {
-        var osBean = new OperatingSystemBean(1.23);
+        var osBean = new OperatingSystemBean(1.23, 8);
         var metricSource = new OsMetricSource(osBean);
 
         var metricSet = metricSource.enable();
 
         assertEquals(1.23, metricSet.<DoubleMetric>get("LoadAverage").value());
+        assertEquals(8, metricSet.<IntMetric>get("AvailableProcessors").value());
 
         osBean.loadAverage = 2.34;
+        osBean.availableProcessors = 16;
 
         assertEquals(2.34, metricSet.<DoubleMetric>get("LoadAverage").value());
+        assertEquals(16, metricSet.<IntMetric>get("AvailableProcessors").value());
     }
 
     private static class OperatingSystemBean implements OperatingSystemMXBean {
         private double loadAverage;
+        private int availableProcessors;
 
-        private OperatingSystemBean(double loadAverage) {
+        private OperatingSystemBean(double loadAverage, int availableProcessors) {
             this.loadAverage = loadAverage;
+            this.availableProcessors = availableProcessors;
         }
 
         @Override
@@ -63,7 +69,7 @@ class OsMetricSourceTest {
 
         @Override
         public int getAvailableProcessors() {
-            throw new UnsupportedOperationException();
+            return availableProcessors;
         }
 
         @Override

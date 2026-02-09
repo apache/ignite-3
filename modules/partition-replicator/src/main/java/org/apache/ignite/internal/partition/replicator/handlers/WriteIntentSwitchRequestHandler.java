@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
@@ -32,6 +34,7 @@ import java.util.function.IntFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.FuturesCleanupResult;
@@ -82,6 +85,7 @@ public class WriteIntentSwitchRequestHandler {
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicaTxFinishMarker txFinishMarker;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
+    private final TxManager txManager;
 
     /** Constructor. */
     public WriteIntentSwitchRequestHandler(
@@ -98,6 +102,7 @@ public class WriteIntentSwitchRequestHandler {
         this.clockService = clockService;
         this.replicationGroupId = replicationGroupId;
         this.tableAwareReplicaRequestPreProcessor = tableAwareReplicaRequestPreProcessor;
+        this.txManager = txManager;
 
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
         txFinishMarker = new ReplicaTxFinishMarker(txManager);
@@ -168,8 +173,22 @@ public class WriteIntentSwitchRequestHandler {
 
         // Using empty primacy because the request is not a PrimaryReplicaRequest.
         return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(tableSpecificRequest, ReplicaPrimacy.empty(), senderId)
-                .thenCompose(ignored ->
-                        replicaTableProcessor(tableId).process(tableSpecificRequest, ReplicaPrimacy.empty(), senderId));
+                .thenCompose(ignored -> {
+                    ReplicaTableProcessor replicaProcessor = replicaTableProcessor(tableId);
+
+                    if (replicaProcessor == null) {
+                        // Most of the times this condition should be false. This block handles a case when a request got stuck
+                        // somewhere while being replicated and arrived on this node after the target table had been removed.
+                        // In this case we ignore the command, which should be safe to do, because the underlying storage was destroyed
+                        // anyway, but we still return an exception.
+                        LOG.debug("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
+                                request.toStringForLightLogging());
+
+                        return failedFuture(new ComponentStoppingException("Table is already destroyed [tableId=" + tableId + "]"));
+                    }
+
+                    return replicaProcessor.process(tableSpecificRequest, ReplicaPrimacy.empty(), senderId);
+                });
     }
 
     private CompletableFuture<Object> applyCommandToGroup(WriteIntentSwitchReplicaRequest request, Integer catalogVersion) {
@@ -186,7 +205,8 @@ public class WriteIntentSwitchRequestHandler {
                 .applyCommandWithExceptionHandling(wiSwitchCmd)
                 .whenComplete((res, ex) -> {
                     if (ex != null && !ReplicatorRecoverableExceptions.isRecoverable(ex)) {
-                        LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', ex);
+                        LOG.warn("Failed to complete transaction cleanup command {}", ex,
+                                formatTxInfo(request.txId(), txManager));
                     }
                 });
     }
@@ -196,10 +216,6 @@ public class WriteIntentSwitchRequestHandler {
     }
 
     private ReplicaTableProcessor replicaTableProcessor(int tableId) {
-        ReplicaTableProcessor replicaTableProcessor = replicaListenerByTableId.apply(tableId);
-
-        assert replicaTableProcessor != null : "No replica table processor for table ID " + tableId;
-
-        return replicaTableProcessor;
+        return replicaListenerByTableId.apply(tableId);
     }
 }

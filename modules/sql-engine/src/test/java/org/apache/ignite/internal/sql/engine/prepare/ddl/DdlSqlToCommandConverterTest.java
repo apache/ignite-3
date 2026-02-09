@@ -39,10 +39,10 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -64,6 +65,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
@@ -115,6 +117,10 @@ import org.mockito.Mockito;
  */
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     private static final Integer TEST_ZONE_ID = 100;
+
+    private static final List<SqlTypeName> SIGNED_NUMERIC_TYPES = NUMERIC_TYPES.stream()
+            .filter(t -> !SqlTypeName.UNSIGNED_TYPES.contains(t))
+            .collect(Collectors.toList());
 
     @BeforeEach
     void setUp() {
@@ -199,15 +205,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 )
         );
 
-        assertThat(
-                tblDesc.primaryKeyColumnNames(),
-                hasSize(1)
-        );
-
-        assertThat(
-                tblDesc.primaryKeyColumnNames(),
-                hasItem(Commons.IMPLICIT_PK_COL_NAME)
-        );
+        assertThat(tblDesc.primaryKeyColumns(), contains(0));
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.HASH));
     }
@@ -237,7 +235,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         NewIndexEntry idxEntry = (NewIndexEntry) entries.get(1);
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.SORTED));
-        assertThat(tblEntry.descriptor().primaryKeyColumnNames(), equalTo(List.of("ID")));
+        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(IntList.of(0)));
         assertThat(((CatalogSortedIndexDescriptor) idxEntry.descriptor()).columns().get(0).collation(), is(collation));
     }
 
@@ -278,7 +276,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.HASH));
         assertThat(idxEntry.descriptor(), Matchers.instanceOf(CatalogHashIndexDescriptor.class));
-        assertThat(tblEntry.descriptor().primaryKeyColumnNames(), equalTo(List.of("ID")));
+        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(IntList.of(0)));
     }
 
     @Test
@@ -379,7 +377,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        for (SqlTypeName numType : NUMERIC_TYPES) {
+        for (SqlTypeName numType : SIGNED_NUMERIC_TYPES) {
             for (SqlTypeName intervalType : INTERVAL_TYPES) {
                 RelDataType initialNumType = Commons.typeFactory().createSqlType(numType);
                 Object value = SqlTestUtils.generateValueByType(initialNumType);
@@ -399,7 +397,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         PlanningContext ctx = createContext();
 
         for (SqlTypeName intervalType : INTERVAL_TYPES) {
-            for (SqlTypeName numType : NUMERIC_TYPES) {
+            for (SqlTypeName numType : SIGNED_NUMERIC_TYPES) {
                 String value = makeUsableIntervalValue(intervalType.getName());
 
                 fillTestCase(numType.getName(), value, testItems, false, ctx);
@@ -504,7 +502,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         String[] numbers = {"100.4", "100.6", "100", "'100'", "'100.1'"};
 
-        List<SqlTypeName> typesWithoutDecimal = new ArrayList<>(NUMERIC_TYPES);
+        List<SqlTypeName> typesWithoutDecimal = new ArrayList<>(SIGNED_NUMERIC_TYPES);
         typesWithoutDecimal.remove(DECIMAL);
 
         for (String value : numbers) {
@@ -559,7 +557,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'", "INTERVAL '1' DAY"};
 
         for (String value : values) {
-            for (SqlTypeName numericType : NUMERIC_TYPES) {
+            for (SqlTypeName numericType : SIGNED_NUMERIC_TYPES) {
                 fillTestCase(numericType.getName(), value, testItems, false, ctx);
             }
         }

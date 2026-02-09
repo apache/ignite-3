@@ -19,10 +19,10 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -48,6 +48,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
@@ -62,10 +63,12 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.RowMeta;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -80,13 +83,19 @@ class IndexBuildTask {
 
     private final IndexBuildTaskId taskId;
 
-    private final HybridTimestamp indexCreationActivationTs;
+    private final MetaIndexStatusChange indexCreationInfo;
+
+    private final HybridTimestamp indexBuildingStateActivationTimestamp;
 
     private final IndexStorage indexStorage;
 
     private final MvPartitionStorage partitionStorage;
 
     private final ReplicaService replicaService;
+
+    private final TableTxRwOperationTracker txRwOperationTracker;
+
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     private final FailureProcessor failureProcessor;
 
@@ -120,10 +129,13 @@ class IndexBuildTask {
 
     IndexBuildTask(
             IndexBuildTaskId taskId,
-            HybridTimestamp indexCreationActivationTs,
+            MetaIndexStatusChange indexCreationInfo,
+            HybridTimestamp indexBuildingStateActivationTimestamp,
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
+            TableTxRwOperationTracker txRwOperationTracker,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             FailureProcessor failureProcessor,
             FinalTransactionStateResolver finalTransactionStateResolver,
             Executor executor,
@@ -137,10 +149,13 @@ class IndexBuildTask {
             IndexBuilderMetricSource indexBuilderMetricSource
     ) {
         this.taskId = taskId;
-        this.indexCreationActivationTs = indexCreationActivationTs;
+        this.indexCreationInfo = indexCreationInfo;
+        this.indexBuildingStateActivationTimestamp = indexBuildingStateActivationTimestamp;
         this.indexStorage = indexStorage;
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
+        this.txRwOperationTracker = txRwOperationTracker;
+        this.safeTime = safeTime;
         this.failureProcessor = failureProcessor;
         this.finalTransactionStateResolver = finalTransactionStateResolver;
         this.executor = executor;
@@ -174,9 +189,16 @@ class IndexBuildTask {
         }
 
         try {
-            statisticsLoggingListener.onIndexBuildStarted();
-
-            supplyAsync(partitionStorage::highestRowId, executor)
+            // Before starting to build the index, we are waiting for all operations of RW transactions that started before index creation
+            // to make sure that, even if some coordinator has gone while we were waiting for its pre-index RW transactions to finish,
+            // we still allow operations of those transactions from that coordinator which are still in-flight to finish, so that we
+            // index the row versions they could create. Otherwise, we might miss some row versions in the index.
+            txRwOperationTracker.awaitCompleteTxRwOperations(indexCreationInfo.catalogVersion())
+                    // This wait is necessary to make sure that all writes made before the index has switched to the BUILDING state
+                    // are visible to the index build process.
+                    .thenCompose(unused -> safeTime.waitFor(indexBuildingStateActivationTimestamp))
+                    .thenRun(statisticsLoggingListener::onIndexBuildStarted)
+                    .thenApplyAsync(unused -> partitionStorage.highestRowId(), executor)
                     .thenApplyAsync(this::handleNextBatch, executor)
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
@@ -296,7 +318,9 @@ class IndexBuildTask {
                 assert transactionId != null;
 
                 // We only care about transactions which began after index creation.
-                if (TransactionIds.beginTimestamp(transactionId).compareTo(indexCreationActivationTs) < 0) {
+                HybridTimestamp txBeginTs = TransactionIds.beginTimestamp(transactionId);
+                HybridTimestamp indexCreationTs = hybridTimestamp(indexCreationInfo.activationTimestamp());
+                if (txBeginTs.compareTo(indexCreationTs) < 0) {
                     transactionsToResolve.put(
                             row.transactionId(),
                             new CommitPartitionId(row.commitZoneId(), row.commitPartitionId())

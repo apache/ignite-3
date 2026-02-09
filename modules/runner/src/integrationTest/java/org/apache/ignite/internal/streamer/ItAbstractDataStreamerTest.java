@@ -98,6 +98,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     private static final String TABLE_NAME_COMPOSITE_KEY = "test_table_composite_key";
 
+    private static final int STREAMER_TIMEOUT_SECONDS = 5;
+
     abstract Ignite ignite();
 
     @BeforeAll
@@ -135,7 +137,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(tupleKey(3)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNotNull(view.get(null, tupleKey(1)));
         assertNotNull(view.get(null, tupleKey(2)));
@@ -160,7 +162,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(new PersonPojo(3)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("foo", view.get(null, new PersonPojo(1)).name);
         assertEquals("bar", view.get(null, new PersonPojo(2)).name);
@@ -183,7 +185,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(Map.entry(tupleKey(3), Tuple.create())));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("foo", view.get(null, tupleKey(1)).stringValue("name"));
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
@@ -206,7 +208,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(Map.entry(3, new PersonValPojo("_"))));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("foo", view.get(null, 1).name);
         assertEquals("bar", view.get(null, 2).name);
@@ -230,7 +232,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(compositeKeyTupleKey(1)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, compositeKeyTupleKey(1)));
         assertNotNull(view.get(null, compositeKeyTupleKey(2)));
@@ -261,7 +263,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(new CompositeKeyPojo(1)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, new CompositeKeyPojo(1)));
         assertNotNull(view.get(null, new CompositeKeyPojo(2)));
@@ -292,7 +294,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(Map.entry(compositeKeyTupleKey(1), Tuple.create())));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, compositeKeyTupleKey(1)));
         assertNotNull(view.get(null, compositeKeyTupleKey(2)));
@@ -322,7 +324,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(Map.entry(new CompositeKeyKeyPojo(1), new CompositeKeyValPojo(1))));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, new CompositeKeyKeyPojo(1)));
         assertNotNull(view.get(null, new CompositeKeyKeyPojo(2)));
@@ -380,7 +382,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(item);
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         assertThat(ex.getMessage(), containsString("Missed key column: ID"));
 
         DataStreamerException cause = (DataStreamerException) ex.getCause();
@@ -446,7 +448,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         streamerFut.orTimeout(30, TimeUnit.SECONDS).join();
 
         ArrayList<String> sqlRes = new ArrayList<>(count);
-        ResultSet<SqlRow> resultSet = ignite().sql().execute(null, "SELECT name FROM " + TABLE_NAME + " order by id");
+        ResultSet<SqlRow> resultSet = ignite().sql().execute("SELECT name FROM " + TABLE_NAME + " order by id");
         resultSet.forEachRemaining(row -> sqlRes.add(row.stringValue(0)));
 
         assertEquals(count, sqlRes.size());
@@ -481,7 +483,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             }
         }
 
-        streamerFut.orTimeout(id, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("bar-99", view.get(null, tupleKey(id)).stringValue("name"));
     }
@@ -500,7 +502,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.removed(tupleKey(key)));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, tupleKey(key)));
     }
@@ -521,7 +523,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(DataStreamerItem.of(tuple(key, "baz")));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("baz", view.get(null, tupleKey(key)).stringValue("name"));
     }
@@ -532,7 +534,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         IgniteSql sql = ignite().sql();
 
         String tableName = "testSchemaUpdateWhileStreaming";
-        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute("CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
         RecordView<Tuple> view = ignite().tables().table(tableName).recordView();
 
         CompletableFuture<Void> streamerFut;
@@ -544,11 +546,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(tupleKey(1));
             waitForKey(view, tupleKey(1));
 
-            sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
+            sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
             publisher.submit(tupleKey(2));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
 
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
@@ -726,7 +728,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(item);
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         assertThat(
                 ex.getCause().getMessage(),
                 containsString("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test"));
@@ -788,7 +790,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             }
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
         Set<DataStreamerItem<Tuple>> failedItems = (Set<DataStreamerItem<Tuple>>) cause.failedItems();
 
@@ -958,7 +960,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit("val1");
         }
 
-        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(10, TimeUnit.SECONDS).join());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(STREAMER_TIMEOUT_SECONDS, TimeUnit.SECONDS).join());
         DataStreamerException dsEx = (DataStreamerException) ex.getCause();
 
         assertThat(dsEx.getMessage(), containsString(

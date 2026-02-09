@@ -38,6 +38,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -219,9 +220,13 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     protected final List<List<Object>> executeSql(int nodeIndex, String sql, Object... args) {
+        return executeSql(nodeIndex, null, sql, args);
+    }
+
+    protected final List<List<Object>> executeSql(int nodeIndex, @Nullable Transaction tx, String sql, Object... args) {
         Ignite ignite = node(nodeIndex);
 
-        return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, sql, args);
+        return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, sql, args);
     }
 
     protected InternalClusterNode clusterNode(int index) {
@@ -246,6 +251,20 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
                 .filter(predicate)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("node not found"));
+    }
+
+    protected final IgniteImpl anyNode() {
+        return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
+    }
+
+    /** Cluster configuration that aggressively increases low watermark to speed up data cleanup in tests. */
+    public static String aggressiveLowWatermarkIncreaseClusterConfig() {
+        return "{\n"
+                + "  ignite.gc.lowWatermark {\n"
+                + "    dataAvailabilityTimeMillis: 1000,\n"
+                + "    updateIntervalMillis: 100\n"
+                + "  },\n"
+                + "}";
     }
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */

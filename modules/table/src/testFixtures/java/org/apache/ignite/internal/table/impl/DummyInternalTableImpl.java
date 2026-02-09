@@ -68,6 +68,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
@@ -125,7 +126,6 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -136,7 +136,10 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -257,7 +260,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txConfiguration,
                 systemCfg,
                 new RemotelyTriggeredResourceRegistry(),
-                new TransactionInflights(placementDriver, CLOCK_SERVICE)
+                new TransactionInflights(placementDriver, CLOCK_SERVICE, VolatileTxStateMetaStorage.createStarted())
         );
     }
 
@@ -499,6 +502,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TableMetricSource(QualifiedName.fromSimple("dummy_table"))
         );
 
+        TxMessageSender txMessageSender = new TxMessageSender(
+                mock(MessagingService.class),
+                replicaSvc,
+                CLOCK_SERVICE
+        );
+
         ZonePartitionReplicaListener zoneReplicaListener = new ZonePartitionReplicaListener(
                 txStateStorage.getOrCreatePartitionStorage(PART_ID),
                 CLOCK_SERVICE,
@@ -511,10 +520,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 svc,
                 mock(FailureProcessor.class),
                 LOCAL_NODE,
-                zonePartitionId
+                zonePartitionId,
+                transactionStateResolver,
+                txMessageSender
         );
 
-        zoneReplicaListener.addTableReplicaProcessor(tableId, raftClient -> tableReplicaListener);
+        zoneReplicaListener.addTableReplicaProcessor(tableId, (raftClient, txStateResolver) -> tableReplicaListener);
 
         replicaListener = zoneReplicaListener;
 
@@ -527,7 +538,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager,
                 new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
-                safeTime,
                 catalogService,
                 schemaManager,
                 mock(IndexMetaStorage.class),
@@ -672,7 +682,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE, txStateVolatileStorage);
 
         var txManager = new TxManagerImpl(
                 txConfiguration,
@@ -680,6 +692,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 clusterService,
                 replicaSvc,
                 HeapLockManager.smallInstance(),
+                txStateVolatileStorage,
                 CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,

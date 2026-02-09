@@ -54,7 +54,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -145,6 +145,8 @@ public class OutgoingSnapshot {
 
     private final OutgoingSnapshotStats snapshotStats;
 
+    private final RaftSnapshotsMetricsSource snapshotsMetricsSource;
+
     /**
      * Creates a new instance.
      */
@@ -153,7 +155,8 @@ public class OutgoingSnapshot {
             PartitionKey partitionKey,
             Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
-            CatalogService catalogService
+            CatalogService catalogService,
+            RaftSnapshotsMetricsSource snapshotMetricsSource
     ) {
         this.id = id;
         this.partitionKey = partitionKey;
@@ -161,6 +164,7 @@ public class OutgoingSnapshot {
         this.txState = txState;
         this.catalogService = catalogService;
         this.snapshotStats = new OutgoingSnapshotStats(id, partitionKey);
+        this.snapshotsMetricsSource = snapshotMetricsSource;
     }
 
     /**
@@ -187,6 +191,7 @@ public class OutgoingSnapshot {
 
         try {
             snapshotStats.onSnapshotStart();
+            snapshotsMetricsSource.onOutgoingSnapshotStart();
 
             int catalogVersion = catalogService.latestCatalogVersion();
 
@@ -256,17 +261,9 @@ public class OutgoingSnapshot {
     }
 
     private List<PartitionMvStorageAccess> freezePartitionStorages() {
-        if (partitionKey instanceof ZonePartitionKey) {
-            return partitionsByTableId.values().stream()
-                    .sorted(comparingInt(PartitionMvStorageAccess::tableId))
-                    .collect(toList());
-        } else {
-            // TODO: remove this clause, see https://issues.apache.org/jira/browse/IGNITE-22522
-            // For a non-colocation case we always have a single entry in this map.
-            assert partitionsByTableId.size() == 1;
-
-            return List.copyOf(partitionsByTableId.values());
-        }
+        return partitionsByTableId.values().stream()
+                .sorted(comparingInt(PartitionMvStorageAccess::tableId))
+                .collect(toList());
     }
 
     /**
@@ -456,7 +453,7 @@ public class OutgoingSnapshot {
         long[] commitTimestamps = new long[commitTimestampsCount];
 
         UUID transactionId = null;
-        Integer commitTableOrZoneId = null;
+        Integer commitZoneId = null;
         int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
         for (int i = count - 1, j = 0; i >= 0; i--) {
@@ -476,7 +473,7 @@ public class OutgoingSnapshot {
                 assert i == 0 : rowVersionsN2O;
 
                 transactionId = version.transactionId();
-                commitTableOrZoneId = version.commitZoneId();
+                commitZoneId = version.commitZoneId();
                 commitPartitionId = version.commitPartitionId();
             } else {
                 commitTimestamps[j++] = version.commitTimestamp().longValue();
@@ -489,7 +486,7 @@ public class OutgoingSnapshot {
                 .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
                 .txId(transactionId)
-                .commitTableOrZoneId(commitTableOrZoneId)
+                .commitZoneId(commitZoneId)
                 .commitPartitionId(commitPartitionId)
                 .build();
     }
@@ -662,6 +659,7 @@ public class OutgoingSnapshot {
         busyLock.block();
 
         snapshotStats.onSnapshotEnd();
+        snapshotsMetricsSource.onOutgoingSnapshotEnd();
 
         snapshotStats.logSnapshotStats();
 

@@ -493,6 +493,12 @@ public class ErrorGroups {
 
         /** Replication group overloaded exception code. */
         public static final int GROUP_OVERLOADED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
+
+        /** Replication group unavailable exception code. */
+        public static final int GROUP_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Replica is absent on the node and the node is not in assignments for this replica. */
+        public static final int REPLICA_ABSENT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** Storage error group. */
@@ -595,6 +601,9 @@ public class ErrorGroups {
 
         /** Deployment unit write to fs error. */
         public static final int UNIT_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Duplicate filenames in the unit content. */
+        public static final int UNIT_NON_UNIQUE_FILENAMES_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /**
@@ -750,6 +759,9 @@ public class ErrorGroups {
 
         /** Error when forwarding disaster recovery request to another node failed. */
         public static final int REQUEST_FORWARD_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Error when multi node operation fails on any node. */
+        public static final int REMOTE_NODE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Embedded API error group. */

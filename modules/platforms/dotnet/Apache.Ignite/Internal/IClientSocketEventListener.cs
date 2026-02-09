@@ -17,13 +17,15 @@
 
 namespace Apache.Ignite.Internal;
 
+using System;
+
 /// <summary>
 /// <see cref="ClientSocket"/> event listener.
 /// </summary>
 internal interface IClientSocketEventListener
 {
     /// <summary>
-    /// Called when partition assignment changes.
+    /// Called when the partition assignment changes.
     /// </summary>
     /// <param name="timestamp">Timestamp.</param>
     void OnAssignmentChanged(long timestamp);
@@ -33,4 +35,10 @@ internal interface IClientSocketEventListener
     /// </summary>
     /// <param name="timestamp">Timestamp.</param>
     void OnObservableTimestampChanged(long timestamp);
+
+    /// <summary>
+    /// Called when the socket is disconnected.
+    /// </summary>
+    /// <param name="ex">Exception that caused the disconnect or null if disconnected gracefully.</param>
+    void OnDisconnect(Exception? ex);
 }

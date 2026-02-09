@@ -291,8 +291,6 @@ public class NodeImpl implements Node, RaftServerService {
         // task list for batch
         private final List<LogEntryAndClosure> tasks = new ArrayList<>(NodeImpl.this.raftOptions.getApplyBatch());
 
-        private @Nullable HybridTimestamp safeTs = null;
-
         @Override
         public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {
             if (event.shutdownLatch != null) {
@@ -302,23 +300,6 @@ public class NodeImpl implements Node, RaftServerService {
                 }
                 event.shutdownLatch.countDown();
                 return;
-            }
-
-            // Patch the command.
-            if (event.done instanceof SafeTimeAwareCommandClosure) {
-                SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) event.done;
-                WriteCommand command = clo.command();
-                HybridTimestamp timestamp = command.initiatorTime();
-
-                if (timestamp != null) {
-                    if (safeTs == null) {
-                        safeTs = clock.update(timestamp);
-                    } else if (timestamp.compareTo(safeTs) > 0) {
-                        safeTs = clock.update(timestamp);
-                    }
-
-                    clo.safeTimestamp(safeTs);
-                }
             }
 
             this.tasks.add(event);
@@ -333,7 +314,6 @@ public class NodeImpl implements Node, RaftServerService {
                 task.reset();
             }
             this.tasks.clear();
-            this.safeTs = null;
         }
     }
 
@@ -1363,7 +1343,7 @@ public class NodeImpl implements Node, RaftServerService {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("fsmcaller.disruptor")
                 ));
             }
         }
@@ -1378,7 +1358,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getStripes(),
                 false,
                 false,
-                opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
+                opts.getRaftMetrics().disruptorMetrics("nodeimpl.disruptor")
             ));
         }
 
@@ -1392,24 +1372,38 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getStripes(),
                 false,
                 false,
-                opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
+                opts.getRaftMetrics().disruptorMetrics("readonlyservice.disruptor")
             ));
         }
 
-        if (opts.getLogManagerDisruptor() == null) {
-            opts.setLogManagerDisruptor(new StripedDisruptor<>(
+        if (opts.isSystemGroup()) {
+            opts.setLogManagerDisruptor(StripedDisruptor.createSerialDisruptor(
                 opts.getServerName(),
-                "JRaft-LogManager-Disruptor",
+                "JRaft-LogManager-Disruptor-" + groupId,
                 (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getLogStripesCount(),
-                logStorage instanceof RocksDbSharedLogStorage,
-                opts.isLogYieldStrategy(),
-                opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
+                false,
+                null
             ));
 
-            opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+            opts.setLogStripes(IntStream.range(0, 1).mapToObj(i -> new Stripe()).collect(toList()));
+        } else {
+            if (opts.getLogManagerDisruptor() == null) {
+                opts.setLogManagerDisruptor(new StripedDisruptor<>(
+                    opts.getServerName(),
+                    "JRaft-LogManager-Disruptor",
+                    (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new LogManagerImpl.StableClosureEvent(),
+                    opts.getLogStripesCount(),
+                    logStorage instanceof RocksDbSharedLogStorage,
+                    opts.isLogYieldStrategy(),
+                    opts.getRaftMetrics().disruptorMetrics("logmanager.disruptor")
+                ));
+
+                opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
+            }
         }
     }
 
@@ -1715,9 +1709,13 @@ public class NodeImpl implements Node, RaftServerService {
                 });
                 return;
             }
+
+            @Nullable HybridTimestamp safeTs = null;
+
             final List<LogEntry> entries = new ArrayList<>(size);
             for (int i = 0; i < size; i++) {
                 final LogEntryAndClosure task = tasks.get(i);
+
                 if (task.expectedTerm != -1 && task.expectedTerm != this.currTerm) {
                     LOG.debug("Node {} can't apply task whose expectedTerm={} doesn't match currTerm={}.", getNodeId(),
                         task.expectedTerm, this.currTerm);
@@ -1735,6 +1733,10 @@ public class NodeImpl implements Node, RaftServerService {
                     task.reset();
                     continue;
                 }
+
+                // To prevent safe timestamp values from becoming stale, we must assign them under a valid leader lock.
+                safeTs = tryAssignSafeTimestamp(task, safeTs);
+
                 // set task entry info before adding to list.
                 task.entry.getId().setTerm(this.currTerm);
                 task.entry.setType(EnumOutter.EntryType.ENTRY_TYPE_DATA);
@@ -1748,6 +1750,26 @@ public class NodeImpl implements Node, RaftServerService {
         finally {
             this.writeLock.unlock();
         }
+    }
+
+    private @Nullable HybridTimestamp tryAssignSafeTimestamp(LogEntryAndClosure task, @Nullable HybridTimestamp safeTs) {
+        if (task.done instanceof SafeTimeAwareCommandClosure) {
+            SafeTimeAwareCommandClosure clo = (SafeTimeAwareCommandClosure) task.done;
+            WriteCommand command = clo.command();
+            HybridTimestamp timestamp = command.initiatorTime();
+
+            if (timestamp != null) {
+                if (safeTs == null) {
+                    safeTs = clock.update(timestamp);
+                } else if (timestamp.compareTo(safeTs) > 0) {
+                    safeTs = clock.update(timestamp);
+                }
+
+                clo.safeTimestamp(safeTs);
+            }
+        }
+
+        return safeTs;
     }
 
     /**
@@ -3518,7 +3540,7 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
             opts.getReadOnlyServiceDisruptor().shutdown();
         }
-        if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
+        if (opts.getLogManagerDisruptor() != null && (!opts.isSharedPools() || opts.isSystemGroup())) {
             opts.getLogManagerDisruptor().shutdown();
         }
     }

@@ -3,16 +3,15 @@ ColocatedSortAggregate
     collation: [O_ORDERPRIORITY ASC]
     group: [O_ORDERPRIORITY]
     aggregation: [COUNT()]
-    est: (rows=14988034462)
+    est: (rows=6751366875)
   Project
       fieldNames: [O_ORDERPRIORITY]
       projection: [O_ORDERPRIORITY]
-      est: (rows=74940172312)
-    CorrelatedNestedLoopJoin
-        predicate: true
+      est: (rows=33756834375)
+    HashJoin
+        predicate: =(O_ORDERKEY, L_ORDERKEY)
         type: inner
-        correlates: [$cor1]
-        est: (rows=74940172312)
+        est: (rows=33756834375)
       Exchange
           distribution: single
           est: (rows=375000)
@@ -25,33 +24,24 @@ ColocatedSortAggregate
               type: SORTED
               predicate: SEARCH(O_ORDERDATE, Sarg[[1993-07-01..1993-10-01)])
               searchBounds: [<1993-07-01>..<1993-10-01>)
-              fieldNames: [O_ORDERKEY, O_ORDERPRIORITY]
-              collation: []
+              fieldNames: [O_ORDERKEY, O_ORDERDATE, O_ORDERPRIORITY]
+              collation: [O_ORDERDATE ASC]
               est: (rows=375000)
-      Project
-          fieldNames: []
-          projection: []
-          est: (rows=199840)
-        ReduceHashAggregate
-            fieldNames: [i]
-            group: [i]
-            aggregation: []
-            est: (rows=199840)
-          Exchange
-              distribution: single
-              est: (rows=199840)
-            MapHashAggregate
-                fieldNames: [i, _GROUP_ID]
-                group: [i]
-                aggregation: []
-                est: (rows=199840)
-              IndexScan
-                  table: PUBLIC.LINEITEM
-                  index: L_OK
-                  type: SORTED
-                  predicate: AND(=(L_ORDERKEY, $cor1.O_ORDERKEY), <(L_COMMITDATE, L_RECEIPTDATE))
-                  searchBounds: <$cor1.O_ORDERKEY>
-                  fieldNames: [i]
-                  projection: [true]
-                  collation: []
-                  est: (rows=999202)
+      ReduceHashAggregate
+          fieldNames: [L_ORDERKEY]
+          group: [L_ORDERKEY]
+          aggregation: []
+          est: (rows=600121)
+        Exchange
+            distribution: single
+            est: (rows=600121)
+          MapHashAggregate
+              fieldNames: [L_ORDERKEY, _GROUP_ID]
+              group: [L_ORDERKEY]
+              aggregation: []
+              est: (rows=600121)
+            TableScan
+                table: PUBLIC.LINEITEM
+                predicate: <(L_COMMITDATE, L_RECEIPTDATE)
+                fieldNames: [L_ORDERKEY]
+                est: (rows=3000608)

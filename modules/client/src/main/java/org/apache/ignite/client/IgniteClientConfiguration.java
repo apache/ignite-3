@@ -230,7 +230,7 @@ public interface IgniteClientConfiguration {
      * Gets how long the resolved addresses will be considered valid, in milliseconds. Set to {@code 0} for infinite validity.
      * Default is {@link #DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL}.
      *
-     * <p>Ignite client resolve the provided hostnames into multiple IP addresses, each corresponds to an active cluster node.
+     * <p>Ignite client resolves the provided hostnames into multiple IP addresses, each corresponds to an active cluster node.
      * However, additional IP addresses can be collected after updating the DNS records. This property controls how often Ignite
      * client will try to re-resolve provided hostnames and connect to newly discovered addresses.
      *

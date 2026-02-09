@@ -20,6 +20,7 @@ package org.apache.ignite.internal.deployunit;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -149,4 +150,12 @@ public interface IgniteDeployment extends IgniteComponent {
      * @return Future with the latest version of the deployment unit.
      */
     CompletableFuture<Version> detectLatestDeployedVersion(String id);
+
+    /**
+     * Returns unit content tree structure.
+     *
+     * @param unitId Deployment unit identifier.
+     * @param version Deployment unit version.
+     */
+    CompletableFuture<UnitFolder> nodeUnitFileStructure(String unitId, Version version);
 }

@@ -82,14 +82,15 @@ namespace Apache.Ignite.Tests
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
             bool disableOpsTracking = false,
-            int port = 0)
-            : base(port)
+            int port = 0,
+            IPAddress? address = null)
+            : base(address, port)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
             Node = new ClusterNode(Guid.NewGuid(), nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
-            PartitionAssignment = new[] { nodeName };
-            ClusterNodes = new[] { Node };
+            PartitionAssignment = [nodeName];
+            ClusterNodes = [Node];
 
             if (!disableOpsTracking)
             {
@@ -401,7 +402,7 @@ namespace Apache.Ignite.Tests
                     case ClientOp.StreamerWithReceiverBatchSend:
                     {
                         reader.ReadInt32(); // table
-                        reader.ReadInt32(); // partition
+                        reader.ReadInt64(); // partition
                         var unitCount = reader.ReadInt32();
                         reader.Skip(unitCount);
                         reader.ReadBoolean(); // returnResults.
@@ -430,7 +431,7 @@ namespace Apache.Ignite.Tests
                         {
                             var nodeId = PartitionAssignment[index];
 
-                            writer.Write(index); // Partition id.
+                            writer.Write((long)index); // Partition id.
                             writer.Write(4); // Prop count.
                             writer.Write(Guid.NewGuid()); // Id.
                             writer.Write(nodeId); // Name.

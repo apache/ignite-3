@@ -410,14 +410,16 @@ public final class ReliableChannel implements AutoCloseable {
         if (preferredNodeName != null) {
             ClientChannelHolder holder = nodeChannelsByName.get(preferredNodeName);
 
-            if (holder != null) {
-                return holder.getOrCreateChannelAsync().thenCompose(ch -> {
-                    if (ch != null) {
-                        return completedFuture(ch);
-                    } else {
-                        return getDefaultChannelAsync();
-                    }
-                });
+            if (holder != null && !holder.close) {
+                return holder.getOrCreateChannelAsync()
+                        .handle((ch, err) -> ch) // On error, return null to fall back to default channel.
+                        .thenCompose(ch -> {
+                            if (ch != null) {
+                                return completedFuture(ch);
+                            } else {
+                                return getDefaultChannelAsync();
+                            }
+                        });
             }
         }
 
@@ -947,7 +949,7 @@ public final class ReliableChannel implements AutoCloseable {
                     nodeChannelsByName.put(newNode.name(), this);
 
                     var oldServerNode = serverNode;
-                    if (oldServerNode != null && !oldServerNode.id().equals(newNode.id())) {
+                    if (oldServerNode != null && !oldServerNode.name().equals(newNode.name())) {
                         // New node on the old address.
                         nodeChannelsByName.remove(oldServerNode.name(), this);
                     }

@@ -89,7 +89,6 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
      * Ensures that the partition aware query is forwarded to the alive node.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27180")
     void testPartitionAwareQueryForwardedToRandomNode() throws SQLException {
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{0, 1, 2});
@@ -131,7 +130,6 @@ public class ItJdbcConnectionFailoverTest extends ClusterPerTestIntegrationTest 
      *          JDBC connection property is correctly applied to the underlying client.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27188")
     void testConnectionRestoredAfterBackgroundReconnectInterval() throws Exception {
         int nodesCount = 3;
         cluster.startAndInit(nodesCount, new int[]{2});

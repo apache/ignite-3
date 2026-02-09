@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// ReSharper disable InheritdocInvalidUsage
 namespace Apache.Ignite.Internal.Table;
 
 using System;
@@ -25,6 +26,7 @@ using System.Threading.Tasks;
 using Common;
 using Ignite.Network;
 using Ignite.Table;
+using Ignite.Table.Mapper;
 using Network;
 using Proto;
 using Proto.MsgPack;
@@ -33,7 +35,9 @@ using Serialization;
 /// <summary>
 /// Table partition manager.
 /// </summary>
-internal sealed class PartitionManager : IPartitionManager
+#pragma warning disable CS0618 // Type or member is obsolete
+internal sealed class PartitionManager : IPartitionDistribution, IPartitionManager
+#pragma warning restore CS0618 // Type or member is obsolete
 {
     private static readonly object PartitionsLock = new();
 
@@ -75,7 +79,7 @@ internal sealed class PartitionManager : IPartitionManager
             throw new ArgumentException("Unsupported partition type: " + partition.GetType());
         }
 
-        if (hashPartition.PartitionId < 0)
+        if (hashPartition.Id < 0)
         {
             throw new ArgumentException("Partition id can't be negative: " + partition);
         }
@@ -83,12 +87,12 @@ internal sealed class PartitionManager : IPartitionManager
         var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
         var nodes = replicas.Nodes;
 
-        if (hashPartition.PartitionId >= nodes.Length)
+        if (hashPartition.Id >= nodes.Length)
         {
             throw new ArgumentException($"Partition id can't be greater than {nodes.Length - 1}: {partition}");
         }
 
-        return nodes[hashPartition.PartitionId];
+        return nodes[hashPartition.Id];
     }
 
     /// <inheritdoc/>
@@ -100,6 +104,45 @@ internal sealed class PartitionManager : IPartitionManager
     public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull =>
         GetPartitionInternalAsync(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);
+
+    /// <inheritdoc/>
+    public ValueTask<IPartition> GetPartitionAsync<TK>(TK key, IMapper<TK> mapper)
+        where TK : notnull =>
+        GetPartitionInternalAsync(key, new MapperSerializerHandler<TK>(mapper));
+
+    /// <inheritdoc/>
+    public async ValueTask<IReadOnlyList<IPartition>> GetPartitionsAsync()
+    {
+        var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
+        var partitionsCount = replicas.Nodes.Length;
+        var cached = GetCachedPartitionArray(partitionsCount);
+
+        return cached.Length == partitionsCount
+            ? cached
+            : cached[..partitionsCount];
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<IReadOnlyList<IPartition>> GetPrimaryReplicasAsync(IClusterNode node)
+    {
+        IgniteArgumentCheck.NotNull(node);
+
+        var replicas = await GetPrimaryReplicasInternalAsync().ConfigureAwait(false);
+        var result = new List<IPartition>();
+        var nodesByPartition = replicas.Nodes;
+        var partitions = GetCachedPartitionArray(nodesByPartition.Length);
+
+        for (var i = 0; i < nodesByPartition.Length; i++)
+        {
+            // Compare only by name (consistent id).
+            if (nodesByPartition[i].Name == node.Name)
+            {
+                result.Add(partitions[i]);
+            }
+        }
+
+        return result;
+    }
 
     /// <inheritdoc/>
     public override string ToString() =>
@@ -159,7 +202,7 @@ internal sealed class PartitionManager : IPartitionManager
 
             for (var i = 0; i < count; i++)
             {
-                var id = r.ReadInt32();
+                var id = r.ReadInt64();
                 var node = ClusterNode.Read(ref r);
 
                 primaryReplicas[id] = node;

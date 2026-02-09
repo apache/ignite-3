@@ -54,13 +54,14 @@ public class RecordViewPrimitiveTests(string mode) : IgniteTestsBase(useMapper: 
         await TestKey(new LocalTime(3, 4, 5), TableTimeName);
         await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), TableTimestampName);
         await TestKey(new byte[] { 1, 2, 3 }, TableBytesName);
+        await TestKey(Guid.NewGuid(), TableUuidName);
     }
 
     [Test]
     public void TestColumnTypeMismatchThrowsException()
     {
         var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey(1f, Table.GetRecordView<float>()));
-        Assert.AreEqual("Can't map 'System.Single' to column 'KEY' of type 'System.Int64' - types do not match.", ex!.Message);
+        Assert.AreEqual("Can't write a value of type 'Float' to column 'KEY' of type 'Int64'.", ex!.Message);
     }
 
     [Test]

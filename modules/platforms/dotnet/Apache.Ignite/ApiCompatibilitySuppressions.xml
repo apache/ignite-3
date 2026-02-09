@@ -133,4 +133,32 @@
     <Right>lib/net8.0/Apache.Ignite.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0006</DiagnosticId>
+    <Target>M:Apache.Ignite.Table.IPartitionManager.GetPartitionAsync``1(``0,Apache.Ignite.Table.Mapper.IMapper{``0})</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0006</DiagnosticId>
+    <Target>M:Apache.Ignite.Sql.ISql.ExecuteAsync``1(Apache.Ignite.Transactions.ITransaction,Apache.Ignite.Table.Mapper.IMapper{``0},Apache.Ignite.Sql.SqlStatement,System.Threading.CancellationToken,System.Object[])</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0006</DiagnosticId>
+    <Target>P:Apache.Ignite.Table.IPartition.Id</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0006</DiagnosticId>
+    <Target>P:Apache.Ignite.Table.ITable.PartitionDistribution</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
 </Suppressions>

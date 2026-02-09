@@ -23,15 +23,15 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.ClusterPerClassIntegrationTest.awaitPartitionsToBeHealthy;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil.blockStableKeySwitch;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +54,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -61,23 +62,16 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
-import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
-import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.awaitility.Awaitility;
@@ -179,43 +173,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
     @Test
     @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
-    void testEstimatedRowsTableZone() throws Exception {
-        validateEstimatedRows();
-    }
-
-    private void validateEstimatedRows() throws InterruptedException {
-        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-
-        insert(0, 0);
-        insert(1, 1);
-
-        // Wait for replication to finish.
-        assertTrue(waitForCondition(() -> {
-                    CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> localStateTableFuture =
-                            node.disasterRecoveryManager().localTablePartitionStates(emptySet(), emptySet(), emptySet());
-
-                    assertThat(localStateTableFuture, willCompleteSuccessfully());
-                    Map<TablePartitionId, LocalTablePartitionStateByNode> localState;
-                    try {
-                        localState = localStateTableFuture.get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    Set<Long> size = localState.values().stream()
-                            .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
-                            .map(state -> state.estimatedRows)
-                            .collect(Collectors.toSet());
-                    // There are 2 nodes, 2 partitions and 1 replica, so we should have 2 entries in localState (one for each partition),
-                    // LocalTablePartitionStateByNode should have a entry for either the first or the second node with 1 row.
-                    return size.size() == 1 && size.contains(1L) && localState.size() == 2;
-                },
-                20_000
-        ));
-    }
-
-    @Test
-    @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
     void testEstimatedRowsZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
@@ -224,20 +181,20 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         // Wait for replication to finish.
         assertTrue(waitForCondition(() -> {
-                    CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
+                    CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateFuture =
                             node.disasterRecoveryManager().localPartitionStates(Set.of(ZONE_NAME), emptySet(), emptySet());
 
-                    assertThat(localStateTableFuture, willCompleteSuccessfully());
+                    assertThat(localStateFuture, willCompleteSuccessfully());
 
                     Map<ZonePartitionId, LocalPartitionStateByNode> localState;
                     try {
-                        localState = localStateTableFuture.get();
+                        localState = localStateFuture.get();
                     } catch (InterruptedException | ExecutionException e) {
                         throw new RuntimeException(e);
                     }
 
                     Set<Long> size = localState.values().stream()
-                            .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
+                            .flatMap(localPartitionStateByNode -> localPartitionStateByNode.values().stream())
                             .map(state -> state.estimatedRows)
                             .collect(Collectors.toSet());
                     // There are 2 nodes, 2 partitions and 1 replica, so we should have 2 entries in localState (one for each partition),
@@ -246,42 +203,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 },
                 20_000
         ));
-    }
-
-    @Test
-    @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
-    void testLocalPartitionStateTable() throws Exception {
-        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-
-        insert(0, 0);
-        insert(1, 1);
-
-        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> localStateTableFuture =
-                node.disasterRecoveryManager().localTablePartitionStates(emptySet(), emptySet(), emptySet());
-
-        assertThat(localStateTableFuture, willCompleteSuccessfully());
-        Map<TablePartitionId, LocalTablePartitionStateByNode> localState = localStateTableFuture.get();
-
-        // 2 partitions.
-        assertThat(localState, aMapWithSize(2));
-
-        int tableId = tableId(node);
-
-        // Partitions size is 2.
-        for (int partitionId = 0; partitionId < 2; partitionId++) {
-            LocalTablePartitionStateByNode partitionStateByNode = localState.get(new TablePartitionId(tableId, partitionId));
-            // 2 nodes.
-            assertThat(partitionStateByNode.values(), hasSize(2));
-
-            for (LocalTablePartitionState state : partitionStateByNode.values()) {
-                assertThat(state.tableId, is(tableId));
-                assertThat(state.tableName, is(TABLE_NAME));
-                assertThat(state.schemaName, is(SqlCommon.DEFAULT_SCHEMA_NAME));
-                assertThat(state.partitionId, is(partitionId));
-                assertThat(state.zoneName, is(ZONE_NAME));
-                assertThat(state.state, is(LocalPartitionStateEnum.HEALTHY));
-            }
-        }
     }
 
     @Test
@@ -315,37 +236,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 assertThat(state.partitionId, is(partitionId));
                 assertThat(state.state, is(LocalPartitionStateEnum.HEALTHY));
             }
-        }
-    }
-
-    @Test
-    @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
-    void testGlobalPartitionStateTable() throws Exception {
-        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
-
-        insert(0, 0);
-        insert(1, 1);
-
-        CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> globalStatesFuture =
-                node.disasterRecoveryManager().globalTablePartitionStates(emptySet(), emptySet());
-
-        assertThat(globalStatesFuture, willCompleteSuccessfully());
-        Map<TablePartitionId, GlobalTablePartitionState> globalState = globalStatesFuture.get();
-
-        // 2 partitions.
-        assertThat(globalState, aMapWithSize(2));
-
-        int tableId = tableId(node);
-
-        // Partitions size is 2.
-        for (int partitionId = 0; partitionId < 2; partitionId++) {
-            GlobalTablePartitionState state = globalState.get(new TablePartitionId(tableId, partitionId));
-            assertThat(state.tableId, is(tableId));
-            assertThat(state.tableName, is(TABLE_NAME));
-            assertThat(state.schemaName, is(SqlCommon.DEFAULT_SCHEMA_NAME));
-            assertThat(state.partitionId, is(partitionId));
-            assertThat(state.zoneName, is(ZONE_NAME));
-            assertThat(state.state, is(GlobalPartitionStateEnum.AVAILABLE));
         }
     }
 
@@ -400,20 +290,12 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
     }
 
-    private static int tableId(IgniteImpl node) {
-        return tableId(node, TABLE_NAME);
-    }
-
-    private static int tableId(IgniteImpl node, String tableName) {
-        return ((Wrapper) node.tables().table(tableName)).unwrap(TableImpl.class).tableId();
-    }
-
     private static int zoneId(CatalogManager catalogManager, String zoneName) {
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
+        return catalogManager.latestCatalog().zone(zoneName).id();
     }
 
     private static int zoneId(IgniteImpl node) {
-        return node.catalogManager().catalog(node.catalogManager().latestCatalogVersion()).zone(ZONE_NAME).id();
+        return node.catalogManager().latestCatalog().zone(ZONE_NAME).id();
     }
 
     private IgniteImpl findZoneNodeConformingOptions(String testZone, boolean primaryReplica, boolean raftLeader)
@@ -485,7 +367,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
 
-        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
+        assertThat(exception.getCause().getMessage(), containsString("Not enough alive nodes to perform reset with clean up."));
     }
 
     @Test
@@ -519,7 +401,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
 
-        assertThat(exception.getCause().getMessage(), is("Not enough alive nodes to perform reset with clean up."));
+        assertThat(exception.getCause().getMessage(), containsString("Not enough alive nodes to perform reset with clean up."));
     }
 
     @ParameterizedTest(name = "consistencyMode={0}, primaryReplica={1}, raftLeader={2}")
@@ -654,7 +536,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(1L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(1L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         } else {
             tx.commit();
@@ -663,7 +545,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 2, 2);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(2L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(2L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         }
     }
@@ -748,9 +630,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             AtomicBoolean blocked,
             AtomicBoolean reached
     ) {
-        int catalogVersion = node.catalogManager().latestCatalogVersion();
-        CatalogZoneDescriptor zoneDescriptor = node.catalogManager().catalog(catalogVersion).zone(testZone);
-        long timestamp = node.catalogManager().catalog(catalogVersion).time();
+        Catalog latestCatalog = node.catalogManager().latestCatalog();
+        CatalogZoneDescriptor zoneDescriptor = latestCatalog.zone(testZone);
+        long timestamp = latestCatalog.time();
 
         Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
                 runningNodes.stream().map(IgniteImpl::name).collect(Collectors.toSet()),
@@ -764,8 +646,12 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(node.catalogManager(), testZone), 0);
 
-        blockMessage(cluster, (nodeName, msg) ->
-                blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentsPending, reached)
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                replicationGroupId,
+                assignmentsPending,
+                (nodeName, message) -> blocked.get(),
+                reached
         );
     }
 }

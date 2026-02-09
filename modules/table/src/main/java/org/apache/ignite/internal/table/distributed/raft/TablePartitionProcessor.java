@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.partition.replicator.raft.CommandResult
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_NOT_APPLIED_RESULT;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTsOrNull;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 
 import java.util.HashSet;
@@ -38,6 +37,8 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
@@ -54,7 +55,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -67,7 +67,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -76,6 +75,8 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class TablePartitionProcessor implements RaftTableProcessor {
+    private static final IgniteLogger LOG = Loggers.forClass(TablePartitionProcessor.class);
+
     /** Transaction manager. */
     private final TxManager txManager;
 
@@ -84,9 +85,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
     /** Handler that processes storage updates. */
     private final StorageUpdateHandler storageUpdateHandler;
-
-    /** Safe time tracker. */
-    private final SafeTimeValuesTracker safeTimeTracker;
 
     private final CatalogService catalogService;
 
@@ -113,7 +111,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
-            SafeTimeValuesTracker safeTimeTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
             IndexMetaStorage indexMetaStorage,
@@ -127,7 +124,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
-        this.safeTimeTracker = safeTimeTracker;
         this.catalogService = catalogService;
         this.localNodeId = localNodeId;
         this.placementDriver = placementDriver;
@@ -200,21 +196,12 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, safeTimestamp);
         } else if (command instanceof WriteIntentSwitchCommand) {
             result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
-        } else if (command instanceof SafeTimeSyncCommand) {
-            result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
         } else if (command instanceof PrimaryReplicaChangeCommand) {
             result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
         }
 
         if (result == null) {
             throw new AssertionError("Unknown command type [command=" + command.toStringForLightLogging() + ']');
-        }
-
-        if (result.wasApplied()) {
-            // Adjust safe time before completing update to reduce waiting.
-            if (safeTimestamp != null) {
-                updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimestamp);
-            }
         }
 
         return result;
@@ -429,26 +416,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         return EMPTY_APPLIED_RESULT;
     }
 
-    /**
-     * Handler for the {@link SafeTimeSyncCommand}.
-     *
-     * @param cmd Command.
-     * @param commandIndex RAFT index of the command.
-     * @param commandTerm RAFT term of the command.
-     */
-    private CommandResult handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write command because the storage has already executed it.
-        if (commandIndex <= storage.lastAppliedIndex()) {
-            return EMPTY_NOT_APPLIED_RESULT;
-        }
-
-        // We MUST bump information about last updated index+term.
-        // See a comment in #onWrite() for explanation.
-        advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
-
-        return EMPTY_APPLIED_RESULT;
-    }
-
     private void advanceLastAppliedIndexConsistently(long commandIndex, long commandTerm) {
         storage.runConsistently(locker -> {
             storage.lastApplied(commandIndex, commandTerm);
@@ -470,21 +437,12 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
         setCurrentGroupTopology(config);
 
-        // Do the update under lock to make sure no snapshot is started concurrently with this update.
-        // Note that we do not need to protect from a concurrent command execution by this listener because
-        // configuration is committed in the same thread in which commands are applied.
-        storage.acquirePartitionSnapshotsReadLock();
+        storage.runConsistently(locker -> {
+            storage.committedGroupConfiguration(config);
+            storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
-        try {
-            storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(config);
-                storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
-
-                return null;
-            });
-        } finally {
-            storage.releasePartitionSnapshotsReadLock();
-        }
+            return null;
+        });
     }
 
     private void setCurrentGroupTopology(RaftGroupConfiguration config) {
@@ -535,14 +493,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     }
 
     /**
-     * Returns safe timestamp.
-     */
-    @TestOnly
-    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
-        return safeTimeTracker;
-    }
-
-    /**
      * Handler for {@link PrimaryReplicaChangeCommand}.
      *
      * @param cmd Command.
@@ -554,8 +504,17 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             long commandIndex,
             long commandTerm
     ) {
+        long storageLastAppliedIndex = storage.lastAppliedIndex();
+        LOG.debug("Handling PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, storageLastAppliedIndex={}, "
+                        + "leaseStartTime={}, primaryNodeId={}, primaryNodeName={}]",
+                storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex,
+                cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
+
         // Skips the write command because the storage has already executed it.
-        if (commandIndex <= storage.lastAppliedIndex()) {
+        if (commandIndex <= storageLastAppliedIndex) {
+            LOG.debug("Skipping PrimaryReplicaChangeCommand - already applied [tableId={}, partId={}, commandIndex={}, "
+                            + "storageLastAppliedIndex={}]",
+                    storage.tableId(), storage.partitionId(), commandIndex, storageLastAppliedIndex);
             return EMPTY_NOT_APPLIED_RESULT;
         }
 
@@ -568,6 +527,9 @@ public class TablePartitionProcessor implements RaftTableProcessor {
 
             return null;
         });
+
+        LOG.debug("Successfully applied PrimaryReplicaChangeCommand [tableId={}, partId={}, commandIndex={}, leaseStartTime={}]",
+                storage.tableId(), storage.partitionId(), commandIndex, cmd.leaseStartTime());
 
         return EMPTY_APPLIED_RESULT;
     }
@@ -584,11 +546,13 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     }
 
     private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
-        txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, full ? COMMITTED : PENDING)
-                .txCoordinatorId(txCoordinatorId)
-                .commitTimestamp(full ? commitTimestamp : null)
-                .build()
-        );
+        // Saving state is not needed for full transactions.
+        if (!full) {
+            txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, PENDING)
+                    .txCoordinatorId(txCoordinatorId)
+                    .build()
+            );
+        }
     }
 
     /**

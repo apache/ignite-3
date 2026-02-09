@@ -70,7 +70,8 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("resource.vacuum", true),
             new MetricSource("placement-driver", true),
             new MetricSource("clock.service", true),
-            new MetricSource("index.builder", true)
+            new MetricSource("index.builder", true),
+            new MetricSource("raft.snapshots", true)
     };
 
     @Inject

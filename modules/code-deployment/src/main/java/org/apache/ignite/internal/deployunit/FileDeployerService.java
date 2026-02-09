@@ -33,6 +33,7 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.DeployerProcessor.DeployArg;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProviderImpl;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Service for file deploying on local File System.
@@ -141,6 +143,51 @@ public class FileDeployerService {
                 LOG.error("Failed to get content for unit " + id + ":" + version, e);
             }
             return new UnitContent(result);
+        }, executor);
+    }
+
+    /**
+     * Returns unit content representation with tree structure.
+     *
+     * @param id Unit identifier.
+     * @param version Unit version.
+     */
+    public CompletableFuture<UnitFolder> getUnitStructure(String id, Version version) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                UnitStructureBuilder builder = new UnitStructureBuilder();
+                Path unitFolder = unitPath(id, version);
+                builder.pushFolder(id + "-" + version);
+
+                Files.walkFileTree(unitFolder, new SimpleFileVisitor<>() {
+
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                        if (!Files.isSameFile(dir, unitFolder)) {
+                            builder.pushFolder(dir.getFileName().toString());
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        builder.addFile(file.getFileName().toString(), attrs.size());
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, @Nullable IOException exc) throws IOException {
+                        if (!Files.isSameFile(dir, unitFolder)) {
+                            builder.popFolder(dir.getFileName().toString());
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+                return builder.build();
+            } catch (IOException e) {
+                LOG.error("Failed to get content for unit " + id + ":" + version, e);
+                return null;
+            }
         }, executor);
     }
 
