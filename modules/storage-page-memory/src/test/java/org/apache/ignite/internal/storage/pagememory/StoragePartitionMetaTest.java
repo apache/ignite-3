@@ -207,7 +207,7 @@ public class StoragePartitionMetaTest {
     }
 
     @Test
-    void testWIHead() {
+    void testWiHead() {
         StoragePartitionMeta meta = createMeta();
 
         assertEquals(PageIdUtils.NULL_LINK, meta.wiHeadLink());

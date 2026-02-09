@@ -61,7 +61,8 @@ public class StoragePartitionMetaIoV2 extends StoragePartitionMetaIo {
         return getLong(pageAddr, WI_HEAD_OFF);
     }
 
-    // WI head link overlapped with first 4 bytes of estimated size field, but we assume that there were no partitions with 4b rows.
+    // WI head link overlapped with first 4 bytes of estimated size field, but we assume that there were no partitions with 4b rows and
+    // only LE order was used.
     @Override
     public long getEstimatedSize(long pageAddr) {
         return getInt(pageAddr, ESTIMATED_SIZE_OFF);

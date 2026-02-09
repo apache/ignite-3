@@ -80,7 +80,6 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
         ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
 
         try {
-            int pageCount = Integer.MAX_VALUE;
             long wiHeadLink = Long.MAX_VALUE;
             long lastAppliedIndex = Long.MAX_VALUE - 1;
             long lastAppliedTerm = Long.MAX_VALUE - 2;
@@ -90,7 +89,6 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
             long indexTreeMetaPageId = Long.MAX_VALUE - 5;
             long gcQueueMetaPageId = Long.MAX_VALUE - 6;
             long leaseStartTime = Long.MAX_VALUE - 8;
-            long estimatedSize = Long.MAX_VALUE - 9;
 
             // Check for an empty file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
