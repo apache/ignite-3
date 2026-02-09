@@ -1,0 +1,160 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Java Client
+
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there are no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+
+Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
+
+== Getting Started
+
+=== Prerequisites
+
+To use Java thin client, Java 11 or newer is required.
+
+=== Installation
+
+Java client can be added to your project by using maven:
+
+[source, xml, subs="attributes,specialchars"]
+----
+<dependency>
+    <groupId>org.apache.ignite</groupId>
+    <artifactId>ignite-client</artifactId>
+    <version>3.1.0</version>
+</dependency>
+----
+
+== Connecting to Cluster
+
+To initialize a client, use the `IgniteClient` class, and provide it with the configuration:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+try (IgniteClient client = IgniteClient.builder()
+  .addresses("127.0.0.1:10800")
+  .build()
+) {
+  // Your code goes here
+}
+----
+--
+
+== Authentication
+
+To pass link:administrators-guide/security/authentication#user-authorization[authentication] information, use the `IgniteClientAuthenticator` class and pass it to `IgniteClient` builder:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+IgniteClientAuthenticator auth = BasicAuthenticator.builder().username("myUser").password("myPassword").build();
+IgniteClient.builder()
+    .addresses("127.0.0.1:10800")
+    .authenticator(auth)
+    .build();
+----
+--
+
+== Logging
+
+To configure client logging, add `loggerFactory`:
+
+[source, java]
+----
+IgniteClient client = IgniteClient.builder()
+    .addresses("127.0.0.1")
+    .loggerFactory(System::getLogger)
+    .build();
+----
+
+The client logs connection errors, reconnects, and retries.
+
+== Client Metrics
+
+=== Java
+
+When running Java client, you need to enable metrics in the client builder:
+
+[source, java]
+----
+IgniteClient client = IgniteClient.builder()
+  .addresses("127.0.0.1:10800")
+  .metricsEnabled(true)
+  .build();
+----
+
+After that, client metrics will be available to any Java monitoring tool, for example link:https://www.oracle.com/java/technologies/jdk-mission-control.html[JDK Mission Control].
+
+==== Available Java Metrics
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+
+|ConnectionsActive|The number of currently active connections.
+|ConnectionsEstablished|The number of established connections.
+|ConnectionsLost|The number of connections lost.
+|ConnectionsLostTimeout|The number of connections lost due to a timeout.
+|HandshakesFailed|The number of failed handshakes.
+|HandshakesFailedTimeout|The number of handshakes that failed due to a timeout.
+|RequestsActive|The number of currently active requests.
+|RequestsSent|The number of requests sent.
+|RequestsCompleted|The number of completed requests. Requests are completed once a response is received.
+|RequestsRetried|The number of request retries.
+|RequestsFailed|The number of failed requests.
+|BytesSent|The amount of bytes sent.
+|BytesReceived|The amount of bytes received.
+|StreamerBatchesSent|The number of data streamer batches sent.
+|StreamerItemsSent|The number of data streamer items sent.
+|StreamerBatchesActive|The number of in-flight data streamer batches.
+|StreamerItemsQueued|The number of queued data streamer items.
+
+|=======================================================================
+
+
+== Client Connection Configuration
+
+There is a number of configuration properties managing the connection between the client and Ignite cluster:
+
+[source, java]
+----
+IgniteClient client = IgniteClient.builder()
+  .addresses("127.0.0.1:10800")
+  .connectTimeout(5000)
+  .heartbeatInterval(30000)
+  .heartbeatTimeout(5000)
+  .operationTimeout(3000)
+  .backgroundReconnectInterval(30000)
+  .retryPolicy(new RetryLimitPolicy().retryLimit(8))
+  .build();
+----
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Configuration name | Description
+
+|connectTimeout|Client connection timeout, in milliseconds.
+|heartbeatInterval|Heartbeat message interval, in milliseconds.
+|heartbeatTimeout|Heartbeat message timeout, in milliseconds.
+|operationTimeout|Operation timeout, in milliseconds.
+|backgroundReconnectInterval|Background reconnect interval, in milliseconds.
+|retryPolicy|Retry policy. By default, all read operations are retried  up to 16 times, and write operations are not retried.
+
+|=======================================================================
