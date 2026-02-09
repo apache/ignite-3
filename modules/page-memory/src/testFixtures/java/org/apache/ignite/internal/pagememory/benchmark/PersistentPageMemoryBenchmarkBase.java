@@ -113,6 +113,9 @@ public class PersistentPageMemoryBenchmarkBase {
                 config.pageSize()
         );
 
+        filePageStoreManager.start();
+        checkpointManager.start();
+
         persistentPageMemory = new PersistentPageMemory(
                 PersistentDataRegionConfiguration.builder()
                         .pageSize(config.pageSize())
@@ -131,10 +134,6 @@ public class PersistentPageMemoryBenchmarkBase {
         );
 
         dataRegionList.add(new TestDataRegion<>(persistentPageMemory));
-
-        filePageStoreManager.start();
-        checkpointManager.start();
-        persistentPageMemory.start();
 
         int partitionsCount = config.partitionsCount();
         for (int i = 0; i < partitionsCount; i++) {
