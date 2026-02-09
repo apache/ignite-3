@@ -80,7 +80,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
                 + "  clientConnector.port: {}," + NL
                 + "  rest.port: {}," + NL
                 + "  compute: {" + NL
-                + "    threadPoolSize: 1, + NL"
+                + "    threadPoolSize: 1," + NL
                 + "    statesLifetimeMillis: 1000" + NL
                 + "  }," + NL
                 + "  failureHandler.handler.type: noop," + NL
