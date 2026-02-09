@@ -228,6 +228,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 nodeName,
                 clusterService,
                 cmgManager,
+                groupId -> completedFuture(Assignments.EMPTY),
                 clockService,
                 Set.of(),
                 placementDriver,

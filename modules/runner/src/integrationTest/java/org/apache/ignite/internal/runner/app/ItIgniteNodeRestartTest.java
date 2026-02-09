@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionStableAssignments;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
@@ -601,6 +602,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 clusterSvc,
                 cmgManager,
+                groupId -> zonePartitionStableAssignments(metaStorageMgr, groupId),
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
@@ -996,17 +998,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
 
-        sql1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
+        sql1.execute("CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
 
-        ResultSet<SqlRow> plan = sql1.execute(null, "EXPLAIN PLAN FOR " + sql);
+        ResultSet<SqlRow> plan = sql1.execute("EXPLAIN PLAN FOR " + sql);
 
         String planStr = plan.next().stringValue(0);
 
         assertTrue(planStr.contains("IndexScan"));
 
-        ResultSet<SqlRow> res1 = sql1.execute(null, sql);
+        ResultSet<SqlRow> res1 = sql1.execute(sql);
 
-        ResultSet<SqlRow> res2 = sql2.execute(null, sql);
+        ResultSet<SqlRow> res2 = sql2.execute(sql);
 
         intRes = res1.next().intValue(0);
 
@@ -1022,7 +1024,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         sql1 = ignite1.sql();
 
-        ResultSet<SqlRow> res3 = sql1.execute(null, sql);
+        ResultSet<SqlRow> res3 = sql1.execute(sql);
 
         assertEquals(intRes, res3.next().intValue(0));
     }
@@ -1241,7 +1243,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Add more data, so that on restart there will be a index rebuilding operation.
         for (int i = 0; i < 100; i++) {
-            ignite.sql().execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
+            ignite.sql().execute("INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
                     i + 500, VALUE_PRODUCER.apply(i + 500));
         }
 
@@ -1718,10 +1720,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteSql sql = node.sql();
 
-        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+        sql.execute(String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                 zoneName, nodesCount, 1, DEFAULT_STORAGE_PROFILE));
 
-        sql.execute(null, "CREATE TABLE " + TABLE_NAME + "(id INT PRIMARY KEY, name VARCHAR) ZONE " + zoneName + ";");
+        sql.execute("CREATE TABLE " + TABLE_NAME + "(id INT PRIMARY KEY, name VARCHAR) ZONE " + zoneName + ";");
 
         assertEquals(TABLE_ID, tableId(node, TABLE_NAME));
 
@@ -1822,15 +1824,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Create table, all nodes are lagging.
         IgniteSql sql = node0.sql();
 
-        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+        sql.execute(String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                 zoneName, 2, 1, DEFAULT_STORAGE_PROFILE));
 
         nodeInhibitor0.startInhibit();
         nodeInhibitor1.startInhibit();
         nodeInhibitor2.startInhibit();
 
-        sql.executeAsync(null, "CREATE TABLE " + tableName
-                + "(id INT PRIMARY KEY, name VARCHAR) ZONE " + zoneName + ";");
+        sql.executeAsync("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR) ZONE " + zoneName + ";");
 
         // Stopping 2 of 3 nodes.
         node1.stop();
@@ -1889,8 +1890,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
         String zoneName = "ZONE_TEST";
 
-        node0.sql().execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+        node0.sql().execute(String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         zoneName, 2, 1, DEFAULT_STORAGE_PROFILE));
 
         int catalogVersionBeforeTable = node0.catalogManager().latestCatalogVersion();
@@ -2143,14 +2143,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
         IgniteSql sql = nodes.get(0).sql();
 
-        sql.execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+        sql.execute(String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         name, replicas, partitions, DEFAULT_STORAGE_PROFILE));
-        sql.execute(null, "CREATE TABLE IF NOT EXISTS " + name
+        sql.execute("CREATE TABLE IF NOT EXISTS " + name
                 + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + name + ";");
 
         for (int i = 0; i < 100; i++) {
-            sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+            sql.execute("INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                     i, VALUE_PRODUCER.apply(i));
         }
     }
@@ -2166,10 +2165,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
         IgniteSql sql = ignite.sql();
 
-        sql.execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+        sql.execute(String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         name, replicas, partitions, DEFAULT_STORAGE_PROFILE));
-        sql.execute(null, "CREATE TABLE " + name
+        sql.execute("CREATE TABLE " + name
                 + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + name + ";");
 
         return ignite.tables().table(name);

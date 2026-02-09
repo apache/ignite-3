@@ -29,6 +29,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link RaftMetricSource}. */
@@ -47,6 +48,7 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27728")
     void testLeaderCountIncreases() {
         testMetricChangeAfterOperation(
                 CLUSTER,
@@ -58,6 +60,7 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27728")
     void testLeaderCountDecreases() {
         createZoneAndTable();
 

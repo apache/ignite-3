@@ -24,12 +24,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rex.RexFieldAccess;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -42,12 +45,12 @@ import org.junit.jupiter.api.Test;
  * CorrelatedNestedLoopJoinPlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
 public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
     /**
      * Check equi-join. CorrelatedNestedLoopJoinTest is applicable for it.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testValidIndexExpressions() throws Exception {
         IgniteSchema publicSchema = createSchemaFrom(
                 tableA("T0"),
@@ -84,6 +87,7 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
      * Check join with not equi condition. Current implementation of the CorrelatedNestedLoopJoinTest is not applicable for such case.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testInvalidIndexExpressions() throws Exception {
         IgniteSchema publicSchema = createSchemaFrom(
                 tableA("T0").andThen(addHashIndex("JID", "ID")),
@@ -102,12 +106,41 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    @Test
+    public void testSubqueryCorrelationColumns() throws Exception {
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0"),
+                tableA("T1")
+        );
+
+        {
+            String sql = "SELECT /*+ disable_decorrelation */ * FROM t0 WHERE "
+                    + "EXISTS(SELECT * FROM t1 WHERE t0.id=t1.id AND t0.int_val<>t1.int_val) ";
+
+            Predicate<IgniteCorrelatedNestedLoopJoin> pred = isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                    .and(cnlj -> cnlj.getCorrelationColumns().equals(ImmutableBitSet.of(0, 3)));
+
+            assertPlan(sql, List.of(publicSchema), pred);
+        }
+
+        {
+            String sql = "SELECT /*+ disable_decorrelation */ * FROM t0 WHERE "
+                    + "EXISTS(SELECT * FROM t1 WHERE t0.jid=t1.jid AND t0.id<>t1.id) ";
+
+            Predicate<IgniteCorrelatedNestedLoopJoin> pred = isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                    .and(cnlj -> cnlj.getCorrelationColumns().equals(ImmutableBitSet.of(0, 1)));
+
+            assertPlan(sql, List.of(publicSchema), pred);
+        }
+    }
+
     private static UnaryOperator<TableBuilder> tableA(String tableName) {
         return tableBuilder -> tableBuilder
                 .name(tableName)
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("JID", NativeTypes.INT32)
                 .addColumn("VAL", NativeTypes.STRING)
+                .addColumn("INT_VAL", NativeTypes.INT32)
                 .distribution(IgniteDistributions.broadcast());
     }
 }

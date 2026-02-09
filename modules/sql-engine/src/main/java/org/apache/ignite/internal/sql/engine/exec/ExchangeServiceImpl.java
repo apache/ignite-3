@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
+import org.apache.ignite.internal.sql.engine.message.SharedStateMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -112,7 +113,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .fragmentId(fragmentId)
                         .exchangeId(exchangeId)
                         .amountOfBatches(amountOfBatches)
-                        .sharedState(state)
+                        .sharedStateMessage(SharedStateMessageConverter.toMessage(state))
                         .build()
         );
     }
@@ -153,7 +154,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         Consumer<Outbox<?>> onRequestHandler = outbox -> {
             try {
-                SharedState state = msg.sharedState();
+                SharedStateMessage sharedStateMessage = msg.sharedStateMessage();
+                SharedState state = SharedStateMessageConverter.fromMessage(sharedStateMessage);
+
                 if (state != null) {
                     outbox.onRewindRequest(node.name(), state, msg.amountOfBatches());
                 } else {

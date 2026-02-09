@@ -51,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -99,6 +100,9 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = " + Constants.GiB + "}")
     private StorageConfiguration storageConfig;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemConfig;
+
     private PersistentPageMemoryStorageEngine engine;
 
     @InjectExecutorService
@@ -121,7 +125,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 "test",
                 metricManager,
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,

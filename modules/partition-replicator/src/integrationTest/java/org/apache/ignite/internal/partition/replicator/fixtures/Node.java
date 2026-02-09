@@ -124,6 +124,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Loza;
@@ -642,6 +643,7 @@ public class Node {
                 name,
                 clusterService,
                 cmgManager,
+                groupId -> completedFuture(Assignments.EMPTY),
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),

@@ -265,9 +265,21 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 CreateSchemaCommand.systemSchemaBuilder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
-        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(new UpdateContext(emptyCatalog, partitionCountProvider));
+        var initialEntries = new ArrayList<UpdateEntry>();
 
-        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
+        var context = new UpdateContext(emptyCatalog, partitionCountProvider);
+
+        for (UpdateProducer producer : initCommands) {
+            List<UpdateEntry> entries = producer.get(context);
+
+            for (UpdateEntry entry : entries) {
+                context.updateCatalog(catalog -> entry.applyUpdate(catalog, INITIAL_TIMESTAMP));
+            }
+
+            initialEntries.addAll(entries);
+        }
+
+        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, initialEntries))
                 .handle((result, error) -> {
                     if (error != null && !hasCause(error, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(error, "Unable to create default zone."));
@@ -594,5 +606,4 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 defaultZoneIdOpt(catalog)
         );
     }
-
 }

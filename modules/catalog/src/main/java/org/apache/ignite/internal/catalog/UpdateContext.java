@@ -26,8 +26,6 @@ import java.util.function.Function;
  * the updated instance. The base catalog instance can be used by a command
  * to determine whether certain changes have been made to the catalog during
  * processing of the current batch of commands.
- *
- * @see BulkUpdateProducer
  */
 public class UpdateContext {
     /** The base catalog descriptor. */

@@ -43,7 +43,6 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
@@ -109,11 +108,9 @@ class ScalarImplementor {
 
         ParameterExpression ctx = Expressions.parameter(SqlEvaluationContext.class, "ctx");
 
-        Expression rowHandler = builder.append("hnd", Expressions.call(ctx, IgniteMethod.CONTEXT_ROW_HANDLER.method()));
-
         Function1<String, InputGetter> correlates = scalarValue instanceof RexDynamicParam
                 ? null
-                : new CorrelatesBuilder(builder, ctx, rowHandler).build(List.of(scalarValue));
+                : new CorrelatesBuilder(ctx).build(List.of(scalarValue));
 
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
                 builder, null, null, ctx, NoOpFieldGetter.INSTANCE, correlates);
