@@ -105,6 +105,7 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
@@ -1496,7 +1497,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new UpdateLogImpl(metaStorageManager, failureManager),
                     clockService,
                     failureManager,
-                    delayDurationMsSupplier
+                    delayDurationMsSupplier,
+                    PartitionCountProvider.defaultPartitionCountProvider()
             );
 
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
