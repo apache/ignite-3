@@ -585,38 +585,40 @@ public class ItSslTest {
 
     @Language("JSON")
     private String createBoostrapConfig(String ciphers) {
-        return "ignite {\n"
-                + "  network: {\n"
+        return "ignite {" + NL
+                + "  network: {" + NL
                 + "    ssl : {"
-                + "      enabled: true,\n"
-                + "      ciphers: " + ciphers + ",\n"
-                + "      trustStore: {\n"
+                + "      enabled: true," + NL
+                + "      ciphers: " + ciphers + ',' + NL
+                + "      trustStore: {" + NL
                 + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
-                + "      },\n"
-                + "      keyStore: {\n"
+                + "      }," + NL
+                + "      keyStore: {" + NL
                 + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
-                + "      }\n"
-                + "    },\n"
-                + "    port: {},\n"
-                + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector.port: {},\n"
-                + "  clientConnector.ssl: {\n"
+                + "      }" + NL
+                + "    }," + NL
+                + "    port: {}," + NL
+                + "    nodeFinder:{" + NL
+                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]" + NL
+                + "    }" + NL
+                + "  }," + NL
+                + "  clientConnector.port: {}," + NL
+                + "  clientConnector.ssl: {" + NL
                 + "    enabled: true, "
-                + "    ciphers: " + ciphers + ",\n"
-                + "    keyStore: {\n"
-                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
-                + "      password: \"" + PASSWORD + "\"\n"
-                + "    }\n"
-                + "  },\n"
-                + "  rest: {\n"
-                + "    port: {},\n"
-                + "    ssl.port: {}\n"
-                + "  }\n"
+                + "    ciphers: " + ciphers + "," + NL
+                + "    keyStore: {" + NL
+                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\"," + NL
+                + "      password: \"" + PASSWORD + "\"" + NL
+                + "    }" + NL
+                + "  }," + NL
+                + "  rest: {" + NL
+                + "    port: {}," + NL
+                + "    ssl.port: {}" + NL
+                + "  }" + NL
+                + "  failureHandler.handler.type: noop," + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
     }
 }
