@@ -143,6 +143,8 @@ import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftG
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfigurationSchema;
+import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -1231,14 +1233,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
                             RocksDbStorageEngineExtensionConfigurationSchema.class,
-                            SystemLocalExtensionConfigurationSchema.class
+                            SystemLocalExtensionConfigurationSchema.class,
+                            FailureProcessorExtensionConfigurationSchema.class
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
                             VolatilePageMemoryProfileConfigurationSchema.class,
                             RocksDbProfileConfigurationSchema.class,
                             StaticNodeFinderConfigurationSchema.class,
-                            MulticastNodeFinderConfigurationSchema.class
+                            MulticastNodeFinderConfigurationSchema.class,
+                            NoOpFailureHandlerConfigurationSchema.class
                     )
             );
 
@@ -1276,6 +1280,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             RaftGroupOptionsConfigurer partitionRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(logStorageFactory, partitionsBasePath.metaPath());
 
+            failureManager = new NoOpFailureManager();
+
             raftManager = spy(new Loza(
                     clusterService,
                     metricManager,
@@ -1283,10 +1289,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     systemLocalConfiguration,
                     hybridClock,
                     raftGroupEventsClientListener,
-                    new NoOpFailureManager()
+                    failureManager
             ));
-
-            failureManager = new NoOpFailureManager();
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
