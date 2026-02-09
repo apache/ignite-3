@@ -21,23 +21,17 @@ package org.apache.ignite.internal.partition.replicator;
  * Contains result of cleanup futures await.
  */
 public class FuturesCleanupResult {
-    private final boolean hadReadFutures;
-    private final boolean hadUpdateFutures;
+    private final boolean hadWrites;
     private final boolean forceCleanup;
 
     /** Constructor. */
-    public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures, boolean forceCleanup) {
-        this.hadReadFutures = hadReadFutures;
-        this.hadUpdateFutures = hadUpdateFutures;
+    public FuturesCleanupResult(boolean hadWrites, boolean forceCleanup) {
+        this.hadWrites = hadWrites;
         this.forceCleanup = forceCleanup;
     }
 
-    public boolean hadReadFutures() {
-        return hadReadFutures;
-    }
-
-    public boolean hadUpdateFutures() {
-        return hadUpdateFutures;
+    public boolean hadWrites() {
+        return hadWrites;
     }
 
     public boolean forceCleanup() {
@@ -45,6 +39,6 @@ public class FuturesCleanupResult {
     }
 
     public boolean shouldApplyWriteIntent() {
-        return hadUpdateFutures() || forceCleanup();
+        return hadWrites() || forceCleanup();
     }
 }

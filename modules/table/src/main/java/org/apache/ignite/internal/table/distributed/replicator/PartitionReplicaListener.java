@@ -78,6 +78,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -288,7 +290,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
-    private final ConcurrentMap<UUID, TxCleanupReadyFutureList> txCleanupReadyFutures = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     /** Cleanup futures. */
     private final ConcurrentHashMap<RowId, CompletableFuture<?>> rowCleanupMap = new ConcurrentHashMap<>();
@@ -502,11 +504,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -514,11 +514,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
             var req = (ReadWriteSingleRowPkReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -526,11 +524,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -538,11 +534,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
             var req = (ReadWriteMultiRowPkReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -550,11 +544,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processTwoEntriesAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -573,10 +565,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     .txLabel(req.txLabel())
                     .build());
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), RW_SCAN);
-
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), opId, false, () -> processScanRetrieveBatchAction(req))
+            return appendTxCommand(req.transactionId(), RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
@@ -1428,41 +1418,42 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
-        List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
-        List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
-
         AtomicBoolean forceCleanup = new AtomicBoolean(true);
+        AtomicBoolean hadWrites = new AtomicBoolean(false);
+        AtomicReference<CompletableFuture<Void>> cleanupReadyFutureRef = new AtomicReference<>(nullCompletedFuture());
 
-        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-            if (txOps == null) {
-                return null;
-            }
-
-            // Cleanup futures (both read and update) are empty in two cases:
+        txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
+            // Cleanup operations (both read and update) aren't registered in two cases:
             // - there were no actions in the transaction
             // - write intent switch is being executed on the new primary (the primary has changed after write intent appeared)
             // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
 
             // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
-            // FuturesCleanupResult.hadUpdateFutures() returns false).
-            forceCleanup.set(txOps.isEmpty());
+            // FuturesCleanupResult.hadWrites() returns false).
+            forceCleanup.set(txCleanupState == null || !txCleanupState.hadAnyOperations());
 
-            txOps.futures.forEach((opId, future) -> {
-                if (opId.requestType.isRwRead()) {
-                    txReadFutures.add(future);
-                } else {
-                    txUpdateFutures.add(future);
-                }
-            });
+            if (txCleanupState == null) {
+                return null;
+            }
 
-            txOps.clear();
+            hadWrites.set(txCleanupState.hadWrites());
+
+            CompletableFuture<Void> fut = txCleanupState.lockAndAwaitInflights();
+            cleanupReadyFutureRef.set(fut);
 
             return null;
         });
 
-        return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)
-                .thenCompose(v -> allOfFuturesExceptionIgnored(txReadFutures, commit, txId))
-                .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty(), forceCleanup.get()));
+        return cleanupReadyFutureRef.get()
+                .exceptionally(e -> {
+                    if (commit) {
+                        throw new AssertionError("Transaction is committing, but an operation has completed with exception [txId=" + txId
+                                + ", err=" + e.getMessage() + ']', e);
+                    }
+
+                    return null;
+                })
+                .thenApply(v -> new FuturesCleanupResult(hadWrites.get(), forceCleanup.get()));
     }
 
     private void applyWriteIntentSwitchCommandLocally(WriteIntentSwitchReplicaRequestBase request) {
@@ -1472,25 +1463,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 request.commitTimestamp(),
                 indexIdsAtRwTxBeginTsOrNull(request.txId())
         );
-    }
-
-    /**
-     * Creates a future that waits all transaction operations are completed.
-     *
-     * @param txFutures Transaction operation futures.
-     * @param commit If {@code true} this is a commit otherwise a rollback.
-     * @param txId Transaction id.
-     * @return The future completes when all futures in passed list are completed.
-     */
-    private static CompletableFuture<Void> allOfFuturesExceptionIgnored(List<CompletableFuture<?>> txFutures, boolean commit, UUID txId) {
-        return allOf(txFutures.toArray(new CompletableFuture<?>[0]))
-                .exceptionally(e -> {
-                    assert !commit :
-                            "Transaction is committing, but an operation has completed with exception [txId=" + txId
-                                    + ", err=" + e.getMessage() + ']';
-
-                    return null;
-                });
     }
 
     private void releaseTxLocks(UUID txId) {
@@ -1569,14 +1541,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * Appends an operation to prevent the race between commit/rollback and the operation execution.
      *
      * @param txId Transaction id.
-     * @param opId Operation id.
+     * @param requestType Request type of operation.
      * @param full {@code True} if a full transaction and can be immediately committed.
      * @param op Operation closure.
      * @return A future object representing the result of the given operation.
      */
     private <T> CompletableFuture<T> appendTxCommand(
             UUID txId,
-            OperationId opId,
+            RequestType requestType,
             boolean full,
             Supplier<CompletableFuture<T>> op
     ) {
@@ -1587,30 +1559,30 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             });
         }
 
-        var cleanupReadyFut = new CompletableFuture<Void>();
+        AtomicBoolean inflightStarted = new AtomicBoolean(false);
 
-        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+        TxCleanupReadyState txCleanupReadyState = txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
             // First check whether the transaction has already been finished.
             // And complete cleanupReadyFut with exception if it is the case.
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             if (txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING) {
-                cleanupReadyFut.completeExceptionally(new Exception());
-
-                return txOps;
+                // Don't start inflight.
+                return txCleanupState;
             }
 
-            // Otherwise collect cleanupReadyFut in the transaction's futures.
-            if (txOps == null) {
-                txOps = new TxCleanupReadyFutureList();
+            // Otherwise start new inflight in txCleanupState.
+            if (txCleanupState == null) {
+                txCleanupState = new TxCleanupReadyState();
             }
 
-            txOps.putOrReplaceFuture(opId, cleanupReadyFut);
+            boolean started = txCleanupState.startInflight(requestType.isWrite());
+            inflightStarted.set(started);
 
-            return txOps;
+            return txCleanupState;
         });
 
-        if (cleanupReadyFut.isCompletedExceptionally()) {
+        if (!inflightStarted.get()) {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
@@ -1626,9 +1598,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         CompletableFuture<T> fut = op.get();
 
+        // If inflightStarted then txCleanupReadyState is not null.
+        requireNonNull(txCleanupReadyState, "txCleanupReadyState cannot be null here.");
+
         fut.whenComplete((v, th) -> {
             if (th != null) {
-                cleanupReadyFut.completeExceptionally(th);
+                txCleanupReadyState.completeInflightExceptionally(th);
             } else {
                 if (v instanceof ReplicaResult) {
                     ReplicaResult res = (ReplicaResult) v;
@@ -1636,16 +1611,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     if (res.applyResult().replicationFuture() != null) {
                         res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
                             if (th0 != null) {
-                                cleanupReadyFut.completeExceptionally(th0);
+                                txCleanupReadyState.completeInflightExceptionally(th0);
                             } else {
-                                cleanupReadyFut.complete(null);
+                                txCleanupReadyState.completeInflight();
                             }
                         });
                     } else {
-                        cleanupReadyFut.complete(null);
+                        txCleanupReadyState.completeInflight();
                     }
                 } else {
-                    cleanupReadyFut.complete(null);
+                    txCleanupReadyState.completeInflight();
                 }
             }
         });
@@ -3637,19 +3612,105 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * Class that stores a list of futures for operations that has happened in a specific transaction. Also, the class has a property
      * {@code state} that represents a transaction state.
      */
-    private static class TxCleanupReadyFutureList {
-        final Map<OperationId, CompletableFuture<?>> futures = new HashMap<>();
+    private static class TxCleanupReadyState {
+        boolean hadAnyOperations = false;
+        boolean hadWrites = false;
+        final AtomicInteger inflightOperationsCount = new AtomicInteger(0);
+        volatile boolean locked = false;
+        volatile Throwable th = null;
+        volatile CompletableFuture<Void> completionFuture = null;
 
-        boolean isEmpty() {
-            return futures.isEmpty();
+        // Should be called inside critical section on transaction.
+        boolean hadAnyOperations() {
+            return hadAnyOperations;
         }
 
-        void clear() {
-            futures.clear();
+        // Should be called inside critical section on transaction.
+        boolean hadWrites() {
+            return hadWrites;
         }
 
-        void putOrReplaceFuture(OperationId opId, CompletableFuture<?> fut) {
-            futures.put(opId, fut);
+        // Should be called inside critical section on transaction.
+        CompletableFuture<Void> lockAndAwaitInflights() {
+            if (locked) {
+                return completionFuture == null ? nullCompletedFuture() : completionFuture;
+            }
+
+            if (inflightOperationsCount.get() == 0) {
+                locked = true;
+                Throwable t = th;
+                return t == null ? nullCompletedFuture() : failedFuture(t);
+            }
+
+            CompletableFuture<Void> fut = completionFuture;
+
+            if (fut == null) {
+                fut = new CompletableFuture<>();
+                // Order is important because #completeInflight checks locked and then gets completionFuture.
+                completionFuture = fut;
+                locked = true;
+
+                // Recheck inflight count, because "complete" methods are cross-thread.
+                if (inflightOperationsCount.get() == 0) {
+                    completeFutureIfAny();
+                }
+            }
+
+            return fut;
+        }
+
+        // Should be called inside critical section on transaction.
+        boolean startInflight(boolean isWrite) {
+            if (locked) {
+                return false;
+            }
+
+            hadAnyOperations = true;
+
+            if (isWrite) {
+                hadWrites = true;
+            }
+
+            inflightOperationsCount.incrementAndGet();
+
+            return true;
+        }
+
+        // Cross-thread.
+        void completeInflight() {
+            int remaining = inflightOperationsCount.decrementAndGet();
+
+            if (remaining == 0) {
+                completeFutureIfAny();
+            }
+        }
+
+        // Cross-thread.
+        void completeInflightExceptionally(Throwable e) {
+            // Don't care about exact exception.
+            if (th == null) {
+                th = e;
+            }
+
+            completeInflight();
+        }
+
+        private void completeFutureIfAny() {
+            // Double check inflightOperationsCount after locked, because we are outside of critical section.
+            if (locked && inflightOperationsCount.get() == 0) {
+                CompletableFuture<Void> f = completionFuture;
+
+                if (f == null || f.isDone()) {
+                    return;
+                }
+
+                Throwable t = th;
+                if (t == null) {
+                    f.complete(null);
+                } else {
+                    f.completeExceptionally(t);
+                }
+            }
         }
     }
 
@@ -3860,59 +3921,5 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     @TestOnly
     public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
-    }
-
-    /**
-     * Operation unique identifier.
-     */
-    private static class OperationId {
-        /** Operation node initiator id. */
-        private final UUID initiatorId;
-
-        /** Timestamp. */
-        private final long ts;
-
-        /** Request typ. */
-        private final RequestType requestType;
-
-        /**
-         * The constructor.
-         *
-         * @param initiatorId Sender node id.
-         * @param ts Timestamp.
-         */
-        public OperationId(UUID initiatorId, long ts, RequestType requestType) {
-            this.initiatorId = initiatorId;
-            this.ts = ts;
-            this.requestType = requestType;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            OperationId that = (OperationId) o;
-
-            if (ts != that.ts) {
-                return false;
-            }
-            if (requestType != that.requestType) {
-                return false;
-            }
-            return initiatorId.equals(that.initiatorId);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = initiatorId.hashCode();
-            result = 31 * result + Long.hashCode(ts);
-            result = 31 * result + requestType.hashCode();
-            return result;
-        }
     }
 }
