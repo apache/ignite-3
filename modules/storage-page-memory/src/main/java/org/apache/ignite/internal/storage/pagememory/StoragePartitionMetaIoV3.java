@@ -62,5 +62,4 @@ public class StoragePartitionMetaIoV3 extends StoragePartitionMetaIoV2 {
     public long getEstimatedSize(long pageAddr) {
         return getLong(pageAddr, ESTIMATED_SIZE_OFF);
     }
-
 }
