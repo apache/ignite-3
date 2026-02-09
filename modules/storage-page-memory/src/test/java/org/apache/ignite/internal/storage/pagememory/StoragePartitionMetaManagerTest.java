@@ -148,12 +148,24 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
             // Check with delta file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
+                int deltaPageCount = Integer.MAX_VALUE - 100;
+                long deltaWiHeadLink = Long.MAX_VALUE - 10;
+                long deltaLastAppliedIndex = Long.MAX_VALUE - 11;
+                long deltaLastAppliedTerm = Long.MAX_VALUE - 12;
+                long deltaPageId = Long.MAX_VALUE - 13;
+                long deltaVersionChainTreeRootPageId = Long.MAX_VALUE - 14;
+                long deltaFreeListRootPageId = Long.MAX_VALUE - 15;
+                long deltaIndexTreeMetaPageId = Long.MAX_VALUE - 16;
+                long deltaGcQueueMetaPageId = Long.MAX_VALUE - 17;
+                long deltaLeaseStartTime = Long.MAX_VALUE - 18;
+                long deltaEstimatedSize = Long.MAX_VALUE - 19;
+
                 manager.writeMetaToBuffer(
                         partId,
-                        new StoragePartitionMeta(pageCount, 1, lastAppliedIndex, lastAppliedTerm, pageId,
-                                leaseStartTime, new UUID(1, 1), pageId, freeListRootPageId,
-                                versionChainTreeRootPageId, indexTreeMetaPageId, gcQueueMetaPageId,
-                                estimatedSize, wiHeadLink)
+                        new StoragePartitionMeta(deltaPageCount, 1, deltaLastAppliedIndex, deltaLastAppliedTerm, deltaPageId,
+                                deltaLeaseStartTime, new UUID(1, 1), deltaPageId, deltaFreeListRootPageId,
+                                deltaVersionChainTreeRootPageId, deltaIndexTreeMetaPageId, deltaGcQueueMetaPageId,
+                                deltaEstimatedSize, deltaWiHeadLink)
                                 .init(null)
                                 .metaSnapshot(null),
                         buffer.rewind()
@@ -170,17 +182,17 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
                 StoragePartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
-                assertEquals(lastAppliedIndex, meta.lastAppliedIndex());
-                assertEquals(lastAppliedTerm, meta.lastAppliedTerm());
-                assertEquals(pageId, meta.lastReplicationProtocolGroupConfigFirstPageId());
-                assertEquals(freeListRootPageId, meta.freeListRootPageId());
-                assertEquals(versionChainTreeRootPageId, meta.versionChainTreeRootPageId());
-                assertEquals(indexTreeMetaPageId, meta.indexTreeMetaPageId());
-                assertEquals(gcQueueMetaPageId, meta.gcQueueMetaPageId());
-                assertEquals(pageCount, meta.pageCount());
-                assertEquals(leaseStartTime, meta.leaseStartTime());
-                assertEquals(estimatedSize, meta.estimatedSize());
-                assertEquals(wiHeadLink, meta.wiHeadLink());
+                assertEquals(deltaLastAppliedIndex, meta.lastAppliedIndex());
+                assertEquals(deltaLastAppliedTerm, meta.lastAppliedTerm());
+                assertEquals(deltaPageId, meta.lastReplicationProtocolGroupConfigFirstPageId());
+                assertEquals(deltaFreeListRootPageId, meta.freeListRootPageId());
+                assertEquals(deltaVersionChainTreeRootPageId, meta.versionChainTreeRootPageId());
+                assertEquals(deltaIndexTreeMetaPageId, meta.indexTreeMetaPageId());
+                assertEquals(deltaGcQueueMetaPageId, meta.gcQueueMetaPageId());
+                assertEquals(deltaPageCount, meta.pageCount());
+                assertEquals(deltaLeaseStartTime, meta.leaseStartTime());
+                assertEquals(deltaEstimatedSize, meta.estimatedSize());
+                assertEquals(deltaWiHeadLink, meta.wiHeadLink());
             }
 
             // Let's check the broken CRC.
