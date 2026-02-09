@@ -1,0 +1,203 @@
+---
+id: jdbc
+title: JDBC Driver
+sidebar_position: 1
+---
+
+Apache Ignite is shipped with JDBC driver that allows processing of distributed data using standard SQL statements like `SELECT`, `INSERT`, `UPDATE`, or `DELETE` directly from the JDBC side. The name of the driver's class is `org.apache.ignite.jdbc.IgniteJdbcDriver`.
+
+This implementation of JDBC driver does not support:
+
+* Multiple endpoints
+* JDBC connection pools
+
+See also:
+
+* [Unsupported Mandatory JDBC Features](#unsupported-mandatory-jdbc-features)
+* [Unsupported Optional JDBC Features](#unsupported-optional-jdbc-features)
+* [JDBC Features with Limited Support](#jdbc-features-with-limited-support)
+
+## Setting Up
+
+JDBC driver uses the client connector to work with the cluster. For more information on configuring client connector, see [Client Connector Configuration](/3.1.0/develop/ignite-clients/).
+
+The JDBC connector needs to be included from Maven:
+
+```xml
+<dependency>
+    <groupId>org.apache.ignite</groupId>
+    <artifactId>ignite-jdbc</artifactId>
+    <version>{version}</version>
+</dependency>
+```
+
+Here is how you can open a JDBC connection to the cluster node listening on IP address `127.0.0.1`:
+
+```java
+Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800");
+```
+
+The driver connects to one of the cluster nodes and forwards all the queries to it for final execution. The node handles the query distribution and the result's aggregations. Then the result is sent back to the client application.
+
+The JDBC connection string can have an optional list of name-value pairs as parameters after the '?' delimiter. Name and value are separated by the '=' symbol and multiple properties are separated either by an '&' or a ';'. Separate sign can't be mixed and should be either semicolon or ampersand sign.
+
+```java
+jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][&parameter2=value2],...]]
+jdbc:ignite:thin://host[:port][,host[:port][/schema][[?parameter1=value1][;parameter2=value2],...]]
+```
+
+* `host` is required and defines the host of the cluster node to connect to.
+* `port` is the port to use to open the connection. 10800 is used by default if this parameter is omitted.
+* `schema` is the schema name to access. PUBLIC is used by default. This name should correspond to the SQL ANSI-99 standard. Non-quoted identifiers are not case sensitive. Quoted identifiers are case sensitive. When semicolon format is used, the schema may be defined as a parameter with name schema.
+* `parameters` are optional parameters. The following parameters are available:
+  * `connectionTimeZone` - Client connection time-zone ID. This property can be used by the client to change the time zone of the session on the server. Affects the interpretation of dates in queries that do not specify the time zone explicitly. If not set, system default on client timezone will be used.
+  * `queryTimeout` - Number of seconds the driver will wait for a `Statement` object to execute. 0 means there is no limit. Default value: `0`.
+  * `connectionTimeout` - Number of milliseconds JDBC client will wait for server to respond. 0 means there is no limit. Default value: `0`.
+  * `reconnectThrottlingPeriod` - Reconnect throttling period, in milliseconds. 0 means there is no limit. Default value: `30_000`.
+  * `reconnectThrottlingRetries` - Reconnect throttling retries. 0 means there is no limit. Default value: `3`.
+  * `username` - username for basic authentication to the cluster.
+  * `password` - user password for basic authentication to the cluster.
+  * `sslEnabled` - Determines if SSL is enabled. Possible values: `true`, `false`. Default value: `false`
+    * `trustStorePath` - Path to trust store on client side.
+    * `trustStorePassword` - Trust store password.
+    * `keyStorePath` - Path to key store on client side.
+    * `keyStorePassword` - Key store password.
+    * `clientAuth` - SSL client authentication. Possible values: `NONE`, `OPTIONAL`, `REQUIRE`.
+    * `ciphers` - comma-separated SSL ciphers list.
+
+### Parameter Precedence
+
+If the same parameters are passed by using different means, the JDBC driver prioritizes them in the following way:
+
+1. API arguments passed in the `Connection` objects
+2. Last instance of the parameter in the connection string
+3. Properties object passed during connection
+
+## Performing Transactions
+
+With the JDBC driver, you can perform `commit` and `rollback` transactions. For more information about transactions, see [Performing Transactions](/3.1.0/develop/work-with-data/transactions).
+
+Here is how you can commit a transaction:
+
+```java
+// Open the JDBC connection.
+Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800");
+
+// Commit a transaction
+conn.commit();
+```
+
+You can also configure Apache Ignite to automatically commit transactions by using the `setAutoCommit()` method.
+
+Here is how you can rollback a transaction:
+
+```java
+conn.rollback();
+```
+
+## Unsupported Mandatory JDBC Features
+
+The following mandatory JDBC features are currently not supported (sorted alphabetically):
+
+* java.sql.Connection#clearWarnings
+* java.sql.Connection#getWarnings
+* java.sql.Connection#prepareCall
+* java.sql.PreparedStatement#getParameterMetaData
+* java.sql.PreparedStatement#setAsciiStream
+* java.sql.PreparedStatement#setBinaryStream
+* java.sql.PreparedStatement#setCharacterStream
+* java.sql.ResultSet#clearWarnings
+* java.sql.ResultSet#getAsciiStream
+* java.sql.ResultSet#getBinaryStream
+* java.sql.ResultSet#getCharacterStream
+* java.sql.ResultSet#getWarnings
+* java.sql.ResultSet#setFetchDirection
+* java.sql.Statement#clearWarnings
+* java.sql.Statement#getWarnings
+* java.sql.Statement#setEscapeProcessing
+* java.sql.Statement#setFetchDirection
+* java.sql.Statement#setMaxFieldSize
+
+## Unsupported Optional JDBC Features
+
+The following optional JDBC features are currently not supported (sorted alphabetically):
+
+* java.sql.Connection#createArrayOf
+* java.sql.Connection#createBlob
+* java.sql.Connection#createClob
+* java.sql.Connection#createNClob
+* java.sql.Connection#createSQLXML
+* java.sql.Connection#createStruct
+* java.sql.Connection#getTypeMap
+* java.sql.Connection#releaseSavepoint
+* java.sql.Connection#setSavepoint
+* java.sql.Connection#setTypeMap
+* java.sql.Driver#getParentLogger
+* java.sql.PreparedStatement#getMetaData
+* java.sql.PreparedStatement#setArray
+* java.sql.PreparedStatement#setBlob
+* java.sql.PreparedStatement#setClob
+* java.sql.PreparedStatement#setNCharacterStream
+* java.sql.PreparedStatement#setNClob
+* java.sql.PreparedStatement#setRef
+* java.sql.PreparedStatement#setRowId
+* java.sql.PreparedStatement#setSQLXML
+* java.sql.PreparedStatement#setUnicodeStream
+* java.sql.PreparedStatement#setURL
+* java.sql.ResultSet#cancelRowUpdates
+* java.sql.ResultSet#deleteRow
+* java.sql.ResultSet#getArray
+* java.sql.ResultSet#getBlob
+* java.sql.ResultSet#getClob
+* java.sql.ResultSet#getNCharacterStream
+* java.sql.ResultSet#getNClob
+* java.sql.ResultSet#getRef
+* java.sql.ResultSet#getRowId
+* java.sql.ResultSet#getSQLXML
+* java.sql.ResultSet#getUnicodeStream
+* java.sql.ResultSet#insertRow
+* java.sql.ResultSet#moveToInsertRow
+* java.sql.ResultSet#refreshRow
+* java.sql.ResultSet#updateArray
+* java.sql.ResultSet#updateAsciiStream
+* java.sql.ResultSet#updateBigDecimal
+* java.sql.ResultSet#updateBinaryStream
+* java.sql.ResultSet#updateBlob
+* java.sql.ResultSet#updateBoolean
+* java.sql.ResultSet#updateByte
+* java.sql.ResultSet#updateBytes
+* java.sql.ResultSet#updateCharacterStream
+* java.sql.ResultSet#updateClob
+* java.sql.ResultSet#updateDate
+* java.sql.ResultSet#updateDouble
+* java.sql.ResultSet#updateFloat
+* java.sql.ResultSet#updateInt
+* java.sql.ResultSet#updateLong
+* java.sql.ResultSet#updateNCharacterStream
+* java.sql.ResultSet#updateNClob
+* java.sql.ResultSet#updateNString
+* java.sql.ResultSet#updateNull
+* java.sql.ResultSet#updateObject
+* java.sql.ResultSet#updateRef
+* java.sql.ResultSet#updateRow
+* java.sql.ResultSet#updateRowId
+* java.sql.ResultSet#updateShort
+* java.sql.ResultSet#updateSQLXML
+* java.sql.ResultSet#updateString
+* java.sql.ResultSet#updateTime
+* java.sql.ResultSet#updateTimestamp
+* java.sql.Statement#getGeneratedKeys
+* java.sql.Statement#setCursorName
+* java.sql.Statement#setPoolable
+
+## JDBC Features with Limited Support
+
+The following JDBC features are supported only in specific cases:
+
+| Feature | Supported Cases |
+|---------|-----------------|
+| java.sql.Connection#prepareStatement | autoGeneratedKeys=Statement.NO_GENERATED_KEYS, resultSetType=ResultSet.TYPE_FORWARD_ONLY, resultSetConcurrency=ResultSet.CONCUR_READ_ONLY, null or empty columnIndexes, and null or empty columnNames. |
+| java.sql.Connection#rollback | Without savepoint. |
+| java.sql.Statement#execute | autoGeneratedKeys=Statement.NO_GENERATED_KEYS, null or empty columnIndexes, and null or empty columnNames. |
+| java.sql.Statement#executeUpdate | autoGeneratedKeys=Statement.NO_GENERATED_KEYS, null or empty columnIndexes, and null or empty columnNames. |
+| java.sql.Statement#getMoreResults | current=Statement.CLOSE_CURRENT_RESULT. |
