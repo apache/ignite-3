@@ -109,7 +109,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         initMetaIoV1(pageAddr, pageId, pageSize);
     }
 
-    protected void initMetaIoV1(long pageAddr, long pageId, int pageSize) {
+    protected final void initMetaIoV1(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setLastAppliedIndex(pageAddr, 0);
