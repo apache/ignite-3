@@ -89,6 +89,8 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRe
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfigurationSchema;
+import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -353,14 +355,16 @@ public class Node {
                         SystemLocalExtensionConfigurationSchema.class,
                         PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                         VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
-                        RocksDbStorageEngineExtensionConfigurationSchema.class
+                        RocksDbStorageEngineExtensionConfigurationSchema.class,
+                        FailureProcessorExtensionConfigurationSchema.class
                 ),
                 List.of(
                         PersistentPageMemoryProfileConfigurationSchema.class,
                         VolatilePageMemoryProfileConfigurationSchema.class,
                         RocksDbProfileConfigurationSchema.class,
                         StaticNodeFinderConfigurationSchema.class,
-                        MulticastNodeFinderConfigurationSchema.class
+                        MulticastNodeFinderConfigurationSchema.class,
+                        NoOpFailureHandlerConfigurationSchema.class
                 )
         );
 

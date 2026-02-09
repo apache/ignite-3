@@ -109,7 +109,7 @@ public class MigrationTestBase {
      *
      * @param migrationToolsContainer Migration tools container.
      * @param nodeIdx Index of the node in the sample cluster to migrate from.
-     * @param cacheName Cacha name.
+     * @param cacheName Cache name.
      * @param migrationMode Migration Mode.
      * @param clusterAddress Cluster address.
      * @param credentials Cluster credentials, if any.

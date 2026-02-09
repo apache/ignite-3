@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -53,7 +54,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeBootstrapConfigurationTest {
-
     @WorkDirectory
     private Path workDir;
 
@@ -74,16 +74,16 @@ public class ItNodeBootstrapConfigurationTest {
 
     @Test
     public void illegalConfigurationValue(TestInfo testInfo) {
-        String config = "ignite {\n"
-                + "  rest: {\n"
-                + "    ssl: {\n"
-                + "      enabled: true,\n"
-                + "      clientAuth: none,\n"
-                + "      keyStore: {\n"
-                + "        path: bad_path\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
+        String config = "ignite {" + NL
+                + "  rest: {" + NL
+                + "    ssl: {" + NL
+                + "      enabled: true," + NL
+                + "      clientAuth: none," + NL
+                + "      keyStore: {" + NL
+                + "        path: bad_path" + NL
+                + "      }" + NL
+                + "    }" + NL
+                + "  }" + NL
                 + "}";
 
         assertThrowsWithCause(
@@ -94,13 +94,13 @@ public class ItNodeBootstrapConfigurationTest {
 
     @Test
     public void testConfigurationValidationFailsWithDuplicates(TestInfo testInfo) {
-        String config = "ignite {\n"
-                + "  rest: {\n"
-                + "    ssl: {\n"
-                + "      enabled: false,\n"
-                + "      enabled: true\n"
-                + "    }\n"
-                + "  }\n"
+        String config = "ignite {" + NL
+                + "  rest: {" + NL
+                + "    ssl: {" + NL
+                + "      enabled: false," + NL
+                + "      enabled: true" + NL
+                + "    }" + NL
+                + "  }" + NL
                 + "}";
 
         assertThrowsWithCause(
@@ -111,21 +111,21 @@ public class ItNodeBootstrapConfigurationTest {
 
     @Test
     public void configurationFileNotModifiedAfterStart(TestInfo testInfo) throws IOException {
-        String config = "ignite {\n"
-                + "  rest: {\n"
-                + "    port: 10300\n"
-                + "    ssl: {\n"
-                + "      enabled: false\n"
-                + "    }\n"
-                + "  }\n"
-                + "  network: {\n"
-                + "    port: 3344\n"
-                + "    nodeFinder {\n"
-                + "      netClusterNodes: [ \"localhost:3344\" ]\n"
-                + "      type: STATIC\n"
-                + "      nameResolutionAttempts: 10\n"
-                + "    }\n"
-                + "  }\n"
+        String config = "ignite {" + NL
+                + "  rest: {" + NL
+                + "    port: 10300" + NL
+                + "    ssl: {" + NL
+                + "      enabled: false" + NL
+                + "    }" + NL
+                + "  }" + NL
+                + "  network: {" + NL
+                + "    port: 3344" + NL
+                + "    nodeFinder {" + NL
+                + "      netClusterNodes: [ \"localhost:3344\" ]" + NL
+                + "      type: STATIC" + NL
+                + "      nameResolutionAttempts: 10" + NL
+                + "    }" + NL
+                + "  }" + NL
                 + "}";
 
         IgniteServer igniteServer = TestIgnitionManager.startWithProductionDefaults(testNodeName(testInfo, 0), config, workDir);
@@ -143,11 +143,11 @@ public class ItNodeBootstrapConfigurationTest {
             ConfigurationRegistry nodeCfgRegistry = igniteImpl.nodeConfiguration();
             HoconPresentation hoconPresentation = new HoconPresentation(nodeCfgRegistry);
 
-            String configUpdate = "ignite {\n"
-                    + "  rest: {\n"
-                    + "    httpToHttpsRedirection: true\n"
-                    + "  }\n"
-                    + "}\n";
+            String configUpdate = "ignite {" + NL
+                    + "  rest: {" + NL
+                    + "    httpToHttpsRedirection: true" + NL
+                    + "  }" + NL
+                    + "}" + NL;
 
             CompletableFuture<Void> update = hoconPresentation.update(configUpdate);
 
