@@ -504,9 +504,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
+            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
+
             return appendTxCommand(
                     req.transactionId(),
-                    req.requestType(),
+                    opId,
                     req.full(),
                     () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -514,9 +516,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
             var req = (ReadWriteSingleRowPkReplicaRequest) request;
 
+            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
+
             return appendTxCommand(
                     req.transactionId(),
-                    req.requestType(),
+                    opId,
                     req.full(),
                     () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -524,9 +528,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
 
+            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
+
             return appendTxCommand(
                     req.transactionId(),
-                    req.requestType(),
+                    opId,
                     req.full(),
                     () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -534,9 +540,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
             var req = (ReadWriteMultiRowPkReplicaRequest) request;
 
+            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
+
             return appendTxCommand(
                     req.transactionId(),
-                    req.requestType(),
+                    opId,
                     req.full(),
                     () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -544,9 +552,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
 
+            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
+
             return appendTxCommand(
                     req.transactionId(),
-                    req.requestType(),
+                    opId,
                     req.full(),
                     () -> processTwoEntriesAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -565,8 +575,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     .txLabel(req.txLabel())
                     .build());
 
+            var opId = new OperationId(senderId, req.timestamp().longValue(), RW_SCAN);
+
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
+            return appendTxCommand(req.transactionId(), opId, false, () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
@@ -1541,14 +1553,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * Appends an operation to prevent the race between commit/rollback and the operation execution.
      *
      * @param txId Transaction id.
-     * @param requestType Request type of operation.
+     * @param opId Operation id.
      * @param full {@code True} if a full transaction and can be immediately committed.
      * @param op Operation closure.
      * @return A future object representing the result of the given operation.
      */
     private <T> CompletableFuture<T> appendTxCommand(
             UUID txId,
-            RequestType requestType,
+            OperationId opId,
             boolean full,
             Supplier<CompletableFuture<T>> op
     ) {
@@ -1576,7 +1588,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 txCleanupState = new TxCleanupReadyState();
             }
 
-            boolean started = txCleanupState.startInflight(requestType.isWrite());
+            boolean started = txCleanupState.startInflight(opId);
             inflightStarted.set(started);
 
             return txCleanupState;
@@ -1603,7 +1615,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         fut.whenComplete((v, th) -> {
             if (th != null) {
-                txCleanupReadyState.completeInflightExceptionally(th);
+                txCleanupReadyState.completeInflightExceptionally(opId, th);
             } else {
                 if (v instanceof ReplicaResult) {
                     ReplicaResult res = (ReplicaResult) v;
@@ -1611,7 +1623,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     if (res.applyResult().replicationFuture() != null) {
                         res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
                             if (th0 != null) {
-                                txCleanupReadyState.completeInflightExceptionally(th0);
+                                txCleanupReadyState.completeInflightExceptionally(opId, th0);
                             } else {
                                 txCleanupReadyState.completeInflight();
                             }
@@ -3609,15 +3621,15 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     /**
-     * Class that stores a list of futures for operations that has happened in a specific transaction. Also, the class has a property
-     * {@code state} that represents a transaction state.
+     * Class that stores a counter of inflight operations for a transaction. There is a map of failed operations (lazy init)
+     * but it doesn't store exceptions for operations there were retried successfully.
      */
     private static class TxCleanupReadyState {
         boolean hadAnyOperations = false;
         boolean hadWrites = false;
         final AtomicInteger inflightOperationsCount = new AtomicInteger(0);
         volatile boolean locked = false;
-        volatile Throwable th = null;
+        volatile Map<OperationId, Throwable> failedOperations = null;
         volatile CompletableFuture<Void> completionFuture = null;
 
         // Should be called inside critical section on transaction.
@@ -3638,7 +3650,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             if (inflightOperationsCount.get() == 0) {
                 locked = true;
-                Throwable t = th;
+                Throwable t = anyThrowableIfPresent();
                 return t == null ? nullCompletedFuture() : failedFuture(t);
             }
 
@@ -3659,17 +3671,36 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return fut;
         }
 
+        @Nullable
+        private Throwable anyThrowableIfPresent() {
+            Map<OperationId, Throwable> map = failedOperations;
+            Throwable res = null;
+
+            if (map != null) {
+                synchronized (this) {
+                    if (!map.isEmpty()) {
+                        res = map.values().iterator().next();
+                    }
+                }
+            }
+
+            return res;
+        }
+
         // Should be called inside critical section on transaction.
-        boolean startInflight(boolean isWrite) {
+        boolean startInflight(OperationId operationId) {
             if (locked) {
                 return false;
             }
 
             hadAnyOperations = true;
 
-            if (isWrite) {
+            if (operationId.requestType.isWrite()) {
                 hadWrites = true;
             }
+
+            // Possibly retrying operation, so don't need information about previous failure.
+            removeThrowable(operationId);
 
             inflightOperationsCount.incrementAndGet();
 
@@ -3686,11 +3717,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         // Cross-thread.
-        void completeInflightExceptionally(Throwable e) {
-            // Don't care about exact exception.
-            if (th == null) {
-                th = e;
-            }
+        void completeInflightExceptionally(OperationId operationId, Throwable t) {
+            storeThrowable(operationId, t);
 
             completeInflight();
         }
@@ -3704,11 +3732,34 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     return;
                 }
 
-                Throwable t = th;
+                Throwable t = anyThrowableIfPresent();
                 if (t == null) {
                     f.complete(null);
                 } else {
                     f.completeExceptionally(t);
+                }
+            }
+        }
+
+        private void storeThrowable(OperationId operationId, Throwable e) {
+            synchronized (this) {
+                Map<OperationId, Throwable> map = failedOperations;
+
+                if (map == null) {
+                    map = new HashMap<>();
+                    failedOperations = map;
+                }
+
+                map.put(operationId, e);
+            }
+        }
+
+        private void removeThrowable(OperationId operationId) {
+            Map<OperationId, Throwable> map = failedOperations;
+
+            if (map != null) {
+                synchronized (this) {
+                    map.remove(operationId);
                 }
             }
         }
@@ -3921,5 +3972,59 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     @TestOnly
     public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
+    }
+
+    /**
+     * Operation unique identifier.
+     */
+    private static class OperationId {
+        /** Operation node initiator id. */
+        private final UUID initiatorId;
+
+        /** Timestamp. */
+        private final long ts;
+
+        /** Request typ. */
+        private final RequestType requestType;
+
+        /**
+         * The constructor.
+         *
+         * @param initiatorId Sender node id.
+         * @param ts Timestamp.
+         */
+        public OperationId(UUID initiatorId, long ts, RequestType requestType) {
+            this.initiatorId = initiatorId;
+            this.ts = ts;
+            this.requestType = requestType;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            OperationId that = (OperationId) o;
+
+            if (ts != that.ts) {
+                return false;
+            }
+            if (requestType != that.requestType) {
+                return false;
+            }
+            return initiatorId.equals(that.initiatorId);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = initiatorId.hashCode();
+            result = 31 * result + Long.hashCode(ts);
+            result = 31 * result + requestType.hashCode();
+            return result;
+        }
     }
 }
