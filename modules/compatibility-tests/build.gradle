@@ -57,6 +57,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-table')
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     integrationTestImplementation libs.awaitility
