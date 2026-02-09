@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
@@ -58,6 +59,12 @@ public class StoragePartitionMetaIoV2 extends StoragePartitionMetaIo {
     @Override
     public long getWiHead(long pageAddr) {
         return getLong(pageAddr, WI_HEAD_OFF);
+    }
+
+    // WI head link overlapped with first 4 bytes of estimated size field, but we assume that there were no partitions with 4b rows.
+    @Override
+    public long getEstimatedSize(long pageAddr) {
+        return getInt(pageAddr, ESTIMATED_SIZE_OFF);
     }
 
     @Override

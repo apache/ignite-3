@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta.StoragePartitionMetaSnapshot;
 import org.junit.jupiter.api.Test;
 
@@ -155,8 +156,8 @@ public class StoragePartitionMetaTest {
 
         UUID checkpointId = null;
 
-        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0, 0);
-        checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0, 0, 0, 0);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0, 0, 0);
+        checkSnapshot(meta.metaSnapshot(checkpointId = UUID.randomUUID()), 0, 0, 0, 0, 0, 0, 0, 0);
 
         meta.lastApplied(checkpointId, 50, 5);
         meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 12);
@@ -165,23 +166,35 @@ public class StoragePartitionMetaTest {
         meta.incrementPageCount(checkpointId);
         meta.incrementEstimatedSize(checkpointId);
 
-        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0, 0);
-        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 5, 12, 300, 900, 1, 1);
+        long wiHead = Long.MAX_VALUE;
+        meta.updateWiHead(checkpointId, wiHead);
+
+        checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0, 0, 0L);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 50, 5, 12, 300, 900, 1, 1, wiHead);
 
         meta.lastApplied(checkpointId = UUID.randomUUID(), 51, 6);
         meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 34);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 50, 5, 12, 300, 900, 1, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 50, 5, 12, 300, 900, 1, 1, wiHead);
 
         meta.versionChainTreeRootPageId(checkpointId = UUID.randomUUID(), 303);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 300, 900, 1, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 300, 900, 1, 1, wiHead);
 
         meta.freeListRootPageId(checkpointId = UUID.randomUUID(), 909);
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 900, 1, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 900, 1, 1, wiHead);
 
         meta.incrementPageCount(checkpointId = UUID.randomUUID());
-        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 909, 1, 1);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 909, 1, 1, wiHead);
 
-        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 6, 34, 303, 909, 2, 1);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 6, 34, 303, 909, 2, 1, wiHead);
+
+        meta.incrementEstimatedSize(checkpointId = UUID.randomUUID());
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 909, 2, 1, wiHead);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 6, 34, 303, 909, 2, 2, wiHead);
+
+        long newWiHead = Long.MAX_VALUE - 1;
+        meta.updateWiHead(checkpointId = UUID.randomUUID(), newWiHead);
+        checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 909, 2, 2, wiHead);
+        checkSnapshot(meta.metaSnapshot(UUID.randomUUID()), 51, 6, 34, 303, 909, 2, 2, newWiHead);
     }
 
     @Test
@@ -193,6 +206,21 @@ public class StoragePartitionMetaTest {
         assertEquals(0, pageIndex(pageId));
     }
 
+    @Test
+    void testWIHead() {
+        StoragePartitionMeta meta = createMeta();
+
+        assertEquals(PageIdUtils.NULL_LINK, meta.wiHeadLink());
+
+        meta.updateWiHead(null, 1234L);
+
+        assertEquals(1234L, meta.wiHeadLink());
+
+        meta.updateWiHead(UUID.randomUUID(), 5678L);
+
+        assertEquals(5678L, meta.wiHeadLink());
+    }
+
     private static void checkSnapshot(
             StoragePartitionMetaSnapshot snapshot,
             long expLastAppliedIndex,
@@ -201,7 +229,8 @@ public class StoragePartitionMetaTest {
             long expVersionChainTreeRootPageId,
             long expFreeListRootPageId,
             int expPageCount,
-            long expEstimatedSize
+            long expEstimatedSize,
+            long expWiHead
     ) {
         assertThat(snapshot.lastAppliedIndex(), equalTo(expLastAppliedIndex));
         assertThat(snapshot.lastAppliedTerm(), equalTo(expLastAppliedTerm));
@@ -210,6 +239,7 @@ public class StoragePartitionMetaTest {
         assertThat(snapshot.freeListRootPageId(), equalTo(expFreeListRootPageId));
         assertThat(snapshot.pageCount(), equalTo(expPageCount));
         assertThat(snapshot.estimatedSize(), equalTo(expEstimatedSize));
+        assertThat(snapshot.wiHeadLink(), equalTo(expWiHead));
     }
 
     private static StoragePartitionMeta createMeta() {
