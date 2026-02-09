@@ -136,9 +136,12 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
 
         updateRow(baseIgnite, null, tableName, UPDATED_ROW_ID, UPDATED_ROW_VALUE);
 
-        Transaction tx = baseIgnite.transactions().begin();
-        updateRow(baseIgnite, tx, tableName, ROLLED_BACK_ROW_ID, UPDATED_ROW_VALUE);
-        tx.rollback();
+        Transaction rolledBackTx = baseIgnite.transactions().begin();
+        updateRow(baseIgnite, rolledBackTx, tableName, ROLLED_BACK_ROW_ID, UPDATED_ROW_VALUE);
+        rolledBackTx.rollback();
+
+        Transaction notRolledBackTx = baseIgnite.transactions().begin();
+        updateRow(baseIgnite, notRolledBackTx, tableName, ROLLED_BACK_ROW_ID, UPDATED_ROW_VALUE);
     }
 
     @ParameterizedTest
