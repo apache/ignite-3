@@ -37,28 +37,56 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     private static final int LAST_APPLIED_INDEX_OFF = PARTITION_META_HEADER_END;
 
-    private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_INDEX_BYTES = Long.BYTES;
 
-    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + LAST_APPLIED_INDEX_BYTES;
 
-    private static final int FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_TERM_BYTES = Long.BYTES;
 
-    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + LAST_APPLIED_TERM_BYTES;
 
-    private static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_BYTES = Long.BYTES;
 
-    private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
+    private static final int FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF
+            + LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_BYTES;
 
-    private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
+    private static final int FREE_LIST_ROOT_PAGE_ID_BYTES = Long.BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_ID_HIGH_OFF = LEASE_START_TIME_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = FREE_LIST_ROOT_PAGE_ID_OFF + FREE_LIST_ROOT_PAGE_ID_BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_ID_LOW_OFF = PRIMARY_REPLICA_NODE_ID_HIGH_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_BYTES = Long.BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_LOW_OFF + Long.BYTES;
+    private static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + VERSION_CHAIN_TREE_ROOT_PAGE_ID_BYTES;
+
+    private static final int INDEX_TREE_META_PAGE_ID_BYTES = Long.BYTES;
+
+    private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + INDEX_TREE_META_PAGE_ID_BYTES;
+
+    private static final int GC_QUEUE_META_PAGE_ID_BYTES = Long.BYTES;
+
+    private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + GC_QUEUE_META_PAGE_ID_BYTES;
+
+    private static final int LEASE_START_TIME_BYTES = Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_HIGH_OFF = LEASE_START_TIME_OFF + LEASE_START_TIME_BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_HIGH_BYTES = Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_LOW_OFF = PRIMARY_REPLICA_NODE_ID_HIGH_OFF + PRIMARY_REPLICA_NODE_ID_HIGH_BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_LOW_BYTES = Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_LOW_OFF
+            + PRIMARY_REPLICA_NODE_ID_LOW_BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_BYTES = Long.BYTES;
 
     /** Estimated size here is not a size of a meta, but an approximate rows count. */
-    protected static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
+    protected static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF
+            + PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_BYTES;
+
+    /** Size of estimated size field. */
+    protected static final int ESTIMATED_SIZE_BYTES = Long.BYTES;
 
     /**
      * Constructor.
@@ -78,6 +106,10 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     @Override
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
+        initMetaIoV1(pageAddr, pageId, pageSize);
+    }
+
+    protected void initMetaIoV1(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setLastAppliedIndex(pageAddr, 0);

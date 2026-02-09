@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 
 /** Storage Io for partition metadata pages (version 3). */
-public class StoragePartitionMetaIoV3 extends StoragePartitionMetaIo {
-    private static final int WI_HEAD_OFF = ESTIMATED_SIZE_OFF + Long.BYTES;
+public class StoragePartitionMetaIoV3 extends StoragePartitionMetaIoV2 {
+    private static final int WI_HEAD_OFF = ESTIMATED_SIZE_OFF + ESTIMATED_SIZE_BYTES;
 
     /** Constructor. */
     StoragePartitionMetaIoV3() {
@@ -33,7 +33,7 @@ public class StoragePartitionMetaIoV3 extends StoragePartitionMetaIo {
 
     @Override
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
-        super.initNewPage(pageAddr, pageId, pageSize);
+        initMetaIoV1(pageAddr, pageId, pageSize);
 
         setWiHead(pageAddr, PageIdUtils.NULL_LINK);
     }
@@ -44,6 +44,7 @@ public class StoragePartitionMetaIoV3 extends StoragePartitionMetaIo {
      * @param pageAddr The address of the page to update.
      * @param headLink The link value to set as the head of the write intent list.
      */
+    @Override
     public void setWiHead(long pageAddr, long headLink) {
         assertPageType(pageAddr);
 
@@ -54,4 +55,12 @@ public class StoragePartitionMetaIoV3 extends StoragePartitionMetaIo {
     public long getWiHead(long pageAddr) {
         return getLong(pageAddr, WI_HEAD_OFF);
     }
+
+    // WI head link overlapped with first 4 bytes of estimated size field, but we assume that there were no partitions with 4b rows and
+    // only LE order was used.
+    @Override
+    public long getEstimatedSize(long pageAddr) {
+        return getLong(pageAddr, ESTIMATED_SIZE_OFF);
+    }
+
 }

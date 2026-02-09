@@ -83,11 +83,11 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
             long wiHeadLink = Long.MAX_VALUE;
             long lastAppliedIndex = Long.MAX_VALUE - 1;
             long lastAppliedTerm = Long.MAX_VALUE - 2;
-            long pageId = Long.MAX_VALUE;
-            long versionChainTreeRootPageId = Long.MAX_VALUE - 3;
-            long freeListRootPageId = Long.MAX_VALUE - 4;
-            long indexTreeMetaPageId = Long.MAX_VALUE - 5;
-            long gcQueueMetaPageId = Long.MAX_VALUE - 6;
+            long pageId = Long.MAX_VALUE - 3;
+            long versionChainTreeRootPageId = Long.MAX_VALUE - 4;
+            long freeListRootPageId = Long.MAX_VALUE - 5;
+            long indexTreeMetaPageId = Long.MAX_VALUE - 6;
+            long gcQueueMetaPageId = Long.MAX_VALUE - 7;
             long leaseStartTime = Long.MAX_VALUE - 8;
 
             // Check for an empty file.
@@ -146,7 +146,7 @@ public class StoragePartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
             // Check with delta file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-                int deltaPageCount = Integer.MAX_VALUE - 100;
+                int deltaPageCount = Integer.MAX_VALUE - 9;
                 long deltaWiHeadLink = Long.MAX_VALUE - 10;
                 long deltaLastAppliedIndex = Long.MAX_VALUE - 11;
                 long deltaLastAppliedTerm = Long.MAX_VALUE - 12;

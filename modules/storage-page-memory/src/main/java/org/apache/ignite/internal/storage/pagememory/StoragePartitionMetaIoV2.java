@@ -28,18 +28,22 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
  * Storage Io for partition metadata pages (version 2).
  */
 public class StoragePartitionMetaIoV2 extends StoragePartitionMetaIo {
-    private static final int WI_HEAD_OFF = ESTIMATED_SIZE_OFF + Integer.BYTES;
+    // Keeping erroneous offset for compatibility.
+    private static final int LEGACY_WI_HEAD_OFF = ESTIMATED_SIZE_OFF + Integer.BYTES;
 
-    /**
-     * Constructor.
-     */
-    protected StoragePartitionMetaIoV2() {
-        super(2);
+    /** Constructor. */
+    StoragePartitionMetaIoV2() {
+        this(2);
+    }
+
+    /** Constructor. */
+    protected StoragePartitionMetaIoV2(int ver) {
+        super(ver);
     }
 
     @Override
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
-        super.initNewPage(pageAddr, pageId, pageSize);
+        initMetaIoV1(pageAddr, pageId, pageSize);
 
         setWiHead(pageAddr, PageIdUtils.NULL_LINK);
     }
@@ -53,12 +57,12 @@ public class StoragePartitionMetaIoV2 extends StoragePartitionMetaIo {
     public void setWiHead(long pageAddr, long headLink) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, WI_HEAD_OFF, headLink);
+        putLong(pageAddr, LEGACY_WI_HEAD_OFF, headLink);
     }
 
     @Override
     public long getWiHead(long pageAddr) {
-        return getLong(pageAddr, WI_HEAD_OFF);
+        return getLong(pageAddr, LEGACY_WI_HEAD_OFF);
     }
 
     // WI head link overlapped with first 4 bytes of estimated size field, but we assume that there were no partitions with 4b rows and

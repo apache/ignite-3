@@ -212,13 +212,16 @@ public class StoragePartitionMetaTest {
 
         assertEquals(PageIdUtils.NULL_LINK, meta.wiHeadLink());
 
-        meta.updateWiHead(null, 1234L);
+        long wiHead = Long.MAX_VALUE;
+        meta.updateWiHead(null, wiHead);
 
-        assertEquals(1234L, meta.wiHeadLink());
+        assertEquals(wiHead, meta.wiHeadLink());
 
-        meta.updateWiHead(UUID.randomUUID(), 5678L);
+        long newWiHead = Long.MAX_VALUE - 1;
 
-        assertEquals(5678L, meta.wiHeadLink());
+        meta.updateWiHead(UUID.randomUUID(), newWiHead);
+
+        assertEquals(newWiHead, meta.wiHeadLink());
     }
 
     private static void checkSnapshot(
