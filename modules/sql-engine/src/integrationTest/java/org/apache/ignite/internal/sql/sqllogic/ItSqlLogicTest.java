@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -170,15 +171,17 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static final int BASE_REST_PORT = 10300;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {}\n"
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {" + NL
+            + "  \"network\": {" + NL
+            + "    \"port\":{}," + NL
+            + "    \"nodeFinder\":{" + NL
+            + "      \"netClusterNodes\": [ {} ]" + NL
+            + "    }" + NL
+            + "  }," + NL
+            + "  clientConnector.port: {}," + NL
+            + "  rest.port: {}" + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
     /**
