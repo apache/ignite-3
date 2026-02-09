@@ -69,7 +69,10 @@ if(ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY_BIN clang-tidy REQUIRED)
     if(CLANG_TIDY_BIN)
         message(STATUS "clang-tidy: ${CLANG_TIDY_BIN}")
-        set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_BIN} "-checks=*,-llvmlibc*,-header-filter=\"^.*(build|tests).*\"gm")
+        set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_BIN}
+                "--checks=-*,clang-analyzer-*,clang-analyzer-cplusplus*,bugprone*,concurrency-*,cppcoreguidelines-*,performance-*,portability-*,readability-*"
+                "--header-filter=\"^.*(client|common|network|odbc|protocol|tuple).*\"gm"
+                "--exclude-header-filter=\"^.*(build|tests).*\"gm")
         set(CMAKE_CXX_CLANG_TIDY_EXPORT_FIXES_DIR "clang-tidy-reports-dir")
     else()
         message(STATUS "clang-tidy not found!")
