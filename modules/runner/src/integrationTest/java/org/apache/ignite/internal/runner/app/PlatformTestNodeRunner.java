@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
@@ -153,77 +154,85 @@ public class PlatformTestNodeRunner {
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
-            NODE_NAME, "ignite {\n"
+            NODE_NAME, "ignite {" + NL
                     + "  \"clientConnector\":{\"port\": 10942,\"idleTimeoutMillis\":6000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3344,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  rest.port: 10300\n"
+                    + "  \"network\": {" + NL
+                    + "    \"port\":3344," + NL
+                    + "    \"nodeFinder\": {" + NL
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]" + NL
+                    + "    }" + NL
+                    + "  }," + NL
+                    + "  rest.port: 10300" + NL
+                    + "  failureHandler.handler.type: noop" + NL
+                    + "  failureHandler.dumpThreadsOnFailure: false" + NL
                     + "}",
 
-            NODE_NAME2, "ignite {\n"
+            NODE_NAME2, "ignite {" + NL
                     + "  \"clientConnector\":{\"port\": 10943,\"idleTimeoutMillis\":6000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3345,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  rest.port: 10301\n"
+                    + "  \"network\": {" + NL
+                    + "    \"port\":3345," + NL
+                    + "    \"nodeFinder\": {" + NL
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]" + NL
+                    + "    }" + NL
+                    + "  }," + NL
+                    + "  rest.port: 10301" + NL
+                    + "  failureHandler.handler.type: noop" + NL
+                    + "  failureHandler.dumpThreadsOnFailure: false" + NL
                     + "}",
 
-            NODE_NAME3, "ignite {\n"
+            NODE_NAME3, "ignite {" + NL
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10944,"
                     + "    \"idleTimeoutMillis\":6000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
-                    + "    \"ssl\": {\n"
-                    + "      enabled: true,\n"
-                    + "      keyStore: {\n"
-                    + "        path: \"KEYSTORE_PATH\",\n"
-                    + "        password: \"SSL_STORE_PASS\"\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3346,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  rest.port: 10303\n"
+                    + "    \"ssl\": {" + NL
+                    + "      enabled: true," + NL
+                    + "      keyStore: {" + NL
+                    + "        path: \"KEYSTORE_PATH\"," + NL
+                    + "        password: \"SSL_STORE_PASS\"" + NL
+                    + "      }" + NL
+                    + "    }" + NL
+                    + "  }," + NL
+                    + "  \"network\": {" + NL
+                    + "    \"port\":3346," + NL
+                    + "    \"nodeFinder\": {" + NL
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]" + NL
+                    + "    }" + NL
+                    + "  }," + NL
+                    + "  rest.port: 10303" + NL
+                    + "  failureHandler.handler.type: noop" + NL
+                    + "  failureHandler.dumpThreadsOnFailure: false" + NL
                     + "}",
 
-            NODE_NAME4, "ignite {\n"
+            NODE_NAME4, "ignite {" + NL
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10945,"
                     + "    \"idleTimeoutMillis\":6000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
-                    + "    \"ssl\": {\n"
-                    + "      enabled: true,\n"
-                    + "      clientAuth: \"require\",\n"
-                    + "      keyStore: {\n"
-                    + "        path: \"KEYSTORE_PATH\",\n"
-                    + "        password: \"SSL_STORE_PASS\"\n"
-                    + "      },\n"
-                    + "      trustStore: {\n"
-                    + "        path: \"TRUSTSTORE_PATH\",\n"
-                    + "        password: \"SSL_STORE_PASS\"\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3347,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  rest.port: 10304\n"
+                    + "    \"ssl\": {" + NL
+                    + "      enabled: true," + NL
+                    + "      clientAuth: \"require\"," + NL
+                    + "      keyStore: {" + NL
+                    + "        path: \"KEYSTORE_PATH\"," + NL
+                    + "        password: \"SSL_STORE_PASS\"" + NL
+                    + "      }," + NL
+                    + "      trustStore: {" + NL
+                    + "        path: \"TRUSTSTORE_PATH\"," + NL
+                    + "        password: \"SSL_STORE_PASS\"" + NL
+                    + "      }" + NL
+                    + "    }" + NL
+                    + "  }," + NL
+                    + "  \"network\": {" + NL
+                    + "    \"port\":3347," + NL
+                    + "    \"nodeFinder\": {" + NL
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\", \"localhost:3347\" ]" + NL
+                    + "    }" + NL
+                    + "  }," + NL
+                    + "  rest.port: 10304" + NL
+                    + "  failureHandler.handler.type: noop" + NL
+                    + "  failureHandler.dumpThreadsOnFailure: false" + NL
                     + "}"
     );
 
