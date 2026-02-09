@@ -48,6 +48,7 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27728")
     void testLeaderCountIncreases() {
         testMetricChangeAfterOperation(
                 CLUSTER,

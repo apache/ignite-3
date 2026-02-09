@@ -21,13 +21,13 @@ Terminal('ALL'),
 Terminal('DISTINCT')
 ))),
 Sequence(
-OneOrMore(Sequence(Terminal('project_item', {href:'../language-definition/grammar-reference/#project_item'})
+OneOrMore(Sequence(Terminal('project_item', {href:'../language-definition/grammar-reference#project_item'})
 ),
 Terminal(',')
 ),
 ),
 Terminal('FROM'),
-NonTerminal('table_expression', {href:'../language-definition/grammar-reference/#table_expression'}),
+NonTerminal('table_expression', {href:'../language-definition/grammar-reference#table_expression'}),
 Optional(
 Sequence(
 NonTerminal('WHERE'),
@@ -47,7 +47,7 @@ Optional(Choice(1,
 Terminal('ALL'),
 Terminal('DISTINCT')
 )),
-OneOrMore(Sequence(Terminal('group_item', {href:'../language-definition/grammar-reference/#group_item'})
+OneOrMore(Sequence(Terminal('group_item', {href:'../language-definition/grammar-reference#group_item'})
 ),
 Terminal(',')
 ),
@@ -89,7 +89,7 @@ NonTerminal('formatType'),
 Optional(
 Sequence(
 Terminal('WITH'),
-OneOrMore (NonTerminal('parameter', {href:'../language-definition/grammar-reference/#parameter'}), Terminal(','))
+OneOrMore (NonTerminal('parameter', {href:'../language-definition/grammar-reference#parameter'}), Terminal(','))
 )
 )
 )
@@ -119,7 +119,7 @@ OneOrMore (NonTerminal('parameter', {href:'../language-definition/grammar-refere
     * `s3.access-key-id` - when using S3 storage, the AWS access key.
     * `s3.secret-access-key` - when using S3 storage, the AWS secret key.
     * Iceberg-specific:
-      * The [catalog properties](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties) are supported.
+      * The [catalog properties](https://iceberg.apache.org/docs/latest/configuration#catalog-properties) are supported.
       * The `table-identifier` property describes Apache Iceberg TableIdentifier names. The names can be dot-separated. For example, `db_name.table_name` or `table`.
       * The `warehouse` path can be defined explicitly as a `'warehouse'='path'` property, or implicitly as a source or target `COPY FROM source INTO target`. If both ways are defined, the explicit property is used.
 
