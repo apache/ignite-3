@@ -2,12 +2,6 @@ work
 .DS_Store
 .flattened-pom.xml
 
-# Legacy Jekyll documentation (preserved for reference during migration)
-docs-jekyll/
-
-# Migration project documents (working files, not part of deliverables)
-IGNITE-26681/
-
 .classpath
 .project
 .settings
