@@ -73,7 +73,7 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("TABLE_PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
                 .addColumn("ZONE_NAME", STRING, entry -> entry.zoneName)
                 .addColumn("STORAGE_PROFILE", STRING, entry -> entry.table.storageProfile())
-                .addColumn("TABLE_COLOCATION_COLUMNS", STRING, entry -> concatColumns(entry.table.colocationColumns()))
+                .addColumn("TABLE_COLOCATION_COLUMNS", STRING, entry -> concatColumns(entry.table.colocationColumnNames()))
                 .addColumn("SCHEMA_ID", INT32, entry -> entry.table.schemaId())
                 .addColumn("ZONE_ID", INT32, entry -> entry.table.zoneId())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-24589: Next columns are deprecated and should be removed.
@@ -82,7 +82,7 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
                 .addColumn("NAME", STRING, entry -> entry.table.name())
                 .addColumn("ID", INT32, entry -> entry.table.id())
                 .addColumn("PK_INDEX_ID", INT32, entry -> entry.table.primaryKeyIndexId())
-                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumns()))
+                .addColumn("COLOCATION_KEY_INDEX", STRING, entry -> concatColumns(entry.table.colocationColumnNames()))
                 .addColumn("ZONE", STRING, entry -> entry.zoneName)
                 .dataProvider(viewDataPublisher)
                 .build();
@@ -161,12 +161,12 @@ public class TablesSystemViewProvider implements CatalogSystemViewProvider {
         }
 
         @Nullable Integer pkColumnOrdinal() {
-            int idx = tableDescriptor.primaryKeyColumns().indexOf(columnDescriptor.name());
+            int idx = tableDescriptor.primaryKeyColumnNames().indexOf(columnDescriptor.name());
             return idx >= 0 ? idx : null;
         }
 
         @Nullable Integer colocationColumnOrdinal() {
-            int idx = tableDescriptor.colocationColumns().indexOf(columnDescriptor.name());
+            int idx = tableDescriptor.colocationColumnNames().indexOf(columnDescriptor.name());
             return idx >= 0 ? idx : null;
         }
     }

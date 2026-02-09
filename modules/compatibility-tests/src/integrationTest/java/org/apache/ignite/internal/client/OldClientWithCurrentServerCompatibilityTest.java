@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.internal.IgniteCluster;
 import org.apache.ignite.internal.OldClientLoader;
@@ -69,7 +70,8 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         clientVersion = clientVer;
 
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir, CompatibilityTestBase.NODE_BOOTSTRAP_CFG_TEMPLATE);
-        cluster.startEmbedded(1, true);
+        List<ServerRegistration> serverRegistrations = cluster.startEmbeddedNotInitialized(1);
+        cluster.initEmbedded(serverRegistrations, x -> {});
 
         initTestData(cluster.node(0));
 
@@ -254,15 +256,15 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         delegate.testStreamerWithReceiverArg();
     }
 
-    private static ClientCompatibilityTests createTestInstanceWithOldClient(String igniteVersion)
+    private ClientCompatibilityTests createTestInstanceWithOldClient(String igniteVersion)
             throws Exception {
         var loader = OldClientLoader.getIsolatedClassLoader(igniteVersion);
 
         // Load test class instance in the old client classloader.
         Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
-        Constructor<?> testCtor = loader.loadClass(Delegate.class.getName()).getDeclaredConstructor(clientBuilder.getClass());
+        Constructor<?> testCtor = loader.loadClass(Delegate.class.getName()).getDeclaredConstructor(clientBuilder.getClass(), String.class);
         testCtor.setAccessible(true);
-        Object testInstance = testCtor.newInstance(clientBuilder);
+        Object testInstance = testCtor.newInstance(clientBuilder, clientVersion);
 
         // Wrap the test instance from another classloader using the interface from the current classloader.
         return proxy(ClientCompatibilityTests.class, testInstance);
@@ -287,9 +289,11 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         private final AtomicInteger idGen = new AtomicInteger(1000);
 
         private final IgniteClient client;
+        private final String clientVersion;
 
-        private Delegate(IgniteClient.Builder client) {
+        private Delegate(IgniteClient.Builder client, String clientVersion) {
             this.client = client.addresses("localhost:10800").build();
+            this.clientVersion = clientVersion;
         }
 
         @Override
@@ -311,6 +315,11 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
         @Override
         public Collection<ClusterNode> clusterNodes() {
             return client.clusterNodes();
+        }
+
+        @Override
+        public String tableNamePrefix() {
+            return clientVersion.compareTo("3.0.0") > 0 ? "PUBLIC." : "";
         }
     }
 }

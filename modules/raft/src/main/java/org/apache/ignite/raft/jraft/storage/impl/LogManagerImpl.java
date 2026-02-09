@@ -308,12 +308,12 @@ public class LogManagerImpl implements LogManager {
                     entry.setChecksum(entry.checksum());
                 }
                 if (entry.getType() == EntryType.ENTRY_TYPE_CONFIGURATION) {
-                    Configuration oldConf = new Configuration();
+                    Configuration oldConf = new Configuration(entry.getOldSequenceToken());
                     if (entry.getOldPeers() != null) {
-                        oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners());
+                        oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners(), entry.getOldSequenceToken());
                     }
                     final ConfigurationEntry conf = new ConfigurationEntry(entry.getId(),
-                        new Configuration(entry.getPeers(), entry.getLearners()), oldConf);
+                        new Configuration(entry.getPeers(), entry.getLearners(), entry.getSequenceToken()), oldConf);
                     this.configManager.add(conf);
                 }
             }
@@ -686,7 +686,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     private Configuration oldConfFromMeta(final SnapshotMeta meta) {
-        final Configuration oldConf = new Configuration();
+        final Configuration oldConf = new Configuration(meta.oldSequenceToken());
 
         if (meta.oldPeersList() != null) {
             for (String oldPeer : meta.oldPeersList()) {
@@ -708,7 +708,7 @@ public class LogManagerImpl implements LogManager {
     }
 
     private Configuration confFromMeta(final SnapshotMeta meta) {
-        final Configuration conf = new Configuration();
+        final Configuration conf = new Configuration(meta.sequenceToken());
         if (meta.peersList() != null) {
             for (String metaPeer : meta.peersList()) {
                 final PeerId peer = new PeerId();

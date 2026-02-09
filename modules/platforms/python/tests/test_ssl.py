@@ -98,6 +98,8 @@ def test_connection_non_existing_cert():
     assert err.match('(No such file or directory)|(no such file)')
 
 
+# TODO: IGNITE-26358: Enable heartbeats in tests re-enable this test
+@pytest.mark.skip(reason="Flaky while there are no heartbeats")
 @pytest.mark.parametrize("address", [server_addresses_ssl_basic, server_addresses_ssl_client_auth])
 def test_fetch_table_several_pages(table_name, address, drop_table_cleanup):
     ssl_cfg = create_ssl_param(True, 'client.pem', 'client.pem', 'ca.pem')

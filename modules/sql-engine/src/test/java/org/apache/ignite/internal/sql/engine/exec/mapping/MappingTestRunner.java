@@ -38,7 +38,6 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
@@ -231,13 +230,12 @@ final class MappingTestRunner {
                 0,
                 partitionPruner,
                 executionDistributionProvider,
-                new SystemPropertiesNodeProperties(),
                 Runnable::run
         );
 
         mappingService.onTopologyLeap(snapshot);
 
-        List<MappedFragment> mappedFragments;
+        MappedFragments mappedFragments;
 
         try {
             mappedFragments = await(mappingService.map(plan, readFromPrimaryOnly
@@ -256,7 +254,7 @@ final class MappingTestRunner {
             throw new IllegalStateException("Mapped fragments");
         }
 
-        return FragmentPrinter.fragmentsToString(true, mappedFragments);
+        return FragmentPrinter.fragmentsToString(true, mappedFragments.fragments());
     }
 
     static class TestCaseDef {

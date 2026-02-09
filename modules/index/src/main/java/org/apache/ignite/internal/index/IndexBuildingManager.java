@@ -34,7 +34,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -44,11 +43,16 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -89,8 +93,9 @@ public class IndexBuildingManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             FailureProcessor failureProcessor,
-            NodeProperties nodeProperties,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            TxManager txManager,
+            MetricManager metricManager
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -107,7 +112,23 @@ public class IndexBuildingManager implements IgniteComponent {
 
         executor.allowCoreThreadTimeOut(true);
 
-        indexBuilder = new IndexBuilder(executor, replicaService, failureProcessor, nodeProperties);
+        TransactionStateResolver transactionStateResolver = new TransactionStateResolver(
+                txManager,
+                clockService,
+                clusterService.topologyService(),
+                clusterService.messagingService(),
+                new ExecutorInclinedPlacementDriver(placementDriver, executor),
+                new TxMessageSender(clusterService.messagingService(), replicaService, clockService)
+        );
+
+        indexBuilder = new IndexBuilder(
+                executor,
+                replicaService,
+                failureProcessor,
+                new RetryingFinalTransactionStateResolver(transactionStateResolver, executor),
+                indexMetaStorage,
+                metricManager
+        );
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, failureProcessor, indexBuilder);
 
@@ -118,8 +139,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService,
                 placementDriver,
                 clockService,
-                failureProcessor,
-                nodeProperties
+                failureProcessor
         );
 
         var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
@@ -130,7 +150,6 @@ public class IndexBuildingManager implements IgniteComponent {
                 placementDriver,
                 indexMetaStorage,
                 failureProcessor,
-                nodeProperties,
                 executor
         );
 
@@ -139,7 +158,6 @@ public class IndexBuildingManager implements IgniteComponent {
                 placementDriver,
                 clusterService,
                 lowWatermark,
-                nodeProperties,
                 indexTaskScheduler
         );
     }

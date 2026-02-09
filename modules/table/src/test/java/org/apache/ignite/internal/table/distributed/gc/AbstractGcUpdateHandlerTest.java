@@ -25,14 +25,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -43,6 +46,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.util.LocalLocker;
+import org.apache.ignite.internal.storage.util.LockByRowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
@@ -50,8 +56,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * Abstract class for testing {@link GcUpdateHandler} using different implementations of {@link MvPartitionStorage}.
@@ -75,9 +80,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         this.tableStorage = tableStorage;
     }
 
-    @ParameterizedTest(name = "strict : {0}")
-    @ValueSource(booleans = {true, false})
-    void testVacuum(boolean strict) {
+    @Test
+    void testVacuum() {
         TestPartitionDataStorage partitionStorage = spy(createPartitionDataStorage());
         IndexUpdateHandler indexUpdateHandler = spy(createIndexUpdateHandler());
 
@@ -85,8 +89,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
         HybridTimestamp lowWatermark = HybridTimestamp.MAX_VALUE;
 
-        assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 1, strict));
-        verify(partitionStorage).peek(lowWatermark);
+        assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 1));
+        verify(partitionStorage).peek(eq(lowWatermark), eq(1));
 
         // Let's check that StorageUpdateHandler#vacuumBatch returns true.
         clearInvocations(partitionStorage);
@@ -97,14 +101,13 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         addWriteCommitted(partitionStorage, rowId, row, clock.now());
         addWriteCommitted(partitionStorage, rowId, row, clock.now());
 
-        assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1, strict));
-        verify(partitionStorage).peek(lowWatermark);
+        assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1));
+        verify(partitionStorage).peek(eq(lowWatermark), eq(1));
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId), any(), isNull());
     }
 
-    @ParameterizedTest(name = "strict : {0}")
-    @ValueSource(booleans = {true, false})
-    void testVacuumBatch(boolean strict) {
+    @Test
+    void testVacuumBatch() {
         TestPartitionDataStorage partitionStorage = spy(createPartitionDataStorage());
         IndexUpdateHandler indexUpdateHandler = spy(createIndexUpdateHandler());
 
@@ -124,9 +127,9 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         addWriteCommitted(partitionStorage, rowId1, row1, clock.now());
         addWriteCommitted(partitionStorage, rowId1, row1, clock.now());
 
-        assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5, strict));
+        assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5));
 
-        verify(partitionStorage, times(3)).peek(lowWatermark);
+        verify(partitionStorage, times(1)).peek(eq(lowWatermark), eq(5));
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any(), isNull());
         verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any(), isNull());
     }
@@ -155,8 +158,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionStorage, rowId1, null, clock.now());
 
             runRace(
-                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2, true),
-                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2, true)
+                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2),
+                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 2)
             );
 
             assertNull(partitionStorage.getStorage().closestRowId(RowId.lowestRowId(PARTITION_ID)));
@@ -192,8 +195,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
             addWriteCommitted(partitionStorage, rowId3, null, clock.now());
 
             runRace(
-                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 4, false),
-                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 4, false)
+                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 4),
+                    () -> gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, 4)
             );
 
             assertNull(partitionStorage.getStorage().closestRowId(RowId.lowestRowId(PARTITION_ID)));
@@ -236,7 +239,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         }
 
         for (GcUpdateHandler gcUpdateHandler : gcUpdateHandlers) {
-            gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, Integer.MAX_VALUE, true);
+            gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, numRows);
         }
 
         for (int i = 0; i < numPartitions; i++) {
@@ -250,8 +253,69 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         }
     }
 
+    /**
+     * Tests that {@link GcUpdateHandler#vacuumBatch} exits early when {@code shouldRelease()} returns {@code true}.
+     *
+     * <p>This test verifies that the vacuum process can be interrupted mid-execution by the {@code shouldRelease()}
+     * mechanism, which is used to allow other operations (like rebalancing) to acquire necessary locks.
+     */
+    @Test
+    void testShouldReleaseExitsEarly() {
+        // Given: A partition storage with controllable shouldRelease() behavior
+        BooleanSupplier shouldReleaseSupplier = Mockito.mock();
+        TestPartitionDataStorage partitionStorage = createTestMvPartitionStorage(shouldReleaseSupplier);
+        IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
+        GcUpdateHandler gcUpdateHandler = createGcUpdateHandler(partitionStorage, indexUpdateHandler);
+
+        HybridTimestamp lowWatermark = HybridTimestamp.MAX_VALUE;
+
+        // Given: Multiple rows with garbage to collect (20 rows with 2 versions each)
+        for (int i = 0; i < 10; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+            BinaryRow row = binaryRow(new TestKey(i, "key" + i), new TestValue(i, "value" + i));
+
+            addWriteCommitted(partitionStorage, rowId, row, clock.now());
+            addWriteCommitted(partitionStorage, rowId, row, clock.now());
+        }
+
+        // When: Vacuum runs with shouldRelease() returning true (simulating lock contention)
+        when(shouldReleaseSupplier.getAsBoolean()).thenReturn(true);
+        boolean hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 10);
+
+        // Then: Vacuum exits early and reports garbage remaining
+        assertTrue(hasGarbageLeft, "Expected garbage to remain after early exit");
+        verify(shouldReleaseSupplier).getAsBoolean();
+
+        // When: Vacuum runs again with shouldRelease() returning false
+        when(shouldReleaseSupplier.getAsBoolean()).thenReturn(false);
+        hasGarbageLeft = gcUpdateHandler.vacuumBatch(lowWatermark, 100);
+
+        // Then: All remaining garbage is processed
+        assertFalse(hasGarbageLeft, "Expected no garbage left after completing vacuum");
+        verify(shouldReleaseSupplier, atLeastOnce()).getAsBoolean();
+    }
+
     private TestPartitionDataStorage createPartitionDataStorage() {
         return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, getOrCreateMvPartition(tableStorage, PARTITION_ID));
+    }
+
+    /**
+     * Creates a partition data storage with custom {@code shouldRelease()} behavior.
+     *
+     * <p>The returned storage uses a {@link LocalLocker} that checks the provided {@code shouldReleaseSupplier}
+     * during lock acquisition, allowing tests to simulate lock contention scenarios.
+     *
+     * @param shouldReleaseSupplier Supplier that determines when locks should be released.
+     * @return A test partition storage with controllable shouldRelease behavior.
+     */
+    private static TestPartitionDataStorage createTestMvPartitionStorage(
+            BooleanSupplier shouldReleaseSupplier
+    ) {
+        LockByRowId lockByRowId = new LockByRowId();
+
+        TestMvPartitionStorage mvStorage = new TestMvPartitionStorage(PARTITION_ID, lockByRowId, shouldReleaseSupplier);
+
+        return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvStorage);
     }
 
     private static IndexUpdateHandler createIndexUpdateHandler() {

@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests for <see cref="IgniteDbCommand"/>.

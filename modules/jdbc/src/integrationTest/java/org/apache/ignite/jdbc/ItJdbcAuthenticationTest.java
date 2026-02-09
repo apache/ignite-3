@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -150,5 +151,10 @@ class ItJdbcAuthenticationTest {
                 assertFalse(rs.next());
             }
         }
+
+        DatabaseMetaData metaData = conn.getMetaData();
+        // URL should not include neither username nor password
+        assertEquals("jdbc:ignite:thin://127.0.0.1:10800", metaData.getURL());
+        assertEquals(expectedUser, metaData.getUserName());
     }
 }

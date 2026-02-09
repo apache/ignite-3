@@ -44,6 +44,10 @@ class SegstoreLogStorage implements LogStorage {
 
     private volatile LogEntryDecoder logEntryDecoder;
 
+    private volatile long firstLogIndexInclusive = -1;
+
+    private volatile long lastLogIndexInclusive = -1;
+
     SegstoreLogStorage(long groupId, SegmentFileManager segmentFileManager) {
         if (groupId <= 0) {
             throw new IllegalArgumentException("groupId must be greater than 0: " + groupId);
@@ -56,39 +60,68 @@ class SegstoreLogStorage implements LogStorage {
     @Override
     public boolean init(LogStorageOptions opts) {
         logEntryEncoder = opts.getLogEntryCodecFactory().encoder();
+
         logEntryDecoder = opts.getLogEntryCodecFactory().decoder();
+
+        firstLogIndexInclusive = segmentFileManager.firstLogIndexInclusiveOnRecovery(groupId);
+
+        lastLogIndexInclusive = Math.max(-1, segmentFileManager.lastLogIndexExclusiveOnRecovery(groupId) - 1);
 
         return true;
     }
 
     @Override
     public boolean appendEntry(LogEntry entry) {
+        appendEntryImpl(entry);
+
+        long firstLogIndexInclusive = this.firstLogIndexInclusive;
+
+        if (firstLogIndexInclusive == -1) {
+            this.firstLogIndexInclusive = entry.getId().getIndex();
+        }
+
+        lastLogIndexInclusive = entry.getId().getIndex();
+
+        return true;
+    }
+
+    private void appendEntryImpl(LogEntry entry) {
         try {
             segmentFileManager.appendEntry(groupId, entry, logEntryEncoder);
         } catch (IOException e) {
             throw new IgniteInternalException(INTERNAL_ERR, e);
         }
-
-        return true;
     }
 
     @Override
     public int appendEntries(List<LogEntry> entries) {
         for (LogEntry entry : entries) {
-            appendEntry(entry);
+            appendEntryImpl(entry);
         }
+
+        long firstLogIndexInclusive = this.firstLogIndexInclusive;
+
+        if (firstLogIndexInclusive == -1) {
+            this.firstLogIndexInclusive = entries.get(0).getId().getIndex();
+        }
+
+        lastLogIndexInclusive = entries.get(entries.size() - 1).getId().getIndex();
 
         return entries.size();
     }
 
     @Override
     public long getFirstLogIndex() {
-        throw new UnsupportedOperationException();
+        long firstLogIndexInclusive = this.firstLogIndexInclusive;
+
+        // JRaft requires to return 1 as the first log index if there are no entries.
+        return firstLogIndexInclusive == -1 ? 1 : firstLogIndexInclusive;
     }
 
     @Override
     public long getLastLogIndex() {
-        throw new UnsupportedOperationException();
+        // JRaft requires to return 0 as the last log index if there are no entries.
+        return Math.max(0, lastLogIndexInclusive);
     }
 
     @Override
@@ -109,17 +142,42 @@ class SegstoreLogStorage implements LogStorage {
 
     @Override
     public boolean truncatePrefix(long firstIndexKept) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.truncatePrefix(groupId, firstIndexKept);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        firstLogIndexInclusive = firstIndexKept;
+
+        return true;
     }
 
     @Override
     public boolean truncateSuffix(long lastIndexKept) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.truncateSuffix(groupId, lastIndexKept);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        lastLogIndexInclusive = lastIndexKept;
+
+        return true;
     }
 
     @Override
     public boolean reset(long nextLogIndex) {
-        throw new UnsupportedOperationException();
+        try {
+            segmentFileManager.reset(groupId, nextLogIndex);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
+
+        firstLogIndexInclusive = nextLogIndex;
+        lastLogIndexInclusive = nextLogIndex;
+
+        return true;
     }
 
     @Override

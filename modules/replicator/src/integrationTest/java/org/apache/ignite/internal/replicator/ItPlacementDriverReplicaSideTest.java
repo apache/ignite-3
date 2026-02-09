@@ -62,6 +62,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -129,6 +130,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock {retryTimeoutMillis=4000, responseTimeoutMillis=1000}")
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -201,6 +205,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             var raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
+                    systemLocalConfiguration,
                     clock,
                     eventsClientListener
             );
@@ -232,8 +237,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     raftManager,
                     partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool(),
-                    replicaGrpId -> nullCompletedFuture()
+                    Executors.newSingleThreadScheduledExecutor(),
+                    replicaGrpId -> nullCompletedFuture(),
+                    ForkJoinPool.commonPool()
             );
 
             replicaManagers.put(nodeName, replicaManager);

@@ -80,7 +80,6 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.ConfigOverride;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
@@ -483,7 +482,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         var ex = assertThrows(CompletionException.class,
                 () -> {
-                    JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+                    JobDescriptor<Void, Long> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
                     compute().submitAsync(BroadcastJobTarget.table(schemaName + ".test"), job, null).join();
                 }
         );
@@ -805,28 +804,28 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void partitionedBroadcast() {
         createTestTableWithOneRow();
 
-        Map<Partition, ClusterNode> replicas = node(0).tables().table("test").partitionManager().primaryReplicasAsync().join();
-        Map<Integer, ClusterNode> partitionIdToNode = replicas.entrySet().stream()
-                .collect(toMap(entry -> ((HashPartition) entry.getKey()).partitionId(), Entry::getValue));
+        Map<Partition, ClusterNode> replicas = node(0).tables().table("test").partitionDistribution().primaryReplicasAsync().join();
+        Map<Long, ClusterNode> partitionIdToNode = replicas.entrySet().stream()
+                .collect(toMap(entry -> entry.getKey().id(), Entry::getValue));
 
         // When run job that will return its partition id
-        JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
-        CompletableFuture<BroadcastExecution<Integer>> future = compute()
+        JobDescriptor<Void, Long> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+        CompletableFuture<BroadcastExecution<Long>> future = compute()
                 .submitAsync(BroadcastJobTarget.table("test"), job, null);
 
         // Then the jobs are submitted
         assertThat(future, willCompleteSuccessfully());
-        BroadcastExecution<Integer> broadcastExecution = future.join();
+        BroadcastExecution<Long> broadcastExecution = future.join();
 
         // And results contain all partition ids
         assertThat(broadcastExecution.resultsAsync(), will(containsInAnyOrder(partitionIdToNode.keySet().toArray())));
 
-        Collection<JobExecution<Integer>> executions = broadcastExecution.executions();
+        Collection<JobExecution<Long>> executions = broadcastExecution.executions();
 
         // And each execution was submitted to the node that holds the primary replica for a particular partition
         assertThat(executions, hasSize(partitionIdToNode.size()));
         executions.forEach(execution -> {
-            Integer partitionId = execution.resultAsync().join(); // safe to join since resultsAsync is already complete
+            Long partitionId = execution.resultAsync().join(); // safe to join since resultsAsync is already complete
             assertThat(execution.node().name(), is(partitionIdToNode.get(partitionId).name()));
         });
     }
@@ -876,24 +875,24 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         // S1 schema
         {
-            JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
-            CompletableFuture<BroadcastExecution<Integer>> future = compute()
+            JobDescriptor<Void, Long> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+            CompletableFuture<BroadcastExecution<Long>> future = compute()
                     .submitAsync(BroadcastJobTarget.table("s1.test"), job, null);
             assertThat(future, willCompleteSuccessfully());
 
-            CompletableFuture<Collection<Integer>> resultFuture = future.join().resultsAsync();
+            CompletableFuture<Collection<Long>> resultFuture = future.join().resultsAsync();
             assertThat(resultFuture, willCompleteSuccessfully());
             assertEquals(5, future.join().resultsAsync().join().size());
         }
 
         // S2 schema
         {
-            JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
-            CompletableFuture<BroadcastExecution<Integer>> future = compute()
+            JobDescriptor<Void, Long> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+            CompletableFuture<BroadcastExecution<Long>> future = compute()
                     .submitAsync(BroadcastJobTarget.table("s2.test"), job, null);
             assertThat(future, willCompleteSuccessfully());
 
-            CompletableFuture<Collection<Integer>> resultFuture = future.join().resultsAsync();
+            CompletableFuture<Collection<Long>> resultFuture = future.join().resultsAsync();
             assertThat(resultFuture, willCompleteSuccessfully());
             assertEquals(7, future.join().resultsAsync().join().size());
         }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -50,8 +49,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final ClockService clockService;
 
-    private final NodeProperties nodeProperties;
-
     /** Executable tables cache. */
     final Cache<CacheKey, ExecutableTable> tableCache;
 
@@ -62,7 +59,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
             SqlSchemaManager sqlSchemaManager,
             ReplicaService replicaService,
             ClockService clockService,
-            NodeProperties nodeProperties,
             int cacheSize,
             CacheFactory cacheFactory
     ) {
@@ -72,7 +68,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
         this.clockService = clockService;
-        this.nodeProperties = nodeProperties;
         this.tableCache = cacheFactory.create(cacheSize);
     }
 
@@ -81,7 +76,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
     public ExecutableTable getTable(int catalogVersion, int tableId) {
         IgniteTable sqlTable = sqlSchemaManager.table(catalogVersion, tableId);
 
-        return tableCache.get(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
+        return tableCache.get(cacheKey(tableId, sqlTable.timestamp()), (k) -> loadTable(sqlTable));
     }
 
     private ExecutableTable loadTable(IgniteTable sqlTable) {
@@ -102,14 +97,10 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         TableRowConverter rowConverter = converterFactory.create(null);
 
         UpdatableTableImpl updatableTable = new UpdatableTableImpl(
-                sqlTable.id(),
-                sqlTable.zoneId(),
                 tableDescriptor,
-                internalTable.partitions(),
                 internalTable,
                 replicaService,
                 clockService,
-                nodeProperties,
                 rowConverter
         );
 
@@ -158,17 +149,17 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         }
     }
 
-    private static CacheKey cacheKey(int tableId, int version) {
-        return new CacheKey(tableId, version);
+    private static CacheKey cacheKey(int tableId, long timestamp) {
+        return new CacheKey(tableId, timestamp);
     }
 
     private static class CacheKey {
         private final int tableId;
-        private final int tableVersion;
+        private final long timestamp;
 
-        CacheKey(int tableId, int tableVersion) {
+        CacheKey(int tableId, long timestamp) {
             this.tableId = tableId;
-            this.tableVersion = tableVersion;
+            this.timestamp = timestamp;
         }
 
         @Override
@@ -180,12 +171,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                 return false;
             }
             CacheKey cacheKey = (CacheKey) o;
-            return tableVersion == cacheKey.tableVersion && tableId == cacheKey.tableId;
+            return timestamp == cacheKey.timestamp && tableId == cacheKey.tableId;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(tableVersion, tableId);
+            return Objects.hash(timestamp, tableId);
         }
     }
 

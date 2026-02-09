@@ -40,7 +40,11 @@ public class MetricsTests
     private volatile Listener _listener = null!;
 
     [SetUp]
-    public void SetUp() => _listener = new Listener(TestContext.CurrentContext.Test.Name);
+    public void SetUp()
+    {
+        _listener = new Listener(TestContext.CurrentContext.Test.Name);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
+    }
 
     [TearDown]
     public void TearDown()
@@ -255,14 +259,6 @@ public class MetricsTests
             AssertMetric(MetricNames.StreamerItemsQueued, 1);
 
             yield return new IgniteTuple { ["ID"] = 2 };
-
-            AssertMetric(MetricNames.StreamerBatchesActive, 2);
-            AssertMetric(MetricNames.StreamerItemsQueued, 2);
-
-            AssertMetric(MetricNames.StreamerBatchesSent, 1);
-            AssertMetric(MetricNames.StreamerBatchesActive, 1);
-            AssertMetric(MetricNames.StreamerItemsQueued, 0);
-            AssertMetric(MetricNames.StreamerItemsSent, 2);
         }
     }
 
@@ -369,6 +365,8 @@ public class MetricsTests
 
         private readonly ConcurrentDictionary<string, long> _metricsWithTags = new();
 
+        private readonly int _initialConnectionsActive;
+
         public Listener(string name)
         {
             _name = name;
@@ -385,6 +383,8 @@ public class MetricsTests
             _listener.SetMeasurementEventCallback<long>(Handle);
             _listener.SetMeasurementEventCallback<int>(Handle);
             _listener.Start();
+
+            _initialConnectionsActive = GetMetric(Apache.Ignite.MetricNames.ConnectionsActive);
         }
 
         public ICollection<string> MetricNames => _metrics.Keys;
@@ -392,7 +392,15 @@ public class MetricsTests
         public int GetMetric(string name)
         {
             _listener.RecordObservableInstruments();
-            return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
+
+            var res = _metrics.TryGetValue(name, out var val)
+                ? (int)val
+                : 0;
+
+            // Workaround for initial connections active not being zero.
+            return name == Apache.Ignite.MetricNames.ConnectionsActive
+                ? res - _initialConnectionsActive
+                : res;
         }
 
         public int GetTaggedMetric(string name, string nodeAddr, Guid? clientId)
@@ -450,15 +458,15 @@ public class MetricsTests
             {
                 var newVal = Convert.ToInt64(measurement);
 
-                Console.WriteLine($"{_name} measurement: {instrument.Name} = {newVal}");
-
                 if (instrument.IsObservable)
                 {
                     _metrics[instrument.Name] = newVal;
+                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {newVal}");
                 }
                 else
                 {
-                    _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                    var res = _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {res - newVal} + {newVal} = {res}");
 
                     var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
                     _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);

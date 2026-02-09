@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using Common.Compute;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
@@ -99,7 +100,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 case TestMode.Compute:
                     await Client.Compute.SubmitAsync(
                         JobTarget.Colocated(table.Name, rec2),
-                        ComputeTests.NodeNameJob,
+                        JavaJobs.NodeNameJob,
                         null);
                     break;
 
@@ -158,7 +159,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 // ExecuteColocated requires key part only.
                 await Client.Compute.SubmitAsync(
                     JobTarget.Colocated(table.Name, rec),
-                    ComputeTests.NodeNameJob,
+                    JavaJobs.NodeNameJob,
                     null);
                 break;
 
@@ -300,7 +301,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             case TestMode.Compute:
                 var jobExecution = await Client.Compute.SubmitAsync(
                     JobTarget.Colocated(table.Name, new Poco(1, "foo")),
-                    ComputeTests.NodeNameJob,
+                    JavaJobs.NodeNameJob,
                     null);
 
                 await jobExecution.GetResultAsync();
@@ -341,6 +342,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
+    [Timeout(60_000)] // Slow on Windows on CI.
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
     public async Task TestSchemaUpdateWhileStreaming(
         [Values(true, false)] bool insertNewColumn,

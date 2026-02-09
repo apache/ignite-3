@@ -57,7 +57,9 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
@@ -106,6 +108,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     protected abstract RowHandler<T> rowHandler();
 
+    protected abstract RowFactoryFactory<T> rowFactoryFactory();
+
     protected ExecutionContext<T> executionContext() {
         return executionContext(-1, false);
     }
@@ -143,7 +147,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         InternalClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         ExecutionContext<T> executionContext = new ExecutionContext<>(
-                new ExpressionFactoryImpl<>(
+                new ExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 taskExecutor,
@@ -153,12 +157,14 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 node.id(),
                 fragmentDesc,
                 rowHandler(),
+                rowFactoryFactory(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
                 SqlCommon.DEFAULT_TIME_ZONE_ID,
                 bufferSize,
                 Clock.systemUTC(),
-                null
+                null,
+                1L
         );
 
         contexts.add(executionContext);
@@ -408,11 +414,16 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         }
     }
 
-    static SqlJoinProjection<Object[]> identityProjection() {
-        return (c, r1, r2) -> ArrayUtils.concat(r1, r2);
+    static SqlJoinProjection identityProjection() {
+        return new SqlJoinProjection() {
+            @Override
+            public <RowT> RowT project(SqlEvaluationContext<RowT> context, RowT left, RowT right) {
+                return (RowT) ArrayUtils.concat((Object[]) left, (Object[]) right);
+            }
+        };
     }
 
-    static @Nullable SqlJoinProjection<Object[]> createIdentityProjectionIfNeeded(JoinRelType type) {
+    static @Nullable SqlJoinProjection createIdentityProjectionIfNeeded(JoinRelType type) {
         if (type == SEMI || type == ANTI) {
             return null;
         }
@@ -430,7 +441,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
      * @return Returns field by offset.
      */
     static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
-        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
-                hnd.get(offset - hnd.columnCount(row1), row2);
+        return offset < hnd.columnsCount(row1) ? hnd.get(offset, row1) :
+                hnd.get(offset - hnd.columnsCount(row1), row2);
     }
 }

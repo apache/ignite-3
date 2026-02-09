@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.type;
 
-import java.util.Arrays;
+import java.util.EnumSet;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.TestOnly;
@@ -41,18 +41,11 @@ public class NativeType implements Comparable<NativeType> {
      * @param size     Type size in bytes.
      */
     protected NativeType(ColumnType typeSpec, int size) {
-        this.fixedSize = !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed());
-
-        if (!this.fixedSize) {
-            throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
-        }
-
-        if (size <= 0) {
-            throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + size + ']');
-        }
-
-        this.typeSpec = typeSpec;
-        this.size = size;
+        this(
+                typeSpec,
+                isFixedSize(typeSpec),
+                size
+        );
     }
 
     /**
@@ -61,15 +54,29 @@ public class NativeType implements Comparable<NativeType> {
      * @param typeSpec Type spec.
      */
     protected NativeType(ColumnType typeSpec) {
-        this.fixedSize = !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed());
+        this(
+                typeSpec,
+                isFixedSize(typeSpec),
+                0
+        );
+    }
 
-        if (this.fixedSize) {
-            throw new IllegalArgumentException("Fixed-length types must be created by the "
-                    + "length-aware constructor: " + typeSpec);
+    private static boolean isFixedSize(ColumnType typeSpec) {
+        return !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed());
+    }
+
+    protected NativeType(ColumnType typeSpec, boolean fixedSize, int size) {
+        if (fixedSize && size <= 0) {
+            throw new IllegalArgumentException("Size must be positive [typeSpec=" + typeSpec + ", size=" + size + ']');
         }
 
+        if (!fixedSize && size > 0) {
+            throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
+        }
+
+        this.fixedSize = fixedSize;
         this.typeSpec = typeSpec;
-        this.size = 0;
+        this.size = size;
     }
 
     /**
@@ -170,11 +177,12 @@ public class NativeType implements Comparable<NativeType> {
                 "fixed", fixedLength());
     }
 
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-17373 Remove filter after this issue is resolved
+    /** Returns an array of fully supported types. */
     @TestOnly
+    // TODO https://issues.apache.org/jira/browse/IGNITE-17373 Remove filter after this issue is resolved
     public static ColumnType[] nativeTypes() {
-        return Arrays.stream(ColumnType.values()).filter(v -> v != ColumnType.NULL && v != ColumnType.DURATION
-                && v != ColumnType.PERIOD).toArray(ColumnType[]::new);
+        return EnumSet.complementOf(EnumSet.of(
+                ColumnType.NULL, ColumnType.DURATION, ColumnType.PERIOD, ColumnType.STRUCT
+        )).toArray(ColumnType[]::new);
     }
 }

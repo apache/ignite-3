@@ -47,6 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -157,7 +158,10 @@ public class ItLozaTest extends IgniteAbstractTest {
      * Tests that RaftGroupServiceImpl uses shared executor for retrying RaftGroupServiceImpl#sendWithRetry().
      */
     @Test
-    public void testRaftServiceUsingSharedExecutor(@InjectConfiguration RaftConfiguration raftConfiguration) throws Exception {
+    public void testRaftServiceUsingSharedExecutor(
+            @InjectConfiguration RaftConfiguration raftConfiguration,
+            @InjectConfiguration SystemLocalConfiguration systemLocalConfiguration
+    ) throws Exception {
         ClusterService spyService = spy(clusterService);
 
         MessagingService messagingServiceMock = spy(spyService.messagingService());
@@ -180,7 +184,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         assertThat(partitionsLogStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
 
-        loza = TestLozaFactory.create(spyService, raftConfiguration, new HybridClockImpl());
+        loza = TestLozaFactory.create(spyService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
@@ -217,7 +221,9 @@ public class ItLozaTest extends IgniteAbstractTest {
     @RepeatedTest(100)
     void testVolatileAndPersistentGroupsOnSameStripe(
             @InjectConfiguration("mock.logStripesCount=1")
-            RaftConfiguration raftConfiguration
+            RaftConfiguration raftConfiguration,
+            @InjectConfiguration
+            SystemLocalConfiguration systemLocalConfiguration
     ) throws Exception {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
@@ -230,7 +236,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         assertThat(logStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
 
-        loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+        loza = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 
@@ -305,7 +311,10 @@ public class ItLozaTest extends IgniteAbstractTest {
     }
 
     @Test
-    void destroysRaftNodeStorages(@InjectConfiguration RaftConfiguration raftConfiguration) throws Exception {
+    void destroysRaftNodeStorages(
+            @InjectConfiguration RaftConfiguration raftConfiguration,
+            @InjectConfiguration SystemLocalConfiguration systemLocalConfiguration
+    ) throws Exception {
         ComponentWorkingDir partitionsWorkDir = new ComponentWorkingDir(workDir);
 
         LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
@@ -318,7 +327,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         assertThat(logStorageFactory.startAsync(componentContext), willCompleteSuccessfully());
 
-        loza = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+        loza = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         assertThat(loza.startAsync(componentContext), willCompleteSuccessfully());
 

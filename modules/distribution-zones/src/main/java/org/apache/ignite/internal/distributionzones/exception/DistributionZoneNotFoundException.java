@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones.exception;
 
 import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
+import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -45,6 +46,15 @@ public class DistributionZoneNotFoundException extends IgniteInternalException {
      */
     public DistributionZoneNotFoundException(String zoneName) {
         super(ZONE_NOT_FOUND_ERR, "Distribution zone was not found [zoneName=" + zoneName + ']');
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param zoneNames Zone names.
+     */
+    public DistributionZoneNotFoundException(Collection<String> zoneNames) {
+        super(ZONE_NOT_FOUND_ERR, "Distribution zones were not found [zoneNames=" + zoneNames + ']');
     }
 
     /**

@@ -117,8 +117,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
 
         assertThrowsProblem(
                 () -> getTransaction(client, transactionId),
-                NOT_FOUND,
-                isProblem().withDetail("Transaction not found [transactionId=" + transactionId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Transaction not found [transactionId=" + transactionId + "]")
         );
     }
 
@@ -128,8 +127,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
 
         assertThrowsProblem(
                 () -> killTransaction(client, transactionId),
-                NOT_FOUND,
-                isProblem().withDetail("Transaction not found [transactionId=" + transactionId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Transaction not found [transactionId=" + transactionId + "]")
         );
     }
 
@@ -145,8 +143,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
 
         assertThrowsProblem(
                 () -> getTransaction(client, transactionInfo.id()),
-                NOT_FOUND,
-                isProblem().withDetail("Transaction not found [transactionId=" + transactionInfo.id() + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Transaction not found [transactionId=" + transactionInfo.id() + "]")
         );
     }
 

@@ -54,7 +54,6 @@ import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.UnboundMetadata;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
@@ -72,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -173,7 +173,7 @@ public final class PlanningContext implements Context {
     /** Flag indicated if planning has been canceled due to timeout. */
     private volatile boolean timeouted;
 
-    private final Int2ObjectMap<RelDataType> parameters;
+    private final Int2ObjectMap<ColumnType> parameters;
 
     private @Nullable CalciteCatalogReader catalogReader;
 
@@ -188,7 +188,7 @@ public final class PlanningContext implements Context {
             FrameworkConfig config,
             String qry,
             long plannerTimeout,
-            Int2ObjectMap<RelDataType> parameters,
+            Int2ObjectMap<ColumnType> parameters,
             boolean explicitTx,
             int catalogVersion,
             @Nullable String defaultSchemaName
@@ -218,7 +218,7 @@ public final class PlanningContext implements Context {
     }
 
     /** Get query parameters. */
-    public Int2ObjectMap<RelDataType> parameters() {
+    public Int2ObjectMap<ColumnType> parameters() {
         return parameters;
     }
 
@@ -411,7 +411,7 @@ public final class PlanningContext implements Context {
 
         private long plannerTimeout;
 
-        private Int2ObjectMap<RelDataType> parameters = Int2ObjectMaps.emptyMap();
+        private Int2ObjectMap<ColumnType> parameters = Int2ObjectMaps.emptyMap();
 
         private boolean explicitTx;
 
@@ -449,7 +449,7 @@ public final class PlanningContext implements Context {
         }
 
         /** Values of dynamic parameters to assist with type inference. */
-        public Builder parameters(Int2ObjectMap<RelDataType> parameters) {
+        public Builder parameters(Int2ObjectMap<ColumnType> parameters) {
             this.parameters = parameters;
             return this;
         }

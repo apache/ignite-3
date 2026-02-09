@@ -39,7 +39,7 @@ Sort
                   index: O_OD
                   type: SORTED
                   predicate: SEARCH(O_ORDERDATE, Sarg[[1993-10-01..1994-01-01)])
-                  searchBounds: [RangeBounds [lowerBound=1993-10-01, upperBound=1994-01-01, lowerInclude=true, upperInclude=false]]
+                  searchBounds: [<1993-10-01>..<1994-01-01>)
                   fieldNames: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
                   collation: [O_ORDERDATE ASC]
                   est: (rows=375000)

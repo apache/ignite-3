@@ -32,6 +32,8 @@ namespace ignite
 {
 
 /**
+ * @brief Execution cancellation handle.
+ *
  * A handle which may be used to request the cancellation of execution.
  */
 class cancel_handle

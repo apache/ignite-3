@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.lang.Double.compare;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
@@ -27,11 +27,19 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_QUORUM_SIZE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -47,6 +55,7 @@ import static org.apache.ignite.sql.ColumnType.NULL;
 import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
@@ -70,6 +79,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -92,6 +102,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -164,13 +175,13 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate newly created table
         assertEquals(TABLE_NAME, table.name());
         assertEquals(catalog.defaultZone().id(), table.zoneId());
-        assertEquals(List.of("key1", "key2"), table.primaryKeyColumns());
-        assertEquals(List.of("key2"), table.colocationColumns());
+        assertEquals(List.of("key1", "key2"), table.primaryKeyColumnNames());
+        assertEquals(List.of("key2"), table.colocationColumnNames());
 
         // Validate newly created pk index
         assertEquals(pkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
-        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertEquals(IntList.of(0, 1), pkIndex.columnIds());
         assertTrue(pkIndex.unique());
         assertTrue(pkIndex.isCreatedWithTable());
         assertEquals(AVAILABLE, pkIndex.status());
@@ -182,6 +193,11 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertEquals(0, table.columnIndex("key1"));
         assertEquals(1, table.columnIndex("key2"));
+
+        // Validate column ids
+        assertEquals(0, table.column("key1").id());
+        assertEquals(1, table.column("key2").id());
+        assertEquals(2, table.column("val").id());
     }
 
     @Test
@@ -232,7 +248,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate newly created pk index
         assertEquals(expectedName, pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
-        assertEquals(List.of("key1", "key2"), pkIndex.columns());
+        assertEquals(IntList.of(0, 1), pkIndex.columnIds());
         assertTrue(pkIndex.unique());
         assertTrue(pkIndex.isCreatedWithTable());
         assertEquals(AVAILABLE, pkIndex.status());
@@ -368,6 +384,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertNotNull(table);
         assertNull(table.column(NEW_COLUMN_NAME));
 
+        int maxColumnId = table.columns().stream().mapToInt(CatalogTableColumnDescriptor::id).max().orElseThrow();
+
         // Validate actual catalog
         table = actualTable(TABLE_NAME);
 
@@ -376,6 +394,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate column descriptor.
         CatalogTableColumnDescriptor column = table.column(NEW_COLUMN_NAME);
 
+        int expectedColumnId = maxColumnId + 1;
+        assertEquals(expectedColumnId, column.id());
         assertEquals(NEW_COLUMN_NAME, column.name());
         assertEquals(STRING, column.type());
         assertTrue(column.nullable());
@@ -388,6 +408,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(DEFAULT_SCALE, column.scale());
 
         assertEquals(6, table.columnIndex(NEW_COLUMN_NAME));
+        assertSame(column, table.columnById(expectedColumnId));
     }
 
     @Test
@@ -549,6 +570,72 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testCreateDefaultZoneLazilyIfNoZonesProvided() {
+        // Check that initially there no default zone and zones at all.
+        int initialVersion = manager.latestCatalogVersion();
+        Catalog initialCatalog = manager.catalog(initialVersion);
+        assertThat(initialCatalog.zones(), empty());
+        assertThat(initialCatalog.defaultZone(), nullValue());
+
+        // Create table that should triggers new default zone creation.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
+
+        // Check that initially there is only new default zone is presented.
+        int afterTableCreatedCatalogVersion = manager.latestCatalogVersion();
+        Catalog afterTableCreatedCatalog = manager.catalog(afterTableCreatedCatalogVersion);
+        CatalogZoneDescriptor defaultZone = afterTableCreatedCatalog.defaultZone();
+        assertThat(defaultZone, notNullValue());
+        assertThat(afterTableCreatedCatalog.zones(), contains(defaultZone));
+        checkDefaultZoneProperties(defaultZone);
+    }
+
+    @Test
+    public void testDefaultZoneCreationIsIdempotent() {
+        // Check that initially there no default zone and zones at all.
+        int initialVersion = manager.latestCatalogVersion();
+        Catalog initialCatalog = manager.catalog(initialVersion);
+        assertThat(initialCatalog.zones(), empty());
+        assertThat(initialCatalog.defaultZone(), nullValue());
+
+        // Create table that should triggers new default zone creation.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME + 0));
+        // Check that new tables won't trigger new default zone and will be placed into the created one.
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME + 1));
+
+        int afterSecondTableCreatedCatalogVersion = manager.latestCatalogVersion();
+        Catalog afterSecondTableCreatedCatalog =  manager.catalog(afterSecondTableCreatedCatalogVersion);
+        CatalogZoneDescriptor defaultZone = afterSecondTableCreatedCatalog.defaultZone();
+        assertThat(defaultZone, notNullValue());
+        assertThat(afterSecondTableCreatedCatalog.zones(), contains(defaultZone));
+        checkDefaultZoneProperties(defaultZone);
+    }
+
+    @Test
+    public void testDefaultZoneCannotBeCreatedIfDefaultNameIsAlreadyInUse() {
+        // Check that initially there no default zone and zones at all.
+        int initialVersion = manager.latestCatalogVersion();
+        Catalog initialCatalog = manager.catalog(initialVersion);
+        assertThat(initialCatalog.zones(), empty());
+        assertThat(initialCatalog.defaultZone(), nullValue());
+
+        // Create table that should triggers new default zone creation.
+        tryApplyAndExpectApplied(simpleZone(DEFAULT_ZONE_NAME));
+        // Check that new tables won't trigger new default zone and will be placed into the created one.
+        assertThat(
+                manager.execute(simpleTable(TABLE_NAME)),
+                willThrowFast(
+                        CatalogValidationException.class,
+                        "Distribution zone with name '" + DEFAULT_ZONE_NAME + "' already exists."
+                )
+        );
+
+        int lastVersion = manager.latestCatalogVersion();
+        Catalog lastCatalog = manager.catalog(lastVersion);
+        assertThat(lastCatalog.zones(), hasSize(1));
+        assertThat(initialCatalog.defaultZone(), nullValue());
+    }
+
+    @Test
     public void testTableRename() {
         createSomeTable(TABLE_NAME);
 
@@ -579,8 +666,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Assert that all other properties have been left intact.
         assertThat(curDescriptor.id(), is(prevDescriptor.id()));
         assertThat(curDescriptor.columns(), is(prevDescriptor.columns()));
-        assertThat(curDescriptor.colocationColumns(), is(prevDescriptor.colocationColumns()));
-        assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
+        assertThat(curDescriptor.colocationColumnNames(), is(prevDescriptor.colocationColumnNames()));
+        assertThat(curDescriptor.primaryKeyColumnNames(), is(prevDescriptor.primaryKeyColumnNames()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
         assertThat(curDescriptor.latestSchemaVersion(), is(prevDescriptor.latestSchemaVersion()));
@@ -1457,5 +1544,20 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     private @Nullable CatalogTableDescriptor table(int catalogVersion, String tableName) {
         return manager.catalog(catalogVersion).table(SCHEMA_NAME, tableName);
+    }
+
+    private static void checkDefaultZoneProperties(CatalogZoneDescriptor defaultZoneDescriptor) {
+        assertThat(defaultZoneDescriptor.name(), is(DEFAULT_ZONE_NAME));
+        assertThat(defaultZoneDescriptor.partitions(), is(DEFAULT_PARTITION_COUNT));
+        assertThat(defaultZoneDescriptor.replicas(), is(DEFAULT_REPLICA_COUNT));
+        assertThat(defaultZoneDescriptor.quorumSize(), is(DEFAULT_ZONE_QUORUM_SIZE));
+        assertThat(defaultZoneDescriptor.dataNodesAutoAdjustScaleUp(), is(IMMEDIATE_TIMER_VALUE));
+        assertThat(defaultZoneDescriptor.dataNodesAutoAdjustScaleDown(), is(INFINITE_TIMER_VALUE));
+        assertThat(defaultZoneDescriptor.filter(), is(DEFAULT_FILTER));
+        assertThat(
+                defaultZoneDescriptor.storageProfiles().profiles(),
+                contains(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))
+        );
+        assertThat(defaultZoneDescriptor.consistencyMode(), is(STRONG_CONSISTENCY));
     }
 }

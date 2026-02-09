@@ -67,7 +67,6 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -105,7 +104,6 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -137,6 +135,7 @@ import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCre
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
@@ -191,7 +190,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -402,6 +400,7 @@ public class Node {
                 clusterService,
                 metricManager,
                 raftConfiguration,
+                systemLocalConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager()
@@ -415,8 +414,7 @@ public class Node {
         var clusterInitializer = new ClusterInitializer(
                 clusterService,
                 hocon -> hocon,
-                new TestConfigurationValidator(),
-                new SystemPropertiesNodeProperties()
+                new TestConfigurationValidator()
         );
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
@@ -653,7 +651,8 @@ public class Node {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
-                        .thenApply(Entry::value)
+                        .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
+                threadPoolsManager.commonScheduler()
         );
 
         LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
@@ -662,7 +661,6 @@ public class Node {
                 new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
                 failureManager,
-                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -690,7 +688,6 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
-                nodeProperties,
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
@@ -712,7 +709,8 @@ public class Node {
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService,
-                metricManager
+                metricManager,
+                lowWatermark
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -780,11 +778,9 @@ public class Node {
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
-                distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
                 failureManager,
@@ -824,14 +820,6 @@ public class Node {
 
                 return storage;
             }
-
-            @Override
-            protected TxStateStorage createTxStateTableStorage(
-                    CatalogTableDescriptor tableDescriptor,
-                    CatalogZoneDescriptor zoneDescriptor
-            ) {
-                return createSpy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
-            }
         };
 
         tableManager.setStreamerReceiverRunner(mock(StreamerReceiverRunner.class));
@@ -857,8 +845,9 @@ public class Node {
                 logicalTopologyService,
                 clockService,
                 failureManager,
-                nodeProperties,
-                lowWatermark
+                lowWatermark,
+                txManager,
+                metricManager
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
@@ -881,7 +870,6 @@ public class Node {
                 sqlLocalConfiguration,
                 transactionInflights,
                 txManager,
-                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),

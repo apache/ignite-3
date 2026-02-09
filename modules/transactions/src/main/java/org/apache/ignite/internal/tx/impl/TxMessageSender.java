@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,13 +28,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -102,7 +103,7 @@ public class TxMessageSender {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
                         .tableIds(partition.tableIds())
                         .timestamp(clockService.now())
                         .txId(txId)
@@ -155,14 +156,14 @@ public class TxMessageSender {
      */
     public CompletableFuture<TransactionResult> finish(
             String primaryConsistentId,
-            ReplicationGroupId commitPartition,
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            ZonePartitionId commitPartition,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             Long consistencyToken,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        ReplicationGroupIdMessage commitPartitionIdMessage = toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition);
+        ZonePartitionIdMessage commitPartitionIdMessage = toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition);
 
         return replicaService.invoke(
                 primaryConsistentId,
@@ -170,7 +171,7 @@ public class TxMessageSender {
                         .txId(txId)
                         .commitPartitionId(commitPartitionIdMessage)
                         .timestamp(clockService.now())
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartition))
                         .groups(toEnlistedPartitionMessagesByGroupId(enlistedPartitions))
                         .commit(commit)
                         .commitTimestamp(commitTimestamp)
@@ -191,13 +192,13 @@ public class TxMessageSender {
     public CompletableFuture<TransactionMeta> resolveTxStateFromCommitPartition(
             String primaryConsistentId,
             UUID txId,
-            ReplicationGroupId commitGrpId,
+            ZonePartitionId commitGrpId,
             Long consistencyToken
     ) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txStateCommitPartitionRequest()
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitGrpId))
                         .txId(txId)
                         .enlistmentConsistencyToken(consistencyToken)
                         .build()
@@ -207,18 +208,18 @@ public class TxMessageSender {
     /**
      * Send TxStateCoordinatorRequest.
      *
-     * @param primaryConsistentId Node id to send the request to.
+     * @param coordinatorClusterNode Node to send the request to.
      * @param txId Transaction id.
      * @param timestamp Timestamp to pass to target node.
      * @return Completable future of {@link TxStateResponse}.
      */
     public CompletableFuture<TxStateResponse> resolveTxStateFromCoordinator(
-            String primaryConsistentId,
+            InternalClusterNode coordinatorClusterNode,
             UUID txId,
             HybridTimestamp timestamp
     ) {
         return messagingService.invoke(
-                        primaryConsistentId,
+                        coordinatorClusterNode,
                         TX_MESSAGES_FACTORY.txStateCoordinatorRequest()
                                 .readTimestamp(timestamp)
                                 .txId(txId)
@@ -238,11 +239,11 @@ public class TxMessageSender {
      * @param replicationGroupId Replication group ID corresponding to a partition.
      * @return Completable future of ReplicaResponse.
      */
-    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ReplicationGroupId replicationGroupId) {
+    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ZonePartitionId replicationGroupId) {
         return replicaService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txCleanupRecoveryRequest()
-                        .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
+                        .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId))
                         .build()
         );
     }
@@ -263,7 +264,7 @@ public class TxMessageSender {
         for (EnlistedPartitionGroup partition : enlistedPartitionGroups) {
             messages.add(
                     TX_MESSAGES_FACTORY.enlistedPartitionGroupMessage()
-                            .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
+                            .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, partition.groupId()))
                             .tableIds(partition.tableIds())
                             .build()
             );
@@ -272,16 +273,16 @@ public class TxMessageSender {
         return messages;
     }
 
-    private static Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> toEnlistedPartitionMessagesByGroupId(
-            Map<ReplicationGroupId, PartitionEnlistment> idEnlistedPartitions
+    private static Map<ZonePartitionIdMessage, PartitionEnlistmentMessage> toEnlistedPartitionMessagesByGroupId(
+            Map<ZonePartitionId, PartitionEnlistment> idEnlistedPartitions
     ) {
-        var messages = new HashMap<ReplicationGroupIdMessage, PartitionEnlistmentMessage>(idEnlistedPartitions.size());
+        var messages = new HashMap<ZonePartitionIdMessage, PartitionEnlistmentMessage>(idEnlistedPartitions.size());
 
-        for (Map.Entry<ReplicationGroupId, PartitionEnlistment> e : idEnlistedPartitions.entrySet()) {
+        for (Map.Entry<ZonePartitionId, PartitionEnlistment> e : idEnlistedPartitions.entrySet()) {
             PartitionEnlistment enlistedPartition = e.getValue();
 
             messages.put(
-                    toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, e.getKey()),
+                    toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, e.getKey()),
                     TX_MESSAGES_FACTORY.partitionEnlistmentMessage()
                             .primaryConsistentId(enlistedPartition.primaryNodeConsistentId())
                             .tableIds(enlistedPartition.tableIds())

@@ -48,6 +48,7 @@ dependencies {
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -57,10 +58,13 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-metrics'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
 
-    testImplementation project(':ignite-network')
+    testImplementation libs.awaitility
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-raft'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-network'))
 
     testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
     testFixturesImplementation project(':ignite-network-api')

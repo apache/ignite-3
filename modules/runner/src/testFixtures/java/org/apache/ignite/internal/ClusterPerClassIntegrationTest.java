@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -34,7 +34,11 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -52,6 +56,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -89,36 +94,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Default partition count for tests. */
     protected static final int DEFAULT_PARTITION_COUNT = 25;
-
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for tests that may not have some storage engines enabled. */
-    protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
 
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
@@ -209,6 +184,69 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         }
     }
 
+    /**
+     * Waits for the specified partitionIds in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param zone The name of the distribution zone to check.
+     * @param  partitionIds The specified set of partitions.
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitionIds do not become healthy within the timeout period.
+     */
+    protected static void awaitPartitionsToBeHealthy(
+            String zone,
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
+        awaitPartitionsToBeHealthy(CLUSTER, zone, partitionIds);
+    }
+
+    /**
+     * Waits for the specified partitionIds in the specified zone to reach the HEALTHY state across all cluster nodes.
+     *
+     * @param cluster The cluster to check.
+     * @param zone The name of the distribution zone to check.
+     * @param  partitionIds The specified set of partitions.
+     * @throws InterruptedException If the thread is interrupted while waiting.
+     * @throws AssertionError If partitionIds do not become healthy within the timeout period.
+     */
+    public static void awaitPartitionsToBeHealthy(
+            Cluster cluster,
+            String zone,
+            Set<Integer> partitionIds
+    ) throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<?, GlobalPartitionStateEnum>> globalPartitionStates;
+
+                    if (colocationEnabled()) {
+                        globalPartitionStates = node.disasterRecoveryManager()
+                                .globalPartitionStates(Set.of(zone), partitionIds)
+                                .thenApply(map -> map.entrySet().stream()
+                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
+                    } else {
+                        globalPartitionStates = node.disasterRecoveryManager()
+                                .globalTablePartitionStates(Set.of(zone), partitionIds)
+                                .thenApply(map -> map.entrySet().stream()
+                                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().state)));
+                    }
+
+                    assertThat(globalPartitionStates, willCompleteSuccessfully());
+
+                    Map<?, GlobalPartitionStateEnum> globalStateStates;
+                    try {
+                        globalStateStates = globalPartitionStates.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    return globalStateStates.values()
+                            .stream()
+                            .allMatch(state -> state == GlobalPartitionStateEnum.AVAILABLE);
+                },
+                30_000
+        ));
+    }
+
     /** Drops all non-system schemas. */
     protected static void dropAllSchemas() {
         Ignite aliveNode = CLUSTER.aliveNode();
@@ -281,6 +319,20 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         sql(format(
                 "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) ZONE \"{}\"",
                 tableName, zoneName
+        ));
+
+        return CLUSTER.node(0).tables().table(tableName);
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param tableName Table name.
+     */
+    protected static Table createTableOnly(String tableName) {
+        sql(format(
+                "CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)",
+                tableName
         ));
 
         return CLUSTER.node(0).tables().table(tableName);
@@ -622,7 +674,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @param ignite Node.
      * @param indexName Index name that is being checked.
      */
-    protected static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
+    public static boolean isIndexAvailable(IgniteImpl ignite, String indexName) {
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 

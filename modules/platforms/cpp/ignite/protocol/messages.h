@@ -68,7 +68,7 @@ struct handshake_response {
     /** Observable timestamp. */
     std::int64_t observable_timestamp;
 
-    /** Observable timestamp in ms. */
+    /** Server idle timeout in ms. */
     std::int64_t idle_timeout_ms;
 };
 

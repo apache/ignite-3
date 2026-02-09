@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
@@ -73,6 +75,7 @@ import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -93,7 +96,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TX_PIGGYBACK,
             ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
-            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING
+            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING,
+            ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
+            ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -156,6 +161,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Last receive operation timestamp. */
     private volatile long lastReceiveMillis;
 
+    /** Whether tcp connection was established. */
+    private volatile boolean tcpConnectionEstablished;
+
     /**
      * Constructor.
      *
@@ -194,7 +202,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
                     }
 
-                    ClientTimeoutWorker.INSTANCE.registerClientChannel(this);
+                    tcpConnectionEstablished = true;
+
+                    ClientTimeoutWorker.INSTANCE.registerClientChannel(this, cfg.clientConfiguration());
 
                     sock = s;
 
@@ -264,8 +274,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         for (TimeoutObjectImpl pendingReq : pendingReqs.values()) {
-            pendingReq.future().completeExceptionally(
-                    new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+            if (tcpConnectionEstablished && lastReceiveMillis == 0) {
+                pendingReq.future().completeExceptionally(
+                        new IgniteClientConnectionException(CONNECTION_ERR,
+                                "Channel is closed, cluster might not have been initialised", endpoint(), cause));
+            } else {
+                pendingReq.future().completeExceptionally(
+                        new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+            }
         }
 
         for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
@@ -368,6 +384,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         PayloadOutputChannel payloadCh = new PayloadOutputChannel(this, new ClientMessagePacker(sock.getBuffer()), id);
 
+        boolean expectedException = false;
+
         try {
             var req = payloadCh.out();
 
@@ -380,10 +398,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
             write(req).addListener(f -> {
                 if (!f.isSuccess()) {
-                    String msg = "Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
+                    String msg = "Failed to send request async [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]";
                     IgniteClientConnectionException ex = new IgniteClientConnectionException(CONNECTION_ERR, msg, endpoint(), f.cause());
                     fut.completeExceptionally(ex);
-                    log.warn(msg + "]: " + f.cause().getMessage(), f.cause());
+                    log.warn(msg + "]: " + f.cause().getMessage());
 
                     pendingReqs.remove(id);
                     metrics.requestsActiveDecrement();
@@ -408,18 +426,27 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     return completedFuture(complete(payloadReader, notificationFut, unpacker));
                 } catch (Throwable t) {
+                    expectedException = true;
                     throw sneakyThrow(ViewUtils.ensurePublicException(t));
                 }
             }
 
             // Handle the response in the async continuation pool with completeAsync.
-            return fut
-                    .thenCompose(unpacker -> completeAsync(payloadReader, notificationFut, unpacker))
-                    .exceptionally(err -> {
-                        throw sneakyThrow(ViewUtils.ensurePublicException(err));
-                    });
+            CompletableFuture<T> resFut = new CompletableFuture<>();
+
+            fut.handle((unpacker, err) -> {
+                completeAsync(payloadReader, notificationFut, unpacker, err, resFut);
+                return null;
+            });
+
+            return resFut;
         } catch (Throwable t) {
-            log.warn("Failed to send request [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+            if (expectedException) {
+                // Just re-throw.
+                throw sneakyThrow(t);
+            }
+
+            log.warn("Failed to send request sync [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
                     + t.getMessage(), t);
 
             // Close buffer manually on fail. Successful write closes the buffer automatically.
@@ -432,14 +459,28 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
     }
 
-    private <T> CompletableFuture<T> completeAsync(
+    private <T> void completeAsync(
             @Nullable PayloadReader<T> payloadReader,
             @Nullable CompletableFuture<PayloadInputChannel> notificationFut,
-            ClientMessageUnpacker unpacker
+            ClientMessageUnpacker unpacker,
+            @Nullable Throwable err,
+            CompletableFuture<T> resFut
     ) {
-        try {
-            CompletableFuture<T> resFut = new CompletableFuture<>();
+        if (err != null) {
+            assert unpacker == null : "unpacker must be null if err is not null";
 
+            try {
+                asyncContinuationExecutor.execute(() -> resFut.completeExceptionally(ViewUtils.ensurePublicException(err)));
+            } catch (Throwable execError) {
+                // Executor error, complete directly.
+                execError.addSuppressed(err);
+                resFut.completeExceptionally(ViewUtils.ensurePublicException(execError));
+            }
+
+            return;
+        }
+
+        try {
             // Use asyncContinuationExecutor explicitly to close unpacker if the executor throws.
             // With handleAsync et al we can't close the unpacker in that case.
             asyncContinuationExecutor.execute(() -> {
@@ -449,11 +490,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     resFut.completeExceptionally(ViewUtils.ensurePublicException(t));
                 }
             });
-
-            return resFut;
-        } catch (Throwable t) {
+        } catch (Throwable execErr) {
             unpacker.close();
-            return failedFuture(ViewUtils.ensurePublicException(t));
+
+            // Executor error, complete directly.
+            resFut.completeExceptionally(ViewUtils.ensurePublicException(execErr));
         }
     }
 
@@ -550,6 +591,17 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         if (handler == null) {
             // Default notification handler. Used to deliver delayed replication acks.
+            if (err != null) {
+                if (err instanceof ClientDelayedAckException) {
+                    ClientDelayedAckException err0 = (ClientDelayedAckException) err;
+
+                    inflights.removeInflight(err0.txId(), new TransactionException(err0.code(), err0.getMessage(), err0.getCause()));
+                }
+
+                // Can't do anything to remove stuck inflight.
+                return;
+            }
+
             UUID txId = unpacker.unpackUuid();
             inflights.removeInflight(txId, err);
 
@@ -577,6 +629,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
         int expectedSchemaVersion = -1;
         long[] sqlUpdateCounters = null;
+        UUID txId = null;
 
         for (int i = 0; i < extSize; i++) {
             String key = unpacker.unpackString();
@@ -585,10 +638,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 expectedSchemaVersion = unpacker.unpackInt();
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
                 sqlUpdateCounters = unpacker.unpackLongArray();
+            } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
+                txId = unpacker.unpackUuid();
             } else {
                 // Unknown extension - ignore.
                 unpacker.skipValues(1);
             }
+        }
+
+        if (txId != null) {
+            return new ClientDelayedAckException(traceId, code, errMsg, txId, causeWithStackTrace);
+        }
+
+        if (sqlUpdateCounters != null) {
+            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
+            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
@@ -598,11 +662,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             return new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
-        }
-
-        if (sqlUpdateCounters != null) {
-            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
-            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         try {
@@ -658,17 +717,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
         });
 
-        return fut
-                .thenCompose(unpacker -> completeAsync(r -> handshakeRes(r.in()), null, unpacker))
-                .exceptionally(err -> {
-                    if (err instanceof TimeoutException || err.getCause() instanceof TimeoutException) {
-                        metrics.handshakesFailedTimeoutIncrement();
-                        throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
-                    }
+        CompletableFuture<Object> resFut = new CompletableFuture<>();
 
-                    metrics.handshakesFailedIncrement();
-                    throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
-                });
+        fut.handle((unpacker, err) -> {
+            completeAsync(r -> handshakeRes(r.in()), null, unpacker, err, resFut);
+            return null;
+        });
+
+        return resFut.exceptionally(err -> {
+            if (unwrapRootCause(err) instanceof TimeoutException) {
+                metrics.handshakesFailedTimeoutIncrement();
+                throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake timeout", endpoint(), err);
+            }
+            metrics.handshakesFailedIncrement();
+            throw new IgniteClientConnectionException(CONNECTION_ERR, "Handshake error", endpoint(), err);
+        });
     }
 
     /**
@@ -732,11 +795,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             long observableTimestamp = unpacker.unpackLong();
             observableTimestampListener.accept(observableTimestamp);
 
-            unpacker.unpackByte(); // cluster version major
-            unpacker.unpackByte(); // cluster version minor
-            unpacker.unpackByte(); // cluster version maintenance
-            unpacker.unpackByteNullable(); // cluster version patch
-            unpacker.unpackStringNullable(); // cluster version pre release
+            byte major = unpacker.unpackByte(); // cluster version major
+            byte minor = unpacker.unpackByte(); // cluster version minor
+            byte maintenance = unpacker.unpackByte(); // cluster version maintenance
+            Byte patch = unpacker.unpackByteNullable(); // cluster version patch
+            String preRelease = unpacker.unpackStringNullable(); // cluster version pre release
+
+            IgniteProductVersion nodeProductVersion = new IgniteProductVersion(major, minor, maintenance, patch, preRelease);
 
             BitSet serverFeatures = HandshakeUtils.unpackFeatures(unpacker);
             HandshakeUtils.unpackExtensions(unpacker);
@@ -744,7 +809,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(SUPPORTED_FEATURES, serverFeatures);
             EnumSet<ProtocolBitmaskFeature> features = ProtocolBitmaskFeature.enumSet(mutuallySupportedFeatures);
 
-            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName);
+            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName,
+                    nodeProductVersion);
 
             return null;
         } catch (Throwable e) {

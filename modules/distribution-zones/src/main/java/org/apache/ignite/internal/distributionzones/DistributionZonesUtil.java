@@ -44,11 +44,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -94,10 +97,6 @@ public class DistributionZonesUtil {
     /** Key prefix for zone's scale down timer, in {@code byte[]} representation. */
     static final byte[] DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX_BYTES =
             DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX.getBytes(StandardCharsets.UTF_8);
-
-    /** Key prefix for zone's partition reset timer. */
-    private static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
-            + "partitionResetTimer.";
 
     /** Key prefix for zones' logical topology nodes and logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX = "distributionZones.logicalTopology.";
@@ -233,16 +232,6 @@ public class DistributionZonesUtil {
      */
     public static ByteArray zoneScaleDownTimerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX + zoneId);
-    }
-
-    /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX}.
-     *
-     * @param zoneId Zone id.
-     * @return ByteArray representation.
-     */
-    public static ByteArray zonePartitionResetTimerKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX + zoneId);
     }
 
     /**
@@ -571,6 +560,43 @@ public class DistributionZonesUtil {
 
     public static Set<String> nodeNames(Set<NodeWithAttributes> nodes) {
         return nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet());
+    }
+
+    /**
+     * Filters given zone descriptors by given zone names for user operations over zones. In case if zone names set is empty, this method
+     * returns all zones. If zone names set contains names that aren't presented among given zone descriptors then an exception with all
+     * missed zone names will be thrown.
+     *
+     * @param zoneNames Zone names to filter by and that are required for a user operation. If is empty then the operation will be applied
+     *      for all zones.
+     * @param zones Catalog zone descriptors to filter out.
+     * @return Filtered out by zone names collection of zone descriptors to apply some user operation.
+     * @throws DistributionZoneNotFoundException In case if there are zone names that aren't presented among given catalog zone
+     *      descriptors.
+     */
+    public static Collection<CatalogZoneDescriptor> filterZonesForOperations(
+            Set<String> zoneNames,
+            Collection<CatalogZoneDescriptor> zones
+    ) throws DistributionZoneNotFoundException {
+        if (zoneNames.isEmpty()) {
+            return zones;
+        }
+
+        List<CatalogZoneDescriptor> zoneDescriptors = zones.stream()
+                .filter(catalogZoneDescriptor -> zoneNames.contains(catalogZoneDescriptor.name()))
+                .collect(toList());
+
+        Set<String> foundZoneNames = zoneDescriptors.stream()
+                .map(CatalogObjectDescriptor::name)
+                .collect(toSet());
+
+        if (!zoneNames.equals(foundZoneNames)) {
+            Set<String> missingZoneNames = CollectionUtils.difference(zoneNames, foundZoneNames);
+
+            throw new DistributionZoneNotFoundException(missingZoneNames);
+        }
+
+        return zoneDescriptors;
     }
 
     /**

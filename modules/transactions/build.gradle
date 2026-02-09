@@ -51,7 +51,6 @@ dependencies {
     implementation libs.fastutil.core
 
     testImplementation project(':ignite-core')
-    testImplementation project(':ignite-raft')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-configuration-system'))
@@ -60,6 +59,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-transactions'))
     testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-raft'))
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-cluster-management')
@@ -95,6 +95,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation libs.netty.transport
+    integrationTestImplementation libs.awaitility
 
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-core')

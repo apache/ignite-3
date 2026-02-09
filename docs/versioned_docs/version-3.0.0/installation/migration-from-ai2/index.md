@@ -20,13 +20,13 @@ sidebar_label: Migration From Apache Ignite 2
   limitations under the License.
 */}
 
-This section describes how to configure an Apache Ignite 3 cluster into which you will migrate all the components of your Apache Ignite 2 cluster.
+This section describes how to configure an Ignite 3 cluster into which you will migrate all the components of your Ignite 2 cluster.
 
 ## Configuration Migration
 
 You need to configure the cluster you have created to match the Apache Ignite 2 cluster you are migrating from.
 
-While cluster configurations in Apache Ignite 2 are XML beans, in Apache Ignite 3 they are in HOCON format. Moreover, many configuration structures in version 3 are different from those in version 2.
+While cluster configuration files for Ignite 2 are XML beans, Ignite 3 uses the HOCON format. Moreover, many configuration structures in version 3 are different from those used in version 2.
 
 In Apache Ignite 3, the configuration file has a single root "node," called `ignite`. All configuration sections are children, grandchildren, etc., of that node.
 

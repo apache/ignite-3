@@ -96,6 +96,7 @@ internal sealed class PartitionManager : IPartitionManager
         GetPartitionInternalAsync(tuple, TupleSerializerHandler.Instance);
 
     /// <inheritdoc/>
+    [RequiresUnreferencedCode(ReflectionUtils.TrimWarning)]
     public ValueTask<IPartition> GetPartitionAsync<TK>(TK key)
         where TK : notnull =>
         GetPartitionInternalAsync(key, _table.GetRecordViewInternal<TK>().RecordSerializer.Handler);

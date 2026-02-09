@@ -20,9 +20,7 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.util.Collection;
-import java.util.Map;
-import java.util.UUID;
-import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.MessageSerialVersionUid;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.rpc.Message;
@@ -47,11 +45,16 @@ public final class RaftOutter {
 
         @Nullable Collection<String> oldLearnersList();
 
+        long sequenceToken();
+
+        long oldSequenceToken();
+
         /** Returns {@code true} when the entry has a checksum, {@code false} otherwise. */
         boolean hasChecksum();
     }
 
     @Transferable(RaftMessageGroup.RaftOutterMessageGroup.SNAPSHOT_META)
+    @MessageSerialVersionUid(7302290474182723103L)
     public interface SnapshotMeta extends Message {
         long lastIncludedIndex();
 
@@ -60,6 +63,10 @@ public final class RaftOutter {
         long cfgIndex();
 
         long cfgTerm();
+
+        long sequenceToken();
+
+        long oldSequenceToken();
 
         @Nullable Collection<String> peersList();
 

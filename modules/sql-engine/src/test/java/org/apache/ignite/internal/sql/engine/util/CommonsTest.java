@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -33,10 +35,13 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 
 /**
@@ -140,6 +145,44 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         assertEquals(lt, project4.getRowType(), "Invalid types in projection for node4");
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "3, 3",
+            "5, 5",
+            "2, 7",
+    })
+    void targetOffset(int sourceSize, int offset) {
+        TargetMapping mapping = Commons.targetOffsetMapping(sourceSize, offset);
+
+        for (int i = 0; i < sourceSize; i++) {
+            assertThat(
+                    "Source <" + i + "> should be shifted by offset <" + offset + ">",
+                    mapping.getTarget(i), is(i + offset)
+            );
+        }
+    }
+
+    @Test
+    void compilationDoesNotFailOnThreadWithoutContextClassLoader() {
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+
+        // Nullify class loader. Compilation must not depend on the state of the thread.
+        Thread.currentThread().setContextClassLoader(null);
+
+        try {
+            //noinspection ConcatenationWithEmptyString
+            StringConcat concat = Commons.compile(StringConcat.class, ""
+                    + "public String apply(String first, String second) {"
+                    + "    return first + second;"
+                    + "}");
+
+            assertThat(concat.apply("foo", "bar"), is("foobar"));
+        } finally {
+            // Restore back original ClassLoader.
+            Thread.currentThread().setContextClassLoader(original);
+        }
+    }
+
     private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {
         assertEquals(expected, Mappings.apply(mapping, bitSet), "direct mapping");
 
@@ -151,5 +194,11 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         Mapping mapping = Commons.projectedMapping(source.size(), projection);
 
         assertEquals(expected, Mappings.apply(mapping, source));
+    }
+
+    /** For test purposes. */
+    @FunctionalInterface
+    public interface StringConcat {
+        String apply(String first, String second);
     }
 }

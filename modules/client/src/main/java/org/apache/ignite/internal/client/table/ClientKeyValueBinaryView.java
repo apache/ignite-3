@@ -25,17 +25,18 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -73,7 +74,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     ClientKeyValueBinaryView(ClientTable tbl, ClientSql sql) {
         super(tbl, sql);
 
-        ser = new ClientTupleSerializer(tbl.tableId());
+        ser = new ClientTupleSerializer(tbl.tableId(), tbl::qualifiedName);
     }
 
     /** {@inheritDoc} */
@@ -90,7 +91,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
-                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
+                (s, r) -> ser.readValueTuple(s, r.in()),
                 null,
                 getPartitionAwarenessProvider(key),
                 tx);
@@ -111,26 +112,26 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyMapCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Map<Tuple, Tuple>>> clo = (batch, provider) -> {
+        List<Transaction> txns = new ArrayList<>();
+
+        MapFunction<Tuple, Map<Tuple, Tuple>> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
+
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_GET_ALL,
-                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    (s, w, n) -> ser.writeTuples(tx0, batch, s, w, n, true),
                     (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
                     Collections.emptyMap(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
-        }
-
-        return tbl.split(tx, keys, clo, new HashMap<>(),
+        return tbl.splitAndRun(keys, clo, new HashMap<>(),
                 (agg, cur) -> {
                     agg.putAll(cur);
                     return agg;
                 },
-                ClientTupleSerializer::getColocationHash);
+                ClientTupleSerializer::getColocationHash, txns);
     }
 
     /** {@inheritDoc} */
@@ -209,20 +210,20 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return trueCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Boolean>> clo = (batch, provider) -> {
+        List<Transaction> txns = new ArrayList<>();
+
+        MapFunction<Tuple, Boolean> clo = (batch, provider, txRequired) -> {
+            Transaction tx0 = tbl.startTxIfNeeded(tx, txns, txRequired);
+
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    (s, w, n) -> ser.writeTuples(tx0, batch, s, w, n, true),
                     r -> r.in().unpackBoolean(),
                     provider,
-                    tx);
+                    tx0);
         };
 
-        if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
-        }
-
-        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
+        return tbl.splitAndRun(keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash, txns);
     }
 
     /** {@inheritDoc} */
@@ -265,7 +266,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return nullCompletedFuture();
         }
 
-        BiFunction<Collection<Entry<Tuple, Tuple>>, PartitionAwarenessProvider, CompletableFuture<Void>> clo = (batch, provider) -> {
+        MapFunction<Entry<Tuple, Tuple>, Void> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutOpAsync(
                     ClientOp.TUPLE_UPSERT_ALL,
                     (s, w, n) -> ser.writeKvTuples(tx, batch, s, w, n),
@@ -275,10 +276,10 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         };
 
         if (tx == null) {
-            return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(pairs.keySet().iterator().next()));
+            return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(pairs.keySet().iterator().next()), false);
         }
 
-        return tbl.split(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
+        return tbl.splitAndRun(pairs.entrySet(), clo, null, (agg, cur) -> null,
                 (schema, entry) -> ClientTupleSerializer.getColocationHash(schema, entry.getKey()));
     }
 
@@ -405,7 +406,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyCollectionCompletedFuture();
         }
 
-        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Collection<Tuple>>> clo = (batch, provider) -> {
+        MapFunction<Tuple, Collection<Tuple>> clo = (batch, provider, txRequired) -> {
             return tbl.doSchemaOutInOpAsync(
                     ClientOp.TUPLE_DELETE_ALL,
                     (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
@@ -416,10 +417,10 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         };
 
         if (tx == null) {
-            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
+            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()), false);
         }
 
-        return tbl.split(tx, keys, clo, new HashSet<>(),
+        return tbl.splitAndRun(keys, clo, new HashSet<>(),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;

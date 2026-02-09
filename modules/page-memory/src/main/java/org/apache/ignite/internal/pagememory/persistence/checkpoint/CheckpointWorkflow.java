@@ -193,7 +193,7 @@ class CheckpointWorkflow {
      * @param curr Current checkpoint event info.
      * @param tracker Checkpoint metrics tracker.
      * @param updateHeartbeat Update heartbeat callback.
-     * @param onReleaseWriteLock Callback on write lock release.
+     * @param onBeforeWriteLockRelease Callback before write lock release.
      * @return Checkpoint collected info.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -202,7 +202,7 @@ class CheckpointWorkflow {
             CheckpointProgressImpl curr,
             CheckpointMetricsTracker tracker,
             Runnable updateHeartbeat,
-            Runnable onReleaseWriteLock
+            Runnable onBeforeWriteLockRelease
     ) throws IgniteInternalCheckedException {
         List<CheckpointListener> listeners = collectCheckpointListeners(dataRegions);
 
@@ -213,6 +213,8 @@ class CheckpointWorkflow {
 
         try {
             updateHeartbeat.run();
+
+            tracker.onBeforeCheckpointBeginStart();
 
             for (CheckpointListener listener : listeners) {
                 listener.beforeCheckpointBegin(curr, executor);
@@ -225,6 +227,8 @@ class CheckpointWorkflow {
             if (executor != null) {
                 executor.awaitPendingTasksFinished();
             }
+
+            tracker.onBeforeCheckpointBeginEnd();
         } finally {
             checkpointReadWriteLock.readUnlock();
         }
@@ -267,11 +271,13 @@ class CheckpointWorkflow {
 
             curr.transitTo(PAGES_SNAPSHOT_TAKEN);
         } finally {
+            // It must be called strictly before the release write lock, otherwise it can lead to a very rare race condition on updating
+            // the partition meta and writing it to disk, which can cause problems when restarting the partition.
+            onBeforeWriteLockRelease.run();
+
             checkpointReadWriteLock.writeUnlock();
 
             tracker.onWriteLockHoldEnd();
-
-            onReleaseWriteLock.run();
         }
 
         curr.transitTo(LOCK_RELEASED);
@@ -316,11 +322,7 @@ class CheckpointWorkflow {
             }
         }
 
-        if (chp.hasDelta()) {
-            chp.progress.pagesToWrite(null);
-
-            chp.progress.clearCounters();
-        }
+        chp.finishCheckpoint();
 
         for (CheckpointListener listener : collectCheckpointListeners(dataRegions)) {
             listener.afterCheckpointEnd(chp.progress);

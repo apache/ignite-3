@@ -39,7 +39,7 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -392,7 +392,12 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     }
 
     /** Notifies the inbox that provided node has left the cluster. */
-    public void onNodeLeft(InternalClusterNode node) {
+    public void onNodeLeft(InternalClusterNode node, long version) {
+        Long topologyVersion = context().topologyVersion();
+        if (topologyVersion != null && topologyVersion > version) {
+            return; // Ignore outdated event.
+        }
+
         if (srcNodeNames.contains(node.name())) {
             this.execute(() -> onNodeLeft0(node.name()));
         }

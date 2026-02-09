@@ -54,6 +54,9 @@ dependencies {
     release project(path: ':packaging-db', configuration: 'dbRelease')
     release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
     release project(path: ':platforms', configuration: 'platformsRelease')
+    release project(path: ':packaging-dotnet-client', configuration: 'dotNetClientRelease')
+    release project(path: ':packaging-java-client', configuration: 'javaClientRelease')
+    release project(path: ':migration-tools-packaging-cli', configuration: 'cliRelease')
     localDefaults project(path: ':packaging-db', configuration: 'localDefaults')
 }
 
@@ -66,6 +69,7 @@ def cliStartScript = tasks.register('cliStartScript', CreateStartScripts) {
     classpath = files 'lib/*'
     outputDir = file "$buildDir/scripts"
     applicationName = 'ignite3'
+    defaultJvmOpts += ['--add-opens=java.base/java.lang=ALL-UNNAMED', '-Xmx256m']
 }
 
 def tokens = [
@@ -80,17 +84,30 @@ def tokens = [
 ]
 
 def replaceVars = tasks.register('replaceVars', Copy) {
-    from "$rootDir/packaging/common/linux"
+    from "$rootDir/packaging/common/linux/$tokens.SETUP_JAVA_FILE_NAME"
+    from "$rootDir/packaging/docker/$tokens.BOOTSTRAP_FILE_NAME"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
 }
 
-ext.docker_image_name = "apacheignite/ignite"
+ext.docker_image_name = "apacheignite/ignite:${project.projectVersion.toString()}"
 
 docker {
     name project.docker_image_name
     dockerfile file('docker/Dockerfile')
+
+    if (project.hasProperty('target_platform')) {
+        platform project.properties["target_platform"]
+        buildx true
+    }
+
+    if (project.hasProperty('docker_push')) {
+        load false
+        push true
+    } else {
+        load true
+    }
 
     copySpec.into 'dist', {
         into('') {

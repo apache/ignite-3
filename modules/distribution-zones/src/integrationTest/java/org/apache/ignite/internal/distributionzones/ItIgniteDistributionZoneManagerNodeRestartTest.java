@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deserializeLatestDataNodesHistoryEntry;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX;
@@ -39,7 +38,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.metastorage.dsl.OperationType.NO_OP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -106,8 +104,10 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -307,6 +307,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 () -> TEST_DELAY_DURATION
         );
 
+        LowWatermark lowWatermark = mock(LowWatermark.class);
+        when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(System.currentTimeMillis() - 600_000, 0));
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 () -> clusterSvc.topologyService().localMember().id(),
@@ -316,7 +319,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 catalogManager,
                 clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
                 clockService,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                lowWatermark
         );
 
         // Preparing the result map.
@@ -431,13 +435,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertValueInStorage(metastore, zonesLastHandledTopology(), this::deserializeLogicalTopologySet, logicalTopology, TIMEOUT_MILLIS);
 
-        int zoneId = getDefaultZoneId(node);
+        createDefaultZone(node);
+
+        int defaultZoneId = getDefaultZoneId(node);
 
         assertDataNodesFromManager(
                 distributionZoneManager,
                 metastore::appliedRevision,
                 catalogManager::latestCatalogVersion,
-                zoneId,
+                defaultZoneId,
                 Set.of(A, B),
                 TIMEOUT_MILLIS
         );
@@ -479,7 +485,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 distributionZoneManager,
                 metastore::appliedRevision,
                 catalogManager::latestCatalogVersion,
-                zoneId,
+                defaultZoneId,
                 Set.of(A, B, C),
                 TIMEOUT_MILLIS
         );
@@ -498,7 +504,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
-        awaitDefaultZoneCreation(node);
+        createDefaultZone(node);
 
         startGlobalStateUpdateBlocking = true;
         startScaleUpBlocking = true;
@@ -603,11 +609,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertTrue(waitForCondition(() -> logicalTopology.equals(distributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
 
-        int zoneId = getDefaultZoneId(node);
+        createDefaultZone(node);
+        int defaultZoneId = getDefaultZoneId(node);
 
         assertValueInStorage(
                 metastore,
-                zoneDataNodesHistoryKey(zoneId),
+                zoneDataNodesHistoryKey(defaultZoneId),
                 (v) -> dataNodes(deserializeLatestDataNodesHistoryEntry(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(A.name(), B.name(), C.name()),
                 TIMEOUT_MILLIS
@@ -641,6 +648,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     })
     public void testLocalDataNodesAreRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
+
+        createDefaultZone(node);
 
         String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, consistencyMode);
 
@@ -682,6 +691,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     })
     public void testScaleUpTimerIsRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
+
+        createDefaultZone(node);
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
@@ -744,6 +755,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testScaleDownTimerIsRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
+        createDefaultZone(node);
+
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
 
@@ -756,7 +769,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 distributionZoneManager,
                 metastore::appliedRevision,
                 catalogManager::latestCatalogVersion,
-                0,
+                getDefaultZoneId(node),
                 Set.of(A, B),
                 TIMEOUT_MILLIS
         );
@@ -807,8 +820,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         String zoneName;
 
         if (useDefaultZone) {
-            awaitDefaultZoneCreation(node);
-
             CatalogZoneDescriptor defaultZone = getDefaultZone(getCatalogManager(node), node.clock().nowLong());
             zoneName = defaultZone.name();
 
@@ -878,6 +889,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         return getDefaultZone(getCatalogManager(node), node.clock().nowLong()).id();
     }
 
+    private static void createDefaultZone(PartialNode node) {
+        DistributionZonesTestUtil.createDefaultZone(getCatalogManager(node));
+    }
+
     private static void alterZone(
             PartialNode node,
             String zoneName,
@@ -886,20 +901,5 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             @Nullable String filter
     ) {
         DistributionZonesTestUtil.alterZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, filter);
-    }
-
-    private static void awaitDefaultZoneCreation(PartialNode node) {
-        CatalogManager manager = findComponent(node.startedComponents(), CatalogManager.class);
-
-        assert manager != null;
-
-        if (colocationEnabled()) {
-            assertThat("Catalog initialization", manager.catalogInitializationFuture(), willCompleteSuccessfully());
-            CatalogZoneDescriptor defaultZone = getDefaultZone(manager, node.clock().nowLong());
-
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setZoneAutoAdjustScaleUpToImmediate(getCatalogManager(node), defaultZone.name());
-        }
     }
 }

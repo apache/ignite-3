@@ -56,6 +56,7 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -176,6 +177,11 @@ public class TableImpl implements TableViewInternal {
         return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
     }
 
+    @Override
+    public PartitionDistribution partitionDistribution() {
+        return partitionManager();
+    }
+
     @Override public QualifiedName qualifiedName() {
         return tbl.name();
     }
@@ -223,7 +229,7 @@ public class TableImpl implements TableViewInternal {
 
         // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
         // columns never change (so they are the same for all schema versions of the table),
-        Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
+        Row keyRow = new TupleMarshallerImpl(tbl::name, schemaReg.lastKnownSchema()).marshalKey(key);
 
         return tbl.partitionId(keyRow);
     }
@@ -283,10 +289,7 @@ public class TableImpl implements TableViewInternal {
     ) {
         int indexId = indexDescriptor.id();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
-        partitions.stream().forEach(partitionId -> {
-            tbl.storage().createHashIndex(partitionId, indexDescriptor);
-        });
+        partitions.stream().forEach(partitionId -> tbl.storage().createHashIndex(partitionId, indexDescriptor));
 
         indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }
@@ -300,10 +303,7 @@ public class TableImpl implements TableViewInternal {
     ) {
         int indexId = indexDescriptor.id();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
-        partitions.stream().forEach(partitionId -> {
-            tbl.storage().createSortedIndex(partitionId, indexDescriptor);
-        });
+        partitions.stream().forEach(partitionId -> tbl.storage().createSortedIndex(partitionId, indexDescriptor));
 
         indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }

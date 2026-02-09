@@ -44,7 +44,6 @@ dependencies {
 
     annotationProcessor project(':ignite-network-annotation-processor')
 
-    testImplementation project(':ignite-network')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-configuration'))
@@ -52,6 +51,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation testFixtures(project(':ignite-configuration-system'))
+    testImplementation testFixtures(project(':ignite-raft'))
 
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-network')

@@ -96,6 +96,7 @@ class DataNodesHistoryMetaStorageOperation {
                 + (historyEntryAdded ? ", historyEntryTimestamp=" + historyEntryTimestamp + ", nodes=" + nodeNames(nodes) : "")
                 + (historyEntryAdded ? "" : ", latestNodesWritten=" + nodeNames(latestNodesWritten))
                 + "]"
+                + ", dataNodesHistorySize=" + currentDataNodesHistory.size()
                 + (scaleUpTimer == null ? "" : ", scaleUpTimer=" + scaleUpTimer)
                 + (scaleDownTimer == null ? "" : ", scaleDownTimer=" + scaleDownTimer)
                 + "].";

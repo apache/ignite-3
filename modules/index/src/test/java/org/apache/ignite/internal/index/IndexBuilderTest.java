@@ -41,20 +41,22 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link IndexBuilder} testing. */
@@ -73,12 +75,23 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final ExecutorService executorService = newSingleThreadExecutor();
 
+    private final IndexMetaStorage indexMetaStorage = mock(IndexMetaStorage.class);
+
+    private final TestMetricManager metricManager = new TestMetricManager();
+
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             replicaService,
             new NoOpFailureManager(),
-            new SystemPropertiesNodeProperties()
+            new CommittedFinalTransactionStateResolver(),
+            indexMetaStorage,
+            metricManager
     );
+
+    @BeforeEach
+    void configureMocks() {
+        IndexMetaStorageMocks.configureMocksForBuildingPhase(indexMetaStorage);
+    }
 
     @AfterEach
     void tearDown() throws Exception {
@@ -153,7 +166,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
         when(replicaService.invoke(any(InternalClusterNode.class), any()))
-                .thenReturn(failedFuture(new ReplicationTimeoutException(new TablePartitionId(TABLE_ID, PARTITION_ID))))
+                .thenReturn(failedFuture(new ReplicationTimeoutException(new ZonePartitionId(ZONE_ID, PARTITION_ID))))
                 .thenReturn(nullCompletedFuture());
 
         scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));

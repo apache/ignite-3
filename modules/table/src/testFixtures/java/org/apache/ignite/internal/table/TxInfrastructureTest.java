@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.distributed.ItTxTestCluster;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -55,7 +56,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -118,6 +119,9 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration
+    protected SystemLocalConfiguration systemLocalConfiguration;
+
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     protected SystemDistributedConfiguration systemDistributedConfiguration;
 
@@ -177,6 +181,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                systemLocalConfiguration,
                 systemDistributedConfiguration,
                 workDir,
                 nodes(),
@@ -294,11 +299,11 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-            PartitionListener listener;
+            TablePartitionProcessor listener;
             if (colocationEnabled()) {
-                listener = (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
+                listener = (TablePartitionProcessor) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
             } else {
-                listener = (PartitionListener) fsm.getListener();
+                listener = (TablePartitionProcessor) fsm.getListener();
             }
 
             MvPartitionStorage storage = listener.getMvStorage();

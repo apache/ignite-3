@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.lang.Math.toIntExact;
+import static org.apache.ignite.internal.raft.storage.segstore.IndexFileManager.SEGMENT_FILE_OFFSET_SIZE;
+
 import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,10 +48,10 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray add(IndexFileMeta indexFileMeta) {
-        assert indexFileMeta.firstLogIndex() == array[size - 1].lastLogIndex() + 1 :
+        assert indexFileMeta.firstLogIndexInclusive() == array[size - 1].lastLogIndexExclusive() :
                 String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
-                        array[size - 1].lastLogIndex() + 1,
-                        indexFileMeta.firstLogIndex()
+                        array[size - 1].lastLogIndexExclusive(),
+                        indexFileMeta.firstLogIndexInclusive()
                 );
 
         // The array can be shared between multiple instances, but since it always grows and we read at most "size" elements,
@@ -72,11 +75,33 @@ class IndexFileMetaArray {
         return size;
     }
 
+    long firstLogIndexInclusive() {
+        IndexFileMeta firstMeta = array[0];
+        IndexFileMeta lastMeta = array[size - 1];
+
+        if (firstMeta.firstLogIndexInclusive() >= lastMeta.lastLogIndexExclusive()) {
+            // Log for this group has been truncated.
+            return -1;
+        }
+
+        return firstMeta.firstLogIndexInclusive();
+    }
+
+    long lastLogIndexExclusive() {
+        return array[size - 1].lastLogIndexExclusive();
+    }
+
     /**
      * Returns the {@link IndexFileMeta} containing the given Raft log index or {@code null} if no such meta exists.
      */
     @Nullable
     IndexFileMeta find(long logIndex) {
+        int arrayIndex = findArrayIndex(logIndex);
+
+        return arrayIndex == -1 ? null : array[arrayIndex];
+    }
+
+    private int findArrayIndex(long logIndex) {
         int lowArrayIndex = 0;
         int highArrayIndex = size - 1;
 
@@ -85,15 +110,57 @@ class IndexFileMetaArray {
 
             IndexFileMeta midValue = array[middleArrayIndex];
 
-            if (logIndex < midValue.firstLogIndex()) {
+            if (logIndex < midValue.firstLogIndexInclusive()) {
                 highArrayIndex = middleArrayIndex - 1;
-            } else if (logIndex > midValue.lastLogIndex()) {
+            } else if (logIndex >= midValue.lastLogIndexExclusive()) {
                 lowArrayIndex = middleArrayIndex + 1;
             } else {
-                return midValue;
+                return middleArrayIndex;
             }
         }
 
-        return null;
+        return -1;
+    }
+
+    IndexFileMetaArray truncateIndicesSmallerThan(long firstLogIndexKept) {
+        int firstLogIndexKeptArrayIndex = findArrayIndex(firstLogIndexKept);
+
+        assert firstLogIndexKeptArrayIndex >= 0 : String.format(
+                "Missing entry for log index %d in range [%d:%d).",
+                firstLogIndexKept, firstLogIndexInclusive(), lastLogIndexExclusive()
+        );
+
+        IndexFileMeta metaToUpdate = array[firstLogIndexKeptArrayIndex];
+
+        int numEntriesToSkip = toIntExact(firstLogIndexKept - metaToUpdate.firstLogIndexInclusive());
+
+        assert numEntriesToSkip >= 0 : String.format(
+                "Trying to do a no-op prefix truncate from index %d in range [%d:%d).",
+                firstLogIndexKept, firstLogIndexInclusive(), lastLogIndexExclusive()
+        );
+
+        // Move the payload offset pointer to skip truncated entries (each entry is 4 bytes).
+        int adjustedPayloadOffset = metaToUpdate.indexFilePayloadOffset() + numEntriesToSkip * SEGMENT_FILE_OFFSET_SIZE;
+
+        var trimmedMeta = new IndexFileMeta(
+                firstLogIndexKept,
+                metaToUpdate.lastLogIndexExclusive(),
+                adjustedPayloadOffset,
+                metaToUpdate.indexFileOrdinal()
+        );
+
+        // Create a new array: the trimmed meta becomes the first element, other elements with "firstLogIndexInclusive" larger
+        // than "firstLogIndexKept" are copied from the old array.
+        IndexFileMeta[] newArray = new IndexFileMeta[array.length];
+
+        newArray[0] = trimmedMeta;
+
+        int newSize = size - firstLogIndexKeptArrayIndex;
+
+        if (newSize > 1) {
+            System.arraycopy(array, firstLogIndexKeptArrayIndex + 1, newArray, 1, newSize - 1);
+        }
+
+        return new IndexFileMetaArray(newArray, newSize);
     }
 }

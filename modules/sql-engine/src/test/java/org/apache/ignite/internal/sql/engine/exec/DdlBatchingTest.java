@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -92,7 +91,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     @Test
     void schemaAndTableCreatedInTheSameBatch() {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
-                "CREATE SCHEMA my_schema;" 
+                "CREATE SCHEMA my_schema;"
                         + "CREATE TABLE my_schema.t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE INDEX t1_ind_1 ON my_schema.t1 (val_1);"
         );
@@ -197,12 +196,151 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void batchIsSplitByAlter() {
+        AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
+                "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "ALTER TABLE t1 ADD COLUMN val_3 INT;"
+                        + "ALTER TABLE t1 DROP COLUMN val_2;"
+                        + "CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+        );
+
+        // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // ALTER TABLE t ADD COLUMN val_3 INT;
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // ALTER TABLE t DROP COLUMN val_2 INT;
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(false));
+
+        // ALTER splits the batch
+        assertEquals(4, executeCallCounter.get());
+
+        assertTableExists("t1");
+        assertTableExists("t2");
+    }
+
+    @Test
+    void batchIsSplitByDrop() {
+        AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
+                "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
+                        + "DROP TABLE t1;"
+                        + "DROP TABLE t2;"
+                        + "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+        );
+
+        // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t1_ind_1 ON t1 (val_1)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP TABLE t1
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP TABLE t2
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(false));
+
+        assertEquals(2, executeCallCounter.get());
+        assertTableExists("t1");
+        assertIndexNotExists("t1_ind_1");
+    }
+
+    @Test
+    void batchIsSplitByDropIndex() {
+        AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
+                "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                        + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
+                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
+                        + "DROP INDEX t1_ind_1;"
+                        + "DROP INDEX t1_ind_2;"
+                        + "DROP TABLE t1;"
+        );
+
+        // CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT)
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t1_ind_1 ON t1 (val_1)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // CREATE INDEX t1_ind_2 ON t1 (val_2)
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP INDEX t1_ind_1
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP INDEX t1_ind_1
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(true));
+        assertThat(cursor.nextResult(), willSucceedFast());
+
+        // DROP TABLE t1
+        cursor = cursor.nextResult().join();
+        assertDdlResult(cursor, true);
+        assertThat(cursor.hasNextResult(), is(false));
+
+        assertEquals(3, executeCallCounter.get());
+        assertTableNotExists("t1");
+        assertIndexNotExists("t1_ind_1");
+        assertIndexNotExists("t1_ind_2");
+    }
+
+    @Test
     void batchIsSplitByOtherStatements() {
         AsyncSqlCursor<InternalSqlRow> cursor = gatewayNode.executeQuery(
                 "INSERT INTO blackhole SELECT x FROM system_range(1, 10);"
                         + "CREATE TABLE t1 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE INDEX t1_ind_1 ON t1 (val_1);"
-                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);" 
+                        + "CREATE INDEX t1_ind_2 ON t1 (val_2);"
                         + "INSERT INTO blackhole SELECT x FROM system_range(1, 10);"
                         + "CREATE TABLE t2 (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
                         + "CREATE INDEX t2_ind_1 ON t2 (val_1);"
@@ -286,7 +424,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willThrowFast(
-                CatalogValidationException.class,
+                SqlException.class,
                 "Table with name 'PUBLIC.T1' already exists"
         ));
 
@@ -362,15 +500,17 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
                 executeCallCounter.get()
         );
 
+        cursor.closeAsync();
+
         assertTableNotExists("t1");
         assertIndexNotExists("t1_ind_1");
     }
 
     /**
-     * This case makes sure that exception thrown is matched the order of execution, and not the order 
+     * This case makes sure that exception thrown is matched the order of execution, and not the order
      * exceptions appear.
      *
-     * <p>To be more specific, first seen exception relates to absent PK definition in 3rd statement, but 
+     * <p>To be more specific, first seen exception relates to absent PK definition in 3rd statement, but
      * during execution the exception that should be thrown is the one denoting that table with given name
      * already exists (2nd statement).
      */
@@ -387,7 +527,7 @@ public class DdlBatchingTest extends BaseIgniteAbstractTest {
         assertDdlResult(cursor, true);
         assertThat(cursor.hasNextResult(), is(true));
         assertThat(cursor.nextResult(), willThrowFast(
-                CatalogValidationException.class,
+                SqlException.class,
                 "Table with name 'PUBLIC.T1' already exists"
         ));
 

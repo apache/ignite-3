@@ -19,6 +19,8 @@ package org.apache.ignite.internal.app;
 
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.UNSUPPORTED_TABLE_BASED_REPLICATION_ERR;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +34,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Default implementation of {@link NodeProperties} using {@link VaultManager} for persistence.
@@ -67,16 +70,26 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
         VaultEntry entry = vaultManager.get(ZONE_BASED_REPLICATION_KEY);
         if (entry != null) {
             colocationEnabled = entry.value()[0] == 1;
-
+            if (!colocationEnabled) {
+                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported."
+                        + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
+            }
             logComment = "from Vault";
         } else {
             boolean freshNode = vaultManager.name() == null;
             if (freshNode) {
                 colocationEnabled = IgniteSystemProperties.colocationEnabled();
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+                // It's a temporary code that will be removed when !colocation mode will be fully dropped. That's the reason why instead of
+                // introducing new error code, existing somewhat related is used.
+                if (!colocationEnabled) {
+                    throw new IgniteException(ILLEGAL_ARGUMENT_ERR, "Table based replication is no longer supported, consider restarting"
+                            + " the node in zone based replication mode.");
+                }
                 logComment = "from system properties on a fresh node";
             } else {
-                colocationEnabled = false;
-                logComment = "node of an older version was run without zone based replication";
+                throw new IgniteException(UNSUPPORTED_TABLE_BASED_REPLICATION_ERR, "Table based replication is no longer supported."
+                        + " Downgrade back to 3.1 and copy your data to a cluster of desired version.");
             }
 
             saveToVault(colocationEnabled);
@@ -88,6 +101,10 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
                     "Zone based replication status configured via system properties ({}) does not match, it is ignored",
                     IgniteSystemProperties.colocationEnabled()
             );
+        }
+        if (!colocationEnabled) {
+            LOG.warn("Zone based replication is disabled, so table based replication is used. This mode is deprecated and will be removed "
+                    + "in version 3.2. Consider migrating to zone based replication (which is default now).");
         }
     }
 

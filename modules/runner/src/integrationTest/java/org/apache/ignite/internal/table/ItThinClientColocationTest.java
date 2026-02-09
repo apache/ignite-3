@@ -127,7 +127,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
         var colocationColumns = List.of(columnName);
         var schema = new SchemaDescriptor(1, columns, colocationColumns, colocationColumns);
 
-        return new TupleMarshallerImpl(schema);
+        return KeyValueTestUtils.createMarshaller(schema);
     }
 
     private static Stream<Arguments> nativeTypes() {

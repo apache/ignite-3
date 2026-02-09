@@ -21,6 +21,7 @@ using System;
 using System.Net;
 using System.Net.Security;
 using Ignite.Sql;
+using Ignite.Transactions;
 using Microsoft.Extensions.Logging;
 using Proto;
 
@@ -137,7 +138,7 @@ internal static partial class LogMessages
     internal static partial void LogUnexpectedResponseIdError(this ILogger logger, Exception? ex, string message);
 
     [LoggerMessage(
-        Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}",
+        Message = "Partition assignment change notification received [remoteAddress={RemoteAddress}, timestamp={Timestamp}]",
         Level = LogLevel.Information,
         EventId = 1017)]
     internal static partial void LogPartitionAssignmentChangeNotificationInfo(
@@ -200,11 +201,11 @@ internal static partial class LogMessages
         this ILogger logger, string retrying, int op, ClientOp opType, int attempt, string lastErrorMessage);
 
     [LoggerMessage(
-        Message = "Received response [requestId={RequestId}, flags={Flags}, remoteAddress={RemoteAddress}]",
+        Message = "Received response [requestId={RequestId}, op={Op}, flags={Flags}, remoteAddress={RemoteAddress}, duration={Duration}, observableTs={ObservableTs}]",
         Level = LogLevel.Trace,
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
-        this ILogger logger, long requestId, ResponseFlags flags, EndPoint remoteAddress);
+        this ILogger logger, long requestId, ClientOp op, ResponseFlags flags, EndPoint remoteAddress, TimeSpan? duration, long observableTs);
 
     [LoggerMessage(
         Message = "Failed to send server op response [requestId={RequestId}, message={Message}]",
@@ -226,4 +227,44 @@ internal static partial class LogMessages
         EventId = 1030)]
     internal static partial void LogFailedTableOpDebug(
         this ILogger logger, Exception e, ClientOp op);
+
+    [LoggerMessage(
+        Message = "Failed to dispose socket",
+        Level = LogLevel.Warning,
+        EventId = 1031)]
+    internal static partial void LogFailedSocketDispose(
+        this ILogger logger, Exception e);
+
+    [LoggerMessage(
+        Message = "ObservableTs updated [prev={Prev}, current={Current}]",
+        Level = LogLevel.Trace,
+        EventId = 1032)]
+    internal static partial void LogObservableTsUpdatedTrace(
+        this ILogger logger, long prev, long current);
+
+    [LoggerMessage(
+        Message = "Lazy tx created [options={Options}, readTimestamp={ReadTimestamp}]",
+        Level = LogLevel.Trace,
+        EventId = 1033)]
+    internal static partial void LogLazyTxCreatedTrace(
+        this ILogger logger, TransactionOptions options, long readTimestamp);
+
+    [LoggerMessage(
+        Message = "Tx started [options={Options}, readTimestamp={ReadTimestamp}, txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1034)]
+    internal static partial void LogTxStartedTrace(
+        this ILogger logger, TransactionOptions options, long readTimestamp, long txId);
+
+    [LoggerMessage(
+        Message = "Tx committed [txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1035)]
+    internal static partial void LogTxCommitTrace(this ILogger logger, long txId);
+
+    [LoggerMessage(
+        Message = "Tx rolled back [txId={TxId}]",
+        Level = LogLevel.Trace,
+        EventId = 1036)]
+    internal static partial void LogTxRollbackTrace(this ILogger logger, long txId);
 }

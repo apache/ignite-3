@@ -73,7 +73,7 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
     void testIncreaseReplicas() throws Exception {
         cluster.stop();
 
-        cluster.startEmbedded(nodesCount(), false);
+        cluster.startEmbedded(nodesCount());
 
         sql(String.format("ALTER ZONE %s SET REPLICAS=3, DATA_NODES_FILTER='$..*'", ZONE_NAME));
 
@@ -84,8 +84,7 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
         assertThat(sql(cluster.node(2), String.format("SELECT * FROM %s", TABLE_NAME)), hasSize(10));
     }
 
-    private void waitForZoneState(String zoneName, Predicate<CatalogZoneDescriptor> predicate)
-            throws InterruptedException {
+    private void waitForZoneState(String zoneName, Predicate<CatalogZoneDescriptor> predicate) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             boolean tested = true;
 
@@ -96,6 +95,6 @@ public class ItApplyPartitionRaftLogOnAnotherNodesCompatibilityTest extends Comp
             }
 
             return tested;
-        }, 10_0000));
+        }, 10_000));
     }
 }

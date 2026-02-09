@@ -39,7 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 /**
  * Interface for VersionChain B+Tree-related IO. Defines a following data layout:
  * <pre><code>
- * [rowId's UUID (16 bytes), txId (16 bytes), commitTableId (16 bytes), commitPartitionId (2 bytes), head link (6 bytes),
+ * [rowId's UUID (16 bytes), txId (16 bytes), commitZoneId (16 bytes), commitPartitionId (2 bytes), head link (6 bytes),
  * next link (6 bytes)]
  * </code></pre>
  */
@@ -56,11 +56,11 @@ public interface VersionChainIo {
     /** Offset of txId's least significant bits, 8 bytes. */
     int TX_ID_LSB_OFFSET = TX_ID_MSB_OFFSET + Long.BYTES;
 
-    /** Offset of commit table id. */
-    int COMMIT_TABLE_ID = TX_ID_LSB_OFFSET + Long.BYTES;
+    /** Offset of commit zone id. */
+    int COMMIT_ZONE_ID_OFFSET = TX_ID_LSB_OFFSET + Long.BYTES;
 
     /** Offset of commit partition id. */
-    int COMMIT_PARTITION_ID_OFFSET = COMMIT_TABLE_ID + Integer.BYTES;
+    int COMMIT_PARTITION_ID_OFFSET = COMMIT_ZONE_ID_OFFSET + Integer.BYTES;
 
     /** Offset of partitionless head link, 6 bytes. */
     int HEAD_LINK_OFFSET = COMMIT_PARTITION_ID_OFFSET + Short.BYTES;
@@ -106,23 +106,23 @@ public interface VersionChainIo {
         putLong(pageAddr, off + ROW_ID_LSB_OFFSET, rowId.leastSignificantBits());
 
         UUID txId = row.transactionId();
-        Integer commitTableId = row.commitTableId();
+        Integer commitZoneId = row.commitZoneId();
         int commitPartitionId = row.commitPartitionId();
 
         if (txId == null) {
-            assert commitTableId == null;
+            assert commitZoneId == null;
             assert commitPartitionId == -1;
 
             putLong(pageAddr, off + TX_ID_MSB_OFFSET, NULL_UUID_COMPONENT);
             putLong(pageAddr, off + TX_ID_LSB_OFFSET, NULL_UUID_COMPONENT);
         } else {
-            assert commitTableId != null;
+            assert commitZoneId != null;
             assert commitPartitionId >= 0;
 
             putLong(pageAddr, off + TX_ID_MSB_OFFSET, txId.getMostSignificantBits());
             putLong(pageAddr, off + TX_ID_LSB_OFFSET, txId.getLeastSignificantBits());
 
-            putInt(pageAddr, off + COMMIT_TABLE_ID, commitTableId);
+            putInt(pageAddr, off + COMMIT_ZONE_ID_OFFSET, commitZoneId);
             putShort(pageAddr, off + COMMIT_PARTITION_ID_OFFSET, (short) commitPartitionId);
         }
 
@@ -178,11 +178,11 @@ public interface VersionChainIo {
         long nextLink = readPartitionless(partitionId, pageAddr, offset + NEXT_LINK_OFFSET);
 
         if (txId != null) {
-            int commitTableId = getInt(pageAddr, offset + COMMIT_TABLE_ID);
+            int commitZoneId = getInt(pageAddr, offset + COMMIT_ZONE_ID_OFFSET);
 
             int commitPartitionId = getShort(pageAddr, offset + COMMIT_PARTITION_ID_OFFSET) & 0xFFFF;
 
-            return VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, headLink, nextLink);
+            return VersionChain.createUncommitted(rowId, txId, commitZoneId, commitPartitionId, headLink, nextLink);
         }
 
         return VersionChain.createCommitted(rowId, headLink, nextLink);

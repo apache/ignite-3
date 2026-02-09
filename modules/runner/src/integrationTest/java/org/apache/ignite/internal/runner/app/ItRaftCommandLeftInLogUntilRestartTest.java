@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -178,7 +177,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         InternalClusterNode leader = ReplicaTestUtils.leaderAssignment(
                 node0,
-                colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                table.internalTable().zoneId(),
                 0
         );
 
@@ -201,14 +200,14 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
                             node0,
-                            colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                            table.internalTable().zoneId(),
                             0
                     )
                     .orElseThrow(AssertionError::new);
 
             raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer, false), willCompleteSuccessfully()));
 
-            leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.tableId() + "_part_0"));
+            leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.zoneId() + "_part_0"));
 
             afterBlock.accept(tx);
 
@@ -234,7 +233,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
     private static Row marshalKey(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
-        var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
+        var marshaller = new TupleMarshallerImpl(table::qualifiedName, schemaReg.lastKnownSchema());
 
         return marshaller.marshalKey(tuple);
     }
@@ -360,7 +359,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
                         ignite,
-                        colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                        table.internalTable().zoneId(),
                         0
                 )
                 .orElseThrow(AssertionError::new);

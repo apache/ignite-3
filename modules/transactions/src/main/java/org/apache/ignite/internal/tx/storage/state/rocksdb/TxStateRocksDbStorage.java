@@ -35,10 +35,10 @@ import org.jetbrains.annotations.Nullable;
  * RocksDb implementation of {@link TxStateStorage}.
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
-    static final int TABLE_OR_ZONE_ID_SIZE_BYTES = Integer.BYTES;
+    static final int ZONE_ID_SIZE_BYTES = Integer.BYTES;
 
-    /** Prefix length for the payload within a table/zone. Consists of tableId/zoneId (4 bytes) in Big Endian.  */
-    static final int TABLE_OR_ZONE_PREFIX_SIZE_BYTES = TABLE_OR_ZONE_ID_SIZE_BYTES;
+    /** Prefix length for the payload within a zone. Consists of zoneId (4 bytes) in Big Endian. */
+    static final int ZONE_PREFIX_SIZE_BYTES = ZONE_ID_SIZE_BYTES;
 
     /** Partition storages. */
     private final AtomicReferenceArray<TxStateRocksDbPartitionStorage> storages;
@@ -49,7 +49,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Table/zone ID. */
+    /** Zone ID. */
     final int id;
 
     final TxStateRocksDbSharedStorage sharedStorage;
@@ -57,7 +57,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /**
      * Constructor.
      *
-     * @param id Table/zone ID.
+     * @param id zone ID.
      * @param partitions Count of partitions.
      */
     public TxStateRocksDbStorage(
@@ -80,7 +80,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         if (partitionId < 0 || partitionId >= storages.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "tableId/zoneId", id, false,
+                    "zoneId", id, false,
                     "partitionId", partitionId, false,
                     "partitions", storages.length(), false
             ));
@@ -88,7 +88,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
+    public TxStateRocksDbPartitionStorage getOrCreatePartitionStorage(int partitionId) {
         checkPartitionId(partitionId);
 
         TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
@@ -104,8 +104,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return storage;
     }
 
-    @Override
-    public TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+    /*
+     * Creates transaction state storage for partition.
+     *
+     * @param partitionId Partition id.
+     * @throws IgniteInternalException In case when the operation has failed.
+     */
+    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
         return new TxStateRocksDbPartitionStorage(partitionId, this);
     }
 
@@ -151,7 +156,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             reverse(resources);
             closeAll(resources);
         } catch (Exception e) {
-            throw new TxStateStorageException("Failed to stop transaction state storage [tableOrZoneId={}]", e, id);
+            throw new TxStateStorageException("Failed to stop transaction state storage [zoneId={}]", e, id);
         }
     }
 

@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +37,7 @@ import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.mockito.Mockito;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Fake catalog service.
@@ -77,8 +78,10 @@ public class FakeCatalogService implements CatalogService {
                     .primaryKeyIndexId(0)
                     .name("table")
                     .zoneId(zoneId)
-                    .columns(List.of(Mockito.mock(CatalogTableColumnDescriptor.class)))
-                    .primaryKeyColumns(List.of("pk"))
+                    .newColumns(List.of(
+                            new CatalogTableColumnDescriptor(0, "c1", ColumnType.INT32, false, 0, 0, 0, null)
+                    ))
+                    .primaryKeyColumns(IntList.of(0))
                     .storageProfile(DEFAULT_STORAGE_PROFILE)
                     .build();
         }).when(catalog).table(anyInt());
@@ -125,6 +128,11 @@ public class FakeCatalogService implements CatalogService {
     @Override
     public int latestCatalogVersion() {
         return 0;
+    }
+
+    @Override
+    public Catalog latestCatalog() {
+        return catalog;
     }
 
     @Override

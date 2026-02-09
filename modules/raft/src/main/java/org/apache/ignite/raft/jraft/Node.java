@@ -72,6 +72,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     boolean isLeader();
 
     /**
+     * Returns true when the node is a learner.
+     */
+    boolean isLearner();
+
+    /**
      * Returns true when the node is leader.
      *
      * @param blocking if true, will be blocked until the node finish it's state change
@@ -114,8 +119,8 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     /**
      * List peers of this raft group, only leader returns.
      *
-     * [NOTE] <strong>when list_peers concurrency with {@link #addPeer(PeerId, Closure)}/{@link #removePeer(PeerId,
-     * Closure)}, maybe return peers is staled.  Because {@link #addPeer(PeerId, Closure)}/{@link #removePeer(PeerId,
+     * [NOTE] <strong>when list_peers concurrency with {@link #addPeer(PeerId, long, Closure)}/{@link #removePeer(PeerId, long,
+     * Closure)}, maybe return peers is staled.  Because {@link #addPeer(PeerId, long, Closure)}/{@link #removePeer(PeerId, long,
      * Closure)} immediately modify configuration in memory</strong>
      *
      * @return the peer list
@@ -135,9 +140,9 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     /**
      * List all learners of this raft group, only leader returns.</p>
      *
-     * [NOTE] <strong>when listLearners concurrency with {@link #addLearners(List, Closure)}/{@link
-     * #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}, maybe return peers is staled.  Because
-     * {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}
+     * [NOTE] <strong>when listLearners concurrency with {@link #addLearners(List, long, Closure)}/{@link
+     * #removeLearners(List,  long, Closure)}/{@link #resetLearners(List, long, Closure)}, maybe return peers is staled.  Because
+     * {@link #addLearners(List, long, Closure)}/{@link #removeLearners(List, long, Closure)}/{@link #resetLearners(List, long, Closure)}
      * immediately modify configuration in memory</strong>
      *
      * @return the learners set
@@ -147,9 +152,9 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     /**
      * List all alive learners of this raft group, only leader returns.</p>
      *
-     * [NOTE] <strong>when listAliveLearners concurrency with {@link #addLearners(List, Closure)}/{@link
-     * #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}, maybe return peers is staled.  Because
-     * {@link #addLearners(List, Closure)}/{@link #removeLearners(List, Closure)}/{@link #resetLearners(List, Closure)}
+     * [NOTE] <strong>when listAliveLearners concurrency with {@link #addLearners(List, long, Closure)}/{@link
+     * #removeLearners(List, long, Closure)}/{@link #resetLearners(List, long, Closure)}, maybe return peers is staled.  Because
+     * {@link #addLearners(List, long, Closure)}/{@link #removeLearners(List, long, Closure)}/{@link #resetLearners(List, long, Closure)}
      * immediately modify configuration in memory</strong>
      *
      * @return the  alive learners set
@@ -161,18 +166,20 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * detailed result.
      *
      * @param peer peer to add
+     * @param sequenceToken Sequence token of the current change.
      * @param done callback
      */
-    void addPeer(final PeerId peer, final Closure done);
+    void addPeer(final PeerId peer, long sequenceToken, final Closure done);
 
     /**
      * Remove the peer from the raft group. done.run() would be invoked after operation finishes, describing the
      * detailed result.
      *
      * @param peer peer to remove
+     * @param sequenceToken Sequence token of the current change.
      * @param done callback
      */
-    void removePeer(final PeerId peer, final Closure done);
+    void removePeer(final PeerId peer, long sequenceToken, final Closure done);
 
     /**
      * Change the configuration of the raft group to |newPeers| , done.run() would be invoked after this operation
@@ -210,27 +217,30 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * detailed result.
      *
      * @param learners learners to add
+     * @param sequenceToken Sequence token of the current change.
      * @param done callback
      */
-    void addLearners(final List<PeerId> learners, final Closure done);
+    void addLearners(final List<PeerId> learners, long sequenceToken, final Closure done);
 
     /**
      * Remove some learners from the raft group. done.run() will be invoked after this operation finishes, describing
      * the detailed result.
      *
      * @param learners learners to remove
+     * @param sequenceToken Sequence token of the current change.
      * @param done callback
      */
-    void removeLearners(final List<PeerId> learners, final Closure done);
+    void removeLearners(final List<PeerId> learners, long sequenceToken, final Closure done);
 
     /**
      * Reset learners in the raft group. done.run() will be invoked after this operation finishes, describing the
      * detailed result.
      *
      * @param learners learners to set
+     * @param sequenceToken Sequence token of the current change.
      * @param done callback
      */
-    void resetLearners(final List<PeerId> learners, final Closure done);
+    void resetLearners(final List<PeerId> learners, long sequenceToken, final Closure done);
 
     /**
      * Start a snapshot immediately if possible. done.run() would be invoked when the snapshot finishes, describing the

@@ -24,11 +24,11 @@ import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
 
 /** Call to deploy a unit and refresh units registry. */
 public class DeployUnitReplCall implements AsyncCall<DeployUnitCallInput, String>  {
-    private final DeployUnitCall deployUnitCall;
+    private final AsyncCall<DeployUnitCallInput, String> deployUnitCall;
 
     private final UnitsRegistry unitsRegistry;
 
-    DeployUnitReplCall(DeployUnitCall deployUnitCall, UnitsRegistry unitsRegistry) {
+    DeployUnitReplCall(AsyncCall<DeployUnitCallInput, String> deployUnitCall, UnitsRegistry unitsRegistry) {
         this.deployUnitCall = deployUnitCall;
         this.unitsRegistry = unitsRegistry;
     }

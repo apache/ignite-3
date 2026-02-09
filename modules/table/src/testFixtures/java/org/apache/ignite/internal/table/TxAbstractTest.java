@@ -25,10 +25,12 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -73,8 +75,8 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -118,6 +120,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -526,7 +529,6 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
      * Tests uncaught exception in the closure.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26669")
     public void testTxClosureUncaughtExceptionAsync() {
         double balance = 10.;
         double delta = 50.;
@@ -613,7 +615,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         Exception err = assertThrows(Exception.class, () -> table.upsertAll(tx2, rows));
 
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        assertTransactionLockException(err);
 
         tx1.commit();
     }
@@ -850,7 +852,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         // TODO asch IGNITE-15937 fix exception model.
         Exception err = assertThrows(Exception.class, () -> table.upsert(tx2, makeValue(1, valTx + 1)));
 
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        assertTransactionLockException(err);
 
         // Write in tx1
         table2.upsert(tx1, makeValue(1, valTx2 + 1));
@@ -1004,7 +1006,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         txAcc.upsert(tx2, makeValue(2, 400.));
 
         Exception err = assertThrows(Exception.class, () -> txAcc.getAll(tx2, List.of(makeKey(2), makeKey(1))));
-        assertTrue(err.getMessage().contains("Failed to acquire a lock"), err.getMessage());
+        assertTransactionLockException(err);
 
         validateBalance(txAcc2.getAll(tx1, List.of(makeKey(2), makeKey(1))), 200., 300.);
         validateBalance(txAcc2.getAll(tx1, List.of(makeKey(1), makeKey(2))), 300., 200.);
@@ -1466,15 +1468,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 ?
                 internalTable.scan(
                         0,
-                        internalTx.id(),
-                        internalTx.readTimestamp(),
                         ReplicaTestUtils.leaderAssignment(
                                 txTestCluster.replicaManagers().get(txTestCluster.localNodeName()),
                                 txTestCluster.clusterServices().get(txTestCluster.localNodeName()).topologyService(),
                                 colocationEnabled() ? internalTable.zoneId() : internalTable.tableId(),
                                 0
                         ),
-                        internalTx.coordinatorId()
+                        OperationContext.create(TxContext.readOnly(internalTx))
                 )
                 : internalTable.scan(0, internalTx);
 
@@ -1792,7 +1792,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
                             ops.increment();
                         } catch (Exception e) {
-                            assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
+                            assertTransactionLockException(e);
 
                             tx.rollback();
 
@@ -2107,10 +2107,8 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertThrowsTxFinishedException(() -> {
             Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
                     0,
-                    internalTx.id(),
-                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
-                    internalTx.coordinatorId()
+                    OperationContext.create(TxContext.readOnly(internalTx))
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -2123,16 +2121,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         });
 
         assertThrowsTxFinishedException(() -> {
-            Flow.Publisher<BinaryRow> pub = accounts.internalTable().lookup(
+            Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
                     0,
-                    internalTx.id(),
-                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
                     0,
-                    // Binary tuple is null for testing purposes, assuming that it wouldn't be processed anyway.
-                    null,
-                    null,
-                    internalTx.coordinatorId()
+                    // We assume that BinaryTuple will never be accessed.
+                    IndexScanCriteria.lookup(Mockito.mock(BinaryTuple.class)),
+                    OperationContext.create(TxContext.readOnly(internalTx))
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -2180,14 +2175,10 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         UUID txId = ((ReadWriteTransactionImpl) tx).id();
 
         for (TxManager txManager : txManagers()) {
-            txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(
-                    old.txState(),
-                    new UUID(1, 2),
-                    old.commitPartitionId(),
-                    old.commitTimestamp(),
-                    old == null ? null : old.tx(),
-                    old == null ? null : old.isFinishedDueToTimeout()
-            ));
+            txManager.updateTxMeta(txId, old -> old == null ? null : old.mutate()
+                    .txCoordinatorId(new UUID(1, 2))
+                    .build()
+            );
         }
 
         // Read-only.
@@ -2220,7 +2211,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         var accountRecordsView = accounts.recordView();
 
         SchemaRegistry schemaRegistry = accounts.schemaView();
-        var marshaller = new TupleMarshallerImpl(schemaRegistry.lastKnownSchema());
+        var marshaller = KeyValueTestUtils.createMarshaller(schemaRegistry.lastKnownSchema());
 
         int partId = accounts.internalTable().partitionId(marshaller.marshalKey(makeKey(0)));
 
@@ -2387,6 +2378,15 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
             assertThat(res, contains(null, null));
         }
+    }
+
+    private static void assertTransactionLockException(Exception e) {
+        assertInstanceOf(TransactionException.class, e);
+        assertThat(e.getMessage(), containsString("Lock acquiring failed during request handling"));
+
+        Throwable rootCause = unwrapRootCause(e);
+        assertInstanceOf(LockException.class, rootCause);
+        assertThat(rootCause.getMessage(), containsString("Failed to acquire a lock"));
     }
 
     private static class SingleRequestSubscriber<T> implements Flow.Subscriber<T> {

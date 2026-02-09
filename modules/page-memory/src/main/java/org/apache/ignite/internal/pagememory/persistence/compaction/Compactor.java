@@ -92,6 +92,9 @@ public class Compactor extends IgniteWorker {
 
     private final PartitionDestructionLockManager partitionDestructionLockManager;
 
+    /** Guarded by {@link #mux}. */
+    private boolean paused;
+
     /**
      * Creates new ignite worker with given parameters.
      *
@@ -164,7 +167,7 @@ public class Compactor extends IgniteWorker {
     void waitDeltaFiles() {
         try {
             synchronized (mux) {
-                while (!addedDeltaFiles && !isCancelled()) {
+                while ((!addedDeltaFiles || paused) && !isCancelled()) {
                     blockingSectionBegin();
 
                     try {
@@ -203,7 +206,7 @@ public class Compactor extends IgniteWorker {
      * pages, we must look for it from the oldest delta file.
      */
     void doCompaction() {
-        while (true) {
+        while (!isPaused()) {
             // Let's collect one delta file for each partition.
             Queue<DeltaFileForCompaction> queue = filePageStoreManager.allPageStores()
                     .map(groupPartitionFilePageStore -> {
@@ -296,9 +299,10 @@ public class Compactor extends IgniteWorker {
                 long totalDurationInNanos = tracker.totalDuration(NANOSECONDS);
 
                 LOG.info(
-                        "Compaction round finished [compactionId={}, pages={}, duration={}ms, avgWriteSpeed={}MB/s]",
+                        "Compaction round finished [compactionId={}, pages={}, skipped={}, duration={}ms, avgWriteSpeed={}MB/s]",
                         compactionId,
                         tracker.dataPagesWritten(),
+                        tracker.dataPagesSkipped(),
                         tracker.totalDuration(MILLISECONDS),
                         WriteSpeedFormatter.formatWriteSpeed(totalWriteBytes, totalDurationInNanos)
                 );
@@ -352,10 +356,12 @@ public class Compactor extends IgniteWorker {
             log.debug("Cancelling grid runnable: " + this);
         }
 
-        // Do not interrupt runner thread.
-        isCancelled.set(true);
-
         synchronized (mux) {
+            paused = false;
+
+            // Do not interrupt runner thread.
+            isCancelled.set(true);
+
             mux.notifyAll();
         }
     }
@@ -383,15 +389,35 @@ public class Compactor extends IgniteWorker {
         // Copy pages deltaFilePageStore -> filePageStore.
         ByteBuffer buffer = getThreadLocalBuffer(pageSize);
 
+        DeltaFilePageStoreIo[] newerDeltaFiles = filePageStore.getCompletedDeltaFiles()
+                .stream()
+                .filter(file -> file.fileIndex() > deltaFilePageStore.fileIndex())
+                .toArray(DeltaFilePageStoreIo[]::new);
+
+        int[] pointers = new int[newerDeltaFiles.length];
+
+        boolean shouldFsync = false;
         for (long pageIndex : deltaFilePageStore.pageIndexes()) {
             updateHeartbeat();
 
-            if (isCancelled()) {
+            if (shouldStopCompaction(filePageStore)) {
                 return;
             }
 
-            if (filePageStore.isMarkedToDestroy()) {
-                return;
+            boolean shouldSkip = false;
+            for (int i = 0; i < pointers.length && !shouldSkip; i++) {
+                int[] newerPageIndexes = newerDeltaFiles[i].pageIndexes();
+
+                while (pointers[i] < newerPageIndexes.length - 1 && newerPageIndexes[pointers[i]] < pageIndex) {
+                    pointers[i]++;
+                }
+
+                shouldSkip = pointers[i] < newerPageIndexes.length && newerPageIndexes[pointers[i]] == pageIndex;
+            }
+
+            if (shouldSkip) {
+                tracker.onPageSkipped();
+                continue;
             }
 
             long pageOffset = deltaFilePageStore.pageOffset(pageIndex);
@@ -409,40 +435,31 @@ public class Compactor extends IgniteWorker {
 
             updateHeartbeat();
 
-            if (isCancelled()) {
-                return;
-            }
-
-            if (filePageStore.isMarkedToDestroy()) {
+            if (shouldStopCompaction(filePageStore)) {
                 return;
             }
 
             filePageStore.write(pageId, buffer.rewind());
 
             tracker.onDataPageWritten();
+
+            shouldFsync = true;
         }
 
-        // Fsync the file page store.
-        updateHeartbeat();
+        if (shouldFsync) {
+            updateHeartbeat();
 
-        if (isCancelled()) {
-            return;
+            if (shouldStopCompaction(filePageStore)) {
+                return;
+            }
+
+            filePageStore.sync();
         }
-
-        if (filePageStore.isMarkedToDestroy()) {
-            return;
-        }
-
-        filePageStore.sync();
 
         // Removing the delta file page store from a file page store.
         updateHeartbeat();
 
-        if (isCancelled()) {
-            return;
-        }
-
-        if (filePageStore.isMarkedToDestroy()) {
+        if (shouldStopCompaction(filePageStore)) {
             return;
         }
 
@@ -484,5 +501,40 @@ public class Compactor extends IgniteWorker {
             this.groupPartitionFilePageStore = groupPartitionFilePageStore;
             this.deltaFilePageStoreIo = deltaFilePageStoreIo;
         }
+    }
+
+    /**
+     * Pauses the compactor until it is resumed or compactor is stopped. It is expected that this method will not be called multiple times
+     * in parallel and subsequent calls will strictly be calls after {@link #resume}.
+     */
+    public void pause() {
+        synchronized (mux) {
+            assert !paused : "It is expected that a further pause will only occur after resume";
+
+            paused = true;
+        }
+    }
+
+    /** Resumes the compactor if it was paused. It is expected that this method will not be called multiple times in parallel. */
+    public void resume() {
+        synchronized (mux) {
+            paused = false;
+
+            // Force compaction as we could stop somewhere in the middle and we need to continue compaction.
+            addedDeltaFiles = true;
+
+            mux.notifyAll();
+        }
+    }
+
+    /** Must be called before each IO operation to pause the current compaction and to provide IO resources to other components. */
+    private boolean isPaused() {
+        synchronized (mux) {
+            return paused;
+        }
+    }
+
+    private boolean shouldStopCompaction(FilePageStore filePageStore) {
+        return isCancelled() || filePageStore.isMarkedToDestroy() || isPaused();
     }
 }

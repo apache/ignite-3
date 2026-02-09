@@ -19,6 +19,9 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -32,6 +35,7 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStor
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
     @InjectConfiguration("mock.profiles.default = {engine = aimem}")
@@ -73,5 +77,18 @@ class VolatilePageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvParti
     @Override
     int pageSize() {
         return engine.configuration().pageSizeBytes().value();
+    }
+
+    @Test
+    void addWriteCreatesPlainRowVersion() {
+        addWrite(ROW_ID, binaryRow, txId);
+
+        RowVersion rowVersion = pageMemoryStorage().findVersionChain(
+                ROW_ID,
+                chain -> pageMemoryStorage().readRowVersion(chain.headLink(), ts -> false)
+        );
+        assertThat(rowVersion, is(notNullValue()));
+
+        assertThat(rowVersion.getClass(), is(RowVersion.class));
     }
 }

@@ -591,7 +591,7 @@ TEST_F(transaction_test, transaction_error) {
             try {
                 insert_test_value(conn2.m_statement, 2, "test_2");
             } catch (const odbc_exception &err) {
-                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a possible deadlock"));
+                EXPECT_THAT(err.message, testing::HasSubstr("Lock acquiring failed during request handling"));
                 EXPECT_EQ(err.sql_state, "25000");
                 throw;
             }
@@ -616,4 +616,46 @@ TEST_F(transaction_test, transaction_error) {
         odbc_exception);
 
     check_no_test_value(2);
+}
+
+TEST_F(transaction_test, heartbeat_connection_is_not_closed) {
+    using namespace std::chrono_literals;
+
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
+
+    SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
+    insert_test_value(42, "Some");
+
+    check_test_value(42, "Some");
+
+    std::this_thread::sleep_for(7s);
+
+    ret = SQLEndTran(SQL_HANDLE_ENV, m_env, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_ENV, m_env);
+
+    check_no_test_value(42);
+}
+
+TEST_F(transaction_test, heartbeat_disable_connection_is_closed) {
+    using namespace std::chrono_literals;
+
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string(0s)));
+
+    SQLRETURN ret = SQLSetConnectAttr(m_conn, SQL_ATTR_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF, 0);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
+    insert_test_value(42, "Some");
+
+    check_test_value(42, "Some");
+
+    std::this_thread::sleep_for(7s);
+
+    ret = SQLEndTran(SQL_HANDLE_ENV, m_env, SQL_ROLLBACK);
+
+    EXPECT_EQ(ret, SQL_ERROR);
 }

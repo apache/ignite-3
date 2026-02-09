@@ -35,7 +35,6 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -184,9 +183,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         int pageSize = engineConfig.pageSizeBytes().value();
 
         try {
-            FileIoFactory fileIoFactory = engineConfig.checkpoint().useAsyncFileIoFactory().value()
-                    ? new AsyncFileIoFactory()
-                    : new RandomAccessFileIoFactory();
+            var fileIoFactory = new RandomAccessFileIoFactory();
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 

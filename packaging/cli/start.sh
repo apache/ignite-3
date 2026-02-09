@@ -24,6 +24,8 @@ CLASSPATH="@LIB_DIR@/@APP_JAR@:@LIB_DIR@/*"
 MAIN_CLASS="@MAIN_CLASS@"
 
 DEFAULT_JVM_OPTS="-Dfile.encoding=UTF-8 \
+    --add-opens=java.base/java.lang=ALL-UNNAMED \
+    -Xmx256m \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:+ExitOnOutOfMemoryError \
     -XX:HeapDumpPath=${LOG_DIR}"

@@ -118,9 +118,11 @@ import org.jetbrains.annotations.TestOnly;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
-    public static final String PART_COL_NAME = "__PART";
-    // Old name for partition column. Kept for backward compatibility.
-    public static final String PART_COL_NAME_LEGACY = "__part";
+
+    public static final String PART_COL_NAME = "__PARTITION_ID";
+    // Old names for partition column. Kept for backward compatibility.
+    public static final String PART_COL_NAME_LEGACY1 = "__PART";
+    public static final String PART_COL_NAME_LEGACY2 = "__part";
 
     public static final String SYSTEM_USER_NAME = "SYSTEM";
 
@@ -381,6 +383,7 @@ public final class Commons {
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
 
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
+            cbe.setParentClassLoader(Commons.class.getClassLoader());
 
             if (debug) {
                 // Add line numbers to the generated janino class
@@ -841,5 +844,16 @@ public final class Commons {
             }
         }
         return true;
+    }
+
+    /**
+     * Creates {@link Mappings.TargetMapping} such that for every given source within provided sourceSize resulting target equals to source
+     * shifted by specified offset (e.g. {@code target = source + offset}).
+     */
+    public static TargetMapping targetOffsetMapping(int sourceCount, int offset) {
+        return Mappings.offsetTarget(
+                Mappings.createIdentity(sourceCount),
+                offset
+        );
     }
 }

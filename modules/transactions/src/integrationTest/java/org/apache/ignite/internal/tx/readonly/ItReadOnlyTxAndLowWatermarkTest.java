@@ -32,7 +32,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.HashSet;
 import java.util.List;
@@ -57,7 +56,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -103,9 +102,6 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
     @ParameterizedTest
     @EnumSource(TransactionalReader.class)
     void roTransactionNoticesTupleVersionsMissingDueToGcOnDataNodes(TransactionalReader reader) throws Exception {
-        // TODO: remove the assumption when IGNITE-24119 is fixed.
-        assumeFalse(reader == TransactionalReader.MULTI_GET);
-
         updateDataAvailabilityTimeToShortPeriod();
 
         Ignite coordinator = node(0);
@@ -147,14 +143,14 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
     }
 
     private void insertOriginalValuesToBothNodes(int keyCount, KeyValueView<Integer, String> kvView) throws Exception {
-        PartitionManager partitionManager = node(0).tables().table(TABLE_NAME).partitionManager();
+        PartitionDistribution partDistribution = node(0).tables().table(TABLE_NAME).partitionDistribution();
         Set<String> primaryNames = new HashSet<>();
 
         for (int i = 0; i < keyCount; i++) {
             kvView.put(null, i, "original-" + i);
 
             if (primaryNames.size() < 2) {
-                ClusterNode primaryReplica = primaryReplicaFor(i, partitionManager);
+                ClusterNode primaryReplica = primaryReplicaFor(i, partDistribution);
                 primaryNames.add(primaryReplica.name());
             }
         }
@@ -162,9 +158,9 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
         assertThat("Expecting both nodes to host inserted keys", primaryNames, hasSize(2));
     }
 
-    private static ClusterNode primaryReplicaFor(int key, PartitionManager partitionManager) throws Exception {
-        CompletableFuture<ClusterNode> primaryReplicaFuture = partitionManager.partitionAsync(key, Mapper.of(Integer.class))
-                .thenCompose(partitionManager::primaryReplicaAsync);
+    private static ClusterNode primaryReplicaFor(int key, PartitionDistribution partitionDistribution) throws Exception {
+        CompletableFuture<ClusterNode> primaryReplicaFuture = partitionDistribution.partitionAsync(key, Mapper.of(Integer.class))
+                .thenCompose(partitionDistribution::primaryReplicaAsync);
 
         return primaryReplicaFuture.get(10, SECONDS);
     }
@@ -185,9 +181,6 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
             @Enum(TransactionalReader.class) TransactionalReader reader,
             @Values(booleans = {true, false}) boolean commit
     ) throws Exception {
-        // TODO: remove the assumption when IGNITE-24119 is fixed.
-        assumeFalse(reader == TransactionalReader.MULTI_GET);
-
         Ignite coordinator = node(0);
         KeyValueView<Integer, String> kvView = kvView(coordinator);
 
@@ -230,9 +223,6 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
     @EnumSource(TransactionalReader.class)
     @WithSystemProperty(key = ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "100")
     void nonFinishedRoTransactionsOfCoordinatorsThatLeftDontHoldLwm(TransactionalReader reader) throws Exception {
-        // TODO: remove the assumption when IGNITE-24119 is fixed.
-        assumeFalse(reader == TransactionalReader.MULTI_GET);
-
         Ignite coordinator = node(1);
         KeyValueView<Integer, String> kvView = kvView(coordinator);
 

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLAN_EXPIRATION_SECONDS;
@@ -59,6 +61,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -74,7 +77,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -100,7 +103,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
@@ -136,6 +139,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeType;
@@ -571,7 +575,7 @@ public class TestBuilders {
         @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
-                    new ExpressionFactoryImpl<>(
+                    new ExpressionFactoryImpl(
                             Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                     ),
                     Objects.requireNonNull(executor, "executor"),
@@ -581,12 +585,14 @@ public class TestBuilders {
                     node.id(),
                     description,
                     ArrayRowHandler.INSTANCE,
+                    ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     zoneId,
                     -1,
                     clock,
-                    null
+                    null,
+                    1L
             );
         }
     }
@@ -687,18 +693,29 @@ public class TestBuilders {
                     IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
             );
 
+            Supplier<TableStatsStalenessConfiguration> statStalenessProperties = () -> new TableStatsStalenessConfiguration(
+                    DEFAULT_STALE_ROWS_FRACTION, DEFAULT_MIN_STALE_ROWS_COUNT);
+
+            @SuppressWarnings("unchecked")
+            ConfigurationValue<Integer> configurationValue = mock(ConfigurationValue.class);
+            when(configurationValue.value()).thenReturn(5);
+            when(configurationValue.key()).thenReturn("staleRowsCheckIntervalSeconds");
+
             var prepareService = new PrepareServiceImpl(
                     clusterName,
                     0,
                     CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null)),
+                    new DdlSqlToCommandConverter(storageProfiles -> completedFuture(null), filter -> completedFuture(null),
+                            statStalenessProperties),
                     planningTimeout,
                     PLANNING_THREAD_COUNT,
                     PLAN_EXPIRATION_SECONDS,
                     new NoOpMetricManager(),
                     schemaManager,
                     clockService::currentLong,
-                    scheduledExecutor
+                    scheduledExecutor,
+                    mock(AbstractEventProducer.class),
+                    configurationValue
             );
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
@@ -763,7 +780,6 @@ public class TestBuilders {
                                 0,
                                 partitionPruner,
                                 executionProvider,
-                                new SystemPropertiesNodeProperties(),
                                 Runnable::run
                         );
 
@@ -876,7 +892,6 @@ public class TestBuilders {
         return new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
-                new SystemPropertiesNodeProperties(),
                 CaffeineCacheFactory.INSTANCE,
                 0
         );
@@ -1012,18 +1027,30 @@ public class TestBuilders {
                                     true,
                                     false,
                                     columns.size(),
+                                    NativeTypes.INT64,
+                                    DefaultValueStrategy.DEFAULT_COMPUTED,
+                                    () -> {
+                                        throw new AssertionError("Partition virtual column is generated by a function");
+                                    }),
+                            new ColumnDescriptorImpl(
+                                    Commons.PART_COL_NAME_LEGACY1,
+                                    false,
+                                    true,
+                                    true,
+                                    false,
+                                    columns.size() + 1,
                                     NativeTypes.INT32,
                                     DefaultValueStrategy.DEFAULT_COMPUTED,
                                     () -> {
                                         throw new AssertionError("Partition virtual column is generated by a function");
                                     }),
                             new ColumnDescriptorImpl(
-                                    Commons.PART_COL_NAME_LEGACY,
+                                    Commons.PART_COL_NAME_LEGACY2,
                                     false,
                                     true,
                                     true,
                                     false,
-                                    columns.size() + 1,
+                                    columns.size() + 2,
                                     NativeTypes.INT32,
                                     DefaultValueStrategy.DEFAULT_COMPUTED,
                                     () -> {
@@ -1039,6 +1066,7 @@ public class TestBuilders {
                     Objects.requireNonNull(name),
                     tableId != null ? tableId : TABLE_ID_GEN.incrementAndGet(),
                     1,
+                    1L,
                     tableDescriptor,
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),

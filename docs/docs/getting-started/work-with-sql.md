@@ -113,13 +113,13 @@ If the license is not available, make sure the license file was mounted correctl
      ####  ##         /___/ \__, //_/ /_//_/ \__/ \___/   /____/
        ##                  /____/
 
-                      Apache Ignite CLI version 3.0.0
+                      Apache Ignite CLI version 3.1.0
 
 
 You appear to have not connected to any node yet. Do you want to connect to the default node http://localhost:10300? [Y/n] y
 Connected to http://localhost:10300
 The cluster is not initialized. Run cluster init command to initialize it.
-[node1]> cluster init --name=ignite3 --metastorage-group=node1,node2,node3
+[node1]> cluster init --name=ignite3
 Cluster was initialized successfully
 [node1]>
 ```

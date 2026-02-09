@@ -542,8 +542,6 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     public void testGroupingFunction(String[] rules) {
         sql("DELETE FROM test_str_int_real_dec");
 
-        sql("DELETE FROM test_str_int_real_dec");
-
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (1, 's1', 10)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (2, 's1', 20)");
         sql("INSERT INTO test_str_int_real_dec(id, str_col, int_col) VALUES (3, 's2', 10)");
@@ -817,6 +815,13 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT COUNT(a), COUNT(DISTINCT(b)) FROM test_a_b_s")
                 .disableRules(rules)
                 .returns(3L, 2L)
+                .check();
+    }
+
+    @Test
+    void testDivisionOfSumsOfDecimals() {
+        assertQuery("SELECT sum(c1) / sum(c2) FROM (SELECT decimal '10.2382' AS c1, decimal '2.06' AS c2)")
+                .returns(new BigDecimal("4.97000000000"))
                 .check();
     }
 

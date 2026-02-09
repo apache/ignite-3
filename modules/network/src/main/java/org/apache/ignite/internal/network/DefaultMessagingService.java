@@ -405,20 +405,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
                             () -> triggerChannelCreation(nodeId, type, addr)
                     );
                 })
-                .whenComplete((res, ex) -> {
-                    if (hasCause(ex, CriticalHandshakeException.class)) {
-                        LOG.error(
-                                "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
-                                nodeId, type, addr, connectionManager.localBindAddress()
-                        );
-                    } else if (ex != null && LOG.isInfoEnabled()) {
-                        // TODO IGNITE-25802 Detect a LOOP rejection reason and retry the connection.
-                        LOG.info(
-                                "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",
-                                ex.getMessage(), nodeId, type, addr, connectionManager.localBindAddress()
-                        );
-                    }
-                });
+                .whenComplete((res, ex) -> handleHandshakeError(ex, nodeId, type, addr));
+    }
+
+    private void handleHandshakeError(Throwable ex, UUID nodeId, ChannelType type, InetSocketAddress addr) {
+        if (ex != null) {
+            if (hasCause(ex, CriticalHandshakeException.class)) {
+                LOG.error(
+                        "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
+                        nodeId, type, addr, connectionManager.localBindAddress()
+                );
+            } else if (!hasCause(ex, NodeStoppingException.class) && LOG.isInfoEnabled()) {
+                // TODO IGNITE-25802 Detect a LOOP rejection reason and retry the connection.
+                LOG.info(
+                        "Handshake failed [message={}, destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]",
+                        ex.getMessage(), nodeId, type, addr, connectionManager.localBindAddress()
+                );
+            }
+        }
     }
 
     private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {

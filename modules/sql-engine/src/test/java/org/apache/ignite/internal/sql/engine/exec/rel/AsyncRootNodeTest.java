@@ -41,13 +41,14 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.junit.jupiter.api.Test;
 
@@ -56,8 +57,8 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("NumericCastThatLosesPrecision")
 class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
-    private static final RowSchema SINGLE_INT_ROW_SCHEMA = RowSchema.builder()
-            .addField(NativeTypes.INT32)
+    private static final StructNativeType SINGLE_INT_ROW_SCHEMA = NativeTypes.rowBuilder()
+            .addField("C1", NativeTypes.INT32, true)
             .build();
 
     private static final BinaryTupleSchema SINGLE_INT_SCHEMA = BinaryTupleSchema.create(
@@ -71,7 +72,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
 
         var dataSourceScanNode = new DataSourceScanNode<>(
                 context,
-                rowHandler().factory(SINGLE_INT_ROW_SCHEMA),
+                context.rowFactoryFactory().create(SINGLE_INT_ROW_SCHEMA),
                 SINGLE_INT_SCHEMA,
                 () -> subscriber -> publisherRequestedLatch.countDown(),
                 null,
@@ -114,7 +115,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
 
         DataSourceScanNode<RowWrapper> dataSourceScanNode = new DataSourceScanNode<>(
                 context,
-                rowHandler().factory(SINGLE_INT_ROW_SCHEMA),
+                context.rowFactoryFactory().create(SINGLE_INT_ROW_SCHEMA),
                 SINGLE_INT_SCHEMA,
                 dataSource,
                 null,
@@ -159,7 +160,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
         var scanNodeLatch = new CountDownLatch(1);
         ExecutionContext<RowWrapper> context = executionContext();
 
-        RowFactory<RowWrapper> factory = rowHandler().factory(SINGLE_INT_ROW_SCHEMA);
+        RowFactory<RowWrapper> factory = context.rowFactoryFactory().create(SINGLE_INT_ROW_SCHEMA);
         ScanNode<RowWrapper> scanNode = new ScanNode<>(context, () -> {
             try {
                 scanNodeLatch.await();
@@ -187,6 +188,11 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
 
     @Override
     protected RowHandler<RowWrapper> rowHandler() {
+        return SqlRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<RowWrapper> rowFactoryFactory() {
         return SqlRowHandler.INSTANCE;
     }
 

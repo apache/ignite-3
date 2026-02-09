@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.util.VarlenEncoder;
 import org.apache.ignite.internal.util.FastCrc;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
+import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryDecoder;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 
@@ -33,12 +35,39 @@ class SegmentPayload {
 
     static final int LENGTH_SIZE_BYTES = Integer.BYTES;
 
-    static final int HASH_SIZE = Integer.BYTES;
+    static final int CRC_SIZE_BYTES = Integer.BYTES;
+
+    /**
+     * Length of the byte sequence that is written when suffix truncation happens.
+     *
+     * <p>Format: {@code groupId, TRUNCATE_SUFFIX_RECORD_MARKER (special length value), last kept index, crc}
+     */
+    static final int TRUNCATE_SUFFIX_RECORD_SIZE = GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + Long.BYTES + CRC_SIZE_BYTES;
+
+    /**
+     * Length of the byte sequence that is written when prefix truncation happens.
+     *
+     * <p>Format: {@code groupId, TRUNCATE_PREFIX_RECORD_MARKER (special length value), first kept index, crc}
+     */
+    static final int TRUNCATE_PREFIX_RECORD_SIZE = TRUNCATE_SUFFIX_RECORD_SIZE;
+
+    /**
+     * Length of the byte sequence that is written when prefix truncation happens.
+     *
+     * <p>Format: {@code groupId, RESET_RECORD_MARKER (special length value), next log index, crc}
+     */
+    static final int RESET_RECORD_SIZE = TRUNCATE_SUFFIX_RECORD_SIZE;
+
+    static final int TRUNCATE_SUFFIX_RECORD_MARKER = 0;
+
+    static final int TRUNCATE_PREFIX_RECORD_MARKER = -1;
+
+    static final int RESET_RECORD_MARKER = -2;
 
     static void writeTo(
             ByteBuffer buffer,
             long groupId,
-            int entrySize,
+            int segmentEntrySize,
             LogEntry logEntry,
             LogEntryEncoder logEntryEncoder
     ) {
@@ -46,61 +75,103 @@ class SegmentPayload {
 
         buffer
                 .putLong(groupId)
-                .putInt(entrySize);
+                .putInt(segmentEntrySize - fixedOverheadSize());
+
+        LogId logId = logEntry.getId();
+
+        VarlenEncoder.writeLong(logId.getIndex(), buffer);
+        VarlenEncoder.writeLong(logId.getTerm(), buffer);
 
         logEntryEncoder.encode(buffer, logEntry);
 
-        int dataSize = buffer.position() - originalPos;
+        int recordSize = buffer.position() - originalPos;
 
-        // Rewind the position for CRC calculation.
-        buffer.position(originalPos);
+        writeCrc(buffer, recordSize);
+    }
 
-        int crc = FastCrc.calcCrc(buffer, dataSize);
+    static void writeTruncateSuffixRecordTo(ByteBuffer buffer, long groupId, long lastLogIndexKept) {
+        buffer
+                .putLong(groupId)
+                .putInt(TRUNCATE_SUFFIX_RECORD_MARKER)
+                .putLong(lastLogIndexKept);
 
-        // After CRC calculation the position will be at the provided end of the buffer.
+        writeCrc(buffer, TRUNCATE_SUFFIX_RECORD_SIZE - CRC_SIZE_BYTES);
+    }
+
+    static void writeTruncatePrefixRecordTo(ByteBuffer buffer, long groupId, long firstIndexKept) {
+        buffer
+                .putLong(groupId)
+                .putInt(TRUNCATE_PREFIX_RECORD_MARKER)
+                .putLong(firstIndexKept);
+
+        writeCrc(buffer, TRUNCATE_PREFIX_RECORD_SIZE - CRC_SIZE_BYTES);
+    }
+
+    static void writeResetRecordTo(ByteBuffer buffer, long groupId, long nextLogIndex) {
+        buffer
+                .putLong(groupId)
+                .putInt(RESET_RECORD_MARKER)
+                .putLong(nextLogIndex);
+
+        writeCrc(buffer, RESET_RECORD_SIZE - CRC_SIZE_BYTES);
+    }
+
+    private static void writeCrc(ByteBuffer buffer, int recordSizeWithoutCrc) {
+        buffer.position(buffer.position() - recordSizeWithoutCrc);
+
+        int crc = FastCrc.calcCrc(buffer, recordSizeWithoutCrc);
+
         buffer.putInt(crc);
     }
 
     static LogEntry readFrom(ByteBuffer buffer, LogEntryDecoder logEntryDecoder) {
-        int entrySize = buffer.getInt(buffer.position() + GROUP_ID_SIZE_BYTES);
+        int originalPosition = buffer.position();
 
-        verifyCrc(buffer, entrySize);
+        buffer.position(originalPosition + GROUP_ID_SIZE_BYTES); // Skip group ID.
 
-        buffer.position(buffer.position() + GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES);
+        int payloadLength = buffer.getInt();
+
+        int payloadPosition = buffer.position();
+
+        VarlenEncoder.readLong(buffer); // Skip log entry index.
+        VarlenEncoder.readLong(buffer); // Skip log entry term.
+
+        int logEntryPosition = buffer.position();
+
+        int crcPosition = payloadPosition + payloadLength;
+
+        int crc = buffer.getInt(crcPosition);
+
+        buffer.position(originalPosition);
+
+        int actualCrc = FastCrc.calcCrc(buffer, crcPosition - originalPosition);
+
+        if (crc != actualCrc) {
+            throw new IllegalStateException("CRC mismatch, expected: " + crc + ", actual: " + actualCrc);
+        }
+
+        buffer.position(logEntryPosition);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26623.
-        byte[] entryBytes = new byte[entrySize];
+        byte[] entryBytes = new byte[crcPosition - logEntryPosition];
 
         buffer.get(entryBytes);
 
         // Move the position as if we have read the whole payload.
-        buffer.position(buffer.position() + HASH_SIZE);
+        buffer.position(buffer.position() + CRC_SIZE_BYTES);
 
         return logEntryDecoder.decode(entryBytes);
     }
 
-    private static void verifyCrc(ByteBuffer buffer, int entrySize) {
-        int position = buffer.position();
+    static int size(LogEntry logEntry, LogEntryEncoder logEntryEncoder) {
+        int entrySize = logEntryEncoder.size(logEntry);
 
-        int dataSize = size(entrySize) - HASH_SIZE;
+        LogId logId = logEntry.getId();
 
-        int expectedCrc = buffer.getInt(position + dataSize);
-
-        int actualCrc = FastCrc.calcCrc(buffer, dataSize);
-
-        // calcCrc alters the position.
-        buffer.position(position);
-
-        if (expectedCrc != actualCrc) {
-            throw new IllegalStateException("CRC mismatch, expected: " + expectedCrc + ", actual: " + actualCrc);
-        }
+        return fixedOverheadSize() + VarlenEncoder.sizeInBytes(logId.getIndex()) + VarlenEncoder.sizeInBytes(logId.getTerm()) + entrySize;
     }
 
-    static int size(int entrySize) {
-        return overheadSize() + entrySize;
-    }
-
-    static int overheadSize() {
-        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + HASH_SIZE;
+    static int fixedOverheadSize() {
+        return GROUP_ID_SIZE_BYTES + LENGTH_SIZE_BYTES + CRC_SIZE_BYTES;
     }
 }

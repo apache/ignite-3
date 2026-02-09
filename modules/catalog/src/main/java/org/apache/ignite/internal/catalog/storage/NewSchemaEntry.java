@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -49,7 +51,7 @@ public class NewSchemaEntry implements UpdateEntry {
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 CollectionUtils.concat(catalog.schemas(), List.of(descriptor)),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 

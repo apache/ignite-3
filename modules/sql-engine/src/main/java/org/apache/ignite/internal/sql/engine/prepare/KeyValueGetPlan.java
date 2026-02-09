@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
@@ -39,13 +39,12 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
@@ -57,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -171,18 +171,19 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
 
         RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
 
-        SqlPredicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory().predicate(filterExpr, rowType);
-        SqlProjection<RowT> projection = projectionExpr == null ? null : ctx.expressionFactory().project(projectionExpr, rowType);
+        SqlPredicate filter = filterExpr == null ? null : ctx.expressionFactory().predicate(filterExpr, rowType);
+        SqlProjection projection = projectionExpr == null ? null : ctx.expressionFactory().project(projectionExpr, rowType);
 
-        RowHandler<RowT> rowHandler = ctx.rowHandler();
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
+        RowHandler<RowT> rowHandler = ctx.rowAccessor();
+        StructNativeType nativeType = convertStructuredType(rowType);
+
+        RowFactory<RowT> rowFactory = ctx.rowFactoryFactory().create(nativeType);
 
         List<RexNode> keyExpressions = lookupNode.keyExpressions();
-        SqlRowProvider<RowT> keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
+        SqlRowProvider keySupplier = ctx.expressionFactory().rowSource(keyExpressions);
 
         RelDataType resultType = lookupNode.getRowType();
-        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
 
         operation = filter == null && projection == null ? new SimpleLookupExecution<>(scannableTable, rowHandler, rowFactory,
                 keySupplier, requiredColumns, internalTypeConverter)
@@ -216,7 +217,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final ScannableTable table;
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
-        private final SqlRowProvider<RowT> keySupplier;
+        private final SqlRowProvider keySupplier;
         private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
@@ -224,7 +225,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 ScannableTable table,
                 RowHandler<RowT> rowHandler,
                 RowFactory<RowT> tableRowFactory,
-                SqlRowProvider<RowT> keySupplier,
+                SqlRowProvider keySupplier,
                 @Nullable ImmutableIntList requiredColumns,
                 SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {
@@ -253,9 +254,9 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final ScannableTable table;
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
-        private final SqlRowProvider<RowT> keySupplier;
-        private final @Nullable SqlPredicate<RowT> filter;
-        private final @Nullable SqlProjection<RowT> projection;
+        private final SqlRowProvider keySupplier;
+        private final @Nullable SqlPredicate filter;
+        private final @Nullable SqlProjection projection;
         private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
@@ -263,9 +264,9 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 ScannableTable table,
                 RowHandler<RowT> rowHandler,
                 RowFactory<RowT> tableRowFactory,
-                SqlRowProvider<RowT> keySupplier,
-                @Nullable SqlPredicate<RowT> filter,
-                @Nullable SqlProjection<RowT> projection,
+                SqlRowProvider keySupplier,
+                @Nullable SqlPredicate filter,
+                @Nullable SqlProjection projection,
                 @Nullable ImmutableIntList requiredColumns,
                 SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {

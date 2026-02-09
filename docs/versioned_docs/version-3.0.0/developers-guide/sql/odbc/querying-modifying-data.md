@@ -65,13 +65,13 @@ SQLCHAR query1[] = "CREATE TABLE Person ( "
     "id LONG PRIMARY KEY, "
     "firstName VARCHAR, "
     "lastName VARCHAR, "
-    "salary FLOAT) "";
+    "salary FLOAT)";
 
 SQLExecDirect(stmt, query1, SQL_NTS);
 
 SQLCHAR query2[] = "CREATE TABLE Organization ( "
     "id LONG PRIMARY KEY, "
-    "name VARCHAR) "";
+    "name VARCHAR)";
 
 SQLExecDirect(stmt, query2, SQL_NTS);
 

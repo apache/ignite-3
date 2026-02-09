@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -57,7 +58,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     private static final int TEST_SCALE = 5;
 
     @ParameterizedTest
-    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION", "STRUCT"}, mode = Mode.EXCLUDE)
     public void convertColumnType(ColumnType typeSpec) {
         CatalogTableColumnDescriptor columnDescriptor = TestColumnDescriptors.forSpec(typeSpec);
 
@@ -134,9 +135,9 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                 .primaryKeyIndexId(-1)
                 .name("test")
                 .zoneId(0)
-                .columns(columns)
-                .primaryKeyColumns(List.of("K1", "K2"))
-                .colocationColumns(List.of("K2"))
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(3, 1))
+                .colocationColumns(IntList.of(1))
                 .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
                 .build();
 

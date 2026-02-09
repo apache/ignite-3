@@ -34,7 +34,7 @@ public interface QueryPlan {
     PlanId id();
 
     /**
-     * Get query type, or {@code null} if this is a fragment.
+     * Get query type.
      */
     SqlQueryType type();
 

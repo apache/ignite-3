@@ -76,6 +76,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -670,7 +671,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 LOG.info("Lonely leader has been established, changing voting set to target set: {}", currentState.targetPeers);
 
                 PeersAndLearners newConfig = PeersAndLearners.fromConsistentIds(currentState.targetPeers);
-                raftService.changePeersAndLearners(newConfig, configuration.term())
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                raftService.changePeersAndLearners(newConfig, configuration.term(), 0)
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
                                 Throwable unwrapped = ExceptionUtils.unwrapCause(ex);
@@ -839,6 +841,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public long appliedRevision() {
         return appliedRevision;
+    }
+
+    @Override
+    public CompletableFuture<Long> currentRevision() {
+        return metaStorageSvcFut.thenCompose(MetaStorageService::currentRevisions)
+                .thenApply(RevisionsInfo::revision);
     }
 
     @Override
@@ -1128,7 +1136,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /**
      * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private void onRevisionApplied(long revision) {
+    protected void onRevisionApplied(long revision) {
         appliedRevision = revision;
     }
 
@@ -1178,7 +1186,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 RaftNodeId raftNodeId = raftNodeId();
                 PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
 
-                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-26854.
+                ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration, 0);
             }
         });
     }
@@ -1407,5 +1416,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
         return inBusyLockAsync(busyLock, () -> metaStorageSvcFut.thenCompose(svc -> svc.sendCompactionCommand(compactionRevision)));
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26085 Remove, tmp hack
+    /**
+     * Mark component as stopping.
+     */
+    public void markAsStopping() {
+        metaStorageSvcFut.thenAccept(MetaStorageServiceImpl::markAsStopping);
     }
 }

@@ -258,14 +258,14 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) {
-        RowHandler<RowT> handler = context().rowHandler();
+        RowHandler<RowT> handler = context().rowAccessor();
 
         List<BinaryTupleMessage> rows0 = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
             rows0.add(
                     TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                            .elementCount(handler.columnCount(row))
+                            .elementCount(handler.columnsCount(row))
                             .tuple(handler.toByteBuffer(row))
                             .build()
             );
@@ -356,7 +356,12 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /** Notifies the outbox that provided node has left the cluster. */
-    public void onNodeLeft(InternalClusterNode node) {
+    public void onNodeLeft(InternalClusterNode node, long version) {
+        Long topologyVersion = context().topologyVersion();
+        if (topologyVersion != null && topologyVersion > version) {
+            return; // Ignore outdated event.
+        }
+
         if (node.id().equals(context().originatingNodeId())) {
             this.execute(this::close);
         }

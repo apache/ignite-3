@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.convertStructuredType;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -29,15 +29,14 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.BiPredicate;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /** HashJoin implementor. */
@@ -91,7 +90,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     /** Supplied algorithm implementation. */
-    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, @Nullable SqlJoinProjection<RowT> projection,
+    public static <RowT> HashJoinNode<RowT> create(ExecutionContext<RowT> ctx, @Nullable SqlJoinProjection projection,
             RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, JoinInfo joinInfo,
             @Nullable BiPredicate<RowT, RowT> nonEquiCondition) {
 
@@ -104,27 +103,27 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             case LEFT: {
                 assert projection != null;
 
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new LeftHashJoin<>(ctx, joinInfo, projection, rightRowFactory, nonEquiCondition);
             }
             case RIGHT: {
                 assert projection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
 
                 return new RightHashJoin<>(ctx, joinInfo, projection, leftRowFactory, nonEquiCondition);
             }
             case FULL: {
                 assert projection != null;
 
-                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
-                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                StructNativeType leftRowSchema = convertStructuredType(leftRowType);
+                StructNativeType rightRowSchema = convertStructuredType(rightRowType);
 
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+                RowFactory<RowT> leftRowFactory = ctx.rowFactoryFactory().create(leftRowSchema);
+                RowFactory<RowT> rightRowFactory = ctx.rowFactoryFactory().create(rightRowSchema);
 
                 return new FullOuterHashJoin<>(
                         ctx, joinInfo, projection, leftRowFactory, rightRowFactory, nonEquiCondition
@@ -146,7 +145,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private static class InnerHashJoin<RowT> extends HashJoinNode<RowT> {
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final SqlJoinProjection outputProjection;
 
         /**
          * Creates HashJoinNode for INNER JOIN operator.
@@ -158,7 +157,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private InnerHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
             super(ctx, joinInfo, nonEquiCondition);
@@ -249,8 +248,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class LeftHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final RowFactory<RowT> rightRowFactory;
+        private final SqlJoinProjection outputProjection;
 
         /**
          * Creates HashJoinNode for LEFT OUTER JOIN operator.
@@ -263,7 +262,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private LeftHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> rightRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
@@ -336,8 +335,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class RightHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final RowFactory<RowT> leftRowFactory;
+        private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
 
@@ -352,7 +351,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private RightHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
@@ -488,11 +487,11 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static class FullOuterHashJoin<RowT> extends HashJoinNode<RowT> {
         /** Left row factory. */
-        private final RowHandler.RowFactory<RowT> leftRowFactory;
+        private final RowFactory<RowT> leftRowFactory;
 
         /** Right row factory. */
-        private final RowHandler.RowFactory<RowT> rightRowFactory;
-        private final SqlJoinProjection<RowT> outputProjection;
+        private final RowFactory<RowT> rightRowFactory;
+        private final SqlJoinProjection outputProjection;
 
         private boolean drainMaterialization;
 
@@ -508,7 +507,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private FullOuterHashJoin(
                 ExecutionContext<RowT> ctx,
                 JoinInfo joinInfo,
-                SqlJoinProjection<RowT> outputProjection,
+                SqlJoinProjection outputProjection,
                 RowFactory<RowT> leftRowFactory,
                 RowFactory<RowT> rightRowFactory,
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
@@ -869,7 +868,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     }
 
     private Key extractKey(RowT row, int[] mapping) {
-        RowHandler<RowT> handler = context().rowHandler();
+        RowHandler<RowT> handler = context().rowAccessor();
 
         for (int i : mapping) {
             if (handler.isNull(i, row)) {

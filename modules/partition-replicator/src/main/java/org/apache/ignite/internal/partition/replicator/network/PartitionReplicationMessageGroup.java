@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.partition.replicator.network.PartitionR
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV3;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV1;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
@@ -229,6 +230,7 @@ public interface PartitionReplicationMessageGroup {
          *
          * @see #FINISH_TX_V2
          */
+        @Deprecated
         short FINISH_TX_V1 = 40;
 
         /**
@@ -236,6 +238,7 @@ public interface PartitionReplicationMessageGroup {
          *
          * @see #WRITE_INTENT_SWITCH_V2
          */
+        @Deprecated
         short WRITE_INTENT_SWITCH_V1 = 41;
 
         /**
@@ -257,6 +260,7 @@ public interface PartitionReplicationMessageGroup {
          *
          * @see #UPDATE_V2
          */
+        @Deprecated
         short BUILD_INDEX_V1 = 44;
 
         /** Message type for {@link UpdateMinimumActiveTxBeginTimeCommand}. */
@@ -276,6 +280,9 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link FinishTxCommandV2}. */
         short FINISH_TX_V2 = 50;
+
+        /** Message type for {@link BuildIndexCommandV3}. */
+        short BUILD_INDEX_V3 = 51;
     }
 
     /**
@@ -299,5 +306,11 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link LocalTablePartitionStateResponse}. */
         short LOCAL_TABLE_PARTITION_STATE_RESPONSE = 105;
+
+        /** Message type for disaster recovery request forwarding. */
+        short DISASTER_RECOVERY_REQUEST = 106;
+
+        /** Message type for disaster recovery request forwarding response. */
+        short DISASTER_RECOVERY_RESPONSE = 111;
     }
 }

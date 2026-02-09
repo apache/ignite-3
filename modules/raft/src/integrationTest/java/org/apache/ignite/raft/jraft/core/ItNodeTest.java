@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.synchronizedList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
@@ -58,6 +59,8 @@ import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
 import java.io.File;
 import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -148,6 +151,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
@@ -596,13 +600,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // adds a peer3
         PeerId peer3 = new PeerId(UUID.randomUUID().toString());
         CountDownLatch latch = new CountDownLatch(1);
-        follower.addPeer(peer3, new ExpectClosure(RaftError.EPERM, latch));
+        follower.addPeer(peer3, Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(RaftError.EPERM, latch));
         waitLatch(latch);
 
         // remove the peer0
         PeerId peer0 = peers.get(0).getPeerId();
         latch = new CountDownLatch(1);
-        follower.removePeer(peer0, new ExpectClosure(RaftError.EPERM, latch));
+        follower.removePeer(peer0, Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(RaftError.EPERM, latch));
         waitLatch(latch);
     }
 
@@ -679,6 +683,104 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }
 
         cluster.ensureSame();
+    }
+
+    /**
+     * Tests that election step down race condition is handled correctly.
+     *
+     * The race is between NodeImpl.electSelf that first releases and then reacquires the same lock
+     * and VoteTimer that manages to fire while the lock is not acquired.
+     *
+     * First we start a single node but add more than one peers to the configuration to
+     * prevent calling electSelf right from init.
+     * Then we inject our custom LogManager to be able to pause its calls.
+     * Then we call tryElectSelf() to trigger the race condition.
+     *
+     * We pause the execution for 10 seconds, but that's totally fine since vote timeout is 1.2 sec
+     * and the thread will be interrupted anyway by vote timeout.
+     * We pause only the first call since only the first call triggers the issue and
+     * we expect the other calls to pass normally.
+     *
+     */
+    @Test
+    public void testElectionStepDownRaceOnInit() throws Exception {
+        TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT);
+        // Create another peer to prevent NodeImpl.init from calling electSelf() at the end.
+        TestPeer peer2 = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
+
+        NodeOptions nodeOptions = createNodeOptions(0);
+        MockStateMachine fsm = new MockStateMachine(peer.getPeerId());
+        nodeOptions.setFsm(fsm);
+        nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
+        nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
+        nodeOptions.setInitialConf(new Configuration(asList(peer.getPeerId(), peer2.getPeerId())));
+
+        RaftGroupService service = createService("unittest", peer, nodeOptions, List.of());
+
+        Node node = service.start();
+
+        NodeImpl nodeImpl = (NodeImpl) node;
+
+        // Make sure we block only the first call to getLastLogId - which we are interested in.
+        AtomicBoolean block = new AtomicBoolean();
+        interceptLogManager(nodeImpl, () -> {
+            if (block.compareAndSet(false, true)) {
+                try {
+                    Thread.sleep(10_000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.info("Thread interrupted");
+                }
+            }
+        });
+
+        // Now revert to the original correct configuration with a single node to be able to proceed with election.
+        // nodeOptions.getInitialConf() is used by reference, so we can change the internal state this way.
+        nodeOptions.getInitialConf().setPeers(asList(peer.getPeerId()));
+
+        nodeImpl.tryElectSelf();
+
+        assertEquals(1, node.listPeers().size());
+        assertTrue(node.listPeers().contains(peer.getPeerId()));
+
+        assertTrue(waitForCondition(node::isLeader, 15_000));
+
+        sendTestTaskAndWait(node);
+        assertEquals(10, fsm.getLogs().size());
+        int i = 0;
+        for (ByteBuffer data : fsm.getLogs()) {
+            assertEquals("hello" + i++, stringFromBytes(data.array()));
+        }
+    }
+
+    /**
+     * Intercepts the LogManager.getLastLogId call.
+     */
+    private static void interceptLogManager(NodeImpl nodeImpl, Runnable onInterceptedAction) {
+        // Intercept getLastLogId call to simulate the race condition.
+        try {
+            Field logManagerField = NodeImpl.class.getDeclaredField("logManager");
+
+            logManagerField.setAccessible(true);
+            LogManager originalLogManager = (LogManager) logManagerField.get(nodeImpl);
+
+            LogManager interceptedLogManager = (LogManager) Proxy.newProxyInstance(
+                    originalLogManager.getClass().getClassLoader(),
+                    new Class<?>[]{LogManager.class},
+                    (proxy, method, args) -> {
+                        if ("getLastLogId".equals(method.getName()) && args != null && args.length == 1) {
+                            // Signal that election thread is paused (lock is released at this point)
+                            log.info("Intercepted the call to logManager.getLastLogId()");
+                            onInterceptedAction.run();
+                        }
+
+                        return method.invoke(originalLogManager, args);
+                    });
+
+            logManagerField.set(nodeImpl, interceptedLogManager);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     class UserReplicatorStateListener implements Replicator.ReplicatorStateListener {
@@ -897,10 +999,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             assertEquals(2, learners.size());
 
             SynchronizedClosure done = new SynchronizedClosure();
-            leader.resetLearners(learners.stream().map(TestPeer::getPeerId).collect(toList()), done);
+            leader.resetLearners(learners.stream().map(TestPeer::getPeerId).collect(toList()), 5L, done);
             assertTrue(done.await().isOk());
-            assertEquals(2, leader.listAliveLearners().size());
-            assertEquals(2, leader.listLearners().size());
+            assertThat(leader.listAliveLearners(), hasSize(2));
+            assertThat(leader.listLearners(), hasSize(2));
             sendTestTaskAndWait(leader);
             Thread.sleep(500);
 
@@ -916,7 +1018,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             // remove another learner
             TestPeer learnerPeer = learners.iterator().next();
             SynchronizedClosure done = new SynchronizedClosure();
-            leader.removeLearners(Arrays.asList(learnerPeer.getPeerId()), done);
+            leader.removeLearners(Arrays.asList(learnerPeer.getPeerId()), 6L, done);
             assertTrue(done.await().isOk());
 
             sendTestTaskAndWait(leader);
@@ -928,9 +1030,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             assertEquals(cluster.getLeaderFsm().getLogs().size(), fsm.getLogs().size() / 2 * 3);
         }
 
-        assertEquals(3, leader.listAlivePeers().size());
-        assertEquals(1, leader.listAliveLearners().size());
-        assertEquals(1, leader.listLearners().size());
+        assertThat(leader.listAlivePeers(), hasSize(3));
+        assertThat(leader.listAliveLearners(), hasSize(1));
+        assertThat(leader.listLearners(), hasSize(1));
     }
 
     @Test
@@ -993,7 +1095,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             TestPeer learnerPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 3);
             // Start learner
             assertTrue(cluster.startLearner(learnerPeer));
-            leader.addLearners(Arrays.asList(learnerPeer.getPeerId()), done);
+            leader.addLearners(Arrays.asList(learnerPeer.getPeerId()), 5L, done);
             assertTrue(done.await().isOk());
             assertEquals(1, leader.listAliveLearners().size());
             assertEquals(1, leader.listLearners().size());
@@ -1045,7 +1147,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             TestPeer learnerPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 4);
             // Start learner
             assertTrue(cluster.startLearner(learnerPeer));
-            leader.addLearners(Arrays.asList(learnerPeer.getPeerId()), done);
+            leader.addLearners(Arrays.asList(learnerPeer.getPeerId()), 6L, done);
             assertTrue(done.await().isOk());
             assertEquals(2, leader.listAliveLearners().size());
             assertEquals(2, leader.listLearners().size());
@@ -1251,7 +1353,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // remove old leader
         log.info("Remove old leader {}", oldLeader);
         CountDownLatch latch = new CountDownLatch(1);
-        leader.removePeer(oldLeader, new ExpectClosure(latch));
+        leader.removePeer(oldLeader, Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(latch));
         waitLatch(latch);
         assertEquals(60, leader.getNodeTargetPriority());
 
@@ -1471,7 +1573,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             TestPeer learnerPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 3);
             // Start learner
             assertTrue(cluster.startLearner(learnerPeer));
-            leader.addLearners(Arrays.asList(learnerPeer.getPeerId()), done);
+            leader.addLearners(Arrays.asList(learnerPeer.getPeerId()), Configuration.NO_SEQUENCE_TOKEN, done);
             assertTrue(done.await().isOk());
             assertEquals(1, leader.listAliveLearners().size());
             assertEquals(1, leader.listLearners().size());
@@ -1692,7 +1794,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // add peer1
         CountDownLatch latch = new CountDownLatch(1);
         peers.add(peer1);
-        leader.addPeer(peer1.getPeerId(), new ExpectClosure(latch));
+        leader.addPeer(peer1.getPeerId(), 5L, new ExpectClosure(latch));
         waitLatch(latch);
 
         cluster.ensureSame();
@@ -1703,7 +1805,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // add peer2 but not start
         peers.add(peer2);
         latch = new CountDownLatch(1);
-        leader.addPeer(peer2.getPeerId(), new ExpectClosure(RaftError.ECATCHUP, latch));
+        leader.addPeer(peer2.getPeerId(), 6L, new ExpectClosure(RaftError.ECATCHUP, latch));
         waitLatch(latch);
 
         // start peer2 after 2 seconds
@@ -1712,15 +1814,15 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // re-add peer2
         latch = new CountDownLatch(2);
-        leader.addPeer(peer2.getPeerId(), new ExpectClosure(latch));
+        leader.addPeer(peer2.getPeerId(), 7L, new ExpectClosure(latch));
         // concurrent configuration change
-        leader.addPeer(peer3.getPeerId(), new ExpectClosure(RaftError.EBUSY, latch));
+        leader.addPeer(peer3.getPeerId(), 8L, new ExpectClosure(RaftError.EBUSY, latch));
         waitLatch(latch);
 
         // re-add peer2 directly
 
         try {
-            leader.addPeer(peer2.getPeerId(), new ExpectClosure(latch));
+            leader.addPeer(peer2.getPeerId(), 9L, new ExpectClosure(latch));
             fail();
         }
         catch (IllegalArgumentException e) {
@@ -1765,7 +1867,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // remove follower
         log.info("Remove follower {}", followerPeer);
         CountDownLatch latch = new CountDownLatch(1);
-        leader.removePeer(followerPeer.getPeerId(), new ExpectClosure(latch));
+        leader.removePeer(followerPeer.getPeerId(), 5L, new ExpectClosure(latch));
         waitLatch(latch);
 
         sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
@@ -1780,7 +1882,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(cluster.start(followerPeer));
         // re-add follower
         latch = new CountDownLatch(1);
-        leader.addPeer(followerPeer.getPeerId(), new ExpectClosure(latch));
+        leader.addPeer(followerPeer.getPeerId(), 6L, new ExpectClosure(latch));
         waitLatch(latch);
 
         followers = cluster.getFollowers();
@@ -1820,7 +1922,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // remove old leader
         log.info("Remove old leader {}", oldLeader);
         CountDownLatch latch = new CountDownLatch(1);
-        leader.removePeer(oldLeader.getPeerId(), new ExpectClosure(latch));
+        leader.removePeer(oldLeader.getPeerId(), 5L, new ExpectClosure(latch));
         waitLatch(latch);
 
         // elect new leader
@@ -1842,7 +1944,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         peers = TestUtils.generatePeers(testInfo, 3);
         assertTrue(peers.remove(oldLeader));
         latch = new CountDownLatch(1);
-        leader.addPeer(oldLeader.getPeerId(), new ExpectClosure(latch));
+        leader.addPeer(oldLeader.getPeerId(), 6L, new ExpectClosure(latch));
         waitLatch(latch);
 
         followers = cluster.getFollowers();
@@ -1880,7 +1982,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // remove follower
         log.info("Remove follower {}", followerPeer);
         CountDownLatch latch = new CountDownLatch(1);
-        leader.removePeer(followerPeer.getPeerId(), new ExpectClosure(latch));
+        leader.removePeer(followerPeer.getPeerId(), 5L, new ExpectClosure(latch));
         waitLatch(latch);
 
         sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
@@ -1892,7 +1994,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         peers = TestUtils.generatePeers(testInfo, 3);
         assertTrue(peers.remove(followerPeer));
         latch = new CountDownLatch(1);
-        leader.addPeer(followerPeer.getPeerId(), new ExpectClosure(latch));
+        leader.addPeer(followerPeer.getPeerId(), 6L, new ExpectClosure(latch));
         waitLatch(latch);
         leader = cluster.getLeader();
         assertNotNull(leader);
@@ -1917,7 +2019,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21457")
     public void testSetPeer2() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 
@@ -1981,12 +2082,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         CountDownLatch latch = new CountDownLatch(1);
         log.info("Add old follower {}", followerPeer1);
-        leader.addPeer(followerPeer1, new ExpectClosure(latch));
+        leader.addPeer(followerPeer1, Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(latch));
         waitLatch(latch);
 
         latch = new CountDownLatch(1);
         log.info("Add old follower {}", followerPeer2);
-        leader.addPeer(followerPeer2, new ExpectClosure(latch));
+        leader.addPeer(followerPeer2, Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(latch));
         waitLatch(latch);
 
         newPeers.add(followerPeer1);
@@ -2177,7 +2278,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(started);
 
         CountDownLatch latch = new CountDownLatch(1);
-        leader.addPeer(newPeer.getPeerId(), status -> {
+        leader.addPeer(newPeer.getPeerId(), Configuration.NO_SEQUENCE_TOKEN, status -> {
             assertTrue(status.isOk(), status.toString());
             latch.countDown();
         });
@@ -2235,7 +2336,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(started);
 
         CountDownLatch latch = new CountDownLatch(1);
-        leader.addPeer(newPeer.getPeerId(), status -> {
+        leader.addPeer(newPeer.getPeerId(), Configuration.NO_SEQUENCE_TOKEN, status -> {
             assertTrue(status.isOk(), status.toString());
             latch.countDown();
         });
@@ -2621,7 +2722,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node oldLeader = leader;
 
         CountDownLatch latch = new CountDownLatch(1);
-        oldLeader.removePeer(oldLeader.getNodeId().getPeerId(), new ExpectClosure(latch));
+        oldLeader.removePeer(oldLeader.getNodeId().getPeerId(), Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(latch));
         waitLatch(latch);
 
         leader = cluster.waitAndGetLeader();
@@ -3154,10 +3255,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertEquals(2, followers.size());
         Node testFollower = followers.get(0);
         latch = new CountDownLatch(1);
-        leader.removePeer(testFollower.getNodeId().getPeerId(), new ExpectClosure(latch));
+        leader.removePeer(testFollower.getNodeId().getPeerId(), Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(latch));
         waitLatch(latch);
         latch = new CountDownLatch(1);
-        leader.addPeer(testFollower.getNodeId().getPeerId(), new ExpectClosure(latch));
+        leader.addPeer(testFollower.getNodeId().getPeerId(), Configuration.NO_SEQUENCE_TOKEN, new ExpectClosure(latch));
         waitLatch(latch);
 
         sendTestTaskAndWait(leader, amount, RaftError.SUCCESS);
@@ -3322,6 +3423,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         waitForTopologyOnEveryNode(numPeers, cluster);
 
+        long sequenceToken = 1;
+
         for (int i = 0; i < 9; i++) {
             leader = cluster.waitAndGetLeader();
             assertNotNull(leader);
@@ -3330,7 +3433,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             PeerId newLeaderPeer = peers.get(i + 1).getPeerId();
             if (async) {
                 SynchronizedClosure done = new SynchronizedClosure();
-                leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
+                leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer), sequenceToken++),
                         leader.getCurrentTerm(), done);
                 Status status = done.await();
                 assertTrue(status.isOk(), status.getRaftError().toString());
@@ -3342,7 +3445,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 }, 10_000));
             } else {
                 SynchronizedClosure done = new SynchronizedClosure();
-                leader.changePeersAndLearners(new Configuration(Collections.singletonList(newLeaderPeer)), leader.getCurrentTerm(), done);
+                leader.changePeersAndLearners(
+                        new Configuration(Collections.singletonList(newLeaderPeer), sequenceToken++), leader.getCurrentTerm(), done
+                );
                 Status status = done.await();
                 assertTrue(status.isOk(), status.getRaftError().toString());
             }
@@ -3368,7 +3473,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node leader = cluster.waitAndGetLeader();
         sendTestTaskAndWait(leader);
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         PeerId newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1).getPeerId();
 
@@ -3379,7 +3484,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertEquals(Status.OK(), done.await());
 
         verify(raftGrpEvtsLsnr, timeout(10_000))
-                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any(), anyLong());
+                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any(), anyLong(), anyLong());
 
         // Verify that initial close state wasn't reinitialized.
         assertEquals(Status.OK(), done.await());
@@ -3414,7 +3519,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             learners.add(learner);
         }
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         // Wait until every node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
@@ -3438,7 +3543,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 return false;
             }, 10_000));
 
-            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(eq(List.of(newPeer)), eq(List.of(newLearner)), anyLong(), anyLong());
+            verify(raftGrpEvtsLsnr, times(1))
+                    .onNewPeersConfigurationApplied(eq(List.of(newPeer)), eq(List.of(newLearner)), anyLong(), anyLong(), anyLong());
         }
     }
 
@@ -3484,7 +3590,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
         assertTrue(cluster.start(newPeer, false, 300));
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         // Wait until new node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
@@ -3507,7 +3613,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         verify(
                 raftGrpEvtsLsnr,
-                times(1)).onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get()
+                times(1))
+                .onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get(), 0
         );
     }
 
@@ -3584,7 +3691,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         SynchronizedClosure done = new SynchronizedClosure();
         leader.changePeersAndLearnersAsync(
-                new Configuration(List.of(peer0.getPeerId(), restartingPeer.getPeerId(), otherPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
+                new Configuration(List.of(peer0.getPeerId(), restartingPeer.getPeerId(), otherPeer.getPeerId()), List.of(), 5L),
+                leader.getCurrentTerm(),
                 done
         );
 
@@ -3638,7 +3746,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         Node leader = cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
 
         assertEquals(1, leader.getCurrentTerm());
 
@@ -3659,7 +3767,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         }, 10_000));
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -3685,7 +3793,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyList(),
-                anyList()
+                anyList(),
+                anyLong()
         );
 
         cluster.stop(cluster.getLeader().getLeaderId());
@@ -3697,7 +3806,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyList(),
-                anyList()
+                anyList(),
+                anyLong()
         );
 
         cluster.stop(cluster.getLeader().getLeaderId());
@@ -3709,14 +3819,61 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyList(),
-                anyList()
+                anyList(),
+                anyLong()
         );
     }
 
     @Test
     public void changePeersAndLearnersAsyncResponses() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+
+        AtomicLong appliedToken = new AtomicLong();
+
+        var raftGrpEvtsLsnr = new JraftGroupEventsListener() {
+            @Override
+            public void onLeaderElected(
+                    long term,
+                    long configurationTerm,
+                    long configurationIndex,
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long sequenceToken
+            ) {
+            }
+
+            @Override
+            public void onNewPeersConfigurationApplied(
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long term,
+                    long index,
+                    long sequenceToken
+            ) {
+                appliedToken.set(sequenceToken);
+            }
+
+            @Override
+            public void onReconfigurationError(
+                    Status status,
+                    Collection<PeerId> peers,
+                    Collection<PeerId> learners,
+                    long term,
+                    long sequenceToken
+            ) {
+            }
+        };
+        cluster = new TestCluster(
+                "testChangePeers",
+                dataPath,
+                Collections.singletonList(peer0),
+                new LinkedHashSet<>(),
+                ELECTION_TIMEOUT_MILLIS,
+                (peerId, opts) -> {
+                    opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+                },
+                testInfo
+        );
         assertTrue(cluster.start(peer0));
 
         Node leader = cluster.waitAndGetLeader();
@@ -3734,19 +3891,21 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // wrong leader term, do nothing
         SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId())),
+        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId()), 5L),
                 leader.getCurrentTerm() - 1, done);
         assertEquals(done.await(), Status.OK());
 
-        // the same config, do nothing
+        // the same config, but different token - apply config change
         done = new SynchronizedClosure();
-        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(leaderPeer)),
+        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(leaderPeer), 6L),
                 leader.getCurrentTerm(), done);
         assertEquals(done.await(), Status.OK());
 
+        assertTrue(waitForCondition(() -> appliedToken.get() == 6, 10_000));
+
         // change peer to new conf containing only new node
         done = new SynchronizedClosure();
-        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId())),
+        leader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(newLeaderPeer.getPeerId()), 7L),
                 leader.getCurrentTerm(), done);
         assertEquals(done.await(), Status.OK());
 
@@ -3774,7 +3933,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             SynchronizedClosure newDone = new SynchronizedClosure();
             dones.add(newDone);
             futs.add(executor.submit(() -> {
-                newLeader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(peer0.getPeerId())), 2, newDone);
+                newLeader.changePeersAndLearnersAsync(new Configuration(Collections.singletonList(peer0.getPeerId()), 8L), 2, newDone);
             }));
         }
         futs.get(0).get();
@@ -3845,6 +4004,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(await.isOk(), await.getErrorMsg());
 
         cluster.ensureSame();
+
+        cluster.ensureSameConf();
+
         assertEquals(3, cluster.getFsms().size());
 
         for (MockStateMachine fsm : cluster.getFsms())
@@ -4864,4 +5026,275 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     /** Interface combining both Closure and CommandClosure. */
     interface CombinedClosure extends Closure, CommandClosure<WriteCommand> {
     };
+
+    /**
+     * Test that stale configuration changes are rejected based on sequence token.
+     * Tests addPeer operation.
+     */
+    @Test
+    public void testStaleAddPeerIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleAddPeer", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        log.info("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), leader.getOptions().getElectionTimeoutMs());
+
+
+        // First, make a successful configuration change with sequence token 5
+        TestPeer newPeer1 = new TestPeer(testInfo, TestUtils.INIT_PORT + 3);
+        assertTrue(cluster.start(newPeer1, false, 300));
+
+        SynchronizedClosure done1 = new SynchronizedClosure();
+        leader.addPeer(newPeer1.getPeerId(), 5L, done1);
+        Status status1 = done1.await();
+        assertTrue(status1.isOk(), "First addPeer should succeed: " + status1);
+
+        // Now try to add another peer with a stale sequence token (3 < 5)
+        PeerId newPeer2 = new TestPeer(testInfo, TestUtils.INIT_PORT + 4).getPeerId();
+        SynchronizedClosure done2 = new SynchronizedClosure();
+        leader.addPeer(newPeer2, 3L, done2);
+        Status status2 = done2.await();
+
+        // This should fail with ESTALE error
+        assertFalse(status2.isOk(), "Stale addPeer should fail");
+        assertEquals(RaftError.ESTALE, status2.getRaftError(), "Should fail with ESTALE error");
+    }
+
+    /**
+     * Test that stale configuration changes are rejected for removePeer.
+     */
+    @Test
+    public void testStaleRemovePeerIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleRemovePeer", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Add a peer with sequence token 5
+        TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 3);
+        assertTrue(cluster.start(newPeer, false, 300));
+
+        SynchronizedClosure done1 = new SynchronizedClosure();
+        leader.addPeer(newPeer.getPeerId(), 5L, done1);
+        assertTrue(done1.await().isOk());
+
+        // Try to remove a peer with stale token (2 < 5)
+        PeerId peerToRemove = peers.get(2).getPeerId();
+        SynchronizedClosure done2 = new SynchronizedClosure();
+        leader.removePeer(peerToRemove, 2L, done2);
+        Status status = done2.await();
+
+        assertFalse(status.isOk(), "Stale removePeer should fail");
+        assertEquals(RaftError.ESTALE, status.getRaftError());
+    }
+
+    /**
+     * Test that stale configuration changes are rejected for addLearners.
+     */
+    @Test
+    public void testStaleAddLearnersIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleAddLearners", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Make a configuration change with sequence token 10
+        PeerId learner1 = new TestPeer(testInfo, TestUtils.INIT_PORT + 3).getPeerId();
+        SynchronizedClosure done1 = new SynchronizedClosure();
+        leader.addLearners(List.of(learner1), 10L, done1);
+        assertTrue(done1.await().isOk());
+
+        // Try to add learners with stale token (5 < 10)
+        PeerId learner2 = new TestPeer(testInfo, TestUtils.INIT_PORT + 4).getPeerId();
+        SynchronizedClosure done2 = new SynchronizedClosure();
+        leader.addLearners(List.of(learner2), 5L, done2);
+        Status status = done2.await();
+
+        assertFalse(status.isOk(), "Stale addLearners should fail");
+        assertEquals(RaftError.ESTALE, status.getRaftError());
+    }
+
+    /**
+     * Test that stale configuration changes are rejected for removeLearners.
+     */
+    @Test
+    public void testStaleRemoveLearnersIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleRemoveLearners", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Add learners with sequence token 8
+        PeerId learner1 = new TestPeer(testInfo, TestUtils.INIT_PORT + 3).getPeerId();
+        PeerId learner2 = new TestPeer(testInfo, TestUtils.INIT_PORT + 4).getPeerId();
+        SynchronizedClosure done1 = new SynchronizedClosure();
+        leader.addLearners(List.of(learner1, learner2), 8L, done1);
+        assertTrue(done1.await().isOk());
+
+        // Try to remove learners with stale token (3 < 8)
+        SynchronizedClosure done2 = new SynchronizedClosure();
+        leader.removeLearners(List.of(learner1), 3L, done2);
+        Status status = done2.await();
+
+        assertFalse(status.isOk(), "Stale removeLearners should fail");
+        assertEquals(RaftError.ESTALE, status.getRaftError());
+    }
+
+    /**
+     * Test that stale configuration changes are rejected for resetLearners.
+     */
+    @Test
+    public void testStaleResetLearnersIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleResetLearners", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Add learners with sequence token 12
+        PeerId learner1 = new TestPeer(testInfo, TestUtils.INIT_PORT + 3).getPeerId();
+        SynchronizedClosure done1 = new SynchronizedClosure();
+        leader.addLearners(List.of(learner1), 12L, done1);
+        assertTrue(done1.await().isOk());
+
+        // Try to reset learners with stale token (7 < 12)
+        PeerId learner2 = new TestPeer(testInfo, TestUtils.INIT_PORT + 4).getPeerId();
+        SynchronizedClosure done2 = new SynchronizedClosure();
+        leader.resetLearners(List.of(learner2), 7L, done2);
+        Status status = done2.await();
+
+        assertFalse(status.isOk(), "Stale resetLearners should fail");
+        assertEquals(RaftError.ESTALE, status.getRaftError());
+    }
+
+    /**
+     * Test that stale changePeersAndLearners is rejected.
+     */
+    @Test
+    public void testStaleChangePeersAndLearnersIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleChangePeersAndLearners", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Make a successful configuration change with sequence token 20
+        Configuration newConf1 = new Configuration(List.of(peers.get(0).getPeerId(), peers.get(1).getPeerId()), 20L);
+        SynchronizedClosure done1 = new SynchronizedClosure();
+        leader.changePeersAndLearners(newConf1, leader.getCurrentTerm(), done1);
+        assertTrue(done1.await().isOk());
+
+        // Try to change with stale token (15 < 20)
+        Configuration newConf2 = new Configuration(List.of(peers.get(0).getPeerId()), 15L);
+        SynchronizedClosure done2 = new SynchronizedClosure();
+        leader.changePeersAndLearners(newConf2, leader.getCurrentTerm(), done2);
+        Status status = done2.await();
+
+        assertFalse(status.isOk(), "Stale changePeersAndLearners should fail");
+        assertEquals(RaftError.ESTALE, status.getRaftError());
+    }
+
+    /**
+     * Test that stale changePeersAndLearnersAsync is rejected.
+     */
+    @Test
+    public void testStaleChangePeersAndLearnersAsyncIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleChangePeersAndLearnersAsync", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Make a successful configuration change with sequence token 25
+        Configuration newConf1 = new Configuration(List.of(peers.get(0).getPeerId(), peers.get(1).getPeerId()), 25L);
+        SynchronizedClosure done1 = new SynchronizedClosure();
+        leader.changePeersAndLearnersAsync(newConf1, leader.getCurrentTerm(), done1);
+        assertTrue(done1.await().isOk());
+
+        // Try to change with stale token (18 < 25)
+        Configuration newConf2 = new Configuration(List.of(peers.get(0).getPeerId()), 18L);
+        SynchronizedClosure done2 = new SynchronizedClosure();
+        leader.changePeersAndLearnersAsync(newConf2, leader.getCurrentTerm(), done2);
+        Status status = done2.await();
+
+        assertFalse(status.isOk(), "Stale changePeersAndLearnersAsync should fail");
+        assertEquals(RaftError.ESTALE, status.getRaftError());
+    }
+
+    /**
+     * Test that stale resetPeers is rejected.
+     */
+    @Test
+    public void testStaleResetPeersIsRejected() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testStaleResetPeers", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Make a configuration change with sequence token 30
+        Configuration newConf1 = new Configuration(List.of(peers.get(0).getPeerId(), peers.get(1).getPeerId()), 30L);
+        Status status1 = leader.resetPeers(newConf1);
+        assertTrue(status1.isOk());
+
+        // Try to reset with stale token (22 < 30)
+        Configuration newConf2 = new Configuration(List.of(peers.get(0).getPeerId()), 22L);
+        Status status2 = leader.resetPeers(newConf2);
+
+        assertFalse(status2.isOk(), "Stale resetPeers should fail");
+        assertEquals(RaftError.ESTALE, status2.getRaftError());
+    }
+
+    /**
+     * Test that configuration changes with increasing sequence tokens succeed.
+     */
+    @Test
+    public void testSequentialConfigurationChangesSucceed() throws Exception {
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+        cluster = new TestCluster("testSequentialConfigChanges", dataPath, peers, testInfo);
+
+        for (TestPeer peer : peers)
+            assertTrue(cluster.start(peer));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Make multiple configuration changes with increasing sequence tokens
+        for (long token = 1; token <= 5; token++) {
+            PeerId learner = new TestPeer(testInfo, TestUtils.INIT_PORT + 10 + (int)token).getPeerId();
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.addLearners(List.of(learner), token, done);
+            Status status = done.await();
+            assertTrue(status.isOk(), "Configuration change with token " + token + " should succeed: " + status);
+        }
+    }
 }

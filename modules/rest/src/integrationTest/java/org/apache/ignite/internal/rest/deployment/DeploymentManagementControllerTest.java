@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
+import static io.micronaut.http.HttpStatus.BAD_REQUEST;
+import static io.micronaut.http.HttpStatus.CONFLICT;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
+import static io.micronaut.http.HttpStatus.OK;
 import static org.apache.ignite.internal.rest.api.deployment.DeploymentStatus.DEPLOYED;
-import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
-import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
-import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
-import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.createZipFile;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.fillDummyFile;
 import static org.awaitility.Awaitility.await;
@@ -31,19 +33,16 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.multipart.MultipartBody;
 import io.micronaut.http.client.multipart.MultipartBody.Builder;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
-import org.apache.ignite.internal.rest.matcher.ProblemMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -120,8 +118,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         for (UnitStatus unitStatus : list) {
             for (UnitVersionStatus versionToStatus : unitStatus.versionToStatus()) {
                 if (versionToStatus.getStatus() == DEPLOYED) {
-                    HttpResponse<Object> response = undeploy(UNIT_ID, versionToStatus.getVersion());
-                    assertThat(response.code(), is(OK.code()));
+                    assertThat(undeploy(UNIT_ID, versionToStatus.getVersion()), hasStatus(OK));
                 }
             }
         }
@@ -139,9 +136,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
     public void testDeploySuccessful() {
         String id = UNIT_ID;
         String version = "1.1.1";
-        HttpResponse<Object> response = deploy(id, version);
 
-        assertThat(response.code(), is(OK.code()));
+        assertThat(deploy(id, version), hasStatus(OK));
 
         awaitDeployedStatus(id, version);
     }
@@ -150,9 +146,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
     public void testDeployBig() {
         String id = UNIT_ID;
         String version = "1.1.1";
-        HttpResponse<Object> response = deploy(id, version, false, bigFile);
 
-        assertThat(response.code(), is(OK.code()));
+        assertThat(deploy(id, version, false, bigFile), hasStatus(OK));
 
         awaitDeployedStatus(id, version);
     }
@@ -161,24 +156,23 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
     public void testDeployFailedWithoutContent() {
         String id = "unitId";
         String version = "1.1.1";
-        HttpClientResponseException e = assertThrows(
-                HttpClientResponseException.class,
-                () -> deploy(id, version, false, null));
-        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+        assertThrowsProblem(
+                () -> deploy(id, version, false, null),
+                isProblem().withStatus(BAD_REQUEST)
+        );
     }
 
     @Test
     public void testDeployExisted() {
         String id = UNIT_ID;
         String version = "1.1.1";
-        HttpResponse<Object> response = deploy(id, version);
 
-        assertThat(response.code(), is(OK.code()));
+        assertThat(deploy(id, version), hasStatus(OK));
 
-        HttpClientResponseException e = assertThrows(
-                HttpClientResponseException.class,
-                () -> deploy(id, version));
-        assertThat(e.getResponse().code(), is(CONFLICT.code()));
+        assertThrowsProblem(
+                () -> deploy(id, version),
+                isProblem().withStatus(CONFLICT)
+        );
 
         awaitDeployedStatus(id, version);
     }
@@ -188,22 +182,19 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         String id = UNIT_ID;
         String version = "1.1.1";
 
-        HttpResponse<Object> response = deploy(id, version);
-
-        assertThat(response.code(), is(OK.code()));
+        assertThat(deploy(id, version), hasStatus(OK));
 
         awaitDeployedStatus(id, version);
 
-        response = undeploy(id, version);
-        assertThat(response.code(), is(OK.code()));
+        assertThat(undeploy(id, version), hasStatus(OK));
     }
 
     @Test
     public void testUndeployFailed() {
-        HttpClientResponseException e = assertThrows(
-                HttpClientResponseException.class,
-                () -> undeploy(UNIT_ID, "1.1.1"));
-        assertThat(e.getResponse().code(), is(NOT_FOUND.code()));
+        assertThrowsProblem(
+                () -> undeploy(UNIT_ID, "1.1.1"),
+                isProblem().withStatus(NOT_FOUND)
+        );
     }
 
     @Test
@@ -235,9 +226,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
     public void testZipDeploy() {
         String id = UNIT_ID;
         String version = "1.1.1";
-        HttpResponse<Object> response = deployZip(id, version);
 
-        assertThat(response.code(), is(OK.code()));
+        assertThat(deployZip(id, version), hasStatus(OK));
 
         awaitDeployedStatus(id, version);
 
@@ -258,9 +248,8 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
     public void testZipDeployAsFile() {
         String id = UNIT_ID;
         String version = "1.1.1";
-        HttpResponse<Object> response = deploy(id, version, false, zipFile);
 
-        assertThat(response.code(), is(OK.code()));
+        assertThat(deploy(id, version, false, zipFile), hasStatus(OK));
 
         awaitDeployedStatus(id, version);
 
@@ -285,14 +274,12 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
         assertThrowsProblem(
                 () -> deploy(id, version, true, smallFile),
-                HttpStatus.BAD_REQUEST,
-                ProblemMatcher.isProblem().withDetail("Only zip file is supported.")
+                isProblem().withStatus(BAD_REQUEST).withDetail("Only zip file is supported.")
         );
 
         assertThrowsProblem(
                 () -> deploy(id, version, true, zipFile, zipFile),
-                HttpStatus.BAD_REQUEST,
-                ProblemMatcher.isProblem().withDetail("Deployment unit with unzip supports only single zip file.")
+                isProblem().withStatus(BAD_REQUEST).withDetail("Deployment unit with unzip supports only single zip file.")
         );
     }
 

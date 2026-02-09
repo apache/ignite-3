@@ -67,7 +67,8 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
             long configurationTerm,
             long configurationIndex,
             Collection<PeerId> peers,
-            Collection<PeerId> learners
+            Collection<PeerId> learners,
+            long sequenceToken
     ) {
         serviceEventInterceptor.onLeaderElected(grpId, term);
 
@@ -75,18 +76,31 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
                 term,
                 configurationTerm,
                 configurationIndex,
-                configuration(peers, learners)
+                configuration(peers, learners),
+                sequenceToken
         );
     }
 
     @Override
-    public void onNewPeersConfigurationApplied(Collection<PeerId> peerIds, Collection<PeerId> learnerIds, long term, long index) {
-        delegate.onNewPeersConfigurationApplied(configuration(peerIds, learnerIds), term, index);
+    public void onNewPeersConfigurationApplied(
+            Collection<PeerId> peerIds,
+            Collection<PeerId> learnerIds,
+            long term,
+            long index,
+            long sequenceToken
+    ) {
+        delegate.onNewPeersConfigurationApplied(configuration(peerIds, learnerIds), term, index, sequenceToken);
     }
 
     @Override
-    public void onReconfigurationError(Status status, Collection<PeerId> peerIds, Collection<PeerId> learnerIds, long term) {
-        delegate.onReconfigurationError(convertStatus(status), configuration(peerIds, learnerIds), term);
+    public void onReconfigurationError(
+            Status status,
+            Collection<PeerId> peerIds,
+            Collection<PeerId> learnerIds,
+            long term,
+            long sequenceToken
+    ) {
+        delegate.onReconfigurationError(convertStatus(status), configuration(peerIds, learnerIds), term, sequenceToken);
     }
 
     private static PeersAndLearners configuration(Collection<PeerId> peerIds, Collection<PeerId> learnerIds) {

@@ -73,6 +73,7 @@ enum class code : underlying_t {
     RESOURCE_CLOSING = 0x10007,
     USER_OBJECT_SERIALIZATION = 0x10008,
     NULLABLE_VALUE = 0x10009,
+    UNSUPPORTED_TABLE_BASED_REPLICATION = 0x1000a,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -93,6 +94,8 @@ enum class code : underlying_t {
     CLIENT_SSL_CONFIGURATION = 0x30007,
     HANDSHAKE_HEADER = 0x30008,
     SERVER_TO_CLIENT_REQUEST = 0x30009,
+    RESOURCE_NOT_FOUND = 0x3000a,
+    OPERATION_TIMEOUT = 0x3000b,
 
     // Sql group. Group code: 4
     QUERY_NO_RESULT_SET = 0x40001,
@@ -135,6 +138,7 @@ enum class code : underlying_t {
     TX_STALE_OPERATION = 0x7000e,
     TX_STALE_READ_ONLY_OPERATION = 0x7000f,
     TX_ALREADY_FINISHED_WITH_TIMEOUT = 0x70010,
+    TX_DELAYED_ACK = 0x70011,
 
     // Replicator group. Group code: 8
     REPLICA_COMMON = 0x80001,
@@ -169,6 +173,7 @@ enum class code : underlying_t {
     CONFIG_FILE_CREATE = 0xc0002,
     CONFIG_WRITE = 0xc0003,
     CONFIG_PARSE = 0xc0004,
+    JOIN_DENIED = 0xc0005,
 
     // CodeDeployment group. Group code: 13
     UNIT_NOT_FOUND = 0xd0001,
@@ -222,6 +227,7 @@ enum class code : underlying_t {
     CLUSTER_NOT_IDLE = 0x140004,
     NOT_ENOUGH_ALIVE_NODES = 0x140005,
     ILLEGAL_NODES_SET = 0x140006,
+    REQUEST_FORWARD = 0x140007,
 
     // Embedded group. Group code: 21
     CLUSTER_NOT_INITIALIZED = 0x150001,

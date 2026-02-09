@@ -86,7 +86,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> List.of("N1"))
                 .collect(Collectors.toList()));
         CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(
-                List.of(new Object[]{1, 1, 1, 1}, new Object[]{2, 2, 1, 1})
+                List.of(new Object[]{1, 1, 1, 1, 1}, new Object[]{2, 2, 1, 1, 1})
         )));
     }
 
@@ -310,7 +310,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
         // Test that validates the results cannot be executed correctly without actually executing the query.
         assertThrows(
-                AssertionError.class,
+                IllegalStateException.class,
                 () -> assertQueryMeta("SELECT * FROM t1")
                         .columnTypes(Integer.class, Integer.class)
                         .returns(1, 1)
@@ -321,7 +321,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
         // Test that only checks metadata should not execute the query.
         assertThrows(
-                AssertionError.class,
+                IllegalStateException.class,
                 () -> assertQuery("SELECT * FROM t1")
                         .columnTypes(Integer.class, Integer.class)
                         .check(),
@@ -370,7 +370,10 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 Object... params
         ) {
             assert params == null || params.length == 0 : "params are not supported";
-            assert prepareOnly : "Expected that the query will be executed";
+
+            if (!prepareOnly) {
+                throw new IllegalStateException("Expected that the query will be executed");
+            }
 
             QueryPlan plan = node.prepare(qry);
 
@@ -387,7 +390,10 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 Object... params
         ) {
             assert params == null || params.length == 0 : "params are not supported";
-            assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
+
+            if (prepareOnly) {
+                throw new IllegalStateException("Expected that the query will only be prepared, but not executed");
+            }
 
             AsyncSqlCursor<InternalSqlRow> sqlCursor = node.executeQuery(qry);
 

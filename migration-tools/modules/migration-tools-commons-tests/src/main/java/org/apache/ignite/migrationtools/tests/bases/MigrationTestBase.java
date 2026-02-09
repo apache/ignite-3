@@ -69,7 +69,8 @@ public class MigrationTestBase {
 
     // TODO: Add a cluster instead of a single instance. Create a ignite stuff perhaps.
     @Container
-    protected static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network);
+    protected static final Ignite3ClusterContainer AI3_CLUSTER = new Ignite3ClusterContainer(network)
+            .withLabel(MigrationTestBase.class.getSimpleName());
 
     @Container
     protected static final MigrationToolsContainer MIGRATION_TOOLS_CONTAINER = new MigrationToolsContainer(network);

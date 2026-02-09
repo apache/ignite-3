@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.digest;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.structuredTypeFromRelTypeList;
 
 import java.lang.reflect.Modifier;
 import java.util.List;
@@ -37,14 +38,13 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
@@ -71,25 +71,23 @@ class ProjectionImplementor {
      * Implements given list of projections as {@link SqlProjection}.
      *
      * @param projections The list of projections, i.e. expressions used to compute a new row.
-     * @param type The type of the input row.
-     * @param <RowT> The type of the execution row.
+     * @param inputRowType The type of the input row.
      * @return An implementation of projection.
      * @see SqlProjection
      */
-    public <RowT> SqlProjection<RowT> implement(List<RexNode> projections, RelDataType type) {
-        String digest = digest(SqlProjection.class, projections, type);
-        Cache<String, SqlProjection<RowT>> cache = cast(this.cache);
+    public SqlProjection implement(List<RexNode> projections, RelDataType inputRowType) {
+        String digest = digest(SqlProjection.class, projections, inputRowType);
+        Cache<String, SqlProjection> cache = cast(this.cache);
 
         return cache.get(digest, key -> {
-            RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projections));
-            SqlProjectionExt<RowT> projectionExt = implementInternal(projections, type);
+            SqlProjectionExt projectionExt = implementInternal(projections, inputRowType);
 
-            return new SqlProjectionImpl<>(projectionExt, rowSchema);
+            return new SqlProjectionImpl(projectionExt, structuredTypeFromRelTypeList(RexUtil.types(projections)));
         });
     }
 
-    private <RowT> SqlProjectionExt<RowT> implementInternal(List<RexNode> projections, RelDataType type) {
-        RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
+    private SqlProjectionExt implementInternal(List<RexNode> projections, RelDataType inputRowType) {
+        RexProgramBuilder programBuilder = new RexProgramBuilder(inputRowType, rexBuilder);
 
         for (RexNode node : projections) {
             assert node != null : "unexpected nullable node";
@@ -101,7 +99,7 @@ class ProjectionImplementor {
 
         BlockBuilder builder = new BlockBuilder();
 
-        ParameterExpression ctx = Expressions.parameter(ExecutionContext.class, "ctx");
+        ParameterExpression ctx = Expressions.parameter(SqlEvaluationContext.class, "ctx");
         ParameterExpression row = Expressions.parameter(Object.class, "row");
         ParameterExpression outBuilder = Expressions.parameter(RowBuilder.class, "outBuilder");
 
@@ -111,7 +109,7 @@ class ProjectionImplementor {
 
         Expression rowHandler = builder.append("hnd", Expressions.call(ctx, IgniteMethod.CONTEXT_ROW_HANDLER.method()));
 
-        InputGetter inputGetter = new FieldGetter(rowHandler, row, type);
+        InputGetter inputGetter = new FieldGetter(rowHandler, row, inputRowType);
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler).build(projections);
 
@@ -135,7 +133,7 @@ class ProjectionImplementor {
                 Modifier.PUBLIC, void.class, "project",
                 params, tryCatchBlock.toBlock());
 
-        Class<SqlProjectionExt<RowT>> clazz = cast(SqlProjectionExt.class);
+        Class<SqlProjectionExt> clazz = cast(SqlProjectionExt.class);
 
         String body = Expressions.toString(List.of(declaration), "\n", false);
 
@@ -144,31 +142,25 @@ class ProjectionImplementor {
 
     /** Internal interface of this implementor. Need to be public due to visibility for compiler. */
     @FunctionalInterface
-    public interface SqlProjectionExt<RowT> {
-        void project(ExecutionContext<RowT> context, RowT row, RowBuilder<RowT> outBuilder);
+    public interface SqlProjectionExt {
+        <RowT> void project(SqlEvaluationContext<RowT> context, RowT row, RowBuilder<RowT> outBuilder);
     }
 
-    private static class SqlProjectionImpl<RowT> implements SqlProjection<RowT> {
-        private final SqlProjectionExt<RowT> projection;
-        private final RowSchema rowSchema;
+    private static class SqlProjectionImpl implements SqlProjection {
+        private final SqlProjectionExt projection;
+        private final StructNativeType rowType;
 
-        /**
-         * Constructor.
-         *
-         * @param projection Scalar.
-         * @param rowSchema Row factory.
-         */
-        private SqlProjectionImpl(SqlProjectionExt<RowT> projection, RowSchema rowSchema) {
+        private SqlProjectionImpl(SqlProjectionExt projection, StructNativeType rowType) {
             this.projection = projection;
-            this.rowSchema = rowSchema;
+            this.rowType = rowType;
         }
 
-        private RowBuilder<RowT> builder(ExecutionContext<RowT> context) {
-            return context.rowHandler().factory(rowSchema).rowBuilder();
+        private <RowT> RowBuilder<RowT> builder(SqlEvaluationContext<RowT> context) {
+            return context.rowFactoryFactory().create(rowType).rowBuilder();
         }
 
         @Override
-        public RowT project(ExecutionContext<RowT> context, RowT row) {
+        public <RowT> RowT project(SqlEvaluationContext<RowT> context, RowT row) {
             RowBuilder<RowT> rowBuilder = builder(context);
 
             projection.project(context, row, rowBuilder);

@@ -57,6 +57,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             String name,
             int id,
             int version,
+            long timestamp,
             TableDescriptor desc,
             ImmutableIntList keyColumns,
             Statistic statistic,
@@ -64,7 +65,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             int partitions,
             int zoneId
     ) {
-        super(name, id, version, desc, statistic);
+        super(name, id, version, timestamp, desc, statistic);
 
         this.keyColumns = keyColumns;
         this.indexMap = indexMap;

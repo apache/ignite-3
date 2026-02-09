@@ -92,7 +92,7 @@ public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
         cluster.stop();
 
         int initialNodesCount = nodesCount();
-        cluster.startEmbedded(initialNodesCount, false);
+        cluster.startEmbedded(initialNodesCount);
 
         IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
         int zoneId = node.catalogManager().activeCatalog(node.clock().currentLong()).zone(ZONE_NAME).id();
@@ -133,7 +133,7 @@ public class ItDataNodesCompatibilityTest extends CompatibilityTestBase {
         // Check that we read the new data nodes after one more restart.
         cluster.stop();
 
-        cluster.startEmbedded(initialNodesCount, false);
+        cluster.startEmbedded(initialNodesCount);
 
         IgniteImpl restartedNode = unwrapIgniteImpl(cluster.node(0));
 

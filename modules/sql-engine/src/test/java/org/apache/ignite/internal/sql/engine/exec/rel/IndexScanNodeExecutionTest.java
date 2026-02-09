@@ -45,11 +45,11 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -64,6 +64,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes.RowTypeBuilder;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -162,8 +164,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
 
-        RowSchema schema = RowSchema.builder().addField(NativeTypes.INT32).build();
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(schema);
+        StructNativeType schema = NativeTypes.rowBuilder().addField("C1", NativeTypes.INT32, false).build();
+        RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         TableDescriptor tableDescriptor = createTableDescriptor(columns);
         IgniteIndex indexDescriptor = sorted
@@ -271,15 +273,16 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
     private static IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, IgniteIndex indexDescriptor,
             TableDescriptor tableDescriptor, TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
-        RowSchema.Builder rowSchemaBuilder = RowSchema.builder();
+        RowTypeBuilder rowSchemaBuilder = NativeTypes.rowBuilder();
 
+        int idx = 0;
         for (RelFieldCollation ignored : indexDescriptor.collation().getFieldCollations()) {
-            rowSchemaBuilder = rowSchemaBuilder.addField(NativeTypes.INT32);
+            rowSchemaBuilder = rowSchemaBuilder.addField("C" + idx++, NativeTypes.INT32, true);
         }
 
-        RowSchema rowSchema = rowSchemaBuilder.build();
+        StructNativeType rowSchema = rowSchemaBuilder.build();
 
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(rowSchema);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
         List<PartitionWithConsistencyToken> partitions = scannableTable.getPartitions();
         PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partitions);
@@ -421,6 +424,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

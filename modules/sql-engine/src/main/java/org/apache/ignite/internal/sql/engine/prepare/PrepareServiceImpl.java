@@ -17,39 +17,36 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
-import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
-import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
-import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
-import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION;
+import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
+import static org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent.STATISTIC_CHANGED;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -69,9 +66,12 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -103,8 +103,8 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.statistic.StatisticUpdatesNotifier;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticChangedEvent;
+import org.apache.ignite.internal.sql.engine.statistic.event.StatisticEventParameters;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -113,8 +113,12 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -143,8 +147,6 @@ public class PrepareServiceImpl implements PrepareService {
 
     private static final String PLANNING_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-planning-executor";
 
-    public static final int PLAN_UPDATER_INITIAL_DELAY = 2_000;
-
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
 
@@ -170,6 +172,8 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final LongSupplier currentClock;
 
+    private final EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates;
+
     /**
      * Factory method.
      *
@@ -183,7 +187,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
      * @param currentClock Actual clock supplier.
      * @param scheduler Scheduler.
-     * @param updNotifier Updates notifier call-back.
+     * @param statUpdates Statistic updates notifier.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -196,9 +200,9 @@ public class PrepareServiceImpl implements PrepareService {
             DdlSqlToCommandConverter ddlSqlToCommandConverter,
             LongSupplier currentClock,
             ScheduledExecutorService scheduler,
-            StatisticUpdatesNotifier updNotifier
+            EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates
     ) {
-        PrepareServiceImpl impl = new PrepareServiceImpl(
+        return new PrepareServiceImpl(
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
@@ -209,12 +213,10 @@ public class PrepareServiceImpl implements PrepareService {
                 metricManager,
                 schemaManager,
                 currentClock,
-                scheduler
+                scheduler,
+                statUpdates,
+                clusterCfg.statistics().autoRefresh().staleRowsCheckIntervalSeconds()
         );
-
-        updNotifier.changesNotifier(impl::statisticsChanged);
-
-        return impl;
     }
 
     /**
@@ -229,6 +231,8 @@ public class PrepareServiceImpl implements PrepareService {
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      * @param currentClock Actual clock supplier.
      * @param scheduler Scheduler.
+     * @param statUpdates Statistic updates notifier.
+     * @param staleRowsCheckIntervalSeconds Interval between runs of the plan cache update routine.
      */
     public PrepareServiceImpl(
             String nodeName,
@@ -241,7 +245,9 @@ public class PrepareServiceImpl implements PrepareService {
             MetricManager metricManager,
             SqlSchemaManager schemaManager,
             LongSupplier currentClock,
-            ScheduledExecutorService scheduler
+            ScheduledExecutorService scheduler,
+            EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates,
+            ConfigurationValue<Integer> staleRowsCheckIntervalSeconds
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
@@ -249,14 +255,21 @@ public class PrepareServiceImpl implements PrepareService {
         this.metricManager = metricManager;
         this.plannerThreadCount = plannerThreadCount;
         this.schemaManager = schemaManager;
+        this.statUpdates = statUpdates;
 
         this.currentClock = currentClock;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
 
-        planUpdater = new PlanUpdater(scheduler, cache, plannerTimeout, this::recalculatePlan, this::directCatalogVersion,
-                this::getDefaultSchema);
+        planUpdater = new PlanUpdater(
+                scheduler, cache,
+                plannerTimeout,
+                this::recalculatePlan,
+                this::directCatalogVersion,
+                this::getDefaultSchema,
+                staleRowsCheckIntervalSeconds
+        );
     }
 
     /** {@inheritDoc} */
@@ -281,12 +294,19 @@ public class PrepareServiceImpl implements PrepareService {
 
         IgnitePlanner.warmup();
 
+        statUpdates.listen(STATISTIC_CHANGED, parameters -> {
+            statisticsChanged(parameters.tableId());
+
+            return falseCompletedFuture();
+        });
+
         planUpdater.start();
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        planUpdater.stop();
         planningPool.shutdownNow();
         metricManager.unregisterSource(sqlPlanCacheMetricSource);
         metricManager.unregisterSource(PLANNING_EXECUTOR_SOURCE_NAME);
@@ -306,15 +326,7 @@ public class PrepareServiceImpl implements PrepareService {
         long timestamp = operationContext.operationTime().longValue();
         int catalogVersion = schemaManager.catalogVersion(timestamp);
 
-        RelDataType[] paramTypes = new RelDataType[operationContext.parameters().length];
-
-        int idx = 0;
-        for (Object param : operationContext.parameters()) {
-            RelDataType relType = deriveTypeFromDynamicParamValue(param);
-            paramTypes[idx++] = relType;
-        }
-
-        CacheKey key = new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), paramTypes);
+        CacheKey key = createCacheKey(parsedResult.normalizedQuery(), catalogVersion, schemaName, operationContext.parameters());
 
         CompletableFuture<PlanInfo> planFuture = cache.get(key);
 
@@ -346,7 +358,7 @@ public class PrepareServiceImpl implements PrepareService {
                 .plannerTimeout(plannerTimeout)
                 .catalogVersion(catalogVersion)
                 .defaultSchemaName(schemaName)
-                .parameters(Commons.arrayToMap(paramTypes))
+                .parameters(Commons.arrayToMap(key.paramTypes()))
                 .explicitTx(explicitTx)
                 .build();
 
@@ -356,6 +368,31 @@ public class PrepareServiceImpl implements PrepareService {
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
                 }
         );
+    }
+
+    private static CacheKey createCacheKey(
+            String query, int catalogVersion, String schemaName, Object[] params
+    ) {
+        ColumnType[] paramTypes = new ColumnType[params.length];
+
+        int idx = 0;
+        for (Object param : params) {
+            ColumnType columnType;
+            if (param != null) {
+                @Nullable NativeType type = NativeTypes.fromObject(param);
+
+                if (type == null) {
+                    throw new IgniteException(Common.INTERNAL_ERR, "Unsupported native type: " + param.getClass());
+                }
+
+                columnType = type.spec();
+            } else {
+                columnType = null;
+            }
+            paramTypes[idx++] = columnType;
+        }
+
+        return new CacheKey(catalogVersion, schemaName, query, paramTypes);
     }
 
     private SchemaPlus getDefaultSchema(int catalogVersion, String schemaName) {
@@ -386,6 +423,27 @@ public class PrepareServiceImpl implements PrepareService {
 
             return null;
         }, planningPool);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<PreparedPlan> preparedPlans() {
+        return cache.entrySet().stream()
+                .filter(e -> {
+                    CompletableFuture<PlanInfo> f = e.getValue();
+                    return f.isDone() && !f.isCompletedExceptionally() && !f.isCancelled();
+                })
+                .map(e -> {
+                    CacheKey key = e.getKey();
+                    PlanInfo value = e.getValue().getNow(null);
+                    Instant timestamp = value.timestamp;
+                    return new PreparedPlan(key, value.queryPlan, timestamp);
+                }).collect(Collectors.toSet());
+    }
+
+    @TestOnly
+    UUID prepareServiceId() {
+        return this.prepareServiceId;
     }
 
     /** Check if the given query plan matches the given predicate. */
@@ -509,12 +567,36 @@ public class PrepareServiceImpl implements PrepareService {
             }
 
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey =
-                    createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(),
+                    ctx.schemaName(), stmt.parameterMetadata);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
         });
+    }
+
+    private static CacheKey createCacheKeyFromParameterMetadata(
+            String query,
+            int catalogVersion,
+            String schemaName,
+            ParameterMetadata parameterMetadata
+    ) {
+        ColumnType[] paramTypes;
+
+        List<ParameterType> parameterTypes = parameterMetadata.parameterTypes();
+        if (parameterTypes.isEmpty()) {
+            paramTypes = EMPTY_CLASS_ARRAY;
+        } else {
+            ColumnType[] result = new ColumnType[parameterTypes.size()];
+
+            for (int i = 0; i < parameterTypes.size(); i++) {
+                result[i] = parameterTypes.get(i).columnType();
+            }
+
+            paramTypes = result;
+        }
+
+        return new CacheKey(catalogVersion, schemaName, query, paramTypes);
     }
 
     private CompletableFuture<Void> rebuildQueryPlan(
@@ -552,7 +634,9 @@ public class PrepareServiceImpl implements PrepareService {
             // Validate
             ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
 
-            return new ValidStatement<>(parsedResult, validated, planner.getParameterRowType());
+            ParameterMetadata parameterMetadata = createParameterMetadata(planner.getParameterRowType());
+
+            return new ValidStatement<>(parsedResult, validated, parameterMetadata);
         }, planningPool);
     }
 
@@ -566,8 +650,6 @@ public class PrepareServiceImpl implements PrepareService {
         IgniteRel optimizedRel = relWithMetadata.rel;
         QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
 
-        ParameterMetadata parameterMetadata = createParameterMetadata(stmt.parameterType);
-
         ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
 
         int catalogVersion = ctx.catalogVersion();
@@ -580,7 +662,7 @@ public class PrepareServiceImpl implements PrepareService {
                     catalogVersion,
                     kvGet,
                     resultSetMetadata,
-                    parameterMetadata,
+                    stmt.parameterMetadata,
                     relWithMetadata.paMetadata,
                     relWithMetadata.ppMetadata
             );
@@ -593,7 +675,7 @@ public class PrepareServiceImpl implements PrepareService {
                 SqlQueryType.QUERY,
                 optimizedRel,
                 resultSetMetadata,
-                parameterMetadata,
+                stmt.parameterMetadata,
                 catalogVersion,
                 relWithMetadata.numSources,
                 fastPlan,
@@ -744,8 +826,8 @@ public class PrepareServiceImpl implements PrepareService {
 
         return validateDml(parsedResult, sqlNode, ctx).thenCompose(stmt -> {
             // Use parameter metadata to compute a cache key.
-            CacheKey cacheKey =
-                    createCacheKey(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(), ctx.schemaName(), stmt.parameterType);
+            CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(),
+                    ctx.schemaName(), stmt.parameterMetadata);
 
             return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
                     () -> cache.invalidate(cacheKey)), planningPool));
@@ -756,7 +838,6 @@ public class PrepareServiceImpl implements PrepareService {
         IgnitePlanner planner = ctx.planner();
 
         SqlNode validatedNode = stmt.value.sqlNode();
-        ParameterMetadata parameterMetadata = createParameterMetadata(stmt.parameterType);
 
         RelWithMetadata relWithMetadata = doOptimize(ctx, validatedNode, planner, onTimeoutAction);
         IgniteRel optimizedRel = relWithMetadata.rel;
@@ -772,7 +853,7 @@ public class PrepareServiceImpl implements PrepareService {
                     catalogVersion,
                     kvModify,
                     DML_METADATA,
-                    parameterMetadata,
+                    stmt.parameterMetadata,
                     relWithMetadata.paMetadata,
                     relWithMetadata.ppMetadata
             );
@@ -782,7 +863,7 @@ public class PrepareServiceImpl implements PrepareService {
                     SqlQueryType.DML,
                     optimizedRel,
                     DML_METADATA,
-                    parameterMetadata,
+                    stmt.parameterMetadata,
                     catalogVersion,
                     relWithMetadata.numSources,
                     null,
@@ -816,8 +897,9 @@ public class PrepareServiceImpl implements PrepareService {
             SqlNode validatedNode = planner.validate(sqlNode);
             ValidationResult validatedResult = new ValidationResult(validatedNode);
 
+            ParameterMetadata parameterMetadata = createParameterMetadata(planner.getParameterRowType());
             // No need whole ParsedResult
-            return new ValidStatement<>(parsedResult, validatedResult, planner.getParameterRowType());
+            return new ValidStatement<>(parsedResult, validatedResult, parameterMetadata);
         }, planningPool);
     }
 
@@ -858,27 +940,12 @@ public class PrepareServiceImpl implements PrepareService {
                 planningContext.catalogVersion(),
                 (IgniteSelectCount) fastOptRel,
                 resultSetMetadata,
-                createParameterMetadata(stmt.parameterType)
+                stmt.parameterMetadata
         );
 
         logPlan(stmt.parsedResult.originalQuery(), plan);
 
         return plan;
-    }
-
-    private static CacheKey createCacheKey(
-            String normalizedQuery,
-            int catalogVersion,
-            String schemaName,
-            RelDataType parameterRowType
-    ) {
-        RelDataType[] paramTypes = new RelDataType[parameterRowType.getFieldCount()];
-
-        for (int i = 0; i < parameterRowType.getFieldCount(); i++) {
-            paramTypes[i] = parameterRowType.getFieldList().get(i).getType();
-        }
-
-        return new CacheKey(catalogVersion, schemaName, normalizedQuery, paramTypes);
     }
 
     private static IntSet resolveSources(IgniteRel rel) {
@@ -933,7 +1000,7 @@ public class PrepareServiceImpl implements PrepareService {
 
                         ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
                                 alias != null ? alias : fld.getName(),
-                                TypeUtils.columnType(fld.getType()),
+                                columnType(fld.getType()),
                                 fld.getType().getPrecision(),
                                 fld.getType().getScale(),
                                 fld.getType().isNullable(),
@@ -1023,8 +1090,6 @@ public class PrepareServiceImpl implements PrepareService {
 
         private final AtomicBoolean inProgress = new AtomicBoolean();
 
-        private volatile boolean recalculatePlans;
-
         private final Cache<CacheKey, CompletableFuture<PlanInfo>> cache;
 
         private final long plannerTimeout;
@@ -1035,13 +1100,22 @@ public class PrepareServiceImpl implements PrepareService {
 
         private final BiFunction<Integer, String, SchemaPlus> defaultSchemaFunc;
 
+        private final Set<Integer> statPerTableChanges = new IntOpenHashSet();
+
+        private final ConfigurationValue<Integer> staleRowsCheckIntervalSeconds;
+
+        private final ConfigurationListener<Integer> configListener = this::listener;
+
+        private volatile ScheduledFuture<?> scheduledFuture;
+
         PlanUpdater(
                 ScheduledExecutorService planUpdater,
                 Cache<CacheKey, CompletableFuture<PlanInfo>> cache,
                 long plannerTimeout,
                 PlanPrepare prepare,
                 IntSupplier catalogVersionSupplier,
-                BiFunction<Integer, String, SchemaPlus> defaultSchema
+                BiFunction<Integer, String, SchemaPlus> defaultSchema,
+                ConfigurationValue<Integer> staleRowsCheckIntervalSeconds
         ) {
             this.planUpdater = planUpdater;
             this.cache = cache;
@@ -1049,6 +1123,7 @@ public class PrepareServiceImpl implements PrepareService {
             this.prepare = prepare;
             this.catalogVersionSupplier = catalogVersionSupplier;
             this.defaultSchemaFunc = defaultSchema;
+            this.staleRowsCheckIntervalSeconds = staleRowsCheckIntervalSeconds;
         }
 
         /**
@@ -1057,90 +1132,129 @@ public class PrepareServiceImpl implements PrepareService {
          * @param tableId Table Id statistic changed for.
          */
         void statisticsChanged(int tableId) {
-            Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedEntries = cache.entrySet();
-
-            int currentCatalogVersion = catalogVersionSupplier.getAsInt();
-
-            boolean statChanged = false;
-
-            for (Map.Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cachedEntries) {
-                CacheKey key = ent.getKey();
-                CompletableFuture<PlanInfo> fut = ent.getValue();
-
-                if (currentCatalogVersion == key.catalogVersion() && isCompletedSuccessfully(fut)) {
-                    // no wait, already completed
-                    PlanInfo info = fut.join();
-
-                    if (info.sources.contains(tableId)) {
-                        info.invalidate();
-                        statChanged = true;
-                    }
-                }
-            }
-
-            if (statChanged) {
-                recalculatePlans = true;
-            }
+            statPerTableChanges.add(tableId);
         }
 
         void start() {
-            planUpdater.scheduleAtFixedRate(() -> {
-                if (!recalculatePlans) {
-                    return;
-                }
+            staleRowsCheckIntervalSeconds.listen(configListener);
 
-                if (!inProgress.compareAndSet(false, true)) {
-                    return;
-                }
+            int intervalSeconds = staleRowsCheckIntervalSeconds.value();
+            long interval = calculateInterval(intervalSeconds);
 
-                CompletableFuture<Void> rePlanningFut = nullCompletedFuture();
+            schedule(interval);
+        }
 
-                while (recalculatePlans) {
-                    recalculatePlans = false;
+        void stop() {
+            staleRowsCheckIntervalSeconds.stopListen(configListener);
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+            }
+        }
 
+        private CompletableFuture<?> listener(ConfigurationNotificationEvent<Integer> value) {
+            Integer seconds = value.newValue();
+            assert seconds != null;
+
+            if (!Objects.equals(seconds, value.oldValue())) {
+                long interval = calculateInterval(seconds);
+                schedule(interval);
+            }
+
+            return nullCompletedFuture();
+        }
+
+        private static long calculateInterval(long value) {
+            // To observe actual values of statistics, plan cache updates should happen more frequently
+            // (plan update interval must be less than statistics auto refresh interval).
+            return Math.max(1, value / 2);
+        }
+
+        private void schedule(long intervalSeconds) {
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+            }
+
+            scheduledFuture = planUpdater.scheduleAtFixedRate(
+                    this::executeUpdate,
+                    intervalSeconds,
+                    intervalSeconds,
+                    TimeUnit.SECONDS
+            );
+        }
+
+        private void executeUpdate() {
+            if (statPerTableChanges.isEmpty()) {
+                return;
+            }
+
+            if (!inProgress.compareAndSet(false, true)) {
+                return;
+            }
+
+            for (int tableId : statPerTableChanges) {
+                Set<Entry<CacheKey, CompletableFuture<PlanInfo>>> cachedEntries = cache.entrySet();
+
+                for (Map.Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cachedEntries) {
+                    CacheKey key = ent.getKey();
+                    CompletableFuture<PlanInfo> fut = ent.getValue();
                     int currentCatalogVersion = catalogVersionSupplier.getAsInt();
 
-                    for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
-                        CacheKey key = ent.getKey();
-                        CompletableFuture<PlanInfo> fut = cache.get(key);
+                    if (currentCatalogVersion == key.catalogVersion() && isCompletedSuccessfully(fut)) {
+                        // no wait, already completed
+                        PlanInfo info = fut.join();
 
-                        // can be evicted
-                        if (fut != null && isCompletedSuccessfully(fut)) {
-                            PlanInfo info = fut.join();
-
-                            if (!info.needInvalidate()) {
-                                continue;
-                            }
-
-                            assert info.statement != null;
-
-                            if (currentCatalogVersion == key.catalogVersion()) {
-                                SqlQueryType queryType = info.statement.parsedResult().queryType();
-
-                                SchemaPlus defaultSchema = defaultSchemaFunc.apply(key.catalogVersion(), key.schemaName());
-
-                                PlanningContext planningContext = PlanningContext.builder()
-                                        .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                                .defaultSchema(defaultSchema).build())
-                                        .query(info.statement.parsedResult().originalQuery())
-                                        .plannerTimeout(plannerTimeout)
-                                        .catalogVersion(key.catalogVersion())
-                                        .defaultSchemaName(key.schemaName())
-                                        .parameters(Commons.arrayToMap(key.paramTypes()))
-                                        .build();
-
-                                CompletableFuture<Void> newPlanFut =
-                                        prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
-
-                                rePlanningFut.thenCompose(v -> newPlanFut);
-                            }
+                        if (info.sources.contains(tableId)) {
+                            info.invalidate();
                         }
                     }
                 }
 
-                rePlanningFut.whenComplete((k, err) -> inProgress.set(false));
+                // all involved entries are processed
+                statPerTableChanges.remove(tableId);
+            }
 
-            }, PLAN_UPDATER_INITIAL_DELAY, 1_000, TimeUnit.MILLISECONDS);
+            CompletableFuture<Void> rePlanningFut = nullCompletedFuture();
+
+            int currentCatalogVersion = catalogVersionSupplier.getAsInt();
+
+            for (Entry<CacheKey, CompletableFuture<PlanInfo>> ent : cache.entrySet()) {
+                CacheKey key = ent.getKey();
+                CompletableFuture<PlanInfo> fut = cache.get(key);
+
+                // can be evicted
+                if (fut != null && isCompletedSuccessfully(fut)) {
+                    PlanInfo info = fut.join();
+
+                    if (!info.needInvalidate()) {
+                        continue;
+                    }
+
+                    assert info.statement != null;
+
+                    if (currentCatalogVersion == key.catalogVersion()) {
+                        SqlQueryType queryType = info.statement.parsedResult().queryType();
+
+                        SchemaPlus defaultSchema = defaultSchemaFunc.apply(key.catalogVersion(), key.schemaName());
+
+                        PlanningContext planningContext = PlanningContext.builder()
+                                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                        .defaultSchema(defaultSchema).build())
+                                .query(info.statement.parsedResult().originalQuery())
+                                .plannerTimeout(plannerTimeout)
+                                .catalogVersion(key.catalogVersion())
+                                .defaultSchemaName(key.schemaName())
+                                .parameters(Commons.arrayToMap(key.paramTypes()))
+                                .build();
+
+                        CompletableFuture<Void> newPlanFut =
+                                prepare.recalculatePlan(queryType, info.statement.parsedResult, planningContext, key);
+
+                        rePlanningFut.thenCompose(v -> newPlanFut);
+                    }
+                }
+            }
+
+            rePlanningFut.whenComplete((k, err) -> inProgress.set(false));
         }
     }
 
@@ -1204,12 +1318,12 @@ public class PrepareServiceImpl implements PrepareService {
     private static class ValidStatement<T> {
         final ParsedResult parsedResult;
         final T value;
-        final RelDataType parameterType;
+        final ParameterMetadata parameterMetadata;
 
-        private ValidStatement(ParsedResult parsedResult, T value, RelDataType parameterType) {
+        private ValidStatement(ParsedResult parsedResult, T value, ParameterMetadata parameterMetadata) {
             this.parsedResult = parsedResult;
             this.value = value;
-            this.parameterType = parameterType;
+            this.parameterMetadata = parameterMetadata;
         }
 
         ParsedResult parsedResult() {
@@ -1287,6 +1401,7 @@ public class PrepareServiceImpl implements PrepareService {
         @Nullable
         private final IntSet sources;
         private volatile boolean needToInvalidate;
+        private final Instant timestamp = Instant.now();
 
         private PlanInfo(
                 QueryPlan plan,
@@ -1317,62 +1432,5 @@ public class PrepareServiceImpl implements PrepareService {
         static PlanInfo create(QueryPlan plan) {
             return new PlanInfo(plan, null, IntSet.of());
         }
-    }
-
-    @TestOnly
-    @Nullable
-    public static RelDataType deriveTypeFromDynamicParamValueTestOnly(@Nullable Object value) {
-        return deriveTypeFromDynamicParamValue(value);
-    }
-
-    @Nullable
-    private static RelDataType deriveTypeFromDynamicParamValue(@Nullable Object value) {
-        if (value == null) {
-            return null;
-        }
-
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-        Class<?> cls = value.getClass();
-
-        if (cls == Character.class) {
-            cls = String.class;
-        }
-
-        if (cls == Boolean.class) {
-            return typeFactory.createSqlType(SqlTypeName.BOOLEAN);
-        } else if (cls == Byte.class) {
-            return typeFactory.createSqlType(SqlTypeName.TINYINT);
-        } else if (cls == Short.class) {
-            return typeFactory.createSqlType(SqlTypeName.SMALLINT);
-        } else if (cls == Integer.class) {
-            return typeFactory.createSqlType(INTEGER);
-        } else if (cls == Long.class) {
-            return typeFactory.createSqlType(SqlTypeName.BIGINT);
-        } else if (cls == Float.class) {
-            return typeFactory.createSqlType(SqlTypeName.REAL);
-        } else if (cls == Double.class) {
-            return typeFactory.createSqlType(SqlTypeName.DOUBLE);
-        } else if (cls == LocalDate.class) {
-            return typeFactory.createSqlType(SqlTypeName.DATE);
-        } else if (cls == LocalTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIME, TEMPORAL_DYNAMIC_PARAM_PRECISION);
-        } else if (cls == LocalDateTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP, TEMPORAL_DYNAMIC_PARAM_PRECISION);
-        } else if (cls == Instant.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, TEMPORAL_DYNAMIC_PARAM_PRECISION);
-        } else if (cls == byte[].class) {
-            return typeFactory.createSqlType(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED);
-        } else if (cls == String.class) {
-            return typeFactory.createSqlType(SqlTypeName.VARCHAR, PRECISION_NOT_SPECIFIED);
-        } else if (cls == UUID.class) {
-            return typeFactory.createSqlType(SqlTypeName.UUID);
-        } else if (cls == BigDecimal.class) {
-            return typeFactory.createSqlType(
-                    SqlTypeName.DECIMAL, DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE
-            );
-        }
-
-        throw new AssertionError("Unknown type " + cls);
     }
 }

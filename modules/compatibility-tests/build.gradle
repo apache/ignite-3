@@ -46,15 +46,20 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-runner')
-    integrationTestImplementation project(':ignite-cli')
+    integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-page-memory')
-    integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-metastorage-api')
     integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-vault')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-jdbc')
+    integrationTestImplementation project(':ignite-network-api')
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
 
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.http.client
 
@@ -70,7 +75,7 @@ dependencies {
     testFixturesImplementation libs.cytodynamics.nucleus
     testFixturesImplementation libs.japicmp
     testFixturesImplementation libs.micronaut.http.client
-
+    testFixturesImplementation libs.typesafe.config
 
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
@@ -81,6 +86,8 @@ dependencies {
     testFixturesImplementation project(':ignite-metastorage-api')
     testFixturesImplementation project(':ignite-rest-api')
     testFixturesImplementation project(':ignite-runner')
+    testFixturesImplementation project(':ignite-cli')
+    testFixturesImplementation project(':ignite-rest-api')
 }
 
 private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {
@@ -196,5 +203,6 @@ tasks.register('postRelease', Copy) {
 
         versionsFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(versionsJson))
                 .replace('    ', '  ') // dirty hack to make the indent 2 spaces instead of 4
+        versionsFile.append(System.lineSeparator())
     }
 }

@@ -16,6 +16,7 @@
  */
 
 #include "ignite/client/detail/node_connection.h"
+#include "ignite/protocol/heartbeat_timeout.h"
 
 #include <ignite/protocol/messages.h>
 #include <ignite/protocol/utils.h>
@@ -33,9 +34,10 @@ node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::asyn
     , m_timer_thread(std::move(timer_thread)){}
 
 node_connection::~node_connection() {
-    for (auto &handler : m_request_handlers) {
+    for (auto &req : m_request_handlers) {
         auto handling_res = result_of_operation<void>([&]() {
-            auto res = handler.second->set_error(ignite_error("Connection closed before response was received"));
+            auto handler = req.second.handler;
+            auto res = handler->set_error(ignite_error("Connection closed before response was received"));
             if (res.has_error())
                 m_logger->log_error(
                     "Uncaught user callback exception while handling operation error: " + res.error().what_str());
@@ -84,10 +86,12 @@ void node_connection::process_message(bytes_view msg) {
     auto pos = reader.position();
     bytes_view data{msg.data() + pos, msg.size() - pos};
 
-    { // Locking scope
+    std::shared_ptr<response_handler> handler{};
+    {
         std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
 
-        auto handler = find_handler_unsafe(req_id);
+        handler = find_handler_unsafe(req_id);
+    }
         if (!handler) {
             m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
             return;
@@ -104,6 +108,8 @@ void node_connection::process_message(bytes_view msg) {
             m_logger->log_error("Uncaught user callback exception: " + result.error().what_str());
         }
 
+    {
+        std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
         if (handler->is_handling_complete()) {
             m_request_handlers.erase(req_id);
         }
@@ -170,20 +176,18 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 
     on_observable_timestamp_changed(response.observable_timestamp);
 
-    auto heartbeat_ms = m_configuration.get_heartbeat_interval().count();
-    if (heartbeat_ms) {
-        assert(heartbeat_ms > 0);
-
-        heartbeat_ms = std::min(response.idle_timeout_ms / 3, heartbeat_ms);
-        heartbeat_ms = std::max(MIN_HEARTBEAT_INTERVAL.count(), heartbeat_ms);
-    }
-    m_heartbeat_interval = std::chrono::milliseconds(heartbeat_ms);
+    m_heartbeat_interval = calculate_heartbeat_interval(m_configuration.get_heartbeat_interval(),
+        std::chrono::milliseconds(response.idle_timeout_ms));
 
     m_protocol_context = response.context;
     m_handshake_complete = true;
 
-    if (heartbeat_ms) {
+    if (m_heartbeat_interval.count()) {
         plan_heartbeat(m_heartbeat_interval);
+    }
+
+    if (m_configuration.get_operation_timeout().count() > 0) {
+        handle_timeouts();
     }
 
     return {};
@@ -196,7 +200,7 @@ std::shared_ptr<response_handler> node_connection::get_and_remove_handler(std::i
     if (it == m_request_handlers.end())
         return {};
 
-    auto res = std::move(it->second);
+    auto res = std::move(it->second.handler);
     m_request_handlers.erase(it);
 
     return res;
@@ -207,7 +211,45 @@ std::shared_ptr<response_handler> node_connection::find_handler_unsafe(std::int6
     if (it == m_request_handlers.end())
         return {};
 
-    return it->second;
+    return it->second.handler;
+}
+
+void node_connection::handle_timeouts() {
+    auto now = std::chrono::steady_clock::now();
+
+    {
+        std::lock_guard lock(m_request_handlers_mutex);
+
+        for (auto it = m_request_handlers.begin(); it != m_request_handlers.end();) {
+            auto &id = it->first;
+            auto &req = it->second;
+
+            if (req.timeouts_at && *req.timeouts_at < now) {
+                std::string err_msg = "Operation timeout [req_id=" + std::to_string(id) + "]";
+                auto res = req.handler->set_error(ignite_error(error::code::OPERATION_TIMEOUT, err_msg));
+
+                this->m_logger->log_warning(err_msg);
+
+                if (res.has_error())
+                    this->m_logger->log_error(
+                        "Uncaught user callback exception while handling operation error: " + res.error().what_str());
+
+                it = m_request_handlers.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    if (auto timeout = m_configuration.get_operation_timeout(); timeout.count() > 0) {
+        if (auto timer_thread = m_timer_thread.lock()) {
+            timer_thread->add(timeout, [self_weak = weak_from_this()] {
+                if (auto self = self_weak.lock()) {
+                    self->handle_timeouts();
+                }
+            });
+        }
+    }
 }
 
 } // namespace ignite::detail

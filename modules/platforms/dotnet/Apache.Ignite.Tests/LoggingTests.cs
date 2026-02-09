@@ -21,6 +21,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading.Tasks;
+using Common;
 using Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -65,7 +66,7 @@ public class LoggingTests
         StringAssert.Contains("[Debug] Connection established", log);
         StringAssert.Contains("[Debug] Handshake succeeded [remoteAddress=[", log);
         StringAssert.Contains("[Trace] Sending request [requestId=1, op=TablesGet, remoteAddress=", log);
-        StringAssert.Contains("[Trace] Received response [requestId=1, flags=PartitionAssignmentChanged, remoteAddress=", log);
+        StringAssert.Contains("[Trace] Received response [requestId=1, op=TablesGet, flags=PartitionAssignmentChanged, remoteAddress=", log);
         StringAssert.Contains("op=SqlExec", log);
         StringAssert.Contains("[Debug] Connection closed gracefully", log);
         StringAssert.DoesNotContain("[Error]", log);

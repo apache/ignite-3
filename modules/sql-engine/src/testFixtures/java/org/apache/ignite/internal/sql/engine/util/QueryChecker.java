@@ -39,6 +39,7 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
+import org.jetbrains.annotations.Nullable;
 
 /** Query checker interface. */
 public interface QueryChecker {
@@ -122,6 +123,21 @@ public interface QueryChecker {
         return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
                 + ".*?index: " + idxName
                 + ".*?searchBounds: ");
+    }
+
+    /**
+     * Ignite index scan matcher.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @param idxName Index name.
+     * @param searchBounds Search bounds.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScan(String schema, String tblName, String idxName, String searchBounds) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName
+                + ".*?searchBounds: " + Pattern.quote(searchBounds));
     }
 
     /**
@@ -310,7 +326,7 @@ public interface QueryChecker {
 
     QueryChecker withParams(Object... params);
 
-    QueryChecker withParam(Object param);
+    QueryChecker withParam(@Nullable Object param);
 
     QueryChecker withTimeZoneId(ZoneId timeZoneId);
 

@@ -61,6 +61,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * RAFT client aware of a logical topology to handle distributed events.
+ * TODO: IGNITE-27257 Refactor the class to make it more readable and maintainable.
  */
 public class TopologyAwareRaftGroupService implements RaftGroupService {
 
@@ -446,38 +447,38 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> addPeer(Peer peer) {
-        return raftClient.addPeer(peer);
+    public CompletableFuture<Void> addPeer(Peer peer, long sequenceToken) {
+        return raftClient.addPeer(peer, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> removePeer(Peer peer) {
-        return raftClient.removePeer(peer);
+    public CompletableFuture<Void> removePeer(Peer peer, long sequenceToken) {
+        return raftClient.removePeer(peer, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
-        return raftClient.changePeersAndLearners(peersAndLearners, term);
+    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
+        return raftClient.changePeersAndLearners(peersAndLearners, term, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term) {
-        return raftClient.changePeersAndLearnersAsync(peersAndLearners, term);
+    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long sequenceToken) {
+        return raftClient.changePeersAndLearnersAsync(peersAndLearners, term, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> addLearners(Collection<Peer> learners) {
-        return raftClient.addLearners(learners);
+    public CompletableFuture<Void> addLearners(Collection<Peer> learners, long sequenceToken) {
+        return raftClient.addLearners(learners, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> removeLearners(Collection<Peer> learners) {
-        return raftClient.removeLearners(learners);
+    public CompletableFuture<Void> removeLearners(Collection<Peer> learners, long sequenceToken) {
+        return raftClient.removeLearners(learners, sequenceToken);
     }
 
     @Override
-    public CompletableFuture<Void> resetLearners(Collection<Peer> learners) {
-        return raftClient.resetLearners(learners);
+    public CompletableFuture<Void> resetLearners(Collection<Peer> learners, long sequenceToken) {
+        return raftClient.resetLearners(learners, sequenceToken);
     }
 
     @Override
@@ -638,5 +639,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         subscribersMap.put(peer, fut);
 
         return fut;
+    }
+
+    @Override
+    public void markAsStopping() {
+        raftClient.markAsStopping();
     }
 }
