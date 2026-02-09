@@ -68,7 +68,9 @@ public class TestIgnitionManager {
             entry("ignite.system.properties.aipersistThrottling", "disabled"),
             entry("ignite.system.criticalWorkers.maxAllowedLagMillis", "500"),
             entry("ignite.system.criticalWorkers.livenessCheckIntervalMillis", "200"),
-            entry("ignite.system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis", "100")
+            entry("ignite.system.criticalWorkers.nettyThreadsHeartbeatIntervalMillis", "100"),
+            entry("ignite.failureHandler.handler.type", "noop"),
+            entry("ignite.failureHandler.dumpThreadsOnFailure", "false")
     );
 
     /** Map of pre-configured by default storage profiles. */
