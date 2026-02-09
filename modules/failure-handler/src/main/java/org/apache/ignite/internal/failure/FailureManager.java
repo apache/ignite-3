@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHand
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -271,6 +273,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
             case StopNodeFailureHandlerConfigurationSchema.TYPE:
                 hnd = new StopNodeFailureHandler(nodeName, nodeStopper);
+                if (true) {
+                    throw new IgniteInternalException(INTERNAL_ERR, ">>>>> Unexpected failure handler!");
+                }
                 break;
 
             case StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE:
