@@ -29,12 +29,9 @@ import org.apache.ignite.configuration.annotation.Value;
  */
 @PolymorphicConfig
 public class FailureHandlerConfigurationSchema {
-    /**
-     * Unique failure handler type.
-     * TODO https://issues.apache.org/jira/browse/IGNITE-21456
-     */
+    /** Unique failure handler type. */
     @PolymorphicId(hasDefault = true)
-    public String type = NoOpFailureHandlerConfigurationSchema.TYPE;
+    public String type = StopNodeFailureHandlerConfigurationSchema.TYPE;
 
     @Value(hasDefault = true)
     @IgnoredFailureTypes

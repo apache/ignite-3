@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
@@ -81,30 +82,31 @@ public class RestNode {
     }
 
     private String bootstrapCfg() {
-        return "ignite {\n"
-                + "  network.port: {},\n"
-                + "  network.nodeFinder.netClusterNodes: [ {} ],\n"
-                + "  clientConnector.port: {},\n"
-                + "  rest: {\n"
-                + "    port: {},\n"
-                + "    dualProtocol: " + dualProtocol + ",\n"
-                + "    ssl: {\n"
-                + "      enabled: " + sslEnabled + ",\n"
-                + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ",\n"
-                + "      ciphers: \"" + ciphers + "\",\n"
-                + "      port: {},\n"
-                + "      keyStore: {\n"
-                + "        path: \"" + keyStoreFilePath + "\",\n"
-                + "        password: " + keyStorePassword + "\n"
-                + "      }, \n"
-                + "      trustStore: {\n"
-                + "        type: JKS,\n"
-                + "        path: \"" + trustStoreFilePath + "\",\n"
-                + "        password: " + trustStorePassword + "\n"
-                + "      }\n"
-                + "    }\n"
-                + "  },\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+        return "ignite {" + NL
+                + "  network.port: {}," + NL
+                + "  network.nodeFinder.netClusterNodes: [ {} ]," + NL
+                + "  clientConnector.port: {}," + NL
+                + "  rest: {" + NL
+                + "    port: {}," + NL
+                + "    dualProtocol: " + dualProtocol + ',' + NL
+                + "    ssl: {" + NL
+                + "      enabled: " + sslEnabled + ',' + NL
+                + "      clientAuth: " + (sslClientAuthEnabled ? "require" : "none") + ',' + NL
+                + "      ciphers: \"" + ciphers + "\"," + NL
+                + "      port: {}," + NL
+                + "      keyStore: {" + NL
+                + "        path: \"" + keyStoreFilePath + "\"," + NL
+                + "        password: " + keyStorePassword + NL
+                + "      }," + NL
+                + "      trustStore: {" + NL
+                + "        type: JKS," + NL
+                + "        path: \"" + trustStoreFilePath + "\"," + NL
+                + "        password: " + trustStorePassword + NL
+                + "      }" + NL
+                + "    }" + NL
+                + "  }," + NL
+                + "  failureHandler.handler.type: noop,"  + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import static org.apache.ignite.internal.ConfigTemplates.DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -68,16 +69,17 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private static final String[] STORAGE_PROFILES_LIST = {"lru_rocks", "segmented_aipersist"};
 
     @Language("HOCON")
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  nodeAttributes.nodeAttributes: {region = US, storage = SSD},\n"
-            + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist},\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: {}," + NL
+            + "    nodeFinder.netClusterNodes: [ {} ]" + NL
+            + "  }," + NL
+            + "  nodeAttributes.nodeAttributes: {region = US, storage = SSD}," + NL
+            + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist}," + NL
+            + "  clientConnector.port: {}," + NL
+            + "  rest.port: {}," + NL
+            + "  failure.handler.type: noop" + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {

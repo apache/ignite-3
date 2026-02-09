@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -93,16 +94,17 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     @Language("HOCON")
     private static String createStartConfig(@Language("HOCON") String nodeAttributes, @Language("HOCON") String storageProfiles) {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder.netClusterNodes: [ {} ]\n"
-                + "  },"
-                + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
-                + "  storage.profiles: " + storageProfiles + ",\n"
-                + "  clientConnector.port: {},\n"
-                + "  rest.port: {},\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+        return "ignite {" + NL
+                + "  network: {" + NL
+                + "    port: {}," + NL
+                + "    nodeFinder.netClusterNodes: [ {} ]" + NL
+                + "  }," + NL
+                + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ',' + NL
+                + "  storage.profiles: " + storageProfiles + ',' + NL
+                + "  clientConnector.port: {}," + NL
+                + "  rest.port: {}," + NL
+                + "  failureHandler.handler.type: noop," + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -42,34 +43,35 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
     /** Should be greater than 2 x {@link #LW_UPDATE_TIME_MS} and long enough to await for the catalog compaction finish. */
     private static final long CATALOG_COMPACTION_AWAIT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
 
-    private static final String FAST_FAILURE_DETECTION_AND_FAST_CHECKPOINT_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncIntervalMillis: 1000,\n"
-            + "      failurePingIntervalMillis: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipIntervalMillis: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  storage: {\n"
-            + "    engines: {\n"
-            + "      aipersist: {\n"
-            + "        checkpoint: {\n"
-            + "          intervalMillis: " + AIPERSIST_CHECKPOINT_INTERVAL_MS + "\n"
-            + "        }\n"
-            + "      }\n"
-            + "    }\n"
-            + "  }\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String FAST_FAILURE_DETECTION_AND_FAST_CHECKPOINT_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: {}," + NL
+            + "    nodeFinder: {" + NL
+            + "      netClusterNodes: [ {} ]" + NL
+            + "    }," + NL
+            + "    membership: {" + NL
+            + "      membershipSyncIntervalMillis: 1000," + NL
+            + "      failurePingIntervalMillis: 500," + NL
+            + "      scaleCube: {" + NL
+            + "        membershipSuspicionMultiplier: 1," + NL
+            + "        failurePingRequestMembers: 1," + NL
+            + "        gossipIntervalMillis: 10" + NL
+            + "      }," + NL
+            + "    }" + NL
+            + "  }," + NL
+            + "  storage: {" + NL
+            + "    engines: {" + NL
+            + "      aipersist: {" + NL
+            + "        checkpoint: {" + NL
+            + "          intervalMillis: " + AIPERSIST_CHECKPOINT_INTERVAL_MS + NL
+            + "        }" + NL
+            + "      }" + NL
+            + "    }" + NL
+            + "  }" + NL
+            + "  clientConnector: { port:{} }," + NL
+            + "  rest.port: {}," + NL
+            + "  failureHandler.handler.type: noop,"  + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
     @Override

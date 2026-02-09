@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -65,24 +66,25 @@ import org.junit.jupiter.params.Parameter;
 @TestInstance(Lifecycle.PER_CLASS)
 public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
-    public static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
+    public static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: {}," + NL
+            + "    nodeFinder.netClusterNodes: [ {} ]" + NL
+            + "  }," + NL
             + "  storage.profiles: {"
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest.port: {},\n"
-            + "  rest.ssl.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false,\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: {nodeName: \"{}\", nodeIndex: \"{}\"}\n"
-            + "  }\n"
+            + "  }," + NL
+            + "  clientConnector.port: {}," + NL
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true," + NL
+            + "  rest.port: {}," + NL
+            + "  rest.ssl.port: {}," + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false," + NL
+            + "  nodeAttributes: {" + NL
+            + "    nodeAttributes: {nodeName: \"{}\", nodeIndex: \"{}\"}" + NL
+            + "  }" + NL
             + "}";
 
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;

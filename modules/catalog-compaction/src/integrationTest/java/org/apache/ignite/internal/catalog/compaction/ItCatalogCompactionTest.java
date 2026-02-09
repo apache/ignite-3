@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -92,25 +93,26 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder.netClusterNodes: [ {} ]\n"
-                + "  },\n"
+        return "ignite {" + NL
+                + "  network: {" + NL
+                + "    port: {}," + NL
+                + "    nodeFinder.netClusterNodes: [ {} ]" + NL
+                + "  }," + NL
                 + "  storage.profiles: {"
                 + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
                 + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
                 + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
                 + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-                + "  },\n"
+                + "  }," + NL
                 + "  storage.engines: { "
                 + "    aipersist: { checkpoint: { "
                 + "      intervalMillis: " + CHECK_POINT_INTERVAL_MS
                 + "    } } "
-                + "  },\n"
-                + "  clientConnector.port: {},\n"
-                + "  rest.port: {},\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+                + "  }," + NL
+                + "  clientConnector.port: {}," + NL
+                + "  rest.port: {}," + NL
+                + "  failureHandler.handler.type: noop," + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
     }
 

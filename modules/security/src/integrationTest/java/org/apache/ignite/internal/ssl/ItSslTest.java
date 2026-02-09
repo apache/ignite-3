@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.ssl;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -77,20 +78,21 @@ public class ItSslTest {
     @DisplayName("Given SSL disabled on the cluster")
     class ClusterWithoutSsl extends ClusterPerClassIntegrationTest {
         @Language("JSON")
-        String sslDisabledBoostrapConfig = "ignite {\n"
-                + "  network: {\n"
-                + "    ssl.enabled: false,\n"
-                + "    port: {},\n"
-                + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ {}, \"localhost:3355\", \"localhost:3356\" ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector: { port: {} },\n"
-                + "  rest: {\n"
-                + "    port: {},\n"
-                + "    ssl.port: {}\n"
-                + "  },\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+        String sslDisabledBoostrapConfig = "ignite {" + NL
+                + "  network: {" + NL
+                + "    ssl.enabled: false," + NL
+                + "    port: {}," + NL
+                + "    nodeFinder:{" + NL
+                + "      netClusterNodes: [ {}, \"localhost:3355\", \"localhost:3356\" ]" + NL
+                + "    }" + NL
+                + "  }," + NL
+                + "  clientConnector: { port: {} }," + NL
+                + "  rest: {" + NL
+                + "    port: {}," + NL
+                + "    ssl.port: {}" + NL
+                + "  }," + NL
+                + "  failureHandler.handler.type: noop,"  + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
 
         @Override
@@ -162,37 +164,38 @@ public class ItSslTest {
     @DisplayName("Given SSL enabled on the cluster")
     class ClusterWithSsl extends ClusterPerClassIntegrationTest {
         @Language("JSON")
-        String sslEnabledBoostrapConfig = "ignite {\n"
-                + "  network: {\n"
+        String sslEnabledBoostrapConfig = "ignite {" + NL
+                + "  network: {" + NL
                 + "    ssl : {"
-                + "      enabled: true,\n"
-                + "      trustStore: {\n"
+                + "      enabled: true," + NL
+                + "      trustStore: {" + NL
                 + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
-                + "      },\n"
-                + "      keyStore: {\n"
+                + "      }," + NL
+                + "      keyStore: {" + NL
                 + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
-                + "      }\n"
-                + "    },\n"
-                + "    port: {},\n"
-                + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector: { port: {} },\n"
-                + "  clientConnector.ssl: {\n"
+                + "      }" + NL
+                + "    }," + NL
+                + "    port: {}," + NL
+                + "    nodeFinder:{" + NL
+                + "      netClusterNodes: [ {}, \"localhost:3345\", \"localhost:3346\" ]" + NL
+                + "    }" + NL
+                + "  }," + NL
+                + "  clientConnector: { port: {} }," + NL
+                + "  clientConnector.ssl: {" + NL
                 + "    enabled: true, "
-                + "    keyStore: {\n"
-                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
-                + "      password: \"" + PASSWORD + "\"\n"
-                + "    }\n"
-                + "  },\n"
-                + "  rest: {\n"
-                + "    port: {},\n"
-                + "    ssl.port: {}\n"
-                + "  },\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+                + "    keyStore: {" + NL
+                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\"," + NL
+                + "      password: \"" + PASSWORD + "\"" + NL
+                + "    }" + NL
+                + "  }," + NL
+                + "  rest: {" + NL
+                + "    port: {}," + NL
+                + "    ssl.port: {}" + NL
+                + "  }," + NL
+                + "  failureHandler.handler.type: noop," + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
 
         @Override
@@ -419,44 +422,45 @@ public class ItSslTest {
     @DisplayName("Given SSL enabled client auth is set to require on the cluster")
     class ClusterWithSslAndClientAuth extends ClusterPerClassIntegrationTest {
         @Language("JSON")
-        String sslEnabledBoostrapConfig = "ignite {\n"
-                + "  network: {\n"
+        String sslEnabledBoostrapConfig = "ignite {" + NL
+                + "  network: {" + NL
                 + "    ssl : {"
-                + "      enabled: true,\n"
-                + "      clientAuth: \"require\",\n"
-                + "      trustStore: {\n"
+                + "      enabled: true," + NL
+                + "      clientAuth: \"require\"," + NL
+                + "      trustStore: {" + NL
                 + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(trustStorePath) + "\""
-                + "      },\n"
-                + "      keyStore: {\n"
+                + "      }," + NL
+                + "      keyStore: {" + NL
                 + "        password: \"" + PASSWORD + "\","
                 + "        path: \"" + escapeWindowsPath(keyStorePath) + "\""
-                + "      }\n"
-                + "    },\n"
-                + "    port: {},\n"
-                + "    nodeFinder:{\n"
-                + "      netClusterNodes: [ {}, \"localhost:3365\", \"localhost:3366\" ]\n"
-                + "    }\n"
-                + "  },\n"
-                + "  clientConnector: { port: {} },\n"
-                + "  clientConnector.ssl: {\n"
+                + "      }" + NL
+                + "    }," + NL
+                + "    port: {}," + NL
+                + "    nodeFinder:{" + NL
+                + "      netClusterNodes: [ {}, \"localhost:3365\", \"localhost:3366\" ]" + NL
+                + "    }" + NL
+                + "  }," + NL
+                + "  clientConnector: { port: {} }," + NL
+                + "  clientConnector.ssl: {" + NL
                 + "    enabled: true, "
                 + "    clientAuth: \"require\", "
-                + "    keyStore: {\n"
-                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\",\n"
-                + "      password: \"" + PASSWORD + "\"\n"
-                + "    }, \n"
-                + "    trustStore: {\n"
+                + "    keyStore: {" + NL
+                + "      path: \"" + escapeWindowsPath(keyStorePath) + "\"," + NL
+                + "      password: \"" + PASSWORD + "\"" + NL
+                + "    }," + NL
+                + "    trustStore: {" + NL
                 + "      type: JKS,"
                 + "      password: \"" + PASSWORD + "\","
                 + "      path: \"" + escapeWindowsPath(trustStorePath) + "\""
-                + "      }\n"
-                + "  },\n"
-                + "  rest: {\n"
-                + "    port: {}, \n"
-                + "    ssl.port: {} \n"
-                + "  },\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+                + "      }" + NL
+                + "  }," + NL
+                + "  rest: {" + NL
+                + "    port: {}," + NL
+                + "    ssl.port: {}" + NL
+                + "  }," + NL
+                + "  failureHandler.handler.type: noop,"  + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
 
         @Override

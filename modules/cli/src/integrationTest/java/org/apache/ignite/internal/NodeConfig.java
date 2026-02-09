@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
@@ -44,31 +45,32 @@ public class NodeConfig {
      * @return Config pattern.
      */
     public static String restSslBootstrapConfig(@Nullable String ciphers) {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    },\n"
-                + "  },\n"
-                + "  clientConnector.port: {} ,\n"
-                + "  rest: {\n"
-                + "    port: {}\n"
-                + "    ssl: {\n"
-                + "      port: {},\n"
-                + "      enabled: true,\n"
-                + "      keyStore: {\n"
-                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
-                + "        password: " + keyStorePassword + "\n"
-                + "      }, \n"
-                + "      trustStore: {\n"
-                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
-                + "        password: " + trustStorePassword + "\n"
-                + "      },\n"
+        return "ignite {" + NL
+                + "  network: {" + NL
+                + "    port: {}," + NL
+                + "    nodeFinder: {" + NL
+                + "      netClusterNodes: [ {} ]" + NL
+                + "    }," + NL
+                + "  }," + NL
+                + "  clientConnector.port: {} ," + NL
+                + "  rest: {" + NL
+                + "    port: {}" + NL
+                + "    ssl: {" + NL
+                + "      port: {}," + NL
+                + "      enabled: true," + NL
+                + "      keyStore: {" + NL
+                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\"," + NL
+                + "        password: " + keyStorePassword + NL
+                + "      }," + NL
+                + "      trustStore: {" + NL
+                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\"," + NL
+                + "        password: " + trustStorePassword + NL
+                + "      }," + NL
                 + (nullOrBlank(ciphers) ? "" : "      ciphers: \"" + ciphers + "\"")
-                + "    }\n"
-                + "  },\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+                + "    }" + NL
+                + "  }," + NL
+                + "  failureHandler.handler.type: noop,"  + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
     }
 
@@ -82,35 +84,36 @@ public class NodeConfig {
      * @return Config pattern.
      */
     public static String clientConnectorSslBootstrapConfig(@Nullable String ciphers) {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    },\n"
-                + "  },\n"
-                + "  clientConnector: {"
-                + "    port: {},\n"
-                + "    ssl: {\n"
-                + "      enabled: true,\n"
-                + "      clientAuth: require,\n"
-                + "      keyStore: {\n"
-                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
-                + "        password: " + keyStorePassword + "\n"
-                + "      }, \n"
-                + "      trustStore: {\n"
-                + "        type: JKS,\n"
-                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
-                + "        password: " + trustStorePassword + "\n"
-                + "      },\n"
+        return "ignite {" + NL
+                + "  network: {" + NL
+                + "    port: {}," + NL
+                + "    nodeFinder: {" + NL
+                + "      netClusterNodes: [ {} ]" + NL
+                + "    }," + NL
+                + "  }," + NL
+                + "  clientConnector: {" + NL
+                + "    port: {}," + NL
+                + "    ssl: {" + NL
+                + "      enabled: true," + NL
+                + "      clientAuth: require," + NL
+                + "      keyStore: {" + NL
+                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\"," + NL
+                + "        password: " + keyStorePassword + NL
+                + "      }," + NL
+                + "      trustStore: {" + NL
+                + "        type: JKS," + NL
+                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\"," + NL
+                + "        password: " + trustStorePassword + NL
+                + "      }," + NL
                 + (nullOrBlank(ciphers) ? "" : "      ciphers: \"" + ciphers + "\"")
-                + "    }\n"
-                + "  },\n"
-                + "  rest: {\n"
-                + "    port: {},\n"
-                + "    ssl.port: {}\n"
-                + "  },\n"
-                + "  failureHandler.dumpThreadsOnFailure: false\n"
+                + "    }" + NL
+                + "  }," + NL
+                + "  rest: {" + NL
+                + "    port: {}," + NL
+                + "    ssl.port: {}" + NL
+                + "  }," + NL
+                + "  failureHandler.handler.type: noop," + NL
+                + "  failureHandler.dumpThreadsOnFailure: false" + NL
                 + "}";
     }
 }

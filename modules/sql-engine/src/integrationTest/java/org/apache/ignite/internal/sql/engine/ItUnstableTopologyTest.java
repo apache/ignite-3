@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
@@ -38,19 +39,20 @@ import org.junit.jupiter.params.provider.EnumSource;
  * Tests to make sure sql engine can recover execution when run on unstable topology.
  */
 public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
-    private static final String DATA_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: { role: data }\n"
-            + "  },\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String DATA_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: {}," + NL
+            + "    nodeFinder: {" + NL
+            + "      netClusterNodes: [ {} ]" + NL
+            + "    }" + NL
+            + "  }," + NL
+            + "  clientConnector: { port:{} }," + NL
+            + "  nodeAttributes: {" + NL
+            + "    nodeAttributes: { role: data }" + NL
+            + "  }," + NL
+            + "  rest.port: {}," + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
     private static final Pattern NODE_NAME_PATTERN = Pattern.compile(".*?=\\[(?<nodeName>.*?)=\\{.*");

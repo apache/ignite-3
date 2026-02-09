@@ -18,6 +18,7 @@
 package org.apache.ignite.tx.distributed;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -104,17 +105,18 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     private static final int REPLICAS = 2;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {},\n"
-            + "  raft: { responseTimeoutMillis: 30000 },"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: {}," + NL
+            + "    nodeFinder: {" + NL
+            + "      netClusterNodes: [ {} ]" + NL
+            + "    }" + NL
+            + "  }," + NL
+            + "  clientConnector: { port:{} }," + NL
+            + "  rest.port: {}," + NL
+            + "  raft: { responseTimeoutMillis: 30000 }," + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
     private final ExecutorService txStateStorageExecutor = Executors.newSingleThreadExecutor(

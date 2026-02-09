@@ -26,63 +26,67 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 class ConfigurationDuplicatesValidatorTest extends BaseIgniteAbstractTest {
-    private static final String DUPLICATE_CONFIG = "ignite {\n"
-            + "  network: {\n"
-            + "    port: 456,\n"
-            + "    nodeFinder.netClusterNodes: [ \"localhost\" ]\n"
-            + "  },\n"
-            + "  network: {}\n"
-            + "  network.nodeFinder.netClusterNodes: [ \"localhost\" ],\n"
-            + "  storage.profiles: {\n"
-            + "        test.engine: test, \n"
-            + "        default_aipersist.engine: aipersist, \n"
-            + "        default_aipersist.sizeBytes: 123, \n"
-            + "        test.engine: aimem \n"
-            + "  },\n"
-            + "  storage {\n"
-            + "      profiles = [\n"
-            + "          {\n"
-            + "              name = persistent,\n"
-            + "              name = persistent\n"
-            + "          }\n"
-            + "      ]\n"
-            + "  },\n"
-            + "  clientConnector.port: 123,\n"
-            + "  rest {\n"
-            + "    port: 123,\n"
-            + "    port: 456\n"
-            + "  },\n"
-            + "  compute { threadPoolSize: 1 },\n"
-            + "  compute { threadPoolSize: 2 }\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String NL = System.lineSeparator();
+
+    private static final String DUPLICATE_CONFIG = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: 456," + NL
+            + "    nodeFinder.netClusterNodes: [ \"localhost\" ]" + NL
+            + "  }," + NL
+            + "  network: {}" + NL
+            + "  network.nodeFinder.netClusterNodes: [ \"localhost\" ]," + NL
+            + "  storage.profiles: {" + NL
+            + "        test.engine: test," + NL
+            + "        default_aipersist.engine: aipersist," + NL
+            + "        default_aipersist.sizeBytes: 123," + NL
+            + "        test.engine: aimem" + NL
+            + "  }," + NL
+            + "  storage {" + NL
+            + "      profiles = [" + NL
+            + "          {" + NL
+            + "              name = persistent," + NL
+            + "              name = persistent" + NL
+            + "          }" + NL
+            + "      ]" + NL
+            + "  }," + NL
+            + "  clientConnector.port: 123," + NL
+            + "  rest {" + NL
+            + "    port: 123," + NL
+            + "    port: 456" + NL
+            + "  }," + NL
+            + "  compute { threadPoolSize: 1 }," + NL
+            + "  compute { threadPoolSize: 2 }" + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
-    private static final String OK_CONFIG = "ignite {\n"
-            + "  network: {\n"
-            + "    port: 456,\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage {\n"
-            + "      profiles = [\n"
-            + "          {\n"
-            + "              name = persistent,\n"
-            + "              engine = aipersist\n"
-            + "          }\n"
-            + "          {\n"
-            + "              name = rocksdb-example,\n"
-            + "              engine = rocksdb\n"
-            + "          }\n"
-            + "          {\n"
-            + "              name = in-memory,\n"
-            + "              engine = aimem\n"
-            + "          }\n"
-            + "      ]\n"
-            + "  },\n"
-            + "  clientConnector.port: 123,\n"
-            + "  rest {\n"
-            + "    port: 123\n"
-            + "  },\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String OK_CONFIG = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: 456," + NL
+            + "    nodeFinder.netClusterNodes: [ {} ]" + NL
+            + "  }," + NL
+            + "  storage {" + NL
+            + "      profiles = [" + NL
+            + "          {" + NL
+            + "              name = persistent," + NL
+            + "              engine = aipersist" + NL
+            + "          }" + NL
+            + "          {" + NL
+            + "              name = rocksdb-example," + NL
+            + "              engine = rocksdb" + NL
+            + "          }" + NL
+            + "          {" + NL
+            + "              name = in-memory," + NL
+            + "              engine = aimem" + NL
+            + "          }" + NL
+            + "      ]" + NL
+            + "  }," + NL
+            + "  clientConnector.port: 123," + NL
+            + "  rest {" + NL
+            + "    port: 123" + NL
+            + "  }," + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
     @Test

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
@@ -61,34 +62,36 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
 
     private static final int PARTITION_ID = 0;
 
-    private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: {region: US, zone: global}\n"
-            + "  },\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: {}," + NL
+            + "    nodeFinder: {" + NL
+            + "      netClusterNodes: [ {} ]" + NL
+            + "    }" + NL
+            + "  }," + NL
+            + "  clientConnector: { port:{} }," + NL
+            + "  nodeAttributes: {" + NL
+            + "    nodeAttributes: {region: US, zone: global}" + NL
+            + "  }," + NL
+            + "  rest.port: {}," + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
-    private static final String GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: {zone: global}\n"
-            + "  },\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
+    private static final String GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {" + NL
+            + "  network: {" + NL
+            + "    port: {}," + NL
+            + "    nodeFinder: {" + NL
+            + "      netClusterNodes: [ {} ]" + NL
+            + "    }" + NL
+            + "  }," + NL
+            + "  clientConnector: { port:{} }," + NL
+            + "  nodeAttributes: {" + NL
+            + "    nodeAttributes: {zone: global}" + NL
+            + "  }," + NL
+            + "  rest.port: {}," + NL
+            + "  failureHandler.handler.type: noop," + NL
+            + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
     @Override

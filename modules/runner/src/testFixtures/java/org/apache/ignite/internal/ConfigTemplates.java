@@ -26,29 +26,31 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_P
  * Node configuration templates.
  */
 public class ConfigTemplates {
+    public static final String NL = System.lineSeparator();
+
     private static final String DEFAULT_PROFILES = ""
             + "  storage.profiles: {"
             + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n";
+            + "  }," + NL;
 
     private static final String FAST_FAILURE_DETECTION = ""
-            + "  network.membership: {\n"
-            + "    membershipSyncIntervalMillis: 1000,\n"
-            + "    failurePingIntervalMillis: 500,\n"
-            + "    scaleCube: {\n"
-            + "      membershipSuspicionMultiplier: 1,\n"
-            + "      failurePingRequestMembers: 1,\n"
-            + "      gossipIntervalMillis: 10\n"
-            + "    }\n"
-            + "  },\n";
+            + "  network.membership: {" + NL
+            + "    membershipSyncIntervalMillis: 1000," + NL
+            + "    failurePingIntervalMillis: 500," + NL
+            + "    scaleCube: {" + NL
+            + "      membershipSuspicionMultiplier: 1," + NL
+            + "      failurePingRequestMembers: 1," + NL
+            + "      gossipIntervalMillis: 10" + NL
+            + "    }" + NL
+            + "  }," + NL;
 
     private static final String DISABLED_FAILURE_DETECTION = ""
-            + "  network.membership: {\n"
-            + "    failurePingIntervalMillis: 1000000000\n"
-            + "  }\n";
+            + "  network.membership: {" + NL
+            + "    failurePingIntervalMillis: 1000000000" + NL
+            + "  }" + NL;
 
     /** Default node bootstrap configuration pattern. */
     public static String NODE_BOOTSTRAP_CFG_TEMPLATE = renderConfigTemplate(DEFAULT_PROFILES);
@@ -71,15 +73,16 @@ public class ConfigTemplates {
      * @return Generated configuration template.
      */
     public static String renderConfigTemplate(String properties) {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder.netClusterNodes: [ {} ]\n"
-                + "  },\n"
-                + "  clientConnector.port: {},\n"
-                + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-                + "  rest.port: {},\n"
-                + "  failureHandler.dumpThreadsOnFailure: false,\n"
+        return "ignite {" + NL
+                + "  network: {" + NL
+                + "    port: {}," + NL
+                + "    nodeFinder.netClusterNodes: [ {} ]" + NL
+                + "  }," + NL
+                + "  clientConnector.port: {}," + NL
+                + "  clientConnector.sendServerExceptionStackTraceToClient: true," + NL
+                + "  rest.port: {}," + NL
+                + "  failureHandler.handler.type: noop," + NL
+                + "  failureHandler.dumpThreadsOnFailure: false," + NL
                 + properties
                 + "}";
     }

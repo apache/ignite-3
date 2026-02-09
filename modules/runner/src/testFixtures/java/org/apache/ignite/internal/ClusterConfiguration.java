@@ -32,6 +32,8 @@ import org.junit.jupiter.api.TestInfo;
  * Class for configuring {@link Cluster} instances.
  */
 public class ClusterConfiguration {
+    private static final String NL = System.lineSeparator();
+
     public static final int DEFAULT_BASE_PORT = 3344;
 
     public static final int DEFAULT_BASE_CLIENT_PORT = 10800;
@@ -41,19 +43,20 @@ public class ClusterConfiguration {
     public static final int DEFAULT_BASE_HTTPS_PORT = 10400;
 
     /** Default nodes bootstrap configuration pattern. */
-    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }\n"
-            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
-            + "  rest: {\n"
-            + "    port: {},\n"
-            + "    ssl.port: {}\n"
-            + "  }\n"
+    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "ignite {" + NL
+            + "  \"network\": {" + NL
+            + "    \"port\":{}," + NL
+            + "    \"nodeFinder\":{" + NL
+            + "      \"netClusterNodes\": [ {} ]" + NL
+            + "    }" + NL
+            + "  }," + NL
+            + "  clientConnector: { port:{} }" + NL
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true," + NL
+            + "  rest: {" + NL
+            + "    port: {}," + NL
+            + "    ssl.port: {}" + NL
+            + "  }," + NL
+            + "  \"failureHandler.handler.type\": noop" + NL
             + "}";
 
     private final TestInfo testInfo;
