@@ -15,36 +15,24 @@
  * limitations under the License.
  */
 
-sourceSets {
-    jobs
-    unit1
-    unit2
-}
+package org.example.jobs.embedded;
 
-def registerJarTask(SourceSet sourceSet, String baseName) {
-    tasks.register(sourceSet.jarTaskName, Jar) {
-        group = 'build'
-        archiveBaseName = baseName
-        archiveVersion = '1.0-SNAPSHOT'
-        from sourceSet.output
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+/** Compute job that fails on the first execution with the {@link JobException}. */
+public class FailingJobOnFirstExecution implements ComputeJob<Void, String> {
+    private final AtomicInteger counter = new AtomicInteger();
+
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
+        if (counter.getAndIncrement() == 0) {
+            throw new JobException("Oops", new Exception());
+        }
+        return completedFuture("done");
     }
-}
-
-registerJarTask(sourceSets.jobs, 'ignite-integration-test-jobs')
-registerJarTask(sourceSets.unit1, 'ignite-unit-test-job1')
-registerJarTask(sourceSets.unit2, 'ignite-unit-test-job2')
-
-processIntegrationTestResources {
-    into('units') {
-        from jobsJar
-        from unit1Jar
-        from unit2Jar
-    }
-}
-
-dependencies {
-    jobsImplementation project(':ignite-api')
-    jobsImplementation project(':ignite-core')
-    unit1Implementation project(':ignite-api')
-    unit2Implementation project(':ignite-api')
 }

@@ -15,36 +15,19 @@
  * limitations under the License.
  */
 
-sourceSets {
-    jobs
-    unit1
-    unit2
-}
+package org.example.jobs.standalone;
 
-def registerJarTask(SourceSet sourceSet, String baseName) {
-    tasks.register(sourceSet.jarTaskName, Jar) {
-        group = 'build'
-        archiveBaseName = baseName
-        archiveVersion = '1.0-SNAPSHOT'
-        from sourceSet.output
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+/** Compute job that returns the string representation of its argument. */
+public class ToStringJob implements ComputeJob<Object, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object input) {
+        return completedFuture(input == null ? null : input.toString());
     }
 }
 
-registerJarTask(sourceSets.jobs, 'ignite-integration-test-jobs')
-registerJarTask(sourceSets.unit1, 'ignite-unit-test-job1')
-registerJarTask(sourceSets.unit2, 'ignite-unit-test-job2')
-
-processIntegrationTestResources {
-    into('units') {
-        from jobsJar
-        from unit1Jar
-        from unit2Jar
-    }
-}
-
-dependencies {
-    jobsImplementation project(':ignite-api')
-    jobsImplementation project(':ignite-core')
-    unit1Implementation project(':ignite-api')
-    unit2Implementation project(':ignite-api')
-}
