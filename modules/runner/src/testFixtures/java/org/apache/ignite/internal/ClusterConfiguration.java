@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.ConfigTemplates.NL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 import java.nio.file.Path;
@@ -56,7 +57,8 @@ public class ClusterConfiguration {
             + "    port: {}," + NL
             + "    ssl.port: {}" + NL
             + "  }," + NL
-            + "  \"failureHandler.handler.type\": noop" + NL
+            + "  failureHandler.handler.type: noop" + NL
+            + "  failureHandler.dumpThreadsOnFailure: false," + NL
             + "}";
 
     private final TestInfo testInfo;
