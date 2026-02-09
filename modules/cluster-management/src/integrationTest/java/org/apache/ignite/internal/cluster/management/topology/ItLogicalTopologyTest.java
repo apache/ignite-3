@@ -78,7 +78,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist}," + NL
             + "  clientConnector.port: {}," + NL
             + "  rest.port: {}," + NL
-            + "  failure.handler.type: noop" + NL
+            + "  failureHandler.handler.type: noop" + NL
             + "  failureHandler.dumpThreadsOnFailure: false" + NL
             + "}";
 
