@@ -31,7 +31,7 @@ Deletes data from a table.
 <RailroadDiagram>{`
 Diagram(
 Terminal('DELETE FROM'),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference#qualified_table_name'}),
 Optional(
 Sequence(
 Optional('AS'),
@@ -61,11 +61,11 @@ Inserts data into a table.
 <RailroadDiagram>{`
 Diagram(
 Terminal('INSERT INTO'),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference#qualified_table_name'}),
 Optional(
-NonTerminal('column_list', {href:'./grammar-reference/#column_list'}),
+NonTerminal('column_list', {href:'./grammar-reference#column_list'}),
 ),
-NonTerminal('query', {href:'./grammar-reference/#query'})
+NonTerminal('query', {href:'./grammar-reference#query'})
 )
 `}</RailroadDiagram>
 
@@ -78,7 +78,7 @@ Merges data into a table.
 <RailroadDiagram>{`
 Diagram(
 Terminal('MERGE INTO'),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference#qualified_table_name'}),
 Optional(
 Sequence(
 Optional('AS'),
@@ -86,7 +86,7 @@ NonTerminal('alias'),
 )
 ),
 Terminal('USING'),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference#qualified_table_name'}),
 Terminal('ON'),
 NonTerminal('booleanExpression'),
 End({type:'complex'})
@@ -99,7 +99,7 @@ Start({type:'complex'}),
 Optional(
 Sequence(
 NonTerminal('WHEN MATCHED THEN UPDATE SET'),
-OneOrMore(Sequence(Terminal('assign', {href:'./grammar-reference/#assign'})
+OneOrMore(Sequence(Terminal('assign', {href:'./grammar-reference#assign'})
 ),
 Terminal(',')
 ))),
@@ -134,9 +134,9 @@ Updates data in a table.
 <RailroadDiagram>{`
 Diagram(
 Terminal('UPDATE'),
-NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+NonTerminal('qualified_table_name', {href:'./grammar-reference#qualified_table_name'}),
 Terminal('SET'),
-OneOrMore(Sequence(Terminal('assign', {href:'./grammar-reference/#assign'})
+OneOrMore(Sequence(Terminal('assign', {href:'./grammar-reference#assign'})
 ),
 Terminal(',')
 ),
