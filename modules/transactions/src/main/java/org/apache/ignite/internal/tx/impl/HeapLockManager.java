@@ -52,7 +52,6 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.AcquireLockTimeoutException;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
-import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
@@ -248,6 +247,17 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     @Override
+    public void failAllWaiters(UUID txId, Exception cause) {
+        ConcurrentLinkedQueue<Releasable> states = this.txMap.get(txId);
+
+        if (states != null) {
+            for (Releasable state : states) {
+                state.tryFail(txId, cause);
+            }
+        }
+    }
+
+    @Override
     public Iterator<Lock> locks() {
         return txMap.entrySet().stream()
                 .flatMap(e -> collectLocksFromStates(e.getKey(), e.getValue()).stream())
@@ -407,6 +417,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @return The type.
          */
         boolean coarse();
+
+        /**
+         * Try to fail a waiter.
+         *
+         * @param cause The cause.
+         *
+         * @return {@code True} if successful.
+         */
+        void tryFail(UUID txId, Exception cause);
     }
 
     /**
@@ -474,6 +493,29 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         @Override
         public boolean coarse() {
             return true;
+        }
+
+        @Override
+        public void tryFail(UUID txId, Exception cause) {
+            int idx = Math.floorMod(spread(txId.hashCode()), CONCURRENCY);
+
+            IgniteBiTuple<Lock, CompletableFuture<Lock>> waiter0 = null;
+
+            stripedLock.readLock(idx).lock();
+
+            try {
+                IgniteBiTuple<Lock, CompletableFuture<Lock>> waiter = slockWaiters.get(txId);
+
+                if (waiter != null) {
+                    waiter0 = waiter;
+                }
+            } finally {
+                stripedLock.readLock(idx).unlock();
+            }
+
+            if (waiter0 != null) {
+                waiter0.get2().completeExceptionally(cause);
+            }
         }
 
         /**
@@ -759,6 +801,26 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             return false;
         }
 
+        @Override
+        public void tryFail(UUID txId, Exception cause) {
+            WaiterImpl waiter0 = null;
+
+            synchronized (waiters) {
+                WaiterImpl waiter = waiters.get(txId);
+
+                // Waiter can be null if it was invalidate by order conflict resolution logic.
+                // See testFailWaiter3
+                if (waiter != null && waiter.hasLockIntent()) {
+                    waiter0 = waiter;
+                    waiter.fail(cause);
+                }
+            }
+
+            if (waiter0 != null) {
+                waiter0.notifyLocked();
+            }
+        }
+
         /**
          * Attempts to acquire a lock for the specified {@code key} in specified lock mode.
          *
@@ -969,7 +1031,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     LockMode modeFromDowngrade = waiter.recalculateMode(lockMode);
 
                     if (!waiter.locked() && !waiter.hasLockIntent()) {
-                        toNotify = release(txId);
+                        // All locks are revoked - deqeue waiter.
+                        waiters.remove(txId);
+                        if (!waiters.isEmpty()) {
+                            toNotify = unlockCompatibleWaiters();
+                        }
                     } else if (modeFromDowngrade != waiter.lockMode()) {
                         toNotify = unlockCompatibleWaiters();
                     }
@@ -991,9 +1057,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> release(UUID txId) {
-            waiters.remove(txId);
+            WaiterImpl removed = waiters.remove(txId);
 
-            if (waiters.isEmpty()) {
+            // Removing incomplete waiter doesn't affect lock state.
+            if (removed == null || waiters.isEmpty() || !removed.locked()) {
                 return emptyList();
             }
 
@@ -1134,9 +1201,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private LockMode lockMode;
 
         /**
-         * The filed has a value when the waiter couldn't lock a key.
+         * This field has a value when the waiter couldn't lock a key.
          */
-        private LockException ex;
+        private Exception ex;
 
         /**
          * The constructor.
@@ -1312,11 +1379,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         /**
-         * Fails the lock waiter.
+         * Fail the waiter with the exception.
          *
-         * @param e Lock exception.
+         * @param e Exception.
          */
-        private void fail(LockException e) {
+        private void fail(Exception e) {
             ex = e;
         }
 

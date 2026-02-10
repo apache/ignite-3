@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.LockMode.IS;
@@ -1123,6 +1124,78 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         lockManager.releaseAll(tx3);
 
         assertThat(f, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void testFailWaiter() {
+        UUID older = TestTransactionIds.newTransactionId();
+        UUID newer = TestTransactionIds.newTransactionId();
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(newer, lockKey(), X);
+        assertTrue(fut1.isDone());
+
+        // Currently only S locks are allowed to wait.
+        CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey(), S);
+        assertFalse(fut2.isDone());
+
+        // Should do nothing.
+        lockManager.failAllWaiters(newer, new Exception());
+        assertFalse(fut2.isDone());
+
+        lockManager.failAllWaiters(older, new Exception("test"));
+        assertThat(fut2, willThrowWithCauseOrSuppressed(Exception.class, "test"));
+
+        lockManager.releaseAll(older);
+        lockManager.releaseAll(newer);
+    }
+
+    @Test
+    public void testFailWaiter2() {
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(tx1, lockKey(), S);
+        assertTrue(fut1.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(tx2, lockKey(), S);
+        assertTrue(fut2.isDone());
+
+        CompletableFuture<Lock> fut3 = lockManager.acquire(tx3, lockKey(), S);
+        assertTrue(fut3.isDone());
+
+        CompletableFuture<Lock> fut4 = lockManager.acquire(tx2, lockKey(), X);
+        assertFalse(fut4.isDone());
+
+        lockManager.releaseAll(tx3);
+
+        lockManager.failAllWaiters(tx2, new Exception());
+
+        lockManager.releaseAll(tx2);
+        lockManager.releaseAll(tx1);
+    }
+
+    @Test
+    public void testFailWaiter3() {
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
+
+        CompletableFuture<Lock> fut3 = lockManager.acquire(tx3, lockKey(), S);
+        assertTrue(fut3.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(tx2, lockKey(), X);
+        assertFalse(fut2.isDone());
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(tx1, lockKey(), S);
+        assertTrue(fut1.isDone());
+
+        lockManager.releaseAll(tx3);
+
+        lockManager.failAllWaiters(tx2, new Exception());
+
+        lockManager.releaseAll(tx2);
+        lockManager.releaseAll(tx1);
     }
 
     /**

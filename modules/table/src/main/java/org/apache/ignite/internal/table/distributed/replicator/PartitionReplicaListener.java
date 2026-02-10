@@ -1417,6 +1417,20 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
+        TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
+
+        if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
+            // At this point a transaction is marked as finished, preventing new locks.
+            // Safe to invalidate waiters, which otherwise will block the cleanup process.
+            // Using non-retriable exception intentionally to prevent unnecessary retries.
+            // This adds additional latency on commit path, which should go away after implementing async write intent cleanup.
+            lockManager.failAllWaiters(request.txId(), new TransactionException(
+                    TX_ALREADY_FINISHED_ERR,
+                    format("Can't acquire a lock because the transaction is already finished [{}].",
+                            formatTxInfo(request.txId(), txManager))
+            ));
+        }
+
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenApply(res -> {
                     if (res.shouldApplyWriteIntent()) {
