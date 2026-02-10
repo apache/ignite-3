@@ -275,31 +275,33 @@ public class ConnectionManager implements ChannelCreationListener {
      * @return Sender.
      */
     public OrderingFuture<NettySender> channel(UUID nodeId, ChannelType type, InetSocketAddress address) {
-        return getChannelWithRetry(nodeId, type, address, 0);
+        return getChannelWithRetry(nodeId, type, address, 0, null);
     }
 
     private OrderingFuture<NettySender> getChannelWithRetry(
             UUID nodeId,
             ChannelType type,
             InetSocketAddress address,
-            int attempt
+            int attempt,
+            @Nullable Throwable cause
     ) {
         if (attempt > MAX_RETRIES_TO_OPEN_CHANNEL) {
             return OrderingFuture.failedFuture(new IllegalStateException("Too many attempts to open channel to node \"" + nodeId
-                    + "\", address=" + address));
+                    + "\", address=" + address, cause));
         }
 
         return doGetChannel(nodeId, type, address)
                 .handle((res, ex) -> {
                     if (ex instanceof ChannelAlreadyExistsException) {
-                        return getChannelWithRetry(((ChannelAlreadyExistsException) ex).nodeId(), type, address, attempt + 1);
+                        return getChannelWithRetry(((ChannelAlreadyExistsException) ex).nodeId(), type, address, attempt + 1, ex);
                     }
                     if (ex != null && ex.getCause() instanceof ChannelAlreadyExistsException) {
                         return getChannelWithRetry(
                                 ((ChannelAlreadyExistsException) ex.getCause()).nodeId(),
                                 type,
                                 address,
-                                attempt + 1
+                                attempt + 1,
+                                ex
                         );
                     }
                     if (ex != null) {
@@ -310,7 +312,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     if (res.isOpen()) {
                         return OrderingFuture.completedFuture(res);
                     } else {
-                        return getChannelWithRetry(nodeId, type, address, attempt + 1);
+                        return getChannelWithRetry(nodeId, type, address, attempt + 1, new Exception("Channel is not open"));
                     }
                 })
                 .thenCompose(identity());

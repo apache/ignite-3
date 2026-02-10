@@ -166,8 +166,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         pageMem = createPageMemory();
 
-        pageMem.start();
-
         reuseList = createReuseList(GROUP_ID, 0, pageMem, 0, true);
     }
 

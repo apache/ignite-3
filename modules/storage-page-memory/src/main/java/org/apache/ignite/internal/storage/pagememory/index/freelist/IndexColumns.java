@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Index columns to store in free list.
@@ -44,7 +43,7 @@ public class IndexColumns implements Storable {
     private long link = NULL_LINK;
 
     /** Byte buffer with binary tuple data. */
-    private final @Nullable ByteBuffer valueBuffer;
+    private final ByteBuffer valueBuffer;
 
     /**
      * Constructor.
@@ -52,7 +51,7 @@ public class IndexColumns implements Storable {
      * @param partitionId Partition ID.
      * @param valueBuffer Value buffer.
      */
-    public IndexColumns(int partitionId, @Nullable ByteBuffer valueBuffer) {
+    public IndexColumns(int partitionId, ByteBuffer valueBuffer) {
         this.partitionId = partitionId;
         this.valueBuffer = valueBuffer;
     }
@@ -64,7 +63,7 @@ public class IndexColumns implements Storable {
      * @param link Link.
      * @param valueBuffer Value buffer.
      */
-    public IndexColumns(int partitionId, long link, @Nullable ByteBuffer valueBuffer) {
+    public IndexColumns(int partitionId, long link, ByteBuffer valueBuffer) {
         this.partitionId = partitionId;
         this.link = link;
         this.valueBuffer = valueBuffer;
@@ -74,8 +73,6 @@ public class IndexColumns implements Storable {
      * Returns the size of binary tuple.
      */
     public int valueSize() {
-        assert valueBuffer != null;
-
         return valueBuffer.limit();
     }
 

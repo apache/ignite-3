@@ -100,7 +100,7 @@ class JoinPredicateImplementor {
 
         InputGetter inputGetter = new BiFieldGetter(rowHandler, left, right, type, firstRowSize);
 
-        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler)
+        Function1<String, InputGetter> correlates = new CorrelatesBuilder(ctx)
                 .build(List.of(predicateExpression));
 
         Expression condition = RexToLixTranslator.translateCondition(program, typeFactory, builder,

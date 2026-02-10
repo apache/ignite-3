@@ -153,7 +153,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         when(clusterService.messagingService()).thenReturn(messagingService);
 
-        lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
+        lenient().when(leaseTracker.leasesLatest()).thenReturn(leases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
 
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));

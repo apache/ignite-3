@@ -30,6 +30,7 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -77,7 +78,7 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
                     .pageSize(1)
                     .build();
 
-            ResultSet<SqlRow> rs = client0.sql().execute(null, stmt);
+            ResultSet<SqlRow> rs = client0.sql().execute((Transaction) null, stmt);
 
             client0.close();
 

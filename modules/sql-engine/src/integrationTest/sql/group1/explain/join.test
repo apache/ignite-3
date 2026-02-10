@@ -224,6 +224,7 @@ CorrelatedNestedLoopJoin
     predicate: true
     type: inner
     correlates: [$cor1]
+    correlationFieldNames: [X]
     est: (rows=100)
   TableFunctionScan
       fieldNames: [X]

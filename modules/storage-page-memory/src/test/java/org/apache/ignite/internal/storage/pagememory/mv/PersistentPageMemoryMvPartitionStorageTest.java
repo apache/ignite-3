@@ -41,6 +41,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -69,6 +70,9 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
     private StorageConfiguration storageConfig;
 
+    @InjectConfiguration
+    SystemLocalConfiguration systemConfig;
+
     @InjectExecutorService
     private ExecutorService executorService;
 
@@ -89,7 +93,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,

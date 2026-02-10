@@ -73,12 +73,10 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
 
         String tableName = "TEST";
 
-        node0.sql().execute(null,
-                String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+        node0.sql().execute(String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                         ZONE_NAME, 3, 1, DEFAULT_STORAGE_PROFILE));
 
-        node0.sql().execute(null,
-                String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) ZONE %s", tableName,
+        node0.sql().execute(String.format("CREATE TABLE IF NOT EXISTS %s (id INT PRIMARY KEY, name VARCHAR) ZONE %s", tableName,
                         ZONE_NAME
                 )
         );
@@ -100,7 +98,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         log.info("Test: Excluding the current primary from assignments. The replica should stay alive.");
 
         // Excluding the current primary from assignments. The replica should stay alive.
-        node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
+        node0.sql().execute(alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
 
         ByteArray stableAssignmentsKey = stablePartAssignmentsKey(partId);
 
@@ -111,7 +109,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         log.info("Test: Including it back.");
 
         // Including it back.
-        node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, null)));
+        node0.sql().execute(alterZoneSql(filterForNodes(nodes, null)));
 
         waitForStableAssignments(node0.metaStorageManager(), stableAssignmentsKey.bytes(), nodesCount);
 
@@ -120,7 +118,7 @@ public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
         log.info("Test: Excluding again.");
 
         // Excluding again.
-        node0.sql().execute(null, alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
+        node0.sql().execute(alterZoneSql(filterForNodes(nodes, replicaMeta.getLeaseholderId())));
 
         waitForStableAssignments(node0.metaStorageManager(), stableAssignmentsKey.bytes(), nodesCount - 1);
 

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
@@ -186,7 +187,8 @@ public class PersistentTxStateVacuumizer {
                 // the persistent tx state.
                 // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
                 // happen on another node.
-                AwaitReplicaTimeoutException.class
+                AwaitReplicaTimeoutException.class,
+                ReplicaUnavailableException.class
         );
     }
 
