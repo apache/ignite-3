@@ -125,7 +125,7 @@ public class ItThinClientChannelValidatorTest extends BaseIgniteAbstractTest {
             Awaitility.await().timeout(3, TimeUnit.SECONDS)
                     .untilAsserted(() -> assertThat(client.connections().size(), is(1)));
 
-            client.sql().execute(null, "SELECT 1").close();
+            client.sql().execute("SELECT 1").close();
 
             // Make sure there are no new connections.
             Thread.sleep(reconnectInterval * 2);

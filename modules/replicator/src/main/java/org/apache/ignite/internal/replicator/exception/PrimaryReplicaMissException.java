@@ -55,6 +55,19 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
     /**
      * Constructor.
      *
+     * @param txInfo Transaction info formatted with label.
+     * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
+     * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
+     */
+    public PrimaryReplicaMissException(String txInfo, Long expectedEnlistmentConsistencyToken, Long currentEnlistmentConsistencyToken) {
+        super(REPLICA_MISS_ERR, format("The primary replica has changed [{}, expectedEnlistmentConsistencyToken={}, "
+                        + "currentEnlistmentConsistencyToken={}].", txInfo, expectedEnlistmentConsistencyToken,
+                currentEnlistmentConsistencyToken));
+    }
+
+    /**
+     * Constructor.
+     *
      * @param expectedLeaseholderName Expected leaseholder name.
      * @param currentLeaseholderName Current leaseholder name, {@code null} if absent.
      * @param expectedLeaseholderId Expected leaseholder id.

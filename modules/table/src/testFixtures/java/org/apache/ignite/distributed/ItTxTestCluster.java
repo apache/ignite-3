@@ -107,6 +107,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -177,6 +178,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
@@ -489,6 +491,7 @@ public class ItTxTestCluster {
                     nodeName,
                     clusterService,
                     cmgManager,
+                    groupId -> completedFuture(Assignments.EMPTY),
                     clockService,
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
@@ -523,7 +526,9 @@ public class ItTxTestCluster {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             txInflights.put(nodeName, transactionInflights);
 
@@ -537,6 +542,7 @@ public class ItTxTestCluster {
                     node,
                     placementDriver,
                     resourcesRegistry,
+                    txStateVolatileStorage,
                     transactionInflights,
                     lowWatermark
             );
@@ -598,6 +604,7 @@ public class ItTxTestCluster {
             InternalClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
+            VolatileTxStateMetaStorage txStateVolatileStorage,
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark
     ) {
@@ -609,6 +616,7 @@ public class ItTxTestCluster {
                 clusterService.topologyService(),
                 replicaSvc,
                 HeapLockManager.smallInstance(),
+                txStateVolatileStorage,
                 clockService,
                 generator,
                 placementDriver,
@@ -1265,7 +1273,9 @@ public class ItTxTestCluster {
     private void initializeClientTxComponents() {
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService, txStateVolatileStorage);
 
         clientTxManager = new TxManagerImpl(
                 "client",
@@ -1275,6 +1285,7 @@ public class ItTxTestCluster {
                 client.topologyService(),
                 clientReplicaSvc,
                 HeapLockManager.smallInstance(),
+                txStateVolatileStorage,
                 clientClockService,
                 new TransactionIdGenerator(-1),
                 placementDriver,

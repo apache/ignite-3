@@ -80,7 +80,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         assertEquals(0, testServer.metrics().cursorsActive());
 
-        ResultSet<SqlRow> resultSet = client.sql().execute(null, statement);
+        ResultSet<SqlRow> resultSet = client.sql().execute((Transaction) null, statement);
         assertEquals(1, testServer.metrics().cursorsActive());
 
         resultSet.close();

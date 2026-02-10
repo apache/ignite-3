@@ -103,5 +103,14 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             Consumer.Consume(res[1]!);
             Consumer.Consume(res[2]!);
         }
+
+        [Benchmark]
+        public void ReadKeyValuePair()
+        {
+            var reader = new MsgPackReader(SerializedData);
+            var res = MapperPairSerializerHandler.Read(ref reader, Schema);
+
+            Consumer.Consume(res);
+        }
     }
 }

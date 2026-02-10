@@ -1,0 +1,160 @@
+---
+title: Java API
+id: java-index
+sidebar_position: 1
+---
+
+# Java API
+
+The primary API for Apache Ignite 3 with complete feature support across all platform capabilities.
+
+## Overview
+
+The Java API provides two deployment modes. The thin client connects to remote clusters without joining topology. The embedded node participates in cluster operations and storage.
+
+Both modes share common APIs for tables, SQL, transactions, compute, streaming, and catalog management. The embedded mode adds cluster initialization APIs and direct access to internal cluster components.
+
+## API Categories
+
+<div className="card-container">
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:connection" height="24" /> Client API</h3>
+    </div>
+    <div className="card__body">
+      <p>Thin client connection configuration, connection pooling, and cluster discovery.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/client-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:server" height="24" /> Server API</h3>
+    </div>
+    <div className="card__body">
+      <p>Embedded node initialization, lifecycle management, and local cluster participation.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/server-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:table" height="24" /> Tables API</h3>
+    </div>
+    <div className="card__body">
+      <p>Record and key-value operations with typed and binary views for table data access.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/tables-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:upload-network-outline" height="24" /> Data Streamer API</h3>
+    </div>
+    <div className="card__body">
+      <p>High-throughput bulk loading with reactive streams and backpressure handling.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/data-streamer-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:console-line" height="24" /> SQL API</h3>
+    </div>
+    <div className="card__body">
+      <p>Query execution with prepared statements, parameter binding, and result processing.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/sql-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:shield-check-outline" height="24" /> Transactions API</h3>
+    </div>
+    <div className="card__body">
+      <p>ACID transaction management with explicit control and closure-based patterns.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/transactions-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:server-network" height="24" /> Compute API</h3>
+    </div>
+    <div className="card__body">
+      <p>Distributed job execution with colocated processing and broadcast operations.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/compute-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:file-tree-outline" height="24" /> Catalog API</h3>
+    </div>
+    <div className="card__body">
+      <p>Schema management with annotations and fluent builders for table creation.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/catalog-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:filter-outline" height="24" /> Criteria API</h3>
+    </div>
+    <div className="card__body">
+      <p>Type-safe predicate construction for table queries with compile-time validation.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/criteria-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="carbon:network-3" height="24" /> Network API</h3>
+    </div>
+    <div className="card__body">
+      <p>Cluster topology discovery and node information for distributed coordination.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/network-api">Learn more →</a>
+    </div>
+  </div>
+
+  <div className="card">
+    <div className="card__header">
+      <h3><IIcon icon="mdi:security" height="24" /> Security API</h3>
+    </div>
+    <div className="card__body">
+      <p>Authentication configuration and credential management for secure cluster access.</p>
+    </div>
+    <div className="card__footer">
+      <a href="./java/security-api">Learn more →</a>
+    </div>
+  </div>
+</div>
+
+## Reference
+
+- [Java API Documentation](https://ignite.apache.org/releases/ignite3/3.1.0/javadoc/)
+
+## Next Steps
+
+- [Getting Started](../../getting-started) - Quick start tutorials
+- [Develop and Build](../../develop) - Application development guides

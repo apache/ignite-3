@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -104,6 +105,7 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
@@ -251,6 +253,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -1258,7 +1261,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterIdService
             );
 
-            lockManager = new HeapLockManager(systemConfiguration);
+            VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+            lockManager = new HeapLockManager(systemConfiguration, txStateVolatileStorage);
 
             MetricManager metricManager = new NoOpMetricManager();
 
@@ -1385,7 +1389,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService, txStateVolatileStorage);
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -1452,6 +1456,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     replicaSvc,
                     lockManager,
+                    txStateVolatileStorage,
                     clockService,
                     new TransactionIdGenerator(addr.port()),
                     placementDriver,
@@ -1468,6 +1473,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     clusterService,
                     cmgManager,
+                    groupId -> completedFuture(Assignments.EMPTY),
                     clockService,
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
@@ -1491,7 +1497,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new UpdateLogImpl(metaStorageManager, failureManager),
                     clockService,
                     failureManager,
-                    delayDurationMsSupplier
+                    delayDurationMsSupplier,
+                    PartitionCountProvider.defaultPartitionCountProvider()
             );
 
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);

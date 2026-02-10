@@ -89,7 +89,10 @@ public enum CliConfigKeys {
     OUTPUT_TRUNCATE(Constants.OUTPUT_TRUNCATE),
 
     /** Maximum column width property name. */
-    OUTPUT_MAX_COLUMN_WIDTH(Constants.OUTPUT_MAX_COLUMN_WIDTH);
+    OUTPUT_MAX_COLUMN_WIDTH(Constants.OUTPUT_MAX_COLUMN_WIDTH),
+
+    /** Color scheme property name (dark, light). */
+    COLOR_SCHEME(Constants.COLOR_SCHEME);
 
     private final String value;
 
@@ -167,6 +170,8 @@ public enum CliConfigKeys {
         public static final String OUTPUT_TRUNCATE = "ignite.cli.output.truncate";
 
         public static final String OUTPUT_MAX_COLUMN_WIDTH = "ignite.cli.output.max-column-width";
+
+        public static final String COLOR_SCHEME = "ignite.cli.color-scheme";
     }
 
     CliConfigKeys(String value) {

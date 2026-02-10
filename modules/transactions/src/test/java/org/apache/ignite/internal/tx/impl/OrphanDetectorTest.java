@@ -130,9 +130,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        txStateMetaStorage = new VolatileTxStateMetaStorage();
-
-        txStateMetaStorage.start();
+        txStateMetaStorage = VolatileTxStateMetaStorage.createStarted();
 
         orphanDetector.start(txStateMetaStorage, () -> 30_000L);
     }
@@ -330,7 +328,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         // Send tx recovery message.
         verify(replicaService).invoke(any(InternalClusterNode.class), any());
 
-        assertThat(acquire, willThrow(LockException.class, "Failed to acquire an abandoned lock due to a possible deadlock"));
+        assertThat(acquire, willThrow(LockException.class, "Failed to acquire the abandoned lock due to a possible deadlock"));
 
         assertEquals(1, resolutionCount.get());
     }

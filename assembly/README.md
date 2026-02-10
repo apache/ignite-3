@@ -35,7 +35,7 @@ To run any other example, do the following:
 3. (optional) Setup ignite3-cli in your terminal:
 ```
    alias ignite3="${ignite-3-cli folder}/bin/ignite3" >> ~/.bash_profile
-   source bin/ignite_completion.sh 
+   source bin/ignite3_completion.sh 
 ```
 4. (optional) If the cluster is not initialized then initialize the cluster:
    ```

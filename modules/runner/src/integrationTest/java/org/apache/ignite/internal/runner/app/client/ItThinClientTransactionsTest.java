@@ -399,7 +399,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Transaction tx = client.transactions().begin();
         kvView.put(tx, 1, "1");
 
-        try (ResultSet<SqlRow> cursor = client.sql().execute(null, "SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
             cursor.forEachRemaining(r -> {
                 String txId = r.stringValue("TRANSACTION_ID");
                 client.sql().executeScript("KILL TRANSACTION '" + txId + "'");

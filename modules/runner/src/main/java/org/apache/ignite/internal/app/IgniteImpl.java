@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionStableAssignments;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -68,6 +69,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
@@ -285,6 +287,7 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -515,6 +518,8 @@ public class IgniteImpl implements Ignite {
     private final ClockServiceMetricSource clockServiceMetricSource;
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+
+    private final PartitionCountProviderWrapper partitionCountProviderWrapper;
 
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
@@ -869,11 +874,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
+        partitionCountProviderWrapper = new PartitionCountProviderWrapper();
+
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                partitionCountProviderWrapper
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry
@@ -917,6 +925,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 clusterSvc,
                 cmgMgr,
+                groupId -> zonePartitionStableAssignments(metaStorageMgr, groupId),
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
@@ -1040,9 +1049,12 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+        VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
-        LockManager lockMgr = new HeapLockManager(systemConfiguration);
+        TransactionInflights transactionInflights =
+                new TransactionInflights(placementDriverMgr.placementDriver(), clockService, txStateVolatileStorage);
+
+        LockManager lockMgr = new HeapLockManager(systemConfiguration, txStateVolatileStorage);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -1053,6 +1065,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 replicaSvc,
                 lockMgr,
+                txStateVolatileStorage,
                 clockService,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
                 placementDriverMgr.placementDriver(),

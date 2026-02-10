@@ -518,7 +518,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
     }
 
     @ParameterizedTest
-    @EnumSource(value = JoinRelType.class, names = {"INNER", "SEMI"})
+    @EnumSource(value = JoinRelType.class, names = {"INNER", "SEMI", "LEFT"})
     void nonEquiJoinWithDifferentBufferSize(JoinRelType joinType) {
         int buffSize = 1;
         validateNonEquiJoin(executionContext(buffSize), joinType, 0, 0);
@@ -620,7 +620,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 (l, r) -> false,
                 () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
                 () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
-                0
+                joinType == LEFT ? leftSize : 0
         );
     }
 

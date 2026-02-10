@@ -41,6 +41,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -80,7 +81,9 @@ class SortedIndexLockerTest extends BaseIgniteAbstractTest {
     }
 
     private LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

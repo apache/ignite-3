@@ -36,11 +36,13 @@ import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -176,6 +178,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Cluster group manager. */
     private final ClusterManagementGroupManager cmgMgr;
 
+    /** Supplier of stable assingments, used for replica absence handling. */
+    private final Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier;
+
     /** Replica message handler. */
     private final NetworkMessageHandler handler;
 
@@ -237,6 +242,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
+     * @param stableAssignmentsSupplier Supplier of stable assignments.
      * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
@@ -257,6 +263,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
+            Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier,
             ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
@@ -274,6 +281,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
+        this.stableAssignmentsSupplier = stableAssignmentsSupplier;
         this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
@@ -374,7 +382,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
             if (replicaFut == null || !replicaFut.isDone()) {
-                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp);
+                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp, replicaFut == null);
 
                 return;
             }
@@ -1048,34 +1056,49 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String senderConsistentId,
             long correlationId,
             ReplicationGroupId groupId,
-            @Nullable HybridTimestamp requestTimestamp
+            @Nullable HybridTimestamp requestTimestamp,
+            boolean replicaIsAbsent
     ) {
-        if (requestTimestamp != null) {
-            clusterNetSvc.messagingService().respond(
-                    senderConsistentId,
-                    REPLICA_MESSAGES_FACTORY
-                            .errorTimestampAwareReplicaResponse()
-                            .throwable(
-                                    new ReplicaUnavailableException(
-                                            groupId,
-                                            clusterNetSvc.topologyService().localMember())
-                            )
-                            .timestamp(clockService.updateClock(requestTimestamp))
-                            .build(),
-                    correlationId);
+        CompletableFuture<Boolean> replicaInAssignmentsFuture;
+
+        if (replicaIsAbsent && (groupId instanceof ZonePartitionId)) {
+            replicaInAssignmentsFuture = stableAssignmentsSupplier.apply((ZonePartitionId) groupId)
+                    .thenApply(assignments -> assignments.contains(localNodeConsistentId));
         } else {
-            clusterNetSvc.messagingService().respond(
-                    senderConsistentId,
-                    REPLICA_MESSAGES_FACTORY
-                            .errorReplicaResponse()
-                            .throwable(
-                                    new ReplicaUnavailableException(
-                                            groupId,
-                                            clusterNetSvc.topologyService().localMember())
-                            )
-                            .build(),
-                    correlationId);
+            replicaInAssignmentsFuture = trueCompletedFuture();
         }
+
+        replicaInAssignmentsFuture.thenAccept(isInAssignments -> {
+            ReplicaUnavailableException e;
+
+            if (replicaIsAbsent && !isInAssignments) {
+                e = new ReplicaUnavailableException(
+                        REPLICA_ABSENT_ERR,
+                        format("Replica is absent on this node and not in assignments, the request should be retried on another node "
+                                        + "[groupId={}, nodeName={}]", groupId, localNodeConsistentId
+                        )
+                );
+            } else {
+                e = new ReplicaUnavailableException(groupId, clusterNetSvc.topologyService().localMember());
+            }
+
+            NetworkMessage msg;
+
+            if (requestTimestamp != null) {
+                msg = REPLICA_MESSAGES_FACTORY
+                        .errorTimestampAwareReplicaResponse()
+                        .throwable(e)
+                        .timestamp(clockService.updateClock(requestTimestamp))
+                        .build();
+            } else {
+                msg = REPLICA_MESSAGES_FACTORY
+                        .errorReplicaResponse()
+                        .throwable(e)
+                        .build();
+            }
+
+            clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+        });
     }
 
     /**
@@ -1193,7 +1216,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         ComponentStoppingException.class,
                         // Not a problem, there will be a retry.
                         TimeoutException.class,
-                        GroupOverloadedException.class
+                        GroupOverloadedException.class,
+                        ReplicaUnavailableException.class
                 )) {
                     failureProcessor.process(
                             new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));

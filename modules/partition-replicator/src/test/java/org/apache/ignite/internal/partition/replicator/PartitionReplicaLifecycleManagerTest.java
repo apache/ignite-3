@@ -65,6 +65,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -219,13 +220,15 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
                 failureManager,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         );
 
         replicaManager = spy(new ReplicaManager(
                 nodeName,
                 clusterService,
                 cmgManager,
+                groupId -> completedFuture(Assignments.EMPTY),
                 clockService,
                 Set.of(),
                 placementDriver,

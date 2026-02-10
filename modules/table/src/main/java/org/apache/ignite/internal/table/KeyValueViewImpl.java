@@ -382,8 +382,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(removeAsync(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, @Nullable V val) {
+        return sync(removeExactAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -400,7 +400,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, @Nullable V val) {
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(val, valueMapper.targetType());
@@ -502,8 +502,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        return sync(replaceAsync(tx, key, oldVal, newVal));
+    public boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+        return sync(replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
@@ -522,7 +522,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(oldVal, valueMapper.targetType());
