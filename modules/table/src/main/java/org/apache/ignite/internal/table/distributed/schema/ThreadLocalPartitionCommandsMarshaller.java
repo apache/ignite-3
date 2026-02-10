@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.schema;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshaller;
+import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.raft.util.DefaultByteBuffersPool;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller.ByteBuffersPool;
 
