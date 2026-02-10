@@ -4747,9 +4747,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         Node node = setupSingleNodeClusterWithRaftOptions(raftOptions, mode);
 
-        int numTasks = 50;
+        int numTasks = 1500;
         AtomicInteger overloadCount = new AtomicInteger(0);
-        CountDownLatch latch = new CountDownLatch(numTasks);
 
         List<Task> tasks = new ArrayList<>(numTasks);
         for (int i = 0; i < numTasks; i++) {
@@ -4762,17 +4761,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     assertTrue(status.getErrorMsg().contains("Node is busy, apply queue byte size limit exceeded"));
                     overloadCount.incrementAndGet();
                 }
-                latch.countDown();
             }));
 
             tasks.add(task);
-        }
-
-        for (Task task : tasks) {
             node.apply(task);
         }
 
-        waitLatch(latch);
+        Task.joinAll(tasks, TimeUnit.SECONDS.toMillis(30));
 
         assertTrue(overloadCount.get() > 0, "Expected some tasks to be rejected due to byte size limit");
 
@@ -5101,7 +5096,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         RaftGroupService service = createService("unittest", peer, nodeOptions, List.of());
         Node node = service.start();
 
-        await().until(node::isLeader);
+        assertEquals(1, node.listPeers().size());
+        assertTrue(node.listPeers().contains(peer.getPeerId()));
+
+        await().timeout(10, TimeUnit.SECONDS).until(node::isLeader);
 
         return node;
     }
