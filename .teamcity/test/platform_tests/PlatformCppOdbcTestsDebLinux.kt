@@ -13,7 +13,7 @@ import org.apache.ignite.teamcity.Teamcity
 
 object PlatformCppOdbcTestsDebLinux : BuildType({
     id(Teamcity.getId(this::class))
-    name = "Platform C++ ODBC Tests (Linux)"
+    name = "Platform C++ ODBC Tests (Ubuntu 22.04 Linux container)"
 
     artifactRules = """
         %PATH__CMAKE_BUILD_DIRECTORY%/core => core_dumps
