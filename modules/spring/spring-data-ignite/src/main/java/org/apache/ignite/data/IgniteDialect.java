@@ -19,8 +19,9 @@ package org.apache.ignite.data;
 
 import java.util.Collections;
 import java.util.Set;
+import org.springframework.data.jdbc.core.dialect.JdbcArrayColumns;
+import org.springframework.data.jdbc.core.dialect.JdbcDialect;
 import org.springframework.data.relational.core.dialect.AbstractDialect;
-import org.springframework.data.relational.core.dialect.ArrayColumns;
 import org.springframework.data.relational.core.dialect.LimitClause;
 import org.springframework.data.relational.core.dialect.LockClause;
 import org.springframework.data.relational.core.sql.IdentifierProcessing;
@@ -33,7 +34,7 @@ import org.springframework.util.ClassUtils;
 /**
  * Implementation of Ignite-specific dialect.
  */
-public class IgniteDialect extends AbstractDialect {
+public class IgniteDialect extends AbstractDialect implements JdbcDialect {
 
     /**
      * Singleton instance.
@@ -64,7 +65,7 @@ public class IgniteDialect extends AbstractDialect {
         }
     };
 
-    static class IgniteArrayColumns implements ArrayColumns {
+    static class IgniteArrayColumns implements JdbcArrayColumns {
         @Override
         public boolean isSupported() {
             return true;
@@ -104,13 +105,23 @@ public class IgniteDialect extends AbstractDialect {
     private final IgniteArrayColumns arrayColumns = new IgniteArrayColumns();
 
     @Override
-    public ArrayColumns getArraySupport() {
+    public JdbcArrayColumns getArraySupport() {
         return arrayColumns;
     }
 
     @Override
     public IdentifierProcessing getIdentifierProcessing() {
-        return IdentifierProcessing.create(Quoting.ANSI, LetterCasing.UPPER_CASE);
+        return new IdentifierProcessing() {
+            @Override
+            public String quote(String identifier) {
+                return Quoting.ANSI.apply(identifier);
+            }
+
+            @Override
+            public String standardizeLetterCase(String identifier) {
+                return identifier.toUpperCase();
+            }
+        };
     }
 
     @Override
