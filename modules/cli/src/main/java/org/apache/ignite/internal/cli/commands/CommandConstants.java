@@ -31,6 +31,7 @@ public class CommandConstants {
     public static final boolean SORT_OPTIONS = false;
     public static final boolean SORT_SYNOPSIS = false;
     public static final boolean ABBREVIATE_SYNOPSIS = true;
+    public static final String FOOTER_HEADING = "%nEXAMPLES%n";
 
     public static final int CLUSTER_URL_OPTION_ORDER = 10;
     public static final int PROFILE_OPTION_ORDER = 11;
