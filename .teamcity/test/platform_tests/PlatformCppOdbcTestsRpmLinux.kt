@@ -13,7 +13,7 @@ import org.apache.ignite.teamcity.Teamcity
 
 object PlatformCppOdbcTestsRpmLinux : BuildType({
     id(Teamcity.getId(this::class))
-    name = "Platform C++ ODBC Tests (Rockylinux 8 Linux container)"
+    name = "Platform C++ ODBC Tests. RPM package (Rockylinux 8 Linux container)"
 
     artifactRules = """
         %PATH__CMAKE_BUILD_DIRECTORY%/core => core_dumps
