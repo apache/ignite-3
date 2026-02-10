@@ -86,29 +86,30 @@ if(ENABLE_CPPCHECK)
         set(CMAKE_CXX_CPPCHECK ${CPPCHECK_BIN} --enable=all --xml --xml-version=3 --output-file=cppcheck_report.xml)
         add_custom_target(cppcheck_html_report ALL
             COMMAND cppcheck-htmlreport
-                --file ${CMAKE_CURRENT_BINARY_DIR}/tests/client-test/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/tests/fake_server/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/tests/odbc-test/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/tests/test-common/cppcheck_report.xml
                 --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/tuple/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/odbc/cppcheck_report.xml
                 --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/protocol/cppcheck_report.xml
                 --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/common/cppcheck_report.xml
                 --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/network/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/client/cppcheck_report.xml
+                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/client-test/cppcheck_report.xml>
+                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/fake_server/cppcheck_report.xml>
+                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/odbc-test/cppcheck_report.xml>
+                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/test-common/cppcheck_report.xml>
+                $<$<BOOL:${ENABLE_ODBC}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/odbc/cppcheck_report.xml>
+                $<$<BOOL:${ENABLE_CLIENT}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/client/cppcheck_report.xml>
                 --report-dir=${CMAKE_CURRENT_BINARY_DIR}/cppcheck_report
             DEPENDS
-                ignite-client-test
-                ignite-fake-server
-                ignite-odbc-test
-                ignite-test-common
                 ignite-tuple
                 ignite-protocol
                 ignite-common
                 ignite-network
-                ignite3-client
-                ignite3-odbc
+                $<$<BOOL:${ENABLE_TESTS}>:ignite-client-test>
+                $<$<BOOL:${ENABLE_TESTS}>:ignite-fake-server>
+                $<$<BOOL:${ENABLE_TESTS}>:ignite-odbc-test>
+                $<$<BOOL:${ENABLE_TESTS}>:ignite-test-common>
+                $<$<BOOL:${ENABLE_ODBC}>:ignite3-odbc>
+                $<$<BOOL:${ENABLE_CLIENT}>:ignite3-client>
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            VERBATIM
         )
     else()
         message(STATUS "cppcheck not found!")
