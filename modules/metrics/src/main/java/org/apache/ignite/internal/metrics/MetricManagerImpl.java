@@ -21,7 +21,6 @@ import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -45,7 +44,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -188,30 +186,18 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public void unregisterSource(MetricSource src) {
-        try {
-            inBusyLockSafe(busyLock, () -> {
-                disable(src);
-                registry.unregisterSource(src);
-            });
-        } catch (Exception e) {
-            if (!hasCause(e, NodeStoppingException.class)) {
-                log.error("Failed to unregister metrics source {}", e, src.name());
-            }
-        }
+        inBusyLockSafe(busyLock, () -> {
+            disable(src);
+            registry.unregisterSource(src);
+        });
     }
 
     @Override
     public void unregisterSource(String srcName) {
-        try {
-            inBusyLockSafe(busyLock, () -> {
-                disable(srcName);
-                registry.unregisterSource(srcName);
-            });
-        } catch (Exception e) {
-            if (!hasCause(e, NodeStoppingException.class)) {
-                log.warn("Failed to unregister metrics source {}", e, srcName);
-            }
-        }
+        inBusyLockSafe(busyLock, () -> {
+            disable(srcName);
+            registry.unregisterSource(srcName);
+        });
     }
 
     @Override
