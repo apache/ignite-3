@@ -37,8 +37,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final int DEFAULT_PARTITION_COUNT = 25;
-
     @BeforeAll
     public void createTables() {
         sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
@@ -133,17 +131,19 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testRestartPartitionsPartitionsOutOfRange() {
+        int partitionCount = partitionsCount(ZONE);
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
-                RECOVERY_PARTITION_IDS_OPTION, String.valueOf(DEFAULT_PARTITION_COUNT)
+                RECOVERY_PARTITION_IDS_OPTION, String.valueOf(partitionCount)
         );
 
         assertOutputIsEmpty();
         assertErrOutputContains(String.format(
                 "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                DEFAULT_PARTITION_COUNT - 1,
+                partitionCount - 1,
                 ZONE,
-                DEFAULT_PARTITION_COUNT
+                partitionCount
         ));
     }
 

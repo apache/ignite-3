@@ -184,7 +184,7 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         assertThat(broadcastExecution.resultsAsync(), willCompleteSuccessfully());
 
-        int defaultPartitionCount = 25;
+        int defaultPartitionCount = defaultZoneDefinition().partitions();
         assertThat(broadcastExecution.executions(), hasSize(defaultPartitionCount));
         await().until(logInspector::events, hasSize(defaultPartitionCount * 3));
 

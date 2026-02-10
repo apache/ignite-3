@@ -189,8 +189,9 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testLocalPartitionStatesPartitionOutOfRange(boolean global) {
-        String partitions = "0,1," + DEFAULT_PARTITION_COUNT;
         String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
+        int partitionCount = partitionsCount(zoneName);
+        String partitions = "0,1," + partitionCount;
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_PARTITION_IDS_OPTION, partitions,
@@ -201,9 +202,9 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputContains(String.format(
                 "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                DEFAULT_PARTITION_COUNT - 1,
+                partitionCount - 1,
                 zoneName,
-                DEFAULT_PARTITION_COUNT
+                partitionCount
         ));
 
         assertOutputIsEmpty();
