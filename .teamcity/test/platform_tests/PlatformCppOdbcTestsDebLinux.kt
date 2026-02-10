@@ -1,5 +1,6 @@
 package test.platform_tests
 
+import build.distributions.ClientPackages
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import jetbrains.buildServer.configs.kotlin.buildFeatures.XmlReport
@@ -7,6 +8,8 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.xmlReport
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
+import org.apache.ignite.teamcity.Teamcity
 
 object PlatformCppOdbcTestsDebLinux : BuildType({
     id(Teamcity.getId(this::class))
