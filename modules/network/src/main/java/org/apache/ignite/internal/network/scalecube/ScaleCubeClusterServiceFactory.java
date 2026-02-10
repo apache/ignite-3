@@ -20,19 +20,19 @@ package org.apache.ignite.internal.network.scalecube;
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
-import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -70,6 +70,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 
@@ -149,15 +150,23 @@ public class ScaleCubeClusterServiceFactory {
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
-                UUID launchId = UUID.randomUUID();
-
                 NetworkView configView = networkConfiguration.value();
+
+                InetSocketAddress localBindAddress = localBindAddress(configView);
+
+                Address scalecubeLocalAddress = prepareAddress(localBindAddress);
+
+                var localNode = new ClusterNodeImpl(
+                        UUID.randomUUID(),
+                        consistentId,
+                        new NetworkAddress(scalecubeLocalAddress.host(), scalecubeLocalAddress.port())
+                );
 
                 ConnectionManager connectionMgr = new ConnectionManager(
                         configView,
                         serializationService,
-                        consistentId,
-                        launchId,
+                        localBindAddress,
+                        localNode,
                         nettyBootstrapFactory,
                         staleIds,
                         clusterIdSupplier,
@@ -170,8 +179,6 @@ public class ScaleCubeClusterServiceFactory {
 
                 connectionMgr.start();
                 messagingService.start();
-
-                Address scalecubeLocalAddress = prepareAddress(connectionMgr.localBindAddress());
 
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
@@ -187,14 +194,15 @@ public class ScaleCubeClusterServiceFactory {
                         messageFactory
                 );
 
-                ClusterConfig clusterConfig = clusterConfig(configView.membership());
-
-                NodeFinder finder = NodeFinderFactory.createNodeFinder(
-                        configView.nodeFinder(),
-                        nodeName(),
-                        connectionMgr.localBindAddress()
-                );
+                NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder(), nodeName(), localBindAddress);
                 finder.start();
+
+                ClusterConfig clusterConfig = clusterConfig(configView.membership())
+                        .memberId(localNode.id().toString())
+                        .memberAlias(localNode.name())
+                        .transport(opts -> opts.transportFactory(transportConfig -> transport))
+                        .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())))
+                        .metadataCodec(METADATA_CODEC);
 
                 ClusterImpl cluster = new ClusterImpl(clusterConfig)
                         .handler(cl -> new ClusterMessageHandler() {
@@ -202,22 +210,7 @@ public class ScaleCubeClusterServiceFactory {
                             public void onMembershipEvent(MembershipEvent event) {
                                 topologyService.onMembershipEvent(event);
                             }
-                        })
-                        .config(opts -> opts
-                                .memberId(launchId.toString())
-                                .memberAlias(consistentId)
-                                .metadataCodec(METADATA_CODEC)
-                        )
-                        .transport(opts -> opts.transportFactory(transportConfig -> transport))
-                        .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
-
-                Member localMember = createLocalMember(scalecubeLocalAddress, launchId, clusterConfig);
-                InternalClusterNode localNode = new ClusterNodeImpl(
-                        UUID.fromString(localMember.id()),
-                        consistentId,
-                        new NetworkAddress(localMember.address().host(), localMember.address().port())
-                );
-                connectionMgr.setLocalNode(localNode);
+                        });
 
                 this.shutdownFuture = cluster.onShutdown().toFuture()
                         .thenAccept(v -> finder.close());
@@ -228,16 +221,32 @@ public class ScaleCubeClusterServiceFactory {
 
                 cluster.startAwait();
 
-                assert cluster.member().equals(localMember) : "Expected local member from cluster " + cluster.member()
-                        + " to be equal to the precomputed one " + localMember;
-
                 // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
-                var localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
+                MembershipEvent localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
                 topologyService.onMembershipEvent(localMembershipEvent);
 
                 this.cluster = cluster;
 
                 return nullCompletedFuture();
+            }
+
+            private InetSocketAddress localBindAddress(NetworkView configView) {
+                int port = configView.port();
+
+                String[] addresses = configView.listenAddresses();
+
+                if (addresses.length == 0) {
+                    return new InetSocketAddress(port);
+                } else {
+                    if (addresses.length > 1) {
+                        // TODO: IGNITE-22369 - support more than one listen address.
+                        throw new IgniteException(
+                                INTERNAL_ERR, "Only one listen address is allowed for now, but got " + Arrays.toString(addresses)
+                        );
+                    }
+
+                    return new InetSocketAddress(addresses[0], port);
+                }
             }
 
             @Override
@@ -313,23 +322,6 @@ public class ScaleCubeClusterServiceFactory {
         String host = address.isAnyLocalAddress() ? Address.getLocalIpAddress().getHostAddress() : address.getHostAddress();
 
         return Address.create(host, addr.getPort());
-    }
-
-    // This is copied from ClusterImpl#creeateLocalMember() and adjusted to always use launchId as member ID.
-    private Member createLocalMember(Address address, UUID launchId, ClusterConfig config) {
-        int port = Optional.ofNullable(config.externalPort()).orElse(address.port());
-
-        // calculate local member cluster address
-        Address memberAddress =
-                Optional.ofNullable(config.externalHost())
-                        .map(host -> Address.create(host, port))
-                        .orElseGet(() -> Address.create(address.host(), port));
-
-        return new Member(
-                launchId.toString(),
-                config.memberAlias(),
-                memberAddress,
-                config.membershipConfig().namespace());
     }
 
     /**
