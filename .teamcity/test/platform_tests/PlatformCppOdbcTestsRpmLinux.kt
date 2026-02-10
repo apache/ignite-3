@@ -35,9 +35,7 @@ object PlatformCppOdbcTestsRpmLinux : BuildType({
             artifacts {
                 cleanDestination = true
                 artifactRules = """
-                    odbc-deb => ignite3-odbc-deb
                     odbc-rpm => ignite3-odbc-rpm
-                    odbc-tgz => ignite3-odbc-tgz
                 """.trimIndent()
             }
         }
