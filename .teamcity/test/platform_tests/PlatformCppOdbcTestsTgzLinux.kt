@@ -11,9 +11,9 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity
 
-object PlatformCppOdbcTestsDebLinux : BuildType({
+object PlatformCppOdbcTestsTgzLinux : BuildType({
     id(Teamcity.getId(this::class))
-    name = "Platform C++ ODBC Tests. DEB package (Ubuntu 22.04 Linux container)"
+    name = "Platform C++ ODBC Tests. TGZ package (Ubuntu 22.04 Linux container)"
 
     artifactRules = """
         %PATH__CMAKE_BUILD_DIRECTORY%/core => core_dumps
@@ -35,7 +35,7 @@ object PlatformCppOdbcTestsDebLinux : BuildType({
             artifacts {
                 cleanDestination = true
                 artifactRules = """
-                    odbc-deb => ignite3-odbc-deb
+                    odbc-tgz => ignite3-odbc-tgz
                 """.trimIndent()
             }
         }
@@ -55,7 +55,8 @@ object PlatformCppOdbcTestsDebLinux : BuildType({
                 clang++ --version
                 ulimit -a
 
-                dpkg -i ignite3-odbc-deb/*.deb
+                tar xzvf ignite3-odbc-deb/*.tgz -C /
+                odbcinst -i -d -f /usr/share/ignite/ignite3-odbc.ini -v
                 
                 cd %PATH__IGNITE_DIR%
                 ./gradlew :ignite-runner:integrationTestClasses
