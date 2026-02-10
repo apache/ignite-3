@@ -83,6 +83,7 @@ if(ENABLE_CPPCHECK)
     find_program(CPPCHECK_BIN cppcheck REQUIRED)
     if(CPPCHECK_BIN)
         message(STATUS "cppcheck: ${CPPCHECK_BIN}")
+        message(STATUS "Please do not use parallel build with cppcheck enabled! Cppcheck writes results to the file and result might be corrupted in case of parallel build.")
         set(CMAKE_CXX_CPPCHECK ${CPPCHECK_BIN} --enable=all --xml --xml-version=3 --output-file=cppcheck_report.xml)
         add_custom_target(cppcheck_html_report ALL
             COMMAND cppcheck-htmlreport
