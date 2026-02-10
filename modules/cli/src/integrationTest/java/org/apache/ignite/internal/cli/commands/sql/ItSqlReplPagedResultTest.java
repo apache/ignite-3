@@ -35,7 +35,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
 
     @BeforeEach
     void createTestTable() {
-        sql("CREATE TABLE " + TEST_TABLE + " (id INT PRIMARY KEY, name VARCHAR(100), value INT)");
+        sql("CREATE TABLE " + TEST_TABLE + " (id INT PRIMARY KEY, name VARCHAR(100), val INT)");
 
         StringBuilder insertSql = new StringBuilder("INSERT INTO ").append(TEST_TABLE).append(" VALUES ");
         for (int i = 1; i <= TOTAL_ROWS; i++) {
@@ -60,9 +60,9 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputContains("id"),
-                () -> assertOutputContains("name"),
-                () -> assertOutputContains("value"),
+                () -> assertOutputContains("ID"),
+                () -> assertOutputContains("NAME"),
+                () -> assertOutputContains("VAL"),
                 this::assertErrOutputIsEmpty
         );
     }
@@ -74,8 +74,8 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputContains("id"),
-                () -> assertOutputContains("name"),
+                () -> assertOutputContains("ID"),
+                () -> assertOutputContains("NAME"),
                 this::assertErrOutputIsEmpty
         );
     }
@@ -88,7 +88,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputContains("id"),
+                () -> assertOutputContains("ID"),
                 this::assertErrOutputIsEmpty
         );
     }
@@ -122,7 +122,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
     @DisplayName("Should handle UPDATE statements")
     void updateStatement() {
         execute("cli", "config", "set", "ignite.cli.sql.display-page-size", "10");
-        execute("sql", "--jdbc-url", JDBC_URL, "UPDATE " + TEST_TABLE + " SET value = 999 WHERE id = 1");
+        execute("sql", "--jdbc-url", JDBC_URL, "UPDATE " + TEST_TABLE + " SET val = 999 WHERE id = 1");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -139,7 +139,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputContains("id"),
+                () -> assertOutputContains("ID"),
                 this::assertErrOutputIsEmpty
         );
     }
@@ -152,7 +152,7 @@ class ItSqlReplPagedResultTest extends CliIntegrationTest {
 
         assertAll(
                 this::assertExitCodeIsZero,
-                () -> assertOutputContains("id"),
+                () -> assertOutputContains("ID"),
                 this::assertErrOutputIsEmpty
         );
     }

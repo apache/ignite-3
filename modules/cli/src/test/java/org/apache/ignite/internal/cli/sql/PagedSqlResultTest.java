@@ -33,12 +33,13 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link PagedSqlResult}.
  */
-class PagedSqlResultTest {
+class PagedSqlResultTest extends BaseIgniteAbstractTest {
 
     @Test
     void testFetchSinglePage() throws SQLException {
