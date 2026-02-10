@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyInMetastorage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -31,11 +32,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** Test suite for the cases with a recovery of the group replication factor after reset by zone filter update. */
@@ -65,7 +68,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         return GLOBAL_EU_NODES_CONFIG;
     }
 
-    @Test
+    @RepeatedTest(20)
     void testScaleUpAfterZoneFilterUpdate() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
         startNode(2, EU_ONLY_NODES_CONFIG);
@@ -120,7 +123,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
-    @Test
+    @RepeatedTest(20)
     void testThatPartitionResetZoneStorageProfileFilterAware() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
         startNode(2, ROCKS_NODES_CONFIG);
@@ -223,7 +226,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *
      * @throws Exception If failed.
      */
-    @Test
+    @RepeatedTest(20)
     void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -283,7 +286,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *
      * @throws Exception If failed.
      */
-    @Test
+    @RepeatedTest(20)
     void testNodesWaitForNodesFromGracefulChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -324,7 +327,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     private void alterZoneSql(String filter, String zoneName) {
-        executeSql(String.format("ALTER ZONE \"%s\" SET DATA_NODES_FILTER='%s'", zoneName, filter));
+        executeSql(String.format("ALTER ZONE \"%s\"  SET (NODES FILTER '%s')", zoneName, filter));
     }
 
     /**
@@ -340,7 +343,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *   <li>No data should be lost</li>
      * </ol>
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
     @Test
     void testResetAfterChangeFilters() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
@@ -372,6 +374,15 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         stopNodes(1, 2);
 
+        Set<LogicalNode> expectedNodes = Set.of(
+                getLogicalNode(igniteImpl(0)),
+                getLogicalNode(igniteImpl(3)),
+                getLogicalNode(igniteImpl(4)),
+                getLogicalNode(igniteImpl(5))
+        );
+
+        assertLogicalTopologyInMetastorage(expectedNodes, node.metaStorageManager());
+
         String globalFilter = "$[?(@.region == \"US\")]";
 
         alterZoneSql(globalFilter, HA_ZONE_NAME);
@@ -398,7 +409,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *   <li>No data should be lost</li>
      * </ol>
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27643")
     @Test
     void testResetAfterChangeStorageProfiles() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
@@ -514,5 +525,13 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  clientConnector: { port:{} }, \n"
                 + "  rest.port: {}\n"
                 + "}";
+    }
+
+    private static LogicalNode getLogicalNode(IgniteImpl ignite) {
+
+        return ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
+                .filter(n -> n.name().equals(ignite.name()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Node not found in logical topology: " + ignite.name()));
     }
 }
