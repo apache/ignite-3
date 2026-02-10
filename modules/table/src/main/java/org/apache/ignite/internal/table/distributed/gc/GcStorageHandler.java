@@ -39,6 +39,15 @@ class GcStorageHandler {
      */
     final AtomicReference<CompletableFuture<Void>> gcInProgressFuture = new AtomicReference<>();
 
+    /**
+     * Reference to the future waiting of reaching a partition safe time for an updated low watermark on garbage collection.
+     *
+     * <p>This future will also help to complete garbage collection when deleting a multi-version storage, since there may be a situation
+     * where updating the safe time is not possible. For example, due to replication via a raft snapshot, which will not update the safe
+     * time until the snapshot is installed, and for this it need to clean up the storage and remove it from garbage collection.</p>
+     */
+    final AtomicReference<CompletableFuture<Void>> awaitSafeTimeFuture = new AtomicReference<>();
+
     GcStorageHandler(GcUpdateHandler gcUpdateHandler) {
         this.gcUpdateHandler = gcUpdateHandler;
     }

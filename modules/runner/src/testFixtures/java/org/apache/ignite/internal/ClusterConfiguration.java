@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,7 @@ public class ClusterConfiguration {
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest: {\n"
             + "    port: {},\n"
             + "    ssl.port: {}\n"
@@ -72,6 +74,8 @@ public class ClusterConfiguration {
 
     private final NodeNamingStrategy nodeNamingStrategy;
 
+    private final boolean usePreConfiguredStorageProfiles;
+
     private ClusterConfiguration(
             TestInfo testInfo,
             Path workDir,
@@ -81,7 +85,8 @@ public class ClusterConfiguration {
             int baseClientPort,
             int baseHttpPort,
             int baseHttpsPort,
-            NodeNamingStrategy nodeNamingStrategy
+            NodeNamingStrategy nodeNamingStrategy,
+            boolean usePreConfiguredStorageProfiles
     ) {
         this.testInfo = testInfo;
         this.workDir = workDir;
@@ -92,6 +97,7 @@ public class ClusterConfiguration {
         this.baseHttpPort = baseHttpPort;
         this.baseHttpsPort = baseHttpsPort;
         this.nodeNamingStrategy = nodeNamingStrategy;
+        this.usePreConfiguredStorageProfiles = usePreConfiguredStorageProfiles;
     }
 
     public TestInfo testInfo() {
@@ -130,6 +136,10 @@ public class ClusterConfiguration {
         return nodeNamingStrategy;
     }
 
+    public boolean usePreConfiguredStorageProfiles() {
+        return usePreConfiguredStorageProfiles;
+    }
+
     public static Builder builder(TestInfo testInfo, Path workDir) {
         return new Builder(testInfo, workDir);
     }
@@ -149,27 +159,18 @@ public class ClusterConfiguration {
             // Process from parent to child
             for (int i = hierarchy.size() - 1; i >= 0; i--) {
                 Class<?> clazz = hierarchy.get(i);
-                ConfigOverride clsOverride = clazz.getAnnotation(ConfigOverride.class);
-                if (clsOverride != null) {
-                    annotations.add(clsOverride);
-                }
 
-                ConfigOverrides clsOverrideMultiple = clazz.getAnnotation(ConfigOverrides.class);
-                if (clsOverrideMultiple != null) {
-                    annotations.addAll(List.of(clsOverrideMultiple.value()));
+                ConfigOverride[] clsOverrides = clazz.getAnnotationsByType(ConfigOverride.class);
+                if (clsOverrides.length > 0) {
+                    annotations.addAll(Arrays.asList(clsOverrides));
                 }
             }
         });
 
         testInfo.getTestMethod().ifPresent(method -> {
-            ConfigOverride methodOverride = method.getAnnotation(ConfigOverride.class);
-            if (methodOverride != null) {
-                annotations.add(methodOverride);
-            }
-
-            ConfigOverrides methodOverrideMultiple = method.getAnnotation(ConfigOverrides.class);
-            if (methodOverrideMultiple != null) {
-                annotations.addAll(List.of(methodOverrideMultiple.value()));
+            ConfigOverride[] methodOverrides = method.getAnnotationsByType(ConfigOverride.class);
+            if (methodOverrides.length > 0) {
+                annotations.addAll(Arrays.asList(methodOverrides));
             }
         });
 
@@ -182,7 +183,6 @@ public class ClusterConfiguration {
         return annotations.stream()
                 .anyMatch(a -> a.nodeIndex() == -1 || a.nodeIndex() == nodeIndex);
     }
-
 
     static Map<String, String> configOverrides(@Nullable TestInfo testInfo, int nodeIndex) {
         List<ConfigOverride> annotations = testInfo == null ? List.of() : annotations(testInfo);
@@ -220,6 +220,8 @@ public class ClusterConfiguration {
 
         private NodeNamingStrategy nodeNamingStrategy = new DefaultNodeNamingStrategy();
 
+        private boolean usePreConfiguredStorageProfiles = true;
+
         public Builder(TestInfo testInfo, Path workDir) {
             this.testInfo = testInfo;
             this.workDir = workDir;
@@ -227,6 +229,11 @@ public class ClusterConfiguration {
 
         public Builder defaultNodeBootstrapConfigTemplate(String defaultNodeBootstrapConfigTemplate) {
             this.defaultNodeBootstrapConfigTemplate = defaultNodeBootstrapConfigTemplate;
+            return this;
+        }
+
+        public Builder usePreConfiguredStorageProfiles(boolean usePreConfiguredStorageProfiles) {
+            this.usePreConfiguredStorageProfiles = usePreConfiguredStorageProfiles;
             return this;
         }
 
@@ -273,7 +280,8 @@ public class ClusterConfiguration {
                     baseClientPort,
                     baseHttpPort,
                     baseHttpsPort,
-                    nodeNamingStrategy
+                    nodeNamingStrategy,
+                    usePreConfiguredStorageProfiles
             );
         }
     }

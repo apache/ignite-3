@@ -31,7 +31,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -48,8 +50,8 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.Transaction;
 import org.awaitility.Awaitility;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -137,7 +139,7 @@ public class ItSqlQueryExecutionMetricsTest extends BaseSqlIntegrationTest {
             CancelHandle cancelHandle = CancelHandle.create();
 
             assertMetricIncreased(() -> assertThrows(CompletionException.class, () -> {
-                CompletableFuture<AsyncResultSet<SqlRow>> f = sql.executeAsync(null, cancelHandle.token(),
+                CompletableFuture<AsyncResultSet<SqlRow>> f = sql.executeAsync((Transaction) null, cancelHandle.token(),
                         "SELECT x FROM system_range(1, 10000000000)");
                 cancelHandle.cancelAsync();
                 f.join();
@@ -158,24 +160,20 @@ public class ItSqlQueryExecutionMetricsTest extends BaseSqlIntegrationTest {
         );
 
         // Run multiple times to make the test case stable w/o setting large timeout values.
-        Awaitility.await().ignoreExceptions().until(() -> {
-            assertMetricIncreased(() -> assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "", () -> {
-                Statement statement = sql.statementBuilder()
-                        .query("SELECT * FROM system_range(1, 1000000000000000)")
-                        .queryTimeout(timeoutSeconds, timeoutUnit)
-                        .build();
+        assertMetricIncreased(() -> assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "", () -> {
+            Statement statement = sql.statementBuilder()
+                    .query("SELECT * FROM system_range(1, 1000000000000000)")
+                    .queryTimeout(timeoutSeconds, timeoutUnit)
+                    .build();
 
-                try (ResultSet<SqlRow> rs = sql.execute(null, statement)) {
-                    timeoutUnit.sleep(timeoutSeconds);
-                    // Triggers timeout
-                    while (rs.hasNext()) {
-                        assertNotNull(rs.next());
-                    }
+            try (ResultSet<SqlRow> rs = sql.execute((Transaction) null, statement)) {
+                timeoutUnit.sleep(timeoutSeconds);
+                // Triggers timeout
+                while (rs.hasNext()) {
+                    assertNotNull(rs.next());
                 }
-            }), metrics);
-
-            return true;
-        });
+            }
+        }), metrics);
     }
 
     @ParameterizedTest
@@ -247,31 +245,36 @@ public class ItSqlQueryExecutionMetricsTest extends BaseSqlIntegrationTest {
     }
 
     private void assertMetricIncreased(Runnable task, Map<String, Long> deltas) {
-        Map<String, Long> expected = new HashMap<>();
+        Callable<Boolean> condition = () -> {
+            // Collect current metric values.
+            Map<String, Long> expected = new HashMap<>();
+            for (Entry<String, Long> e : deltas.entrySet()) {
+                String metricName = e.getKey();
+                long value = longMetricValue(metricName);
+                expected.put(metricName, value + e.getValue());
+            }
 
-        for (Map.Entry<String, Long> e : deltas.entrySet()) {
-            String metricName = e.getKey();
-            long value = longMetricValue(metricName);
-            expected.put(metricName, value + e.getValue());
-        }
+            // Run inside the condition.
+            task.run();
 
-        task.run();
-
-        // Checks multiple times until values match
-        Awaitility.await().ignoreExceptions().until(() -> {
+            // Collect actual metric values.
             Map<String, Long> actual = new HashMap<>();
-
-            for (String metricName : deltas.keySet()) {
+            for (String metricName : expected.keySet()) {
                 long actualVal = longMetricValue(metricName);
                 actual.put(metricName, actualVal);
             }
+            boolean ok = actual.equals(expected);
 
             log.info("Expected: {}", expected);
             log.info("Delta: {}", deltas);
             log.info("Actual: {}", actual);
+            log.info("Check passes: {}", ok);
 
-            return actual;
-        }, Matchers.equalTo(expected));
+            return ok;
+        };
+
+        // Checks multiple times until values match
+        Awaitility.await().ignoreExceptions().until(condition);
     }
 
     private long longMetricValue(String metricName) {

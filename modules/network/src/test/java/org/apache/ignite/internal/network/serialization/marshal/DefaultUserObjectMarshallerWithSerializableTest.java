@@ -184,7 +184,9 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         assertThat(result.value, is(0));
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26177
     @Test
+    @SuppressWarnings("PMD.UnnecessaryCast")
     void supportsWriteObjectAndReadObjectInHierarchy() throws Exception {
         SubclassWithWriteReadOverride result = marshalAndUnmarshalNonNull(new SubclassWithWriteReadOverride(42));
 

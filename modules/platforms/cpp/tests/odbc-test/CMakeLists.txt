@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-odbc-test)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-odbc-test)
 
 find_package(ODBC REQUIRED)
 
@@ -35,7 +33,7 @@ set(SOURCES
     transaction_test.cpp
 )
 
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client ${ODBC_LIBRARY})
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client-static ${ODBC_LIBRARY})
 
 if (WIN32)
     remove_definitions(-DUNICODE=1)

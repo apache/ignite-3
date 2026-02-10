@@ -26,8 +26,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
@@ -60,7 +62,7 @@ public final class FragmentPrinter {
         this.verbose = verbose;
     }
 
-    /** Wraps mapped fragments into string representation.  */
+    /** Wraps mapped fragments into string representation. */
     public static String fragmentsToString(boolean verbose, List<MappedFragment> mappedFragments) {
         var collector = new TableDescriptorCollector();
 
@@ -86,7 +88,7 @@ public final class FragmentPrinter {
             return ((IgniteSender) rel).sourceDistribution();
         }
 
-        return rel.distribution(); 
+        return rel.distribution();
     }
 
     private void print(MappedFragment mappedFragment) {
@@ -128,6 +130,12 @@ public final class FragmentPrinter {
                         .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
                         .toString()
                 );
+            }
+
+            Map<Long, ColocationGroup> orderedColocationGroups = new TreeMap<>(mappedFragment.groupsBySourceId());
+            for (Entry<Long, ColocationGroup> entry : orderedColocationGroups.entrySet()) {
+                ColocationGroup group = entry.getValue();
+                appendColocationGroup(entry.getKey(), group);
             }
         }
 
@@ -180,6 +188,41 @@ public final class FragmentPrinter {
         output.writeString(ExplainUtils.toString(clonedRoot, 2 * ATTRIBUTES_INDENT));
     }
 
+    private void appendColocationGroup(long sourceId, ColocationGroup group) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append('{')
+                .append("nodes=")
+                .append(new TreeSet<>(group.nodeNames()))
+                .append(", sourceIds=").append(new TreeSet<>(group.sourceIds()))
+                .append(", assignments=");
+
+        Map<String, String> assignments = new TreeMap<>();
+        for (Int2ObjectMap.Entry<NodeWithConsistencyToken> entry : group.assignments().int2ObjectEntrySet()) {
+            String assignment = entry.getValue().name() + ":" + entry.getValue().enlistmentConsistencyToken();
+            assignments.put("part_" + entry.getIntKey(), assignment);
+        }
+
+        sb.append(assignments)
+                .append(", partitionsWithConsistencyTokens=");
+
+        Map<String, String> partitionWithConsistencyTokens = new TreeMap<>();
+        for (String nodeName : group.nodeNames()) {
+            List<PartitionWithConsistencyToken> ppPerNode = group.partitionsWithConsistencyTokens(nodeName);
+
+            List<String> pps = ppPerNode.stream()
+                    .map(p -> "part_" + p.partId() + ":" + p.enlistmentConsistencyToken())
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            partitionWithConsistencyTokens.put(nodeName, pps.toString());
+        }
+        sb.append(partitionWithConsistencyTokens)
+                .append('}');
+
+        output.writeKeyValue("colocationGroup[" + sourceId + "]", sb.toString());
+    }
+
     /** Collects table descriptors to use them table names, column names in text output. */
     private static class TableDescriptorCollector extends IgniteRelShuttle {
 
@@ -224,9 +267,7 @@ public final class FragmentPrinter {
         void writeKeyValue(String name, String value) {
             appendPadding();
 
-            builder.append(name);
-            builder.append(": ");
-            builder.append(value);
+            builder.append(name).append(": ").append(value);
 
             writeNewline();
         }

@@ -175,6 +175,9 @@ public class ClientUtils {
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientOperationType.SQL_CURSOR_NEXT_PAGE;
 
+            case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:
+                return ClientOperationType.SQL_CURSOR_NEXT_RESULT_SET;
+
             case ClientOp.SQL_CURSOR_CLOSE:
                 return null;
 
@@ -220,8 +223,8 @@ public class ClientUtils {
      * @return Logger.
      */
     public static <T> IgniteLogger logger(IgniteClientConfiguration cfg, Class<T> cls) {
-        var loggerFactory = cfg.loggerFactory() == null
-                ? (LoggerFactory) System::getLogger
+        LoggerFactory loggerFactory = cfg.loggerFactory() == null
+                ? System::getLogger
                 : cfg.loggerFactory();
 
         return loggerFactory == null

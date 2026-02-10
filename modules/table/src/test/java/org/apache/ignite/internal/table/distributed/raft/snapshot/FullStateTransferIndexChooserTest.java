@@ -42,12 +42,13 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.spy;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogNotFoundException;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -99,7 +100,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     void setUp() {
         metaStorageManager = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
-        catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
+        catalogManager = spy(CatalogTestUtils.createCatalogManagerWithTestUpdateLog(NODE_NAME, clock));
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
@@ -412,6 +413,33 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId, buildingIndexId));
     }
 
+    @Test
+    void testWriteIntentWithTxBeginTsPointingAtMissingCatalogVersion() {
+        HybridTimestamp txBeginTs = HybridTimestamp.MIN_VALUE;
+        lenient().when(catalogManager.activeCatalog(txBeginTs.longValue())).thenThrow(new CatalogNotFoundException("For testing purposes"));
+        lenient().when(catalogManager.catalog(0)).thenThrow(new CatalogNotFoundException("For testing purposes"));
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+        assertThat(indexIds(chooseForAddWriteLatest(txBeginTs)), contains(pkIndexId));
+
+        // Registered index will not be included as the transaction started before its creation and hence there is a guarantee
+        // that the write intent will be considered by the index builder when the build starts.
+        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        assertThat(indexIds(chooseForAddWriteLatest(txBeginTs)), contains(pkIndexId));
+
+        int buildingIndexId = createSimpleBuildingIndex(BUILDING_INDEX_NAME);
+        assertThat(indexIds(chooseForAddWriteLatest(txBeginTs)), contains(pkIndexId, buildingIndexId));
+
+        int availableIndexId = createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
+        assertThat(indexIds(chooseForAddWriteLatest(txBeginTs)), contains(pkIndexId, buildingIndexId, availableIndexId));
+
+        int stoppingIndexId = createSimpleStoppingIndex(STOPPING_INDEX_NAME);
+        assertThat(
+                indexIds(chooseForAddWriteLatest(txBeginTs)),
+                contains(pkIndexId, buildingIndexId, availableIndexId, stoppingIndexId)
+        );
+    }
+
     private List<IndexIdAndTableVersion> chooseForAddWriteCommittedLatest(int tableId, HybridTimestamp commitTs) {
         return indexChooser.chooseForAddWriteCommitted(latestCatalogVersion(), tableId, commitTs);
     }
@@ -479,13 +507,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     }
 
     private HybridTimestamp latestCatalogVersionActivationTs() {
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        Catalog catalog = catalogManager.catalog(catalogVersion);
-
-        assertNotNull(catalog, "catalogVersion=" + catalogVersion);
-
-        return hybridTimestamp(catalog.time());
+        return hybridTimestamp(catalogManager.latestCatalog().time());
     }
 
     private int tableId(String tableName) {

@@ -19,9 +19,9 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -30,13 +30,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancellationToken;
+import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,22 +53,16 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
     @BeforeEach
     void cleanupResources() {
         cursorsToClose.forEach(cursor -> await(cursor.closeAsync()));
+        cursorsToClose.clear();
     }
 
     @AfterEach
     protected void checkNoPendingTransactionsAndOpenedCursors() {
-        assertEquals(0, txManager().pending());
+        waitUntilActiveTransactionsCount(is(0));
 
-        try {
-            boolean success = waitForCondition(() -> queryProcessor().openedCursors() == 0, 5_000);
-
-            if (!success) {
-                assertEquals(0, queryProcessor().openedCursors());
-            }
-
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        Awaitility.await().timeout(5, TimeUnit.SECONDS).untilAsserted(
+                () -> assertThat(queryProcessor().openedCursors(), is(0))
+        );
     }
 
     /** Fully executes multi-statements query without reading cursor data. */
@@ -90,7 +87,9 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     AsyncSqlCursor<InternalSqlRow> runScript(@Nullable InternalTransaction tx, @Nullable CancellationToken cancellationToken, String query,
             Object... params) {
-        SqlProperties properties = new SqlProperties();
+        SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         AsyncSqlCursor<InternalSqlRow> cursor = await(
                 queryProcessor().queryAsync(properties, observableTimeTracker(), tx, cancellationToken, query, params)
@@ -108,9 +107,7 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
         cursors.add(cursor);
 
-        if (close) {
-            cursor.closeAsync();
-        } else {
+        if (!close) {
             cursorsToClose.add(cursor);
         }
 
@@ -121,11 +118,15 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
             cursors.add(cursor);
 
-            if (close) {
-                cursor.closeAsync();
-            } else {
+            if (!close) {
                 cursorsToClose.add(cursor);
             }
+        }
+
+        if (close) {
+            List<CompletableFuture<?>> closeCursorFutures = new ArrayList<>(cursors.size());
+            cursors.forEach(c -> closeCursorFutures.add(c.closeAsync()));
+            await(CompletableFutures.allOf(closeCursorFutures));
         }
 
         return cursors;

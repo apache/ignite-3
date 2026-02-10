@@ -32,12 +32,12 @@ public class FakePartitionMeta extends PartitionMeta {
 
     /** Constructor. */
     public FakePartitionMeta() {
-        this(0);
+        this(0, 1);
     }
 
     /** Constructor. */
-    public FakePartitionMeta(int pageCount) {
-        super(pageCount);
+    public FakePartitionMeta(int pageCount, int partitionGeneration) {
+        super(pageCount, partitionGeneration);
     }
 
     /**
@@ -80,6 +80,11 @@ public class FakePartitionMeta extends PartitionMeta {
         public @Nullable UUID checkpointId() {
             return checkpointId;
         }
+
+        @Override
+        public int pageCount() {
+            return pageCount;
+        }
     }
 
     /**
@@ -111,8 +116,13 @@ public class FakePartitionMeta extends PartitionMeta {
     /** Simple implementation of {@link PartitionMetaFactory} for testing purposes. */
     public static class FakePartitionMetaFactory implements PartitionMetaFactory {
         @Override
-        public FakePartitionMeta createPartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
-            return new FakePartitionMeta(metaIo.getPageCount(pageAddr)).init(checkpointId);
+        public FakePartitionMeta createPartitionMeta(
+                @Nullable UUID checkpointId,
+                PartitionMetaIo metaIo,
+                long pageAddr,
+                int partitionGeneration
+        ) {
+            return new FakePartitionMeta(metaIo.getPageCount(pageAddr), partitionGeneration).init(checkpointId);
         }
 
         @Override

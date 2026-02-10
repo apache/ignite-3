@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.cli.commands.treesitter.parser;
 
+import org.apache.ignite.internal.logger.Loggers;
 import org.treesitter.TSLanguage;
 import org.treesitter.TSParser;
 import org.treesitter.TSTree;
 import org.treesitter.TreeSitterHocon;
 import org.treesitter.TreeSitterJson;
 import org.treesitter.TreeSitterSql;
+import org.treesitter.utils.NativeUtils;
 
 /**
  * Parser class for parsing SQL and JSON. It uses TreeSitter to parse the input.
  * The result of parsing is an abstract syntax tree.
  */
 public final class Parser {
-
 
     /**
      * Parses the input text as SQL.
@@ -72,5 +73,21 @@ public final class Parser {
         TSParser parser = new TSParser();
         parser.setLanguage(language);
         return parser.parseString(null, text);
+    }
+
+    /**
+     * Determines whether the tree-sitter native library can be loaded. Workaround for the <a
+     * href="https://github.com/bonede/tree-sitter-ng/issues/117">issue</a>.
+     *
+     * @return {@code true} if the library is available, {@code false} otherwise.
+     */
+    public static boolean isTreeSitterParserAvailable() {
+        try {
+            NativeUtils.loadLib("lib/tree-sitter");
+            return true;
+        } catch (Throwable e) {
+            Loggers.forClass(Parser.class).info("TreeSitter library was not loaded", e);
+            return false;
+        }
     }
 }

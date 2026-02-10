@@ -117,6 +117,9 @@ protected:
 
     /** ToString job. */
     std::shared_ptr<job_descriptor> m_to_string_job{job_descriptor::builder(TO_STRING_JOB).build()};
+
+    /** Return null job. */
+    std::shared_ptr<job_descriptor> m_return_null_job{job_descriptor::builder(RETURN_NULL_JOB).build()};
 };
 
 TEST_F(compute_test, get_cluster_nodes) {
@@ -222,21 +225,16 @@ TEST_F(compute_test, unknown_node_execute_throws) {
         ignite_error);
 }
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-21553
-TEST_F(compute_test, DISABLED_unknown_node_broadcast_throws) {
+TEST_F(compute_test, unknown_node_broadcast_throws) {
     auto unknown_node = cluster_node(uuid(1, 2), "random", {"127.0.0.1", 1234});
 
-    EXPECT_THROW(
-        {
-            try {
-                m_client.get_compute().submit_broadcast(broadcast_job_target::node(unknown_node), m_echo_job, {"unused"});
-            } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(),
-                    testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
-                throw;
-            }
-        },
-        ignite_error);
+    auto results =
+        m_client.get_compute().submit_broadcast(broadcast_job_target::node(unknown_node), m_echo_job, {"unused"});
+
+    EXPECT_TRUE(results.get_job_executions()[0].has_error());
+
+    auto& e = results.get_job_executions()[0].error();
+    EXPECT_THAT(e.what_str(), testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
 }
 
 TEST_F(compute_test, all_arg_types) {
@@ -520,7 +518,7 @@ TEST_F(compute_test, job_execution_status_executing) {
     EXPECT_EQ(job_status::EXECUTING, state->status);
 }
 
-TEST_F(compute_test, DISABLED_job_execution_status_completed) {
+TEST_F(compute_test, job_execution_status_completed) {
     const std::int32_t sleep_ms = 1;
 
     auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_sleep_job, {sleep_ms});
@@ -571,4 +569,17 @@ TEST_F(compute_test, job_execution_change_priority) {
     auto res = execution.change_priority(123);
 
     EXPECT_EQ(res, job_execution::operation_result::INVALID_STATE);
+}
+
+TEST_F(compute_test, job_execution_return_null) {
+    auto execution = m_client.get_compute().submit(job_target::node(get_node(1)), m_return_null_job, {});
+    std::optional<binary_object> res = execution.get_result();
+
+    auto state = execution.get_state();
+
+    ASSERT_TRUE(state.has_value());
+    EXPECT_EQ(job_status::COMPLETED, state->status);
+
+    ASSERT_TRUE(res.has_value());
+    ASSERT_TRUE(res->get_primitive().is_null());
 }

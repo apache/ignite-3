@@ -22,6 +22,7 @@ import java.util.Map;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface for example based tests.
@@ -31,7 +32,19 @@ import org.apache.ignite.table.Table;
  */
 public interface ExampleBasedCacheTest<K, V> {
 
+    /**
+     * Case-sensitve, unquoted version of the table name.
+     *
+     * @return table name.
+     */
     String getTableName();
+
+    /**
+     * Case-sensitve, unquoted version of the schema, or null if not defined.
+     *
+     * @return schema.
+     */
+    @Nullable String getSchemaName();
 
     CacheConfiguration<K, V> cacheConfiguration();
 

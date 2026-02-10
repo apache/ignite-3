@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.restart;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.wrapper.Wrapper;
@@ -43,6 +44,11 @@ public class RestartProofIgniteCluster implements IgniteCluster, Wrapper {
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return attachmentLock.attached(ignite -> Wrappers.unwrap(ignite.cluster(), classToUnwrap));
+    }
+
+    @Override
+    public UUID id() {
+        return attachmentLock.attached(ignite -> ignite.cluster().id());
     }
 
     @Override

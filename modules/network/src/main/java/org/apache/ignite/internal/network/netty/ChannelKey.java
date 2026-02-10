@@ -43,7 +43,7 @@ public class ChannelKey {
         this.connectionId = connectionId;
     }
 
-    UUID launchId() {
+    public UUID launchId() {
         return launchId;
     }
 

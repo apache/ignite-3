@@ -34,6 +34,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnContainer;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -244,7 +245,7 @@ public class JdbcMetadataCatalog {
     private static JdbcPrimaryKeyMeta createPrimaryKeyMeta(String schemaName, CatalogTableDescriptor tbl) {
         String keyName = PK + tbl.name();
 
-        List<String> keyColNames = List.copyOf(tbl.primaryKeyColumns());
+        List<String> keyColNames = CatalogUtils.resolveColumnNames(tbl, tbl.primaryKeyColumns());
 
         return new JdbcPrimaryKeyMeta(schemaName, tbl.name(), keyName, keyColNames);
     }
@@ -290,8 +291,10 @@ public class JdbcMetadataCatalog {
     }
 
     /**
-     * <p>Converts sql pattern wildcards into java regex wildcards.</p>
+     * Converts sql pattern wildcards into java regex wildcards.
+     *
      * <p>Translates "_" to "." and "%" to ".*" if those are not escaped with "\" ("\_" or "\%").</p>
+     *
      * <p>All other characters are considered normal and will be escaped if necessary.</p>
      * <pre>
      * Example:
@@ -320,7 +323,6 @@ public class JdbcMetadataCatalog {
 
         return toRegex.substring(1);
     }
-
 
     /**
      * Resolves the precision of the specified column.

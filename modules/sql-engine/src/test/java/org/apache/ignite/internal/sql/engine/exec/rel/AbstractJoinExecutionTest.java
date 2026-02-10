@@ -42,6 +42,7 @@ import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
@@ -421,13 +422,13 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         if (setOf(SEMI, ANTI).contains(joinType)) {
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1]});
             RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1));
-            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
             sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
         } else {
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
             RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1, 4));
-            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator cmp = ctx.expressionFactory().comparator(collation);
 
             sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
         }
@@ -468,6 +469,11 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 
@@ -512,7 +518,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
     }
 
     @ParameterizedTest
-    @EnumSource(value = JoinRelType.class, names = {"INNER", "SEMI"})
+    @EnumSource(value = JoinRelType.class, names = {"INNER", "SEMI", "LEFT"})
     void nonEquiJoinWithDifferentBufferSize(JoinRelType joinType) {
         int buffSize = 1;
         validateNonEquiJoin(executionContext(buffSize), joinType, 0, 0);
@@ -614,7 +620,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 (l, r) -> false,
                 () -> IntStream.range(0, leftSize).mapToObj(i -> person).iterator(),
                 () -> IntStream.range(0, rightSize).mapToObj(i -> department).iterator(),
-                0
+                joinType == LEFT ? leftSize : 0
         );
     }
 
@@ -703,7 +709,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         if (joinAlgo() == JoinAlgo.NESTED_LOOP) {
-            RowHandler<Object[]> hnd = ctx.rowHandler();
+            RowHandler<Object[]> hnd = ctx.rowAccessor();
 
             BiPredicate<Object[], Object[]> condition = nonEquiCondition != null
                     ? nonEquiCondition

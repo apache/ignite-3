@@ -33,6 +33,9 @@ import java.lang.annotation.Target;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -40,7 +43,8 @@ import java.util.regex.Pattern;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
@@ -60,7 +64,7 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
 
     private static Function<String, String> queryLoader;
     private static Function<String, String> planLoader;
-    private static @Nullable BiConsumer<String, String> planUpdater;
+    private static @Nullable BiConsumer<String, String[]> planUpdater;
 
     @BeforeAll
     static void startCluster(TestInfo info) throws NoSuchMethodException {
@@ -76,7 +80,7 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
         Method planLoaderMethod = testClass.getDeclaredMethod(suiteInfo.planLoader(), String.class); 
 
         if (!nullOrBlank(suiteInfo.planUpdater())) {
-            Method planUpdaterMethod = testClass.getDeclaredMethod(suiteInfo.planUpdater(), String.class, String.class);
+            Method planUpdaterMethod = testClass.getDeclaredMethod(suiteInfo.planUpdater(), String.class, String[].class);
 
             planUpdater = (queryId, newPlan) -> invoke(planUpdaterMethod, queryId, newPlan);
         }
@@ -108,25 +112,33 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
     static void validateQueryPlan(String queryId) {
         TestNode node = CLUSTER.node("N1");
 
-        MultiStepPlan plan = (MultiStepPlan) node.prepare(queryLoader.apply(queryId));
-
-        String actualPlan = plan.explain();
+        List<QueryPlan> plans = node.prepareScript(queryLoader.apply(queryId));
+        String[] actualPlans = plans.stream().map(ExplainablePlan.class::cast).map(ExplainablePlan::explain).toArray(String[]::new);
 
         if (planUpdater != null) {
-            planUpdater.accept(queryId, actualPlan);
-
+            planUpdater.accept(queryId, actualPlans);
             return;
         }
 
-        String expectedPlan = planLoader.apply(queryId);
+        String[] expectedPlans = planLoader.apply(queryId).split("----(\\r\\n|\\n|\\r)");
 
-        // Internally, costs are represented by double values and convertion to exact numeric representation may differs from JVM to JVM.
-        // https://www.oracle.com/java/technologies/javase/19-relnote-issues.html
-        // Cut-off costs, which may differ between runs, before comparing plans.
-        expectedPlan = COSTS_PATTERN.matcher(expectedPlan).replaceAll("");
-        actualPlan = COSTS_PATTERN.matcher(actualPlan).replaceAll("");
+        assert expectedPlans.length == plans.size() : "Unexpected number of plans, got: " + plans.size()
+                + ", expected: " + expectedPlans.length;
 
-        assertEquals(expectedPlan, actualPlan);
+        int pos = 0;
+
+        for (String actualPlan : actualPlans) {
+            String expectedPlan = expectedPlans[pos++];
+
+            // Internally, costs are represented by double values and conversion to exact numeric representation
+            // may differs from JVM to JVM.
+            // https://www.oracle.com/java/technologies/javase/19-relnote-issues.html
+            // Cut-off costs, which may differ between runs, before comparing plans.
+            expectedPlan = COSTS_PATTERN.matcher(expectedPlan).replaceAll("");
+            actualPlan = COSTS_PATTERN.matcher(actualPlan).replaceAll("");
+
+            assertEquals(expectedPlan, actualPlan);
+        }
     }
 
     static String loadFromResource(String resource) {
@@ -147,6 +159,63 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
             return (T) method.invoke(null, arguments);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    static void updateQueryPlan(String queryId, Path targetDirectory, String... newPlans) {
+        // A targetDirectory must be specified by hand when expected plans are generated.
+        if (targetDirectory == null) {
+            throw new RuntimeException("Please provide target directory to where save generated plans."
+                    + " Usually plans are kept in resource folder of tests within the same module.");
+        }
+
+        // variant query ends with "v"
+        boolean variant = queryId.endsWith("v");
+        int numericId;
+
+        if (variant) {
+            String idString = queryId.substring(0, queryId.length() - 1);
+            numericId = Integer.parseInt(idString);
+        } else {
+            numericId = Integer.parseInt(queryId);
+        }
+
+        Path planLocation;
+        if (variant) {
+            planLocation = targetDirectory.resolve(String.format("variant_q%d.plan", numericId));
+        } else {
+            planLocation = targetDirectory.resolve(String.format("q%s.plan", numericId));
+        }
+
+        try {
+            Files.createDirectories(targetDirectory);
+
+            String plans = String.join("----" + System.lineSeparator(), newPlans);
+            Files.writeString(planLocation, plans);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
+    static String getQueryPlan(String queryId, String testType) {
+        // variant query ends with "v"
+        boolean variant = queryId.endsWith("v");
+        int numericId;
+
+        if (variant) {
+            String idString = queryId.substring(0, queryId.length() - 1);
+            numericId = Integer.parseInt(idString);
+        } else {
+            numericId = Integer.parseInt(queryId);
+        }
+
+        if (variant) {
+            var variantQueryFile = String.format("%s/plan/variant_q%d.plan", testType, numericId);
+            return loadFromResource(variantQueryFile);
+        } else {
+            var queryFile = String.format("%s/plan/q%s.plan", testType, numericId);
+            return loadFromResource(queryFile);
         }
     }
 

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
@@ -78,6 +77,8 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
     /** Page list cache limit. */
     private final @Nullable AtomicLong pageListCacheLimit;
+
+    private volatile boolean closed;
 
     /** Write a single row on a single page. */
     private final WriteRowHandler writeRowHnd = new WriteRowHandler();
@@ -171,7 +172,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
          * @param written Written size.
          * @param rowSize Row size.
          * @return Updated written size.
-         * @throws IgniteInternalCheckedException If failed.
          */
         protected int addRowFragment(
                 long pageId,
@@ -180,7 +180,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 Storable row,
                 int written,
                 int rowSize
-        ) throws IgniteInternalCheckedException {
+        ) {
             int payloadSize = io.addRowFragment(pageMem, pageId, pageAddr, row, written, rowSize, pageSize());
 
             assert payloadSize > 0 : payloadSize;
@@ -818,11 +818,18 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     public void saveMetadata() throws IgniteInternalCheckedException {
         // Double inheritance here. We inherit interface method from the FreeList interface, and the implementation from the PagesList
         // class. These two versions must be joined here by calling the super method.
-        super.saveMetadata();
+        if (!closed) {
+            super.saveMetadata();
+        }
     }
 
     @Override
     public String toString() {
         return "FreeListImpl [name=" + name() + ']';
+    }
+
+    @Override
+    public void close() {
+        closed = true;
     }
 }

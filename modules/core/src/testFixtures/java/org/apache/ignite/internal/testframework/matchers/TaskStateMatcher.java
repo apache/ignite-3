@@ -38,7 +38,6 @@ public class TaskStateMatcher extends TypeSafeMatcher<TaskState> {
     private final Matcher<Instant> startTimeMatcher;
     private final Matcher<Instant> finishTimeMatcher;
 
-
     private TaskStateMatcher(
             Matcher<TaskStatus> statusMatcher,
             Matcher<Instant> createTimeMatcher,

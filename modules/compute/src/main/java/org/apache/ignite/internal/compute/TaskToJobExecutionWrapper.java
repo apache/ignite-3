@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,11 +32,12 @@ import org.jetbrains.annotations.Nullable;
  */
 class TaskToJobExecutionWrapper<R> implements CancellableJobExecution<R> {
     private final CancellableTaskExecution<R> taskExecution;
-    private final ClusterNode localNode;
+    private final ClusterNode publicLocalNode;
 
-    TaskToJobExecutionWrapper(CancellableTaskExecution<R> taskExecution, ClusterNode localNode) {
+    TaskToJobExecutionWrapper(CancellableTaskExecution<R> taskExecution, InternalClusterNode localNode) {
         this.taskExecution = taskExecution;
-        this.localNode = localNode;
+
+        publicLocalNode = localNode.toPublicNode();
     }
 
     @Override
@@ -60,6 +62,6 @@ class TaskToJobExecutionWrapper<R> implements CancellableJobExecution<R> {
 
     @Override
     public ClusterNode node() {
-        return localNode;
+        return publicLocalNode;
     }
 }

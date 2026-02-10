@@ -21,12 +21,12 @@ import static java.util.function.Function.identity;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
@@ -53,12 +53,12 @@ public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
     }
 
     @Override
-    public void weakSend(ClusterNode recipient, NetworkMessage msg) {
+    public void weakSend(InternalClusterNode recipient, NetworkMessage msg) {
         messagingService.weakSend(recipient, msg);
     }
 
     @Override
-    public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+    public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
         CompletableFuture<Void> future = messagingService.send(recipient, channelType, msg);
 
         return switchResponseHandlingToAnotherThreadIfNeeded(msg, future, recipient.name());
@@ -77,7 +77,7 @@ public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
     }
 
     @Override
-    public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId) {
+    public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId) {
         CompletableFuture<Void> future = messagingService.respond(recipient, channelType, msg, correlationId);
 
         return switchResponseHandlingToAnotherThreadIfNeeded(msg, future, recipient.name());
@@ -91,7 +91,12 @@ public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
     }
 
     @Override
-    public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long timeout) {
+    public CompletableFuture<NetworkMessage> invoke(
+            InternalClusterNode recipient,
+            ChannelType channelType,
+            NetworkMessage msg,
+            long timeout
+    ) {
         CompletableFuture<NetworkMessage> future = messagingService.invoke(recipient, channelType, msg, timeout);
 
         return switchResponseHandlingToAnotherThreadIfNeeded(msg, future, recipient.name());

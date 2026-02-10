@@ -107,7 +107,6 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
                 : column.valIndex();
     }
 
-
     @Override
     protected int publicIndex(int binaryTupleIndex) {
         if (part == TuplePart.KEY_AND_VAL) {

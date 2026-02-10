@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -221,13 +222,27 @@ public class ClientTransaction implements Transaction {
         boolean enabled = ch.protocolContext().isFeatureSupported(TX_PIGGYBACK);
         CompletableFuture<Void> finishFut = enabled ? ch.inflights().finishFuture(txId()) : nullCompletedFuture();
 
-        CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
-            w.out().packLong(id);
+        CompletableFuture<Void> mainFinishFut = finishFut.handle((ignored, e) -> {
+            if (e != null) {
+                ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
+                    w.out().packLong(id);
 
-            if (!isReadOnly && enabled) {
-                packEnlisted(w);
+                    if (!isReadOnly && enabled) {
+                        packEnlisted(w);
+                    }
+                }, r -> null);
+
+                return CompletableFuture.<Void>failedFuture(e);
             }
-        }, r -> null));
+
+            return ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
+                w.out().packLong(id);
+
+                if (!isReadOnly && enabled) {
+                    packEnlisted(w);
+                }
+            }, r -> (Void) null);
+        }).thenCompose(identity());
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_COMMITTED);
@@ -299,6 +314,9 @@ public class ClientTransaction implements Transaction {
 
         if (cnt > 0) {
             w.out().packLong(tracker.get().longValue());
+
+            // Send information about directly mapped writes to ensure a proper cleanup algorithm is chosen.
+            w.out().packBoolean(!ch.inflights().contains(txId));
         }
     }
 

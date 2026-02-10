@@ -30,10 +30,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
@@ -44,7 +46,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -68,6 +69,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
@@ -102,6 +106,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 txConfiguration,
+                systemLocalConfiguration,
                 systemDistributedConfiguration,
                 workDir,
                 NODES,
@@ -124,23 +129,23 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testUpsert(boolean commit) {
-        testTransaction(tx -> table.recordView().upsert(tx, makeValue(1, 1)), true, commit);
+        testTransaction(tx -> table.recordView().upsert(tx, makeValue(1, 1)), true, commit, false);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testGet(boolean commit) {
-        testTransaction(tx -> table.recordView().get(tx, makeKey(1)), false, commit);
+        testTransaction(tx -> table.recordView().get(tx, makeKey(1)), false, commit, true);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testUpdateAll(boolean commit) {
-        testTransaction(tx -> table.recordView().upsertAll(tx, List.of(makeValue(1, 1), makeValue(2, 2))), true, commit);
+        testTransaction(tx -> table.recordView().upsertAll(tx, List.of(makeValue(1, 1), makeValue(2, 2))), true, commit, false);
     }
 
-    private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit) {
-        ClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
+    private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit, boolean read) {
+        InternalClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
         UUID coordinatorId = coord.id();
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
@@ -160,17 +165,18 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
             tx.rollback();
         }
 
-        checkLocalTxStateOnNodes(
-                tx.id(),
-                new TxStateMeta(
-                        commit ? COMMITTED : ABORTED,
-                        coordinatorId,
-                        tx.commitPartition(),
-                        commit ? testCluster.clockServices.get(coord.name()).now() : null,
-                        null,
-                        null
-                )
-        );
+        if (read) {
+            checkLocalTxStateOnNodes(tx.id(), null);
+        } else {
+            checkLocalTxStateOnNodes(
+                    tx.id(),
+                    TxStateMeta.builder(commit ? COMMITTED : ABORTED)
+                            .txCoordinatorId(coordinatorId)
+                            .commitPartitionId(tx.commitPartition())
+                            .commitTimestamp(commit ? testCluster.clockServices.get(coord.name()).now() : null)
+                            .build()
+            );
+        }
     }
 
     private void checkLocalTxStateOnNodes(UUID txId, TxStateMeta expected) {

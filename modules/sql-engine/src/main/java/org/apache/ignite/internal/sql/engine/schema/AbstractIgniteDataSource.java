@@ -36,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
-
 /**
  * Base implementation of {@link IgniteDataSource}.
  */
@@ -51,16 +50,19 @@ public abstract class AbstractIgniteDataSource extends AbstractTable
 
     private final int version;
 
+    private final long timestamp;
+
     private final Statistic statistic;
 
     /** Constructor. */
-    public AbstractIgniteDataSource(String name, int id,  int version, TableDescriptor desc,
+    public AbstractIgniteDataSource(String name, int id,  int version, long timestamp, TableDescriptor desc,
             Statistic statistic) {
 
         this.id = id;
         this.name = name;
         this.desc = desc;
         this.version = version;
+        this.timestamp = timestamp;
         this.statistic = statistic;
     }
 
@@ -74,6 +76,12 @@ public abstract class AbstractIgniteDataSource extends AbstractTable
     @Override
     public int version() {
         return version;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long timestamp() {
+        return timestamp;
     }
 
     /** {@inheritDoc} */

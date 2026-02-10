@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-api')
     implementation project(':ignite-table')
+    implementation project(':ignite-sql-engine-api')
     implementation project(':ignite-sql-engine')
     implementation project(':ignite-network')
     implementation project(':ignite-core')
@@ -66,7 +67,7 @@ dependencies {
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-network-api')
-    integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation project(':ignite-sql-engine-api')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-metrics')
@@ -88,12 +89,14 @@ dependencies {
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.bouncycastle.bcpkix.jdk18on;
 
+    testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-security-api')
     testFixturesImplementation project(':ignite-partition-distribution')
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation libs.fastutil.core
 }
 
 description = 'ignite-client-handler'

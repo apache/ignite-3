@@ -25,7 +25,5 @@ import java.util.concurrent.ForkJoinPool;
 public interface InvokeCallback {
     void complete(final Object result, final Throwable err);
 
-    default Executor executor() {
-        return ForkJoinPool.commonPool();
-    }
+    Executor executor();
 }

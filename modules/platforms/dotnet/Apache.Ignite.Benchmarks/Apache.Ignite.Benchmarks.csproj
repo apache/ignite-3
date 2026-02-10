@@ -28,11 +28,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+      <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Apache.Ignite\Apache.Ignite.csproj" />
+        <ProjectReference Include="..\Apache.Extensions.Caching.Ignite\Apache.Extensions.Caching.Ignite.csproj" />
         <ProjectReference Include="..\Apache.Ignite.Tests\Apache.Ignite.Tests.csproj" />
     </ItemGroup>
 

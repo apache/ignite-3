@@ -49,7 +49,7 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -100,9 +100,9 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     private final UUID transactionId = UUID.randomUUID();
-    private final int commitTableId = 999;
+    private static final int commitZoneId = 999;
 
-    private final PartitionKey partitionKey = new ZonePartitionKey(ZONE_ID, PARTITION_ID);
+    private final PartitionKey partitionKey = new PartitionKey(ZONE_ID, PARTITION_ID);
 
     @BeforeEach
     void createTestInstance(
@@ -122,12 +122,15 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
 
+        UUID snapshotId = UUID.randomUUID();
+
         snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 partitionsByTableId,
                 mock(PartitionTxStateAccess.class),
-                catalogService
+                catalogService,
+                new RaftSnapshotsMetricsSource()
         );
 
         snapshot.acquireMvLock();
@@ -157,12 +160,15 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     ) {
         when(txStateAccess.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
+        UUID snapshotId = UUID.randomUUID();
+
         snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 Int2ObjectMaps.emptyMap(),
                 txStateAccess,
-                catalogService
+                catalogService,
+                new RaftSnapshotsMetricsSource()
         );
 
         snapshot.acquireMvLock();
@@ -186,7 +192,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowId1,
                 ROW_2,
                 transactionId,
-                commitTableId,
+                commitZoneId,
                 42,
                 clock.now()
         );
@@ -200,7 +206,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowId1.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
+        assertThat(responseRow.commitZoneId(), is(commitZoneId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
@@ -328,7 +334,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowIdOutOfOrder,
                 ROW_2,
                 transactionId,
-                commitTableId,
+                commitZoneId,
                 42,
                 clock.now()
         );
@@ -352,7 +358,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         assertThat(responseRow.rowId(), is(rowIdOutOfOrder.uuid()));
         assertThat(responseRow.txId(), is(transactionId));
-        assertThat(responseRow.commitTableOrZoneId(), is(commitTableId));
+        assertThat(responseRow.commitZoneId(), is(commitZoneId));
         assertThat(responseRow.commitPartitionId(), is(42));
         //noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
@@ -425,7 +431,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
                 rowId1,
                 ROW_1,
                 transactionId,
-                commitTableId,
+                commitZoneId,
                 42,
                 clock.now()
         );

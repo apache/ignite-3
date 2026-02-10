@@ -78,6 +78,7 @@ class MessageWriterMethodResolver {
 
         if (getter.getAnnotation(Marshallable.class) != null) {
             getterName = addByteArrayPostfix(getterName);
+            propertyName = addByteArrayPostfix(propertyName);
             return CodeBlock.builder()
                     .add("writeByteArray($S, message.$L())", propertyName, getterName)
                     .build();

@@ -52,6 +52,7 @@ namespace Apache.Ignite
             Embedded.GroupCode => Embedded.GroupName,
             Marshalling.GroupCode => Marshalling.GroupName,
             Rest.GroupCode => Rest.GroupName,
+            CommonConfiguration.GroupCode => CommonConfiguration.GroupName,
 
             _ => UnknownGroupName
         };
@@ -86,6 +87,7 @@ namespace Apache.Ignite
             Embedded.GroupCode => Embedded.ErrorPrefix,
             Marshalling.GroupCode => Marshalling.ErrorPrefix,
             Rest.GroupCode => Rest.ErrorPrefix,
+            CommonConfiguration.GroupCode => CommonConfiguration.ErrorPrefix,
 
             _ => UnknownGroupName
         };
@@ -128,6 +130,9 @@ namespace Apache.Ignite
 
             /// <summary> NullableValue error. </summary>
             public const int NullableValue = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> UnsupportedTableBasedReplication error. </summary>
+            public const int UnsupportedTableBasedReplication = (GroupCode << 16) | (10 & 0xFFFF);
 
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
@@ -202,6 +207,12 @@ namespace Apache.Ignite
 
             /// <summary> ServerToClientRequest error. </summary>
             public const int ServerToClientRequest = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> ResourceNotFound error. </summary>
+            public const int ResourceNotFound = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> OperationTimeout error. </summary>
+            public const int OperationTimeout = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
@@ -356,6 +367,9 @@ namespace Apache.Ignite
 
             /// <summary> TxAlreadyFinishedWithTimeout error. </summary>
             public const int TxAlreadyFinishedWithTimeout = (GroupCode << 16) | (16 & 0xFFFF);
+
+            /// <summary> TxDelayedAck error. </summary>
+            public const int TxDelayedAck = (GroupCode << 16) | (17 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>
@@ -396,6 +410,12 @@ namespace Apache.Ignite
 
             /// <summary> GroupOverloaded error. </summary>
             public const int GroupOverloaded = (GroupCode << 16) | (9 & 0xFFFF);
+
+            /// <summary> GroupUnavailable error. </summary>
+            public const int GroupUnavailable = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> ReplicaAbsent error. </summary>
+            public const int ReplicaAbsent = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>
@@ -431,6 +451,9 @@ namespace Apache.Ignite
 
             /// <summary> ZoneNotFound error. </summary>
             public const int ZoneNotFound = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> EmptyDataNodes error. </summary>
+            public const int EmptyDataNodes = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> Network errors. </summary>
@@ -448,8 +471,8 @@ namespace Apache.Ignite
             /// <summary> UnresolvableConsistentId error. </summary>
             public const int UnresolvableConsistentId = (GroupCode << 16) | (1 & 0xFFFF);
 
-            /// <summary> PortInUse error. </summary>
-            public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
+            /// <summary> Bind error. </summary>
+            public const int Bind = (GroupCode << 16) | (2 & 0xFFFF);
 
             /// <summary> FileTransfer error. </summary>
             public const int FileTransfer = (GroupCode << 16) | (3 & 0xFFFF);
@@ -462,6 +485,10 @@ namespace Apache.Ignite
 
             /// <summary> AddressUnresolved error. </summary>
             public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> PortInUse is obsolete. Use Bind instead. </summary>
+            [Obsolete]
+            public const int PortInUse = Bind;
         }
 
         /// <summary> NodeConfiguration errors. </summary>
@@ -487,6 +514,9 @@ namespace Apache.Ignite
 
             /// <summary> ConfigParse error. </summary>
             public const int ConfigParse = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> JoinDenied error. </summary>
+            public const int JoinDenied = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> CodeDeployment errors. </summary>
@@ -512,6 +542,15 @@ namespace Apache.Ignite
 
             /// <summary> UnitUnavailable error. </summary>
             public const int UnitUnavailable = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> UnitZip error. </summary>
+            public const int UnitZip = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> UnitWrite error. </summary>
+            public const int UnitWrite = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> UnitNonUniqueFilenames error. </summary>
+            public const int UnitNonUniqueFilenames = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> GarbageCollector errors. </summary>
@@ -643,6 +682,9 @@ namespace Apache.Ignite
 
             /// <summary> PrimaryReplicaAwait error. </summary>
             public const int PrimaryReplicaAwait = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> EmptyAssignments error. </summary>
+            public const int EmptyAssignments = (GroupCode << 16) | (3 & 0xFFFF);
         }
 
         /// <summary> CriticalWorkers errors. </summary>
@@ -687,6 +729,18 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> NotEnoughAliveNodes error. </summary>
+            public const int NotEnoughAliveNodes = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> IllegalNodesSet error. </summary>
+            public const int IllegalNodesSet = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> RequestForward error. </summary>
+            public const int RequestForward = (GroupCode << 16) | (7 & 0xFFFF);
+
+            /// <summary> RemoteNode error. </summary>
+            public const int RemoteNode = (GroupCode << 16) | (8 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>
@@ -750,6 +804,28 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotInit error. </summary>
             public const int ClusterNotInit = (GroupCode << 16) | (1 & 0xFFFF);
+        }
+
+        /// <summary> CommonConfiguration errors. </summary>
+        public static class CommonConfiguration
+        {
+            /// <summary> CommonConfiguration group code. </summary>
+            public const short GroupCode = 24;
+
+            /// <summary> CommonConfiguration group name. </summary>
+            public const String GroupName = "COMMONCFG";
+
+            /// <summary> CommonConfiguration error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
+            /// <summary> ConfigurationApply error. </summary>
+            public const int ConfigurationApply = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> ConfigurationParse error. </summary>
+            public const int ConfigurationParse = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> ConfigurationValidation error. </summary>
+            public const int ConfigurationValidation = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }

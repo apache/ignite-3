@@ -21,9 +21,11 @@ import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.locks.Lock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
@@ -55,8 +57,10 @@ public class DelayedDirtyPageWrite {
     /** Replacing pages tracker, used to register & unregister pages being written. */
     private final DelayedPageReplacementTracker tracker;
 
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
+
     /** Full page id to be written on {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
-    private @Nullable FullPageId fullPageId;
+    private @Nullable DirtyFullPageId fullPageId;
 
     /** Page memory to be used in {@link #flushCopiedPageIfExists}, {@code null} if nothing to write. */
     private @Nullable PersistentPageMemory pageMemory;
@@ -73,18 +77,21 @@ public class DelayedDirtyPageWrite {
      * @param byteBufThreadLoc Thread local buffers to use for pages copying.
      * @param pageSize Page size in bytes.
      * @param tracker Tracker to lock/unlock page reads.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     DelayedDirtyPageWrite(
             WriteDirtyPage flushDirtyPage,
             ThreadLocal<ByteBuffer> byteBufThreadLoc,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
-            DelayedPageReplacementTracker tracker
+            DelayedPageReplacementTracker tracker,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         this.flushDirtyPage = flushDirtyPage;
         this.pageSize = pageSize;
         this.byteBufThreadLoc = byteBufThreadLoc;
         this.tracker = tracker;
+        this.partitionDestructionLockManager = partitionDestructionLockManager;
     }
 
     /**
@@ -98,11 +105,11 @@ public class DelayedDirtyPageWrite {
      */
     public void copyPageToTemporaryBuffer(
             PersistentPageMemory pageMemory,
-            FullPageId pageId,
+            DirtyFullPageId pageId,
             ByteBuffer originPageBuf,
             CheckpointPages checkpointPages
     ) {
-        tracker.lock(pageId);
+        tracker.lock(pageId.toFullPageId());
 
         ByteBuffer threadLocalBuf = byteBufThreadLoc.get();
 
@@ -122,7 +129,7 @@ public class DelayedDirtyPageWrite {
      * Flushes a previously copied page to disk if it was copied.
      *
      * @throws IgniteInternalCheckedException If write failed.
-     * @see #copyPageToTemporaryBuffer(PersistentPageMemory, FullPageId, ByteBuffer, CheckpointPages)
+     * @see #copyPageToTemporaryBuffer
      */
     public void flushCopiedPageIfExists() throws IgniteInternalCheckedException {
         if (fullPageId == null) {
@@ -134,7 +141,9 @@ public class DelayedDirtyPageWrite {
 
         Throwable errorOnWrite = null;
 
-        checkpointPages.blockPartitionDestruction(GroupPartitionId.convert(fullPageId));
+        Lock partitionDestructionLock = partitionDestructionLockManager.destructionLock(GroupPartitionId.convert(fullPageId)).readLock();
+
+        partitionDestructionLock.lock();
 
         try {
             flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
@@ -143,11 +152,11 @@ public class DelayedDirtyPageWrite {
 
             throw t;
         } finally {
-            checkpointPages.unblockPartitionDestruction(GroupPartitionId.convert(fullPageId));
+            partitionDestructionLock.unlock();
 
             checkpointPages.unblockFsyncOnPageReplacement(fullPageId, errorOnWrite);
 
-            tracker.unlock(fullPageId);
+            tracker.unlock(fullPageId.toFullPageId());
 
             fullPageId = null;
             pageMemory = null;

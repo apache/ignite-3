@@ -26,7 +26,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.partition.PartitionManager;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.tx.Transaction;
 
 /**
@@ -91,7 +91,7 @@ public enum ClientOperationType {
     TUPLE_REPLACE,
 
     /**
-     * Replace Exact ({@link RecordView#replace(Transaction, Object, Object)}).
+     * Replace Exact ({@link RecordView#replaceExact(Transaction, Object, Object)}).
      */
     TUPLE_REPLACE_EXACT,
 
@@ -176,6 +176,11 @@ public enum ClientOperationType {
     SQL_CURSOR_NEXT_PAGE,
 
     /**
+     * SQL Cursor Next ResultSet.
+     */
+    SQL_CURSOR_NEXT_RESULT_SET,
+
+    /**
      * Send streamer batch ({@link DataStreamerTarget#streamData}).
      */
     STREAMER_BATCH_SEND,
@@ -191,7 +196,7 @@ public enum ClientOperationType {
     SQL_EXECUTE_BATCH,
 
     /**
-     * Get all primary replicas mapping to cluster nodes ({@link PartitionManager#primaryReplicasAsync()}).
+     * Get all primary replicas mapping to cluster nodes ({@link PartitionDistribution#primaryReplicasAsync()}).
      */
     PRIMARY_REPLICAS_GET
 }

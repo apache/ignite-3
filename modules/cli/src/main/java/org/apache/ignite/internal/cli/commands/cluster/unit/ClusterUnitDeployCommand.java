@@ -17,19 +17,19 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
+import static org.apache.ignite.internal.cli.core.call.CallExecutionPipeline.asyncBuilder;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Command to deploy a unit. */
-@Command(name = "deploy", description = "Deploys a unit from file or a directory (non-recursively)")
+@Command(name = "deploy", description = "Deploys a unit from file or a directory (use --recursive for subdirectories)")
 public class ClusterUnitDeployCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
@@ -43,7 +43,7 @@ public class ClusterUnitDeployCommand extends BaseCommand implements Callable<In
 
     @Override
     public Integer call() throws Exception {
-        return runPipeline(CallExecutionPipeline.asyncBuilder(callFactory::create)
+        return runPipeline(asyncBuilder(callFactory)
                 .inputProvider(() -> options.toDeployUnitCallInput(clusterUrl.getClusterUrl()))
                 .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot deploy unit"))
         );

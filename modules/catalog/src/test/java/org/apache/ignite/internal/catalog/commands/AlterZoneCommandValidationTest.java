@@ -119,7 +119,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     @ParameterizedTest
     @MethodSource("replicasChanges")
     void adjustQuorumSize(int initialReplicas, int quorumSize, int targetReplicas, int targetQuorumSize) {
-        Catalog catalog = catalog(alterZoneBuilder()
+        Catalog catalog = catalogWithDefaultZone(alterZoneBuilder()
                 .replicas(initialReplicas)
                 .quorumSize(quorumSize)
                 .build()
@@ -176,20 +176,6 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void zoneAutoAdjust() {
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneBuilder().dataNodesAutoAdjust(-1).build(),
-                "Invalid data nodes auto adjust"
-        );
-
-        // Let's check the success cases.
-        alterZoneBuilder().dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build();
-        alterZoneBuilder().dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build();
-        alterZoneBuilder().dataNodesAutoAdjust(10).build();
-    }
-
-    @Test
     void zoneAutoAdjustScaleUp() {
         assertThrows(
                 CatalogValidationException.class,
@@ -218,74 +204,6 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @Test
-    void zoneAutoAdjustCompatibility() {
-        // Auto adjust + scale up.
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, IMMEDIATE_TIMER_VALUE, null),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, INFINITE_TIMER_VALUE, null),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, 77, null),
-                "Not compatible parameters"
-        );
-
-        // Auto adjust + scale down.
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, null, IMMEDIATE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, null, INFINITE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, null, 88),
-                "Not compatible parameters"
-        );
-
-        // Auto adjust + scale up + scale down.
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterZoneParams(66, 77, 88),
-                "Not compatible parameters"
-        );
-
-        // Let's check the success cases.
-        alterZoneParams(IMMEDIATE_TIMER_VALUE, null, null);
-        alterZoneParams(INFINITE_TIMER_VALUE, null, null);
-        alterZoneParams(66, null, null);
-        alterZoneParams(null, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
-        alterZoneParams(null, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
-        alterZoneParams(null, 77, 88);
-    }
-
-    @Test
     void zoneFilter() {
         assertThrows(
                 CatalogValidationException.class,
@@ -303,14 +221,6 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         // Let's check the success cases.
         alterZoneBuilder().filter("['nodeAttributes'][?(@.['region'] == 'EU')]").build();
         alterZoneBuilder().filter(DEFAULT_FILTER).build();
-    }
-
-    private static CatalogCommand alterZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {
-        return alterZoneBuilder()
-                .dataNodesAutoAdjust(autoAdjust)
-                .dataNodesAutoAdjustScaleUp(scaleUp)
-                .dataNodesAutoAdjustScaleDown(scaleDown)
-                .build();
     }
 
     private static AlterZoneCommandBuilder alterZoneBuilder() {

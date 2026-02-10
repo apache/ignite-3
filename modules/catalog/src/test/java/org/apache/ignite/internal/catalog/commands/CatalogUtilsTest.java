@@ -108,13 +108,10 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(fooTable, is(notNullValue()));
 
-        CatalogTableDescriptor bazTable = fooTable.newDescriptor(
-                "baz",
-                fooTable.tableVersion(),
-                fooTable.columns(),
-                fooTable.updateTimestamp(),
-                fooTable.storageProfile()
-        );
+        CatalogTableDescriptor bazTable = fooTable.copyBuilder()
+                .name("baz")
+                .newColumns(fooTable.columns())
+                .build();
 
         CatalogSchemaDescriptor updatedSchema = replaceTable(schema, bazTable);
 
@@ -162,7 +159,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 fooIndex.tableId(),
                 fooIndex.unique(),
                 fooIndex.status(),
-                fooIndex.columns(),
+                fooIndex.columnIds(),
                 fooIndex.isCreatedWithTable()
         );
 
@@ -186,14 +183,14 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Exception e = assertThrows(CatalogValidationException.class, () -> replaceIndex(schema, index));
 
-        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d.", index.id(), 1)));
+        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d.", index.id(), 0)));
     }
 
     @Test
     void testClusterWideEnsuredActivationTimestamp() {
         createTable(TABLE_NAME);
 
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.latestCatalog();
 
         HybridTimestamp expClusterWideActivationTs = HybridTimestamp.hybridTimestamp(catalog.time())
                 .addPhysicalTime(TEST_MAX_CLOCK_SKEW_MILLIS)

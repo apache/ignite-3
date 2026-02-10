@@ -23,6 +23,7 @@ import java.util.concurrent.Callable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ignite.migrationtools.cli.exceptions.DataStreamerExceptionHandler;
 import org.apache.ignite.migrationtools.cli.exceptions.DefaultMigrateCacheExceptionHandler;
+import org.apache.ignite.migrationtools.cli.exceptions.ErrorLoadingInputConfigurationHandlers;
 import org.apache.ignite.migrationtools.cli.exceptions.IgniteClientConnectionExceptionHandler;
 import org.apache.ignite.migrationtools.cli.persistence.calls.MigrateCacheCall;
 import org.apache.ignite.migrationtools.cli.persistence.calls.RetriableMigrateCacheCall;
@@ -61,6 +62,7 @@ public class MigrateCacheCmd extends BaseCommand implements Callable<Integer> {
                         .defaultExceptionHandler(new DefaultExceptionHandlers(DefaultMigrateCacheExceptionHandler.INSTANCE))
                         .exceptionHandler(new IgniteClientConnectionExceptionHandler())
                         .exceptionHandler(new DataStreamerExceptionHandler())
+                        .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
                         .inputProvider(() -> new RetriableMigrateCacheCall.Input(
                                 parent.params(),
                                 migrateCacheParams,

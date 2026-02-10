@@ -60,6 +60,7 @@ dependencies {
     implementation libs.jansi.core
     implementation libs.picocli.shell.jline3
     implementation libs.picocli.core
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.databind
     implementation libs.typesafe.config
     implementation libs.slf4j.jdk14
@@ -69,7 +70,7 @@ dependencies {
     implementation libs.okhttp.core
     implementation libs.okhttp.logging
     implementation libs.threetenbp
-    implementation libs.swagger.legacy.annotations
+    implementation libs.swaggerv3.annotations
     implementation libs.progressBar
 
     testAnnotationProcessor libs.picocli.annotation.processor
@@ -84,16 +85,11 @@ dependencies {
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.test
     testImplementation libs.assertj.core
-    testImplementation libs.mock.server.netty
-    testImplementation libs.mock.server.junit
+    testImplementation libs.wiremock
     testImplementation libs.awaitility
 
-    testFixturesAnnotationProcessor libs.picocli.annotation.processor
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
-    testFixturesAnnotationProcessor libs.micronaut.validation.annotation.processor
     testFixturesImplementation libs.micronaut.inject
-    testFixturesImplementation libs.micronaut.picocli
-    testFixturesImplementation libs.micronaut.junit5
     testFixturesImplementation testFixtures(project(':ignite-core'))
 
     integrationTestAnnotationProcessor libs.picocli.annotation.processor
@@ -107,13 +103,14 @@ dependencies {
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-api'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation libs.micronaut.runtime
     integrationTestImplementation libs.micronaut.picocli
-    integrationTestImplementation libs.mock.server.netty
-    integrationTestImplementation libs.mock.server.junit
+    integrationTestImplementation libs.wiremock
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
     integrationTestImplementation libs.assertj.core
@@ -172,17 +169,19 @@ compileJava {
     source generatedClientDir.get().dir('src/main/java')
 }
 
+def completionScriptFile = layout.buildDirectory.file('ignite3_completion.sh')
+
 def generateAutocompletionScript = tasks.register('generateAutocompletionScript', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set("picocli.AutoComplete")
     systemProperty("picocli.autocomplete.systemExitOnError", "")
     args = ["--force",
             "--completionScript",
-            "${buildDir}/ignite_completion.sh",
+            completionScriptFile.get().asFile.path,
             "-n",
             "ignite3",
             "org.apache.ignite.internal.cli.commands.TopLevelCliCommand"]
-    outputs.file "${buildDir}/ignite_completion.sh"
+    outputs.file completionScriptFile
 }
 
 build.dependsOn generateAutocompletionScript
@@ -195,7 +194,7 @@ configurations {
 }
 
 artifacts {
-    cliScripts(new File("${buildDir}/ignite_completion.sh")) {
+    cliScripts(completionScriptFile) {
         builtBy(generateAutocompletionScript)
     }
 }

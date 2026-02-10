@@ -72,7 +72,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
 
         logInspector.start();
         try {
-            FailureManager failureManager = new FailureManager(() -> {}, disabledThreadDumpConfiguration);
+            FailureManager failureManager = new FailureManager("test-node", () -> {}, disabledThreadDumpConfiguration);
 
             try {
                 assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());
@@ -95,12 +95,10 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
      */
     @Test
     public void testNoThrottling() {
-        AtomicInteger messageCounter = new AtomicInteger();
-
         LogInspector logInspector = new LogInspector(
                 FailureManager.class.getName(),
-                evt -> evt.getMessage().getFormattedMessage().startsWith(THREAD_DUMP_MSG),
-                messageCounter::incrementAndGet);
+                evt -> evt.getMessage().getFormattedMessage().startsWith(THREAD_DUMP_MSG)
+        );
 
         logInspector.start();
         try {
@@ -116,7 +114,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
             logInspector.stop();
         }
 
-        assertThat(messageCounter.get(), is(2));
+        assertThat(logInspector.timesMatched().sum(), is(2));
     }
 
     /**
@@ -219,7 +217,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
      * Creates a new instance of {@link FailureManager} with the given configuration and runs the test represented by {@code test} closure.
      */
     static void testFailureProcessing(FailureProcessorConfiguration configuration, Consumer<FailureProcessor> test) {
-        FailureManager failureManager = new FailureManager(() -> {}, configuration);
+        FailureManager failureManager = new FailureManager("test-node", () -> {}, configuration);
 
         try {
             assertThat(failureManager.startAsync(new ComponentContext()), willSucceedFast());

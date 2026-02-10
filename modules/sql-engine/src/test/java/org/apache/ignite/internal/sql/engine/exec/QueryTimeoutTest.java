@@ -94,7 +94,6 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
 
         cluster.start();
 
-
         gatewayNode = cluster.node(NODE_NAME);
 
         gatewayNode.initSchema("CREATE TABLE my_table (id INT PRIMARY KEY, val VARCHAR(128))");
@@ -118,7 +117,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
         ignoreCatalogUpdates.set(true);
 
         assertThrows(
-                QueryCancelledException.class,
+                SqlException.class,
                 () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "CREATE TABLE x (id INTEGER PRIMARY KEY, val INTEGER)"),
                 QueryCancelledException.TIMEOUT_MSG
         );
@@ -127,7 +126,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
     @Test
     void testTimeoutKill() {
         assertThrows(
-                QueryCancelledException.class,
+                SqlException.class,
                 () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "KILL QUERY '" + randomUUID() + '\''),
                 QueryCancelledException.TIMEOUT_MSG
         );
@@ -135,27 +134,19 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTimeoutSelectCount() {
-        AsyncSqlCursor<?> cursor = gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT COUNT(*) FROM my_table");
-
-        assertThat(
-                cursor.requestNextAsync(1),
-                willThrowWithCauseOrSuppressed(
-                        QueryCancelledException.class,
-                        QueryCancelledException.TIMEOUT_MSG
-                )
+        assertThrows(
+                SqlException.class,
+                () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT COUNT(*) FROM my_table"),
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 
     @Test
     void testTimeoutKvGet() {
-        AsyncSqlCursor<?> cursor = gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT * FROM my_table WHERE id = ?", 2);
-
-        assertThat(
-                cursor.requestNextAsync(1),
-                willThrowWithCauseOrSuppressed(
-                        QueryCancelledException.class,
-                        QueryCancelledException.TIMEOUT_MSG
-                )
+        assertThrows(
+                SqlException.class,
+                () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT * FROM my_table WHERE id = ?", 2),
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 

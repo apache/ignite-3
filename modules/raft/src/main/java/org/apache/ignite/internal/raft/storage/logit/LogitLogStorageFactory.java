@@ -20,9 +20,12 @@ package org.apache.ignite.internal.raft.storage.logit;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -113,8 +116,15 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public void sync() {
+    public Set<String> raftNodeStorageIdsOnDisk() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25988 - implement.
+        return Set.of();
+    }
+
+    @Override
+    public LogSyncer logSyncer() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21955
+        return new NoOpLogSyncer();
     }
 
     /** Returns path to log storage by group ID. */

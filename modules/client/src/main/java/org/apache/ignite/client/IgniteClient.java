@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
@@ -112,6 +113,10 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         private long operationTimeout = DFLT_OPERATION_TIMEOUT;
 
         private int sqlPartitionAwarenessMetadataCacheSize = DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
+
+        private @Nullable String name;
+
+        long backgroundReResolveAddressesInterval = DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -388,6 +393,45 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         }
 
         /**
+         * Sets the client name. Default is {@code null}, which means that Ignite will generate a unique name automatically.
+         *
+         * <p>Client name is used for identifying clients in JMX metrics. The name is only used locally and is not sent to the server.
+         *
+         * <p>If multiple clients with the same exist in the same JVM, JMX metrics will be exposed only for one of them.
+         * Others will log an error.
+         *
+         * @param name Client name.
+         * @return This instance.
+         */
+        public Builder name(@Nullable String name) {
+            this.name = name;
+
+            return this;
+        }
+
+        /**
+         * Sets how long the resolved addresses will be considered valid, in milliseconds. Set to {@code 0} for infinite validity.
+         *
+         * <p>Ignite client resolve the provided hostnames into multiple IP addresses, each corresponds to an active cluster node.
+         * However, additional IP addresses can be collected after updating the DNS records. This property controls how often Ignite
+         * client will try to re-resolve provided hostnames and connect to newly discovered addresses.
+         *
+         * @param backgroundReResolveAddressesInterval  Background re-resolve interval, in milliseconds.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
+        public Builder backgroundReResolveAddressesInterval(long backgroundReResolveAddressesInterval) {
+            if (backgroundReResolveAddressesInterval < 0) {
+                throw new IllegalArgumentException("backgroundReResolveAddressesInterval ["
+                        + backgroundReResolveAddressesInterval + "] must be a non-negative integer value.");
+            }
+
+            this.backgroundReResolveAddressesInterval = backgroundReResolveAddressesInterval;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -416,7 +460,9 @@ public interface IgniteClient extends Ignite, AutoCloseable {
                     metricsEnabled,
                     authenticator,
                     operationTimeout,
-                    sqlPartitionAwarenessMetadataCacheSize
+                    sqlPartitionAwarenessMetadataCacheSize,
+                    name,
+                    backgroundReResolveAddressesInterval
             );
 
             return TcpIgniteClient.startAsync(cfg);

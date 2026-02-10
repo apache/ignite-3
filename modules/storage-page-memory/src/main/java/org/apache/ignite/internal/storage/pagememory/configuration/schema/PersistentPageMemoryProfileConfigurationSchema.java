@@ -23,11 +23,12 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 
 /**
  * Persistent storage profile configuration schema.
  */
-@PolymorphicConfigInstance("aipersist")
+@PolymorphicConfigInstance(PersistentPageMemoryStorageEngine.ENGINE_NAME)
 public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /**
      * Random-LRU page replacement algorithm.

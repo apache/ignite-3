@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.rest.api.deployment.UnitEntry.UnitFolder;
 import org.reactivestreams.Publisher;
 
 /**
@@ -71,6 +72,44 @@ public interface DeploymentCodeApi {
             @Schema(name = "unitVersion", requiredMode = REQUIRED, description = "The version of the deployment unit.")
             String unitVersion,
             @Schema(name = "unitContent", requiredMode = REQUIRED, description = "The code to deploy.")
+            Publisher<CompletedFileUpload> unitContent,
+            @QueryValue
+            @Schema(name = "deployMode", requiredMode = REQUIRED, description = "ALL or MAJORITY.")
+            Optional<InitialDeployMode> deployMode,
+            @QueryValue
+            @Schema(name = "initialNodes", requiredMode = REQUIRED, description = "List of node identifiers to deploy to.")
+            Optional<List<String>> initialNodes
+    );
+
+    /**
+     * Deploy unit with zip file REST method.
+     */
+    @Operation(
+            operationId = "deployZipUnit",
+            summary = "Deploy unit with folders structure in zip.",
+            description = "Deploys provided unit in zip file to the cluster with folders structure."
+    )
+    @ApiResponse(responseCode = "200", description = "Unit deployed successfully.",
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(type = "boolean"))
+    )
+    @ApiResponse(responseCode = "409", description = "Unit with same identifier and version is already deployed.",
+            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
+    )
+    @ApiResponse(
+            responseCode = "400", description = "Deployment unit with unzip supports only single zip file.",
+            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
+    )
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
+    )
+    @Consumes(FORM_DATA)
+    @Post("units/zip/{unitId}/{unitVersion}")
+    CompletableFuture<Boolean> deployZip(
+            @Schema(name = "unitId", requiredMode = REQUIRED, description = "The ID of the deployment unit.")
+            String unitId,
+            @Schema(name = "unitVersion", requiredMode = REQUIRED, description = "The version of the deployment unit.")
+            String unitVersion,
+            @Schema(name = "unitContent", requiredMode = REQUIRED, description = "The zip file with unit content to deploy.")
             Publisher<CompletedFileUpload> unitContent,
             @QueryValue
             @Schema(name = "deployMode", requiredMode = REQUIRED, description = "ALL or MAJORITY.")
@@ -195,5 +234,29 @@ public interface DeploymentCodeApi {
             Optional<String> version,
             @Schema(name = "statuses", description = "Deployment status filter.")
             Optional<List<DeploymentStatus>> statuses
+    );
+
+    /**
+     * Unit content REST method.
+     */
+    @Operation(
+            operationId = "unitContent",
+            summary = "Get unit contents.",
+            description = "Returns a folder representation with unit content."
+    )
+    @ApiResponse(responseCode = "200",
+            description = "Unit content returned successfully.",
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = UnitFolder.class))
+    )
+    @ApiResponse(responseCode = "500",
+            description = "Internal error.",
+            content = @Content(mediaType = PROBLEM_JSON, schema = @Schema(implementation = Problem.class))
+    )
+    @Get("node/units/structure/{unitId}/{unitVersion}")
+    CompletableFuture<UnitFolder> unitStructure(
+            @Schema(name = "unitId", description = "The ID of the deployment unit.")
+            String unitId,
+            @Schema(name = "unitVersion", description = "The version of the deployment unit.")
+            String unitVersion
     );
 }

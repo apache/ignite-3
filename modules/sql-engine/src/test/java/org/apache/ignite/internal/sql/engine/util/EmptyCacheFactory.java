@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import java.time.Duration;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -50,6 +53,11 @@ public class EmptyCacheFactory implements CacheFactory {
         return create(size);
     }
 
+    @Override
+    public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
+        return create(size);
+    }
+
     /** A cache that keeps no object. */
     public static class EmptyCache<K, V> implements Cache<K, V> {
         @Override
@@ -75,6 +83,11 @@ public class EmptyCacheFactory implements CacheFactory {
         @Override
         public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return remappingFunction.apply(key, null);
+        }
+
+        @Override
+        public Set<Entry<K, V>> entrySet() {
+            return Set.of();
         }
 
         @Override

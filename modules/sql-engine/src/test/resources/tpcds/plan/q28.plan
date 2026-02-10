@@ -35,7 +35,7 @@ Limit
                     est: (rows=180025)
                   TableScan
                       table: PUBLIC.STORE_SALES
-                      predicate: AND(SEARCH(SS_QUANTITY, Sarg[[6..10]]), OR(AND(>=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 152.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), CAST(+(152, 10)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 2196.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), CAST(+(2196, 1000)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 56.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), CAST(+(56, 20)):DECIMAL(12, 2) NOT NULL))))
+                      predicate: AND(SEARCH(SS_QUANTITY, Sarg[[6..10]]), OR(AND(>=(SS_LIST_PRICE, 152.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 162.00)), AND(>=(SS_COUPON_AMT, 2196.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 3196.00)), AND(>=(SS_WHOLESALE_COST, 56.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 76.00))))
                       fieldNames: [SS_LIST_PRICE]
                       est: (rows=180025)
               ColocatedHashAggregate
@@ -48,7 +48,7 @@ Limit
                     est: (rows=180025)
                   TableScan
                       table: PUBLIC.STORE_SALES
-                      predicate: AND(SEARCH(SS_QUANTITY, Sarg[[11..15]]), OR(AND(>=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 53.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), CAST(+(53, 10)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 3430.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), CAST(+(3430, 1000)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 13.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), CAST(+(13, 20)):DECIMAL(12, 2) NOT NULL))))
+                      predicate: AND(SEARCH(SS_QUANTITY, Sarg[[11..15]]), OR(AND(>=(SS_LIST_PRICE, 53.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 63.00)), AND(>=(SS_COUPON_AMT, 3430.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 4430.00)), AND(>=(SS_WHOLESALE_COST, 13.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 33.00))))
                       fieldNames: [SS_LIST_PRICE]
                       est: (rows=180025)
             ColocatedHashAggregate
@@ -61,7 +61,7 @@ Limit
                   est: (rows=180025)
                 TableScan
                     table: PUBLIC.STORE_SALES
-                    predicate: AND(SEARCH(SS_QUANTITY, Sarg[[16..20]]), OR(AND(>=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 182.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), CAST(+(182, 10)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 3262.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), CAST(+(3262, 1000)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 20.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), CAST(+(20, 20)):DECIMAL(12, 2) NOT NULL))))
+                    predicate: AND(SEARCH(SS_QUANTITY, Sarg[[16..20]]), OR(AND(>=(SS_LIST_PRICE, 182.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 192.00)), AND(>=(SS_COUPON_AMT, 3262.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 4262.00)), AND(>=(SS_WHOLESALE_COST, 20.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 40.00))))
                     fieldNames: [SS_LIST_PRICE]
                     est: (rows=180025)
           ColocatedHashAggregate
@@ -74,7 +74,7 @@ Limit
                 est: (rows=180025)
               TableScan
                   table: PUBLIC.STORE_SALES
-                  predicate: AND(SEARCH(SS_QUANTITY, Sarg[[26..30]]), OR(AND(>=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 180.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), CAST(+(180, 10)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 12592.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), CAST(+(12592, 1000)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 22.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), CAST(+(22, 20)):DECIMAL(12, 2) NOT NULL))))
+                  predicate: AND(SEARCH(SS_QUANTITY, Sarg[[26..30]]), OR(AND(>=(SS_LIST_PRICE, 180.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 190.00)), AND(>=(SS_COUPON_AMT, 12592.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 13592.00)), AND(>=(SS_WHOLESALE_COST, 22.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 42.00))))
                   fieldNames: [SS_LIST_PRICE]
                   est: (rows=180025)
         ColocatedHashAggregate
@@ -87,7 +87,7 @@ Limit
               est: (rows=180025)
             TableScan
                 table: PUBLIC.STORE_SALES
-                predicate: AND(SEARCH(SS_QUANTITY, Sarg[[0..5]]), OR(AND(>=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 73.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), CAST(+(73, 10)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 7826.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), CAST(+(7826, 1000)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 70.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), CAST(+(70, 20)):DECIMAL(12, 2) NOT NULL))))
+                predicate: AND(SEARCH(SS_QUANTITY, Sarg[[0..5]]), OR(AND(>=(SS_LIST_PRICE, 73.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 83.00)), AND(>=(SS_COUPON_AMT, 7826.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 8826.00)), AND(>=(SS_WHOLESALE_COST, 70.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 90.00))))
                 fieldNames: [SS_LIST_PRICE]
                 est: (rows=180025)
       ColocatedHashAggregate
@@ -100,6 +100,6 @@ Limit
             est: (rows=180025)
           TableScan
               table: PUBLIC.STORE_SALES
-              predicate: AND(SEARCH(SS_QUANTITY, Sarg[[21..25]]), OR(AND(>=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 85.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), CAST(+(85, 10)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 3310.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), CAST(+(3310, 1000)):DECIMAL(12, 2) NOT NULL)), AND(>=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 37.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), CAST(+(37, 20)):DECIMAL(12, 2) NOT NULL))))
+              predicate: AND(SEARCH(SS_QUANTITY, Sarg[[21..25]]), OR(AND(>=(SS_LIST_PRICE, 85.00), <=(CAST(SS_LIST_PRICE):DECIMAL(12, 2), 95.00)), AND(>=(SS_COUPON_AMT, 3310.00), <=(CAST(SS_COUPON_AMT):DECIMAL(12, 2), 4310.00)), AND(>=(SS_WHOLESALE_COST, 37.00), <=(CAST(SS_WHOLESALE_COST):DECIMAL(12, 2), 57.00))))
               fieldNames: [SS_LIST_PRICE]
               est: (rows=180025)

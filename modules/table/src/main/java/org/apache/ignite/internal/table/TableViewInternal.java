@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.table;
 
+import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
+import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
+import org.apache.ignite.internal.table.distributed.TableStatsStalenessConfiguration;
+import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /** Internal table view interface. */
 public interface TableViewInternal extends Table {
@@ -60,13 +67,6 @@ public interface TableViewInternal extends Table {
     SchemaRegistry schemaView();
 
     /**
-     * Sets a schema view for the table.
-     *
-     * @param schemaReg Schema view.
-     */
-    void schemaView(SchemaRegistry schemaReg);
-
-    /**
      * Returns a partition ID for a key tuple.
      *
      * @param key The tuple.
@@ -82,6 +82,12 @@ public interface TableViewInternal extends Table {
      * @return The partition ID.
      */
     <K> int partitionId(K key, Mapper<K> keyMapper);
+
+    /** Returns a supplier of index storage wrapper factories for given partition. */
+    TableIndexStoragesSupplier indexStorageAdapters(int partitionId);
+
+    /** Returns a supplier of index locker factories for given partition. */
+    Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId);
 
     /**
      * Registers the index with given id in a table.
@@ -117,4 +123,29 @@ public interface TableViewInternal extends Table {
      * @param indexId An index id to unregister.
      */
     void unregisterIndex(int indexId);
+
+    /**
+     * Returns a metric source for this table.
+     *
+     * @return Table metrics source.
+     */
+    ReadWriteMetricSource metrics();
+
+    /**
+     * Updates staleness configuration with provided parameters.
+     *
+     * <p>If parameter is {@code null}, then value from current configuration is used instead.
+     *
+     * @param staleRowsFraction A fraction of a partition to be modified before the data is considered to be "stale". Should be in
+     *         range [0, 1].
+     * @param minStaleRowsCount Minimal number of rows in partition to be modified before the data is considered to be "stale".
+     *         Should be non-negative.
+     */
+    void updateStalenessConfiguration(
+            @Nullable Double staleRowsFraction,
+            @Nullable Long minStaleRowsCount
+    );
+
+    /** Returns current staleness configuration. */
+    TableStatsStalenessConfiguration stalenessConfiguration();
 }

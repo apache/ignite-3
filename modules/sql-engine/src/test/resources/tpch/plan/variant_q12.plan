@@ -16,7 +16,7 @@ Sort
           est: (rows=42644)
         Project
             fieldNames: [L_SHIPMODE, $f1, $f2]
-            projection: [L_SHIPMODE, CASE(SEARCH(O_ORDERPRIORITY, Sarg[_UTF-8'1-URGENT', _UTF-8'2-HIGH':CHAR(8) CHARACTER SET "UTF-8"]:CHAR(8) CHARACTER SET "UTF-8"), 1, 0), CASE(SEARCH(O_ORDERPRIORITY, Sarg[_UTF-8'1-URGENT', _UTF-8'2-HIGH':CHAR(8) CHARACTER SET "UTF-8"]:CHAR(8) CHARACTER SET "UTF-8"), 0, 1)]
+            projection: [L_SHIPMODE, CASE(SEARCH(O_ORDERPRIORITY, Sarg[_UTF-8'1-URGENT':VARCHAR(8) CHARACTER SET "UTF-8", _UTF-8'2-HIGH':VARCHAR(8) CHARACTER SET "UTF-8"]:VARCHAR(8) CHARACTER SET "UTF-8"), 1, 0), CASE(SEARCH(O_ORDERPRIORITY, Sarg[_UTF-8'1-URGENT':VARCHAR(8) CHARACTER SET "UTF-8", _UTF-8'2-HIGH':VARCHAR(8) CHARACTER SET "UTF-8"]:VARCHAR(8) CHARACTER SET "UTF-8"), 0, 1)]
             est: (rows=213218)
           HashJoin
               predicate: =(O_ORDERKEY, L_ORDERKEY)
@@ -33,8 +33,8 @@ Sort
                   table: PUBLIC.LINEITEM
                   index: L_RD
                   type: SORTED
-                  predicate: AND(SEARCH(L_SHIPMODE, Sarg[_UTF-8'MAIL':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'SHIP':VARCHAR(10) CHARACTER SET "UTF-8"]:VARCHAR(10) CHARACTER SET "UTF-8"), <(L_COMMITDATE, L_RECEIPTDATE), <(L_SHIPDATE, L_COMMITDATE), >=(L_RECEIPTDATE, 1994-01-01), <(L_RECEIPTDATE, +(1994-01-01, 12:INTERVAL YEAR)))
-                  searchBounds: [RangeBounds [lowerBound=1994-01-01, upperBound=+(1994-01-01, 12:INTERVAL YEAR), lowerInclude=true, upperInclude=false]]
+                  predicate: AND(SEARCH(L_SHIPMODE, Sarg[_UTF-8'MAIL':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'SHIP':VARCHAR(10) CHARACTER SET "UTF-8"]:VARCHAR(10) CHARACTER SET "UTF-8"), <(L_COMMITDATE, L_RECEIPTDATE), <(L_SHIPDATE, L_COMMITDATE), SEARCH(L_RECEIPTDATE, Sarg[[1994-01-01..1995-01-01)]))
+                  searchBounds: [<1994-01-01>..<1995-01-01>)
                   fieldNames: [L_ORDERKEY, L_SHIPDATE, L_COMMITDATE, L_RECEIPTDATE, L_SHIPMODE]
                   collation: [L_RECEIPTDATE ASC]
                   est: (rows=213218)

@@ -28,18 +28,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
-import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Data class representing the state of running/scheduled checkpoint.
  */
-class CheckpointProgressImpl implements CheckpointProgress {
+public class CheckpointProgressImpl implements CheckpointProgress {
     /** Checkpoint id. */
     private final UUID id = UUID.randomUUID();
 
@@ -69,14 +64,14 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /** Counter for fsynced checkpoint pages. */
     private final AtomicInteger syncedPagesCntr = new AtomicInteger();
 
+    /** Counter for fsynced checkpoint files. */
+    private final AtomicInteger syncedFilesCntr = new AtomicInteger();
+
     /** Counter for evicted checkpoint pages. */
     private final AtomicInteger evictedPagesCntr = new AtomicInteger();
 
     /** Sorted dirty pages to be written on the checkpoint. */
     private volatile @Nullable CheckpointDirtyPages pageToWrite;
-
-    /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
-    private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
 
     /** Assistant for synchronizing page replacement and fsync phase. */
     private final CheckpointPageReplacement checkpointPageReplacement = new CheckpointPageReplacement();
@@ -92,7 +87,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      *
      * @param delay Delay in nanos before next checkpoint is to be executed. Value is from {@code 0} to {@code 365} days.
      */
-    CheckpointProgressImpl(long delay) {
+    public CheckpointProgressImpl(long delay) {
         nextCheckpointNanos(delay);
     }
 
@@ -162,6 +157,16 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return syncedPagesCntr;
     }
 
+    /** Returns counter of fsync-ed checkpoint files. */
+    public AtomicInteger syncedFilesCounter() {
+        return syncedFilesCntr;
+    }
+
+    @Override
+    public int syncedFiles() {
+        return syncedFilesCntr.get();
+    }
+
     @Override
     public AtomicInteger evictedPagesCounter() {
         return evictedPagesCntr;
@@ -222,6 +227,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
         writtenPagesCntr.set(0);
         syncedPagesCntr.set(0);
         evictedPagesCntr.set(0);
+        syncedFilesCntr.set(0);
     }
 
     /**
@@ -306,69 +312,6 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     /**
-     * Blocks physical destruction of partition.
-     *
-     * <p>When the intention to destroy partition appears, {@link FilePageStore#isMarkedToDestroy()} is set to {@code == true} and
-     * {@link PersistentPageMemory#invalidate(int, int)} invoked at the beginning. And if there is a block, it waits for unblocking.
-     * Then it destroys the partition, {@link FilePageStoreManager#getStore(GroupPartitionId)} will return {@code null}.</p>
-     *
-     * <p>It is recommended to use where physical destruction of the partition may have an impact, for example when writing dirty pages and
-     * executing a fsync.</p>
-     *
-     * <p>To make sure that we can physically do something with the partition during a block, we will need to use approximately the
-     * following code:</p>
-     * <pre><code>
-     *     checkpointProgress.blockPartitionDestruction(partitionId);
-     *
-     *     try {
-     *         FilePageStore pageStore = FilePageStoreManager#getStore(partitionId);
-     *
-     *         if (pageStore == null || pageStore.isMarkedToDestroy()) {
-     *             return;
-     *         }
-     *
-     *         someAction(pageStore);
-     *     } finally {
-     *         checkpointProgress.unblockPartitionDestruction(partitionId);
-     *     }
-     * </code></pre>
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @see #unblockPartitionDestruction(GroupPartitionId)
-     * @see #getUnblockPartitionDestructionFuture(GroupPartitionId)
-     */
-    public void blockPartitionDestruction(GroupPartitionId groupPartitionId) {
-        processedPartitionMap.incrementPartitionProcessingCounter(groupPartitionId);
-    }
-
-    /**
-     * Unblocks physical destruction of partition.
-     *
-     * <p>As soon as the last thread makes an unlock, the physical destruction of the partition can immediately begin.</p>
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @see #blockPartitionDestruction(GroupPartitionId)
-     * @see #getUnblockPartitionDestructionFuture(GroupPartitionId)
-     */
-    public void unblockPartitionDestruction(GroupPartitionId groupPartitionId) {
-        processedPartitionMap.decrementPartitionProcessingCounter(groupPartitionId);
-    }
-
-    /**
-     * Returns the future if the partition according to the given parameters is currently being blocked, for example, dirty pages are
-     * being written or fsync is being done, {@code null} if the partition is not currently being blocked.
-     *
-     * <p>Future will be added on {@link #blockPartitionDestruction(GroupPartitionId)} call and completed on
-     * {@link #unblockPartitionDestruction(GroupPartitionId)} call (equal to the number of
-     * {@link #unblockPartitionDestruction(GroupPartitionId)} calls).
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     */
-    public @Nullable CompletableFuture<Void> getUnblockPartitionDestructionFuture(GroupPartitionId groupPartitionId) {
-        return processedPartitionMap.getProcessedPartitionFuture(groupPartitionId);
-    }
-
-    /**
      * Block the start of the fsync phase at a checkpoint before replacing the page.
      *
      * <p>It is expected that the method will be invoked once and after that the {@link #unblockFsyncOnPageReplacement} will be invoked on
@@ -378,10 +321,10 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * the fsync phase, write dirty pages at the checkpoint should be complete and no new page replacements should be started.</p>
      *
      * @param pageId Page ID for which page replacement is expected to begin.
-     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #unblockFsyncOnPageReplacement
      * @see #getUnblockFsyncOnPageReplacementFuture()
      */
-    void blockFsyncOnPageReplacement(FullPageId pageId) {
+    void blockFsyncOnPageReplacement(DirtyFullPageId pageId) {
         checkpointPageReplacement.block(pageId);
     }
 
@@ -401,10 +344,10 @@ class CheckpointProgressImpl implements CheckpointProgress {
      *
      * @param pageId Page ID for which the page replacement has ended.
      * @param error Error on page replacement, {@code null} if missing.
-     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #blockFsyncOnPageReplacement
      * @see #getUnblockFsyncOnPageReplacementFuture()
      */
-    void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+    void unblockFsyncOnPageReplacement(DirtyFullPageId pageId, @Nullable Throwable error) {
         checkpointPageReplacement.unblock(pageId, error);
     }
 
@@ -415,8 +358,8 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * <p>Must be invoked before the start of the fsync phase at the checkpoint and wait for the future to complete in order to safely
      * perform the phase.</p>
      *
-     * @see #blockFsyncOnPageReplacement(FullPageId)
-     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #blockFsyncOnPageReplacement
+     * @see #unblockFsyncOnPageReplacement
      */
     CompletableFuture<Void> getUnblockFsyncOnPageReplacementFuture() {
         return checkpointPageReplacement.stopBlocking();

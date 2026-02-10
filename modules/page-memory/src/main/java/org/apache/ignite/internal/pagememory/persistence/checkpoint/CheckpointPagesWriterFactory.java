@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
@@ -49,6 +50,8 @@ public class CheckpointPagesWriterFactory {
     /** Partition meta information manager. */
     private final PartitionMetaManager partitionMetaManager;
 
+    private final PartitionDestructionLockManager partitionDestructionLockManager;
+
     /**
      * Constructor.
      *
@@ -56,17 +59,20 @@ public class CheckpointPagesWriterFactory {
      * @param ioRegistry Page IO registry.
      * @param partitionMetaManager Partition meta information manager.
      * @param pageSize Page size in bytes.
+     * @param partitionDestructionLockManager Partition Destruction Lock Manager.
      */
     CheckpointPagesWriterFactory(
             WriteDirtyPage dirtyPageWriter,
             PageIoRegistry ioRegistry,
             PartitionMetaManager partitionMetaManager,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize
+            int pageSize,
+            PartitionDestructionLockManager partitionDestructionLockManager
     ) {
         this.dirtyPageWriter = dirtyPageWriter;
         this.ioRegistry = ioRegistry;
         this.partitionMetaManager = partitionMetaManager;
+        this.partitionDestructionLockManager = partitionDestructionLockManager;
 
         threadBuf = ThreadLocal.withInitial(() -> {
             ByteBuffer tmpWriteBuf = ByteBuffer.allocateDirect(pageSize);
@@ -112,7 +118,8 @@ public class CheckpointPagesWriterFactory {
                 dirtyPageWriter,
                 ioRegistry,
                 partitionMetaManager,
-                shutdownNow
+                shutdownNow,
+                partitionDestructionLockManager
         );
     }
 }

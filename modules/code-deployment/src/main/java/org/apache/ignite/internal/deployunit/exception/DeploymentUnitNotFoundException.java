@@ -46,7 +46,6 @@ public class DeploymentUnitNotFoundException extends IgniteException {
         this(id, null);
     }
 
-
     /**
      * Constructor.
      *

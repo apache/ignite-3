@@ -51,7 +51,7 @@ Sort
                   est: (rows=21600)
                 TableScan
                     table: PUBLIC.TIME_DIM
-                    predicate: AND(>=(T_HOUR, 16), <=(T_HOUR, +(16, 1)))
+                    predicate: SEARCH(T_HOUR, Sarg[[16..17]])
                     fieldNames: [T_TIME_SK, T_HOUR]
                     est: (rows=21600)
             Exchange
@@ -103,7 +103,7 @@ Sort
                   est: (rows=21600)
                 TableScan
                     table: PUBLIC.TIME_DIM
-                    predicate: AND(>=(T_HOUR, 9), <=(T_HOUR, +(9, 1)))
+                    predicate: SEARCH(T_HOUR, Sarg[[9..10]])
                     fieldNames: [T_TIME_SK, T_HOUR]
                     est: (rows=21600)
             Exchange

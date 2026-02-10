@@ -51,22 +51,25 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
@@ -102,12 +105,12 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         createZoneAndTablePerson(ZONE_NAME, TABLE_NAME, 3, 1);
 
-        cluster.transferLeadershipTo(2, cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
+        cluster.transferLeadershipTo(2, cluster.solePartitionId(ZONE_NAME));
 
         var closableResources = new ArrayList<ManuallyCloseable>();
 
         try {
-            ReplicationGroupId replicationGroup = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
+            ZonePartitionId replicationGroup = cluster.solePartitionId(ZONE_NAME);
 
             TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, replicationGroup);
 
@@ -141,7 +144,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
             startNodes(0, 1);
 
-            awaitMajority(cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
+            awaitMajority(cluster.solePartitionId(ZONE_NAME));
 
             startNode(2);
 
@@ -333,16 +336,14 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
             InternalTableImpl internalTableImpl,
             InternalTransaction roTx,
             int partitionId,
-            ClusterNode recipientNode
+            InternalClusterNode recipientNode
     ) {
         assertTrue(roTx.isReadOnly(), roTx.toString());
 
         return internalTableImpl.scan(
                 partitionId,
-                roTx.id(),
-                roTx.readTimestamp(),
                 recipientNode,
-                roTx.coordinatorId()
+                OperationContext.create(TxContext.readOnly(roTx))
         );
     }
 

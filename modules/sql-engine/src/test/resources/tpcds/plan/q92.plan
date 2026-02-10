@@ -10,95 +10,68 @@ Sort
     Project
         fieldNames: [WS_EXT_DISCOUNT_AMT]
         projection: [WS_EXT_DISCOUNT_AMT]
-        est: (rows=29944)
-      Filter
-          predicate: >(CAST(WS_EXT_DISCOUNT_AMT):DECIMAL(23, 17), EXPR$0)
-          est: (rows=29944)
-        CorrelatedNestedLoopJoin
-            predicate: true
-            type: left
-            correlates: [$cor1]
+        est: (rows=2096)
+      HashJoin
+          predicate: AND(=(I_ITEM_SK, WS_ITEM_SK$0), >(CAST(WS_EXT_DISCOUNT_AMT):DECIMAL(23, 17), *(1.3:DECIMAL(2, 1), $f1)))
+          fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_EXT_DISCOUNT_AMT, D_DATE_SK, D_DATE, I_ITEM_SK, I_MANUFACT_ID, WS_ITEM_SK$0, $f1]
+          type: inner
+          est: (rows=2096)
+        HashJoin
+            predicate: =(I_ITEM_SK, WS_ITEM_SK)
+            type: inner
             est: (rows=59889)
+          HashJoin
+              predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
+              type: inner
+              est: (rows=179846)
+            Exchange
+                distribution: single
+                est: (rows=719384)
+              TableScan
+                  table: PUBLIC.WEB_SALES
+                  fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_EXT_DISCOUNT_AMT]
+                  est: (rows=719384)
+            Exchange
+                distribution: single
+                est: (rows=18262)
+              TableScan
+                  table: PUBLIC.DATE_DIM
+                  predicate: SEARCH(D_DATE, Sarg[[2001-03-12..2001-06-10]])
+                  fieldNames: [D_DATE_SK, D_DATE]
+                  est: (rows=18262)
+          Exchange
+              distribution: single
+              est: (rows=5994)
+            TableScan
+                table: PUBLIC.ITEM
+                predicate: =(I_MANUFACT_ID, 356)
+                fieldNames: [I_ITEM_SK, I_MANUFACT_ID]
+                est: (rows=5994)
+        ColocatedHashAggregate
+            fieldNames: [WS_ITEM_SK, $f1]
+            group: [WS_ITEM_SK]
+            aggregation: [AVG(WS_EXT_DISCOUNT_AMT)]
+            est: (rows=35969)
           Project
-              fieldNames: [WS_EXT_DISCOUNT_AMT, I_ITEM_SK]
-              projection: [WS_EXT_DISCOUNT_AMT, I_ITEM_SK]
-              est: (rows=59889)
+              fieldNames: [WS_ITEM_SK, WS_EXT_DISCOUNT_AMT]
+              projection: [WS_ITEM_SK, WS_EXT_DISCOUNT_AMT]
+              est: (rows=179846)
             HashJoin
-                predicate: =(I_ITEM_SK, WS_ITEM_SK)
+                predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
                 type: inner
-                est: (rows=59889)
-              HashJoin
-                  predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
-                  type: inner
-                  est: (rows=179846)
-                Exchange
-                    distribution: single
-                    est: (rows=719384)
-                  TableScan
-                      table: PUBLIC.WEB_SALES
-                      fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_EXT_DISCOUNT_AMT]
-                      est: (rows=719384)
-                Exchange
-                    distribution: single
-                    est: (rows=18262)
-                  TableScan
-                      table: PUBLIC.DATE_DIM
-                      predicate: AND(>=(D_DATE, 2001-03-12), <=(D_DATE, +(2001-03-12, *(90, 86400000:INTERVAL DAY))))
-                      fieldNames: [D_DATE_SK, D_DATE]
-                      est: (rows=18262)
+                est: (rows=179846)
               Exchange
                   distribution: single
-                  est: (rows=5994)
+                  est: (rows=719384)
                 TableScan
-                    table: PUBLIC.ITEM
-                    predicate: =(I_MANUFACT_ID, 356)
-                    fieldNames: [I_ITEM_SK, I_MANUFACT_ID]
-                    est: (rows=5994)
-          Project
-              fieldNames: [EXPR$0]
-              projection: [*(1.3:DECIMAL(2, 1), $f0)]
-              est: (rows=1)
-            Project
-                fieldNames: [$f0]
-                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
-                est: (rows=1)
-              ReduceSortAggregate
-                  fieldNames: [f0_0, f1_1]
-                  collation: []
-                  group: []
-                  aggregation: [SUM(0), $SUM0(1)]
-                  est: (rows=1)
-                Project
-                    fieldNames: [0, 1]
-                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
-                    est: (rows=1)
-                  Exchange
-                      distribution: single
-                      est: (rows=1)
-                    MapSortAggregate
-                        fieldNames: [_ACC0, _ACC1]
-                        collation: []
-                        group: []
-                        aggregation: [SUM(WS_EXT_DISCOUNT_AMT), COUNT(WS_EXT_DISCOUNT_AMT)]
-                        est: (rows=1)
-                      Project
-                          fieldNames: [WS_EXT_DISCOUNT_AMT]
-                          projection: [WS_EXT_DISCOUNT_AMT]
-                          est: (rows=59889)
-                        HashJoin
-                            predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
-                            type: inner
-                            est: (rows=59889)
-                          Exchange
-                              distribution: table PUBLIC.DATE_DIM in zone "Default" by [WS_SOLD_DATE_SK]
-                              est: (rows=239555)
-                            TableScan
-                                table: PUBLIC.WEB_SALES
-                                predicate: =(WS_ITEM_SK, $cor1.I_ITEM_SK)
-                                fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_EXT_DISCOUNT_AMT]
-                                est: (rows=239555)
-                          TableScan
-                              table: PUBLIC.DATE_DIM
-                              predicate: AND(>=(D_DATE, 2001-03-12), <=(D_DATE, +(2001-03-12, *(90, 86400000:INTERVAL DAY))))
-                              fieldNames: [D_DATE_SK, D_DATE]
-                              est: (rows=18262)
+                    table: PUBLIC.WEB_SALES
+                    fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_EXT_DISCOUNT_AMT]
+                    est: (rows=719384)
+              Exchange
+                  distribution: single
+                  est: (rows=18262)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    predicate: SEARCH(D_DATE, Sarg[[2001-03-12..2001-06-10]])
+                    fieldNames: [D_DATE_SK, D_DATE]
+                    est: (rows=18262)

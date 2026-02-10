@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.binarytuple.ByteBufferAccessor;
 import org.apache.ignite.internal.util.GridUnsafe;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The `UnsafeByteBufferAccessor` class provides low-level access to the contents of a `ByteBuffer`.
@@ -29,14 +30,17 @@ import org.apache.ignite.internal.util.GridUnsafe;
  * This class supports reading various primitive types (e.g., `byte`, `int`, `long`, etc.)
  * and handles byte order differences between the buffer and the native system.
  */
-class UnsafeByteBufferAccessor implements ByteBufferAccessor {
+public class UnsafeByteBufferAccessor implements ByteBufferAccessor {
     /** Whether the byte order of the underlying buffer is reversed compared to the native byte order. */
     private static final boolean REVERSE_BYTE_ORDER = GridUnsafe.NATIVE_BYTE_ORDER != BinaryTupleParser.ORDER;
 
-    private final byte[] bytes;
-    private final long addr;
-    private final int capacity;
+    private byte @Nullable [] bytes;
+    private long addr;
+    private int capacity;
 
+    /**
+     * Constructor that initializes the accessor with a {@link ByteBuffer}.
+     */
     public UnsafeByteBufferAccessor(ByteBuffer buff) {
         if (buff.isDirect()) {
             bytes = null;
@@ -47,6 +51,36 @@ class UnsafeByteBufferAccessor implements ByteBufferAccessor {
         }
 
         capacity = buff.capacity();
+    }
+
+    /**
+     * Constructor that initializes the accessor with a memory address and capacity.
+     *
+     * @param addr Memory address.
+     * @param capacity Capacity in bytes.
+     */
+    public UnsafeByteBufferAccessor(long addr, int capacity) {
+        this.bytes = null;
+        this.addr = addr;
+        this.capacity = capacity;
+    }
+
+    /**
+     * Initializes the accessor with a memory address and capacity.
+     */
+    public void reinit(long addr, int capacity) {
+        this.bytes = null;
+        this.addr = addr;
+        this.capacity = capacity;
+    }
+
+    /**
+     * Initializes the accessor with a byte array, offset, and length.
+     */
+    public void reinit(byte[] bytes, int from, int length) {
+        this.bytes = bytes;
+        this.addr = GridUnsafe.BYTE_ARR_OFF + from;
+        this.capacity = length;
     }
 
     @Override
@@ -92,5 +126,19 @@ class UnsafeByteBufferAccessor implements ByteBufferAccessor {
     @Override
     public int capacity() {
         return capacity;
+    }
+
+    /**
+     * Returns the underlying byte array instance.
+     */
+    public byte[] getArray() {
+        return bytes;
+    }
+
+    /**
+     * Returns the underlying address.
+     */
+    public long getAddress() {
+        return addr;
     }
 }

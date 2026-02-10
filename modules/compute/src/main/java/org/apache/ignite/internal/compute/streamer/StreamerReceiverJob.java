@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute.streamer;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
@@ -60,7 +62,7 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
         CompletableFuture<List<Object>> receiverRes = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.arg());
 
         if (receiverRes == null) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return receiverRes.thenApply(r -> StreamerReceiverSerializer.serializeReceiverJobResults(r, receiver.resultMarshaller()));

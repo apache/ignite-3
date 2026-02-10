@@ -51,9 +51,9 @@ import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotTxDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -86,17 +86,18 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final TablePartitionId partition1Id = new TablePartitionId(1, 1);
-    private final TablePartitionId partition2Id = new TablePartitionId(2, 2);
+    private final ZonePartitionId partition1Id = new ZonePartitionId(1, 1);
+    private final ZonePartitionId partition2Id = new ZonePartitionId(2, 2);
 
     private final TxMeta meta1 = new TxMeta(TxState.ABORTED, tableEnlistedPartitions(partition1Id), clock.now());
     private final TxMeta meta2 = new TxMeta(TxState.COMMITTED, tableEnlistedPartitions(partition1Id, partition2Id), clock.now());
 
-    private final PartitionKey partitionKey = new TablePartitionKey(1, 1);
+    private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
-    private static List<EnlistedPartitionGroup> tableEnlistedPartitions(TablePartitionId... tablePartitionIds) {
-        return Arrays.stream(tablePartitionIds)
-                .map(tablePartitionId -> new EnlistedPartitionGroup(tablePartitionId, Set.of(tablePartitionId.tableId())))
+    private static List<EnlistedPartitionGroup> tableEnlistedPartitions(ZonePartitionId... zonePartitionIds) {
+        return Arrays.stream(zonePartitionIds)
+                // zonePartitionId.zoneId() + 10 emulates table ids.
+                .map(zonePartitionId -> new EnlistedPartitionGroup(zonePartitionId, Set.of(zonePartitionId.zoneId() + 10)))
                 .collect(toUnmodifiableList());
     }
 
@@ -106,12 +107,15 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
         lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
+        UUID snapshotId = UUID.randomUUID();
+
         snapshot = new OutgoingSnapshot(
-                UUID.randomUUID(),
+                snapshotId,
                 partitionKey,
                 singleton(1, partitionAccess),
                 txAccess,
-                catalogService
+                catalogService,
+                new RaftSnapshotsMetricsSource()
         );
     }
 

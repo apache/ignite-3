@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Compute;
 
 using System.Threading;
 using System.Threading.Tasks;
+using Common.Compute;
 using Ignite.Compute;
 using Ignite.Marshalling;
 using NUnit.Framework;

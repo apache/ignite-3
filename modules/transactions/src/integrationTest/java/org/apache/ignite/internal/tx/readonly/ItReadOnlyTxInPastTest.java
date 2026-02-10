@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.readonly;
 import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -66,13 +65,11 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     void explicitReadOnlyTxDoesNotLookBeforeTableCreation() throws Exception {
         Ignite node = cluster.node(0);
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
-        }
+        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+        setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
 
-        // In case of empty assignments, SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In case of empty assignments, SQL engine will throw "Mandatory nodes were excluded from mapping: []".
         // In order to eliminate this, assignments stabilization is needed, otherwise test may fail. Not related to colocation.
         awaitAssignmentsStabilization(node, TABLE_NAME);
 

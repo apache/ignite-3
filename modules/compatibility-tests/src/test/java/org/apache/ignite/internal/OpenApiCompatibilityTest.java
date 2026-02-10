@@ -25,8 +25,12 @@ import static org.hamcrest.Matchers.notNullValue;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import java.net.URL;
-import java.util.stream.Stream;
-import org.apache.ignite.internal.IgniteVersions.Version;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -34,15 +38,38 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Compares OpenAPI specs from previous versions with the current one.
  */
 class OpenApiCompatibilityTest {
-    private static Stream<String> versions() {
-        return IgniteVersions.INSTANCE.versions().stream().map(Version::version);
+    private static Set<String> versions() {
+        return IgniteVersions.INSTANCE.versions().keySet();
+    }
+
+    // Deprecated (removed) methods since.
+    private static final TreeMap<IgniteProductVersion, List<String>> REMOVED_PATHS;
+
+    static {
+        REMOVED_PATHS = new TreeMap<>();
+
+        // Non-colocated mode is not supported anymore.
+        // There is a new api that is based on zones.
+        REMOVED_PATHS.put(IgniteProductVersion.fromString("3.2.0"), List.of(
+                "/management/v1/recovery/partitions/restartWithCleanup",
+                "/management/v1/recovery/partitions/reset",
+                "/management/v1/recovery/state/global",
+                "/management/v1/recovery/state/local",
+                "/management/v1/recovery/partitions/restart"
+        ));
     }
 
     @ParameterizedTest
     @MethodSource("versions")
     void compareCurrentSpecWith(String version) {
-        String s = version.replace('.', '_');
-        URL baseSpec = getClass().getResource("/versions/" + s + "/openapi.yaml");
+        Set<String> removedPaths = REMOVED_PATHS
+                .tailMap(IgniteProductVersion.fromString(version))
+                .values()
+                .stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+
+        URL baseSpec = getClass().getResource("/versions/" + version + "/openapi.yaml");
         URL currentSpec = getClass().getResource("/openapi.yaml");
 
         assertThat(baseSpec, notNullValue());
@@ -52,6 +79,6 @@ class OpenApiCompatibilityTest {
         assertThat(baseApi.getInfo().getVersion(), is(version));
 
         OpenAPI currentApi = new OpenAPIV3Parser().read(currentSpec.toString());
-        assertThat(currentApi, isCompatibleWith(baseApi));
+        assertThat(currentApi, isCompatibleWith(baseApi, removedPaths));
     }
 }

@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.utils;
 
 import java.util.Objects;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Tuple representing primary replica node with its enlistment consistency token.
  */
 public class PrimaryReplica {
     /** Primary replica node. */
-    private final ClusterNode node;
+    private final InternalClusterNode node;
 
     /** Enlistment consistency token. */
     private final long enlistmentConsistencyToken;
@@ -37,7 +37,7 @@ public class PrimaryReplica {
      * @param node Primary replica node.
      * @param enlistmentConsistencyToken Enlistment consistency token.
      */
-    public PrimaryReplica(ClusterNode node, long enlistmentConsistencyToken) {
+    public PrimaryReplica(InternalClusterNode node, long enlistmentConsistencyToken) {
         this.node = node;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
@@ -47,7 +47,7 @@ public class PrimaryReplica {
      *
      * @return Primary replica node.
      */
-    public ClusterNode node() {
+    public InternalClusterNode node() {
         return node;
     }
 

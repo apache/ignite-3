@@ -33,14 +33,6 @@ public interface TxStateStorage extends ManuallyCloseable {
      */
     TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId);
 
-    /*
-     * Creates transaction state storage for partition.
-     *
-     * @param partitionId Partition id.
-     * @throws IgniteInternalException In case when the operation has failed.
-     */
-    TxStatePartitionStorage createPartitionStorage(int partitionId);
-
     /**
      * Gets transaction state storage.
      *

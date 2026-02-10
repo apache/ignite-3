@@ -26,6 +26,10 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -87,5 +91,23 @@ abstract class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTe
         assertThat(entry, instanceOf(expected));
 
         return (T) entry;
+    }
+
+    CatalogCommand convert(String query) throws SqlParseException {
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        return convert((SqlDdl) node, createContext());
+    }
+
+    CatalogCommand convert(SqlDdl ddlNode, PlanningContext ctx) {
+        try {
+            return converter.convert(ddlNode, ctx).get(2, TimeUnit.SECONDS);
+        } catch (ExecutionException e) {
+            throw (RuntimeException) e.getCause();
+        } catch (InterruptedException | TimeoutException e) {
+            throw new AssertionError("Couldn't get catalog command.", e);
+        }
     }
 }

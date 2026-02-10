@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -62,11 +63,18 @@ public class ClusterMetricController implements ClusterMetricApi, ResourceHolder
     }
 
     private static List<NodeMetricSources> fromDto(Map<String, Collection<MetricSourceDto>> sources) {
-        return sources.entrySet().stream().map(ClusterMetricController::fromDto).collect(toList());
+        return sources.entrySet().stream()
+                .map(ClusterMetricController::fromDto)
+                .sorted(Comparator.comparing(NodeMetricSources::node))
+                .collect(toList());
     }
 
     private static NodeMetricSources fromDto(Entry<String, Collection<MetricSourceDto>> entry) {
-        List<MetricSource> sources = entry.getValue().stream().map(ClusterMetricController::fromDto).collect(toList());
+        List<MetricSource> sources = entry.getValue().stream()
+                .map(ClusterMetricController::fromDto)
+                .sorted(Comparator.comparing(MetricSource::name))
+                .collect(toList());
+
         return new NodeMetricSources(entry.getKey(), sources);
     }
 

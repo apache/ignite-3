@@ -21,7 +21,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.jetbrains.annotations.Nullable;
@@ -50,13 +50,13 @@ public class TableFunctionRegistryImpl implements TableFunctionRegistry {
     }
 
     private static <RowT> @Nullable Supplier<Long> implementGetLongExpr(
-            ExecutionContext<RowT> context, ExpressionFactory<RowT> expressionFactory, RexNode expr
+            ExecutionContext<RowT> context, SqlExpressionFactory sqlExpressionFactory, RexNode expr
     ) {
         if (expr == null) {
             return null;
         }
 
-        SqlScalar<RowT, Object> value = expressionFactory.scalar(expr);
+        SqlScalar<Object> value = sqlExpressionFactory.scalar(expr);
         return () -> {
             Number num = (Number) value.get(context);
             if (num == null) {

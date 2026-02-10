@@ -38,6 +38,7 @@ pmdTest {
 dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-network')
     implementation project(':ignite-rocksdb-common')
@@ -59,6 +60,7 @@ dependencies {
     testAnnotationProcessor project(':ignite-network-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-metrics:'))
@@ -68,11 +70,13 @@ dependencies {
     testImplementation project(':ignite-network')
     testImplementation libs.netty.common
     testImplementation libs.jmh.core
+    testImplementation libs.awaitility
 
     testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-configuration-system')
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
@@ -106,7 +110,18 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.dropwizard.metrics
     integrationTestImplementation libs.disruptor
+}
+
+tasks.named('integrationTest').configure {
+    // Default allocator in Netty 4.2.+ consumes too much direct memory, which breaks some tests in this module, so we use the default
+    // value from older versions.
+    jvmArgs += '-Dio.netty.allocator.type=pooled'
 }

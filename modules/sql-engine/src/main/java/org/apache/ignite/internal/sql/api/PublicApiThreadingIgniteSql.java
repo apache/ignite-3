@@ -25,6 +25,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
@@ -220,6 +221,6 @@ public class PublicApiThreadingIgniteSql implements IgniteSql, Wrapper {
 
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
-        return classToUnwrap.cast(sql);
+        return Wrappers.unwrap(sql, classToUnwrap);
     }
 }

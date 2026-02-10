@@ -59,7 +59,7 @@ import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.SqlException;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.
@@ -181,6 +181,22 @@ public final class IgniteSqlParser {
      * @return An instance of SqlException.
      */
     private static SqlException convertException(SqlParseException ex) {
+        String message = normalizeMessage(ex);
+
+        return new SqlException(STMT_PARSE_ERR, "Failed to parse query: " + message, ex);
+    }
+
+    /**
+     * Cut out part of the message from original exception with suggested options.
+     *
+     * <p>The reason to do that is currently grammar of the parser is not aligned with Ignite's capabilities. As a result, the message may
+     * contain misleading options. Another problem is that message sometimes may contain almost every keyword, bloating the message up to
+     * hundreds of lines (given that every keyword is on a new line).
+     *
+     * @param ex The original exception.
+     * @return A normalized message.
+     */
+    public static String normalizeMessage(SqlParseException ex) {
         Throwable cause = ex.getCause();
 
         String message;
@@ -252,8 +268,7 @@ public final class IgniteSqlParser {
                     ex.getPos().getColumnNum()
             );
         }
-
-        return new SqlException(STMT_PARSE_ERR, "Failed to parse query: " + message, ex);
+        return message;
     }
 
     private static final class InternalIgniteSqlParser extends IgniteSqlParserImpl {
@@ -272,7 +287,6 @@ public final class IgniteSqlParser {
                 return parser;
             }
         };
-
 
         // We store the number of dynamic parameters in a thread local since
         // it is not possible to access an instance of IgniteSqlParser created by a parser factory.

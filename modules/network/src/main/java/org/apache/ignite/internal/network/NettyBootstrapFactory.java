@@ -38,7 +38,7 @@ import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.OutboundView;
-import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
+import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup.NetworkThread;
 import org.jetbrains.annotations.TestOnly;
@@ -46,7 +46,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
  */
-public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoopsSource {
+public class NettyBootstrapFactory implements IgniteComponent {
     /** Network configuration. */
     private final NetworkConfiguration networkConfiguration;
 
@@ -59,8 +59,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     /** Work socket channel handler event loop group (this group does network I/O). */
     private EventLoopGroup workerGroup;
 
-    /** All event loops with which {@link io.netty.channel.Channel}s might be registered. */
-    private volatile List<EventLoop> channelEventLoops;
+    private volatile HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
 
     /**
      * Constructor.
@@ -153,9 +152,13 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
         bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-network-accept");
         workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-network-worker");
 
-        this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup));
+        this.handshakeEventLoopSwitcher = new HandshakeEventLoopSwitcher(eventLoopsAt(workerGroup));
 
         return nullCompletedFuture();
+    }
+
+    public HandshakeEventLoopSwitcher handshakeEventLoopSwitcher() {
+        return handshakeEventLoopSwitcher;
     }
 
     private static List<EventLoop> eventLoopsAt(EventLoopGroup ... groups) {
@@ -196,12 +199,6 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
         }
 
         return nullCompletedFuture();
-    }
-
-
-    @Override
-    public List<EventLoop> channelEventLoops() {
-        return channelEventLoops;
     }
 
     /**

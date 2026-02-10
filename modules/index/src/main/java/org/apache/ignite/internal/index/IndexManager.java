@@ -58,11 +58,11 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP as well as managing indexes' lifecycle.
@@ -211,8 +211,8 @@ public class IndexManager implements IgniteComponent {
 
             if (LOG.isInfoEnabled()) {
                 LOG.info(
-                        "Creating local index: name={}, id={}, tableId={}, token={}",
-                        index.name(), indexId, tableId, causalityToken
+                        "Creating local index: name={}, id={}, tableId={}, token={}, type={}",
+                        index.name(), indexId, tableId, causalityToken, index.indexType()
                 );
             }
 
@@ -335,9 +335,9 @@ public class IndexManager implements IgniteComponent {
                 ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
 
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
+        Catalog nextCatalog = catalogService.latestCatalog();
 
-        Catalog nextCatalog = catalogService.catalog(latestCatalogVersion);
+        int latestCatalogVersion = nextCatalog.version();
 
         assert nextCatalog != null : "catalogVersion=" + latestCatalogVersion;
 

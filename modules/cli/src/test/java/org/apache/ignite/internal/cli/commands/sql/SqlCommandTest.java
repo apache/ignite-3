@@ -23,7 +23,10 @@ import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-class SqlCommandTest extends CliCommandTestBase {
+/**
+ * Tests for {@link SqlCommandTest}.
+ */
+public class SqlCommandTest extends CliCommandTestBase {
 
     @Override
     protected Class<?> getCommandClass() {
@@ -51,6 +54,18 @@ class SqlCommandTest extends CliCommandTestBase {
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("<command>, --file=<file> are mutually exclusive (specify only one)")
+        );
+    }
+
+    @Test
+    @DisplayName("Should show --timed option in help")
+    void timedOptionInHelp() {
+        execute("--help");
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputContains("--timed"),
+                () -> assertOutputContains("Display query execution time")
         );
     }
 }

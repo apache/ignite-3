@@ -39,7 +39,6 @@ import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
-
 /**
  * Client job execution implementation.
  */

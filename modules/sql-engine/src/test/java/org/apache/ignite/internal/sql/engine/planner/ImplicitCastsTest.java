@@ -112,6 +112,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     private static Stream<Arguments> joinColumnTypes() {
 
         List<RelDataType> numericTypes = SqlTypeName.NUMERIC_TYPES.stream()
+                .filter(t -> !SqlTypeName.UNSIGNED_TYPES.contains(t))
                 // Real/Float got mixed up.
                 .filter(t -> t != SqlTypeName.FLOAT)
                 .map(TYPE_FACTORY::createSqlType)
@@ -187,7 +188,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 tableWithColumn("B1", "COL1", rhs)
         );
 
-
         String query = "select A1.*, B1.* from A1 join B1 on A1.col1 != B1.col1";
         assertPlan(query, igniteSchema, isInstanceOf(IgniteNestedLoopJoin.class).and(new NestedLoopWithFilter(expected)));
     }
@@ -262,11 +262,16 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
             RelDataType lhs = (RelDataType) vals[0];
             RelDataType rhs = (RelDataType) vals[1];
 
+            // For exact numeric we expect search bounds only when rhs doesn't require
+            // to be downcasted in order to become a search condition.
+            if (SqlTypeUtil.isExactNumeric(lhs) && SqlTypeUtil.isExactNumeric(rhs)) {
+                return !lhs.getPrecedenceList().containsType(rhs);
+            }
+
             // TODO: https://issues.apache.org/jira/browse/IGNITE-19881
             //       https://issues.apache.org/jira/browse/IGNITE-19882
             //   SearchBounds are not built for types t1 and t2 when
             //   t1 != t2 AND either of them is approx numeric or decimal.
-            //   For integral numeric types t1 != t2 search bounds are always built.
             if (SqlTypeUtil.isApproximateNumeric(lhs) || SqlTypeUtil.isApproximateNumeric(rhs)
                     || SqlTypeUtil.isDecimal(lhs) || SqlTypeUtil.isDecimal(rhs)) {
 
@@ -317,7 +322,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
                         .sql("SELECT int_col IN (1, bigint_col) FROM t")
-                        .project("OR(=(CAST($t0):BIGINT, 1), =(CAST($t0):BIGINT, $t1))")
+                        .project("OR(=($t0, 1), =(CAST($t0):BIGINT, $t1))")
         );
     }
 

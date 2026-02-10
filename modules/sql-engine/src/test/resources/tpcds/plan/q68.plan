@@ -69,7 +69,7 @@ Sort
                           est: (rows=13893)
                         TableScan
                             table: PUBLIC.DATE_DIM
-                            predicate: AND(SEARCH(D_DOM, Sarg[[1..2]]), OR(=(D_YEAR, 1999), =(D_YEAR, +(1999, 1)), =(D_YEAR, +(1999, 2))))
+                            predicate: AND(SEARCH(D_DOM, Sarg[[1..2]]), SEARCH(D_YEAR, Sarg[1999, 2000, 2001]))
                             fieldNames: [D_DATE_SK, D_YEAR, D_DOM]
                             est: (rows=13893)
                     Exchange

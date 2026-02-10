@@ -146,7 +146,7 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void completesOutObjectFutureOnAcknowledge() {
-        OutNetworkObject outObj = new OutNetworkObject(mock(NetworkMessage.class), emptyList(), true);
+        OutNetworkObject outObj = new OutNetworkObject(mock(NetworkMessage.class), emptyList());
         descriptor.add(outObj);
 
         descriptor.acknowledge(1);
@@ -156,8 +156,8 @@ class RecoveryDescriptorTest extends BaseIgniteAbstractTest {
 
     @Test
     void onlyCompletesFuturesOfAcknowledgedOutObjects() {
-        OutNetworkObject outObj1 = new OutNetworkObject(mock(NetworkMessage.class), emptyList(), true);
-        OutNetworkObject outObj2 = new OutNetworkObject(mock(NetworkMessage.class), emptyList(), true);
+        OutNetworkObject outObj1 = new OutNetworkObject(mock(NetworkMessage.class), emptyList());
+        OutNetworkObject outObj2 = new OutNetworkObject(mock(NetworkMessage.class), emptyList());
         descriptor.add(outObj1);
         descriptor.add(outObj2);
 

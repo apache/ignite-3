@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.storage.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -51,7 +52,8 @@ public class LocalLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public void sync() {
-        // no-op
+    public Set<String> raftNodeStorageIdsOnDisk() {
+        // This creates on-heap storages, there is nothing on disk.
+        return Set.of();
     }
 }

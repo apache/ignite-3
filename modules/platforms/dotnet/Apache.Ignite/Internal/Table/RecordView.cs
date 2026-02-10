@@ -85,6 +85,7 @@ namespace Apache.Ignite.Internal.Table
         public Sql Sql => _sql;
 
         /// <inheritdoc/>
+        [RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
             var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration.Configuration);
@@ -560,6 +561,12 @@ namespace Apache.Ignite.Internal.Table
 
                 schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _logger.LogFailedTableOpDebug(e, op);
+
+                throw;
             }
         }
 

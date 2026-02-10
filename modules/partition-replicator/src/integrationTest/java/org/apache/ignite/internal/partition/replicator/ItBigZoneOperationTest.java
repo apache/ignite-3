@@ -22,13 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import java.time.Duration;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
 @ExtendWith(FailureManagerExtension.class)
 class ItBigZoneOperationTest extends ClusterPerTestIntegrationTest {
     @Override
@@ -46,7 +43,7 @@ class ItBigZoneOperationTest extends ClusterPerTestIntegrationTest {
                             + "CREATE TABLE TEST_TABLE(id INT PRIMARY KEY, val VARCHAR(255)) ZONE TEST_ZONE"
             );
 
-            node.sql().execute(null, "SELECT * FROM TEST_TABLE").close();
+            node.sql().execute("SELECT * FROM TEST_TABLE").close();
         });
     }
 }

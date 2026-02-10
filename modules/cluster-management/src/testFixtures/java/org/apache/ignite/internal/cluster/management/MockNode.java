@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-
 import static java.util.Collections.reverse;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -29,26 +29,30 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -59,7 +63,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.TestInfo;
 
@@ -86,8 +89,39 @@ public class MockNode {
             NodeFinder nodeFinder,
             Path workDir,
             RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
             NodeAttributesConfiguration nodeAttributes,
-            StorageConfiguration storageProfilesConfiguration
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
+    ) {
+        this(
+                testInfo,
+                addr,
+                nodeFinder,
+                workDir,
+                raftConfiguration,
+                systemLocalConfiguration,
+                nodeAttributes,
+                () -> Map.of(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString()),
+                storageProfilesConfiguration,
+                onConfigurationCommittedListener
+        );
+    }
+
+    /**
+     * Fake node constructor.
+     */
+    public MockNode(
+            TestInfo testInfo,
+            NetworkAddress addr,
+            NodeFinder nodeFinder,
+            Path workDir,
+            RaftConfiguration raftConfiguration,
+            SystemLocalConfiguration systemLocalConfiguration,
+            NodeAttributesConfiguration nodeAttributes,
+            NodeAttributesProvider attributesProvider,
+            StorageConfiguration storageProfilesConfiguration,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         String nodeName = testNodeName(testInfo, addr.port());
 
@@ -111,7 +145,7 @@ public class MockNode {
                 this.workDir.resolve("partitions/log")
         );
 
-        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 
         var clusterStateStorage =
                 new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
@@ -127,7 +161,9 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
-        boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
+        var collector = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
+
+        collector.register(attributesProvider);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -136,18 +172,17 @@ public class MockNode {
                 new ClusterInitializer(
                         clusterService,
                         hocon -> hocon,
-                        new TestConfigurationValidator(),
-                        () -> colocationEnabled
+                        new TestConfigurationValidator()
                 ),
                 raftManager,
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),
-                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
+                collector,
                 failureManager,
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 new NoOpMetricManager(),
-                () -> colocationEnabled
+                onConfigurationCommittedListener
         );
 
         components = List.of(
@@ -198,7 +233,7 @@ public class MockNode {
         assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
     }
 
-    public ClusterNode localMember() {
+    public InternalClusterNode localMember() {
         return clusterService.topologyService().localMember();
     }
 
@@ -226,7 +261,7 @@ public class MockNode {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 
-    CompletableFuture<Set<ClusterNode>> validatedNodes() {
+    CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
         return clusterManager().validatedNodes();
     }
 }

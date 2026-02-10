@@ -40,8 +40,8 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
@@ -150,23 +151,48 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         return null;
     }
 
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return null;
+    }
+
+    @Override
+    public int numSources() {
+        return 1;
+    }
+
+    @Override
+    public boolean lazyCursorPublication() {
+        // Fast SelectCount does not support transactions; therefore, when running concurrently with DML
+        // statements, it may return a non-transactionally-consistent result. For example, if a table is
+        // empty and two statements are executed in parallel -- one inserting 1,000 rows and another executing
+        // `SELECT count(*) FROM table` -- SelectCount may return any number in the range [0, 1000].
+        // This is not considered a problem when SelectCount runs independently (it is considered
+        // eventually consistent), but such behavior contradicts another guarantee we want to preserve:
+        // within a script, statements are executed sequentially, one after another.
+        //
+        // Lazy publication allows a race in which a subsequent DML statement can outrun the execution of
+        // the SelectCount plan, resulting in a situation where the SelectCount result includes changes
+        // made by that DML statement.
+        return false;
+    }
+
     private <RowT> Function<Long, Iterator<InternalSqlRow>> createResultProjection(ExecutionContext<RowT> ctx) {
         RelDataType getCountType = new RelDataTypeFactory.Builder(ctx.getTypeFactory())
                 .add("ROWCOUNT", SqlTypeName.BIGINT)
                 .build();
 
         RelDataType resultType = selectCountNode.getRowType();
-        SqlProjection<RowT> projection = ctx.expressionFactory().project(expressions, getCountType);
+        SqlProjection projection = ctx.expressionFactory().project(expressions, getCountType);
 
-        RowHandler<RowT> rowHandler = ctx.rowHandler();
-        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        RowHandler<RowT> rowHandler = ctx.rowAccessor();
+        SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(resultType);
+        StructNativeType rowType = NativeTypes.structBuilder()
+                .addField("COUNT", NativeTypes.INT64, false)
+                .build();
 
         return rowCount -> {
-            RowSchema rowSchema = RowSchema.builder()
-                    .addField(NativeTypes.INT64)
-                    .build();
-
-            RowT rowCountRow = ctx.rowHandler().factory(rowSchema)
+            RowT rowCountRow = ctx.rowFactoryFactory().create(rowType)
                     .rowBuilder()
                     .addField(rowCount)
                     .build();

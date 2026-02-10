@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.Comparator;

@@ -140,6 +140,9 @@ class MultiStatementHandler {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut;
 
             if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
+                // Ensure that TX_CONTROL statements are allowed.
+                ValidationHelper.validateQueryType(query.properties.allowedQueryTypes(), SqlQueryType.TX_CONTROL);
+
                 // start of a new transaction is possible only while there is no
                 // other explicit transaction; commit of a transaction will wait
                 // for related cursor to be closed. In other words, we have no
@@ -171,6 +174,10 @@ class MultiStatementHandler {
 
                     ScriptStatement statement = statements.peek();
                     if (statement == null || statement.parsedResult.queryType() != SqlQueryType.DDL) {
+                        break;
+                    }
+
+                    if (!DdlBatchingHelper.isCompatible(scriptStatement.parsedResult, statement.parsedResult)) {
                         break;
                     }
 
@@ -207,8 +214,7 @@ class MultiStatementHandler {
 
                 if (lastStatement) {
                     // Main program is completed, therefore it's safe to schedule termination of a query
-                    query.resultHolder
-                            .thenRun(this::scheduleTermination);
+                    scheduleTermination();
                 } else {
                     CompletableFuture<Void> triggerFuture;
                     ScriptStatement nextStatement = statements.peek();
@@ -272,8 +278,6 @@ class MultiStatementHandler {
     }
 
     private void cancelAll(Throwable cause) {
-        query.cancel.cancel();
-
         for (ScriptStatement scriptStatement : statements) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut = scriptStatement.cursorFuture;
 
@@ -293,7 +297,7 @@ class MultiStatementHandler {
 
     private void scheduleTermination() {
         CompletableFuture.allOf(dependentQueries.toArray(CompletableFuture[]::new))
-                .whenComplete((ignored, ex) -> query.moveTo(ExecutionPhase.TERMINATED));
+                .whenComplete((ignored, ex) -> query.terminate());
     }
 
     private static class ScriptStatement {

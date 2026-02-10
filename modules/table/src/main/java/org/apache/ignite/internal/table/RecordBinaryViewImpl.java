@@ -107,7 +107,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param schemaVersion Schema version for which to obtain a marshaller.
      */
     public TupleMarshaller marshaller(int schemaVersion) {
-        return marshallerCache.marshaller(schemaVersion);
+        return marshallerCache.marshaller(tbl::name, schemaVersion);
     }
 
     @Override
@@ -268,8 +268,8 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
-        return sync(replaceAsync(tx, oldRec, newRec));
+    public boolean replaceExact(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
+        return sync(replaceExactAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
@@ -286,7 +286,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 

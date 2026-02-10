@@ -109,7 +109,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
                     SqlException.class,
                     Sql.RUNTIME_ERR,
                     format("Invalid operation ID format [operationId=123, type={}]", type),
-                    () -> await(igniteSql().executeAsync(null, format("KILL  {} '123' NO WAIT", type)))
+                    () -> await(igniteSql().executeAsync(format("KILL  {} '123' NO WAIT", type)))
             );
 
             assertThat(err.getCause(), instanceOf(IllegalArgumentException.class));
@@ -293,7 +293,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     private static boolean executeKill(Ignite node, CancellableOperationType type, UUID queryId, boolean noWait) {
         String query = format("KILL {} '{}'{}", type, queryId, noWait ? " NO WAIT" : "");
 
-        try (ResultSet<SqlRow> res = node.sql().execute(null, query)) {
+        try (ResultSet<SqlRow> res = node.sql().execute(query)) {
             assertThat(res.hasRowSet(), is(false));
 
             return res.wasApplied();
@@ -319,11 +319,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     }
 
     private static void waitUntilRunningQueriesCountInCluster(Matcher<Integer> matcher) {
-        CLUSTER.runningNodes().forEach(node -> {
-            SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
-
-            SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, matcher);
-        });
+        SqlTestUtils.waitUntilRunningQueriesCount(CLUSTER, matcher);
     }
 
     private static JobExecution<Void> submit(Ignite node, JobDescriptor<Void, Void> job) {

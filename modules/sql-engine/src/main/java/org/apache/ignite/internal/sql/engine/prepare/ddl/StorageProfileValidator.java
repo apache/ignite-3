@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Common validator for storage profile names.
+ * Common validator for storage profile names. This is the best-effort validation because the topology may change before the actual
+ * data nodes calculation that is done during the zone creation.
  */
 @FunctionalInterface
 public interface StorageProfileValidator {
@@ -30,5 +32,5 @@ public interface StorageProfileValidator {
      *
      * @param storageProfiles Storage profile names to check.
      */
-    void validate(Collection<String> storageProfiles);
+    CompletableFuture<Void> validate(Collection<String> storageProfiles);
 }

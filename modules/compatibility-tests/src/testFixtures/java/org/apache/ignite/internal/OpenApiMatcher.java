@@ -29,10 +29,12 @@ import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,32 +55,44 @@ import org.jetbrains.annotations.Nullable;
 @SuppressWarnings("rawtypes") // Mostly for the Schema class, which is parameterized but the API returns raw type.
 public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
     private final OpenAPI baseApi;
+    private final Set<String> removedPaths;
 
     private OpenApiMatcher(OpenAPI baseApi) {
+        this(baseApi, Collections.emptySet());
+    }
+
+    private OpenApiMatcher(OpenAPI baseApi, Set<String> removedPaths) {
         this.baseApi = baseApi;
+        this.removedPaths = removedPaths;
     }
 
     public static Matcher<OpenAPI> isCompatibleWith(OpenAPI baseApi) {
         return new OpenApiMatcher(baseApi);
     }
 
+    public static Matcher<OpenAPI> isCompatibleWith(OpenAPI baseApi, Set<String> removedPaths) {
+        return new OpenApiMatcher(baseApi, removedPaths);
+    }
+
     @Override
     protected boolean matchesSafely(OpenAPI currentApi, Description mismatchDescription) {
-        return new OpenApiDiff(baseApi, currentApi, mismatchDescription).compare();
+        return new OpenApiDiff(baseApi, currentApi, mismatchDescription, removedPaths).compare();
     }
 
     private static class OpenApiDiff {
         private final OpenAPI baseApi;
         private final OpenAPI currentApi;
         private final Description mismatchDescription;
+        private final Set<String> removedPaths;
 
         // Current direction
         private boolean isRequest;
 
-        private OpenApiDiff(OpenAPI baseApi, OpenAPI currentApi, Description mismatchDescription) {
+        private OpenApiDiff(OpenAPI baseApi, OpenAPI currentApi, Description mismatchDescription, Set<String> removedPaths) {
             this.baseApi = baseApi;
             this.currentApi = currentApi;
             this.mismatchDescription = mismatchDescription;
+            this.removedPaths = removedPaths;
         }
 
         boolean compare() {
@@ -91,6 +105,7 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
             // Check for missing paths
             Set<String> missingPaths = basePaths.keySet().stream()
                     .filter(path -> !currentPaths.containsKey(path))
+                    .filter(path -> !removedPaths.contains(path))
                     .collect(toSet());
 
             if (!missingPaths.isEmpty()) {
@@ -100,6 +115,10 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
 
             for (Entry<String, PathItem> entry : basePaths.entrySet()) {
                 String path = entry.getKey();
+
+                if (removedPaths.contains(path)) {
+                    continue;
+                }
 
                 Map<HttpMethod, Operation> baseOperations = entry.getValue().readOperationsMap();
                 Map<HttpMethod, Operation> currentOperations = currentPaths.get(path).readOperationsMap();
@@ -330,6 +349,11 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
                 return false;
             }
 
+            if (!Objects.equals(baseSchema.getFormat(), currentSchema.getFormat())) {
+                mismatchDescription.appendText("Schema ").appendValue(path).appendText(" has different formats");
+                return false;
+            }
+
             String baseRef = baseSchema.get$ref();
             if (!Objects.equals(baseRef, currentSchema.get$ref())) {
                 mismatchDescription.appendText("Schema ").appendValue(path).appendText(" has different reference");
@@ -363,53 +387,81 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
             }
 
             if ("object".equals(baseType)) {
-                // Detect new required properties only for responses
-                if (isRequest) {
-                    Set<String> baseRequired = new HashSet<>(ofNullable(baseSchema.getRequired()).orElse(List.of()));
+                return compareObjectSchema(path, mismatchDescription, baseSchema, currentSchema);
+            }
 
-                    Set<String> newRequired = ofNullable(currentSchema.getRequired()).orElse(List.of()).stream()
-                            .filter(Predicate.not(baseRequired::contains))
-                            .collect(toSet());
+            if ("string".equals(baseType)) {
+                return compareStringSchema(path, mismatchDescription, baseSchema, currentSchema);
+            }
 
-                    if (!newRequired.isEmpty()) {
-                        mismatchDescription.appendText("Schema ").appendValue(path)
-                                .appendText(" has new required properties ").appendValue(newRequired);
-                        return false;
-                    }
-                } else {
-                    Set<String> currentRequired = new HashSet<>(ofNullable(currentSchema.getRequired()).orElse(List.of()));
+            return true;
+        }
 
-                    Set<String> newOptional = ofNullable(baseSchema.getRequired()).orElse(List.of()).stream()
-                            .filter(Predicate.not(currentRequired::contains))
-                            .collect(toSet());
+        private boolean compareObjectSchema(String path, Description mismatchDescription, Schema<?> baseSchema, Schema<?> currentSchema) {
+            if (isRequest) {
+                Set<String> baseRequired = new HashSet<>(ofNullable(baseSchema.getRequired()).orElse(List.of()));
 
-                    if (!newOptional.isEmpty()) {
-                        mismatchDescription.appendText("Schema ").appendValue(path)
-                                .appendText(" has new optional properties ").appendValue(newOptional);
-                        return false;
-                    }
-                }
+                Set<String> newRequired = ofNullable(currentSchema.getRequired()).orElse(List.of()).stream()
+                        .filter(Predicate.not(baseRequired::contains))
+                        .collect(toSet());
 
-                Map<String, Schema> baseProperties = ofNullable(baseSchema.getProperties()).orElse(Map.of());
-                Map<String, Schema> currentProperties = ofNullable(currentSchema.getProperties()).orElse(Map.of());
-                if (!compareProperties(path + "/object", mismatchDescription, baseProperties, currentProperties)) {
+                if (!newRequired.isEmpty()) {
+                    mismatchDescription.appendText("Schema ").appendValue(path)
+                            .appendText(" has new required properties ").appendValue(newRequired);
                     return false;
                 }
+            } else {
+                Set<String> currentRequired = new HashSet<>(ofNullable(currentSchema.getRequired()).orElse(List.of()));
 
-                Object baseAdditionalProperties = baseSchema.getAdditionalProperties();
-                Object currentAdditionalProperties = currentSchema.getAdditionalProperties();
-                if (baseAdditionalProperties instanceof Schema && currentAdditionalProperties instanceof Schema) {
-                    return compareSchema(
-                            path + "/additionalProperties",
-                            mismatchDescription,
-                            ((Schema) baseAdditionalProperties),
-                            ((Schema) currentAdditionalProperties)
-                    );
+                Set<String> newOptional = ofNullable(baseSchema.getRequired()).orElse(List.of()).stream()
+                        .filter(Predicate.not(currentRequired::contains))
+                        .collect(toSet());
+
+                if (!newOptional.isEmpty()) {
+                    mismatchDescription.appendText("Schema ").appendValue(path)
+                            .appendText(" has new optional properties ").appendValue(newOptional);
+                    return false;
                 }
+            }
 
+            Map<String, Schema> baseProperties = ofNullable(baseSchema.getProperties()).orElse(Map.of());
+            Map<String, Schema> currentProperties = ofNullable(currentSchema.getProperties()).orElse(Map.of());
+            if (!compareProperties(path + "/object", mismatchDescription, baseProperties, currentProperties)) {
+                return false;
+            }
+
+            Object baseAdditionalProperties = baseSchema.getAdditionalProperties();
+            Object currentAdditionalProperties = currentSchema.getAdditionalProperties();
+            if (baseAdditionalProperties instanceof Schema && currentAdditionalProperties instanceof Schema) {
+                return compareSchema(
+                        path + "/additionalProperties",
+                        mismatchDescription,
+                        ((Schema) baseAdditionalProperties),
+                        ((Schema) currentAdditionalProperties)
+                );
+            }
+
+            return true;
+        }
+
+        private boolean compareStringSchema(String path, Description mismatchDescription, Schema<?> baseSchema, Schema<?> currentSchema) {
+            if (!(baseSchema instanceof StringSchema) || !(currentSchema instanceof StringSchema)) {
                 return true;
             }
 
+            if (isRequest) {
+                Set<String> currentEnum = new HashSet<>(ofNullable(((StringSchema) currentSchema).getEnum()).orElse(List.of()));
+
+                Set<String> missingValues = ofNullable(((StringSchema) baseSchema).getEnum()).orElse(List.of()).stream()
+                        .filter(Predicate.not(currentEnum::contains))
+                        .collect(toSet());
+
+                if (!missingValues.isEmpty()) {
+                    mismatchDescription.appendText("Schema ").appendValue(path)
+                            .appendText(" has missing enum values ").appendValue(missingValues);
+                    return false;
+                }
+            }
             return true;
         }
 

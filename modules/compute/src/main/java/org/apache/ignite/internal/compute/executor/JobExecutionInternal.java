@@ -23,6 +23,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -41,7 +42,7 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
 
     private final boolean marshalResult;
 
-    private final ClusterNode localNode;
+    private final ClusterNode publicLocalNode;
 
     /**
      * Constructor.
@@ -57,13 +58,14 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
             AtomicBoolean isInterrupted,
             @Nullable Marshaller<R, byte[]> marshaller,
             boolean marshalResult,
-            ClusterNode localNode
+            InternalClusterNode localNode
     ) {
         this.execution = execution;
         this.isInterrupted = isInterrupted;
         this.marshaller = marshaller;
         this.marshalResult = marshalResult;
-        this.localNode = localNode;
+
+        this.publicLocalNode = localNode.toPublicNode();
     }
 
     public CompletableFuture<ComputeJobDataHolder> resultAsync() {
@@ -106,6 +108,6 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
     }
 
     public ClusterNode node() {
-        return localNode;
+        return publicLocalNode;
     }
 }

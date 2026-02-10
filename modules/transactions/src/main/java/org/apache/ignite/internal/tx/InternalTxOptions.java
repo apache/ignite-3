@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,6 +36,10 @@ public class InternalTxOptions {
     /** Transaction timeout. 0 means 'use default timeout'. */
     private final long timeoutMillis;
 
+    /** Transaction label. */
+    @Nullable
+    private final String txLabel;
+
     /**
      * Read timestamp of the transaction. If {@code null} - the most recent available timestamp will be calculated based on the current
      * node's clock.
@@ -42,10 +47,11 @@ public class InternalTxOptions {
     @Nullable
     private final HybridTimestamp readTimestamp;
 
-    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp) {
+    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, @Nullable String txLabel) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
         this.readTimestamp = readTimestamp;
+        this.txLabel = txLabel;
     }
 
     public static Builder builder() {
@@ -72,14 +78,25 @@ public class InternalTxOptions {
         return readTimestamp;
     }
 
+    public @Nullable String txLabel() {
+        return txLabel;
+    }
+
     /** Builder for InternalTxOptions. */
     public static class Builder {
         private TxPriority priority = TxPriority.NORMAL;
 
+        /**
+         * This is NOT actually used as the default timeout, see defaults for {@link TransactionConfigurationSchema#readOnlyTimeoutMillis}
+         * and {@link TransactionConfigurationSchema#readWriteTimeoutMillis} which are actually used if tx timeout is 0.
+         */
         private long timeoutMillis = 0;
 
         @Nullable
         private HybridTimestamp readTimestamp = null;
+
+        @Nullable
+        private String txLabel = null;
 
         public Builder priority(TxPriority priority) {
             this.priority = priority;
@@ -91,13 +108,18 @@ public class InternalTxOptions {
             return this;
         }
 
-        public Builder readTimestamp(HybridTimestamp readTimestamp) {
+        public Builder readTimestamp(@Nullable HybridTimestamp readTimestamp) {
             this.readTimestamp = readTimestamp;
             return this;
         }
 
+        public Builder txLabel(@Nullable String txLabel) {
+            this.txLabel = txLabel;
+            return this;
+        }
+
         public InternalTxOptions build() {
-            return new InternalTxOptions(priority, timeoutMillis, readTimestamp);
+            return new InternalTxOptions(priority, timeoutMillis, readTimestamp, txLabel);
         }
     }
 }

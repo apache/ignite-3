@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirtyFullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
@@ -122,8 +124,9 @@ class RandomLruPageReplacementPolicySelfTest extends BaseIgniteAbstractTest {
         PageHeader.dirty(pageAbsPtr, true);
 
         FullPageId fullPageId = fullPageId(pageAbsPtr);
+        DirtyFullPageId dirtyFullPageId = dirtyFullPageId(pageAbsPtr);
 
-        when(checkpointPages.contains(fullPageId)).thenReturn(true);
+        when(checkpointPages.contains(dirtyFullPageId)).thenReturn(true);
 
         when(loadedPagesMap.getNearestAt(anyInt())).thenReturn(new ReplaceCandidate(42, pageRelPtr, fullPageId));
 

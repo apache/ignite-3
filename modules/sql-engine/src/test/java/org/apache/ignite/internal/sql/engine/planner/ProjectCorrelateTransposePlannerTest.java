@@ -45,7 +45,7 @@ public class ProjectCorrelateTransposePlannerTest extends AbstractPlannerTest {
                 tableA("T0"),
                 tableA("T1"));
 
-        String sql = "select t0.id "
+        String sql = "select /*+ disable_decorrelation */ t0.id "
                 + "from t0 "
                 + "where exists (select * from t1 where t0.jid = t1.jid);";
 
@@ -60,7 +60,7 @@ public class ProjectCorrelateTransposePlannerTest extends AbstractPlannerTest {
     @Test
     public void testSystemRangeFunctionWithCorrelate() throws Exception {
         IgniteSchema schema = createSchemaFrom(tableA("T0"));
-        String sql = "SELECT t.jid FROM t0 t WHERE t.jid < 5 AND EXISTS "
+        String sql = "SELECT /*+ disable_decorrelation */ t.jid FROM t0 t WHERE t.jid < 5 AND EXISTS "
                 + "(SELECT x FROM table(system_range(t.jid, t.jid)) WHERE mod(x, 2) = 0)";
 
         IgniteRel rel = physicalPlan(sql, schema);

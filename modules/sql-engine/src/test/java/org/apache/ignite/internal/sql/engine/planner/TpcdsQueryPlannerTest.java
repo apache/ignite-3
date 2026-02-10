@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junitpioneer.jupiter.params.IntRangeSource;
@@ -38,25 +34,23 @@ import org.junitpioneer.jupiter.params.IntRangeSource;
         tables = TpcdsTables.class,
         queryLoader = "getQueryString",
         planLoader = "getQueryPlan"
+//            , planUpdater = "updateQueryPlan" // uncomment the line to regenerate plans
 )
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
+    private static final String TEST_TYPE = "tpcds";
 
     private static final IntSet UNSUPPORTED_TESTS = IntSet.of(
             // TODO https://issues.apache.org/jira/browse/IGNITE-14642 Support STDDEV_SAMP function and unmute tests.
-            17, 29, 35,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25872 Support GROUPING function and unmute tests.
-            27, 36, 86,
+            17, 29, 35, 39,
             // TODO https://issues.apache.org/jira/browse/IGNITE-25873 Support aggregate window function RANK and unmute tests.
-            44, 47, 49, 57, 67, 70,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25874 Either support multi-statement queries or split them.
-            14, 23, 24, 39
+            44, 47, 49, 57, 67, 70, 36, 86
     );
 
     @ParameterizedTest
     @IntRangeSource(from = 1, to = 99, closed = true)
     public void test(int queryId) {
         Assumptions.assumeFalse(UNSUPPORTED_TESTS.contains(queryId), "unsupported query");
+
         validateQueryPlan(Integer.toString(queryId));
     }
 
@@ -67,64 +61,12 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
     static String getQueryPlan(String queryId) {
-        // variant query ends with "v"
-        boolean variant = queryId.endsWith("v");
-        int numericId;
-
-        if (variant) {
-            String idString = queryId.substring(0, queryId.length() - 1);
-            numericId = Integer.parseInt(idString);
-        } else {
-            numericId = Integer.parseInt(queryId);
-        }
-
-        if (variant) {
-            var variantQueryFile = String.format("tpcds/plan/variant_q%d.plan", numericId);
-            return loadFromResource(variantQueryFile);
-        } else {
-            var queryFile = colocationEnabled()
-                    ? String.format("tpcds/plan/q%s_colocated.plan", numericId)
-                    : String.format("tpcds/plan/q%s.plan", numericId);
-
-            return loadFromResource(queryFile);
-        }
+        return getQueryPlan(queryId, TEST_TYPE);
     }
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
-    static void updateQueryPlan(String queryId, String newPlan) {
-        Path targetDirectory = null;
-
-        // A targetDirectory must be specified by hand when expected plans are generated. 
-        //noinspection ConstantValue 
-        if (targetDirectory == null) {
-            throw new RuntimeException("Please provide target directory to where save generated plans." 
-                    + " Usually plans are kept in resource folder of tests within the same module.");
-        }
-
-        // variant query ends with "v"
-        boolean variant = queryId.endsWith("v");
-        int numericId;
-
-        if (variant) {
-            String idString = queryId.substring(0, queryId.length() - 1);
-            numericId = Integer.parseInt(idString);
-        } else {
-            numericId = Integer.parseInt(queryId);
-        }
-
-        Path planLocation;
-        if (variant) {
-            planLocation = targetDirectory.resolve(String.format("variant_q%d.plan", numericId));
-        } else {
-            planLocation = colocationEnabled()
-                    ? targetDirectory.resolve(String.format("q%s_colocated.plan", numericId))
-                    : targetDirectory.resolve(String.format("q%s.plan", numericId));
-        }
-
-        try {
-            Files.writeString(planLocation, newPlan);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    static void updateQueryPlan(String queryId, String... newPlans) {
+        Path targetDirectory = Path.of("./src/test/resources", TEST_TYPE, "plan");
+        updateQueryPlan(queryId, targetDirectory, newPlans);
     }
 }

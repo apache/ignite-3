@@ -123,6 +123,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_LEFT:
         case error::code::INTERNAL:
         case error::code::NULLABLE_VALUE:
+        case error::code::UNSUPPORTED_TABLE_BASED_REPLICATION:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Table group. Group code: 2
@@ -151,6 +152,9 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLIENT_SSL_CONFIGURATION:
         case error::code::HANDSHAKE_HEADER:
             return sql_state::S08004_CONNECTION_REJECTED;
+        case error::code::RESOURCE_NOT_FOUND:
+        case error::code::OPERATION_TIMEOUT:
+            return sql_state::SHY000_GENERAL_ERROR;
 
         // Sql group. Group code: 4
         case error::code::SCHEMA_NOT_FOUND:
@@ -205,6 +209,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_STALE_OPERATION:
         case error::code::TX_STALE_READ_ONLY_OPERATION:
         case error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT:
+        case error::code::TX_DELAYED_ACK:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -219,6 +224,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::REPLICA_MISS:
         case error::code::REPLICA_STOPPING:
         case error::code::GROUP_OVERLOADED:
+        case error::code::GROUP_UNAVAILABLE:
+        case error::code::REPLICA_ABSENT:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
@@ -228,11 +235,12 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // DistributionZones group. Group code: 10
         case error::code::ZONE_NOT_FOUND:
+        case error::code::EMPTY_DATA_NODES:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Network group. Group code: 11
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
-        case error::code::PORT_IN_USE:
+        case error::code::BIND:
         case error::code::FILE_TRANSFER:
         case error::code::FILE_VALIDATION:
         case error::code::RECIPIENT_LEFT:
@@ -244,6 +252,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CONFIG_FILE_CREATE:
         case error::code::CONFIG_WRITE:
         case error::code::CONFIG_PARSE:
+        case error::code::JOIN_DENIED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // CodeDeployment group. Group code: 13
@@ -251,6 +260,9 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNIT_ALREADY_EXISTS:
         case error::code::UNIT_CONTENT_READ:
         case error::code::UNIT_UNAVAILABLE:
+        case error::code::UNIT_ZIP:
+        case error::code::UNIT_WRITE:
+        case error::code::UNIT_NON_UNIQUE_FILENAMES:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // GarbageCollector group. Group code: 14
@@ -289,6 +301,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::PRIMARY_REPLICA_AWAIT_TIMEOUT:
             return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::PRIMARY_REPLICA_AWAIT:
+        case error::code::EMPTY_ASSIGNMENTS:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // CriticalWorkers group. Group code: 19
@@ -301,6 +314,10 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
         case error::code::CLUSTER_NOT_IDLE:
+        case error::code::NOT_ENOUGH_ALIVE_NODES:
+        case error::code::ILLEGAL_NODES_SET:
+        case error::code::REQUEST_FORWARD:
+        case error::code::REMOTE_NODE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Embedded group. Group code: 21
@@ -318,6 +335,12 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // REST service group. Group code: 23
         case error::code::CLUSTER_NOT_INIT:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Configuration group. Group code: 24
+        case error::code::CONFIGURATION_APPLY:
+        case error::code::CONFIGURATION_PARSE:
+        case error::code::CONFIGURATION_VALIDATION:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

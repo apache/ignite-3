@@ -22,15 +22,14 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_WITH_CLEANUP_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
+import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIf;
 
 /** Base test class for Cluster Recovery restart partitions commands. */
 public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
@@ -38,20 +37,24 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
-
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
     @BeforeAll
     public void createTables() {
-        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" (REPLICAS %s) storage profiles ['%s']",
+                ZONE,
+                initialNodes(),
+                DEFAULT_AIPERSIST_PROFILE_NAME
+        ));
+
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, ZONE));
     }
 
     @Test
-    public void testRestartAllPartitions() {
+    public void testRestartAllPartitions() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE
         );
 
@@ -60,9 +63,10 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRestartSpecifiedPartitions() {
+    public void testRestartSpecifiedPartitions() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2"
         );
@@ -72,14 +76,15 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    public void testRestartPartitionsByNodes() {
+    public void testRestartPartitionsByNodes() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
         String nodeNames = CLUSTER.runningNodes()
                 .limit(initialNodes() - 1)
                 .map(Ignite::name)
                 .collect(joining(","));
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2",
                 RECOVERY_NODE_NAMES_OPTION, nodeNames
@@ -94,7 +99,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         String unknownZone = "unknown_zone";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, unknownZone,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2"
         );
@@ -104,27 +108,10 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
-    public void testRestartPartitionTableNotFound() {
-        // This test in colocation mode is not relevant.
-
-        String unknownTable = "PUBLIC.unknown_table";
-
-        execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, unknownTable,
-                RECOVERY_ZONE_NAME_OPTION, ZONE
-        );
-
-        assertOutputIsEmpty();
-        assertErrOutputContains("The table does not exist [name=" + unknownTable.toUpperCase() + "]");
-    }
-
-    @Test
     public void testRestartPartitionNodeNotFound() {
         String unknownNode = "unknownNode";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_NODE_NAMES_OPTION, unknownNode,
                 RECOVERY_ZONE_NAME_OPTION, ZONE
         );
@@ -136,7 +123,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     @Test
     public void testRestartPartitionsIllegalPartitionNegative() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, "0,5,-10"
         );
@@ -148,7 +134,6 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     @Test
     public void testRestartPartitionsPartitionsOutOfRange() {
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
                 RECOVERY_PARTITION_IDS_OPTION, String.valueOf(DEFAULT_PARTITION_COUNT)
         );
@@ -160,5 +145,74 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
                 ZONE,
                 DEFAULT_PARTITION_COUNT
         ));
+    }
+
+    @Test
+    public void testRestartAllPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
+        String nodeName = CLUSTER.aliveNode().name();
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_NODE_NAMES_OPTION, nodeName,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
+    }
+
+    @Test
+    public void testRestartSpecifiedPartitionsWithCleanup() throws InterruptedException {
+        awaitPartitionsToBeHealthy(ZONE, Set.of());
+
+        String nodeName = CLUSTER.aliveNode().name();
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeName,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Successfully restarted partitions.");
+    }
+
+    @Test
+    public void testRestartPartitionsByNodesWithCleanup() {
+        String nodeNames = CLUSTER.runningNodes()
+                .limit(initialNodes() - 1)
+                .map(Ignite::name)
+                .collect(joining(","));
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeNames,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertOutputIsEmpty();
+        assertErrOutputContains("Only one node name should be specified for the operation.");
+    }
+
+    @Test
+    public void testRestartPartitionsByNodesWithCleanupNoExecutorInNodes() {
+        String nodeNames = CLUSTER.runningNodes()
+                .skip(1)
+                .map(Ignite::name)
+                .collect(joining(","));
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PARTITION_IDS_OPTION, "1,2",
+                RECOVERY_NODE_NAMES_OPTION, nodeNames,
+                RECOVERY_WITH_CLEANUP_OPTION
+        );
+
+        assertOutputIsEmpty();
+        assertErrOutputContains("Only one node name should be specified for the operation.");
     }
 }

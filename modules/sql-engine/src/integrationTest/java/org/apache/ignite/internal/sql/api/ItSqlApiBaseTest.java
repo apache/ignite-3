@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -240,7 +240,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // No new transactions through ddl.
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager.pending());
     }
 
     /** Check correctness of implicit and explicit transactions. */
@@ -301,7 +301,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManagerInternal.pending());
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -345,7 +345,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
-        Matcher<String> planMatcher = containsIndexScan("PUBLIC", "TEST", "TEST_IDX");
+        Matcher<String> planMatcher = containsIndexScanIgnoreBounds("PUBLIC", "TEST", "TEST_IDX");
 
         checkMixedTransactions(planMatcher);
     }
@@ -399,29 +399,32 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public void metadata() {
-        sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
+        sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, \"Col1\" VARCHAR NOT NULL)");
 
         IgniteSql sql = igniteSql();
 
         execute(sql, "INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
-        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT COL1, COL0 FROM TEST");
+        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT \"Col1\", COL0 FROM TEST");
 
         // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
 
         assertNotNull(meta);
         assertEquals(-1, meta.indexOf("COL"));
-        assertEquals(0, meta.indexOf("COL1"));
+        assertEquals(0, meta.indexOf("\"Col1\""));
         assertEquals(1, meta.indexOf("COL0"));
 
+        assertEquals(0, meta.indexOf(meta.columns().get(0).name()));
+        assertEquals(1, meta.indexOf(meta.columns().get(1).name()));
+
         checkMetadata(new ColumnMetadataImpl(
-                        "COL1",
+                        "Col1",
                         ColumnType.STRING,
                         CatalogUtils.DEFAULT_VARLEN_LENGTH,
                         ColumnMetadata.UNDEFINED_SCALE,
                         false,
-                        new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+                        new ColumnOriginImpl("PUBLIC", "TEST", "Col1")),
                 meta.columns().get(0));
         checkMetadata(new ColumnMetadataImpl(
                         "COL0",
@@ -552,7 +555,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT, txManager.finished() - txPrevCnt);
         // No new transactions through ddl.
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager.pending());
 
         checkDml(ROW_COUNT, sql, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -566,7 +569,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         IgniteSql sql = igniteSql();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            sql.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            sql.execute("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         Statement statement = sql.statementBuilder()
@@ -627,13 +630,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type",
+                "Statement of type \"Query\" is not allowed in current context",
                 () -> executeBatch("SELECT * FROM TEST", args));
 
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type",
+                "Statement of type \"DDL\" is not allowed in current context",
                 () -> executeBatch("CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args));
 
         // Check that statement parameters taken into account.
@@ -772,7 +775,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         execute(1, sql, "SELECT * FROM TEST");
 
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
     /**
@@ -810,7 +813,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, execute(sql, "SELECT ID FROM TEST WHERE ID = -1").result().size());
         }
 
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager().pending());
     }
 
     @Test
@@ -829,11 +832,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 .build();
 
         ResultSet<?> rs = executeForRead(sql, statement);
-        waitUntilActiveTransactionsCount(is(1));
-
+        assertEquals(1, txManager().pending());
         rs.close();
-
-        waitUntilActiveTransactionsCount(is(0));
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
     @Test
@@ -904,7 +905,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         long momentBefore = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-        ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
+        ResultSet<SqlRow> resultSet = igniteSql().execute((Transaction) null, builder.build());
         SqlRow row = resultSet.next();
 
         long momentAfter = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -967,6 +968,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // Wait until FIRST script statement is started to execute.
         waitUntilRunningQueriesCount(greaterThan(1));
+        // We have to make sure that execution is started.
+        waitUntilActiveTransactionsCount(is(1));
 
         assertThat(scriptFut.isDone(), is(false));
 
@@ -975,17 +978,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         expectQueryCancelled(() -> await(scriptFut));
 
         waitUntilRunningQueriesCount(is(0));
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
         expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
 
         waitUntilRunningQueriesCount(is(0));
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     @Test
-    public void cancelLongRunningStatement() throws InterruptedException {
+    public void cancelLongRunningStatement() {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
@@ -1001,9 +1004,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
 
         // Wait until the query starts executing.
-        waitUntilRunningQueriesCount(greaterThan(0));
-        // Wait a bit more to improve failure rate.
-        Thread.sleep(500);
+        waitUntilQueriesInCursorPublicationPhaseCount(greaterThan(0));
 
         // Wait for query cancel.
         cancelHandle.cancel();
@@ -1011,7 +1012,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         // Query was actually cancelled.
         waitUntilRunningQueriesCount(is(0));
         expectQueryCancelled(() -> await(f));
-        waitUntilActiveTransactionsCount(is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     @ParameterizedTest
@@ -1046,7 +1047,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                     .build();
 
             CancelHandle cancelHandle = CancelHandle.create();
-            CompletableFuture<?> fut = sql.executeAsync(null, cancelHandle.token(), statement);
+            CompletableFuture<?> fut = sql.executeAsync((Transaction) null, cancelHandle.token(), statement);
 
             // Wait until the query starts executing.
             waitUntilRunningQueriesCount(greaterThan(0));
@@ -1058,7 +1059,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             // Query was actually cancelled.
             waitUntilRunningQueriesCount(is(0));
             expectQueryCancelled(() -> await(fut));
-            waitUntilActiveTransactionsCount(is(0));
+            assertThat(txManager().pending(), is(0));
         }
     }
 
@@ -1142,7 +1143,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             String killQuery = "KILL QUERY '" + existingQuery + '\'';
 
             // Kill existing query.
-            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+            try (ResultSet<SqlRow> killResultset = sql.execute(killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(true));
             }
@@ -1160,7 +1161,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             );
 
             // Kill non-existing query.
-            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+            try (ResultSet<SqlRow> killResultset = sql.execute(killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(false));
             }
@@ -1272,6 +1273,29 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public abstract void cancelBatch() throws InterruptedException;
+
+    @Test
+    public void cancelDdlScript() {
+        IgniteSql sql = igniteSql();
+
+        String script =
+                "CREATE TABLE test1 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test2 (id INT PRIMARY KEY);"
+                        + "CREATE TABLE test3 (id INT PRIMARY KEY);";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+
+        waitUntilRunningQueriesCount(greaterThan(0));
+
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> await(scriptFut));
+
+        waitUntilRunningQueriesCount(is(0));
+    }
 
     @Test
     public void cancelQueryBeforeExecution() {

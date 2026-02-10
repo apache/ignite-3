@@ -28,6 +28,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.AfterEach;
@@ -56,7 +57,8 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
     }
 
     private HeapLockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        VolatileTxStateMetaStorage txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration, txStateVolatileStorage);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
@@ -266,7 +268,6 @@ public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Lock> fut2 = lockManager.acquire(newer, lockKey(), LockMode.S);
         assertTrue(fut2.isDone());
-
 
         CompletableFuture<Lock> fut3 = lockManager.acquire(older, lockKey(), LockMode.S);
         assertFalse(fut3.isDone());

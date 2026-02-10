@@ -83,7 +83,6 @@ void try_set_socket_options(SOCKET socket, int buf_size, BOOL no_delay, BOOL out
 
     int res = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<char *>(&keep_alive), sizeof(keep_alive));
 
-    // TODO: IGNITE-17606 Disable keep-alive once heartbeats are implemented.
     if (keep_alive) {
         if (SOCKET_ERROR == res) {
             // There is no sense in configuring keep alive params if we failed to set up keep-alive mode.

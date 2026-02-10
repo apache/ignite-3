@@ -20,7 +20,8 @@ package org.apache.ignite.internal.partition.replicator.handlers;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -45,14 +46,13 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2Builder;
-import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
@@ -88,13 +88,12 @@ public class TxFinishReplicaRequestHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final ClockService clockService;
     private final TxManager txManager;
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
 
     private final SchemaCompatibilityValidator schemaCompatValidator;
     private final ReliableCatalogVersions reliableCatalogVersions;
     private final ReplicationRaftCommandApplicator raftCommandApplicator;
     private final ReplicaTxFinishMarker replicaTxFinishMarker;
-
 
     /** Constructor. */
     public TxFinishReplicaRequestHandler(
@@ -105,7 +104,7 @@ public class TxFinishReplicaRequestHandler {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             RaftCommandRunner raftCommandRunner,
-            ReplicationGroupId replicationGroupId
+            ZonePartitionId replicationGroupId
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.clockService = clockService;
@@ -131,8 +130,7 @@ public class TxFinishReplicaRequestHandler {
      * @return future result of the operation.
      */
     public CompletableFuture<TransactionResult> handle(TxFinishReplicaRequest request) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Use ZonePartitionIdMessage and remove cast
-        Map<ReplicationGroupId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
+        Map<ZonePartitionId, PartitionEnlistment> enlistedGroups = asReplicationGroupIdToPartitionMap(request.groups());
 
         UUID txId = request.txId();
 
@@ -156,12 +154,12 @@ public class TxFinishReplicaRequestHandler {
         }
     }
 
-    private static Map<ReplicationGroupId, PartitionEnlistment> asReplicationGroupIdToPartitionMap(
-            Map<ReplicationGroupIdMessage, PartitionEnlistmentMessage> messages
+    private static Map<ZonePartitionId, PartitionEnlistment> asReplicationGroupIdToPartitionMap(
+            Map<ZonePartitionIdMessage, PartitionEnlistmentMessage> messages
     ) {
-        var result = new HashMap<ReplicationGroupId, PartitionEnlistment>(IgniteUtils.capacity(messages.size()));
+        var result = new HashMap<ZonePartitionId, PartitionEnlistment>(IgniteUtils.capacity(messages.size()));
 
-        for (Entry<ReplicationGroupIdMessage, PartitionEnlistmentMessage> e : messages.entrySet()) {
+        for (Entry<ZonePartitionIdMessage, PartitionEnlistmentMessage> e : messages.entrySet()) {
             result.put(e.getKey().asReplicationGroupId(), e.getValue().asPartition());
         }
 
@@ -169,7 +167,7 @@ public class TxFinishReplicaRequestHandler {
     }
 
     private CompletableFuture<TransactionResult> finishAndCleanup(
-            Map<ReplicationGroupId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -205,14 +203,16 @@ public class TxFinishReplicaRequestHandler {
 
             // Let the client know a transaction has finished with a different outcome.
             if (commit != (txMeta.txState() == COMMITTED)) {
-                LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
-                        txId,
+                LOG.error("Failed to finish a transaction that is already finished [{}, expectedState={}, actualState={}].",
+                        formatTxInfo(txId, txManager, false),
                         commit ? COMMITTED : ABORTED,
                         txMeta.txState()
                 );
 
                 throw new MismatchingTransactionOutcomeInternalException(
-                        "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
+                        format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                                formatTxInfo(txId, txManager, false),
+                                txMeta.txState()),
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
             }
@@ -282,23 +282,22 @@ public class TxFinishReplicaRequestHandler {
                 ))
                 .handle((txOutcome, ex) -> {
                     if (ex != null) {
-                        // RAFT 'finish' command failed because the state has already been written by someone else.
-                        // In that case we throw a corresponding exception.
-                        if (ex instanceof UnexpectedTransactionStateException) {
-                            UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
-                            TransactionResult result = utse.transactionResult();
-
-                            replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
-
-                            throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
-                        }
-                        // Otherwise we convert from the internal exception to the client one.
+                        // Convert from the internal exception to the client one.
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
                     TransactionResult result = (TransactionResult) txOutcome;
 
                     replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
+
+                    if (commit != (result.transactionState() == COMMITTED)) {
+                        throw new MismatchingTransactionOutcomeInternalException(
+                                format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                                        formatTxInfo(txId, txManager, false),
+                                        result.transactionState()),
+                                result
+                        );
+                    }
 
                     return result;
                 });
@@ -342,18 +341,8 @@ public class TxFinishReplicaRequestHandler {
 
     private static EnlistedPartitionGroupMessage enlistedPartitionGroupMessage(EnlistedPartitionGroup enlistedPartitionGroup) {
         return TX_MESSAGES_FACTORY.enlistedPartitionGroupMessage()
-                .groupId(replicationGroupId(enlistedPartitionGroup.groupId()))
+                .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, enlistedPartitionGroup.groupId()))
                 .tableIds(enlistedPartitionGroup.tableIds())
                 .build();
-    }
-
-    /**
-     * Method to convert from {@link ReplicationGroupId} object to command-based {@link ReplicationGroupIdMessage} object.
-     *
-     * @param replicationGroupId {@link ReplicationGroupId} object to convert to {@link ReplicationGroupIdMessage}.
-     * @return {@link ReplicationGroupIdMessage} object converted from argument.
-     */
-    private static ReplicationGroupIdMessage replicationGroupId(ReplicationGroupId replicationGroupId) {
-        return toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
     }
 }

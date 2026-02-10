@@ -17,7 +17,6 @@
 
 package org.apache.ignite.jdbc;
 
-import static java.sql.Connection.TRANSACTION_NONE;
 import static java.sql.Connection.TRANSACTION_READ_COMMITTED;
 import static java.sql.Connection.TRANSACTION_READ_UNCOMMITTED;
 import static java.sql.Connection.TRANSACTION_REPEATABLE_READ;
@@ -28,6 +27,9 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,7 +52,9 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.jdbc.JdbcConnection;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -138,17 +142,17 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                 "Invalid URL format (only schema name is allowed in URL path parameter 'host:port[/schemaName]')");
 
         try (Connection conn = DriverManager.getConnection(URL + "/public")) {
-            assertEquals("PUBLIC", conn.getSchema(), "Invalid schema");
+            assertEquals("public", conn.getSchema(), "Invalid schema");
         }
 
         String dfltSchema = "DEFAULT";
 
         try (Connection conn = DriverManager.getConnection(URL + "/\"" + dfltSchema + '"')) {
-            assertEquals(dfltSchema, conn.getSchema(), "Invalid schema");
+            assertEquals("\"DEFAULT\"", conn.getSchema(), "Invalid schema");
         }
 
         try (Connection conn = DriverManager.getConnection(URL + "/_not_exist_schema_")) {
-            assertEquals("_NOT_EXIST_SCHEMA_", conn.getSchema(), "Invalid schema");
+            assertEquals("_not_exist_schema_", conn.getSchema(), "Invalid schema");
         }
     }
 
@@ -162,16 +166,16 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         String dfltSchema = "DEFAULT";
 
         try (Connection conn = DriverManager.getConnection(URL + ";schema=public")) {
-            assertEquals("PUBLIC", conn.getSchema(), "Invalid schema");
+            assertEquals("public", conn.getSchema(), "Invalid schema");
         }
 
         try (Connection conn =
                 DriverManager.getConnection(URL + ";schema=\"" + dfltSchema + '"')) {
-            assertEquals(dfltSchema, conn.getSchema(), "Invalid schema");
+            assertEquals("\"DEFAULT\"", conn.getSchema(), "Invalid schema");
         }
 
         try (Connection conn = DriverManager.getConnection(URL + ";schema=_not_exist_schema_")) {
-            assertEquals("_NOT_EXIST_SCHEMA_", conn.getSchema(), "Invalid schema");
+            assertEquals("_not_exist_schema_", conn.getSchema(), "Invalid schema");
         }
     }
 
@@ -272,7 +276,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             int[] rsConcurs = {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
 
-            int[] rsHoldabilities = {HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT};
+            int[] rsHoldabilities = {CLOSE_CURSORS_AT_COMMIT};
 
             DatabaseMetaData meta = conn.getMetaData();
 
@@ -434,24 +438,24 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String sqlText = "insert into test (val) values (?)";
 
+            String error = "Returning auto-generated keys is not supported.";
+
             JdbcTestUtils.assertThrowsSqlException(
-                    "Auto generated keys are not supported.",
+                    error,
                     () -> conn.prepareStatement(sqlText, RETURN_GENERATED_KEYS)
-
             );
 
-            JdbcTestUtils.assertThrowsSqlException(
-                    "Auto generated keys are not supported.",
-                    () -> conn.prepareStatement(sqlText, NO_GENERATED_KEYS)
-            );
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT 1", NO_GENERATED_KEYS)) {
+                stmt.executeQuery().close();
+            }
 
             JdbcTestUtils.assertThrowsSqlException(
-                    "Auto generated keys are not supported.",
+                    error,
                     () -> conn.prepareStatement(sqlText, new int[]{1})
             );
 
             JdbcTestUtils.assertThrowsSqlException(
-                    "Auto generated keys are not supported.",
+                    error,
                     () -> conn.prepareStatement(sqlText, new String[]{"ID"})
             );
         }
@@ -519,6 +523,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                     conn::commit
             );
 
+            conn.setAutoCommit(false);
+            assertFalse(conn.getAutoCommit());
+
+            // No exception is expected.
+            conn.commit();
+
             conn.close();
 
             // Exception when called on closed connection
@@ -534,6 +544,11 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                     "Transaction cannot be rolled back explicitly in auto-commit mode.",
                     conn::rollback
             );
+
+            conn.setAutoCommit(false);
+
+            // No exception is expected.
+            conn.rollback();
 
             conn.close();
 
@@ -579,11 +594,11 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             assertFalse(conn.getMetaData().supportsCatalogsInDataManipulation());
 
-            assertNull(conn.getCatalog());
+            assertEquals("IGNITE", conn.getCatalog());
 
             conn.setCatalog("catalog");
 
-            assertNull(conn.getCatalog());
+            assertEquals("IGNITE", conn.getCatalog());
 
             conn.close();
 
@@ -605,7 +620,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             );
 
             // default level
-            assertEquals(TRANSACTION_NONE, conn.getTransactionIsolation());
+            assertEquals(TRANSACTION_SERIALIZABLE, conn.getTransactionIsolation());
 
             int[] levels = {TRANSACTION_READ_UNCOMMITTED, TRANSACTION_READ_COMMITTED,
                     TRANSACTION_REPEATABLE_READ, TRANSACTION_SERIALIZABLE};
@@ -691,16 +706,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             // default value
             assertEquals(conn.getMetaData().getResultSetHoldability(), conn.getHoldability());
 
-            assertEquals(HOLD_CURSORS_OVER_COMMIT, conn.getHoldability());
-
-            conn.setHoldability(CLOSE_CURSORS_AT_COMMIT);
-
             assertEquals(CLOSE_CURSORS_AT_COMMIT, conn.getHoldability());
 
             // Invalid constant
 
             JdbcTestUtils.assertThrowsSqlException(
-                    "Invalid result set holdability value",
+                    "Invalid result set holdability (only close cursors at commit option is supported)",
                     () -> conn.setHoldability(-1)
             );
 
@@ -856,7 +867,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             // Invalid typename
             JdbcTestUtils.assertThrowsSqlException(
-                    "Type name cannot be null",
+                    "SQL-specific types are not supported.",
                     () -> conn.createArrayOf(null, null)
             );
 
@@ -875,7 +886,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Invalid typename
             JdbcTestUtils.assertThrowsSqlException(
-                    "Type name cannot be null",
+                    "SQL-specific types are not supported.",
                     () -> conn.createStruct(null, null)
             );
 
@@ -900,11 +911,11 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             conn.setSchema(schema);
 
-            assertEquals(schema.toUpperCase(), conn.getSchema());
+            assertEquals("test", conn.getSchema());
 
             conn.setSchema('"' + schema + '"');
 
-            assertEquals(schema, conn.getSchema());
+            assertEquals("\"test\"", conn.getSchema());
 
             conn.close();
 
@@ -957,5 +968,26 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             checkConnectionClosed(() -> conn.setNetworkTimeout(executor, timeout));
         }
+    }
+
+    @Test
+    public void testCurrentUser() throws Exception {
+        var url = "jdbc:ignite:thin://127.0.0.1:10800";
+
+        try (Connection conn = DriverManager.getConnection(url)) {
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT CURRENT_USER")) {
+                try (ResultSet rs = stmt.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals("unknown", rs.getString(1));
+                }
+            }
+        }
+    }
+
+    @Test
+    void ensureClientConnectedToMultipleEndpoints() {
+        assertThat(initialNodes(), greaterThan(1));
+
+        Awaitility.await().until(() -> ((JdbcConnection) conn).channelsCount(), is(initialNodes()));
     }
 }

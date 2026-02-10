@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyInMetastorage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
@@ -104,7 +109,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         Set<String> euNodes = nodeNames(0, 1);
 
-        createHaZoneWithTable(2, euFilter, euNodes);
+        createHaZoneWithTable(euFilter, euNodes);
 
         IgniteImpl node = igniteImpl(0);
 
@@ -126,7 +131,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         Set<String> nodesWithAiProfile = nodeNames(0, 1);
 
-        createHaZoneWithTableWithStorageProfile(2, "segmented_aipersist", nodesWithAiProfile);
+        createHaZoneWithTableWithStorageProfile("segmented_aipersist", nodesWithAiProfile);
 
         IgniteImpl node = igniteImpl(0);
 
@@ -166,7 +171,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         }
 
         String globalFilter = "$[?(@.zone == \"custom\")]";
-        createHaZoneWithTable(7, globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+        createHaZoneWithTable(globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);
@@ -230,7 +235,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         }
 
         String globalFilter = "$[?(@.zone == \"custom\")]";
-        createHaZoneWithTable(7, globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+        createHaZoneWithTable(globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);
@@ -291,7 +296,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         }
 
         String globalFilter = "$[?(@.zone == \"custom\")]";
-        createHaZoneWithTable(7, globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+        createHaZoneWithTable(globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);
@@ -325,7 +330,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     private void alterZoneSql(String filter, String zoneName) {
-        executeSql(String.format("ALTER ZONE \"%s\" SET (\"DATA_NODES_FILTER\" '%s')", zoneName, filter));
+        executeSql(String.format("ALTER ZONE \"%s\"  SET (NODES FILTER '%s')", zoneName, filter));
     }
 
     /**
@@ -341,7 +346,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *   <li>No data should be lost</li>
      * </ol>
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
     @Test
     void testResetAfterChangeFilters() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
@@ -373,6 +377,15 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         stopNodes(1, 2);
 
+        Set<LogicalNode> expectedNodes = Set.of(
+                getLogicalNode(igniteImpl(0)),
+                getLogicalNode(igniteImpl(3)),
+                getLogicalNode(igniteImpl(4)),
+                getLogicalNode(igniteImpl(5))
+        );
+
+        assertLogicalTopologyInMetastorage(expectedNodes, node.metaStorageManager());
+
         String globalFilter = "$[?(@.region == \"US\")]";
 
         alterZoneSql(globalFilter, HA_ZONE_NAME);
@@ -399,7 +412,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *   <li>No data should be lost</li>
      * </ol>
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24467")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27643")
     @Test
     void testResetAfterChangeStorageProfiles() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
@@ -410,7 +423,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         Set<String> nodesWithAiProfile = nodeNames(0, 1, 2);
 
-        createHaZoneWithTableWithStorageProfile(2, "segmented_aipersist", nodesWithAiProfile);
+        createHaZoneWithTableWithStorageProfile("segmented_aipersist", nodesWithAiProfile);
 
         IgniteImpl node = igniteImpl(0);
 
@@ -438,6 +451,48 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, usNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), table, 3, 4, 5);
+    }
+
+    @Test
+    void testHaWhenAllVotingMembersAreLost() throws Exception {
+        startNode(1, CUSTOM_NODES_CONFIG);
+        startNode(2, CUSTOM_NODES_CONFIG);
+        startNode(3, CUSTOM_NODES_CONFIG);
+        startNode(4, CUSTOM_NODES_CONFIG);
+        startNode(5, CUSTOM_NODES_CONFIG);
+
+        String customFilter = "$[?(@.zone == \"custom\")]";
+
+        // We set quorum to 2, so 3 nodes will be followers, and 2 - learners.
+        createHaZoneWithTables(HA_ZONE_NAME, 1, customFilter, 2, List.of(HA_TABLE_NAME), nodeNames(1, 2, 3, 4, 5));
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(HA_TABLE_NAME);
+
+        List<Throwable> errors = insertValues(table, 0);
+        assertThat(errors, is(empty()));
+        assertValuesPresentOnNodes(node0.clock().now(), table, 1, 2, 3, 4, 5);
+
+        Set<Assignment> partitionAssignments = getPartitionClusterNodes(node0, HA_TABLE_NAME, 0);
+
+        assertEquals(5, partitionAssignments.size());
+
+        Set<Assignment> followers = partitionAssignments.stream().filter(Assignment::isPeer).collect(Collectors.toSet());
+
+        assertEquals(3, followers.size());
+
+        // Stop all followers.
+        followers.forEach(n -> stopNode(n.consistentId()));
+
+        Set<String> learners = partitionAssignments.stream()
+                .filter(n -> !n.isPeer())
+                .map(Assignment::consistentId)
+                .collect(Collectors.toSet());
+
+        IgniteImpl node = igniteImpl(nodeIndex(learners.iterator().next()));
+
+        // Wait for the partition to become available on the learners.
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0), learners);
     }
 
     private void alterZoneStorageProfiles(IgniteImpl node, String zoneName, String storageProfile) {
@@ -473,5 +528,13 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "  clientConnector: { port:{} }, \n"
                 + "  rest.port: {}\n"
                 + "}";
+    }
+
+    private static LogicalNode getLogicalNode(IgniteImpl ignite) {
+
+        return ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
+                .filter(n -> n.name().equals(ignite.name()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Node not found in logical topology: " + ignite.name()));
     }
 }

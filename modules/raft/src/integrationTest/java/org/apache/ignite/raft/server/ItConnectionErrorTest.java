@@ -34,8 +34,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -44,7 +44,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
@@ -81,13 +80,32 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         stopLogInspectors(logInspectors);
     }
 
+    // Otherwise, the leader elected after the start of two nodes may log an exception about the impossibility of reaching the third
+    // starting node, which is expected in essence, but is not taken into account in the test verification invariants.
+    // The flow is following:
+    // 1. NodeA (5003) starts.
+    // 2. NodeB (5004) starts.
+    // 3. Leader is elected, let's say that NodeA is a leader.
+    // 4. Because NodeC(5005) startup hangs a bit, leader ping message to NodeC may fail and in a rare unfortunate event will be accumulated
+    //   by log inspector.
+    // 5. NodeC starts.
+    // 6. NodeB stops.
+    // 7. Leader failed to send message to B which is expected.
+    // As a result there are two connectivity related records in log from step 4 and step 7. However within test we expect only one from
+    //   step 7.
+    // In case of two nodes in the group, situation explained in step 4 becomes impossible, thus we use 2 nodes only.
+    @Override
+    protected int nodesCount() {
+        return 2;
+    }
+
     /**
      * Starts a cluster for the test.
      *
      * @throws Exception If failed.
      */
     private void startCluster() throws Exception {
-        for (int i = 0; i < NODES; i++) {
+        for (int i = 0; i < nodesCount(); i++) {
 
             int finalI = i;
             startServer(i, raftServer -> {
@@ -124,7 +142,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
         int nodeToStop = whetherStopLeader
                 ? leaderIndex
-                : range(0, NODES).filter(i -> i != leaderIndex).findFirst().orElseThrow();
+                : range(0, nodesCount()).filter(i -> i != leaderIndex).findFirst().orElseThrow();
 
         stopServer(nodeToStop);
 
@@ -137,7 +155,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
                     .findAny()
                     .isEmpty();
 
-            assertTrue(correct, cls.getName()  + " has been written to the log more than 1 time.");
+            assertTrue(correct, cls.getName() + " has been written to the log more than 1 time.");
         });
     }
 
@@ -171,7 +189,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
             return false;
         };
 
-        return new LogInspector(cls.getName(), new Handler(pred, () -> {}));
+        return new LogInspector(cls.getName(), pred);
     }
 
     private static void stopLogInspectors(List<LogInspector> logInspectors) {

@@ -23,6 +23,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.CancellableJobExecution;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.future.InFlightFutures;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +31,9 @@ import org.jetbrains.annotations.Nullable;
  * Remote job execution implementation.
  */
 public class RemoteJobExecution implements CancellableJobExecution<ComputeJobDataHolder> {
-    private final ClusterNode remoteNode;
+    private final InternalClusterNode remoteNode;
+
+    private final ClusterNode publicRemoteNode;
 
     private final UUID jobId;
 
@@ -49,7 +52,7 @@ public class RemoteJobExecution implements CancellableJobExecution<ComputeJobDat
      * @param messaging Compute messaging service.
      */
     public RemoteJobExecution(
-            ClusterNode remoteNode,
+            InternalClusterNode remoteNode,
             UUID jobId,
             InFlightFutures inFlightFutures,
             ComputeMessaging messaging
@@ -59,6 +62,8 @@ public class RemoteJobExecution implements CancellableJobExecution<ComputeJobDat
         this.resultFuture = inFlightFutures.registerFuture(messaging.remoteJobResultRequestAsync(remoteNode, jobId));
         this.inFlightFutures = inFlightFutures;
         this.messaging = messaging;
+
+        publicRemoteNode = remoteNode.toPublicNode();
     }
 
     @Override
@@ -83,6 +88,6 @@ public class RemoteJobExecution implements CancellableJobExecution<ComputeJobDat
 
     @Override
     public ClusterNode node() {
-        return remoteNode;
+        return publicRemoteNode;
     }
 }

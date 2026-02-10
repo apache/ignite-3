@@ -15,6 +15,14 @@
  * limitations under the License.
  */
 
+pluginManagement {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+}
+
 rootProject.name = 'Apache Ignite 3'
 include(':ignite-page-memory')
 include(':ignite-storage-api')
@@ -70,12 +78,14 @@ include(':packaging-odbc')
 include(':packaging-java-client')
 include(':packaging-cpp-client')
 include(':packaging-dotnet-client')
+include(':packaging-tests')
 include(':packaging')
 include(':ignite-replicator')
 include(':ignite-distribution-zones')
 include(':ignite-placement-driver')
 include(':ignite-placement-driver-api')
 include(':ignite-code-deployment')
+include(':ignite-code-deployment-classloader')
 include(':ignite-security-api')
 include(':ignite-security')
 include(':ignite-catalog')
@@ -85,6 +95,7 @@ include(":ignite-file-transfer")
 include(":ignite-system-view")
 include(":ignite-system-view-api")
 include(":ignite-error-code-annotation-processor")
+include(":ignite-error-code-api")
 include(':ignite-failure-handler')
 include(":ignite-catalog-dsl")
 include(":ignite-eventlog")
@@ -95,8 +106,9 @@ include(':ignite-configuration-system')
 include(':ignite-system-disaster-recovery')
 include(':ignite-system-disaster-recovery-api')
 include(':ignite-compatibility-tests')
+include(':ignite-configuration-storage')
 
-project(":ignite-examples").projectDir = file('examples')
+project(":ignite-examples").projectDir = file('examples/java')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
 project(":ignite-storage-api").projectDir = file('modules/storage-api')
@@ -151,11 +163,13 @@ project(':packaging-odbc').projectDir = file('packaging/odbc')
 project(':packaging-java-client').projectDir = file('packaging/client/java')
 project(':packaging-cpp-client').projectDir = file('packaging/client/cpp')
 project(':packaging-dotnet-client').projectDir = file('packaging/client/dotnet')
+project(':packaging-tests').projectDir = file('packaging/test')
 project(":packaging").projectDir = file('packaging')
 project(":ignite-distribution-zones").projectDir = file('modules/distribution-zones')
 project(":ignite-placement-driver").projectDir = file('modules/placement-driver')
 project(":ignite-placement-driver-api").projectDir = file('modules/placement-driver-api')
 project(":ignite-code-deployment").projectDir = file('modules/code-deployment')
+project(":ignite-code-deployment-classloader").projectDir = file('modules/code-deployment-classloader')
 project(":ignite-security").projectDir = file('modules/security')
 project(":ignite-security-api").projectDir = file('modules/security-api')
 project(":ignite-catalog").projectDir = file('modules/catalog')
@@ -165,6 +179,7 @@ project(":ignite-file-transfer").projectDir = file('modules/file-transfer')
 project(":ignite-system-view").projectDir = file('modules/system-view')
 project(":ignite-system-view-api").projectDir = file('modules/system-view-api')
 project(":ignite-error-code-annotation-processor").projectDir = file('modules/error-code-annotation-processor')
+project(":ignite-error-code-api").projectDir = file('modules/error-code-api')
 project(":ignite-failure-handler").projectDir = file('modules/failure-handler')
 project(":ignite-catalog-dsl").projectDir = file('modules/catalog-dsl')
 project(":ignite-eventlog").projectDir = file('modules/eventlog')
@@ -175,6 +190,7 @@ project(":ignite-configuration-system").projectDir = file('modules/configuration
 project(":ignite-system-disaster-recovery").projectDir = file('modules/system-disaster-recovery')
 project(":ignite-system-disaster-recovery-api").projectDir = file('modules/system-disaster-recovery-api')
 project(':ignite-compatibility-tests').projectDir = file('modules/compatibility-tests')
+project(':ignite-configuration-storage').projectDir = file('modules/configuration-storage')
 
 include(":migration-tools-ignite2-repack")
 include(":migration-tools-ignite3-repack")
@@ -189,6 +205,7 @@ include(":migration-tools-packaging-cli")
 // End 2 End test stuff
 include(":migration-tools-e2e-core")
 include(":migration-tools-e2e-implementations")
+include(":migration-tools-e2e-implementations-custom-classes")
 include(":migration-tools-e2e-ai2-runner")
 include(":migration-tools-e2e-ai3-tests")
 
@@ -204,6 +221,7 @@ project(":migration-tools-cli").projectDir = file('migration-tools/modules/migra
 project(":migration-tools-packaging-cli").projectDir = file('migration-tools/packaging/cli')
 project(":migration-tools-e2e-core").projectDir = file('migration-tools/tools/e2e-tests-framework/framework-core')
 project(":migration-tools-e2e-implementations").projectDir = file('migration-tools/tools/e2e-tests-framework/implementations')
+project(":migration-tools-e2e-implementations-custom-classes").projectDir = file('migration-tools/tools/e2e-tests-framework/custom-classes')
 project(":migration-tools-e2e-ai2-runner").projectDir = file('migration-tools/tools/e2e-tests-framework/ai2-runner')
 project(":migration-tools-e2e-ai3-tests").projectDir = file('migration-tools/modules/e2e-ai3-tests')
 
@@ -211,6 +229,11 @@ def ignite2Version = properties["ignite2.version"].toString()
 def ignite2Vendor = properties["ignite2.vendor"].toString()
 
 dependencyResolutionManagement {
+    repositories {
+        maven { url 'https://plugins.gradle.org/m2/' }
+        maven { url 'https://repo.maven.apache.org/maven2/' }
+    }
+
     versionCatalogs {
         libs {
             version('ignite2', ignite2Version)
@@ -228,11 +251,13 @@ dependencyResolutionManagement {
 }
 
 if (JavaVersion.current() >= JavaVersion.VERSION_17) {
+    include(':java-records-tests')
     include(':spring-boot-ignite-client-autoconfigure')
     include(':spring-boot-starter-ignite-client')
     include(':spring-boot-starter-ignite-client-example')
     include(':spring-data-ignite')
 
+    project(":java-records-tests").projectDir = file('modules/java-records-tests')
     project(":spring-boot-starter-ignite-client-example").projectDir = file('modules/spring/spring-boot-starter-ignite-client-example')
     project(":spring-boot-ignite-client-autoconfigure").projectDir = file('modules/spring/spring-boot-ignite-client-autoconfigure')
     project(":spring-boot-starter-ignite-client").projectDir = file('modules/spring/spring-boot-starter-ignite-client')

@@ -32,8 +32,8 @@ Project
                   table: PUBLIC.LINEITEM
                   index: L_SD
                   type: SORTED
-                  predicate: AND(>=(L_SHIPDATE, 1995-09-01), <(L_SHIPDATE, +(1995-09-01, 1:INTERVAL MONTH)))
-                  searchBounds: [RangeBounds [lowerBound=1995-09-01, upperBound=+(1995-09-01, 1:INTERVAL MONTH), lowerInclude=true, upperInclude=false]]
+                  predicate: SEARCH(L_SHIPDATE, Sarg[[1995-09-01..1995-10-01)])
+                  searchBounds: [<1995-09-01>..<1995-10-01>)
                   fieldNames: [L_PARTKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_SHIPDATE]
                   collation: [L_SHIPDATE ASC]
                   est: (rows=1500304)

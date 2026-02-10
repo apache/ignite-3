@@ -28,16 +28,17 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -74,7 +75,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("date")
-    public void dateLiterals(DateTimeArgs<LocalTime> args) {
+    public void dateLiterals(DateTimeArgs<LocalDate> args) {
         String sqlCast = format("SELECT CAST('{}' AS DATE FORMAT '{}')", args.str, args.format);
 
         checkQuery(sqlCast, args.value, args.error);
@@ -82,7 +83,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("date")
-    public void dateDynamicParams(DateTimeArgs<LocalTime> args) {
+    public void dateDynamicParams(DateTimeArgs<LocalDate> args) {
         String sqlCast = format("SELECT CAST(? AS DATE FORMAT '{}')", args.format);
 
         checkQuery(sqlCast, args.value, args.error, args.str);
@@ -90,7 +91,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("date")
-    public void dateUpdateFromLiteral(DateTimeArgs<LocalTime> args) {
+    public void dateUpdateFromLiteral(DateTimeArgs<LocalDate> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET date0_col=CAST(? AS DATE FORMAT '{}') WHERE id = 1",
                 args.format
@@ -107,7 +108,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("date")
-    public void dateUpdateFromDynamicParam(DateTimeArgs<LocalTime> args) {
+    public void dateUpdateFromDynamicParam(DateTimeArgs<LocalDate> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET date0_col=CAST('{}' AS DATE FORMAT '{}') WHERE id = 1",
                 args.str, args.format
@@ -287,7 +288,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 dateTime("22:02:03", "hh:mi:ss.ff10", null, "Unexpected character <0> in pattern"),
 
                 dateTime("23:02:03.123", "hh24:mi:ss", null, "Unexpected trailing characters after field SS"),
-                dateTime("23:02:03.12", "hh24:mi:ss.ff3",  LocalTime.of(23, 2, 3, 120_000_000), null),
+                dateTime("23:02:03.12", "hh24:mi:ss.ff3", LocalTime.of(23, 2, 3, 120_000_000), null),
                 dateTime("23:02:03.1234", "hh24:mi:ss.ff3", null, "Unexpected trailing characters after field FF3")
         );
     }
@@ -733,6 +734,174 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
             return Arguments.of(precision, dateTime(args.str, args.format, expectedInstant, null));
         });
+    }
+
+    @ParameterizedTest
+    @MethodSource("dateFormat")
+    public void dateFormatLiterals(DateTimeArgs<LocalDate> args) {
+        String lit = DateTimeFormatter.ISO_DATE.format(args.value);
+        String sqlCast = format("SELECT CAST(DATE '{}' AS VARCHAR FORMAT '{}')", lit, args.format);
+
+        checkQuery(sqlCast, args.str, args.error);
+    }
+
+    @ParameterizedTest
+    @MethodSource("dateFormat")
+    public void dateFormatDynamicParams(DateTimeArgs<LocalDate> args) {
+        String sqlCast = format("SELECT CAST(? AS VARCHAR FORMAT '{}')", args.format);
+
+        checkQuery(sqlCast, args.str, args.error, args.value);
+    }
+
+    private static Stream<DateTimeArgs<LocalDate>> dateFormat() {
+        return Stream.of(
+                dateTime("2000-01-01", "yyyy-MM-dd", LocalDate.of(2000, 1, 1), null),
+                dateTime("2-01-01", "y-MM-dd", LocalDate.of(2022, 1, 1), null),
+                dateTime("20-01-01", "yy-MM-dd", LocalDate.of(2020, 1, 1), null),
+                dateTime("020-01-01", "yyy-MM-dd", LocalDate.of(2020, 1, 1), null),
+                dateTime("002-01-01", "yyy-MM-dd", LocalDate.of(2002, 1, 1), null),
+                dateTime("200-01-01", "yyy-MM-dd", LocalDate.of(2200, 1, 1), null),
+                dateTime("0020-01-01", "yyyy-MM-dd", LocalDate.of(20, 1, 1), null),
+                dateTime("9999-01-01", "yyyy-MM-dd", LocalDate.of(9999, 1, 1), null),
+                dateTime("2000/01-01", "yyyy/MM-dd", LocalDate.of(2000, 1, 1), null),
+
+                dateTime("01-01-01", "RR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("33-01-01", "RR-MM-dd", LocalDate.of(2033, 1, 1), null),
+                dateTime("49-01-01", "RR-MM-dd", LocalDate.of(2049, 1, 1), null),
+                dateTime("51-01-01", "RR-MM-dd", LocalDate.of(1951, 1, 1), null),
+                dateTime("77-01-01", "RR-MM-dd", LocalDate.of(1977, 1, 1), null),
+
+                dateTime("2001-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("2001-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("2033-01-01", "RRRR-MM-dd", LocalDate.of(2033, 1, 1), null),
+                dateTime("2033-01-01", "RRRR-MM-dd", LocalDate.of(2033, 1, 1), null),
+                dateTime("1951-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
+                dateTime("1951-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
+                dateTime("1977-01-01", "RRRR-MM-dd", LocalDate.of(1977, 1, 1), null),
+                dateTime("0151-01-01", "RRRR-MM-dd", LocalDate.of(151, 1, 1), null),
+                dateTime("0177-01-01", "RRRR-MM-dd", LocalDate.of(177, 1, 1), null)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("timeFormat")
+    public void timeFormatLiterals(DateTimeArgs<LocalTime> args) {
+        String lit = DateTimeFormatter.ofPattern("HH:mm:ss.SSS").format(args.value);
+        String sqlCast = format("SELECT CAST(TIME '{}' AS VARCHAR FORMAT '{}')", lit, args.format);
+
+        checkQuery(sqlCast, args.str, args.error);
+    }
+
+    @ParameterizedTest
+    @MethodSource("timeFormat")
+    public void timeFormatDynamicParams(DateTimeArgs<LocalTime> args) {
+        String sqlCast = format("SELECT CAST(? AS VARCHAR FORMAT '{}')", args.format);
+
+        checkQuery(sqlCast, args.str, args.error, args.value);
+    }
+
+    private static Stream<DateTimeArgs<LocalTime>> timeFormat() {
+        return Stream.of(
+                dateTime("05:02 A.M.", "hh12:mi A.M.", LocalTime.of(5, 2), null),
+                dateTime("11:02 A.M.", "hh12:mi A.M.", LocalTime.of(11, 2), null),
+                dateTime("12:02 A.M.", "hh12:mi A.M.", LocalTime.of(0, 2), null),
+
+                dateTime("05:02 P.M.", "hh12:mi P.M.", LocalTime.of(17, 2), null),
+                dateTime("11:02 P.M.", "hh12:mi P.M.", LocalTime.of(23, 2), null),
+                dateTime("12:02 P.M.", "hh12:mi P.M.", LocalTime.of(12, 2), null),
+
+                // hh24
+                dateTime("12:02:03", "hh24:mi:ss", LocalTime.of(12, 2, 3), null),
+                dateTime("23:02:03", "hh24:mi:ss", LocalTime.of(23, 2, 3), null),
+                dateTime("23/02:03", "hh24/mi:ss", LocalTime.of(23, 2, 3), null),
+
+                // fractional
+                dateTime("23:02:03.99", "hh24:mi:ss.ff2", LocalTime.of(23, 2, 3, 990_000_000), null),
+                dateTime("23:02:03.999", "hh24:mi:ss.ff3", LocalTime.of(23, 2, 3, 999_000_000), null),
+                dateTime("23:02:03.123", "hh24:mi:ss.ff3", LocalTime.of(23, 2, 3, 123_000_000), null),
+                dateTime("23:02:03.1230", "hh24:mi:ss.ff4", LocalTime.of(23, 2, 3, 123_000_000), null),
+                dateTime("23:02:03.120", "hh24:mi:ss.ff3", LocalTime.of(23, 2, 3, 120_000_000), null)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampFormat")
+    public void timestampFormatLiterals(DateTimeArgs<LocalDateTime> args) {
+        String lit = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(args.value);
+        String sqlCast = format("SELECT CAST(TIMESTAMP '{}' AS VARCHAR FORMAT '{}')", lit, args.format);
+
+        checkQuery(sqlCast, args.str, args.error);
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampFormat")
+    public void timestampFormatDynamicParams(DateTimeArgs<LocalDateTime> args) {
+        String sqlCast = format("SELECT CAST(? AS VARCHAR FORMAT '{}')", args.format);
+
+        checkQuery(sqlCast, args.str, args.error, args.value);
+    }
+
+    private static Stream<DateTimeArgs<LocalDateTime>> timestampFormat() {
+        return Stream.concat(
+                timestampFormatBasic(),
+                Stream.of(
+                        new DateTimeArgs<>("2025-10-02 19:45 +00:00", "YYYY-MM-DD HH24:MI TZH:TZM",
+                                LocalDateTime.of(2025, 10, 2, 19, 45), null),
+
+                        new DateTimeArgs<>("2025-10-03 00:45 +00:00", "YYYY-MM-DD HH24:MI TZH:TZM",
+                                LocalDateTime.of(2025, 10, 3, 0, 45), null)
+                )
+        );
+    }
+
+    private static Stream<DateTimeArgs<LocalDateTime>> timestampFormatBasic() {
+        List<DateTimeArgs<LocalDate>> date = dateFormat().collect(Collectors.toList());
+        List<DateTimeArgs<LocalTime>> time = timeFormat().collect(Collectors.toList());
+
+        List<DateTimeArgs<LocalDateTime>> result = new ArrayList<>();
+
+        for (DateTimeArgs<LocalDate> d : date) {
+            for (DateTimeArgs<LocalTime> t : time) {
+                String tsStr = d.str + " " + t.str;
+                String tsFmt = d.format + " " + t.format;
+
+                LocalDateTime tsExpected = LocalDateTime.of(d.value, t.value);
+                result.add(dateTime(tsStr, tsFmt, tsExpected, null));
+            }
+        }
+
+        return result.stream();
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampFormatLtz")
+    public void timestampLtzFormatLiterals(DateTimeArgs<ZonedDateTime> args) {
+        String lit = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(args.value);
+        String sqlCast = format("SELECT CAST(TIMESTAMP WITH LOCAL TIME ZONE '{}' AS VARCHAR FORMAT '{}')", lit, args.format);
+
+        checkQuery(sqlCast, args.str, args.error);
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampFormatLtz")
+    public void timestampLtzFormatDynamicParams(DateTimeArgs<ZonedDateTime> args) {
+        String sqlCast = format("SELECT CAST(? AS VARCHAR FORMAT '{}')", args.format);
+
+        checkQuery(sqlCast, args.str, args.error, args.value.toInstant());
+    }
+
+    private static Stream<DateTimeArgs<ZonedDateTime>> timestampFormatLtz() {
+        return timestampFormatBasic()
+                .filter(dt -> dt.value == null || dt.value.getYear() >= 1900)
+                .map(dt -> {
+                    if (dt.value != null) {
+                        ZonedDateTime dateTime = ZonedDateTime.of(dt.value, TIME_ZONE_ID);
+
+                        return dateTime(dt.str, dt.format, dateTime, null);
+                    } else {
+                        return dateTime(dt.str, dt.format, null, " ");
+                    }
+                });
     }
 
     private static <T> DateTimeArgs<T> dateTime(String str, String format, @Nullable T value, @Nullable String error) {

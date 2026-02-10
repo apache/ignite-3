@@ -21,9 +21,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
@@ -41,15 +38,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -118,14 +110,6 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
         Ignite ignite0 = cluster.node(0);
         Ignite ignite1 = cluster.node(1);
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setDefaultZoneAutoAdjustScaleUpToImmediate(ignite1);
-
-            waitForStableAssignments(ignite1, 0);
-        }
-
         createTable(ignite0, TABLE_NAME);
 
         WatchListenerInhibitor node1Inhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
@@ -182,7 +166,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         IgniteSql sql = ignite1.sql();
 
-        ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
+        ResultSet<SqlRow> res = sql.execute("SELECT valint2 FROM tbl1");
 
         for (int i = 0; i < 10; ++i) {
             assertNotNull(res.next().iterator().next());
@@ -198,7 +182,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         res.close();
 
-        res = sql.execute(null, "SELECT sum(valint4) FROM tbl1");
+        res = sql.execute("SELECT sum(valint4) FROM tbl1");
 
         assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
 
@@ -305,32 +289,16 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
         return unwrapTableViewInternal(tableFuture.join());
     }
 
-    private static void setDefaultZoneAutoAdjustScaleUpToImmediate(Ignite ignite0) {
-        IgniteImpl node = unwrapIgniteImpl(ignite0);
-        CatalogManager catalogManager = node.catalogManager();
-        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
-
-        setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZone.name());
-    }
-
     private static void waitForStableAssignments(Ignite node, int zoneId) throws Exception {
         IgniteImpl nodeImpl = unwrapIgniteImpl(node);
 
-        Catalog catalog = nodeImpl.catalogManager().catalog(nodeImpl.catalogManager().latestCatalogVersion());
-
-        int numberOfPartitions = catalog.zone(zoneId).partitions();
+        int numberOfPartitions = nodeImpl.catalogManager().latestCatalog().zone(zoneId).partitions();
 
         boolean res = waitForCondition(() -> {
             var stableAssignmentsAreReady = new AtomicBoolean(true);
 
             for (int partId = 0; partId < numberOfPartitions; ++partId) {
-                ByteArray key;
-
-                if (colocationEnabled()) {
-                    key = ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId));
-                } else {
-                    key = RebalanceUtil.stablePartAssignmentsKey(new TablePartitionId(zoneId, partId));
-                }
+                ByteArray key = ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId));
 
                 try {
                     nodeImpl

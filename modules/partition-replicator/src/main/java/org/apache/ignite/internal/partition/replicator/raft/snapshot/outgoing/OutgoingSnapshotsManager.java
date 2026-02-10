@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -53,7 +53,6 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -134,6 +133,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      * @param outgoingSnapshot Outgoing snapshot.
      */
     void startOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
+        LOG.info("Starting outgoing snapshot [snapshotId={}]", snapshotId);
+
         snapshots.put(snapshotId, outgoingSnapshot);
 
         PartitionSnapshotsImpl partitionSnapshots = getPartitionSnapshots(outgoingSnapshot.partitionKey());
@@ -166,7 +167,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void handleMessage(NetworkMessage networkMessage, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleMessage(NetworkMessage networkMessage, InternalClusterNode sender, @Nullable Long correlationId) {
         // Ignore all messages that we can't handle.
         if (!(networkMessage instanceof SnapshotRequestMessage)) {
             return;
@@ -204,7 +205,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void respond(@Nullable NetworkMessage response, @Nullable Throwable throwable, ClusterNode sender, long correlationId) {
+    private void respond(@Nullable NetworkMessage response, @Nullable Throwable throwable, InternalClusterNode sender, long correlationId) {
         if (throwable != null) {
             if (!hasCause(throwable, NodeStoppingException.class, StorageClosedException.class)) {
                 failureProcessor.process(new FailureContext(throwable, "Something went wrong while handling a request"));
@@ -251,7 +252,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     private static class PartitionSnapshotsImpl implements PartitionSnapshots {
         private final List<OutgoingSnapshot> snapshots = new ArrayList<>();
 
-        private final ReadWriteLock lock = new ReentrantReadWriteLock();
+        private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
         private void freezeAndAddUnderLock(OutgoingSnapshot snapshot) {
             lock.writeLock().lock();
@@ -290,6 +291,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
         @Override
         public List<OutgoingSnapshot> ongoingSnapshots() {
+            assert lock.getReadHoldCount() > 0 : "Current thread does not hold the read lock";
+
             return unmodifiableList(snapshots);
         }
     }

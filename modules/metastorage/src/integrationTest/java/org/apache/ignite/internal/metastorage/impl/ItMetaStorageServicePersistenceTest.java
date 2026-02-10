@@ -29,7 +29,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.TestMetasStorageUtils;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -51,7 +51,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -86,13 +85,13 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     @Override
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) {
-        ClusterNode followerNode = getNode(server);
+        InternalClusterNode followerNode = getNode(server);
 
         metaStorage = new MetaStorageServiceImpl(
                 followerNode.name(),
                 service,
                 new IgniteSpinBusyLock(),
-                new HybridClockImpl(),
+                server.options().getClock(),
                 followerNode.id()
         );
 
@@ -105,7 +104,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     @Override
     public void afterFollowerStop(RaftGroupService service, RaftServer server, int stoppedNodeIndex) throws Exception {
-        ClusterNode followerNode = getNode(server);
+        InternalClusterNode followerNode = getNode(server);
 
         KeyValueStorage storage = storageByName.remove(followerNode.name());
 
@@ -133,7 +132,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
     @Override
     public BooleanSupplier snapshotCheckClosure(JraftServerImpl restarted, boolean interactedAfterSnapshot) {
-        ClusterNode node = getNode(restarted);
+        InternalClusterNode node = getNode(restarted);
 
         KeyValueStorage storage = storageByName.get(node.name());
 
@@ -148,7 +147,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
     }
 
     @Override
-    public RaftGroupListener createListener(ClusterService service, Path listenerPersistencePath) {
+    public RaftGroupListener createListener(ClusterService service, RaftServer server, Path listenerPersistencePath) {
         String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
@@ -165,7 +164,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
             return s;
         });
 
-        HybridClock clock = new HybridClockImpl();
+        HybridClock clock = server.options().getClock();
         return new MetaStorageListener(storage, clock, new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock));
     }
 
@@ -187,7 +186,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         TestMetasStorageUtils.checkEntry(future.join(), expKey, expValue, expRevision);
     }
 
-    private static ClusterNode getNode(RaftServer server) {
+    private static InternalClusterNode getNode(RaftServer server) {
         return server.clusterService().topologyService().localMember();
     }
 }

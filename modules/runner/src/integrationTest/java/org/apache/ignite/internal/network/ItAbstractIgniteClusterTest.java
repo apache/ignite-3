@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -102,5 +104,11 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
         } else {
             assertNull(localNode.nodeMetadata());
         }
+    }
+
+    @Test
+    void testClusterId() {
+        UUID expected = unwrapIgniteImpl(node(0)).clusterIdService().clusterId();
+        assertEquals(expected, ignite().cluster().id());
     }
 }

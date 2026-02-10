@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
@@ -1115,7 +1116,7 @@ public class ConfigurationUtil {
          */
         private void descendToNamedListNode(NamedListNode<?> node) {
             // This list must be mutable and RandomAccess.
-            var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
+            var orderedKeys = new ArrayList<>(node.namedListKeys());
 
             for (Entry<String, ?> entry : map.entrySet()) {
                 String internalIdStr = entry.getKey();
@@ -1201,6 +1202,7 @@ public class ConfigurationUtil {
                     node.construct(oldKey, new LeafConfigurationSource((Serializable) val), true);
                 }
             }
+            orderedKeys.removeIf(Objects::isNull);
 
             node.reorderKeys(orderedKeys.size() > node.size()
                     ? orderedKeys.subList(0, node.size())

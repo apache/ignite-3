@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Linq;
 
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using Common;
@@ -27,6 +28,7 @@ using Remotion.Linq;
 /// Ignite queryable.
 /// </summary>
 /// <typeparam name="T">Query result type.</typeparam>
+[RequiresUnreferencedCode(IgniteQueryExecutor.TrimWarning)]
 internal sealed class IgniteQueryable<T>
     : QueryableBase<T>, IIgniteQueryableInternal
 {

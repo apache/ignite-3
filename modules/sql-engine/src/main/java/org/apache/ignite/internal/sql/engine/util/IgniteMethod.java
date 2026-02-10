@@ -31,9 +31,10 @@ import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.parser.SqlParserUtil;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 
 /**
@@ -44,13 +45,13 @@ public enum IgniteMethod {
     ROW_BUILDER_ADD_FIELD(RowBuilder.class, "addField", Object.class),
 
     /** See {@link RowHandler#get(int, Object)}. */
-    ROW_HANDLER_GET(RowHandler.class, "get", int.class, Object.class),
+    ROW_ACCESSOR_GET(RowAccessor.class, "get", int.class, Object.class),
 
-    /** See {@link ExecutionContext#rowHandler()}. */
-    CONTEXT_ROW_HANDLER(ExecutionContext.class, "rowHandler"),
+    /** See {@link SqlEvaluationContext#rowAccessor()}. */
+    CONTEXT_ROW_HANDLER(SqlEvaluationContext.class, "rowAccessor"),
 
-    /** See {@link ExecutionContext#correlatedVariable(int)}. */
-    CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),
+    /** See {@link SqlEvaluationContext#correlatedVariable(long)}. */
+    CONTEXT_GET_CORRELATED_VALUE(SqlEvaluationContext.class, "correlatedVariable", long.class),
 
     /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
@@ -123,6 +124,14 @@ public enum IgniteMethod {
     UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlDateTimeUtils.class, "unixTimestampToString", long.class, int.class),
 
     /**
+     * Conversion of timestamp to string (precision aware).
+     * See {@link IgniteSqlDateTimeUtils#timestampWithLocalTimeZoneToString(long, int, TimeZone)}}.
+     */
+    TIMESTAMP_LTZ_TO_STRING_PRECISION_AWARE(
+            IgniteSqlDateTimeUtils.class, "timestampWithLocalTimeZoneToString", long.class, int.class, TimeZone.class
+    ),
+
+    /**
      * Conversion of time to string (precision aware).
      * See {@link IgniteSqlDateTimeUtils#unixTimeToString(int, int)}.
      */
@@ -168,6 +177,31 @@ public enum IgniteMethod {
     TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class,
             "toTimestampWithLocalTimeZone", String.class, String.class, TimeZone.class),
 
+    /** SQL CAST({@code timestamp} AS TIMESTAMP WITH LOCAL TIME ZONE). */
+    TIMESTAMP_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlDateTimeUtils.class,
+            "toTimestampWithLocalTimeZone", long.class, TimeZone.class),
+
+    /**
+     * SQL CAST({@code TIME} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIME(IgniteSqlFunctions.class, "formatTime", String.class, Integer.class),
+
+    /**
+     * SQL CAST({@code DATE} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_DATE(IgniteSqlFunctions.class, "formatDate", String.class, Integer.class),
+
+    /**
+     * SQL CAST({@code TIMESTAMP} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIMESTAMP(IgniteSqlFunctions.class, "formatTimestamp", String.class, Long.class),
+
+    /**
+     * SQL CAST({@code TIMESTAMP WITH LOCAL TIME ZONE} AS VARCHAR FORMAT {@code format}).
+     */
+    FORMAT_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class, "formatTimestampWithLocalTimeZone",
+            String.class, Long.class, TimeZone.class),
+
     /**
      * Returns the timestamp value truncated to the specified fraction of a second.
      * See {@link IgniteSqlDateTimeUtils#adjustTimestampMillis(Long, int)}.
@@ -179,6 +213,12 @@ public enum IgniteMethod {
      * See {@link IgniteSqlDateTimeUtils#adjustTimeMillis(Integer, int)}.
      */
     ADJUST_TIME_MILLIS(IgniteSqlDateTimeUtils.class, "adjustTimeMillis", Integer.class, int.class),
+
+    /** See {@link IgniteSqlFunctions#findPrefix(String, String)}. */
+    FIND_PREFIX(IgniteSqlFunctions.class, "findPrefix", String.class, String.class),
+
+    /** See {@link IgniteSqlFunctions#nextGreaterPrefix(String)}. */
+    NEXT_GREATER_PREFIX(IgniteSqlFunctions.class, "nextGreaterPrefix", String.class),
 
     ;
 

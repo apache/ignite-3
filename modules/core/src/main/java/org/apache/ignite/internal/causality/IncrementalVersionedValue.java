@@ -27,6 +27,8 @@ import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -219,13 +221,21 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     public CompletableFuture<T> update(long causalityToken, BiFunction<T, Throwable, CompletableFuture<T>> updater) {
         synchronized (updateMutex) {
             if (expectedToken == -1) {
-                assert causalityToken > lastCompleteToken
-                        : String.format("Causality token is outdated, previous token %d, got %d", lastCompleteToken, causalityToken);
+                if (causalityToken <= lastCompleteToken) {
+                    throw new IgniteException(
+                            Common.INTERNAL_ERR,
+                            String.format("Causality token is outdated, previous token %d, got %d", lastCompleteToken, causalityToken)
+                    );
+                }
 
                 expectedToken = causalityToken;
             } else {
-                assert expectedToken == causalityToken
-                        : String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken);
+                if (expectedToken != causalityToken) {
+                    throw new IgniteException(
+                            Common.INTERNAL_ERR,
+                            String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken)
+                    );
+                }
             }
 
             updaterFuture = updaterFuture
@@ -287,9 +297,11 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
             if (updaterFuture.isDone()) {
                 // Since the future has already been completed, there's no need to store a new future object in the history map and we can
                 // save a little bit of memory. This is useful when no "update" calls have been made between two "complete" calls.
-                updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+                updaterFuture = versionedValue.complete(causalityToken, localUpdaterFuture)
+                        .thenCompose(unused -> localUpdaterFuture);
             } else {
-                updaterFuture = updaterFuture.whenComplete((v, t) -> versionedValue.complete(causalityToken, localUpdaterFuture));
+                updaterFuture = updaterFuture.thenCompose(v -> versionedValue.complete(causalityToken, localUpdaterFuture))
+                        .thenCompose(unused -> localUpdaterFuture);
             }
 
             return updaterFuture;

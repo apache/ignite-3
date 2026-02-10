@@ -27,12 +27,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 
@@ -40,17 +40,22 @@ import org.apache.ignite.tx.TransactionException;
  * Dummy transaction that should be used as mock transaction for execution tests.
  */
 public final class NoOpTransaction implements InternalTransaction {
+    private static final int ZONE_ID = 1;
 
-    private final UUID id = randomUUID();
+    private static final int TABLE_ID = 2;
+
+    private static final int PARTITION_ID = 2;
+
+    private final UUID id;
 
     private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1)
             .addPhysicalTime(System.currentTimeMillis());
 
-    private final ClusterNode enlistmentNode;
+    private final InternalClusterNode enlistmentNode;
 
     private final PendingTxPartitionEnlistment enlistment;
 
-    private final TablePartitionId groupId = new TablePartitionId(1, 0);
+    private final ZonePartitionId groupId = new ZonePartitionId(ZONE_ID, PARTITION_ID);
 
     private final boolean implicit;
 
@@ -91,13 +96,15 @@ public final class NoOpTransaction implements InternalTransaction {
     public NoOpTransaction(String name, boolean implicit, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
         this.enlistmentNode = new ClusterNodeImpl(randomUUID(), name, networkAddress);
-        this.enlistment = new PendingTxPartitionEnlistment(enlistmentNode.name(), 1L, groupId.tableId());
+        this.enlistment = new PendingTxPartitionEnlistment(enlistmentNode.name(), 1L, TABLE_ID);
         this.implicit = implicit;
         this.readOnly = readOnly;
+
+        this.id = readOnly ?  randomUUID() : TransactionIds.transactionId(hybridTimestamp, enlistmentNode.name().hashCode());
     }
 
     /** Node at which this transaction was start. */
-    public ClusterNode clusterNode() {
+    public InternalClusterNode clusterNode() {
         return enlistmentNode;
     }
 
@@ -150,7 +157,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId tablePartitionId) {
+    public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
         return enlistment;
     }
 
@@ -160,12 +167,12 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
+    public boolean assignCommitPartition(ZonePartitionId replicationGroupId) {
         return true;
     }
 
     @Override
-    public TablePartitionId commitPartition() {
+    public ZonePartitionId commitPartition() {
         return groupId;
     }
 
@@ -195,7 +202,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public void enlist(
-            ReplicationGroupId replicationGroupId,
+            ZonePartitionId replicationGroupId,
             int tableId,
             String primaryNodeConsistentId,
             long consistencyToken

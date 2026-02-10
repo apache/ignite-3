@@ -53,7 +53,6 @@ class CreateFromDefinitionTest {
                 .replicas(5)
                 .quorumSize(2)
                 .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
@@ -65,7 +64,7 @@ class CreateFromDefinitionTest {
                 createZone(zone),
                 is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
-                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';")
         );
     }
@@ -77,7 +76,6 @@ class CreateFromDefinitionTest {
                 .partitions(1)
                 .replicas(3)
                 .distributionAlgorithm("partitionDistribution")
-                .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
@@ -131,7 +129,6 @@ class CreateFromDefinitionTest {
                         + "CREATE INDEX IF NOT EXISTS IX_TEST ON PUBLIC.BUILDER_TEST USING SORTED (ID_STR ASC, F_NAME DESC NULLS LAST);")
         );
     }
-
 
     @Test
     void createFromTableBuilderQuoteNames() {

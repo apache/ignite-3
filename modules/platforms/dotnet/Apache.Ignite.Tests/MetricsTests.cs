@@ -35,17 +35,21 @@ using NUnit.Framework;
 /// </summary>
 public class MetricsTests
 {
+    private const int DefaultTimeoutMs = 3000;
+
     private volatile Listener _listener = null!;
 
     [SetUp]
-    public void SetUp() => _listener = new Listener();
+    public void SetUp()
+    {
+        _listener = new Listener(TestContext.CurrentContext.Test.Name);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
+    }
 
     [TearDown]
     public void TearDown()
     {
-        AssertMetric(MetricNames.RequestsActive, 0);
         AssertMetric(MetricNames.ConnectionsActive, 0);
-
         _listener.Dispose();
 
         TestUtils.CheckByteArrayPoolLeak(5000);
@@ -255,14 +259,6 @@ public class MetricsTests
             AssertMetric(MetricNames.StreamerItemsQueued, 1);
 
             yield return new IgniteTuple { ["ID"] = 2 };
-
-            AssertMetric(MetricNames.StreamerBatchesActive, 2);
-            AssertMetric(MetricNames.StreamerItemsQueued, 2);
-
-            AssertMetric(MetricNames.StreamerBatchesSent, 1);
-            AssertMetric(MetricNames.StreamerBatchesActive, 1);
-            AssertMetric(MetricNames.StreamerItemsQueued, 0);
-            AssertMetric(MetricNames.StreamerItemsSent, 2);
         }
     }
 
@@ -332,7 +328,8 @@ public class MetricsTests
         new()
         {
             SocketTimeout = TimeSpan.FromMilliseconds(100),
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            ReconnectInterval = TimeSpan.Zero
         };
 
     private static IgniteClientConfiguration GetConfigWithDelay() =>
@@ -340,12 +337,13 @@ public class MetricsTests
         {
             HeartbeatInterval = TimeSpan.FromMilliseconds(50),
             SocketTimeout = TimeSpan.FromMilliseconds(50),
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            ReconnectInterval = TimeSpan.Zero
         };
 
     private static Guid? GetClientId(IIgniteClient? client) => ((IgniteClientInternal?)client)?.Socket.ClientId;
 
-    private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
+    private void AssertMetric(string name, int value, int timeoutMs = DefaultTimeoutMs) =>
         _listener.AssertMetric(name, value, timeoutMs);
 
     private void AssertTaggedMetric(string name, int value, FakeServer server, IIgniteClient? client) =>
@@ -354,19 +352,25 @@ public class MetricsTests
     private void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId) =>
         _listener.AssertTaggedMetric(name, value, nodeAddr, clientId);
 
-    private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
+    private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = DefaultTimeoutMs) =>
         _listener.AssertMetricGreaterOrEqual(name, value, timeoutMs);
 
     internal sealed class Listener : IDisposable
     {
+        private readonly string _name;
+
         private readonly MeterListener _listener = new();
 
         private readonly ConcurrentDictionary<string, long> _metrics = new();
 
         private readonly ConcurrentDictionary<string, long> _metricsWithTags = new();
 
-        public Listener()
+        private readonly int _initialConnectionsActive;
+
+        public Listener(string name)
         {
+            _name = name;
+
             _listener.InstrumentPublished = (instrument, listener) =>
             {
                 if (instrument.Meter.Name == "Apache.Ignite")
@@ -379,6 +383,8 @@ public class MetricsTests
             _listener.SetMeasurementEventCallback<long>(Handle);
             _listener.SetMeasurementEventCallback<int>(Handle);
             _listener.Start();
+
+            _initialConnectionsActive = GetMetric(Apache.Ignite.MetricNames.ConnectionsActive);
         }
 
         public ICollection<string> MetricNames => _metrics.Keys;
@@ -386,7 +392,15 @@ public class MetricsTests
         public int GetMetric(string name)
         {
             _listener.RecordObservableInstruments();
-            return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
+
+            var res = _metrics.TryGetValue(name, out var val)
+                ? (int)val
+                : 0;
+
+            // Workaround for initial connections active not being zero.
+            return name == Apache.Ignite.MetricNames.ConnectionsActive
+                ? res - _initialConnectionsActive
+                : res;
         }
 
         public int GetTaggedMetric(string name, string nodeAddr, Guid? clientId)
@@ -408,7 +422,7 @@ public class MetricsTests
                 .SingleOrDefault();
         }
 
-        public void AssertMetric(string name, int value, int timeoutMs = 1000)
+        public void AssertMetric(string name, int value, int timeoutMs = DefaultTimeoutMs)
         {
             TestUtils.WaitForCondition(
                 condition: () => GetMetric(name) == value,
@@ -416,7 +430,7 @@ public class MetricsTests
                 messageFactory: () => $"{name}: expected '{value}', but was '{GetMetric(name)}'");
         }
 
-        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId, int timeoutMs = 1000)
+        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId, int timeoutMs = DefaultTimeoutMs)
         {
             TestUtils.WaitForCondition(
                 condition: () => GetTaggedMetric(name, nodeAddr, clientId) == value,
@@ -425,7 +439,7 @@ public class MetricsTests
                                       $"but was '{GetTaggedMetric(name, nodeAddr, clientId)}'");
         }
 
-        public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
+        public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = DefaultTimeoutMs) =>
             TestUtils.WaitForCondition(
                 condition: () => GetMetric(name) >= value,
                 timeoutMs: timeoutMs,
@@ -433,23 +447,30 @@ public class MetricsTests
 
         public void Dispose()
         {
+            Console.WriteLine("Disposing listener: " + _name);
             _listener.Dispose();
+            Console.WriteLine("Disposed listener: " + _name);
         }
 
         private void Handle<T>(Instrument instrument, T measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
         {
-            var newVal = Convert.ToInt64(measurement);
-
-            if (instrument.IsObservable)
+            lock (_listener)
             {
-                _metrics[instrument.Name] = newVal;
-            }
-            else
-            {
-                _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                var newVal = Convert.ToInt64(measurement);
 
-                var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
-                _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);
+                if (instrument.IsObservable)
+                {
+                    _metrics[instrument.Name] = newVal;
+                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {newVal}");
+                }
+                else
+                {
+                    var res = _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+                    Console.WriteLine($"{_name} observable measurement: {instrument.Name} = {res - newVal} + {newVal} = {res}");
+
+                    var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
+                    _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);
+                }
             }
         }
     }

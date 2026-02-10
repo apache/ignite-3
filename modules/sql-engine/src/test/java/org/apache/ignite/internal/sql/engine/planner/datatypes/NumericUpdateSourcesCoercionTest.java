@@ -119,7 +119,6 @@ public class NumericUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
         };
     }
 
-
     private static Stream<Arguments> argsForUpdateWithLiteralValue() {
         return Stream.of(
                 forTypePair(NumericPair.TINYINT_TINYINT)

@@ -407,9 +407,11 @@ import static org.apache.calcite.util.ReflectUtil.isStatic;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.CURRENT_TIMESTAMP;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.FIND_PREFIX;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GREATEST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LEAST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LENGTH;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.NEXT_GREATER_PREFIX;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.RAND_UUID;
 
 import com.google.common.collect.ImmutableList;
@@ -506,7 +508,7 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains implementations of Rex operators as Java code.
@@ -1325,6 +1327,9 @@ public class RexImpTable {
 
       define(TYPEOF, systemFunctionImplementor);
       define(CURRENT_DATE, systemFunctionImplementor);
+
+      defineMethod(IgniteSqlOperatorTable.FIND_PREFIX, FIND_PREFIX.method(), NullPolicy.ARG0);
+      defineMethod(IgniteSqlOperatorTable.NEXT_GREATER_PREFIX, NEXT_GREATER_PREFIX.method(), NullPolicy.ARG0);
     }
 
     private static class IgniteSystemFunctionImplementor

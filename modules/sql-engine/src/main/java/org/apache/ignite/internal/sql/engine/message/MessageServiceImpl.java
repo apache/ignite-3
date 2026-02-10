@@ -27,13 +27,13 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
 public class MessageServiceImpl implements MessageService {
     private final MessagingService messagingSrvc;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final QueryTaskExecutor taskExecutor;
 
@@ -63,7 +63,7 @@ public class MessageServiceImpl implements MessageService {
      * @param clockService A clock to propagate updated timestamp.
      */
     public MessageServiceImpl(
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             MessagingService messagingSrvc,
             QueryTaskExecutor taskExecutor,
             IgniteSpinBusyLock busyLock,
@@ -125,7 +125,7 @@ public class MessageServiceImpl implements MessageService {
         assert old == null : old;
     }
 
-    private void onMessage(ClusterNode sender, NetworkMessage msg) {
+    private void onMessage(InternalClusterNode sender, NetworkMessage msg) {
         if (msg instanceof CancelOperationRequest) {
             return;
         }
@@ -138,7 +138,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage msg, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -157,7 +157,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessageInternal(ClusterNode sender, NetworkMessage msg) {
+    private void onMessageInternal(InternalClusterNode sender, NetworkMessage msg) {
         if (!busyLock.enterBusy()) {
             return;
         }

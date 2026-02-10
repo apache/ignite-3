@@ -88,7 +88,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     private final TransactionOptions readOnlyTransactionOptions = new TransactionOptions().readOnly(true);
 
     @Param({"1", "2", "3"})
-    private int clusterSize;
+    private static int clusterSize;
 
     /**
      * Fills the table with data.
@@ -239,10 +239,12 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     @State(Scope.Benchmark)
     public static class SqlInternalApiState {
         private final SqlProperties properties = new SqlProperties()
-                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                .allowMultiStatement(false);
 
         private final SqlProperties scriptProperties = new SqlProperties()
-                .allowedQueryTypes(SqlQueryType.ALL);
+                .allowedQueryTypes(SqlQueryType.ALL)
+                .allowMultiStatement(true);
 
         private final QueryProcessor queryProc = igniteImpl.queryEngine();
         private int pageSize;
@@ -288,7 +290,9 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
 
             sql = client.sql();
         }
@@ -324,7 +328,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             try {
                 //noinspection CallToDriverManagerGetConnection
-                conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                conn = DriverManager.getConnection("jdbc:ignite:thin://" + String.join(",", getServerEndpoints(clusterSize)));
 
                 stmt = conn.prepareStatement(SELECT_ALL_FROM_USERTABLE);
             } catch (SQLException e) {
@@ -353,7 +357,10 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
+
             kvView = client.tables().table(TABLE_NAME).keyValueView();
         }
 

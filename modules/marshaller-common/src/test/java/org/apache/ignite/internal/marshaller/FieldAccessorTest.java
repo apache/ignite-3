@@ -255,7 +255,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         IdentityAccessor accessor = FieldAccessor.createIdentityAccessor(
                 new MarshallerColumn("val", BYTE_ARR),
                 0,
-                new SerializingConverter<TestSimpleObject>()
+                new SerializingConverter<>()
         );
 
         Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
@@ -297,7 +297,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
     public void wrongAccessor() {
         // Incompatible types.
         assertThrows(
-                ClassCastException.class,
+                MarshallerException.class,
                 () -> FieldAccessor.create(
                         TestObjectWrapper.class,
                         "data",
@@ -308,7 +308,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
 
         // Implicit serialization is not supported yet.
         assertThrows(
-                ClassCastException.class,
+                MarshallerException.class,
                 () -> FieldAccessor.create(
                         TestObjectWrapper.class,
                         "data",

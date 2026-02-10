@@ -30,6 +30,7 @@ dependencies {
     implementation project(':ignite-configuration-system')
     implementation project(':ignite-api')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-low-watermark')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-schema')
@@ -37,6 +38,7 @@ dependencies {
     implementation project(':ignite-catalog')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-metrics')
 
     implementation libs.auto.service.annotations
     implementation libs.fastutil.core
@@ -54,6 +56,7 @@ dependencies {
     testImplementation project(':ignite-system-view-api')
     testImplementation project(':ignite-configuration-system')
 
+    testImplementation libs.awaitility
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-configuration-system'))
@@ -67,13 +70,19 @@ dependencies {
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
 
+    testFixturesImplementation libs.awaitility
+    testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-runner')
+    testFixturesImplementation project(':ignite-partition-distribution')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-metastorage'))
 
@@ -108,6 +117,7 @@ dependencies {
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-configuration-storage')
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))

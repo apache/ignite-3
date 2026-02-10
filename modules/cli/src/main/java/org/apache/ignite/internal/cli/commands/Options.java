@@ -54,6 +54,7 @@ public enum Options {
     UNIT_NODES(Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION_DESC),
 
     PLAIN(Constants.PLAIN_OPTION, Constants.PLAIN_OPTION, Constants.PLAIN_OPTION_DESC),
+    TIMED(Constants.TIMED_OPTION, Constants.TIMED_OPTION, Constants.TIMED_OPTION_DESC),
     VERBOSE(Constants.VERBOSE_OPTION, Constants.VERBOSE_OPTION_SHORT, Constants.VERBOSE_OPTION_DESC),
     HELP(Constants.HELP_OPTION, Constants.HELP_OPTION_SHORT, Constants.HELP_OPTION_DESC),
     VERSION(Constants.VERSION_OPTION, Constants.VERSION_OPTION, Constants.VERSION_OPTION_DESC),
@@ -62,7 +63,10 @@ public enum Options {
     CLUSTER_CONFIG_FILE(
             Constants.CLUSTER_CONFIG_FILE_OPTION,
             Constants.CLUSTER_CONFIG_FILE_OPTION_DESC
-    );
+    ),
+
+    RECOVERY_NODE_NAMES(Constants.RECOVERY_NODE_NAMES_OPTION, Constants.RECOVERY_NODE_NAMES_OPTION_DESC),
+    RECOVERY_CMG_NODES(Constants.RECOVERY_CMG_NODES_OPTION, Constants.RECOVERY_CMG_NODES_OPTION_DESC);
 
     private final String fullName;
     private final String shortName;
@@ -201,6 +205,12 @@ public enum Options {
         public static final String PLAIN_OPTION_DESC = "Display output with plain formatting. "
                 + "Might be useful if you want to pipe the output to another command";
 
+        /** Timed option long name. */
+        public static final String TIMED_OPTION = "--timed";
+
+        /** Timed option description. */
+        public static final String TIMED_OPTION_DESC = "Display query execution time (measured on the client) after the output";
+
         /** JDBC URL option long name. */
         public static final String JDBC_URL_OPTION = "--jdbc-url";
 
@@ -236,6 +246,12 @@ public enum Options {
 
         /** Unit nodes option description. */
         public static final String UNIT_NODES_OPTION_DESC = "Initial set of nodes where the unit will be deployed";
+
+        /** Unit recursive option long name. */
+        public static final String UNIT_RECURSIVE_OPTION = "--recursive";
+
+        /** Unit recursive option description. */
+        public static final String UNIT_RECURSIVE_OPTION_DESC = "Deploy directory recursively (creates a ZIP file and uses ZIP deployment)";
 
         public static final String CLUSTER_CONFIG_OPTION = "--config";
 
@@ -283,11 +299,6 @@ public enum Options {
         public static final String RECOVERY_ZONE_NAME_OPTION_DESC = "Name of the zone to reset partitions of. "
                 + "Case-sensitive, without quotes";
 
-        public static final String RECOVERY_TABLE_NAME_OPTION = "--table";
-
-        public static final String RECOVERY_TABLE_NAME_OPTION_DESC = "Fully-qualified name of the table to reset partitions of. "
-                + "Case-sensitive, without quotes";
-
         public static final String RECOVERY_NODE_NAMES_OPTION = "--nodes";
 
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
@@ -303,6 +314,11 @@ public enum Options {
         public static final String RECOVERY_CMG_NODES_OPTION_DESC = "Names of nodes (use comma-separated list of node names "
                 + "'--cluster-management-group node1, node2' "
                 + "to specify more than one node) that will host the Cluster Management Group.";
+
+        public static final String RECOVERY_WITH_CLEANUP_OPTION = "--with-cleanup";
+
+        public static final String RECOVERY_WITH_CLEANUP_OPTION_DESC = "Restarts partitions, preceded by a storage cleanup. "
+                + "This will remove all data from the partition storages before restart.";
 
         /** Old cluster endpoint URL option long name. */
         public static final String RECOVERY_OLD_CLUSTER_URL_OPTION = "--old-cluster-url";
@@ -327,5 +343,22 @@ public enum Options {
 
         /** Config update file option description. */
         public static final String CONFIG_UPDATE_FILE_OPTION_DESC = "Path to file with config update commands to execute";
+
+        public static final String RESET_DATA_NODES_ZONE_NAMES_OPTION = "--zone-names";
+
+        public static final String RESET_DATA_NODES_ZONE_NAMES_OPTION_DESC = "Comma-separated list of zone names to reset data nodes for. "
+                + "If not specified, resets for all zones.";
+
+        /** Maximum column width option long name. */
+        public static final String MAX_COL_WIDTH_OPTION = "--max-col-width";
+
+        /** Maximum column width option description. */
+        public static final String MAX_COL_WIDTH_OPTION_DESC = "Maximum column width for table output (default: 50)";
+
+        /** No truncate option long name. */
+        public static final String NO_TRUNCATE_OPTION = "--no-truncate";
+
+        /** No truncate option description. */
+        public static final String NO_TRUNCATE_OPTION_DESC = "Disable column truncation, show full content";
     }
 }

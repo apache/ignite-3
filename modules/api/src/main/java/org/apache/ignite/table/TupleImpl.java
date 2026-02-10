@@ -68,7 +68,21 @@ class TupleImpl implements Tuple, Serializable {
      * @param capacity Initial capacity.
      */
     TupleImpl(int capacity) {
-        this(new HashMap<>(capacity), new ArrayList<>(capacity), new ArrayList<>(capacity));
+        this(new HashMap<>(capacity(capacity)), new ArrayList<>(capacity), new ArrayList<>(capacity));
+    }
+
+    // Copied from IgniteUtils, because it's not accessible from this module.
+    // FIXME: https://issues.apache.org/jira/browse/IGNITE-26228
+    private static int capacity(int expSize) {
+        if (expSize < 3) {
+            return expSize + 1;
+        }
+
+        if (expSize < (1 << 30)) {
+            return expSize + expSize / 3;
+        }
+
+        return Integer.MAX_VALUE; // any large value
     }
 
     /**
@@ -170,85 +184,85 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean booleanValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public byte byteValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public short shortValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public int intValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public long longValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public float floatValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(String columnName) {
-        return value(columnName);
+        return valueNotNull(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
-        return value(columnIndex);
+        return valueNotNull(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -416,10 +430,33 @@ class TupleImpl implements Tuple, Serializable {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(columnName(i)).append('=').append((Object) value(i));
+            Object value = value(i);
+            b.append(columnName(i)).append('=').append(value);
         }
         b.append(']');
 
         return b.toString();
+    }
+
+    private <T> T valueNotNull(int columnIndex) {
+        T value = value(columnIndex);
+
+        if (value == null) {
+            throw new NullPointerException("The value of field at index " + columnIndex
+                    + " is null and cannot be converted to a primitive data type.");
+        }
+
+        return value;
+    }
+
+    private <T> T valueNotNull(String columnName) {
+        T value = value(columnName);
+
+        if (value == null) {
+            throw new NullPointerException("The value of field '" + columnName
+                    + "' is null and cannot be converted to a primitive data type.");
+        }
+
+        return value;
     }
 }

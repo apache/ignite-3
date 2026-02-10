@@ -81,7 +81,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
         KvPair<IIgniteTuple, IIgniteTuple> record,
         Schema schema,
         bool keyOnly,
-        Span<byte> noValueSet)
+        scoped Span<byte> noValueSet)
     {
         var key = record.Key;
         var val = record.Val;
@@ -139,12 +139,10 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
             {
                 var name = record.Key.GetName(i);
 
-                if (extraColumns.Contains(name))
+                if (!extraColumns.Add(name))
                 {
                     throw new ArgumentException("Duplicate column in Key portion of KeyValue pair: " + name, nameof(record));
                 }
-
-                extraColumns.Add(name);
             }
 
             if (record.Val != null)
@@ -153,12 +151,10 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
                 {
                     var name = record.Val.GetName(i);
 
-                    if (extraColumns.Contains(name))
+                    if (!extraColumns.Add(name))
                     {
                         throw new ArgumentException("Duplicate column in Value portion of KeyValue pair: " + name, nameof(record));
                     }
-
-                    extraColumns.Add(name);
                 }
             }
 

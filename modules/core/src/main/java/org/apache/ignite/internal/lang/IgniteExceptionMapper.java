@@ -75,7 +75,7 @@ public class IgniteExceptionMapper<T extends Exception, R extends Exception> {
             Class<T> from,
             Function<T, R> mapper
     ) {
-        return new IgniteExceptionMapper<T, R>(from, mapper);
+        return new IgniteExceptionMapper<>(from, mapper);
     }
 
     /**
@@ -92,6 +92,6 @@ public class IgniteExceptionMapper<T extends Exception, R extends Exception> {
             Class<T> from,
             Function<T, R> mapper
     ) {
-        return new IgniteExceptionMapper<T, R>(from, mapper);
+        return new IgniteExceptionMapper<>(from, mapper);
     }
 }

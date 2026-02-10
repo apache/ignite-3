@@ -38,17 +38,21 @@ import java.time.Year;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base test class for immutable Tuple implementation.
@@ -68,6 +72,14 @@ public abstract class AbstractImmutableTupleTest {
     protected static final BigInteger BIG_INTEGER_VALUE;
     protected static final BigDecimal BIG_DECIMAL_VALUE;
     protected static final UUID UUID_VALUE = UUID.randomUUID();
+
+    /** The error message displayed when attempting to convert a {@code null} value to a primitive data type. */
+    protected static final String NULL_TO_PRIMITIVE_ERROR_MESSAGE =
+            "The value of field at index %d is null and cannot be converted to a primitive data type.";
+
+    /** The error message displayed when attempting to convert a null value to a primitive data type. */
+    protected static final String NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE =
+            "The value of field '%s' is null and cannot be converted to a primitive data type.";
 
     static {
         Random rnd = new Random();
@@ -101,7 +113,9 @@ public abstract class AbstractImmutableTupleTest {
 
     protected abstract Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value);
 
-    @EnumSource(value = ColumnType.class, mode = Mode.EXCLUDE, names = {"PERIOD", "DURATION", "NULL"})
+    protected abstract Tuple createNullValueTuple(ColumnType valueType);
+
+    @EnumSource(value = ColumnType.class, mode = Mode.EXCLUDE, names = {"PERIOD", "DURATION", "NULL", "STRUCT"})
     @ParameterizedTest
     public void testTupleColumnsEquality(ColumnType type) {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
@@ -296,6 +310,30 @@ public abstract class AbstractImmutableTupleTest {
         assertEquals(tup2, tup1);
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsUsingFieldIndex")
+    public void nullPointerWhenReadingNullAsPrimitive(
+            ColumnType type,
+            BiConsumer<Tuple, Integer> fieldAccessor
+    ) {
+        Tuple tuple = createNullValueTuple(type);
+
+        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple, 1));
+        assertEquals(String.format(NULL_TO_PRIMITIVE_ERROR_MESSAGE, 1), err.getMessage());
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("primitiveAccessorsUsingFieldName")
+    public void nullPointerWhenReadingNullByNameAsPrimitive(
+            ColumnType type,
+            BiConsumer<Tuple, String> fieldAccessor
+    ) {
+        Tuple tuple = createNullValueTuple(type);
+
+        var err = assertThrows(NullPointerException.class, () -> fieldAccessor.accept(tuple, "VAL"));
+        assertEquals(String.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, "VAL"), err.getMessage());
+    }
+
     /**
      * Adds sample values for columns of default schema: id (long), simpleName (string), "QuotedName" (string), noValue (null).
      *
@@ -444,5 +482,29 @@ public abstract class AbstractImmutableTupleTest {
                 .minusSeconds(ZoneOffset.MAX.getTotalSeconds()).toInstant(ZoneOffset.UTC).toEpochMilli();
 
         return Instant.ofEpochMilli(minTs + (long) (rnd.nextDouble() * (maxTs - minTs)));
+    }
+
+    private static List<Arguments> primitiveAccessorsUsingFieldIndex() {
+        return List.of(
+                Arguments.of(ColumnType.BOOLEAN, (BiConsumer<Tuple, Integer>) Tuple::booleanValue),
+                Arguments.of(ColumnType.INT8, (BiConsumer<Tuple, Integer>) Tuple::byteValue),
+                Arguments.of(ColumnType.INT16, (BiConsumer<Tuple, Integer>) Tuple::shortValue),
+                Arguments.of(ColumnType.INT32, (BiConsumer<Tuple, Integer>) Tuple::intValue),
+                Arguments.of(ColumnType.INT64, (BiConsumer<Tuple, Integer>) Tuple::longValue),
+                Arguments.of(ColumnType.FLOAT, (BiConsumer<Tuple, Integer>) Tuple::floatValue),
+                Arguments.of(ColumnType.DOUBLE, (BiConsumer<Tuple, Integer>) Tuple::doubleValue)
+        );
+    }
+
+    private static List<Arguments> primitiveAccessorsUsingFieldName() {
+        return List.of(
+                Arguments.of(ColumnType.BOOLEAN, (BiConsumer<Tuple, String>) Tuple::booleanValue),
+                Arguments.of(ColumnType.INT8, (BiConsumer<Tuple, String>) Tuple::byteValue),
+                Arguments.of(ColumnType.INT16, (BiConsumer<Tuple, String>) Tuple::shortValue),
+                Arguments.of(ColumnType.INT32, (BiConsumer<Tuple, String>) Tuple::intValue),
+                Arguments.of(ColumnType.INT64, (BiConsumer<Tuple, String>) Tuple::longValue),
+                Arguments.of(ColumnType.FLOAT, (BiConsumer<Tuple, String>) Tuple::floatValue),
+                Arguments.of(ColumnType.DOUBLE, (BiConsumer<Tuple, String>) Tuple::doubleValue)
+        );
     }
 }

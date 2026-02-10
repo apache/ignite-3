@@ -19,6 +19,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -152,16 +153,65 @@ public class IgniteServiceCollectionExtensionsTests
             (s, key) => s.AddIgniteClientGroupKeyed(key, (_, _) => CreateGroupConfig(), lifetime));
     }
 
+    [Test]
+    public void TestAutomaticLoggerFactorySetFromServices()
+    {
+        var services = new ServiceCollection();
+
+        var diLoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        services.AddSingleton(diLoggerFactory);
+
+        var config = new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)
+        };
+
+        services.AddIgniteClientGroup(config);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        using var group = serviceProvider.GetRequiredService<IgniteClientGroup>();
+
+        var actualLoggerFactory = group.Configuration.ClientConfiguration.LoggerFactory;
+        Assert.AreSame(diLoggerFactory, actualLoggerFactory);
+    }
+
+    [Test]
+    public void TestCustomLoggerFactoryIsPreserved()
+    {
+        var services = new ServiceCollection();
+
+        var diLoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        services.AddSingleton(diLoggerFactory);
+
+        var customLoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace);
+        var config = new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)
+            {
+                LoggerFactory = customLoggerFactory
+            }
+        };
+
+        services.AddIgniteClientGroup(config);
+
+        using var serviceProvider = services.BuildServiceProvider();
+        using var group = serviceProvider.GetRequiredService<IgniteClientGroup>();
+
+        var actualLoggerFactory = group.Configuration.ClientConfiguration.LoggerFactory;
+        Assert.AreSame(customLoggerFactory, actualLoggerFactory);
+        Assert.AreNotSame(diLoggerFactory, actualLoggerFactory);
+    }
+
     private static async Task ValidateRegisterSingleClient(Action<ServiceCollection> register, Func<IServiceProvider, IgniteClientGroup?> resolve)
     {
         var services = new ServiceCollection();
 
         register(services);
 
-        var serviceProvider = services.BuildServiceProvider();
+        await using var serviceProvider = services.BuildServiceProvider();
 
-        var group = resolve(serviceProvider);
-        var group2 = resolve(serviceProvider);
+        using var group = resolve(serviceProvider);
+        using var group2 = resolve(serviceProvider);
 
         Assert.That(group, Is.Not.Null);
         Assert.That(group2, Is.Not.Null);
@@ -188,12 +238,13 @@ public class IgniteServiceCollectionExtensionsTests
 
         register(services);
 
-        var serviceProvider = services.BuildServiceProvider();
+        await using var serviceProvider = services.BuildServiceProvider();
 
-        var group = resolve(serviceProvider);
+        using var group = resolve(serviceProvider);
 
         Assert.That(group, Is.Not.Null);
 
+        // ReSharper disable once AccessToDisposedClosure
         var clients = await Task.WhenAll(
             Enumerable.Range(0, count + 1).Select(async _ => await group.GetIgniteAsync()));
 
@@ -235,5 +286,8 @@ public class IgniteServiceCollectionExtensionsTests
         {
             Size = size,
             ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)
+            {
+                LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+            }
         };
 }

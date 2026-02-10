@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -134,7 +134,7 @@ public class KillCommandHandler implements KillHandlerRegistry {
         return handler;
     }
 
-    private void onMessage(NetworkMessage networkMessage, ClusterNode clusterNode, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage networkMessage, InternalClusterNode clusterNode, @Nullable Long correlationId) {
         if (networkMessage instanceof CancelOperationRequest) {
             assert correlationId != null;
 

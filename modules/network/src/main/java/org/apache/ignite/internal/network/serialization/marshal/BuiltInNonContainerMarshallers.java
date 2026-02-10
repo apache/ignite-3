@@ -243,7 +243,6 @@ class BuiltInNonContainerMarshallers {
         void write(T value, IgniteDataOutput output) throws IOException, MarshalException;
     }
 
-
     private interface ContextlessValueReader<T> {
         /**
          * Reads the next value from a {@link DataInput}.

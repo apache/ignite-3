@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Proxy;
@@ -79,6 +78,9 @@ import org.jetbrains.annotations.Nullable;
  * TraitUtils. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TraitUtils {
+
+    private static final int TRAITS_COMBINATION_COMPLEXITY_LIMIT = 1024;
+
     /**
      * Enforce. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -215,21 +217,6 @@ public class TraitUtils {
      */
     public static IgniteDistribution distribution(RelTraitSet traits) {
         return traits.getTrait(DistributionTraitDef.INSTANCE);
-    }
-
-    /**
-     * Check distribution definition in traits.
-     *
-     * @param traitDefs Traits to analyze.
-     * @return {@code true} if distribution found, {@code false} otherwise.
-     */
-    public static boolean distributionPresent(ImmutableList<RelTraitDef> traitDefs) {
-        for (RelTraitDef<?> trait : traitDefs) {
-            if (trait instanceof DistributionTraitDef) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -374,8 +361,59 @@ public class TraitUtils {
 
     private static Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits) {
         Set<Pair<RelTraitSet, List<RelTraitSet>>> out = new HashSet<>();
-        fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);
+
+        long complexity;
+        try {
+            complexity = inTraits.stream()
+                    .mapToInt(List::size)
+                    .asLongStream()
+                    .reduce(1, Math::multiplyExact);
+        } catch (ArithmeticException ignored) {
+            complexity = Long.MAX_VALUE;
+        }
+
+        if (complexity <= TRAITS_COMBINATION_COMPLEXITY_LIMIT) {
+            fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);
+        } else {
+            fillRandom(outTraits, inTraits, out, TRAITS_COMBINATION_COMPLEXITY_LIMIT);
+        }
+
         return out;
+    }
+
+    private static void fillRandom(
+            RelTraitSet outTraits,
+            List<List<RelTraitSet>> inTraits,
+            Set<Pair<RelTraitSet, List<RelTraitSet>>> result,
+            int count
+    ) {
+        RelTraitSet[] combination = new RelTraitSet[inTraits.size()];
+
+        long iteration = 0;
+        for (int attemptNo = 0; attemptNo < count; attemptNo++) {
+            int lastProcessed = -1;
+            for (int i = 0; i < inTraits.size(); i++) {
+                List<RelTraitSet> traits = inTraits.get(i);
+
+                // Even though random seems like it might fit better, we stick with deterministic approach
+                // as it make the system easy, more stable, and more predictable in terms of testing, debugging,
+                // benchmarking, and regression analyses.
+                RelTraitSet traitsCandidate = traits.get((int) (iteration % traits.size()));
+
+                iteration++;
+
+                if (traitsCandidate.getConvention() != IgniteConvention.INSTANCE) {
+                    break;
+                }
+
+                lastProcessed = i;
+                combination[i] = traitsCandidate;
+            }
+
+            if (inTraits.size() - 1 == lastProcessed) {
+                result.add(Pair.of(outTraits, List.of(combination)));
+            }
+        }
     }
 
     private static boolean fillRecursive(

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
@@ -26,20 +25,16 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -52,15 +47,16 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
@@ -98,8 +94,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
     private final StorageConfiguration storageConfig;
-
-    private final @Nullable SystemLocalConfiguration systemLocalConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -146,7 +140,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             String igniteInstanceName,
             MetricManager metricManager,
             StorageConfiguration storageConfig,
-            @Nullable SystemLocalConfiguration systemLocalConfig,
+            SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -155,13 +149,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             ExecutorService commonExecutorService,
             HybridClock clock
     ) {
-        super(clock);
+        super(systemLocalConfig, clock);
 
         this.igniteInstanceName = igniteInstanceName;
         this.metricManager = metricManager;
         this.storageConfig = storageConfig;
         this.engineConfig = ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
-        this.systemLocalConfig = systemLocalConfig;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -184,12 +177,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     @Override
     public void start() throws StorageException {
+        super.start();
+
         int pageSize = engineConfig.pageSizeBytes().value();
 
         try {
-            FileIoFactory fileIoFactory = engineConfig.checkpoint().useAsyncFileIoFactory().value()
-                    ? new AsyncFileIoFactory()
-                    : new RandomAccessFileIoFactory();
+            var fileIoFactory = new RandomAccessFileIoFactory();
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 
@@ -199,6 +192,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         }
 
         partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize, StoragePartitionMeta.FACTORY);
+
+        var checkpointMetricSource = new CheckpointMetricSource("storage." + ENGINE_NAME + ".checkpoint");
 
         try {
             checkpointManager = new CheckpointManager(
@@ -212,6 +207,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     ioRegistry,
                     logSyncer,
                     commonExecutorService,
+                    checkpointMetricSource,
                     pageSize
             );
 
@@ -245,9 +241,20 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         executor.allowCoreThreadTimeOut(true);
 
         destructionExecutor = executor;
+
+        var storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
+
+        PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
+
+        metricManager.registerSource(checkpointMetricSource);
+        metricManager.registerSource(storageMetricSource);
+
+        metricManager.enable(checkpointMetricSource);
+        metricManager.enable(storageMetricSource);
     }
 
-    private static CheckpointConfiguration checkpointConfiguration(PageMemoryCheckpointConfiguration checkpointCfg) {
+    /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
+    public static CheckpointConfiguration checkpointConfiguration(PageMemoryCheckpointConfiguration checkpointCfg) {
         return CheckpointConfiguration.builder()
                 .checkpointThreads(checkpointCfg.value().checkpointThreads())
                 .compactionThreads(checkpointCfg.value().compactionThreads())
@@ -322,6 +329,15 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         }
     }
 
+    @Override
+    public void addTableMetrics(StorageTableDescriptor tableDescriptor, StorageEngineTablesMetricSource metricSource) {
+        PersistentPageMemoryDataRegion region = regions.get(tableDescriptor.getStorageProfile());
+
+        assert region != null : "Adding metrics to the table with non-existent data region. [tableDescriptor=" + tableDescriptor + ']';
+
+        region.addTableMetrics(tableDescriptor, metricSource);
+    }
+
     /**
      * Returns checkpoint manager, {@code null} if engine not started.
      */
@@ -354,8 +370,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      * Creates, starts and adds a new data region to the engine.
      */
     private void addDataRegion(PersistentPageMemoryProfileConfiguration storageProfileConfiguration) {
-        initDataRegionSize(storageProfileConfiguration);
-
         int pageSize = engineConfig.pageSizeBytes().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
@@ -374,26 +388,11 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         regions.put(storageProfileConfiguration.name().value(), dataRegion);
     }
 
-    private static void initDataRegionSize(PersistentPageMemoryProfileConfiguration storageProfileConfiguration) {
-        ConfigurationValue<Long> dataRegionSize = storageProfileConfiguration.sizeBytes();
-
-        if (dataRegionSize.value() == UNSPECIFIED_SIZE) {
-            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
-
-            CompletableFuture<Void> updateFuture = dataRegionSize.update(defaultDataRegionSize);
-
-            // Node local configuration is synchronous, wait just in case.
-            try {
-                updateFuture.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new StorageException(e);
-            }
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    storageProfileConfiguration.name().value(), dataRegionSize.key(), defaultDataRegionSize
-            );
-        }
+    @Override
+    public long requiredOffHeapMemorySize() {
+        return regions.values().stream()
+                .mapToLong(PersistentPageMemoryDataRegion::regionSize)
+                .sum();
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.time.Duration.ofSeconds;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -28,12 +29,13 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
+import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -242,7 +244,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
      * Tests that zone data nodes get correctly set if the zone had been created right before the topology was updated.
      */
     @Test
-    void testZoneStartAndTopologyUpdateOrder() throws InterruptedException {
+    void testZoneStartAndTopologyUpdateOrder() {
         startDistributionZoneManager();
 
         Set<NodeWithAttributes> topology = Stream.of(NODE_1, NODE_2)
@@ -258,11 +260,10 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
         // to become active.
         catalogManager.execute(createZoneCommand);
 
-        assertTrue(waitForCondition(() -> {
-            int version = catalogManager.latestCatalogVersion();
-
-            return catalogManager.catalog(version).zone(ZONE_NAME) != null;
-        }, 10_000));
+        waitAtMost(ofSeconds(10)).until(
+                () -> catalogManager.latestCatalog().zone(ZONE_NAME),
+                is(notNullValue())
+        );
 
         CompletableFuture<?> metaStorageUpdateFuture = metaStorageManager.putAll(Map.of(
                 zonesLogicalTopologyKey(), LogicalTopologySetSerializer.serialize(topology),
@@ -271,20 +272,19 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         assertThat(metaStorageUpdateFuture, willCompleteSuccessfully());
 
-        int version = catalogManager.latestCatalogVersion();
+        int zoneId = catalogManager.latestCatalog().zone(ZONE_NAME).id();
 
-        int zoneId = catalogManager.catalog(version).zone(ZONE_NAME).id();
+        waitAtMost(ofSeconds(10)).until(
+                () -> {
+                    CompletableFuture<Entry> dataNodesHistoryFuture = metaStorageManager.get(zoneDataNodesHistoryKey(zoneId));
 
-        assertTrue(waitForCondition(() -> {
-            CompletableFuture<Entry> dataNodesHistoryFuture = metaStorageManager.get(zoneDataNodesHistoryKey(zoneId));
+                    assertThat(dataNodesHistoryFuture, willCompleteSuccessfully());
 
-            assertThat(dataNodesHistoryFuture, willCompleteSuccessfully());
+                    DataNodesHistory dataNodesHistory = DataNodesHistorySerializer.deserialize(dataNodesHistoryFuture.join().value());
 
-            DataNodesHistory dataNodesHistory = DataNodesHistorySerializer.deserialize(dataNodesHistoryFuture.join().value());
-
-            Set<NodeWithAttributes> dataNodes = dataNodesHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes();
-
-            return dataNodes.equals(topology);
-        }, 10_000));
+                    return dataNodesHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).dataNodes();
+                },
+                is(topology)
+        );
     }
 }

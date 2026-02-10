@@ -24,6 +24,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.tree.NamedListNode.IDS;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.NAME;
 import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_IDX;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
@@ -430,6 +431,33 @@ public class ConfigurationUtilTest {
         ));
 
         assertEquals("value1", parentChange.elements().get("name1").child().str());
+        assertEquals("value2", parentChange.elements().get("name2").child().str());
+    }
+
+    @Test
+    public void fillFromPrefixMapWithNotFullNamedListSuccessfully() {
+        InnerNode parentNode = newNodeInstance(ParentConfigurationSchema.class);
+
+        ParentChange parentChange = (ParentChange) parentNode;
+
+        // Entry with order index 0 is filtered
+        ConfigurationUtil.fillFromPrefixMap(parentNode, Map.of(
+                "elements", Map.of(
+                        "01234567-89ab-cdef-0123-456789abcdef", Map.of(
+                                "child", Map.of("str", "value2"),
+                                ORDER_IDX, 1,
+                                NAME, "name2"
+                        ),
+                        IDS, Map.of("name2", "01234567-89ab-cdef-0123-456789abcdef")
+                )
+        ));
+
+        List<String> listKeys = parentChange.elements().namedListKeys();
+        assertEquals(1, listKeys.size());
+
+        String key = listKeys.get(0);
+        assertEquals("name2", key);
+
         assertEquals("value2", parentChange.elements().get("name2").child().str());
     }
 
@@ -917,8 +945,10 @@ public class ConfigurationUtilTest {
 
         generator.compileRootSchema(schemaClass, Map.of(), Map.of());
 
-        SuperRoot superRoot = new SuperRoot(
-                s -> new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))
+        SuperRoot superRoot = new SuperRoot(s ->
+                s.equals(schemaKey.key())
+                        ? new RootInnerNode(schemaKey, generator.instantiateNode(schemaClass))
+                        : null
         );
 
         assertThrows(NoSuchElementException.class, () -> superRoot.construct(schemaKey.key(), null, false));

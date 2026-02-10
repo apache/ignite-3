@@ -5,115 +5,102 @@ Sort
   Project
       fieldNames: [C_CUSTOMER_ID, C_SALUTATION, C_FIRST_NAME, C_LAST_NAME, CA_STREET_NUMBER, CA_STREET_NAME, CA_STREET_TYPE, CA_SUITE_NUMBER, CA_CITY, CA_COUNTY, CA_STATE, CA_ZIP, CA_COUNTRY, CA_GMT_OFFSET, CA_LOCATION_TYPE, CTR_TOTAL_RETURN]
       projection: [C_CUSTOMER_ID, C_SALUTATION, C_FIRST_NAME, C_LAST_NAME, CA_STREET_NUMBER, CA_STREET_NAME, CA_STREET_TYPE, CA_SUITE_NUMBER, CA_CITY, CA_COUNTY, CA_STATE, CA_ZIP, CA_COUNTRY, CA_GMT_OFFSET, CA_LOCATION_TYPE, CTR_TOTAL_RETURN]
-      est: (rows=2876)
-    Filter
-        predicate: >(CTR_TOTAL_RETURN, CAST(EXPR$0):DECIMAL(32767, 2))
-        est: (rows=2876)
-      CorrelatedNestedLoopJoin
-          predicate: true
-          type: left
-          correlates: [$cor1]
-          est: (rows=5751)
-        Project
-            fieldNames: [CTR_STATE, CTR_TOTAL_RETURN, CA_STREET_NUMBER, CA_STREET_NAME, CA_STREET_TYPE, CA_SUITE_NUMBER, CA_CITY, CA_COUNTY, CA_STATE, CA_ZIP, CA_COUNTRY, CA_GMT_OFFSET, CA_LOCATION_TYPE, C_CUSTOMER_ID, C_SALUTATION, C_FIRST_NAME, C_LAST_NAME]
-            projection: [CTR_STATE, CTR_TOTAL_RETURN, CA_STREET_NUMBER, CA_STREET_NAME, CA_STREET_TYPE, CA_SUITE_NUMBER, CA_CITY, CA_COUNTY, CA_STATE, CA_ZIP, CA_COUNTRY, CA_GMT_OFFSET, CA_LOCATION_TYPE, C_CUSTOMER_ID, C_SALUTATION, C_FIRST_NAME, C_LAST_NAME]
-            est: (rows=5751)
-          HashJoin
-              predicate: =(CA_ADDRESS_SK, C_CURRENT_ADDR_SK)
-              type: inner
-              est: (rows=5751)
-            Exchange
-                distribution: single
-                est: (rows=16650)
-              TableScan
-                  table: PUBLIC.CUSTOMER_ADDRESS
-                  predicate: =(CA_STATE, _UTF-8'TX')
-                  fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_STREET_TYPE, CA_SUITE_NUMBER, CA_CITY, CA_COUNTY, CA_STATE, CA_ZIP, CA_COUNTRY, CA_GMT_OFFSET, CA_LOCATION_TYPE]
-                  est: (rows=16650)
-            HashJoin
-                predicate: =(CTR_CUSTOMER_SK, C_CUSTOMER_SK)
-                type: inner
-                est: (rows=17271)
-              Exchange
-                  distribution: single
-                  est: (rows=100000)
-                TableScan
-                    table: PUBLIC.CUSTOMER
-                    fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_CURRENT_ADDR_SK, C_SALUTATION, C_FIRST_NAME, C_LAST_NAME]
-                    est: (rows=100000)
-              ColocatedHashAggregate
-                  fieldNames: [CTR_CUSTOMER_SK, CTR_STATE, CTR_TOTAL_RETURN]
-                  group: [CTR_CUSTOMER_SK, CTR_STATE]
-                  aggregation: [SUM(CR_RETURN_AMT_INC_TAX)]
-                  est: (rows=17271)
-                Project
-                    fieldNames: [CTR_CUSTOMER_SK, CTR_STATE, CR_RETURN_AMT_INC_TAX]
-                    projection: [CR_RETURNING_CUSTOMER_SK, CA_STATE, CR_RETURN_AMT_INC_TAX]
-                    est: (rows=47974)
-                  HashJoin
-                      predicate: =(CR_RETURNING_ADDR_SK, CA_ADDRESS_SK)
-                      type: inner
-                      est: (rows=47974)
-                    Exchange
-                        distribution: single
-                        est: (rows=50000)
-                      TableScan
-                          table: PUBLIC.CUSTOMER_ADDRESS
-                          fieldNames: [CA_ADDRESS_SK, CA_STATE]
-                          est: (rows=50000)
-                    HashJoin
-                        predicate: =(CR_RETURNED_DATE_SK, D_DATE_SK)
-                        type: inner
-                        est: (rows=47974)
-                      Exchange
-                          distribution: single
-                          est: (rows=144067)
-                        TableScan
-                            table: PUBLIC.CATALOG_RETURNS
-                            fieldNames: [CR_RETURNED_DATE_SK, CR_RETURNING_CUSTOMER_SK, CR_RETURNING_ADDR_SK, CR_RETURN_AMT_INC_TAX]
-                            est: (rows=144067)
-                      Exchange
-                          distribution: single
-                          est: (rows=24325)
-                        TableScan
-                            table: PUBLIC.DATE_DIM
-                            predicate: =(D_YEAR, 1998)
-                            fieldNames: [D_DATE_SK, D_YEAR]
-                            est: (rows=24325)
-        Project
-            fieldNames: [EXPR$0]
-            projection: [*($f0, 1.2:DECIMAL(2, 1))]
-            est: (rows=1)
+      est: (rows=6704563)
+    MergeJoin
+        predicate: =(CA_ADDRESS_SK, C_CURRENT_ADDR_SK)
+        type: inner
+        est: (rows=6704563)
+      Exchange
+          distribution: single
+          est: (rows=16650)
+        Sort
+            collation: [CA_ADDRESS_SK ASC]
+            est: (rows=16650)
+          TableScan
+              table: PUBLIC.CUSTOMER_ADDRESS
+              predicate: =(CA_STATE, _UTF-8'TX')
+              fieldNames: [CA_ADDRESS_SK, CA_STREET_NUMBER, CA_STREET_NAME, CA_STREET_TYPE, CA_SUITE_NUMBER, CA_CITY, CA_COUNTY, CA_STATE, CA_ZIP, CA_COUNTRY, CA_GMT_OFFSET, CA_LOCATION_TYPE]
+              est: (rows=16650)
+      HashJoin
+          predicate: =(CTR_CUSTOMER_SK, C_CUSTOMER_SK)
+          type: inner
+          est: (rows=20133824)
+        Exchange
+            distribution: single
+            est: (rows=100000)
+          Sort
+              collation: [C_CURRENT_ADDR_SK ASC]
+              est: (rows=100000)
+            TableScan
+                table: PUBLIC.CUSTOMER
+                fieldNames: [C_CUSTOMER_SK, C_CUSTOMER_ID, C_CURRENT_ADDR_SK, C_SALUTATION, C_FIRST_NAME, C_LAST_NAME]
+                est: (rows=100000)
+        HashJoin
+            predicate: AND(=(CTR_STATE, CTR_STATE$0), >(CAST(CTR_TOTAL_RETURN):DECIMAL(30, 17), *($f1, 1.2:DECIMAL(2, 1))))
+            fieldNames: [CTR_CUSTOMER_SK, CTR_STATE, CTR_TOTAL_RETURN, CTR_STATE$0, $f1]
+            type: inner
+            est: (rows=20133824)
           ColocatedHashAggregate
-              fieldNames: [$f0]
-              group: []
-              aggregation: [AVG(CTR_TOTAL_RETURN)]
-              est: (rows=1)
+              fieldNames: [CTR_CUSTOMER_SK, CTR_STATE, CTR_TOTAL_RETURN]
+              group: [CTR_CUSTOMER_SK, CTR_STATE]
+              aggregation: [SUM(CR_RETURN_AMT_INC_TAX)]
+              est: (rows=17271)
             Project
-                fieldNames: [CTR_TOTAL_RETURN]
-                projection: [CTR_TOTAL_RETURN]
-                est: (rows=5751)
+                fieldNames: [CTR_CUSTOMER_SK, CTR_STATE, CR_RETURN_AMT_INC_TAX]
+                projection: [CR_RETURNING_CUSTOMER_SK, CA_STATE, CR_RETURN_AMT_INC_TAX]
+                est: (rows=47974)
+              HashJoin
+                  predicate: =(CR_RETURNING_ADDR_SK, CA_ADDRESS_SK)
+                  type: inner
+                  est: (rows=47974)
+                Exchange
+                    distribution: single
+                    est: (rows=50000)
+                  TableScan
+                      table: PUBLIC.CUSTOMER_ADDRESS
+                      fieldNames: [CA_ADDRESS_SK, CA_STATE]
+                      est: (rows=50000)
+                HashJoin
+                    predicate: =(CR_RETURNED_DATE_SK, D_DATE_SK)
+                    type: inner
+                    est: (rows=47974)
+                  Exchange
+                      distribution: single
+                      est: (rows=144067)
+                    TableScan
+                        table: PUBLIC.CATALOG_RETURNS
+                        fieldNames: [CR_RETURNED_DATE_SK, CR_RETURNING_CUSTOMER_SK, CR_RETURNING_ADDR_SK, CR_RETURN_AMT_INC_TAX]
+                        est: (rows=144067)
+                  Exchange
+                      distribution: single
+                      est: (rows=24325)
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 1998)
+                        fieldNames: [D_DATE_SK, D_YEAR]
+                        est: (rows=24325)
+          ColocatedHashAggregate
+              fieldNames: [CTR_STATE, $f1]
+              group: [CTR_STATE]
+              aggregation: [AVG(CTR_TOTAL_RETURN)]
+              est: (rows=15544)
+            Project
+                fieldNames: [CTR_STATE, CTR_TOTAL_RETURN]
+                projection: [CTR_STATE, CTR_TOTAL_RETURN]
+                est: (rows=15544)
               ColocatedHashAggregate
                   fieldNames: [CTR_CUSTOMER_SK, CTR_STATE, CTR_TOTAL_RETURN]
                   group: [CTR_CUSTOMER_SK, CTR_STATE]
                   aggregation: [SUM(CR_RETURN_AMT_INC_TAX)]
-                  est: (rows=5751)
+                  est: (rows=15544)
                 Project
                     fieldNames: [CTR_CUSTOMER_SK, CTR_STATE, CR_RETURN_AMT_INC_TAX]
                     projection: [CR_RETURNING_CUSTOMER_SK, CA_STATE, CR_RETURN_AMT_INC_TAX]
-                    est: (rows=15975)
+                    est: (rows=43177)
                   HashJoin
                       predicate: =(CR_RETURNING_ADDR_SK, CA_ADDRESS_SK)
                       type: inner
-                      est: (rows=15975)
-                    Exchange
-                        distribution: single
-                        est: (rows=16650)
-                      TableScan
-                          table: PUBLIC.CUSTOMER_ADDRESS
-                          predicate: =($cor1.CTR_STATE, CA_STATE)
-                          fieldNames: [CA_ADDRESS_SK, CA_STATE]
-                          est: (rows=16650)
+                      est: (rows=43177)
                     HashJoin
                         predicate: =(CR_RETURNED_DATE_SK, D_DATE_SK)
                         type: inner
@@ -133,3 +120,11 @@ Sort
                             predicate: =(D_YEAR, 1998)
                             fieldNames: [D_DATE_SK, D_YEAR]
                             est: (rows=24325)
+                    Exchange
+                        distribution: single
+                        est: (rows=45000)
+                      TableScan
+                          table: PUBLIC.CUSTOMER_ADDRESS
+                          predicate: IS NOT NULL(CA_STATE)
+                          fieldNames: [CA_ADDRESS_SK, CA_STATE]
+                          est: (rows=45000)

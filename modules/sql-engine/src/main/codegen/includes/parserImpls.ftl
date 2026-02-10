@@ -163,6 +163,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     SqlIdentifier zoneName = null;
     SqlNode storageProfile = null;
     SqlNodeList colocationColumns = null;
+    SqlNodeList tableProperties = null;
 }
 {
     <TABLE>
@@ -179,9 +180,56 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     [
         <STORAGE> <PROFILE> {s.add(this);} storageProfile = StringLiteral()
     ]
+    [
+        <WITH> {s.add(this);} tableProperties = TablePropertyList(s)
+    ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, zoneName, storageProfile);
+        return new IgniteSqlCreateTable(
+                s.end(this), ifNotExists, id, columnList, colocationColumns, zoneName, storageProfile, tableProperties
+        );
     }
+}
+
+SqlNodeList TablePropertyList(Span s) :
+{
+    final List<SqlNode> list = new ArrayList<SqlNode>();
+    SqlNode property;
+}
+{
+    <LPAREN> { s.add(this); }
+    property = TableProperty(s) {
+        list.add(property);
+    }
+    (
+        <COMMA> property = TableProperty(s) {
+           list.add(property);
+       }
+    )*
+    <RPAREN> {
+        return new SqlNodeList(list, s.end(this));
+    }
+}
+
+SqlNode TableProperty(Span s) :
+{
+    IgniteSqlTablePropertyKey key;
+    SqlNode value;
+    SqlParserPos pos;
+}
+{
+    (
+        <MIN> { pos = getPos(); } <STALE> <ROWS>
+        value = UnsignedIntegerLiteral() {
+            key = IgniteSqlTablePropertyKey.MIN_STALE_ROWS_COUNT;
+            return new IgniteSqlTableProperty(key.symbol(getPos()), value, s.end(this));
+        }
+    |
+        <STALE> { pos = getPos(); } <ROWS> <FRACTION> value = UnsignedNumericLiteral()
+        {
+            key = IgniteSqlTablePropertyKey.STALE_ROWS_FRACTION;
+            return new IgniteSqlTableProperty(key.symbol(getPos()), value, s.end(this));
+        }
+    )
 }
 
 SqlNode ColumnNameWithSortDirection() :
@@ -445,6 +493,17 @@ SqlNodeList ColumnWithTypeOrList() :
     list = ColumnWithTypeList() { return list; }
 }
 
+SqlNodeList SingleTablePropertyOrList(Span s) :
+{ }
+{
+    (
+        LOOKAHEAD(<LPAREN>)
+        { return TablePropertyList(s); }
+    |
+        { return new SqlNodeList(List.of(TableProperty(s)), s.end(this)); }
+    )
+}
+
 SqlNode SqlAlterTable() :
 {
     final Span s;
@@ -453,6 +512,7 @@ SqlNode SqlAlterTable() :
     boolean colIgnoreErr;
     SqlNode col;
     SqlNodeList cols;
+    SqlNodeList propertyList;
 }
 {
     <ALTER> { s = span(); }
@@ -468,6 +528,10 @@ SqlNode SqlAlterTable() :
     |
         <ALTER> [<COLUMN>] {
             return SqlAlterColumn(s, id, ifExists);
+        }
+    |
+        <SET> propertyList = SingleTablePropertyOrList(s) {
+            return new IgniteSqlAlterTableSetProperties(s.end(this), ifExists, id, propertyList);
         }
     )
 }
@@ -618,7 +682,7 @@ SqlNodeList ZoneOptionsList() :
 void ZoneElement(List<SqlNode> zoneOptions) :
 {
     final Span s;
-    final SqlIdentifier key;
+    SqlIdentifier key;
     final SqlNode option;
     final SqlParserPos pos;
 }
@@ -629,24 +693,45 @@ void ZoneElement(List<SqlNode> zoneOptions) :
       (
           <SCALE>
           (
-              <UP> option = UnsignedIntegerLiteral()
+              <UP>
+              (
+                  option = UnsignedIntegerLiteral()
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  }
+                  |
+                  <OFF>
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+                  }
+              )
+              |
+              <DOWN>
+              (
+                  option = UnsignedIntegerLiteral()
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  }
+                  |
+                  <OFF>
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+                  }
+              )
+              |
+              <OFF>
               {
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
-              }
-              |
-              <DOWN> option = UnsignedIntegerLiteral()
-              {
+                  zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
               }
           )
-          |
-          <ADJUST> option = UnsignedIntegerLiteral()
-          {
-              key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
-              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
-          }
       )
       |
       <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()

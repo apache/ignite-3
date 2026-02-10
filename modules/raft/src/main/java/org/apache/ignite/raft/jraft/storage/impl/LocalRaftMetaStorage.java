@@ -40,6 +40,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
 public class LocalRaftMetaStorage implements RaftMetaStorage {
     private static final IgniteLogger LOG = Loggers.forClass(LocalRaftMetaStorage.class);
     private static final String RAFT_META = "raft_meta";
+
     // The limit that determines whether we will log the saving of raft meta in info or debug level.
     private static final int SAVE_RAFT_META_COST_MS_SOFT_LIMIT = 10;
 
@@ -61,7 +62,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
     @Override
     public boolean init(final RaftMetaStorageOptions opts) {
         if (this.isInited) {
-            LOG.warn("Raft meta storage is already inited.");
+            LOG.warn("Raft meta storage is already inited [node={}].", this.node.getNodeId());
             return true;
         }
         this.node = opts.getNode();
@@ -69,7 +70,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         File dir = new File(this.path);
 
         if (!Utils.mkdir(dir)) {
-            LOG.error("Fail to mkdir {}", this.path);
+            LOG.error("Fail to mkdir [node={}, path={}].", this.node.getNodeId(), this.path);
             return false;
         }
 
@@ -96,7 +97,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return true;
         }
         catch (final IOException e) {
-            LOG.error("Fail to load raft meta storage", e);
+            LOG.error("Fail to load raft meta storage [node={}].", e, this.node.getNodeId());
             return false;
         }
     }
@@ -120,7 +121,7 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
             return true;
         }
         catch (final Exception e) {
-            LOG.error("Fail to save raft meta", e);
+            LOG.error("Fail to save raft meta [node={}].", e, this.node.getNodeId());
             reportIOError();
             return false;
         }
@@ -130,13 +131,12 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
                 this.nodeMetrics.recordLatency("save-raft-meta", cost);
             }
             if (cost > SAVE_RAFT_META_COST_MS_SOFT_LIMIT) {
-                LOG.info("Save raft meta, path={}, term={}, votedFor={}, cost time={} ms", this.path, this.term,
-                    this.votedFor, cost);
+                LOG.info("Save raft meta, [node={}, path={}, term={}, votedFor={}, costTimeMs={} ms].",
+                    this.node.getNodeId(), this.path, this.term, this.votedFor, cost);
             } else {
-                LOG.debug("Save raft meta, path={}, term={}, votedFor={}, cost time={} ms", this.path, this.term,
-                    this.votedFor, cost);
+                LOG.debug("Save raft meta, [node={}, path={}, term={}, votedFor={}, costTimeMs={} ms].",
+                    this.node.getNodeId(), this.path, this.term, this.votedFor, cost);
             }
-
         }
     }
 
@@ -192,6 +192,13 @@ public class LocalRaftMetaStorage implements RaftMetaStorage {
         this.votedFor = peerId;
         this.term = term;
         return save();
+    }
+
+    @Override
+    public void createAfterDestroy() {
+        if (!Utils.mkdir(new File(path))) {
+            LOG.error("Fail to mkdir [node={}, path={}].", this.node.getNodeId(), this.path);
+        }
     }
 
     @Override

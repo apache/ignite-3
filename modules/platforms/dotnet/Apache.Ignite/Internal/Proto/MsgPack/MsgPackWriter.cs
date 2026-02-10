@@ -399,7 +399,7 @@ internal readonly ref struct MsgPackWriter
     /// Writes an array of objects with type codes.
     /// </summary>
     /// <param name="col">Array.</param>
-    public void WriteObjectCollectionAsBinaryTuple(ICollection<object?>? col)
+    public void WriteObjectCollectionWithCountAsBinaryTuple(ICollection<object?>? col)
     {
         if (col == null)
         {
@@ -415,11 +415,35 @@ internal readonly ref struct MsgPackWriter
             return;
         }
 
-        using var builder = new BinaryTupleBuilder(col.Count * 3);
+        WriteObjectEnumerableAsBinaryTuple(col, col.Count);
+    }
+
+    /// <summary>
+    /// Writes a collection of objects with type codes.
+    /// </summary>
+    /// <param name="col">Objects.</param>
+    /// <param name="expectedCount">Count.</param>
+    /// <param name="errorPrefix">Error prefix.</param>
+    public void WriteObjectEnumerableAsBinaryTuple(IEnumerable<object?> col, int expectedCount, string? errorPrefix = null)
+    {
+        using var builder = new BinaryTupleBuilder(expectedCount * 3);
+        int actualCount = 0;
 
         foreach (var obj in col)
         {
+            actualCount++;
+
+            if (actualCount > expectedCount)
+            {
+                throw new ArgumentException($"{errorPrefix}Expected {expectedCount} objects, but got more.");
+            }
+
             builder.AppendObjectWithType(obj);
+        }
+
+        if (actualCount != expectedCount)
+        {
+            throw new ArgumentException($"{errorPrefix}Expected {expectedCount} objects, but got {actualCount}.");
         }
 
         Write(builder.Build().Span);

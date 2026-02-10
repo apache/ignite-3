@@ -17,8 +17,10 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,8 +36,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -44,6 +48,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.sql.ClientDirectTxMode;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
+import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
@@ -52,9 +57,12 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -64,7 +72,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testExecuteAsync() {
-        AsyncResultSet<SqlRow> resultSet =  client.sql().executeAsync(null, "SELECT 1").join();
+        AsyncResultSet<SqlRow> resultSet =  client.sql().executeAsync("SELECT 1").join();
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -76,7 +84,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
     @Test
     public void testExecute() {
-        ResultSet<SqlRow> resultSet =  client.sql().execute(null, "SELECT 1");
+        ResultSet<SqlRow> resultSet =  client.sql().execute("SELECT 1");
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -95,7 +103,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .timeZoneId(ZoneId.of("Europe/London"))
                 .build();
 
-        AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync(null, statement).join();
+        AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync((Transaction) null, statement).join();
 
         Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
@@ -108,7 +116,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
     @Test
     public void testMetadata() {
-        ResultSet<SqlRow> resultSet =  client.sql().execute(null, "SELECT META");
+        ResultSet<SqlRow> resultSet =  client.sql().execute("SELECT META");
         ResultSetMetadata meta = resultSet.metadata();
         SqlRow row = resultSet.next();
 
@@ -189,7 +197,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
         sql.executeScript("foo");
 
-        ResultSet<SqlRow> resultSet = sql.execute(null, "SELECT LAST SCRIPT");
+        ResultSet<SqlRow> resultSet = sql.execute("SELECT LAST SCRIPT");
         SqlRow row = resultSet.next();
 
         assertEquals(
@@ -203,7 +211,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
         sql.executeScript("do bar baz", "arg1", null, 2);
 
-        ResultSet<SqlRow> resultSet = sql.execute(null, "SELECT LAST SCRIPT");
+        ResultSet<SqlRow> resultSet = sql.execute("SELECT LAST SCRIPT");
         SqlRow row = resultSet.next();
 
         assertEquals(
@@ -224,8 +232,8 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA_2")
                 .build();
 
-        sql.execute(null, statement1);
-        sql.execute(null, statement2);
+        sql.execute((Transaction) null, statement1);
+        sql.execute((Transaction) null, statement2);
 
         List<PartitionMappingProvider> metas = ((ClientSql) sql).partitionAwarenessCachedMetas();
         assertThat(metas.size(), CoreMatchers.is(2));
@@ -253,13 +261,65 @@ public class ClientSqlTest extends AbstractClientTableTest {
                         .defaultSchema("SCHEMA_" + i)
                         .build();
 
-                sql.execute(null, statement1);
+                sql.execute((Transaction) null, statement1);
             }
 
             assertTrue(waitForCondition(
                     () -> ((ClientSql) sql).partitionAwarenessCachedMetas().size() <= size, 5_000
             ));
         }
+    }
+
+    @ParameterizedTest(name = "{0} => {1}")
+    @MethodSource("testQueryModifiersArgs")
+    void testQueryModifiers(QueryModifier modifier, String expectedQueryTypes) {
+        IgniteSql sql = client.sql();
+
+        AsyncResultSet<SqlRow> results = await(((ClientSql) sql).executeAsyncInternal(
+                null, null, null, Set.of(modifier), sql.createStatement("SELECT ALLOWED QUERY TYPES")));
+
+        assertTrue(results.hasRowSet());
+
+        SqlRow row = results.currentPage().iterator().next();
+
+        assertThat(row.stringValue(0), equalTo(expectedQueryTypes));
+    }
+
+    private static List<Arguments> testQueryModifiersArgs() {
+        List<Arguments> res = new ArrayList<>();
+
+        for (QueryModifier modifier : QueryModifier.values()) {
+            String expected;
+
+            switch (modifier) {
+                case ALLOW_ROW_SET_RESULT:
+                    expected = "EXPLAIN, QUERY";
+                    break;
+
+                case ALLOW_AFFECTED_ROWS_RESULT:
+                    expected = "DML";
+                    break;
+
+                case ALLOW_APPLIED_RESULT:
+                    expected = "DDL, KILL";
+                    break;
+
+                case ALLOW_TX_CONTROL:
+                    expected = "TX_CONTROL";
+                    break;
+
+                case ALLOW_MULTISTATEMENT:
+                    expected = "MULTISTATEMENT";
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Unexpected type: " + modifier);
+            }
+
+            res.add(Arguments.of(modifier, expected));
+        }
+
+        return res;
     }
 
     private static IgniteClient createClientWithPaCacheOfSize(int cacheSize) {

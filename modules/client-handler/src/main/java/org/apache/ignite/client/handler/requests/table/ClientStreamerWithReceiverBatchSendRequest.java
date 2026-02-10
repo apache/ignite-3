@@ -30,6 +30,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.ReceiverExecutionOptions;
@@ -76,8 +77,9 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                 : ReceiverExecutionOptions.DEFAULT;
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
-            return table.partitionManager()
+            return table.partitionDistribution()
                     .primaryReplicaAsync(new HashPartition(partition))
+                    .thenApply(ClusterNodeImpl::fromPublicClusterNode)
                     .thenCompose(node -> table.internalTable().streamerReceiverRunner()
                             .runReceiverAsync(payloadArr, node, deploymentUnits, options))
                     .thenApply(res -> {

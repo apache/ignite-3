@@ -70,8 +70,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     public Stream<DynamicTest> testArithExprs() {
         return Stream.of(
                 sql("SELECT 1 + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).ok(),
-                sql("SELECT NULL + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
-                sql("SELECT ? + NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("null:INTEGER"),
+                sql("SELECT NULL + ?", 1).parameterTypes(nullable(NativeTypes.INT32)).project("+(null:NULL, ?0)"),
+                sql("SELECT ? + NULL", 1).parameterTypes(nullable(NativeTypes.INT32)).project("+(?0, null)"),
 
                 sql("SELECT 1 + ?", "1").parameterTypes(nullable(NativeTypes.STRING))
                         .fails("Cannot apply '+' to arguments of type '<INTEGER> + <VARCHAR>'"),
@@ -120,7 +120,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 sql("SELECT ? IN ('1', '2')", 1).parameterTypes(nullable(NativeTypes.INT32))
                         .fails("Values passed to IN operator must have compatible types"),
-                sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("OR(=(?0, 1), =(?0, 2))"),
+                sql("SELECT ? IN (1, 2)", 1).parameterTypes(nullable(NativeTypes.INT32)).project("SEARCH(?0, Sarg[1, 2])"),
 
                 sql("SELECT ? IN (1)", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter"),
@@ -318,7 +318,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .ok(),
 
-
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
                         .sql("SELECT * FROM t1 WHERE int_col = SOME(SELECT ?)", Unspecified.UNKNOWN)
@@ -334,7 +333,6 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .table("t1", "int_col", NativeTypes.INT32)
                         .sql("SELECT * FROM t1 WHERE int_col = ANY(SELECT ?)", Unspecified.UNKNOWN)
                         .fails("Unable to determine type of a dynamic parameter"),
-
 
                 // DML
 
@@ -445,7 +443,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT NULLIF(CAST(? AS INTEGER), 1)", Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("CASE(=(CAST(?0):INTEGER, 1), null:INTEGER, CAST(?0):INTEGER)")
+                        .project("CASE(=(?0, 1), null:INTEGER, CAST(?0):INTEGER)")
         );
     }
 
@@ -470,7 +468,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT COALESCE(?, ?)", null, null)
                         .parameterTypes(nullable(null), nullable(null))
-                        .project("CASE(IS NOT NULL(?0), ?0, ?1)"),
+                        .project("CASE(IS NOT NULL(?0), CAST(?0):NULL, ?1)"),
 
                 checkStatement()
                         .sql("SELECT COALESCE(?, 1)", Unspecified.UNKNOWN)

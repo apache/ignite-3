@@ -198,7 +198,7 @@ public class IgniteMath {
 
     /** Returns the product of the arguments, throwing an exception if the result overflows an {@code int}. */
     public static int multiplyExact(int x, int y) {
-        long r = (long) x * (long) y;
+        long r = (long) x * y;
 
         if ((int) r != r) {
             throw outOfRangeForTypeException(INTEGER);

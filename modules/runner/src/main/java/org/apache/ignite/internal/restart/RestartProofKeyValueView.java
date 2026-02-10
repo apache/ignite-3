@@ -25,6 +25,8 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.NullableValue;
@@ -44,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>API operations on this are linearized with respect to node restarts. Normally (except for situations when timeouts trigger), user
  * operations will not interact with detached objects.
  */
-class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<K, V>> implements KeyValueView<K, V> {
+class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<K, V>> implements KeyValueView<K, V>, Wrapper {
     RestartProofKeyValueView(
             IgniteAttachmentLock attachmentLock,
             Ignite initialIgnite,
@@ -170,8 +172,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return attached(view -> view.remove(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return attached(view -> view.removeExact(tx, key, val));
     }
 
     @Override
@@ -180,8 +182,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
-        return attachedAsync(view -> view.removeAsync(tx, key, val));
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
+        return attachedAsync(view -> view.removeExactAsync(tx, key, val));
     }
 
     @Override
@@ -231,8 +233,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
-        return attached(view -> view.replace(tx, key, oldValue, newValue));
+    public boolean replaceExact(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue) {
+        return attached(view -> view.replaceExact(tx, key, oldValue, newValue));
     }
 
     @Override
@@ -241,8 +243,8 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        return attachedAsync(view -> view.replaceAsync(tx, key, oldVal, newVal));
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+        return attachedAsync(view -> view.replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     @Override
@@ -303,5 +305,10 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
             @Nullable CriteriaQueryOptions opts
     ) {
         return attachedAsync(view -> view.queryAsync(tx, criteria, indexName, opts));
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return attached(view -> Wrappers.unwrap(view, classToUnwrap));
     }
 }

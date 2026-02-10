@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Used for getting information about the cluster's Logical Topology.
@@ -72,5 +72,5 @@ public interface LogicalTopologyService {
      *
      * @return Future that, when complete, resolves into a list of validated nodes (including ones present in the Logical Topology).
      */
-    CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader();
+    CompletableFuture<Set<InternalClusterNode>> validatedNodesOnLeader();
 }

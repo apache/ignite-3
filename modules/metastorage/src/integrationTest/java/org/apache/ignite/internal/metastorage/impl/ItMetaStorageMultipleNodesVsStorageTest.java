@@ -53,9 +53,9 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -176,7 +176,7 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         CompletableFuture<Set<String>> logicalTopologyNodes = firstNode.cmgManager
                 .logicalTopology()
-                .thenApply(logicalTopology -> logicalTopology.nodes().stream().map(ClusterNode::name).collect(toSet()));
+                .thenApply(logicalTopology -> logicalTopology.nodes().stream().map(InternalClusterNode::name).collect(toSet()));
 
         assertThat(logicalTopologyNodes, willBe(Set.of(firstNode.name(), secondNode.name())));
 

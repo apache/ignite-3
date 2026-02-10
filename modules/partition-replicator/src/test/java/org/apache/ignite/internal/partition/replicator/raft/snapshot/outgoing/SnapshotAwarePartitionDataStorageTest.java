@@ -48,7 +48,6 @@ import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +61,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 1;
 
-    private static final int TABLE_ID = 1;
+    private static final int ZONE_ID = 1;
+    private static final int TABLE_ID = 2;
 
     @Mock
     private MvPartitionStorage partitionStorage;
@@ -70,7 +70,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionsSnapshots partitionsSnapshots;
 
-    private final PartitionKey partitionKey = new TablePartitionKey(TABLE_ID, PARTITION_ID);
+    private final PartitionKey partitionKey = new PartitionKey(ZONE_ID, PARTITION_ID);
 
     private SnapshotAwarePartitionDataStorage testedStorage;
 
@@ -89,10 +89,10 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void configureMocks() {
         testedStorage = new SnapshotAwarePartitionDataStorage(
-            TABLE_ID,
-            partitionStorage,
-            partitionsSnapshots,
-            partitionKey
+                TABLE_ID,
+                partitionStorage,
+                partitionsSnapshots,
+                partitionKey
         );
 
         lenient().when(partitionsSnapshots.partitionSnapshots(any())).thenReturn(partitionSnapshots);
@@ -154,6 +154,8 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         RaftGroupConfiguration config = new RaftGroupConfiguration(
                 13L,
                 37L,
+                111L,
+                110L,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),
@@ -223,20 +225,6 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         verify(partitionStorage, never()).close();
     }
 
-    @Test
-    void delegatesAcquirePartitionSnapshotsReadLock() {
-        testedStorage.acquirePartitionSnapshotsReadLock();
-
-        verify(partitionSnapshots).acquireReadLock();
-    }
-
-    @Test
-    void delegatesReleasePartitionSnapshotsReadLock() {
-        testedStorage.releasePartitionSnapshotsReadLock();
-
-        verify(partitionSnapshots).releaseReadLock();
-    }
-
     @ParameterizedTest
     @EnumSource(MvWriteAction.class)
     void notYetPassedRowIsEnqueued(MvWriteAction writeAction) {
@@ -245,7 +233,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         doReturn(false).when(snapshot).alreadyPassedOrIrrelevant(eq(TABLE_ID), any());
         doReturn(true).when(snapshot).addRowIdToSkip(any());
 
-        writeAction.executeOn(testedStorage, rowId);
+        writeAction.executeOn(testedStorage, rowId, clock);
 
         verify(snapshot).enqueueForSending(TABLE_ID, rowId);
     }
@@ -258,7 +246,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         doReturn(false).when(snapshot).alreadyPassedOrIrrelevant(eq(TABLE_ID), any());
         doReturn(false).when(snapshot).addRowIdToSkip(any());
 
-        writeAction.executeOn(testedStorage, rowId);
+        writeAction.executeOn(testedStorage, rowId, clock);
 
         verify(snapshot, never()).enqueueForSending(eq(TABLE_ID), any());
     }
@@ -270,7 +258,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
         doReturn(true).when(snapshot).alreadyPassedOrIrrelevant(eq(TABLE_ID), any());
 
-        writeAction.executeOn(testedStorage, rowId);
+        writeAction.executeOn(testedStorage, rowId, clock);
 
         verify(snapshot, never()).enqueueForSending(eq(TABLE_ID), any());
     }
@@ -282,7 +270,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
         configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot);
 
-        writeAction.executeOn(testedStorage, rowId);
+        writeAction.executeOn(testedStorage, rowId, clock);
 
         verify(snapshot).enqueueForSending(TABLE_ID, rowId);
     }
@@ -302,39 +290,34 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot);
         configureSnapshotToLetEnqueueOutOfOrderMvRow(snapshot2);
 
-        writeAction.executeOn(testedStorage, rowId);
+        writeAction.executeOn(testedStorage, rowId, clock);
 
         verify(snapshot).enqueueForSending(TABLE_ID, rowId);
         verify(snapshot2).enqueueForSending(TABLE_ID, rowId);
     }
 
-    @Test
-    void removesSnapshotsCollectionOnStop() {
-        testedStorage.close();
-
-        verify(partitionsSnapshots).cleanupOutgoingSnapshots(partitionKey);
-    }
-
     private enum MvWriteAction {
         ADD_WRITE {
             @Override
-            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
+            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId, HybridClock clock) {
                 storage.addWrite(rowId, mock(BinaryRow.class), UUID.randomUUID(), 999, 42);
             }
         },
+
         ABORT_WRITE {
             @Override
-            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
+            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId, HybridClock clock) {
                 storage.abortWrite(rowId, UUID.randomUUID());
             }
         },
+
         COMMIT_WRITE {
             @Override
-            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.commitWrite(rowId, new HybridClockImpl().now(), UUID.randomUUID());
+            void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId, HybridClock clock) {
+                storage.commitWrite(rowId, clock.now(), UUID.randomUUID());
             }
         };
 
-        abstract void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId);
+        abstract void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId, HybridClock clock);
     }
 }

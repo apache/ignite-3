@@ -38,6 +38,7 @@ import org.gradle.crypto.checksum.Checksum
 configurations {
     dbArtifacts
     defaultsGenerator.extendsFrom(dbArtifacts)
+    dotNetClient
     dbZip {
         canBeConsumed = true
         canBeResolved = false
@@ -54,6 +55,7 @@ configurations {
 
 dependencies {
     dbArtifacts project(':ignite-runner')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     dbArtifacts libs.slf4j.jdk14
 
     defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
@@ -63,7 +65,6 @@ def tokens = [
         PRODUCT_NAME        : 'ignite3db',
         PACKAGE_NAME        : 'ignite3-db',
         PRODUCT_DISPLAY_NAME: 'Apache Ignite',
-        APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
         ADD_OPENS           : project.addOpens.join(' '),
         CONF_FILE           : 'ignite-config.conf',
@@ -72,7 +73,8 @@ def tokens = [
 def tokensLin = tokens + [
         VARS_FILE_NAME      : 'vars.env',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
-        SETUP_JAVA_FILE_NAME: 'setup-java.sh'
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
+        CLASS_PATH_FILE: 'classpath',
 ]
 
 def tokensWin = tokens + [
@@ -147,6 +149,17 @@ def generateConfigDefaults = tasks.register('generateConfigDefaults', JavaExec) 
     outputs.file layout.buildDirectory.file("config/ignite-config.conf")
 }
 
+def generateClasspathFile = tasks.register('generateClasspathFile') {
+    def outputFile = layout.buildDirectory.file("${tokensLin.CLASS_PATH_FILE}")
+    outputs.file(outputFile)
+
+    doLast {
+        outputFile.get().asFile.withPrintWriter {writer  ->
+            configurations.dbArtifacts.forEach {writer.println it.name }
+        }
+    }
+}
+
 distributions {
     main {
         distributionBaseName = 'ignite3-db'
@@ -179,9 +192,13 @@ distributions {
             }
             into('lib') {
                 from configurations.dbArtifacts
+                from generateClasspathFile
                 from "$buildDir/zip/${zipStartScriptTokensLin.BOOTSTRAP_FILE_NAME}"
                 from "$buildDir/zip/${zipStartScriptTokensLin.SETUP_JAVA_FILE_NAME}"
                 from "$buildDir/zip/${zipStartScriptTokensWin.BOOTSTRAP_FILE_NAME}"
+            }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
             }
         }
     }
@@ -301,8 +318,12 @@ ospackage {
 
         into('lib') {
             from configurations.dbArtifacts
+            from generateClasspathFile
             from "$buildDir/linux/${tokensLin.BOOTSTRAP_FILE_NAME}"
             from "$buildDir/linux/${tokensLin.SETUP_JAVA_FILE_NAME}"
+        }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
         }
     }
 }
@@ -371,6 +392,9 @@ setupBuilder {
         }
         into('lib') {
             from configurations.dbArtifacts
+        }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
         }
     }
 }

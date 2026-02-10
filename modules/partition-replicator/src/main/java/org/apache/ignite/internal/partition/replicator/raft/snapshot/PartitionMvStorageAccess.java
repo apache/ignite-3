@@ -70,7 +70,6 @@ public interface PartitionMvStorageAccess {
      */
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
      *
@@ -84,16 +83,17 @@ public interface PartitionMvStorageAccess {
      * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param txId Transaction ID.
-     * @param commitTableOrZoneId Commit table/zone ID.
+     * @param commitZoneId Commit table/zone ID.
      * @param commitPartitionId Commit partition ID.
      * @param catalogVersion Catalog version of the incoming partition snapshot.
      * @throws StorageException If failed to write data.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction ID.
      */
-    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId, int catalogVersion);
+    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitZoneId, int commitPartitionId, int catalogVersion);
 
     /**
      * Creates a committed version.
+     *
      * <p>In details:</p>
      * <ul>
      * <li>If there is no uncommitted version, a new committed version is added.</li>
@@ -199,4 +199,7 @@ public interface PartitionMvStorageAccess {
      * @param newLowWatermark Candidate for update.
      */
     void updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    /** Returns {@code true} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent. */
+    boolean isVolatile();
 }

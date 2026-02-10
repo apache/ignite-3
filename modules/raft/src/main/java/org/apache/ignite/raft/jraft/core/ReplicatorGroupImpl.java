@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -55,6 +56,8 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
     private int electionTimeoutMs = -1;
     private RaftOptions raftOptions;
     private final Map<PeerId, ReplicatorType> failureReplicators = new ConcurrentHashMap<>();
+    /** This set is used only for logging. */
+    private final Set<PeerId> failureReplicatorsSetToPreventLogFlooding = ConcurrentHashMap.newKeySet();
 
     @Override
     public boolean init(final NodeId nodeId, final ReplicatorGroupOptions opts) {
@@ -119,14 +122,17 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         assert client != null;
 
         if (!client.connect(peer)) {
-            if (!failureReplicators.containsKey(peer)) {
-                LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+            boolean added = failureReplicatorsSetToPreventLogFlooding.add(peer);
+
+            if (added) {
+                LOG.error("Fail to check replicator connection to peer [node={}, recipientPeer={}, replicatorType={}].",
+                    this.commonOptions.getNode().getNodeId(), peer, replicatorType);
             }
 
             this.failureReplicators.put(peer, replicatorType);
             return false;
         } else {
-            failureReplicators.remove(peer);
+            failureReplicatorsSetToPreventLogFlooding.remove(peer);
         }
 
 //        if (!sync) {
@@ -146,7 +152,8 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
         final ThreadId rid = Replicator.start(opts, this.raftOptions);
         if (rid == null) {
-            LOG.error("Fail to start replicator to peer={}, replicatorType={}.", peer, replicatorType);
+            LOG.error("Fail to start replicator to peer [node={}, recipientPeer={}, replicatorType={}].",
+                this.commonOptions.getNode().getNodeId(), peer, replicatorType);
             this.failureReplicators.put(peer, replicatorType);
             return false;
         }
@@ -217,7 +224,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
     @Override
     public boolean stopReplicator(final PeerId peer) {
-        LOG.info("Stop replicator to {}.", peer);
+        LOG.info("Stop replicator to [node={}].", this.commonOptions.getNode().getNodeId());
         this.failureReplicators.remove(peer);
         final ThreadId rid = this.replicatorMap.remove(peer);
         if (rid == null) {
@@ -274,7 +281,7 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
             candidate = this.replicatorMap.get(candidateId);
         }
         else {
-            LOG.info("Fail to find the next candidate.");
+            LOG.info("Fail to find the next candidate [node={}].", this.commonOptions.getNode().getNodeId());
         }
         for (final ThreadId r : this.replicatorMap.values()) {
             if (r != candidate) {

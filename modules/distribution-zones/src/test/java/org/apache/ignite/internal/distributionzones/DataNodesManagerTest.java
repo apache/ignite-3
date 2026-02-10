@@ -21,13 +21,14 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
+import static org.apache.ignite.internal.distributionzones.DataNodesTestUtil.assertDistributionZoneScaleTimersAreNotScheduled;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -38,7 +39,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,13 +52,15 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
-import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager.PartitionResetClosure;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -61,6 +68,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -73,14 +81,17 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link DataNodesManager}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     private static final String ZONE_NAME_1 = "test_zone_1";
     private static final String ZONE_NAME_2 = "test_zone_2";
@@ -106,8 +117,10 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private static final String NODE_NAME = "node";
 
+    private UUID nodeId;
     private KeyValueStorage storage;
     private HybridClock clock;
+    private ClockService clockService;
     private MetaStorageManager metaStorageManager;
     private CatalogManager catalogManager;
     private DataNodesManager dataNodesManager;
@@ -116,38 +129,39 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     private final AtomicBoolean partitionResetTriggered = new AtomicBoolean();
 
-    private final BiConsumer<Long, Integer> partitionResetClosure = (revision, zoneId) -> partitionResetTriggered.set(true);
+    private final PartitionResetClosure partitionResetClosure = (revision, zoneId) -> partitionResetTriggered.set(true);
+
+    @Nullable
+    private Catalog catalog;
+
+    private LowWatermark lowWatermark;
 
     @BeforeEach
     public void setUp() {
         ComponentContext startComponentContext = new ComponentContext();
 
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+                IgniteThreadFactory.create(NODE_NAME, "data-nodes-manager-test-scheduled-executor", log)
+        );
+
         ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
         storage = new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker);
         clock = new HybridClockImpl();
+        clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
 
         metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
         assertThat(metaStorageManager.startAsync(startComponentContext), willCompleteSuccessfully());
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
+        catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager, () -> TEST_DELAY_DURATION, () -> catalog);
+        catalog = null;
 
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-                IgniteThreadFactory.create(NODE_NAME, "data-nodes-manager-test-scheduled-executor", log)
-        );
+        nodeId = UUID.randomUUID();
 
-        ClockService clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));
+        lowWatermark = mock(LowWatermark.class);
+        when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(clock.current().getPhysical() - 500, 0));
 
-        dataNodesManager = new DataNodesManager(
-                NODE_NAME,
-                new IgniteSpinBusyLock(),
-                metaStorageManager,
-                catalogManager,
-                clockService,
-                new NoOpFailureManager(),
-                partitionResetClosure,
-                () -> 1
-        );
+        dataNodesManager = createDataNodesManager(lowWatermark);
 
         currentTopology = new HashSet<>(Set.of(A, B));
 
@@ -160,6 +174,22 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         createZone(ZONE_NAME_2, HIGH_AVAILABILITY);
 
         dataNodesManager.onZoneCreate(0, clock.now(), currentTopology);
+    }
+
+    private DataNodesManager createDataNodesManager(LowWatermark lowWatermark) {
+        return new DataNodesManager(
+                NODE_NAME,
+                () -> nodeId,
+                new IgniteSpinBusyLock(),
+                metaStorageManager,
+                catalogManager,
+                clockService,
+                new NoOpFailureManager(),
+                partitionResetClosure,
+                () -> 1,
+                Collections::emptySet,
+                lowWatermark
+        );
     }
 
     @AfterEach
@@ -196,7 +226,9 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void addNodeAndChangeScaleUpTimerToImmediate() throws Exception {
-        String zoneName = "Default";
+        String zoneName = "TestZone";
+
+        createZone(zoneName, STRONG_CONSISTENCY);
 
         // Setup the scale up timer to 50 seconds.
         alterZone(zoneName, 50, null, null);
@@ -246,7 +278,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void addNodesWithScheduledScaleUp() throws InterruptedException {
-        alterZone(ZONE_NAME_1, 1, null, null);
+        alterZone(ZONE_NAME_1, 5, null, null);
 
         addNodes(Set.of(C));
 
@@ -261,7 +293,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void removeNodesScaleDown() throws InterruptedException {
+    public void removeNodesScaleDown() {
         removeNodes(Set.of(B));
 
         assertScaleDownNotScheduled(ZONE_NAME_1);
@@ -292,7 +324,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void removeNodesWithScheduledScaleDown() throws InterruptedException {
-        alterZone(ZONE_NAME_1, null, 1, null);
+        alterZone(ZONE_NAME_1, null, 5, null);
 
         removeNodes(Set.of(A));
 
@@ -338,7 +370,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         checkDataNodes(ZONE_NAME_1, clock.now(), nodeNames(C));
 
         // Timers are discarded earlier than scheduled.
-        assertTrue(waitForCondition(() -> !scaleUpScheduled(ZONE_NAME_1) && !scaleDownScheduled(ZONE_NAME_1), 2000));
+        assertDistributionZoneScaleTimersAreNotScheduled(catalogManager, dataNodesManager, ZONE_NAME_1);
     }
 
     @Test
@@ -410,7 +442,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
 
         dataNodesManager.onTopologyChange(zone, 1, clock.now(), newTopology, currentTopology);
 
-        assertTrue(waitForCondition(partitionResetTriggered::get, 2000));
+        Awaitility.waitAtMost(2, TimeUnit.SECONDS).untilAsserted(() -> assertTrue(partitionResetTriggered.get()));
     }
 
     @Test
@@ -471,6 +503,84 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         assertEquals(C_DIFFERENT_ATTRS.userAttributes().get("region"), c.userAttributes().get("region"));
     }
 
+    @Test
+    public void testHistoryCompaction() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        checkDataNodes(ZONE_NAME_1, clock.current(), nodeNames(A, B));
+
+        HybridTimestamp afterRemovalTs = clock.now();
+
+        // Greater than the low watermark data availability time (500 ms).
+        Thread.sleep(600);
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(clock.currentLong()).zone(ZONE_NAME_1);
+        catalog = mock(Catalog.class);
+        when(catalog.time()).thenAnswer(inv -> clock.now().longValue());
+        when(catalog.zone(anyInt())).thenAnswer(inv -> zoneDescriptor);
+
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is compacted.
+        DataNodesHistoryEntry compactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(afterRemovalTs);
+        assertEquals(HybridTimestamp.MIN_VALUE, compactedHistoryEntry.timestamp());
+        assertTrue(compactedHistoryEntry.dataNodes().isEmpty());
+
+        // Check that the last data nodes history entry is not compacted.
+        HybridTimestamp now = clock.now();
+        DataNodesHistoryEntry actualHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(now);
+        assertTrue(actualHistoryEntry.dataNodes().containsAll(asList(A, B, C)));
+    }
+
+    @Test
+    public void testHistoryCompactionLeavesEntriesForNonCompactedCatalog() throws InterruptedException {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        DataNodesHistoryEntry firstEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(clock.current());
+
+        // Greater than the low watermark data availability time (500 ms).
+        Thread.sleep(600);
+
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is not compacted.
+        DataNodesHistoryEntry nonCompactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(firstEntry.timestamp());
+        assertEquals(firstEntry.timestamp(), nonCompactedHistoryEntry.timestamp());
+        assertEquals(firstEntry.dataNodes(), nonCompactedHistoryEntry.dataNodes());
+    }
+
+    @Test
+    public void testHistoryCompactionLeavesEntriesForDataAvailability() {
+        alterZone(ZONE_NAME_1, 0, 0, null);
+
+        // Make sure the history will be not compacted because of low watermark.
+        lowWatermark = mock(LowWatermark.class);
+        when(lowWatermark.getLowWatermark()).thenAnswer(inv -> new HybridTimestamp(clock.current().getPhysical() - Integer.MAX_VALUE, 0));
+
+        dataNodesManager = createDataNodesManager(lowWatermark);
+
+        DataNodesHistoryEntry firstEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(clock.current());
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(clock.currentLong()).zone(ZONE_NAME_1);
+        catalog = mock(Catalog.class);
+        when(catalog.time()).thenAnswer(inv -> clock.now().longValue());
+        when(catalog.zone(anyInt())).thenAnswer(inv -> zoneDescriptor);
+
+        log.info("Test: adding node C.");
+        addNodes(Set.of(C));
+
+        waitForDataNodes(ZONE_NAME_1, nodeNames(A, B, C));
+
+        // Check that data nodes history is not compacted.
+        DataNodesHistoryEntry nonCompactedHistoryEntry = dataNodesHistory(ZONE_NAME_1).dataNodesForTimestamp(firstEntry.timestamp());
+        assertEquals(firstEntry.timestamp(), nonCompactedHistoryEntry.timestamp());
+        assertEquals(firstEntry.dataNodes(), nonCompactedHistoryEntry.dataNodes());
+    }
+
     private static NodeWithAttributes nodeFromHistory(DataNodesHistory history, String nodeName, HybridTimestamp timestamp) {
         return history.dataNodesForTimestamp(timestamp).dataNodes().stream()
                 .filter(n -> n.nodeName().equals(nodeName))
@@ -526,22 +636,8 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void waitForDataNodes(String zoneName, Set<String> expectedNodes) throws InterruptedException {
-        CatalogZoneDescriptor zone = catalogManager.activeCatalog(clock.now().longValue()).zone(zoneName);
-        int zoneId = zone.id();
-
-        boolean success = waitForCondition(() -> {
-            CompletableFuture<Set<String>> dataNodesFuture = dataNodesManager.dataNodes(zoneId, clock.now());
-            assertThat(dataNodesFuture, willSucceedFast());
-            return dataNodesFuture.join().equals(expectedNodes);
-        }, 5000);
-
-        if (!success) {
-            System.out.println("Expected: " + expectedNodes);
-            System.out.println("Actual: " + dataNodesManager.dataNodes(zoneId, clock.now()).join());
-        }
-
-        assertTrue(success);
+    private void waitForDataNodes(String zoneName, Set<String> expectedNodes) {
+        DataNodesTestUtil.waitForDataNodes(catalogManager, dataNodesManager, clock, zoneName, expectedNodes);
     }
 
     private void checkDataNodes(String zoneName, HybridTimestamp timestamp, Set<String> expectedNodes) {
@@ -553,51 +649,30 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         assertEquals(expectedNodes, dataNodesFuture.join());
     }
 
-    private CatalogZoneDescriptor descriptor(String zoneName) {
-        CatalogZoneDescriptor zoneDescriptor =  catalogManager.activeCatalog(clock.now().longValue()).zone(zoneName);
-        assertNotNull(zoneDescriptor);
-        return zoneDescriptor;
+    private void assertScaleUpScheduledOrDone(String zoneName) {
+        DataNodesTestUtil.assertScaleUpScheduledOrDone(catalogManager, dataNodesManager, zoneName);
+    }
+
+    private void assertScaleUpNotScheduled(String zoneName) {
+        Awaitility.waitAtMost(1, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertFalse(dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp.taskIsScheduled()));
+    }
+
+    private void assertScaleDownScheduledOrDone(String zoneName) {
+        DataNodesTestUtil.assertScaleDownScheduledOrDone(catalogManager, dataNodesManager, zoneName);
     }
 
     private int zoneId(String zoneName) {
-        return descriptor(zoneName).id();
+        return DistributionZonesTestUtil.zoneId(catalogManager, zoneName);
     }
 
-    private void assertScaleUpScheduledOrDone(String zoneName) throws InterruptedException {
-        assertTrue(waitForCondition(() -> {
-            ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp;
-            return schedule.taskIsScheduled() || schedule.taskIsDone();
-        }, 2000));
+    private CatalogZoneDescriptor descriptor(String zoneName) {
+        return DistributionZonesTestUtil.descriptor(catalogManager, zoneName);
     }
 
-    private void assertScaleUpNotScheduled(String zoneName) throws InterruptedException {
-        assertFalse(waitForCondition(() -> dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp.taskIsScheduled(), 1000));
-    }
-
-    private void assertScaleDownScheduledOrDone(String zoneName) throws InterruptedException {
-        boolean success = waitForCondition(() -> {
-            ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown;
-            return schedule.taskIsScheduled() || schedule.taskIsDone();
-        }, 2000);
-
-        if (!success) {
-            ZoneTimerSchedule schedule = dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown;
-            System.out.println(schedule);
-        }
-
-        assertTrue(success);
-    }
-
-    private void assertScaleDownNotScheduled(String zoneName) throws InterruptedException {
-        assertFalse(waitForCondition(() -> dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown.taskIsScheduled(), 1000));
-    }
-
-    private boolean scaleUpScheduled(String zoneName) {
-        return dataNodesManager.zoneTimers(zoneId(zoneName)).scaleUp.taskIsScheduled();
-    }
-
-    private boolean scaleDownScheduled(String zoneName) {
-        return dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown.taskIsScheduled();
+    private void assertScaleDownNotScheduled(String zoneName) {
+        Awaitility.waitAtMost(1, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertFalse(dataNodesManager.zoneTimers(zoneId(zoneName)).scaleDown.taskIsScheduled()));
     }
 
     private static Set<String> nodeNames(NodeWithAttributes... nodes) {

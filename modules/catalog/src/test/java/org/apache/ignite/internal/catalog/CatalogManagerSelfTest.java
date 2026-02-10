@@ -17,15 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -34,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
@@ -63,7 +57,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommandFailure;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -115,28 +108,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Validate default schema.
         assertEquals(SCHEMA_NAME, defaultSchema.name());
-        assertEquals(1, defaultSchema.id());
+        assertEquals(0, defaultSchema.id());
         assertEquals(0, defaultSchema.tables().length);
         assertEquals(0, defaultSchema.indexes().length);
         assertEquals(0, defaultSchema.systemViews().length);
         assertTrue(defaultSchema.isEmpty());
-
-        // Default distribution zone must exists.
-        CatalogZoneDescriptor zone = catalog.defaultZone();
-        assertNotNull(zone, "default zone");
-        assertSame(zone, catalog.zone(zone.id()));
-        assertSame(zone, catalog.zone(DEFAULT_ZONE_NAME));
-
-        // Validate default zone.
-        assertEquals(DEFAULT_ZONE_NAME, zone.name());
-        assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
-        assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
-        assertEquals(DEFAULT_FILTER, zone.filter());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
-        assertEquals(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(colocationEnabled()), zone.dataNodesAutoAdjustScaleUp());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
-        assertNotNull(zone.storageProfiles());
-        assertNotNull(zone.storageProfiles().defaultProfile());
 
         // System schema should exist.
         CatalogSchemaDescriptor systemSchema = catalog.schema(SYSTEM_SCHEMA_NAME);
@@ -203,9 +179,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ComponentContext componentContext = new ComponentContext();
 
         when(updateLogMock.startAsync(componentContext)).thenReturn(nullCompletedFuture());
-        when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
+        when(updateLogMock.append(any())).thenReturn(trueCompletedFuture());
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
+        CatalogManagerImpl manager = new CatalogManagerImpl(
+                updateLogMock,
+                clockService,
+                new NoOpFailureManager(),
+                delayDuration::get,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
         reset(updateLogMock);
@@ -240,7 +222,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
         reset(updateLog, clockWaiter);
 
-        Catalog initialCatalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog initialCatalog = manager.latestCatalog();
         assertNotNull(initialCatalog);
         int initial = initialCatalog.objectIdGenState();
 
@@ -317,7 +299,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         verify(clockWaiter, timeout(10_000).times(3)).waitFor(any());
 
-        Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog0 = manager.latestCatalog();
 
         assertNotNull(catalog0);
 
@@ -342,9 +324,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         when(updateLogMock.startAsync(startComponentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.stopAsync(stopComponentContext)).thenReturn(nullCompletedFuture());
-        when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
+        when(updateLogMock.append(any())).thenReturn(trueCompletedFuture());
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
+        CatalogManagerImpl manager = new CatalogManagerImpl(
+                updateLogMock,
+                clockService,
+                new NoOpFailureManager(),
+                delayDuration::get,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        );
 
         assertThat(manager.startAsync(startComponentContext), willCompleteSuccessfully());
 
@@ -395,7 +383,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 TestCommand.fail()
         );
 
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = manager.latestCatalog();
         assertNotNull(catalog);
         int initial = catalog.objectIdGenState();
 
@@ -406,7 +394,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 bulkUpdate.subList(0, bulkUpdate.size() - 1),
                 true, true);
 
-        Catalog updatedCatalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog updatedCatalog = manager.latestCatalog();
         assertNotNull(updatedCatalog);
         assertEquals(2 + initial, updatedCatalog.objectIdGenState());
     }

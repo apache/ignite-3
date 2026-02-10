@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.util.CompletableFutures;
 
 /**
  * Preparation service that accepts an AST of the query and returns a prepared query plan.
@@ -36,4 +38,21 @@ public interface PrepareService extends LifecycleAware {
      * @return Future that contains prepared query plan when completes.
      */
     CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, SqlOperationContext ctx);
+
+    /**
+     * Invalidates planner cache if {@code tableNames} is empty, otherwise invalidates only plans, which refers to the provided tables.
+     *
+     * @param tableNames Table names.
+     * @return Operation completion future.
+     */
+    default CompletableFuture<Void> invalidateCache(Set<String> tableNames) {
+        return CompletableFutures.nullCompletedFuture();
+    }
+
+    /**
+     * Returns prepared plans stored in cached.
+     *
+     * @return Cached prepared plans.
+     */
+    Set<PreparedPlan> preparedPlans();
 }

@@ -6,12 +6,19 @@ updates:
       interval: "daily"
     open-pull-requests-limit: 5
     ignore:
-      - dependency-name: "io.github.bonede:tree-sitter"
-        # TODO https://issues.apache.org/jira/browse/IGNITE-24978
-        versions: [ "0.24.5" ]
+      # Calcite is updated manually
+      - dependency-name: "org.apache.calcite:calcite-core"
+      - dependency-name: "org.apache.calcite:calcite-linq4j"
 
   - package-ecosystem: "nuget"
     directory: "/modules/platforms/dotnet"
     schedule:
       interval: "daily"
     open-pull-requests-limit: 5
+    ignore: # Transitive dependencies to be updated manually to avoid breaking changes for users
+      - dependency-name: "NodaTime"
+      - dependency-name: "Microsoft.Extensions.Logging.Abstractions"
+      - dependency-name: "Microsoft.Extensions.DependencyInjection.Abstractions"
+      - dependency-name: "Microsoft.Extensions.ObjectPool"
+      - dependency-name: "Microsoft.Extensions.Options"
+      - dependency-name: "Microsoft.Extensions.Caching.Abstractions"

@@ -63,7 +63,7 @@ class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHold
     /**
      * Job id of the execution.
      */
-    private final UUID jobId = UUID.randomUUID();
+    private final UUID jobId;
 
     /**
      * Link to the current job execution object. It can be updated when the job is restarted on another node.
@@ -72,7 +72,8 @@ class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHold
 
     private CompletableFuture<ComputeJobDataHolder> completeHook;
 
-    FailSafeJobExecution(CancellableJobExecution<ComputeJobDataHolder> runningJobExecution) throws RuntimeException {
+    FailSafeJobExecution(CancellableJobExecution<ComputeJobDataHolder> runningJobExecution, UUID jobId) {
+        this.jobId = jobId;
         this.resultFuture = new CompletableFuture<>();
         this.runningJobExecution = runningJobExecution;
 

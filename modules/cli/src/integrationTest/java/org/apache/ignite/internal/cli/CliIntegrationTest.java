@@ -69,14 +69,21 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("sql.client").enabled(true),
             new MetricSource().name("sql.plan.cache").enabled(true),
             new MetricSource().name("sql.queries").enabled(true),
+            new MetricSource().name("storage.aipersist").enabled(true),
             new MetricSource().name("storage.aipersist.default").enabled(true),
             new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
+            new MetricSource().name("storage.aipersist.checkpoint").enabled(true),
             new MetricSource().name("topology.cluster").enabled(true),
             new MetricSource().name("topology.local").enabled(true),
             new MetricSource().name("thread.pools.partitions-executor").enabled(true),
             new MetricSource().name("thread.pools.sql-executor").enabled(true),
             new MetricSource().name("thread.pools.sql-planning-executor").enabled(true),
-            new MetricSource().name("transactions").enabled(true)
+            new MetricSource().name("transactions").enabled(true),
+            new MetricSource().name("placement-driver").enabled(true),
+            new MetricSource().name("resource.vacuum").enabled(true),
+            new MetricSource().name("clock.service").enabled(true),
+            new MetricSource().name("index.builder").enabled(true),
+            new MetricSource().name("raft.snapshots").enabled(true)
     };
 
     /** Correct ignite jdbc url. */
@@ -292,6 +299,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .isEmpty();
     }
 
+    protected void assertOutputContainsSubsequence(Iterable<String> substrings) {
+        assertThat(sout.toString())
+                .as("Expected command output will contain the substrings in the given order")
+                .containsSubsequence(substrings);
+    }
+
     protected void assertErrOutputIsNotEmpty() {
         assertThat(serr.toString())
                 .as("Expected command error output not to be empty")
@@ -341,7 +354,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected static void createAndPopulateTable() {
-        createTableOnly(DEFAULT_TABLE_NAME, "Default");
+        createTableOnly(DEFAULT_TABLE_NAME);
 
         int idx = 0;
 

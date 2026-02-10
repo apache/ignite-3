@@ -77,13 +77,6 @@ public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTes
     }
 
     @Test
-    void dataRegionSizeGetsInitialized() {
-        for (StorageProfileView view : storageConfiguration.profiles().value()) {
-            assertThat(((RocksDbProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-        }
-    }
-
-    @Test
     void dataRegionSizeUsedWhenSet(
             @InjectConfiguration("mock.profiles.default {engine = rocksdb, sizeBytes = 12345}")
             StorageConfiguration storageConfig
@@ -95,5 +88,7 @@ public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTes
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((RocksDbProfileView) view).sizeBytes(), is(12345L));
         }
+
+        assertThat(anotherEngine.requiredOffHeapMemorySize(), is(12345L));
     }
 }

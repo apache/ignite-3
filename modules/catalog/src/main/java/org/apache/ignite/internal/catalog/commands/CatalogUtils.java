@@ -19,12 +19,16 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.lang.Math.min;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFINITION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.ints.IntList;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -36,6 +40,8 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
+import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -46,6 +52,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
+import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -54,7 +63,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Catalog utils.
  */
-public class CatalogUtils {
+public final class CatalogUtils {
+    /** Default zone name. */
+    public static final String DEFAULT_ZONE_NAME = "Default";
+
     /** Default number of distribution zone partitions. */
     public static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -176,7 +188,10 @@ public class CatalogUtils {
      */
     public static final int MAX_INTERVAL_TYPE_PRECISION = 10;
 
-    public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = ConsistencyMode.STRONG_CONSISTENCY;
+    public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = STRONG_CONSISTENCY;
+
+    public static final long DEFAULT_MIN_STALE_ROWS_COUNT = 500L;
+    public static final double DEFAULT_STALE_ROWS_FRACTION = 0.2d;
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
@@ -527,6 +542,105 @@ public class CatalogUtils {
     }
 
     /**
+     * Returns a descriptor for given zone name or for a default zone from the given catalog.
+     *
+     * @param catalog Catalog to check zones' existence.
+     * @param zoneName Zone name to try to find catalog descriptor for. If {@code null} then will return default zone descriptor.
+     * @return Returns a descriptor for given zone name if it isn't {@code null} or for existed default zone otherwise.
+     * @throws CatalogValidationException In casse if given zone name isn't {@code null}, but the given catalog hasn't zone with such name.
+     * @implNote This method assumes, that {@link #shouldCreateNewDefaultZone} returns {@code false} with the same input.
+     */
+    public static CatalogZoneDescriptor zoneByNameOrDefaultOrThrow(
+            Catalog catalog,
+            @Nullable String zoneName
+    ) throws CatalogValidationException {
+        if (zoneName != null) {
+            return zoneOrThrow(catalog, zoneName);
+        }
+
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
+        if (defaultZone == null) {
+            throw new CatalogValidationException("Default zone not found.");
+        }
+
+        return defaultZone;
+    }
+
+    /**
+     * Returns {@code true} if the given zone name is {@code null} and in the given catalog there is no default zone. If so, then looks like
+     * {@link #createDefaultZoneDescriptor} should be called then.
+     *
+     * @param catalog Catalog to check default zone presence.
+     * @param zoneName Zone name to check if it is {@code null}.
+     * @return Returns {@code true} if the given zone name is {@code null} and in the given catalog there is no default zone.
+     */
+    public static boolean shouldCreateNewDefaultZone(Catalog catalog, @Nullable String zoneName) {
+        return zoneName == null && catalog.defaultZone() == null;
+    }
+
+    /**
+     * Creates catalog descriptor for a new default zone.
+     *
+     * @param catalog Catalog to check that {@link #DEFAULT_ZONE_NAME} isn't used.
+     * @param newDefaultZoneId Identifier for new default zone.
+     * @return New default zone's catalog descriptor.
+     *
+     * @throws CatalogValidationException If a zone with {@link #DEFAULT_ZONE_NAME} already exists.
+     */
+    public static CatalogZoneDescriptor createDefaultZoneDescriptor(
+            Catalog catalog,
+            PartitionCountProvider partitionCountProvider,
+            int newDefaultZoneId,
+            Collection<UpdateEntry> updateEntries
+    ) throws CatalogValidationException {
+        // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
+        checkDuplicateDefaultZoneName(catalog);
+
+        CatalogZoneDescriptor defaultZone = createDefaultZoneDescriptor(partitionCountProvider, newDefaultZoneId);
+
+        updateEntries.add(new NewZoneEntry(defaultZone));
+        updateEntries.add(new SetDefaultZoneEntry(defaultZone.id()));
+
+        return defaultZone;
+    }
+
+    private static CatalogZoneDescriptor createDefaultZoneDescriptor(PartitionCountProvider partitionCountProvider, int newDefaultZoneId) {
+        PartitionCountCalculationParameters partitionCountCalculationParameters = PartitionCountCalculationParameters.builder()
+                .replicaFactor(DEFAULT_REPLICA_COUNT)
+                .dataNodesFilter(DEFAULT_FILTER)
+                .storageProfiles(List.of(DEFAULT_STORAGE_PROFILE))
+                .build();
+
+        int partitionCount = partitionCountProvider.calculate(partitionCountCalculationParameters);
+
+        return new CatalogZoneDescriptor(
+                newDefaultZoneId,
+                DEFAULT_ZONE_NAME,
+                partitionCount,
+                DEFAULT_REPLICA_COUNT,
+                DEFAULT_ZONE_QUORUM_SIZE,
+                IMMEDIATE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                DEFAULT_FILTER,
+                new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor(DEFAULT_STORAGE_PROFILE))),
+                STRONG_CONSISTENCY
+        );
+    }
+
+    private static void checkDuplicateDefaultZoneName(Catalog catalog) {
+        if (catalog.zone(DEFAULT_ZONE_NAME) == null) {
+            return;
+        }
+
+        throw new CatalogValidationException(
+                "Distribution zone with name '{}' already exists. Please specify zone name for the new table or set the zone as default",
+                DEFAULT_ZONE_NAME
+        );
+    }
+
+    /**
      * Returns zone with given name.
      *
      * @param catalog Catalog to look up zone in.
@@ -537,8 +651,11 @@ public class CatalogUtils {
      * @throws CatalogValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
      *         set to {@code true}.
      */
-    public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
-            throws CatalogValidationException {
+    public static @Nullable CatalogZoneDescriptor zone(
+            Catalog catalog,
+            String name,
+            boolean shouldThrowIfNotExists
+    ) throws CatalogValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
@@ -548,6 +665,29 @@ public class CatalogUtils {
         }
 
         return zone;
+    }
+
+    /**
+     * Returns zone with given name.
+     *
+     * @param catalog Catalog to look up zone in.
+     * @param name Name of the zone of interest.
+     * @return Zone descriptor for given name.
+     * @throws CatalogValidationException If zone with given name is not exists.
+     */
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name)
+            throws CatalogValidationException {
+        return zone(catalog, name, true);
+    }
+
+    /**
+     * Creates common exception for cases when validated distribution zone has already existed name.
+     *
+     * @param duplicatedZoneName Conflicting zone name.
+     * @return Catalog validation exception instance with proper and common for such cases message.
+     */
+    public static CatalogValidationException duplicateDistributionZoneNameCatalogValidationException(String duplicatedZoneName) {
+        return new CatalogValidationException("Distribution zone with name '{}' already exists.", duplicatedZoneName);
     }
 
     /**
@@ -617,7 +757,6 @@ public class CatalogUtils {
 
         return defaultZone != null ? defaultZone.id() : null;
     }
-
 
     /**
      * Returns the maximum supported precision for given type or {@link #UNSPECIFIED_PRECISION}  if the type does not support precision.
@@ -801,13 +940,6 @@ public class CatalogUtils {
         }
     }
 
-    // In case of enabled colocation the start of each node triggers default zone rebalance. In order to eliminate such excessive rebalances
-    // default zone auto adjust scale up timeout is set to 5 seconds. If colocation is disabled tests usually create tables
-    // after all nodes already started meaning that tables are created on stable topology and usually doesn't assume any rebalances at all.
-    public static int defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(boolean colocationEnabled) {
-        return colocationEnabled ? 5 : 0;
-    }
-
     /**
      * Calculates default quorum size based on the number of replicas.
      *
@@ -819,5 +951,51 @@ public class CatalogUtils {
             return min(replicas, 2);
         }
         return 3;
+    }
+
+    /**
+     * Resolves column names from their corresponding column IDs within a catalog table.
+     *
+     * <p>This method takes a list of column IDs and maps each ID to its corresponding column name
+     * by looking up the column descriptor in the provided table. The order of column names in the
+     * returned list matches the order of column IDs in the input list.
+     *
+     * @param table The catalog table descriptor containing the column definitions to search within.
+     * @param columnIds The list of column IDs to resolve into column names.
+     * @return A list of column names corresponding to the provided column IDs, in the same order.
+     * @throws IllegalArgumentException if any column ID in the list does not exist in the table
+     */
+    public static List<String> resolveColumnNames(CatalogTableDescriptor table, IntList columnIds) {
+        List<String> names = new ArrayList<>(columnIds.size());
+        for (int columnId : columnIds) {
+            CatalogTableColumnDescriptor column = table.columnById(columnId);
+            if (column == null) {
+                throw new IllegalArgumentException("Column with id=" + columnId + " not found in table " + table);
+            }
+
+            names.add(column.name());
+        }
+
+        return names;
+    }
+
+    /**
+     * Return column positions in the table descriptor for the given column IDs.
+     */
+    public static int[] resolveColumnIndexesByIds(CatalogTableDescriptor descriptor, IntList columnIds) {
+        int[] columnIdxs = new int[columnIds.size()];
+
+        for (int i = 0; i < columnIds.size(); i++) {
+            int colId = columnIds.getInt(i);
+            int colIdx = descriptor.columnIndexById(colId);
+            columnIdxs[i] = colIdx;
+        }
+
+        return columnIdxs;
+    }
+
+    // Private constructor to prevent instantiation
+    private CatalogUtils() {
+
     }
 }

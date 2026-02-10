@@ -151,7 +151,6 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(); // Patch.
             unpacker.skipValue(); // Pre release.
 
-
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 
@@ -228,7 +227,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
                     "org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException",
                     errClassName
             );
-            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
+
+            assertEquals(
+                    "To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server",
+                    errStackTrace);
         }
     }
 
@@ -354,7 +356,9 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThat(errMsg, containsString("Authentication failed"));
             assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
-            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
+            assertEquals(
+                    "To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server",
+                    errStackTrace);
         }
     }
 
@@ -409,7 +413,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThat(errMsg, containsString("Authentication failed"));
             assertEquals("org.apache.ignite.security.exception.InvalidCredentialsException", errClassName);
-            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
+
+            assertEquals(
+                    "To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server",
+                    errStackTrace);
         }
     }
 
@@ -462,7 +469,10 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             assertThat(errMsg, containsString("Unsupported version: 2.8.0"));
             assertEquals("org.apache.ignite.lang.IgniteException", errClassName);
-            assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", errStackTrace);
+
+            assertEquals(
+                    "To see the full stack trace, set clientConnector.sendServerExceptionStackTraceToClient:true on the server",
+                    errStackTrace);
         }
     }
 
@@ -546,6 +556,11 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             expected.set(8);
             expected.set(9);
             expected.set(10);
+            expected.set(11);
+            expected.set(12);
+            expected.set(13);
+            expected.set(14);
+            expected.set(15);
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();

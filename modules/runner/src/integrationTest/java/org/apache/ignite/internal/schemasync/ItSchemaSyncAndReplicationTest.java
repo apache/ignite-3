@@ -35,7 +35,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -120,7 +120,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private void transferLeadershipsTo(int nodeIndex) throws InterruptedException {
         cluster.transferLeadershipTo(nodeIndex, MetastorageGroupId.INSTANCE);
 
-        ReplicationGroupId solePartitionId = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
+        ZonePartitionId solePartitionId = cluster.solePartitionId(ZONE_NAME);
         cluster.transferLeadershipTo(nodeIndex, solePartitionId);
         cluster.transferPrimaryTo(nodeIndex, solePartitionId);
     }
@@ -146,7 +146,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private void updateTableSchemaAt(int nodeIndex) {
         cluster.doInSession(nodeIndex, session -> {
-            session.execute(null, "alter table " + TABLE_NAME + " add column added int");
+            session.execute("alter table " + TABLE_NAME + " add column added int");
         });
     }
 

@@ -307,7 +307,20 @@ public class WorkDirectoryExtension
         return PATTERN.matcher(property).matches();
     }
 
-    private static void zipDirectory(Path source, Path target) {
+    /**
+     * Creates a ZIP archive from the contents of a source directory.
+     *
+     * <p>This method recursively walks through the source directory and compresses all files (excluding directories)
+     * into a ZIP archive at the target location. The directory structure is preserved within the ZIP file using
+     * relative paths from the source directory.
+     *
+     * <p>The parent directories of the target ZIP file are created if they don't exist. If the target file already
+     * exists, it will be overwritten.
+     *
+     * @param source the path to the source directory to be zipped; must be an existing directory
+     * @param target the path where the ZIP archive will be created; parent directories will be created if necessary
+     */
+    public static void zipDirectory(Path source, Path target) {
         try {
             Files.createDirectories(target.getParent());
 

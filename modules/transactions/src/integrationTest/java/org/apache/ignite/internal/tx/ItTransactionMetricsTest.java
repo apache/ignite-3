@@ -18,15 +18,14 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -39,8 +38,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableImpl;
@@ -50,6 +47,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -67,12 +65,8 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     @BeforeAll
-    void createTable() throws Exception {
+    void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
-
-        if (colocationEnabled()) {
-            awaitAssignmentsStabilizationOnDefaultZone(CLUSTER.aliveNode());
-        }
     }
 
     /**
@@ -157,8 +151,8 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         // Check that all transaction metrics ere not changed except TotalCommits and RoCommits.
         testMetricValues(metrics0, actualMetrics0, "TotalCommits", "RoCommits");
 
-        assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 1));
-        assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + 1));
+        assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + (implicit ? 0 : 1)));
+        assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + (implicit ? 0 : 1)));
     }
 
     /**
@@ -337,9 +331,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
         keyValueView(0).put(tx, key, "value");
 
-        ReplicationGroupId replicationGroupId = colocationEnabled()
-                ? new ZonePartitionId(table.zoneId(), partitionId)
-                : new TablePartitionId(table.tableId(), partitionId);
+        ZonePartitionId replicationGroupId = new ZonePartitionId(table.zoneId(), partitionId);
 
         ReplicaMeta leaseholder = NodeUtils.leaseholder(unwrapIgniteImpl(node(0)), replicationGroupId);
 
@@ -416,5 +408,70 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 2));
         assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + 1));
         assertThat(actualMetrics0.get("RwCommits"), is(metrics0.get("RwCommits") + 1));
+    }
+
+    @Test
+    void globalPendingWriteIntentsMetric() throws Exception {
+        String zoneName = "zone_single_partition_no_replicas_tx_metrics";
+
+        String table1 = "test_table_pending_wi_1";
+        String table2 = "test_table_pending_wi_2";
+
+        sql("CREATE ZONE " + zoneName + " (PARTITIONS 1, REPLICAS 1) storage profiles ['default']");
+
+        sql("CREATE TABLE " + table1 + "(id INT PRIMARY KEY, val INT) ZONE " + zoneName);
+        sql("CREATE TABLE " + table2 + "(id INT PRIMARY KEY, val INT) ZONE " + zoneName);
+
+        Transaction tx = node(0).transactions().begin();
+
+        int table1Inserts = 3;
+        int table2Inserts = 5;
+
+        try {
+            for (int i = 0; i < table1Inserts; i++) {
+                sql(tx, "INSERT INTO " + table1 + " VALUES(?, ?)", i, i);
+            }
+
+            for (int i = 0; i < table2Inserts; i++) {
+                sql(tx, "INSERT INTO " + table2 + " VALUES(?, ?)", i, i);
+            }
+
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(10))
+                    .untilAsserted(() -> assertThat(totalPendingWriteIntents(), is((long) table1Inserts + table2Inserts)));
+        } finally {
+            tx.commit();
+        }
+
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(totalPendingWriteIntents(), is(0L)));
+    }
+
+    private static long totalPendingWriteIntents() {
+        long sum = 0;
+
+        for (int i = 0; i < CLUSTER.nodes().size(); i++) {
+            sum += pendingWriteIntentsOnNode(i);
+        }
+
+        return sum;
+    }
+
+    private static long pendingWriteIntentsOnNode(int nodeIdx) {
+        MetricSet metrics = unwrapIgniteImpl(node(nodeIdx))
+                .metricManager()
+                .metricSnapshot()
+                .metrics()
+                .get(TransactionMetricsSource.SOURCE_NAME);
+
+        assertThat("Transaction metrics must be present on node " + nodeIdx, metrics != null, is(true));
+
+        LongMetric metric = metrics.get(TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS);
+
+        assertThat("Metric must be present: "
+                + TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS, metric != null, is(true));
+
+        return metric.value();
     }
 }

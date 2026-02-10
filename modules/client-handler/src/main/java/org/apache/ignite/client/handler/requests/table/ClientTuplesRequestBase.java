@@ -20,13 +20,16 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions.KEY_ONLY;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.requests.table.ClientTupleRequestBase.RequestOptions;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -70,30 +73,16 @@ class ClientTuplesRequestBase {
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            boolean txReadOnly,
             @Nullable NotificationSender notificationSender,
             HybridTimestampTracker tsTracker,
-            boolean keyOnly
-    ) {
-        return readAsync(in, tables, resources, txManager, txReadOnly, notificationSender, tsTracker, keyOnly, false);
-    }
-
-    public static CompletableFuture<ClientTuplesRequestBase> readAsync(
-            ClientMessageUnpacker in,
-            IgniteTables tables,
-            ClientResourceRegistry resources,
-            TxManager txManager,
-            boolean txReadOnly,
-            @Nullable NotificationSender notificationSender,
-            HybridTimestampTracker tsTracker,
-            boolean keyOnly,
-            boolean readSecondTuple
+            EnumSet<RequestOptions> options
     ) {
         int tableId = in.unpackInt();
 
         long[] resIdHolder = {0};
 
-        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender, resIdHolder);
+        CompletableFuture<InternalTransaction> txFut =
+                readOrStartImplicitTx(in, tsTracker, resources, txManager, tables, options, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
@@ -107,16 +96,16 @@ class ClientTuplesRequestBase {
             tupleBytes[i] = in.readBinary();
         }
 
-        return readTableAsync(tableId, tables)
+        return txFut.thenCompose(tx -> readTableAsync(tableId, tables)
                 .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
                         .thenApply(schema -> {
                             var tuples = new ArrayList<Tuple>(count);
 
                             for (int i = 0; i < count; i++) {
-                                tuples.add(readTuple(noValueSet[i], tupleBytes[i], keyOnly, schema));
+                                tuples.add(readTuple(noValueSet[i], tupleBytes[i], options.contains(KEY_ONLY), schema));
                             }
 
                             return new ClientTuplesRequestBase(tx, table, tuples, resIdHolder[0]);
-                        }));
+                        })));
     }
 }

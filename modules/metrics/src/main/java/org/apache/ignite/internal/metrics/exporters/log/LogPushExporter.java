@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.metrics.exporters.log;
 
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.IgniteUtils.findAny;
+
 import com.google.auto.service.AutoService;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
+import java.util.List;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -36,8 +41,11 @@ import org.apache.ignite.internal.util.CollectionUtils;
 public class LogPushExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "logPush";
 
-    /** Padding for individual metric output. */
-    private static final String PADDING = "  ";
+    /** Padding for individual metric output in multiline mode. */
+    private static final String PADDING = "  ^-- ";
+
+    private volatile boolean oneLinePerMetricSource;
+    private volatile List<String> enabledMetrics;
 
     @Override
     protected long period(ExporterView exporterView) {
@@ -45,27 +53,95 @@ public class LogPushExporter extends PushMetricExporter {
     }
 
     @Override
+    public void reconfigure(ExporterView view) {
+        super.reconfigure(view);
+
+        LogPushExporterView v = (LogPushExporterView) view;
+        oneLinePerMetricSource = v.oneLinePerMetricSource();
+        enabledMetrics = Arrays.asList(v.enabledMetrics());
+    }
+
+    @Override
     public void report() {
         Collection<MetricSet> metricSets = snapshot().metrics().values();
 
-        if (CollectionUtils.nullOrEmpty(metricSets)) {
+        if (CollectionUtils.nullOrEmpty(metricSets) || CollectionUtils.nullOrEmpty(enabledMetrics)) {
             return;
         }
 
-        var report = new StringBuilder("Metric report: \n");
-
-        for (MetricSet metricSet : metricSets) {
-            report.append(metricSet.name()).append(":\n");
-
-            StreamSupport.stream(metricSet.spliterator(), false).sorted(Comparator.comparing(Metric::name)).forEach(metric ->
-                    report.append(PADDING)
-                            .append(metric.name())
-                            .append(':')
-                            .append(metric.getValueAsString())
-                            .append('\n'));
+        var report = new StringBuilder("Metrics for local node:");
+        if (!oneLinePerMetricSource) {
+            report.append(' ');
         }
+        boolean needSeparator = oneLinePerMetricSource;
+        for (MetricSet metricSet : metricSets) {
+            boolean hasMetricsWhiteList = hasMetricsWhiteList(metricSet);
 
+            if (hasMetricsWhiteList || metricEnabled(metricSet.name())) {
+                needSeparator = appendMetricsOneLine(report, metricSet, hasMetricsWhiteList, needSeparator);
+            }
+        }
         log.info(report.toString());
+    }
+
+    private void addSeparatorIfNeeded(StringBuilder report, boolean needSeparator) {
+        if (needSeparator) {
+            if (oneLinePerMetricSource) {
+                report.append(System.lineSeparator()).append(PADDING);
+            } else {
+                report.append(", ");
+            }
+        }
+    }
+
+    /**
+     * Appends metrics in one-line format.
+     *
+     * @param sb String builder.
+     * @param metricSet Metric set.
+     * @param hasMetricsWhiteList Whether metrics whitelist is present.
+     * @return True if separator is needed for next item.
+     */
+    private boolean appendMetricsOneLine(StringBuilder sb, MetricSet metricSet, boolean hasMetricsWhiteList, boolean needSeparator) {
+        List<Metric> metrics = StreamSupport.stream(metricSet.spliterator(), false)
+                .sorted(comparing(Metric::name))
+                .filter(m -> !hasMetricsWhiteList || metricEnabled(fqn(metricSet, m)))
+                .collect(toList());
+        if (metrics.isEmpty()) {
+            return needSeparator;
+        }
+        addSeparatorIfNeeded(sb, needSeparator);
+        sb.append(metricSet.name()).append(' ').append('[');
+        for (int i = 0; i < metrics.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            Metric m = metrics.get(i);
+            sb.append(m.name()).append('=').append(m.getValueAsString());
+        }
+        sb.append(']');
+        return true;
+    }
+
+    private boolean metricEnabled(String name) {
+        return findAny(enabledMetrics, em -> nameMatches(name, em)).isPresent();
+    }
+
+    private static String fqn(MetricSet ms, Metric m) {
+        return ms.name() + '.' + m.name();
+    }
+
+    private boolean hasMetricsWhiteList(MetricSet ms) {
+        return findAny(
+                enabledMetrics,
+                em -> (nameMatches(ms.name(), em) || em.startsWith(ms.name()))
+                        && em.length() != ms.name().length()
+        ).isPresent();
+    }
+
+    private static boolean nameMatches(String name, String template) {
+        return template.endsWith("*") && name.startsWith(template.substring(0, template.length() - 1))
+                || template.equals(name);
     }
 
     @Override

@@ -38,9 +38,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -107,7 +107,7 @@ class ScaleCubeTopologyServiceTest {
 
     private void testGetNodeWorksWithConcurrentModifications(
             @InjectExecutorService ExecutorService executor,
-            Function<Member, ClusterNode> getter
+            Function<Member, InternalClusterNode> getter
     ) {
         Member member = new Member(randomUUID().toString(), "test", Address.create("host", 1001), "default");
 
@@ -140,17 +140,19 @@ class ScaleCubeTopologyServiceTest {
 
         assertThat(topologyService.getById(UUID.fromString(member1.id())), is(nullValue()));
 
-        ClusterNode firstById = topologyService.getById(UUID.fromString(member1NewVersion.id()));
+        InternalClusterNode firstById = topologyService.getById(UUID.fromString(member1NewVersion.id()));
         assertThatMatchesFirstMemberNewVersion(firstById, member1NewVersion);
 
-        ClusterNode firstByConsistentId = topologyService.getByConsistentId("first");
+        InternalClusterNode firstByConsistentId = topologyService.getByConsistentId("first");
         assertThatMatchesFirstMemberNewVersion(firstByConsistentId, member1NewVersion);
 
-        ClusterNode firstByAddress = topologyService.getByAddress(new NetworkAddress(member1.address().host(), member1.address().port()));
+        InternalClusterNode firstByAddress = topologyService.getByAddress(
+                new NetworkAddress(member1.address().host(), member1.address().port())
+        );
         assertThatMatchesFirstMemberNewVersion(firstByAddress, member1NewVersion);
     }
 
-    private static void assertThatMatchesFirstMemberNewVersion(@Nullable ClusterNode clusterNode, Member member1NewVersion) {
+    private static void assertThatMatchesFirstMemberNewVersion(@Nullable InternalClusterNode clusterNode, Member member1NewVersion) {
         assertThat(clusterNode, is(notNullValue()));
         assertThat(clusterNode.name(), is("first"));
         assertThat(clusterNode.id().toString(), is(member1NewVersion.id()));

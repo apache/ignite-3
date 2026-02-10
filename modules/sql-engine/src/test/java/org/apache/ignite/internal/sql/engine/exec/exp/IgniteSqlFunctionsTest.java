@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import static org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions.findPrefix;
+import static org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions.nextGreaterPrefix;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -47,6 +52,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Sql functions test.
  */
 public class IgniteSqlFunctionsTest {
+    private static final String MAX_CHAR_STR = String.valueOf(Character.MAX_VALUE);
+
     @Test
     public void testBigDecimalToString() {
         assertNull(IgniteSqlFunctions.toString((BigDecimal) null));
@@ -89,17 +96,17 @@ public class IgniteSqlFunctionsTest {
     @Test
     public void testPrimitiveToDecimal() {
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal((byte) 10, 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal((short) 10, 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(10, 10, 0)
         );
 
@@ -128,17 +135,17 @@ public class IgniteSqlFunctionsTest {
         assertNull(IgniteSqlFunctions.toBigDecimal((String) null, 10, 0));
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(Byte.valueOf("10"), 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(Short.valueOf("10"), 10, 0)
         );
 
         assertEquals(
-                new BigDecimal(10),
+                BigDecimal.TEN,
                 IgniteSqlFunctions.toBigDecimal(Integer.valueOf(10), 10, 0)
         );
 
@@ -251,8 +258,9 @@ public class IgniteSqlFunctionsTest {
 
     /** Tests for ROUND(x) function. */
     @Test
+    @SuppressWarnings("PMD.BigIntegerInstantiation")
     public void testRound() {
-        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.sround(new BigDecimal("1.000")));
+        assertEquals(BigDecimal.ONE, IgniteSqlFunctions.sround(new BigDecimal("1.000")));
         assertEquals(new BigDecimal("2"), IgniteSqlFunctions.sround(new BigDecimal("1.5")));
         assertEquals(1, IgniteSqlFunctions.sround(1), "int");
         assertEquals(1L, IgniteSqlFunctions.sround(1L), "long");
@@ -370,8 +378,8 @@ public class IgniteSqlFunctionsTest {
     /** Tests for TRUNCATE(x) function. */
     @Test
     public void testTruncate() {
-        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.struncate(new BigDecimal("1.000")));
-        assertEquals(new BigDecimal("1"), IgniteSqlFunctions.struncate(new BigDecimal("1.5")));
+        assertEquals(BigDecimal.ONE, IgniteSqlFunctions.struncate(new BigDecimal("1.000")));
+        assertEquals(BigDecimal.ONE, IgniteSqlFunctions.struncate(new BigDecimal("1.5")));
         assertEquals(1, IgniteSqlFunctions.struncate(1), "int");
         assertEquals(1L, IgniteSqlFunctions.struncate(1L), "long");
         assertEquals(1.0d, IgniteSqlFunctions.struncate(1.5d), "double");
@@ -514,11 +522,19 @@ public class IgniteSqlFunctionsTest {
 
         String v = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
 
+        String format = "YYYY-MM-DD HH24:MI:SS.FF3";
         TimeZone timeZone = TimeZone.getTimeZone(zoneId);
         long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
-        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, "yyyy-MM-dd hh24:mi:ss.ff3", timeZone);
+        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, format, timeZone);
 
         assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
+
+        String formatted = IgniteSqlFunctions.formatTimestampWithLocalTimeZone(format + " TZHTZM", calciteTsLtz, timeZone);
+
+        String tzOffsetStr = OffsetDateTime.ofInstant(Instant.ofEpochMilli(tsLtz), zoneId)
+                .format(DateTimeFormatter.ofPattern("Z"));
+
+        assertEquals(v + " " + tzOffsetStr, formatted);
     }
 
     private static Stream<Arguments> timeZoneTime() {
@@ -553,13 +569,17 @@ public class IgniteSqlFunctionsTest {
     @ParameterizedTest
     @MethodSource("timeValues")
     public void testToTime(String timeStr, int expectedMillis) {
+        String format = "HH24:MI:SS";
 
         DateParseFunction f = new DateParseFunction();
-        int millis = f.parseTime("HH:mi:SS", timeStr);
-        int time2 = IgniteSqlFunctions.toTime(timeStr, "HH24:MI:SS");
+        int millis = f.parseTime(format, timeStr);
+        int time2 = IgniteSqlFunctions.toTime(timeStr, format);
 
         assertEquals(expectedMillis, millis);
         assertEquals(millis, time2);
+
+        String formatted = IgniteSqlFunctions.formatTime(format, time2);
+        assertEquals(timeStr, formatted);
     }
 
     private static Stream<Arguments> timeValues() {
@@ -575,13 +595,17 @@ public class IgniteSqlFunctionsTest {
     @ParameterizedTest
     @MethodSource("dateValues")
     public void testToDate(String timeStr, int expectedDays) {
+        String format = "YYYY-MM-DD";
 
         DateParseFunction f = new DateParseFunction();
-        int days = f.parseDate("YYYY-MM-DD", timeStr);
-        int days2 = IgniteSqlFunctions.toDate(timeStr, "YYYY-MM-DD");
+        int days = f.parseDate(format, timeStr);
+        int days2 = IgniteSqlFunctions.toDate(timeStr, format);
 
         assertEquals(expectedDays, days);
         assertEquals(days, days2);
+
+        String formatted = IgniteSqlFunctions.formatDate(format, days2);
+        assertEquals(timeStr, formatted);
     }
 
     private static Stream<Arguments> dateValues() {
@@ -594,19 +618,454 @@ public class IgniteSqlFunctionsTest {
     @ParameterizedTest
     @MethodSource("timestampValues")
     public void testToTimestamp(String timeStr, long expectedTs) {
+        String format = "YYYY-MM-DD HH24:MI:SS";
 
         DateParseFunction f = new DateParseFunction();
-        long ts = f.parseTimestamp("YYYY-MM-DD", timeStr);
-        Long ts2 = IgniteSqlFunctions.toTimestamp(timeStr, "YYYY-MM-DD");
+        long ts = f.parseTimestamp(format, timeStr);
+        Long ts2 = IgniteSqlFunctions.toTimestamp(timeStr, format);
 
         assertEquals(expectedTs, ts);
         assertEquals(ts, ts2);
+
+        String formatted = IgniteSqlFunctions.formatTimestamp(format, ts2);
+        assertEquals(timeStr, formatted);
     }
 
     private static Stream<Arguments> timestampValues() {
         return Stream.of(
-                Arguments.of("1970-01-01", 0),
-                Arguments.of("2025-01-01", 1735689600000L)
+                Arguments.of("1970-01-01 00:00:00", 0),
+                Arguments.of("1970-01-01 00:00:10", 10000),
+                Arguments.of("2025-01-01 00:00:00", 1735689600000L),
+                Arguments.of("2025-01-01 00:00:20", 1735689620000L)
         );
+    }
+
+    @Test
+    void testNullPattern() {
+        assertNull(findPrefix(null, null));
+        assertNull(findPrefix(null, "\\"));
+        assertNull(findPrefix(null, ""));
+    }
+
+    @Test
+    void testNullEscape() {
+        // Null escape should be valid - means no escape character
+        assertEquals("abc", findPrefix("abc", null));
+        assertEquals("abc", findPrefix("abc%", null));
+    }
+
+    @Test
+    void testInvalidEscapeLength() {
+        // Escape must be exactly 1 character
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("abc", ""),
+                "Invalid escape character ''."
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("abc", "\\\\"),
+                "Invalid escape character '\\\\'."
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("abc", "abc"),
+                "Invalid escape character 'abc'."
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("test%", "**"),
+                "Invalid escape character '**'."
+        );
+    }
+
+    @Test
+    void testEmptyPattern() {
+        assertEquals("", findPrefix("", null));
+        assertEquals("", findPrefix("", "\\"));
+    }
+
+    @Test
+    void testSimplePatternsNoWildcards() {
+        assertEquals("abc", findPrefix("abc", null));
+        assertEquals("test123", findPrefix("test123", null));
+        assertEquals("hello world", findPrefix("hello world", null));
+        assertEquals("a", findPrefix("a", null));
+    }
+
+    @Test
+    void testPercentWildcard() {
+        assertEquals("", findPrefix("%", null));
+        assertEquals("", findPrefix("%%", null));
+        assertEquals("", findPrefix("%%%", null));
+        assertEquals("abc", findPrefix("abc%", null));
+        assertEquals("abc", findPrefix("abc%%", null));
+        assertEquals("abc", findPrefix("abc%def", null));
+        assertEquals("", findPrefix("%abc", null));
+    }
+
+    @Test
+    void testUnderscoreWildcard() {
+        assertEquals("", findPrefix("_", null));
+        assertEquals("", findPrefix("__", null));
+        assertEquals("", findPrefix("___", null));
+        assertEquals("abc", findPrefix("abc_", null));
+        assertEquals("abc", findPrefix("abc__", null));
+        assertEquals("abc", findPrefix("abc_def", null));
+        assertEquals("", findPrefix("_abc", null));
+    }
+
+    @Test
+    void testMixedWildcards() {
+        assertEquals("abc", findPrefix("abc%_", null));
+        assertEquals("abc", findPrefix("abc_%", null));
+        assertEquals("", findPrefix("%_", null));
+        assertEquals("", findPrefix("_%", null));
+        assertEquals("test", findPrefix("test%middle_end", null));
+        assertEquals("test", findPrefix("test_middle%end", null));
+    }
+
+    @Test
+    void testEscapedPercent() {
+        assertEquals("abc%", findPrefix("abc\\%", "\\"));
+        assertEquals("abc%def", findPrefix("abc\\%def", "\\"));
+        assertEquals("abc%", findPrefix("abc\\%%", "\\"));
+        assertEquals("abc%def", findPrefix("abc\\%def%", "\\"));
+    }
+
+    @Test
+    void testEscapedUnderscore() {
+        assertEquals("abc_", findPrefix("abc\\_", "\\"));
+        assertEquals("abc_def", findPrefix("abc\\_def", "\\"));
+        assertEquals("abc_", findPrefix("abc\\__", "\\"));
+        assertEquals("abc_def", findPrefix("abc\\_def_", "\\"));
+    }
+
+    @Test
+    void testEscapedEscapeCharacter() {
+        assertEquals("abc\\", findPrefix("abc\\\\", "\\"));
+        assertEquals("abc\\", findPrefix("abc\\\\%", "\\"));
+        assertEquals("abc\\def", findPrefix("abc\\\\def", "\\"));
+        assertEquals("abc\\", findPrefix("abc\\\\_", "\\"));
+    }
+
+    @Test
+    void testMultipleEscapes() {
+        assertEquals("a%b_c", findPrefix("a\\%b\\_c", "\\"));
+        assertEquals("a%b%c%", findPrefix("a\\%b\\%c\\%", "\\"));
+        assertEquals("a_b_c_", findPrefix("a\\_b\\_c\\_", "\\"));
+        assertEquals("%%__", findPrefix("\\%\\%\\_\\_", "\\"));
+    }
+
+    @Test
+    void testEscapeFollowedByNonWildcard() {
+        assertEquals("abc\\d", findPrefix("abc\\d", "\\"));
+        assertEquals("abc\\x", findPrefix("abc\\x%", "\\"));
+        assertEquals("test\\123", findPrefix("test\\123", "\\"));
+    }
+
+    @Test
+    void testEscapeAtEnd() {
+        // Escape at end with no character following
+        assertEquals("abc\\", findPrefix("abc\\", "\\"));
+        assertEquals("test\\", findPrefix("test\\", "\\"));
+    }
+
+    @Test
+    void testOnlyEscapeCharacters() {
+        assertEquals("\\", findPrefix("\\\\", "\\"));
+        assertEquals("\\\\", findPrefix("\\\\\\\\", "\\"));
+        assertEquals("\\", findPrefix("\\\\_", "\\"));
+    }
+
+    @Test
+    void testDifferentEscapeCharacters() {
+        assertEquals("abc%", findPrefix("abc^%", "^"));
+        assertEquals("abc_", findPrefix("abc$_", "$"));
+        assertEquals("abc%def", findPrefix("abc!%def", "!"));
+        assertEquals("a%b%c", findPrefix("a#%b#%c", "#"));
+    }
+
+    @Test
+    void testUnicodeCharacters() {
+        assertEquals("café", findPrefix("café", null));
+        assertEquals("hello世界", findPrefix("hello世界", null));
+        assertEquals("🎉🎊", findPrefix("🎉🎊", null));
+        assertEquals("café", findPrefix("café%", null));
+        assertEquals("test🔥", findPrefix("test🔥_end", null));
+    }
+
+    @Test
+    void testUnicodeEscapes() {
+        assertEquals("café%", findPrefix("café€%", "€"));
+        assertEquals("hello世界_", findPrefix("hello世界世_", "世"));
+
+        // Length of "fire" is 2, we don't support that.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> findPrefix("test🔥🔥%", "🔥"),
+                "Invalid escape character '🔥'."
+        );
+    }
+
+    @Test
+    void testSpecialCharacters() {
+        assertEquals("a b", findPrefix("a b", null));
+        assertEquals("tab\there", findPrefix("tab\there", null));
+        assertEquals("new\nline", findPrefix("new\nline", null));
+        assertEquals("quotes\"'", findPrefix("quotes\"'", null));
+        assertEquals("slash/back\\", findPrefix("slash/back\\", null));
+    }
+
+    @Test
+    void testConsecutiveEscapes() {
+        assertEquals("\\\\", findPrefix("\\\\\\\\", "\\"));
+        assertEquals("\\\\\\", findPrefix("\\\\\\\\\\\\", "\\"));
+        assertEquals("\\%", findPrefix("\\\\\\%", "\\"));
+    }
+
+    @Test
+    void testEscapePatternCombinations() {
+        assertEquals("\\%\\", findPrefix("\\\\\\%\\\\_", "\\"));
+        assertEquals("a\\b%c_", findPrefix("a\\\\b\\%c\\_", "\\"));
+        assertEquals("start\\", findPrefix("start\\\\%end", "\\"));
+    }
+
+    @Test
+    void testWildcardAfterEscape() {
+        assertEquals("abc\\x", findPrefix("abc\\x%", "\\"));
+        assertEquals("abc\\y", findPrefix("abc\\y_", "\\"));
+    }
+
+    @Test
+    void testEscapeAsLastCharacterBeforeWildcard() {
+        // This is an escape followed by wildcard, so wildcard is escaped
+        assertEquals("test%", findPrefix("test\\%", "\\"));
+        assertEquals("test_", findPrefix("test\\_", "\\"));
+    }
+
+    @Test
+    void testComplexRealWorldPatterns() {
+        // Email-like patterns
+        assertEquals("user@", findPrefix("user@%", null));
+        assertEquals("admin", findPrefix("admin_@domain.com", null));
+
+        // Path-like patterns
+        assertEquals("/home/user/", findPrefix("/home/user/%", null));
+        assertEquals("C:\\Users\\", findPrefix("C:\\Users\\_", null));
+
+        // SQL identifiers with escaped wildcards
+        assertEquals("table_", findPrefix("table\\_%", "\\"));
+        assertEquals("column_name%", findPrefix("column\\_name\\%", "\\"));
+    }
+
+    @Test
+    void testVeryLongPatterns() {
+        String longPrefix = "a".repeat(1000);
+        assertEquals(longPrefix, findPrefix(longPrefix, null));
+        assertEquals(longPrefix, findPrefix(longPrefix + "%", null));
+
+        String longWithEscape = "a".repeat(500) + "\\%" + "b".repeat(500);
+        assertEquals("a".repeat(500) + "%",
+                findPrefix(longWithEscape, "\\").substring(0, 501));
+    }
+
+    @Test
+    void testSingleCharacterPatterns() {
+        assertEquals("a", findPrefix("a", null));
+        assertEquals("", findPrefix("%", null));
+        assertEquals("", findPrefix("_", null));
+        assertEquals("\\", findPrefix("\\", "\\"));
+    }
+
+    @Test
+    void testAllWildcards() {
+        assertEquals("", findPrefix("%%%", null));
+        assertEquals("", findPrefix("___", null));
+        assertEquals("", findPrefix("%_%_%", null));
+    }
+
+    @Test
+    void testNoPrefix() {
+        assertEquals("", findPrefix("%anything", null));
+        assertEquals("", findPrefix("_anything", null));
+        assertEquals("", findPrefix("%", null));
+    }
+
+    @Test
+    void testWhitespacePatterns() {
+        assertEquals(" ", findPrefix(" ", null));
+        assertEquals("  ", findPrefix("  ", null));
+        assertEquals("   ", findPrefix("   %", null));
+        assertEquals(" abc ", findPrefix(" abc ", null));
+        assertEquals("\t", findPrefix("\t", null));
+        assertEquals("\n", findPrefix("\n", null));
+    }
+
+    @Test
+    void testEscapedWhitespace() {
+        assertEquals(" ", findPrefix("  ", " "));
+        assertEquals("\t", findPrefix("\t\t", "\t"));
+    }
+
+    @Test
+    void nextGreaterNullInput() {
+        assertNull(nextGreaterPrefix(null));
+    }
+
+    @Test
+    void nextGreaterEmptyString() {
+        assertNull(nextGreaterPrefix(""));
+    }
+
+    @Test
+    void nextGreaterSingleCharacterIncrement() {
+        assertEquals("b", nextGreaterPrefix("a"));
+        assertEquals("B", nextGreaterPrefix("A"));
+        assertEquals("1", nextGreaterPrefix("0"));
+        assertEquals(":", nextGreaterPrefix("9"));
+        assertEquals(" ", nextGreaterPrefix("\u001f"));
+    }
+
+    @Test
+    void nextGreaterSingleCharacterMaxValue() {
+        assertNull(nextGreaterPrefix(MAX_CHAR_STR));
+    }
+
+    @Test
+    void nextGreaterSingleCharacterNearMax() {
+        String maxCharMinusOne = String.valueOf((char) (Character.MAX_VALUE - 1));
+        String maxCharMinusTwo = String.valueOf((char) (Character.MAX_VALUE - 2));
+        assertEquals(MAX_CHAR_STR, nextGreaterPrefix(maxCharMinusOne));
+        assertEquals(maxCharMinusOne, nextGreaterPrefix(maxCharMinusTwo));
+    }
+
+    @Test
+    void nextGreaterIncrementLastCharacter() {
+        assertEquals("abd", nextGreaterPrefix("abc"));
+        assertEquals("ab ", nextGreaterPrefix("ab\u001f"));
+        assertEquals("test124", nextGreaterPrefix("test123"));
+        assertEquals("hello!", nextGreaterPrefix("hello "));
+    }
+
+    @Test
+    void nextGreaterAllMaxCharacters() {
+        assertNull(nextGreaterPrefix(MAX_CHAR_STR));
+        assertNull(nextGreaterPrefix(MAX_CHAR_STR.repeat(2)));
+        assertNull(nextGreaterPrefix(MAX_CHAR_STR.repeat(3)));
+    }
+
+    @Test
+    void nextGreaterMaxCharacterAtEnd() {
+        assertEquals("b", nextGreaterPrefix("a" + MAX_CHAR_STR));
+        assertEquals("ac", nextGreaterPrefix("ab" + MAX_CHAR_STR));
+        assertEquals("tesu", nextGreaterPrefix("test" + MAX_CHAR_STR));
+    }
+
+    @Test
+    void nextGreaterMultipleMaxCharactersAtEnd() {
+        assertEquals("b", nextGreaterPrefix("a" + MAX_CHAR_STR.repeat(2)));
+        assertEquals("ac", nextGreaterPrefix("ab" + MAX_CHAR_STR.repeat(3)));
+        assertEquals("b", nextGreaterPrefix("a" + MAX_CHAR_STR.repeat(4)));
+    }
+
+    @Test
+    void nextGreaterAsciiPrintableBoundaries() {
+        // Space to !
+        assertEquals("!", nextGreaterPrefix(" "));
+        // Tilde is last printable ASCII
+        assertEquals("\u007f", nextGreaterPrefix("~"));
+        // 9 to :
+        assertEquals(":", nextGreaterPrefix("9"));
+        // Z to [
+        assertEquals("[", nextGreaterPrefix("Z"));
+        // z to {
+        assertEquals("{", nextGreaterPrefix("z"));
+    }
+
+    @Test
+    void nextGreaterAsciiControlCharacters() {
+        assertEquals("\u0001", nextGreaterPrefix("\u0000"));
+        assertEquals("\u001f", nextGreaterPrefix("\u001e"));
+        assertEquals(" ", nextGreaterPrefix("\u001f"));
+    }
+
+    @Test
+    void nextGreaterUnicodeCharacters() {
+        assertEquals("cafÄ", nextGreaterPrefix("cafÃ"));
+        assertEquals("hello丘", nextGreaterPrefix("hello丗"));
+        assertEquals("🎉🎊", nextGreaterPrefix("🎉🎉"));
+    }
+
+    @Test
+    void nextGreaterUnicodeMaxValue() {
+        String maxCharMinusOne = String.valueOf((char) (Character.MAX_VALUE - 1));
+
+        // Last valid unicode code point in UTF-16
+        assertEquals("test" + MAX_CHAR_STR, nextGreaterPrefix("test" + maxCharMinusOne));
+
+        // String ending with max value
+        assertEquals("cafå", nextGreaterPrefix("cafä" + MAX_CHAR_STR));
+    }
+
+    @Test
+    void nextGreaterSupplementaryCharacters() {
+        // Emoji are supplementary characters (2 char units in Java)
+        String emoji = "😀"; // U+1F600
+        String nextEmoji = nextGreaterPrefix(emoji);
+        assertNotNull(nextEmoji);
+        assertTrue(nextEmoji.compareTo(emoji) > 0);
+    }
+
+    @Test
+    void nextGreaterResultIsGreater() {
+        String[] testStrings = {
+                "a", "abc", "test", "hello world", "123",
+                "café", "a\uffff", "test\uffff\uffff"
+        };
+
+        for (String str : testStrings) {
+            String next = nextGreaterPrefix(str);
+            assertNotNull(next, "Should not be null for: " + str);
+            assertTrue(next.compareTo(str) > 0,
+                    "Next string should be greater: " + str + " -> " + next);
+        }
+    }
+
+    @Test
+    void nextGreaterDatabaseRangeScanScenarios() {
+        // Simulating prefix range scans
+        assertEquals("uses", nextGreaterPrefix("user"));
+        assertEquals("user ", nextGreaterPrefix("user\u001f"));
+        assertEquals("admin ", nextGreaterPrefix("admin\u001f"));
+
+        // Version strings
+        assertEquals("v1.0.1", nextGreaterPrefix("v1.0.0"));
+        assertEquals("v1.1", nextGreaterPrefix("v1.0\uffff"));
+    }
+
+    @Test
+    void nextGreaterPathLikeStrings() {
+        assertEquals("/home/uses", nextGreaterPrefix("/home/user"));
+        assertEquals("/home/user/", nextGreaterPrefix("/home/user."));
+    }
+
+    @Test
+    void nextGreaterTimestampLikeStrings() {
+        assertEquals("2024-01-02", nextGreaterPrefix("2024-01-01"));
+        assertEquals("2024-01-0:", nextGreaterPrefix("2024-01-09"));
+    }
+
+    @Test
+    void nextGreaterZeroCharacter() {
+        assertEquals("\u0001", nextGreaterPrefix("\u0000"));
+        assertEquals("a\u0001", nextGreaterPrefix("a\u0000"));
+        assertEquals("test\u0001", nextGreaterPrefix("test\u0000"));
+    }
+
+    @Test
+    void nextGreaterPrefixWithZeros() {
+        assertEquals("\u0000\u0001", nextGreaterPrefix("\u0000\u0000"));
+        assertEquals("a\u0000\u0001", nextGreaterPrefix("a\u0000\u0000"));
     }
 }

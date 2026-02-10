@@ -17,40 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /** Tests colocated data. */
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItColocatedDataTest extends BaseSqlIntegrationTest {
     @BeforeAll
-    public static void beforeTestsStarted() throws InterruptedException {
-        waitForDefaultZoneAssignments();
-
+    public static void beforeTestsStarted() {
         //noinspection ConcatenationWithEmptyString
         sqlScript(""
                 + "CREATE TABLE T1 (id INT PRIMARY KEY, c1 INT);"
@@ -140,35 +119,5 @@ public class ItColocatedDataTest extends BaseSqlIntegrationTest {
         DisabledJoinRules(String... disabledRules) {
             this.disabledRules = disabledRules;
         }
-    }
-
-    /**
-     * Waits for initial default zone assignments to appear.
-     */
-    // TODO: remove this method after https://issues.apache.org/jira/browse/IGNITE-25283 has been fixed.
-    private static void waitForDefaultZoneAssignments() throws InterruptedException {
-        if (!colocationEnabled()) {
-            return;
-        }
-
-        IgniteImpl nodeImpl = unwrapIgniteImpl(CLUSTER.aliveNode());
-
-        Catalog catalog = nodeImpl.catalogManager().catalog(nodeImpl.catalogManager().latestCatalogVersion());
-
-        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-
-        List<ZonePartitionId> partitionIds = IntStream.range(0, defaultZone.partitions())
-                .mapToObj(partId -> new ZonePartitionId(defaultZone.id(), partId))
-                .collect(toList());
-
-        assertTrue(waitForCondition(() -> {
-            HybridTimestamp now = nodeImpl.clock().now();
-
-            CompletableFuture<List<TokenizedAssignments>> assignmentsFuture = nodeImpl.placementDriver().getAssignments(partitionIds, now);
-
-            assertThat(assignmentsFuture, willCompleteSuccessfully());
-
-            return assignmentsFuture.join().stream().noneMatch(assignments -> assignments.nodes().isEmpty());
-        }, 15_000));
     }
 }

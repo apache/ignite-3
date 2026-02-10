@@ -240,7 +240,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private volatile ColumnFamily revisionToTs;
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-23910 - either make checksums durable or invent another way to solve
-    // the 'divergence going unnoticed' problem.
+    //  the 'divergence going unnoticed' problem.
     /** Revision to checksum mapping column family. */
     private volatile ColumnFamily revisionToChecksum;
 
@@ -273,7 +273,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private final UpdatedEntries updatedEntries = new UpdatedEntries();
 
     /** Tracks RocksDb resources that must be properly closed. */
-    private List<AbstractNativeReference> rocksResources = new ArrayList<>();
+    private final List<AbstractNativeReference> rocksResources = new ArrayList<>();
 
     /**
      * Write options used to write to RocksDB.
@@ -496,7 +496,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         busyLock.block();
 
         watchProcessor.close();
-        flusher.stop();
+
+        RocksDbFlusher flusher = this.flusher;
+
+        if (flusher != null) {
+            flusher.stop();
+        }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
@@ -506,7 +511,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private void closeRocksResources() {
         Collections.reverse(rocksResources);
         RocksUtils.closeAll(rocksResources);
-        this.rocksResources = new ArrayList<>();
+        rocksResources.clear();
     }
 
     @Override
@@ -542,14 +547,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public Entry get(byte[] key) {
-        try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
+        try (TrackingToken ignored = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.get(key);
         }
     }
 
     @Override
     public List<Entry> getAll(List<byte[]> keys) {
-        try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
+        try (TrackingToken ignored = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.getAll(keys);
         }
     }

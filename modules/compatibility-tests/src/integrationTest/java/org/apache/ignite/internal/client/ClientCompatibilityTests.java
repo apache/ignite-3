@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_ALL_COLUMNS;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
+import static org.apache.ignite.internal.jobs.Jobs.JOBS_UNIT;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -36,10 +37,13 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -47,12 +51,12 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.CompatibilityTestCommon;
+import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -71,8 +75,9 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Client compatibility tests. Interface to allow "multiple inheritance" of test methods.
@@ -84,7 +89,6 @@ public interface ClientCompatibilityTests {
     AtomicInteger idGen();
 
     default String tableNamePrefix() {
-        // TODO IGNITE-25846 Remove this method, table name should be the same across versions.
         return "";
     }
 
@@ -132,7 +136,7 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testSqlColumnMeta() {
-        try (var cursor = client().sql().execute(null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
+        try (var cursor = client().sql().execute((Transaction) null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
             ResultSetMetadata meta = cursor.metadata();
             assertNotNull(meta);
 
@@ -200,7 +204,7 @@ public interface ClientCompatibilityTests {
                 .pageSize(10)
                 .build();
 
-        try (var cursor = client().sql().execute(null, statement, minId)) {
+        try (var cursor = client().sql().execute((Transaction) null, statement, minId)) {
             AtomicInteger rowCnt = new AtomicInteger();
             cursor.forEachRemaining(x -> rowCnt.incrementAndGet());
 
@@ -526,6 +530,57 @@ public interface ClientCompatibilityTests {
         assertThat(ex.getMessage(), containsString("Cannot load job class by name 'test'"));
     }
 
+    @ParameterizedTest
+    @MethodSource("jobArgs")
+    default void testComputeArgs(Object arg) {
+        JobTarget target = JobTarget.anyNode(clusterNodes());
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Object jobRes = client().compute().execute(target, desc, arg);
+
+        if (arg instanceof byte[]) {
+            assertArrayEquals((byte[]) arg, (byte[]) jobRes);
+        } else {
+            assertEquals(arg, jobRes);
+        }
+    }
+
+    @Test
+    default void testComputeExecute() {
+        JobTarget target = JobTarget.anyNode(clusterNodes());
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Object jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes);
+    }
+
+    @Test
+    default void testComputeExecuteColocated() {
+        JobTarget target = JobTarget.colocated(TABLE_NAME_TEST, Tuple.create().set("id", 1));
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Object jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes);
+    }
+
+    @Test
+    default void testComputeExecuteBroadcast() {
+        BroadcastJobTarget target = BroadcastJobTarget.nodes(clusterNodes());
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Collection<Object> jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes.iterator().next());
+    }
+
+    @Test
+    default void testComputeExecuteBroadcastTable() {
+        BroadcastJobTarget target = BroadcastJobTarget.table(TABLE_NAME_TEST);
+        JobDescriptor<Object, Object> desc = echoJobDescriptor();
+
+        Collection<Object> jobRes = client().compute().execute(target, desc, "test");
+        assertEquals("test", jobRes.iterator().next());
+    }
+
     @Test
     default void testStreamer() {
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
@@ -551,41 +606,83 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25715")
     default void testStreamerWithReceiver() {
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
         CompletableFuture<Void> streamFut;
 
-        DataStreamerReceiverDescriptor<Tuple, String, Integer> desc = DataStreamerReceiverDescriptor
-                .<Tuple, String, Integer>builder("my-receiver")
-                .units(new DeploymentUnit("my-unit", Version.LATEST))
+        DataStreamerReceiverDescriptor<Integer, Object, Integer> desc = DataStreamerReceiverDescriptor
+                .<Integer, Object, Integer>builder("org.apache.ignite.internal.compute.EchoReceiver")
+                .units(JOBS_UNIT)
                 .build();
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        var subscriber = new TestSubscriber<Integer>();
+        List<Integer> expected = new ArrayList<>();
+
+        try (var publisher = new SubmissionPublisher<Integer>()) {
             streamFut = view.streamData(
                     publisher,
                     desc,
-                    x -> Tuple.create().set("id", x.intValue("a")),
+                    x -> Tuple.create().set("id", x),
                     Function.identity(),
-                    "arg",
                     null,
-                    DataStreamerOptions.builder().pageSize(5).build());
+                    subscriber,
+                    DataStreamerOptions.builder().pageSize(3).build());
 
-            for (int i = 0; i < 100; i++) {
-                Tuple item = Tuple.create().set("a", i).set("b", "b_" + i);
-                publisher.submit(item);
+            for (int i = 0; i < 10; i++) {
+                publisher.submit(i);
+                expected.add(i);
             }
         }
 
         streamFut.join();
+
+        List<Integer> sortedResults = subscriber.items.stream()
+                .sorted()
+                .collect(Collectors.toList());
+
+        assertEquals(expected, sortedResults);
+    }
+
+    @Test
+    default void testStreamerWithReceiverArg() {
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
+
+        CompletableFuture<Void> streamFut;
+
+        DataStreamerReceiverDescriptor<Integer, String, String> desc = DataStreamerReceiverDescriptor
+                .<Integer, String, String>builder("org.apache.ignite.internal.compute.EchoReceiver")
+                .units(JOBS_UNIT)
+                .build();
+
+        var subscriber = new TestSubscriber<String>();
+
+        try (var publisher = new SubmissionPublisher<Integer>()) {
+            streamFut = view.streamData(
+                    publisher,
+                    desc,
+                    x -> Tuple.create().set("id", x),
+                    Function.identity(),
+                    "arg",
+                    subscriber,
+                    DataStreamerOptions.builder().pageSize(2).build());
+
+            for (int i = 0; i < 10; i++) {
+                publisher.submit(i);
+            }
+        }
+
+        streamFut.join();
+
+        assertEquals("arg", subscriber.items.iterator().next());
     }
 
     /**
-     * Creates default tables for testing.
+     * Initialize test data in the given Ignite instance.
      */
-    default void createDefaultTables(Ignite ignite) {
+    default void initTestData(Ignite ignite) {
         CompatibilityTestCommon.createDefaultTables(ignite);
+        DeploymentUtils.deployJobs();
     }
 
     default void close() {
@@ -602,5 +699,63 @@ public interface ClientCompatibilityTests {
 
     private Table table(String tableName) {
         return client().tables().table(tableName);
+    }
+
+    /**
+     * Arguments for job execution tests.
+     *
+     * @return Array of arguments.
+     */
+    static Object[] jobArgs() {
+        return new Object[]{
+                true,
+                (byte) 1,
+                (short) 2,
+                3,
+                4L,
+                5.5f,
+                6.6d,
+                new BigDecimal("7.7"),
+                LocalDate.now(),
+                LocalTime.now(),
+                LocalDateTime.now(),
+                Instant.ofEpochSecond(123456),
+                UUID.randomUUID(),
+                "test",
+                new byte[]{1, 2, 3, 4},
+                null
+        };
+    }
+
+    private static JobDescriptor<Object, Object> echoJobDescriptor() {
+        return JobDescriptor
+                .builder("org.apache.ignite.internal.compute.Echo")
+                .units(JOBS_UNIT)
+                .build();
+    }
+
+    /**
+     * Test subscriber.
+     */
+    class TestSubscriber<T> implements Subscriber<T> {
+        List<T> items = Collections.synchronizedList(new ArrayList<>());
+
+        @Override
+        public void onSubscribe(Subscription subscription) {
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(T item) {
+            items.add(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+        }
+
+        @Override
+        public void onComplete() {
+        }
     }
 }

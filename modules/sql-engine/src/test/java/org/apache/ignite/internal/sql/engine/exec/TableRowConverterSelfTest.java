@@ -35,13 +35,13 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.jetbrains.annotations.Nullable;
@@ -77,13 +77,13 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 null
         );
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
+        StructNativeType rowSchema = NativeTypes.structBuilder()
+                .addField("C1", NativeTypes.STRING, false)
+                .addField("C2", NativeTypes.INT32, false)
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
         ByteBuffer tupleBuf = new BinaryTupleBuilder(schema.length())
                 .appendString("ABC")
@@ -116,17 +116,17 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 null
         );
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.BOOLEAN)
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.INT32)
+        StructNativeType rowSchema = NativeTypes.structBuilder()
+                .addField("C1", NativeTypes.STRING, false)
+                .addField("C2", NativeTypes.BOOLEAN, false)
+                .addField("C3", NativeTypes.INT32, false)
+                .addField("C4", NativeTypes.INT32, false)
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
-        when(executionContext.rowHandler()).thenReturn(rowHandler);
+        when(executionContext.rowAccessor()).thenReturn(rowHandler);
 
         RowWrapper wrapper = rowFactory.create("654", true, (int) Short.MAX_VALUE, 5);
 
@@ -166,15 +166,15 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 List.of(keyColumnNames[colocationColumn])
         );
 
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(schema.keyColumns().get(0).type())
-                .addField(schema.keyColumns().get(1).type())
+        StructNativeType rowSchema = NativeTypes.structBuilder()
+                .addField("C1", schema.keyColumns().get(0).type(), false)
+                .addField("C2", schema.keyColumns().get(1).type(), false)
                 .build();
 
         RowHandler<RowWrapper> rowHandler = SqlRowHandler.INSTANCE;
-        RowFactory<RowWrapper> rowFactory = rowHandler.factory(rowSchema);
+        RowFactory<RowWrapper> rowFactory = SqlRowHandler.INSTANCE.create(rowSchema);
 
-        when(executionContext.rowHandler()).thenReturn(rowHandler);
+        when(executionContext.rowAccessor()).thenReturn(rowHandler);
 
         RowWrapper wrapper = rowFactory.create(keyColumnValues[key1], keyColumnValues[key2]);
 

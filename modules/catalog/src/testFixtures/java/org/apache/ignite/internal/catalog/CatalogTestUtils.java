@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -105,7 +106,14 @@ public class CatalogTestUtils {
 
         FailureProcessor failureProcessor = new NoOpFailureManager();
         UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor);
-        return new CatalogManagerImpl(updateLog, clockService, failureProcessor, delayDurationMsSupplier) {
+
+        return new CatalogManagerImpl(
+                updateLog,
+                clockService,
+                failureProcessor,
+                delayDurationMsSupplier,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
@@ -150,11 +158,13 @@ public class CatalogTestUtils {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
         FailureProcessor failureProcessor = mock(FailureProcessor.class);
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -194,11 +204,13 @@ public class CatalogTestUtils {
             HybridClock clock
     ) {
         var failureProcessor = new NoOpFailureManager();
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         );
     }
 
@@ -212,7 +224,7 @@ public class CatalogTestUtils {
      * @param metastore Meta storage manager.
      */
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock, MetaStorageManager metastore) {
-        return createTestCatalogManager(nodeName, clock, metastore, () -> TEST_DELAY_DURATION);
+        return createTestCatalogManager(nodeName, clock, metastore, () -> TEST_DELAY_DURATION, () -> null);
     }
 
     /**
@@ -222,18 +234,21 @@ public class CatalogTestUtils {
             String nodeName,
             HybridClock clock,
             MetaStorageManager metastore,
-            LongSupplier delayDurationMsSupplier
+            LongSupplier delayDurationMsSupplier,
+            Supplier<Catalog> fakeCatalogSupplier
     ) {
         ScheduledExecutorService scheduledExecutor = createScheduledExecutorService(nodeName);
 
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
         var failureProcessor = new NoOpFailureManager();
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -254,6 +269,18 @@ public class CatalogTestUtils {
                         () -> clockWaiter.stopAsync(componentContext),
                         () -> shutdownAsync(scheduledExecutor)
                 );
+            }
+
+            @Override
+            public Catalog catalog(int catalogVersion) {
+                Catalog fakeCatalog = fakeCatalogSupplier.get();
+                return fakeCatalog == null ? super.catalog(catalogVersion) : fakeCatalog;
+            }
+
+            @Override
+            public Catalog earliestCatalog() {
+                Catalog fakeCatalog = fakeCatalogSupplier.get();
+                return fakeCatalog == null ? super.earliestCatalog() : fakeCatalog;
             }
         };
     }
@@ -292,7 +319,8 @@ public class CatalogTestUtils {
                 updateLog,
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -339,7 +367,8 @@ public class CatalogTestUtils {
                 new TestUpdateLog(clock),
                 new TestClockService(clock, clockWaiter),
                 new NoOpFailureManager(),
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {

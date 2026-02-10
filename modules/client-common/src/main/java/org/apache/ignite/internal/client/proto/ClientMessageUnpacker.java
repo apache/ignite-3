@@ -72,7 +72,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      * @return Excetion.
      */
     private static MessageSizeException overflowU32Size(int u32) {
-        long lv = (long) (u32 & 0x7fffffff) + 0x80000000L;
+        long lv = (u32 & 0x7fffffff) + 0x80000000L;
         return new MessageSizeException(lv);
     }
 
@@ -686,6 +686,17 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         return new UUID(buf.readLongLE(), buf.readLongLE());
+    }
+
+    /**
+     * Reads an UUID.
+     *
+     * @return UUID value.
+     * @throws MessageTypeException when type is not UUID.
+     * @throws MessageSizeException when size is not correct.
+     */
+    public @Nullable UUID unpackUuidNullable() {
+        return tryUnpackNil() ? null : unpackUuid();
     }
 
     /**

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -209,6 +208,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testChangeDefaultZone() {
+        sql("CREATE TABLE dz(id INT PRIMARY KEY)");
         String initialDefaultZoneName = latestActiveCatalog().defaultZone().name();
         String newDefaultZoneName = "test_zone";
 
@@ -260,6 +260,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         {
             String quotedZoneName = "\"" + initialDefaultZoneName + "\"";
 
+            sql("DROP TABLE DZ"); // Table DZ is bounded with Default Zone
             tryToDropZone(quotedZoneName, true);
             tryToCreateZone(quotedZoneName, true);
             tryToSetDefaultZone(quotedZoneName, true);
@@ -296,10 +297,13 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         sql(String.format("ALTER ZONE %s RENAME TO %s", failIfNoExists ? formZoneName : "IF EXISTS " + formZoneName, toZoneName));
     }
 
-    private static void tryToAlterZone(String zoneName, int dataNodesAutoAdjust, boolean failIfNotExists) {
+    private static void tryToAlterZone(String zoneName, int dataNodesAutoAdjustScaleUp, boolean failIfNotExists) {
         sql(String.format(
-                "ALTER ZONE %s SET (AUTO ADJUST %s)",
-                failIfNotExists ? zoneName : "IF EXISTS " + zoneName, dataNodesAutoAdjust
+                "ALTER ZONE %s SET (AUTO SCALE UP %s)",
+                failIfNotExists
+                        ? zoneName
+                        : "IF EXISTS " + zoneName,
+                dataNodesAutoAdjustScaleUp
         ));
     }
 

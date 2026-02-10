@@ -19,6 +19,8 @@ package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import org.apache.ignite.IgniteServer;
@@ -28,7 +30,10 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +44,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItClusterConfigurationTest extends BaseIgniteAbstractTest {
     private IgniteServer node;
+
+    @BeforeEach
+    @AfterEach
+    public void resetLoggingPolicy() {
+        IgniteToStringBuilder.setSensitiveDataPolicy(SensitiveDataLoggingPolicy.HASH);
+    }
 
     @AfterEach
     void tearDown() {
@@ -61,5 +72,20 @@ public class ItClusterConfigurationTest extends BaseIgniteAbstractTest {
                 () -> TestIgnitionManager.init(node, parameters),
                 ConfigurationValidationException.class,
                 "Validation did not pass for keys: [ignite.system.idleSafeTimeSyncIntervalMillis, Duplicated key]");
+    }
+
+    @Test
+    void testSensitiveDataLogging(TestInfo testInfo, @WorkDirectory Path workDir) throws InterruptedException {
+        node = TestIgnitionManager.start(testNodeName(testInfo, 0), null, workDir);
+
+        var parameters = InitParameters.builder()
+                .metaStorageNodes(node)
+                .clusterName("cluster")
+                .clusterConfiguration("ignite { system { properties { sensitiveDataLogging: plain } } }")
+                .build();
+
+        TestIgnitionManager.init(node, parameters);
+
+        assertTrue(waitForCondition(() -> IgniteToStringBuilder.getSensitiveDataLogging() == SensitiveDataLoggingPolicy.PLAIN, 10_000));
     }
 }

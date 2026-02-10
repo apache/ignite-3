@@ -18,21 +18,18 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.Collections.emptySet;
-import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -43,7 +40,6 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
@@ -85,6 +81,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
      *
      * @param igniteInstanceName Ignite instance name.
      * @param storageConfig Storage engine and storage profiles configurations.
+     * @param systemLocalConfig Local system configuration.
      * @param ioRegistry IO registry.
      * @param failureProcessor Failure processor.
      * @param clock Hybrid Logical Clock.
@@ -92,11 +89,12 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             StorageConfiguration storageConfig,
+            SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             FailureProcessor failureProcessor,
             HybridClock clock
     ) {
-        super(clock);
+        super(systemLocalConfig, clock);
 
         this.igniteInstanceName = igniteInstanceName;
         this.storageConfig = storageConfig;
@@ -119,6 +117,8 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
 
     @Override
     public void start() throws StorageException {
+        super.start();
+
         for (StorageProfileView storageProfileView : storageConfig.profiles().value()) {
             if (storageProfileView instanceof VolatilePageMemoryProfileView) {
                 String profileName = storageProfileView.name();
@@ -194,6 +194,13 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     }
 
     @Override
+    public long requiredOffHeapMemorySize() {
+        return regions.values().stream()
+                .mapToLong(VolatilePageMemoryDataRegion::regionSize)
+                .sum();
+    }
+
+    @Override
     public Set<Integer> tableIdsOnDisk() {
         return emptySet();
     }
@@ -202,8 +209,6 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
      * Creates, starts and adds a new data region to the engine.
      */
     private void addDataRegion(VolatilePageMemoryProfileConfiguration storageProfileConfiguration) {
-        initDataRegionSize(storageProfileConfiguration);
-
         int pageSize = engineConfig.pageSizeBytes().value();
 
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
@@ -215,42 +220,5 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         dataRegion.start();
 
         regions.put(storageProfileConfiguration.name().value(), dataRegion);
-    }
-
-    private static void initDataRegionSize(VolatilePageMemoryProfileConfiguration storageProfileConfiguration) {
-        ConfigurationValue<Long> maxSize = storageProfileConfiguration.maxSizeBytes();
-
-        if (maxSize.value() == UNSPECIFIED_SIZE) {
-            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
-
-            updateConfigValue(maxSize, defaultDataRegionSize);
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    storageProfileConfiguration.name().value(), maxSize.key(), defaultDataRegionSize
-            );
-        }
-
-        ConfigurationValue<Long> initSize = storageProfileConfiguration.initSizeBytes();
-
-        if (initSize.value() == UNSPECIFIED_SIZE) {
-            updateConfigValue(initSize, maxSize.value());
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    storageProfileConfiguration.name().value(), initSize.key(), maxSize.value()
-            );
-        }
-    }
-
-    private static <T> void updateConfigValue(ConfigurationValue<T> config, T newValue) {
-        CompletableFuture<Void> updateFuture = config.update(newValue);
-
-        // Node local configuration is synchronous, wait just in case.
-        try {
-            updateFuture.get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new StorageException(e);
-        }
     }
 }

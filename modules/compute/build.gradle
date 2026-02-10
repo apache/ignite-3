@@ -29,12 +29,15 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-core')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-code-deployment-classloader')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-binary-tuple')
     implementation project(':ignite-client-common')
     implementation project(':ignite-sql-engine-api')
     implementation project(':ignite-system-view-api')
+    implementation project(':ignite-security-api')
+    implementation project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -49,6 +52,9 @@ dependencies {
     testImplementation libs.awaitility
 
     integrationTestImplementation libs.awaitility
+    integrationTestImplementation platform(libs.jackson.bom)
+    integrationTestImplementation libs.jackson.core
+    integrationTestImplementation libs.jackson.databind
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-network')
@@ -59,6 +65,7 @@ dependencies {
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-client-common')
+    integrationTestImplementation project(':ignite-eventlog')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
 }

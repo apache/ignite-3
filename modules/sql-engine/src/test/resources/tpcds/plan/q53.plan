@@ -3,11 +3,11 @@ Sort
     fetch: 100
     est: (rows=100)
   Filter
-      predicate: >(CASE(>(CAST(AVG_QUARTERLY_SALES):DECIMAL(32767, 2), 0.00), /(ABS(-(SUM_SALES, AVG_QUARTERLY_SALES)), AVG_QUARTERLY_SALES), null:DECIMAL(32767, 0)), 0)
-      est: (rows=8101)
+      predicate: CASE(>(AVG_QUARTERLY_SALES, 0E-16), >(/(ABS(-(SUM_SALES, AVG_QUARTERLY_SALES)), AVG_QUARTERLY_SALES), 0.100000000000000000000000000000000000000000000), false)
+      est: (rows=4051)
     Project
         fieldNames: [I_MANUFACT_ID, SUM_SALES, AVG_QUARTERLY_SALES]
-        projection: [I_MANUFACT_ID, SUM_SALES, CAST(/(CAST(CASE(>(COUNT(SUM_SALES) OVER (PARTITION BY I_MANUFACT_ID), 0), CAST(SUM(SUM_SALES) OVER (PARTITION BY I_MANUFACT_ID)):DECIMAL(32767, 2), null:DECIMAL(32767, 2))):DECIMAL(32781, 16), COUNT(SUM_SALES) OVER (PARTITION BY I_MANUFACT_ID))):DECIMAL(32781, 16)]
+        projection: [I_MANUFACT_ID, SUM_SALES, CAST(/(CAST(CASE(>(COUNT(SUM_SALES) OVER (PARTITION BY I_MANUFACT_ID), 0), CAST(SUM(SUM_SALES) OVER (PARTITION BY I_MANUFACT_ID)):DECIMAL(28, 2), null:DECIMAL(28, 2))):DECIMAL(28, 16), COUNT(SUM_SALES) OVER (PARTITION BY I_MANUFACT_ID))):DECIMAL(28, 16)]
         est: (rows=16202)
       ColocatedHashAggregate
           fieldNames: [I_MANUFACT_ID, D_QOY, SUM_SALES]
@@ -27,7 +27,7 @@ Sort
                 est: (rows=73049)
               TableScan
                   table: PUBLIC.DATE_DIM
-                  predicate: OR(=(D_MONTH_SEQ, 1212), =(D_MONTH_SEQ, +(1212, 1)), =(D_MONTH_SEQ, +(1212, 2)), =(D_MONTH_SEQ, +(1212, 3)), =(D_MONTH_SEQ, +(1212, 4)), =(D_MONTH_SEQ, +(1212, 5)), =(D_MONTH_SEQ, +(1212, 6)), =(D_MONTH_SEQ, +(1212, 7)), =(D_MONTH_SEQ, +(1212, 8)), =(D_MONTH_SEQ, +(1212, 9)), =(D_MONTH_SEQ, +(1212, 10)), =(D_MONTH_SEQ, +(1212, 11)))
+                  predicate: SEARCH(D_MONTH_SEQ, Sarg[1212, 1213, 1214, 1215, 1216, 1217, 1218, 1219, 1220, 1221, 1222, 1223])
                   fieldNames: [D_DATE_SK, D_MONTH_SEQ, D_QOY]
                   est: (rows=73049)
             HashJoin

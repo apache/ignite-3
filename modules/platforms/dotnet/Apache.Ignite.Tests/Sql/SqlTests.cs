@@ -25,11 +25,14 @@ namespace Apache.Ignite.Tests.Sql
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Common.Table;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Transactions;
     using Microsoft.Extensions.Logging.Abstractions;
     using NodaTime;
     using NUnit.Framework;
+    using static Common.Table.TestTables;
 
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
@@ -60,6 +63,12 @@ namespace Apache.Ignite.Tests.Sql
             await Client.Sql.ExecuteAsync(null, "DROP TABLE TEST");
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestDdlDml");
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestExecuteScript");
+        }
+
+        [SetUp]
+        public async Task ResetData()
+        {
+            await Client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 10");
         }
 
         [Test]
@@ -594,6 +603,168 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestExecuteBatch()
+        {
+            long[] res = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "INSERT INTO TEST VALUES (?, ?)",
+                args: [[100, "x"], [101, "y"], [102, "z"]]);
+
+            CollectionAssert.AreEqual(new[] { 1L, 1L, 1L }, res);
+
+            await using var resultSet = await Client.Sql.ExecuteAsync(
+                null, "SELECT ID, VAL FROM TEST WHERE ID >= 100 AND ID <= 102 ORDER BY ID");
+
+            List<IIgniteTuple> rows = await resultSet.ToListAsync();
+            Assert.AreEqual(3, rows.Count);
+
+            Assert.AreEqual("IgniteTuple { ID = 100, VAL = x }", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 101, VAL = y }", rows[1].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 102, VAL = z }", rows[2].ToString());
+        }
+
+        [Test]
+        public async Task TestExecuteBatchInsertUpdateDelete()
+        {
+            long[] insertRes = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "INSERT INTO TEST VALUES (?, ?)",
+                args: [[100, "x"], [101, "y"], [102, "z"]]);
+
+            CollectionAssert.AreEqual(new[] { 1L, 1L, 1L }, insertRes);
+
+            long[] updateRes = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "UPDATE TEST SET VAL = ? WHERE ID >= ? AND ID <= ?",
+                args: [["update1", 100, 101], ["update2", 102, 103]]);
+
+            CollectionAssert.AreEqual(new[] { 2L, 1L }, updateRes);
+
+            long[] deleteRes = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "DELETE FROM TEST WHERE ID >= ? AND ID <= ?",
+                args: [[100, 102]]);
+
+            CollectionAssert.AreEqual(new[] { 3L }, deleteRes);
+        }
+
+        [Test]
+        public async Task TestExecuteBatchArgsCollections()
+        {
+            var statement = "INSERT INTO TEST VALUES (?, ?)";
+
+            // Array.
+            object[][] arr =
+            [
+                [200, "x"],
+                [201, "y"],
+            ];
+
+            await Client.Sql.ExecuteBatchAsync(null, statement, arr);
+
+            // List.
+            List<List<object>> args =
+            [
+                [300, "x"],
+                [301, "y"]
+            ];
+
+            await Client.Sql.ExecuteBatchAsync(null, statement, args);
+
+            // Lazy.
+            IEnumerable<IEnumerable<object>> collection = Yield(
+                Yield<object>(401, "x1"),
+                Yield<object>(402, "x2"));
+
+            await Client.Sql.ExecuteBatchAsync(null, statement, collection);
+
+            static IEnumerable<T> Yield<T>(params T[] args)
+            {
+                foreach (var arg in args)
+                {
+                    yield return arg;
+                }
+            }
+        }
+
+        [Test]
+        public async Task TestExecuteBatchWithTx()
+        {
+            await using var tx = await Client.Transactions.BeginAsync();
+
+            Assert.AreEqual(0, await GetCount(tx));
+
+            await Client.Sql.ExecuteBatchAsync(tx, "INSERT INTO TEST VALUES (?, ?)", [[110, "x"], [111, "y"]]);
+
+            Assert.AreEqual(1, await GetCount(tx));
+
+            Assert.AreEqual(0, await GetCount(null));
+
+            async Task<int> GetCount(ITransaction? txn)
+            {
+                await using var resultSet = await Client.Sql.ExecuteAsync(txn, "SELECT ID, VAL FROM TEST WHERE ID = 110");
+                var rows = await resultSet.ToListAsync();
+                return rows.Count;
+            }
+        }
+
+        [Test]
+        public async Task TestExecuteBatchNullArg()
+        {
+            var res = await Client.Sql.ExecuteBatchAsync(null, "DELETE FROM TEST WHERE VAL IS NOT DISTINCT FROM ?", [[null]]);
+            Assert.AreEqual(new[] { 0L }, res);
+        }
+
+        [Test]
+        public void TestExecuteBatchMissingArgs()
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", []));
+
+            StringAssert.Contains("Batch arguments must not be empty.", ex.Message);
+
+            var ex2 = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[]]));
+
+            StringAssert.Contains("Batch arguments must not contain empty rows.", ex2.Message);
+        }
+
+        [Test]
+        public void TestExecuteBatchMismatchingArgs()
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], [2, 3]]));
+
+            Assert.AreEqual("Inconsistent batch argument size: Expected 1 objects, but got more.", ex.Message);
+
+            var ex2 = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1, 2], [3]]));
+
+            Assert.AreEqual("Inconsistent batch argument size: Expected 2 objects, but got 1.", ex2.Message);
+
+            var ex3 = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], []]));
+
+            Assert.AreEqual("Inconsistent batch argument size: Expected 1 objects, but got 0.", ex3.Message);
+        }
+
+        [Test]
+        public void TestExecuteBatchNullArgRow()
+        {
+            Assert.ThrowsAsync<ArgumentNullException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], null!, [2]]));
+        }
+
+        [Test]
+        public void TestExecuteBatchInvalidStatement()
+        {
+            var ex = Assert.ThrowsAsync<SqlBatchException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1]]));
+
+            Assert.AreEqual("Statement of type \"Query\" is not allowed in current context [allowedTypes=[DML]].", ex.Message);
+        }
+
+        [Test]
         public async Task TestCancelQueryCursor([Values(true, false)] bool beforeIter)
         {
             var cts = new CancellationTokenSource();
@@ -622,7 +793,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "script", "reader")] string mode)
+        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "sql-mapped2", "script", "reader", "batch")] string mode)
         {
             // Cross join will produce 10^N rows, which takes a while to execute.
             var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(8)})";
@@ -633,8 +804,10 @@ namespace Apache.Ignite.Tests.Sql
             {
                 "sql" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token),
                 "sql-mapped" => Client.Sql.ExecuteAsync<int>(transaction: null, manyRowsQuery, cts.Token),
+                "sql-mapped2" => Client.Sql.ExecuteAsync(transaction: null, new IntMapper(), manyRowsQuery, cts.Token),
                 "script" => Client.Sql.ExecuteScriptAsync($"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery})", cts.Token),
                 "reader" => Client.Sql.ExecuteReaderAsync(transaction: null, manyRowsQuery, cts.Token),
+                "batch" => Client.Sql.ExecuteBatchAsync(null, $"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery}) + ?", [[1]], cts.Token),
                 _ => throw new ArgumentException("Invalid mode: " + mode)
             };
 
@@ -644,7 +817,15 @@ namespace Apache.Ignite.Tests.Sql
 
             var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await task);
             Assert.AreEqual("The query was cancelled while executing.", ex!.Message);
-            Assert.IsInstanceOf<SqlException>(ex.InnerException);
+
+            if (mode == "batch")
+            {
+                Assert.IsInstanceOf<SqlBatchException>(ex.InnerException);
+            }
+            else
+            {
+                Assert.IsInstanceOf<SqlException>(ex.InnerException);
+            }
 
             Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }

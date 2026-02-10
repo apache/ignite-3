@@ -25,13 +25,14 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Immutable client configuration.
  */
 public final class IgniteClientConfigurationImpl implements IgniteClientConfiguration {
     /** Address finder. */
-    private final IgniteClientAddressFinder addressFinder;
+    private final @Nullable IgniteClientAddressFinder addressFinder;
 
     /** Addresses. */
     private final String[] addresses;
@@ -43,7 +44,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     private final long backgroundReconnectInterval;
 
     /** Async continuation executor. */
-    private final Executor asyncContinuationExecutor;
+    private final @Nullable Executor asyncContinuationExecutor;
 
     /** Heartbeat interval. */
     private final long heartbeatInterval;
@@ -66,6 +67,12 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final int sqlPartitionAwarenessMetadataCacheSize;
 
+    private final @Nullable String name;
+
+    private final InetAddressResolver addressResolver;
+
+    private final long backgroundReResolveAddressesInterval;
+
     /**
      * Constructor.
      *
@@ -83,13 +90,17 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param authenticator Authenticator.
      * @param operationTimeout Operation timeout.
      * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
+     * @param name Client name.
+     * @param backgroundReResolveAddressesInterval Background re-resolve addresses interval.
+     * @param addressResolver Address resolver.
      */
+    @VisibleForTesting
     public IgniteClientConfigurationImpl(
-            IgniteClientAddressFinder addressFinder,
+            @Nullable IgniteClientAddressFinder addressFinder,
             String[] addresses,
             long connectTimeout,
             long backgroundReconnectInterval,
-            Executor asyncContinuationExecutor,
+            @Nullable Executor asyncContinuationExecutor,
             long heartbeatInterval,
             long heartbeatTimeout,
             @Nullable RetryPolicy retryPolicy,
@@ -98,7 +109,10 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             boolean metricsEnabled,
             @Nullable IgniteClientAuthenticator authenticator,
             long operationTimeout,
-            int sqlPartitionAwarenessMetadataCacheSize
+            int sqlPartitionAwarenessMetadataCacheSize,
+            @Nullable String name,
+            long backgroundReResolveAddressesInterval,
+            @Nullable InetAddressResolver addressResolver
     ) {
         this.addressFinder = addressFinder;
 
@@ -117,11 +131,72 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.authenticator = authenticator;
         this.operationTimeout = operationTimeout;
         this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
+        this.name = name;
+        this.backgroundReResolveAddressesInterval = backgroundReResolveAddressesInterval;
+        this.addressResolver = addressResolver;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param addressFinder Address finder.
+     * @param addresses Addresses.
+     * @param connectTimeout Socket connect timeout.
+     * @param backgroundReconnectInterval Background reconnect interval.
+     * @param asyncContinuationExecutor Async continuation executor.
+     * @param heartbeatInterval Heartbeat message interval.
+     * @param heartbeatTimeout Heartbeat message timeout.
+     * @param retryPolicy Retry policy.
+     * @param loggerFactory Logger factory which will be used to create a logger instance for this this particular client when
+     *         needed.
+     * @param metricsEnabled Whether metrics are enabled.
+     * @param authenticator Authenticator.
+     * @param operationTimeout Operation timeout.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
+     * @param name Client name.
+     */
+    public IgniteClientConfigurationImpl(
+            @Nullable IgniteClientAddressFinder addressFinder,
+            String[] addresses,
+            long connectTimeout,
+            long backgroundReconnectInterval,
+            @Nullable Executor asyncContinuationExecutor,
+            long heartbeatInterval,
+            long heartbeatTimeout,
+            @Nullable RetryPolicy retryPolicy,
+            @Nullable LoggerFactory loggerFactory,
+            @Nullable SslConfiguration sslConfiguration,
+            boolean metricsEnabled,
+            @Nullable IgniteClientAuthenticator authenticator,
+            long operationTimeout,
+            int sqlPartitionAwarenessMetadataCacheSize,
+            @Nullable String name,
+            long backgroundReResolveAddressesInterval
+    ) {
+        this(
+                addressFinder,
+                addresses,
+                connectTimeout,
+                backgroundReconnectInterval,
+                asyncContinuationExecutor,
+                heartbeatInterval,
+                heartbeatTimeout,
+                retryPolicy,
+                loggerFactory,
+                sslConfiguration,
+                metricsEnabled,
+                authenticator,
+                operationTimeout,
+                sqlPartitionAwarenessMetadataCacheSize,
+                name,
+                backgroundReResolveAddressesInterval,
+                null
+        );
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteClientAddressFinder addressesFinder() {
+    public @Nullable IgniteClientAddressFinder addressesFinder() {
         return addressFinder;
     }
 
@@ -199,5 +274,24 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public int sqlPartitionAwarenessMetadataCacheSize() {
         return sqlPartitionAwarenessMetadataCacheSize;
+    }
+
+    @Override
+    public @Nullable String name() {
+        return name;
+    }
+
+    @Override
+    public long backgroundReResolveAddressesInterval() {
+        return backgroundReResolveAddressesInterval;
+    }
+
+    /**
+     * Gets custom address resolver.
+     *
+     * @return Custom address resolver.
+     */
+    @Nullable InetAddressResolver addressResolver() {
+        return addressResolver;
     }
 }

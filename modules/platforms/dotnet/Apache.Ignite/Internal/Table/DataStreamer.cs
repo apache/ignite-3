@@ -213,14 +213,10 @@ internal static class DataStreamer
         Batch<T> Add0(DataStreamerItem<T> item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
             var columnCount = schema0.Columns.Length;
-
-            // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
-            // because it may expose referenced variables outside of their declaration scope".
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
-            Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
+            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSet);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
@@ -299,7 +295,7 @@ internal static class DataStreamer
 
         async Task SendAndDisposeBufAsync(
             PooledArrayBuffer buf,
-            int partitionId,
+            long partitionId,
             Task oldTask,
             DataStreamerItem<T>[] items,
             int count,
@@ -453,7 +449,7 @@ internal static class DataStreamer
         buf.Advance(5); // Reserve count.
     }
 
-    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int deletedSetReserveSize)
+    private static void WriteBatchHeader(PooledArrayBuffer buf, long partitionId, Schema schema, int deletedSetReserveSize)
     {
         var w = buf.MessageWriter;
 
@@ -513,7 +509,7 @@ internal static class DataStreamer
 
     private static void ReWriteBatch<T>(
         PooledArrayBuffer buf,
-        int partitionId,
+        long partitionId,
         Schema schema,
         ReadOnlySpan<DataStreamerItem<T>> items,
         IRecordSerializerHandler<T> writer)
@@ -589,14 +585,14 @@ internal static class DataStreamer
 
     private sealed record Batch<T>
     {
-        public Batch(int capacity, Schema schema, int partitionId)
+        public Batch(int capacity, Schema schema, long partitionId)
         {
             PartitionId = partitionId;
             Items = GetPool<T>().Rent(capacity);
             Schema = schema;
         }
 
-        public int PartitionId { get; }
+        public long PartitionId { get; }
 
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 

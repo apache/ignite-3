@@ -20,17 +20,17 @@ package org.apache.ignite.internal;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
 import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
-import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,12 +38,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,6 +55,7 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -61,20 +64,18 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -112,6 +113,9 @@ public class Cluster {
 
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = ConcurrentHashMap.newKeySet();
+
+    private List<IgniteServer> cmgNodes = List.of();
+    private List<IgniteServer> metastorageNodes = List.of();
 
     /**
      * Creates a new cluster.
@@ -201,7 +205,7 @@ public class Cluster {
      *
      * @param testInfo Test info.
      * @param nodeCount Number of nodes in the cluster.
-     * @param cmgNodes Indices of CMG nodes.
+     * @param cmgNodeIndices Indices of CMG nodes.
      * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
      *     with this call.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
@@ -210,7 +214,7 @@ public class Cluster {
     private void startAndInit(
             @Nullable TestInfo testInfo,
             int nodeCount,
-            int[] cmgNodes,
+            int[] cmgNodeIndices,
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator,
             NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater
@@ -225,24 +229,46 @@ public class Cluster {
                 .mapToObj(nodeIndex -> startEmbeddedNode(testInfo, nodeIndex, nodeBootstrapConfigTemplate, nodeBootstrapConfigUpdater))
                 .collect(toList());
 
-        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+        List<String> initialCmgNodeNames = Arrays.stream(cmgNodeIndices)
                 .mapToObj(nodeRegistrations::get)
                 .map(ServerRegistration::server)
+                .map(IgniteServer::name)
                 .collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .metaStorageNodes(metaStorageAndCmgNodes)
-                .clusterName(clusterConfiguration.clusterName());
+                .cmgNodeNames(initialCmgNodeNames)
+                .clusterName(clusterConfiguration.clusterName())
+                .clusterConfiguration("ignite { metrics: { exporters { log { exporterName = logPush, periodMillis = 10000 } } } }");
 
         initParametersConfigurator.accept(builder);
 
-        TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
+        InitParameters initParameters = builder.build();
+
+        // Init parameters configuration can change these values. It's still not ideal because initializer uses heuristics to construct
+        // actual lists, but this is the best we can do here.
+        cmgNodes = getNodesByNames(nodeRegistrations, initParameters.cmgNodeNames());
+        metastorageNodes = getNodesByNames(nodeRegistrations, initParameters.metaStorageNodeNames());
+
+        TestIgnitionManager.init(cmgNodes.get(0), initParameters);
 
         for (ServerRegistration registration : nodeRegistrations) {
-            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+            try {
+                assertThat(registration.registrationFuture(), willCompleteSuccessfully());
+            } catch (Throwable t) {
+                throw new AssertionError(format("Failed to wait for node registration [node={}]", registration.server.name()), t);
+            }
         }
 
         started = true;
+    }
+
+    private static List<IgniteServer> getNodesByNames(Collection<ServerRegistration> nodeRegistrations, Collection<String> nodeNames) {
+        Map<String, IgniteServer> nodesByName = nodeRegistrations.stream()
+                .collect(toMap(reg -> reg.server().name(), ServerRegistration::server));
+
+        return nodeNames.stream()
+                .map(nodesByName::get)
+                .collect(toList());
     }
 
     /**
@@ -300,7 +326,7 @@ public class Cluster {
     ) {
         String nodeName = nodeName(nodeIndex);
 
-        String config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
+        String config = nodeBootstrapConfigUpdater.update(format(
                 nodeBootstrapConfigTemplate,
                 port(nodeIndex),
                 seedAddressesString(),
@@ -313,11 +339,15 @@ public class Cluster {
             config = TestIgnitionManager.applyOverridesToConfig(config, configOverrides(testInfo, nodeIndex));
         }
 
-        IgniteServer node = TestIgnitionManager.start(
-                nodeName,
-                config,
-                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName)
-        );
+        IgniteServer node = clusterConfiguration.usePreConfiguredStorageProfiles()
+                ? TestIgnitionManager.start(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName))
+                : TestIgnitionManager.startWithoutPreConfiguredStorageProfiles(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName));
 
         synchronized (igniteServers) {
             setListAtIndex(igniteServers, nodeIndex, node);
@@ -350,11 +380,22 @@ public class Cluster {
         return clusterConfiguration.basePort() + nodeIndex;
     }
 
+    public Path nodeWorkDir(int nodeIndex) {
+        return clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName(nodeIndex));
+    }
+
     /**
      * Returns HTTP port by index.
      */
     public int httpPort(int nodeIndex) {
         return clusterConfiguration.baseHttpPort() + nodeIndex;
+    }
+
+    /**
+     * Returns HTTPS port by index.
+     */
+    public int httpsPort(int nodeIndex) {
+        return clusterConfiguration.baseHttpsPort() + nodeIndex;
     }
 
     private String seedAddressesString() {
@@ -380,7 +421,7 @@ public class Cluster {
      * Returns an Ignite server by its index.
      */
     public IgniteServer server(int index) {
-        return igniteServers.get(index);
+        return Objects.requireNonNull(igniteServers.get(index));
     }
 
     /**
@@ -441,7 +482,7 @@ public class Cluster {
      */
     public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
         ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-        assertThat("nodeIndex=" + index, registration.registrationFuture(), willSucceedIn(20, SECONDS));
+        assertThat("nodeIndex=" + index, registration.registrationFuture(), willCompleteSuccessfully());
         Ignite newIgniteNode = registration.server().api();
 
         assertEquals(newIgniteNode, nodes.get(index));
@@ -548,20 +589,46 @@ public class Cluster {
         return result;
     }
 
-    @Nullable
-    private RaftGroupService currentLeaderServiceFor(ReplicationGroupId groupId) {
+    /**
+     * Returns {@link RaftGroupService} does not guarantee that it will be a {@link Node#isLeader() leader} or
+     * {@link Node#isLeader() learner}.
+     */
+    public RaftGroupService raftGroupServiceFor(int nodeIndex, ReplicationGroupId groupId) {
+        var res = new AtomicReference<RaftGroupService>();
+
+        await().atMost(10, SECONDS).until(() -> {
+            RaftGroupService service = raftGroupService(unwrapIgniteImpl(node(nodeIndex)), groupId);
+
+            res.set(service);
+
+            return service != null;
+        });
+
+        return res.get();
+    }
+
+    private @Nullable RaftGroupService currentLeaderServiceFor(ReplicationGroupId groupId) {
         return runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
-                .flatMap(ignite -> {
-                    JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
-
-                    Optional<RaftNodeId> maybeRaftNodeId = server.localNodes().stream()
-                            .filter(nodeId -> nodeId.groupId().equals(groupId))
-                            .findAny();
-
-                    return maybeRaftNodeId.map(server::raftGroupService).stream();
-                })
+                .map(igniteImpl -> raftGroupService(igniteImpl, groupId))
+                .filter(Objects::nonNull)
                 .filter(service -> service.getRaftNode().isLeader())
+                .findAny()
+                .orElse(null);
+    }
+
+    /**
+     * Finds a Raft group service for the given group ID on the given node.
+     *
+     * @param igniteImpl Ignite instance.
+     * @param groupId Replication group ID.
+     */
+    public static @Nullable RaftGroupService raftGroupService(IgniteImpl igniteImpl, ReplicationGroupId groupId) {
+        JraftServerImpl server = (JraftServerImpl) igniteImpl.raftManager().server();
+
+        return server.localNodes().stream()
+                .filter(nodeId -> nodeId.groupId().equals(groupId))
+                .map(server::raftGroupService)
                 .findAny()
                 .orElse(null);
     }
@@ -571,6 +638,13 @@ public class Cluster {
      */
     public Stream<Ignite> runningNodes() {
         return nodes.stream().filter(Objects::nonNull);
+    }
+
+    /**
+     * Returns nodes.
+     */
+    public List<Ignite> nodes() {
+        return nodes;
     }
 
     /**
@@ -590,9 +664,27 @@ public class Cluster {
         Collections.fill(igniteServers, null);
         Collections.fill(nodes, null);
 
-        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+        // TODO: IGNITE-26085 Allow stopping nodes in any order. Currently, MS nodes stop only at the last one.
+        // First stop ordinary nodes
+        stopNodes(serversToStop, server -> !cmgNodes.contains(server) && !metastorageNodes.contains(server));
+        // Then stop cmg nodes that are not also in metastorage
+        stopNodes(cmgNodes, server -> serversToStop.contains(server) && !metastorageNodes.contains(server));
+        // Finally stop metastorage nodes
+        stopNodes(metastorageNodes, serversToStop::contains);
+
+        cmgNodes = List.of();
+        metastorageNodes = List.of();
+
+        MicronautCleanup.removeShutdownHooks();
 
         LOG.info("Shut the cluster down");
+    }
+
+    private static void stopNodes(List<IgniteServer> nodes, Predicate<IgniteServer> filter) {
+        nodes.parallelStream()
+                .filter(Objects::nonNull)
+                .filter(filter)
+                .forEach(IgniteServer::shutdown);
     }
 
     /**
@@ -626,7 +718,7 @@ public class Cluster {
      */
     public <T> T query(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return doInSession(nodeIndex, session -> {
-            try (ResultSet<SqlRow> resultSet = session.execute(null, sql)) {
+            try (ResultSet<SqlRow> resultSet = session.execute(sql)) {
                 return extractor.apply(resultSet);
             }
         });
@@ -749,7 +841,7 @@ public class Cluster {
      * @param nodeIndex Destination node index.
      * @param groupId ID of the replication group.
      */
-    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) {
         String proposedPrimaryName = node(nodeIndex).name();
 
         if (!proposedPrimaryName.equals(getPrimaryReplicaName(groupId))) {
@@ -780,17 +872,14 @@ public class Cluster {
      * Returns the ID of the sole partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
      */
-    public ReplicationGroupId solePartitionId(String zoneName, String tableName) {
+    public ZonePartitionId solePartitionId(String zoneName) {
         IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
-        Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
+        Catalog catalog = node.catalogManager().latestCatalog();
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
-        CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
 
-        List<? extends ReplicationGroupId> replicationGroupIds = colocationEnabled()
-                ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
-                : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
+        List<ZonePartitionId> replicationGroupIds = zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id());
 
         assertThat(replicationGroupIds.size(), is(1));
 

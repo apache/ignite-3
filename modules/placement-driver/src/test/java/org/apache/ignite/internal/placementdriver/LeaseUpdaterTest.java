@@ -21,10 +21,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -49,6 +45,7 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -56,7 +53,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -65,7 +61,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
@@ -83,13 +78,12 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.leases.Leases;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -108,11 +102,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+    private static final String LEASE_UPDATE_TOO_LONG = "Lease update invocation took longer than lease interval";
+    private static final long TEST_LEASE_INTERVAL_MILLIS = 100L;
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster nodes. */
     private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
     private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
+
+    @InjectConfiguration("mock.leaseExpirationIntervalMillis = " + TEST_LEASE_INTERVAL_MILLIS)
+    private ReplicationConfiguration replicationConfiguration;
 
     @Mock
     private LogicalTopologyService topologyService;
@@ -128,28 +127,23 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Closure to get a lease that is passed in Meta storage. */
     private volatile Consumer<Lease> renewLeaseConsumer = null;
 
-    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
-
-    private PartitionGroupId replicationGroupId(int objectId, int partId) {
-        return enabledColocation ? new ZonePartitionId(objectId, partId) : new TablePartitionId(objectId, partId);
+    private static ZonePartitionId replicationGroupId(int objectId, int partId) {
+        return new ZonePartitionId(objectId, partId);
     }
 
-    private ByteArray stableAssignmentsKey(PartitionGroupId groupId) {
-        return enabledColocation ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) groupId)
-                : stablePartAssignmentsKey((TablePartitionId) groupId);
+    private static ByteArray stableAssignmentsKey(ZonePartitionId groupId) {
+        return ZoneRebalanceUtil.stablePartAssignmentsKey(groupId);
     }
 
-    private ByteArray pendingAssignmentsQueueKey(PartitionGroupId groupId) {
-        return enabledColocation ? ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) groupId)
-                : pendingPartAssignmentsQueueKey((TablePartitionId) groupId);
+    private static ByteArray pendingAssignmentsQueueKey(ZonePartitionId groupId) {
+        return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(groupId);
     }
 
     @BeforeEach
     void setUp(
             @Mock ClusterService clusterService,
             @Mock LeaseTracker leaseTracker,
-            @Mock MessagingService messagingService,
-            @InjectConfiguration ReplicationConfiguration replicationConfiguration
+            @Mock MessagingService messagingService
     ) {
         mockStableAssignments(Set.of(Assignment.forPeer(stableNode.name())));
         mockPendingAssignments(Set.of(Assignment.forPeer(pendingNode.name())));
@@ -159,7 +153,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         when(clusterService.messagingService()).thenReturn(messagingService);
 
-        lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
+        lenient().when(leaseTracker.leasesLatest()).thenReturn(leases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
 
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
@@ -182,7 +176,11 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                     return trueCompletedFuture();
                 });
 
-        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
+        assignmentsTracker = new AssignmentsTracker(
+                metaStorageManager,
+                mock(FailureProcessor.class),
+                zoneId -> completedFuture(Set.of())
+        );
         assignmentsTracker.startTrack();
 
         leaseUpdater = new LeaseUpdater(
@@ -194,7 +192,8 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
                 assignmentsTracker,
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run
         );
 
     }
@@ -206,6 +205,42 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
         leaseUpdater.deactivate();
         leaseUpdater = null;
+    }
+
+    @Test
+    public void testLeaseUpdateTooLong() throws Exception {
+        initAndActivateLeaseUpdater();
+
+        LogInspector logInspector = LogInspector.create(LeaseUpdater.class, true);
+
+        try {
+            AtomicInteger counter = new AtomicInteger(0);
+
+            logInspector.addHandler(
+                    evt -> evt.getMessage().getFormattedMessage().startsWith(LEASE_UPDATE_TOO_LONG),
+                    counter::incrementAndGet
+            );
+
+            Lease lease = awaitForLease(true);
+
+            assertEquals(0, counter.get());
+
+            renewLeaseConsumer = plonogedLease -> {
+                try {
+                    log.info("Explicitly wait for longer than the lease interval to ensure that the lease updater logs the warning.");
+
+                    Thread.sleep(TEST_LEASE_INTERVAL_MILLIS + 50);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+
+            assertTrue(IgniteTestUtils.waitForCondition(() -> counter.get() >= 1, 10_000));
+
+            awaitForLease(true, lease, 10_000);
+        } finally {
+            logInspector.stop();
+        }
     }
 
     @Test
@@ -354,8 +389,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl().now()
         );
 
-        byte[] prefixBytes = enabledColocation ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES
-                : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+        byte[] prefixBytes = ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
         when(metaStorageManager.prefixLocally(eq(new ByteArray(prefixBytes)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
     }
@@ -368,7 +402,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl().now()
         );
 
-        byte[] prefixBytes = enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : STABLE_ASSIGNMENTS_PREFIX_BYTES;
+        byte[] prefixBytes = ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
         when(metaStorageManager.prefixLocally(eq(new ByteArray(prefixBytes)), anyLong()))
                 .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
     }

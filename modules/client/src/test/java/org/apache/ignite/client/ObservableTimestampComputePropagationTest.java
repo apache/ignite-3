@@ -23,7 +23,6 @@ import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
@@ -60,9 +59,12 @@ public class ObservableTimestampComputePropagationTest extends BaseIgniteAbstrac
 
     @BeforeAll
     public static void startServers() {
-        TestHybridClock clock1 = new TestHybridClock(serverTimestamp::get);
-        var ignite1 = new FakeIgnite("server-1");
-        testServer = new TestServer(0, ignite1, null, null, "server-1", UUID.randomUUID(), null, null, clock1, true, null);
+        var ignite1 = new FakeIgnite("server-1", new TestHybridClock(serverTimestamp::get));
+
+        testServer = TestServer.builder()
+                .ignite(ignite1)
+                .nodeName("server-1")
+                .build();
     }
 
     @AfterAll

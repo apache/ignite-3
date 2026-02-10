@@ -33,6 +33,7 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -63,7 +64,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "3"})
-    private int clusterSize;
+    private static int clusterSize;
 
     @Param({"1", "2", "4", "8", "16", "32"})
     private int partitionCount;
@@ -178,13 +179,13 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         private int id = 0;
 
         void executeQuery() {
-            try (ResultSet<?> rs = sql.execute(null, statement, id++)) {
+            try (ResultSet<?> rs = sql.execute((Transaction) null, statement, id++)) {
                 // NO-OP
             }
         }
 
         void executeInlinedQuery() {
-            try (ResultSet<?> rs = sql.execute(null, createInsertStatement(id++))) {
+            try (ResultSet<?> rs = sql.execute(createInsertStatement(id++))) {
                 // NO-OP
             }
         }
@@ -218,7 +219,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         private int id = 0;
 
         void executeQuery() {
-            try (ResultSet<?> rs = sql.execute(null, statement, id + 1, id + 2);) {
+            try (ResultSet<?> rs = sql.execute((Transaction) null, statement, id + 1, id + 2);) {
                 id += 2;
             }
         }
@@ -242,7 +243,9 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
 
             sql = client.sql();
 
@@ -254,14 +257,13 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            closeAll(/* statement, */ client);
+            closeAll(client);
         }
 
         private int id = 0;
 
         void executeQuery() {
-            sql.execute(null, statement, id++);
+            sql.execute((Transaction) null, statement, id++);
         }
     }
 
@@ -286,7 +288,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
             String queryStr = createInsertStatement();
 
             //noinspection CallToDriverManagerGetConnection
-            conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+            conn = DriverManager.getConnection("jdbc:ignite:thin://" + String.join(",", getServerEndpoints(clusterSize)));
 
             stmt = conn.prepareStatement(queryStr);
         }
@@ -361,7 +363,10 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
                 tuple.set("field" + i, FIELD_VAL);
             }
 
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
+
             kvView = client.tables().table(TABLE_NAME).keyValueView();
         }
 

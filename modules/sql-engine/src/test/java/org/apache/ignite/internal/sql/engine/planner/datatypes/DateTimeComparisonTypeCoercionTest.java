@@ -112,7 +112,6 @@ public class DateTimeComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
-
                 // TIMESTAMP 3
 
                 forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
@@ -160,7 +159,6 @@ public class DateTimeComparisonTypeCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_WLTZ_9)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
-
 
                 // TIMESTAMP LTZ 0
 

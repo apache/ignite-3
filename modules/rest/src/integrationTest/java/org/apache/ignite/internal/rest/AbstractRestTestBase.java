@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
@@ -26,8 +25,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
@@ -38,13 +37,17 @@ public abstract class AbstractRestTestBase extends ClusterPerTestIntegrationTest
     /** HTTP host and port url part. */
     private static final String HTTP_HOST_PORT = "http://localhost:10300";
 
-    protected ObjectMapper objectMapper;
+    protected ObjectMapper objectMapper = new ObjectMapper();
 
     /** HTTP client. */
     private HttpClient client;
 
     protected static HttpRequest get(String path) {
-        return HttpRequest.newBuilder(URI.create(HTTP_HOST_PORT + path)).build();
+        return get(HTTP_HOST_PORT, path);
+    }
+
+    public static HttpRequest get(String host, String path) {
+        return HttpRequest.newBuilder(URI.create(host + path)).build();
     }
 
     protected static HttpRequest patch(String path, String body) {
@@ -60,14 +63,18 @@ public abstract class AbstractRestTestBase extends ClusterPerTestIntegrationTest
                 .build();
     }
 
+    protected String getHost(Ignite node) {
+        int port = cluster.httpPort(cluster.nodeIndex(node.name()));
+        return "http://localhost:" + port;
+    }
+
     @Override
     protected int initialNodes() {
         return 0;
     }
 
     @BeforeEach
-    void setUp(TestInfo testInfo) throws IOException, InterruptedException {
-        objectMapper = new ObjectMapper();
+    void setUp(TestInfo testInfo) {
         client = HttpClient.newBuilder().build();
 
         for (int i = 0; i < 3; i++) {
@@ -75,11 +82,11 @@ public abstract class AbstractRestTestBase extends ClusterPerTestIntegrationTest
         }
     }
 
-    protected HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {
-        return client.send(request, BodyHandlers.ofString());
-    }
-
-    protected Problem getProblem(HttpResponse<String> initResponse) throws JsonProcessingException {
-        return objectMapper.readValue(initResponse.body(), Problem.class);
+    protected HttpResponse<String> send(HttpRequest request) {
+        try {
+            return client.send(request, BodyHandlers.ofString());
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

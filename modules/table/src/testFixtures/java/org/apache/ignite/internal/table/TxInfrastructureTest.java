@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.distributed.ItTxTestCluster;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -36,6 +36,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
@@ -46,15 +47,13 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ReplicatorConstants;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -117,6 +115,9 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    protected SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     protected SystemDistributedConfiguration systemDistributedConfiguration;
@@ -177,6 +178,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                systemLocalConfiguration,
                 systemDistributedConfiguration,
                 workDir,
                 nodes(),
@@ -186,7 +188,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 replicationConfiguration
         ) {
             @Override
-            protected HybridClock createClock(ClusterNode node) {
+            protected HybridClock createClock(InternalClusterNode node) {
                 return TxInfrastructureTest.this.createClock(node);
             }
 
@@ -205,7 +207,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         log.info("Tables have been started");
     }
 
-    protected HybridClock createClock(ClusterNode node) {
+    protected HybridClock createClock(InternalClusterNode node) {
         return new HybridClockImpl();
     }
 
@@ -294,12 +296,8 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
-            PartitionListener listener;
-            if (colocationEnabled()) {
-                listener = (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
-            } else {
-                listener = (PartitionListener) fsm.getListener();
-            }
+            TablePartitionProcessor listener = (TablePartitionProcessor) ((ZonePartitionRaftListener) fsm.getListener())
+                    .tableProcessor(table.tableId());
 
             MvPartitionStorage storage = listener.getMvStorage();
 
@@ -317,7 +315,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         InternalTable internalTable = accounts.internalTable();
         ReplicaService replicaService = IgniteTestUtils.getFieldValue(internalTable, "replicaSvc");
         Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((String) any(), any());
-        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((ClusterNode) any(), any());
+        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((InternalClusterNode) any(), any());
     }
 
     protected Collection<TxManager> txManagers() {
@@ -376,9 +374,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         return Tuple.create().set("name", name);
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove TablePartitionId part.
-    protected static ReplicationGroupId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
-        return colocationEnabled() ? new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex) :
-                new TablePartitionId(tableViewInternal.tableId(), partitionIndex);
+    protected static ZonePartitionId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
+        return new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex);
     }
 }

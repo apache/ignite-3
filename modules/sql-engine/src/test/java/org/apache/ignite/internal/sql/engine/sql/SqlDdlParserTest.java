@@ -19,8 +19,11 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import static java.util.Collections.singleton;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlTablePropertyKey.MIN_STALE_ROWS_COUNT;
+import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlTablePropertyKey.STALE_ROWS_FRACTION;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -223,7 +227,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
             );
         }
     }
-
 
     @ParameterizedTest
     @CsvSource(delimiter = ';', value = {
@@ -634,6 +637,163 @@ public class SqlDdlParserTest extends AbstractParserTest {
         assertThat(createTable.zone().getSimple(), equalTo("zone123"));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) ZONE \"zone123\"");
+    }
+
+    @Test
+    public void createTableWithMinStaleRows() {
+        String sqlQuery = "create table my_table(id int) with (min stale rows 12)";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(
+                createTable.tableProperties(),
+                hasItem(tablePropertyWithValue(MIN_STALE_ROWS_COUNT, 12))
+        );
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH (MIN STALE ROWS 12)");
+    }
+
+    @Test
+    public void createTableWithStaleRowsFraction() {
+        String sqlQuery = "create table my_table(id int) with (stale rows fraction 0.2)";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(
+                createTable.tableProperties(),
+                hasItem(tablePropertyWithValue(STALE_ROWS_FRACTION, 0.2))
+        );
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH (STALE ROWS FRACTION 0.2)");
+    }
+
+    @Test
+    public void createTableWithAllProperties() {
+        String sqlQuery = "create table my_table(id int) with (" 
+                + "stale rows fraction 0.8," 
+                + "min stale rows 500" 
+                + ")";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(
+                createTable.tableProperties(),
+                hasItems(
+                        tablePropertyWithValue(STALE_ROWS_FRACTION, 0.8),
+                        tablePropertyWithValue(MIN_STALE_ROWS_COUNT, 500)
+                )
+        );
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH (" 
+                + "STALE ROWS FRACTION 0.8," 
+                + " MIN STALE ROWS 500" 
+                + ")");
+    }
+
+    @Test
+    public void alterTableWithMinStaleRows() {
+        String sqlQuery = "alter table my_table set min stale rows 12";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlAlterTableSetProperties.class));
+
+        IgniteSqlAlterTableSetProperties alterTable = (IgniteSqlAlterTableSetProperties) node;
+
+        assertThat(
+                alterTable.propertyList(),
+                hasItem(tablePropertyWithValue(MIN_STALE_ROWS_COUNT, 12))
+        );
+
+        expectUnparsed(node, "ALTER TABLE \"MY_TABLE\" SET (MIN STALE ROWS 12)");
+    }
+
+    @Test
+    public void alterTableWithStaleRowsFraction() {
+        String sqlQuery = "alter table my_table set stale rows fraction 0.2";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlAlterTableSetProperties.class));
+
+        IgniteSqlAlterTableSetProperties alterTable = (IgniteSqlAlterTableSetProperties) node;
+
+        assertThat(
+                alterTable.propertyList(),
+                hasItem(tablePropertyWithValue(STALE_ROWS_FRACTION, 0.2))
+        );
+
+        expectUnparsed(node, "ALTER TABLE \"MY_TABLE\" SET (STALE ROWS FRACTION 0.2)");
+    }
+
+    @Test
+    public void alterTableWithAllProperties() {
+        String sqlQuery = "alter table my_table set ("
+                + "stale rows fraction 0.8,"
+                + "min stale rows 500"
+                + ")";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlAlterTableSetProperties.class));
+
+        IgniteSqlAlterTableSetProperties alterTable = (IgniteSqlAlterTableSetProperties) node;
+
+        assertThat(
+                alterTable.propertyList(),
+                hasItems(
+                        tablePropertyWithValue(STALE_ROWS_FRACTION, 0.8),
+                        tablePropertyWithValue(MIN_STALE_ROWS_COUNT, 500)
+                )
+        );
+
+        expectUnparsed(node, "ALTER TABLE \"MY_TABLE\" SET ("
+                + "STALE ROWS FRACTION 0.8,"
+                + " MIN STALE ROWS 500"
+                + ")");
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "create table my_table(id int) with (foo rows fraction 0.8);" 
+                    + " Failed to parse query: Encountered \"foo\" at line 1, column 37",
+            "create table my_table(id int) with (stale row fraction 0.8);"
+                    + " Failed to parse query: Encountered \"row\" at line 1, column 43",
+            "create table my_table(id int) with (stale rows fraction -0.8);"
+                    + " Failed to parse query: Encountered \"-\" at line 1, column 57",
+            "create table my_table(id int) with (min stale rows 0.8);"
+                    + " Failed to parse query: Encountered \"0.8\" at line 1, column 52",
+            "create table my_table(id int) with (min stale rows -500);"
+                    + " Failed to parse query: Encountered \"-\" at line 1, column 52",
+
+            "alter table my_table set foo rows fraction 0.8;"
+                    + " Failed to parse query: Encountered \"foo\" at line 1, column 26",
+            "alter table my_table set stale row fraction 0.8;"
+                    + " Failed to parse query: Encountered \"row\" at line 1, column 32",
+            "alter table my_table set stale rows fraction -0.8;"
+                    + " Failed to parse query: Encountered \"-\" at line 1, column 46",
+            "alter table my_table set min stale rows 0.8;"
+                    + " Failed to parse query: Encountered \"0.8\" at line 1, column 41",
+            "alter table my_table set (min stale rows -500);"
+                    + " Failed to parse query: Encountered \"-\" at line 1, column 42",
+    })
+    public void tablePropertiesParsingErrors(String stmt, String error) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                error,
+                () -> parse(stmt));
     }
 
     @Test
@@ -1081,7 +1241,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
      * @return {@code true} in case name in the column declaration equals to the expected one.
      */
     private static <T extends SqlColumnDeclaration> Matcher<T> columnWithName(String name) {
-        return new CustomMatcher<T>("column with name=" + name) {
+        return new CustomMatcher<>("column with name=" + name) {
             /** {@inheritDoc} */
             @Override
             public boolean matches(Object item) {
@@ -1100,5 +1260,21 @@ public class SqlDdlParserTest extends AbstractParserTest {
         assertThat(columnStrategy, is(declaration.strategy));
         assertThat(List.of(typeName), is(declaration.dataType.getTypeName().names));
         assertThat(nullable, is(declaration.dataType.getNullable()));
+    }
+
+    private static Matcher<SqlNode> tablePropertyWithValue(IgniteSqlTablePropertyKey property, Object value) {
+        return ofTypeMatching(
+                property + "=" + value,
+                IgniteSqlTableProperty.class,
+                opt -> {
+                    if (property == opt.key()) {
+                        if (opt.value() instanceof SqlLiteral) {
+                            return Objects.equals(value, ((SqlLiteral) opt.value()).getValueAs(value.getClass()));
+                        }
+                    }
+
+                    return false;
+                }
+        );
     }
 }

@@ -46,6 +46,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -54,9 +55,11 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.RecipientLeftException;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.SslView;
@@ -67,14 +70,12 @@ import org.apache.ignite.internal.network.recovery.RecoveryAcceptorHandshakeMana
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -83,7 +84,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class ConnectionManager implements ChannelCreationListener {
     /** Message factory. */
-    private static final NetworkMessagesFactory FACTORY = new NetworkMessagesFactory();
+    protected static final NetworkMessagesFactory FACTORY = new NetworkMessagesFactory();
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ConnectionManager.class);
@@ -118,76 +119,41 @@ public class ConnectionManager implements ChannelCreationListener {
      * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
      * till it's completed.
      */
-    private final CompletableFuture<ClusterNode> localNodeFuture = new CompletableFuture<>();
+    private final CompletableFuture<InternalClusterNode> localNodeFuture = new CompletableFuture<>();
 
-    private final NettyBootstrapFactory bootstrapFactory;
+    protected final NettyBootstrapFactory bootstrapFactory;
 
     /** Used to detect that a peer uses a stale ID. */
-    private final StaleIdDetector staleIdDetector;
+    protected final StaleIdDetector staleIdDetector;
 
-    private final ClusterIdSupplier clusterIdSupplier;
-
-    /** Factory producing {@link RecoveryInitiatorHandshakeManager} instances. */
-    private final @Nullable RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactory;
+    protected final ClusterIdSupplier clusterIdSupplier;
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
-    private final AtomicBoolean stopping = new AtomicBoolean(false);
+    protected final AtomicBoolean stopping = new AtomicBoolean(false);
 
     /** Stop flag. */
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
     /** Recovery descriptor provider. */
-    private final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
+    protected final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
 
     /** Thread pool used for connection management tasks (like disposing recovery descriptors on node left or on stop). */
     private final ExecutorService connectionMaintenanceExecutor;
 
     private final ChannelTypeRegistry channelTypeRegistry;
 
-    private final IgniteProductVersionSource productVersionSource;
+    protected final IgniteProductVersionSource productVersionSource;
 
     /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext clientSslContext;
 
-    /**
-     * Constructor.
-     *
-     * @param networkConfiguration Network configuration.
-     * @param serializationService Serialization service.
-     * @param nodeName Node name.
-     * @param nodeId ID of this node.
-     * @param bootstrapFactory Bootstrap factory.
-     * @param staleIdDetector Detects stale member IDs.
-     * @param clusterIdSupplier Supplier of cluster ID.
-     * @param channelTypeRegistry {@link ChannelType} registry.
-     * @param productVersionSource Source of product version.
-     */
-    public ConnectionManager(
-            NetworkView networkConfiguration,
-            SerializationService serializationService,
-            String nodeName,
-            UUID nodeId,
-            NettyBootstrapFactory bootstrapFactory,
-            StaleIdDetector staleIdDetector,
-            ClusterIdSupplier clusterIdSupplier,
-            ChannelTypeRegistry channelTypeRegistry,
-            IgniteProductVersionSource productVersionSource
-    ) {
-        this(
-                networkConfiguration,
-                serializationService,
-                nodeName,
-                nodeId,
-                bootstrapFactory,
-                staleIdDetector,
-                clusterIdSupplier,
-                null,
-                channelTypeRegistry,
-                productVersionSource
-        );
-    }
+    /** Cluster topology service. */
+    protected final TopologyService topologyService;
+
+    /** Failure processor. */
+    protected final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
@@ -199,9 +165,10 @@ public class ConnectionManager implements ChannelCreationListener {
      * @param bootstrapFactory Bootstrap factory.
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
-     * @param initiatorHandshakeManagerFactory Factory for {@link RecoveryInitiatorHandshakeManager} instances.
      * @param channelTypeRegistry {@link ChannelType} registry.
      * @param productVersionSource Source of product version.
+     * @param topologyService Cluster topology service.
+     * @param failureProcessor Failure processor.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -211,18 +178,20 @@ public class ConnectionManager implements ChannelCreationListener {
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
-            @Nullable RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactory,
             ChannelTypeRegistry channelTypeRegistry,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource,
+            TopologyService topologyService,
+            FailureProcessor failureProcessor
     ) {
         this.serializationService = serializationService;
         this.nodeId = nodeId;
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
-        this.initiatorHandshakeManagerFactory = initiatorHandshakeManagerFactory;
         this.channelTypeRegistry = channelTypeRegistry;
         this.productVersionSource = productVersionSource;
+        this.topologyService = topologyService;
+        this.failureProcessor = failureProcessor;
 
         SslView ssl = networkConfiguration.ssl();
 
@@ -306,31 +275,33 @@ public class ConnectionManager implements ChannelCreationListener {
      * @return Sender.
      */
     public OrderingFuture<NettySender> channel(UUID nodeId, ChannelType type, InetSocketAddress address) {
-        return getChannelWithRetry(nodeId, type, address, 0);
+        return getChannelWithRetry(nodeId, type, address, 0, null);
     }
 
     private OrderingFuture<NettySender> getChannelWithRetry(
             UUID nodeId,
             ChannelType type,
             InetSocketAddress address,
-            int attempt
+            int attempt,
+            @Nullable Throwable cause
     ) {
         if (attempt > MAX_RETRIES_TO_OPEN_CHANNEL) {
             return OrderingFuture.failedFuture(new IllegalStateException("Too many attempts to open channel to node \"" + nodeId
-                    + "\", address=" + address));
+                    + "\", address=" + address, cause));
         }
 
         return doGetChannel(nodeId, type, address)
                 .handle((res, ex) -> {
                     if (ex instanceof ChannelAlreadyExistsException) {
-                        return getChannelWithRetry(((ChannelAlreadyExistsException) ex).nodeId(), type, address, attempt + 1);
+                        return getChannelWithRetry(((ChannelAlreadyExistsException) ex).nodeId(), type, address, attempt + 1, ex);
                     }
                     if (ex != null && ex.getCause() instanceof ChannelAlreadyExistsException) {
                         return getChannelWithRetry(
                                 ((ChannelAlreadyExistsException) ex.getCause()).nodeId(),
                                 type,
                                 address,
-                                attempt + 1
+                                attempt + 1,
+                                ex
                         );
                     }
                     if (ex != null) {
@@ -341,7 +312,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     if (res.isOpen()) {
                         return OrderingFuture.completedFuture(res);
                     } else {
-                        return getChannelWithRetry(nodeId, type, address, attempt + 1);
+                        return getChannelWithRetry(nodeId, type, address, attempt + 1, new Exception("Channel is not open"));
                     }
                 })
                 .thenCompose(identity());
@@ -523,49 +494,59 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private HandshakeManager createInitiatorHandshakeManager(short connectionId) {
-        ClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
+        InternalClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
 
-        if (initiatorHandshakeManagerFactory == null) {
-            return new RecoveryInitiatorHandshakeManager(
-                    localNode,
-                    connectionId,
-                    descriptorProvider,
-                    bootstrapFactory,
-                    staleIdDetector,
-                    clusterIdSupplier,
-                    this,
-                    stopping::get,
-                    productVersionSource
-            );
-        }
+        return newRecoveryInitiatorHandshakeManager(connectionId, localNode);
+    }
 
-        return initiatorHandshakeManagerFactory.create(
+    /**
+     * Factory method for overriding the handshake manager implementation in subclasses.
+     */
+    protected RecoveryInitiatorHandshakeManager newRecoveryInitiatorHandshakeManager(
+            short connectionId,
+            InternalClusterNode localNode
+    ) {
+        return new RecoveryInitiatorHandshakeManager(
                 localNode,
                 connectionId,
-                descriptorProvider
+                descriptorProvider,
+                bootstrapFactory.handshakeEventLoopSwitcher(),
+                staleIdDetector,
+                clusterIdSupplier,
+                this,
+                stopping::get,
+                productVersionSource,
+                topologyService,
+                failureProcessor
         );
     }
 
     private HandshakeManager createAcceptorHandshakeManager() {
         // Do not just use localNodeFuture.join() to make sure the wait is time-limited.
-        waitForLocalNodeToBeSet();
+        InternalClusterNode localNode = waitForLocalNodeToBeSet();
 
+        return newRecoveryAcceptorHandshakeManager(localNode);
+    }
+
+    private RecoveryAcceptorHandshakeManager newRecoveryAcceptorHandshakeManager(InternalClusterNode localNode) {
         return new RecoveryAcceptorHandshakeManager(
-                localNodeFuture.join(),
+                localNode,
                 FACTORY,
                 descriptorProvider,
-                bootstrapFactory,
+                bootstrapFactory.handshakeEventLoopSwitcher(),
                 staleIdDetector,
                 clusterIdSupplier,
                 this,
                 stopping::get,
-                productVersionSource
+                productVersionSource,
+                topologyService,
+                failureProcessor
         );
     }
 
-    private void waitForLocalNodeToBeSet() {
+    private InternalClusterNode waitForLocalNodeToBeSet() {
         try {
-            localNodeFuture.get(10, SECONDS);
+            return localNodeFuture.get(10, SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -632,10 +613,13 @@ public class ConnectionManager implements ChannelCreationListener {
      * it's ID that gets regenerated at each node restart) and recovery descriptors corresponding to it.
      *
      * @param id ID of the node (it must have already left the topology).
+     * @return Future that completes when all the channels and descriptors are closed.
      */
-    public void handleNodeLeft(UUID id) {
+    public CompletableFuture<Void> handleNodeLeft(UUID id) {
         // We rely on the fact that the node with the given ID has already left the physical topology.
         assert staleIdDetector.isIdStale(id) : id + " is not stale yet";
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
 
         // TODO: IGNITE-21207 - remove descriptors for good.
 
@@ -644,8 +628,12 @@ public class ConnectionManager implements ChannelCreationListener {
                     // Closing descriptors separately (as some of them might not have an operating channel attached, but they
                     // still might have unacknowledged messages/futures).
                     disposeRecoveryDescriptorsOfLeftNode(id);
+
+                    future.complete(null);
                 }, connectionMaintenanceExecutor)
         );
+
+        return future;
     }
 
     private CompletableFuture<Void> closeChannelsWith(UUID id) {
@@ -707,7 +695,7 @@ public class ConnectionManager implements ChannelCreationListener {
     /**
      * Sets the local node. Only after this this manager becomes able to accept incoming connections.
      */
-    public void setLocalNode(ClusterNode localNode) {
+    public void setLocalNode(InternalClusterNode localNode) {
         localNodeFuture.complete(localNode);
     }
 }

@@ -60,7 +60,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      * @param name Metric source name.
      * @param description Description.
      */
-    protected AbstractMetricSource(String name, String description) {
+    protected AbstractMetricSource(String name, @Nullable String description) {
         this(name, description, null);
     }
 
@@ -75,6 +75,21 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
         this.name = name;
         this.description = description;
         this.group = group;
+    }
+
+    /**
+     * Base constructor for all metric source implementations.
+     *
+     * @param name Metric source name.
+     * @param description Description.
+     * @param group Optional group name.
+     * @param holder Metric instances holder.
+     */
+    protected AbstractMetricSource(String name, @Nullable String description, @Nullable String group, @Nullable T holder) {
+        this.name = name;
+        this.description = description;
+        this.group = group;
+        this.holder = holder;
     }
 
     @Override
@@ -98,7 +113,7 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
     }
 
     /**
-     * Returns metric instances' holder. Use this on order to avoid metric lookup from map-like data structures.
+     * Returns metric instances' holder. Use this in order to avoid metric lookup from map-like data structures.
      * Returned value is {@code null} if metrics are disabled.
      *
      * @return Metrics holder instance if metrics are enabled, otherwise - {@code null}.

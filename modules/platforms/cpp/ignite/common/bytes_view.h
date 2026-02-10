@@ -27,7 +27,11 @@
 
 namespace ignite {
 
-/** A slice of raw bytes. */
+/**
+ * @brief Wrapper for raw bytes.
+ *
+ * Provides convenient methods for managing data in binary format.
+ */
 struct bytes_view : std::basic_string_view<std::byte, detail::byte_traits> {
     using base_type = std::basic_string_view<std::byte, detail::byte_traits>;
 

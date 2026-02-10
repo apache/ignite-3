@@ -37,12 +37,14 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.exception.ConfigurationApplyException;
+import org.apache.ignite.internal.configuration.exception.ConfigurationParseException;
+import org.apache.ignite.internal.configuration.exception.ConfigurationValidationIgniteException;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -171,16 +173,16 @@ public class HoconPresentationTest {
     @Test
     void testErrorUpdateCfg() {
         assertFutureThrows(
-                IllegalArgumentException.class,
+                ConfigurationApplyException.class,
                 cfgPresentation.update("{\"root0\":{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"foo\"}}}")
         );
 
-        assertFutureThrows(IllegalArgumentException.class, cfgPresentation.update("{"));
+        assertFutureThrows(ConfigurationParseException.class, cfgPresentation.update("{"));
 
-        assertFutureThrows(IllegalArgumentException.class, cfgPresentation.update(""));
+        assertFutureThrows(ConfigurationParseException.class, cfgPresentation.update(""));
 
         assertFutureThrows(
-                ConfigurationValidationException.class,
+                ConfigurationValidationIgniteException.class,
                 cfgPresentation.update("{\"root\":{\"foo\":\"error\",\"subCfg\":{\"bar\":\"foo\"}}}")
         );
     }

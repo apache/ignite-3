@@ -27,6 +27,7 @@ dependencies {
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-metrics')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-cluster-management')

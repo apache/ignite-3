@@ -29,13 +29,13 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -84,7 +84,7 @@ class FinishedTransactionBatchRequestHandlerTest extends BaseIgniteAbstractTest 
                 .transactions(List.of(txId1, txId2))
                 .build();
 
-        networkHandler.onReceived(message, mock(ClusterNode.class), null);
+        networkHandler.onReceived(message, mock(InternalClusterNode.class), null);
 
         verify(lowWatermark, timeout(10_000)).unlock(txId1);
         verify(lowWatermark, timeout(10_000)).unlock(txId2);

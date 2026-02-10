@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
@@ -38,6 +40,8 @@ class BuildIndexRowVersionChooser {
     /** Timestamp of activation of the catalog version in which the index start building (get {@link CatalogIndexStatus#BUILDING}). */
     private final long startBuildingIndexActivationTs;
 
+    private final Set<UUID> abortedTransactionIds;
+
     /**
      * Constructor.
      *
@@ -45,11 +49,18 @@ class BuildIndexRowVersionChooser {
      * @param createIndexActivationTs Timestamp of activation of the catalog version in which the index created.
      * @param startBuildingIndexActivationTs Timestamp of activation of the catalog version in which the index start building
      *      (get {@link CatalogIndexStatus#BUILDING}).
+     * @param abortedTransactionIds IDs of transactions that are known to have been aborted.
      */
-    BuildIndexRowVersionChooser(PartitionDataStorage storage, long createIndexActivationTs, long startBuildingIndexActivationTs) {
+    BuildIndexRowVersionChooser(
+            PartitionDataStorage storage,
+            long createIndexActivationTs,
+            long startBuildingIndexActivationTs,
+            Set<UUID> abortedTransactionIds
+    ) {
         this.storage = storage;
         this.createIndexActivationTs = createIndexActivationTs;
         this.startBuildingIndexActivationTs = startBuildingIndexActivationTs;
+        this.abortedTransactionIds = Set.copyOf(abortedTransactionIds);
     }
 
     /**
@@ -78,7 +89,8 @@ class BuildIndexRowVersionChooser {
                 }
 
                 if (readResult.isWriteIntent()) {
-                    if (beginTs(readResult) >= createIndexActivationTs) {
+                    if (beginTs(readResult) >= createIndexActivationTs
+                            || abortedTransactionIds.contains(readResult.transactionId())) {
                         continue;
                     }
                 } else {
@@ -89,7 +101,6 @@ class BuildIndexRowVersionChooser {
                     }
                 }
 
-                // TODO: IGNITE-21546 It may be necessary to return ReadResult for write intent resolution
                 result.add(new BinaryRowAndRowId(readResult.binaryRow(), rowId));
 
                 if (takenLatestVersionOfWriteCommitted) {

@@ -42,7 +42,6 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
 import org.apache.ignite.internal.compute.message.JobCancelResponse;
@@ -50,6 +49,7 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
+import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -99,7 +99,7 @@ public class ComputeUtils {
      * @param <R> Compute job return type.
      * @return Compute job class.
      */
-    public static <T, R> Class<ComputeJob<T, R>> jobClass(JobClassLoader jobClassLoader, String jobClassName) {
+    public static <T, R> Class<ComputeJob<T, R>> jobClass(UnitsClassLoader jobClassLoader, String jobClassName) {
         try {
             return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader.classLoader());
         } catch (ClassNotFoundException e) {
@@ -142,16 +142,20 @@ public class ComputeUtils {
     /**
      * Resolve map reduce task class name to map reduce task class reference.
      *
+     * @param <R> Map reduce task return type.
      * @param taskClassLoader Class loader.
      * @param taskClassName Map reduce task class name.
-     * @param <R> Map reduce task return type.
      * @return Map reduce task class.
      */
-    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+    public static <I, M, T, R> Class<MapReduceTask<I, M, T, R>> taskClass(UnitsClassLoader taskClassLoader, String taskClassName) {
         try {
-            return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader);
+            return (Class<MapReduceTask<I, M, T, R>>) Class.forName(taskClassName, true, taskClassLoader.classLoader());
         } catch (ClassNotFoundException e) {
-            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
+            String message = "Cannot load task class by name '" + taskClassName + "'.";
+            if (taskClassLoader.units().isEmpty()) {
+                throw new ComputeException(CLASS_INITIALIZATION_ERR, message + " Deployment units list is empty.", e);
+            }
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, message, e);
         }
     }
 
@@ -353,20 +357,22 @@ public class ComputeUtils {
      * @param marshaller Optional marshaller to unmarshal the input.
      * @param input Input object.
      * @param pojoType Pojo type to use when unmarshalling as a pojo.
+     * @param classLoader Class loader to set before unmarshalling.
      * @param <T> Result type.
      * @return Unmarshalled object.
      */
     public static <T> @Nullable T unmarshalOrNotIfNull(
             @Nullable Marshaller<T, byte[]> marshaller,
             @Nullable Object input,
-            @Nullable Class<?> pojoType
+            @Nullable Class<?> pojoType,
+            ClassLoader classLoader
     ) {
         if (input == null) {
             return null;
         }
 
         if (input instanceof ComputeJobDataHolder) {
-            return SharedComputeUtils.unmarshalArgOrResult((ComputeJobDataHolder) input, marshaller, pojoType);
+            return SharedComputeUtils.unmarshalArgOrResult((ComputeJobDataHolder) input, marshaller, pojoType, classLoader);
         }
 
         if (marshaller == null) {
@@ -380,11 +386,7 @@ public class ComputeUtils {
         }
 
         if (input instanceof byte[]) {
-            try {
-                return marshaller.unmarshal((byte[]) input);
-            } catch (Exception ex) {
-                throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller: " + ex.getMessage(), ex);
-            }
+            return SharedComputeUtils.unmarshalData(marshaller, classLoader, (byte[]) input);
         }
 
         throw new ComputeException(

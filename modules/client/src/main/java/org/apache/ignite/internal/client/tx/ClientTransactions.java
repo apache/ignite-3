@@ -28,7 +28,6 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -78,7 +77,7 @@ public class ClientTransactions implements IgniteTransactions {
     static CompletableFuture<ClientTransaction> beginAsync(
             ReliableChannel ch,
             @Nullable TransactionOptions options,
-            HybridTimestampTracker observableTimestamp,
+            long observableTimestamp,
             Supplier<CompletableFuture<ClientChannel>> channelResolver
     ) {
         boolean readOnly = options != null && options.readOnly();
@@ -89,7 +88,7 @@ public class ClientTransactions implements IgniteTransactions {
                 w -> {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(timeout);
-                    w.out().packLong(observableTimestamp.get().longValue());
+                    w.out().packLong(observableTimestamp);
                 },
                 r -> readTx(r, readOnly, timeout),
                 channelResolver,

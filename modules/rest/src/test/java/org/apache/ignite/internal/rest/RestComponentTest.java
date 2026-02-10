@@ -17,18 +17,20 @@
 
 package org.apache.ignite.internal.rest;
 
+import static io.micronaut.http.HttpStatus.CONFLICT;
+import static io.micronaut.http.HttpStatus.OK;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.rest.RestState.INITIALIZATION;
 import static org.apache.ignite.internal.rest.RestState.INITIALIZED;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
-import io.micronaut.http.HttpStatus;
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.netty.DefaultHttpClient;
 import java.net.URI;
 import java.util.List;
@@ -43,14 +45,12 @@ import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
-import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
@@ -102,29 +102,17 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
         Mockito.when(cmg.clusterState()).then(invocation -> CompletableFuture.completedFuture(state));
 
-        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
-            @Override
-            public void log(Event event) {
-
-            }
-
-            @Override
-            public void log(String type, Supplier<Event> eventProvider) {
-
-            }
-        });
+        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, EventLog.NOOP);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
                 configurationManager,
                 mock(ConfigurationManager.class)
         );
-        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(null, null, cmg);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
 
         restComponent = new RestComponent(
                 List.of(restPresentationFactory,
                         authProviderFactory,
-                        clusterManagementRestFactory,
                         restManagerFactory),
                 restManager,
                 restConfiguration
@@ -142,49 +130,36 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
     @Test
     public void nodeConfigTest() {
-        var response = client.toBlocking().exchange("configuration/node/", String.class);
-
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(getConfig(), hasStatus(OK));
     }
 
     @Test
     public void nodeConfigDisabledTest() {
-        var response = client.toBlocking().exchange("configuration/node/", String.class);
-
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(getConfig(), hasStatus(OK));
 
         restManager.setState(INITIALIZATION);
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("configuration/node/", String.class));
-
-        assertEquals(HttpStatus.CONFLICT, e.getStatus());
+        assertThrowsProblem(this::getConfig, isProblem().withStatus(CONFLICT));
 
         restManager.setState(INITIALIZED);
 
-        response = client.toBlocking().exchange("configuration/node/", String.class);
-
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(getConfig(), hasStatus(OK));
     }
 
     @Test
     public void nodeConfigDisabledNotExistTest() {
-        var response = client.toBlocking().exchange("configuration/node/", String.class);
-
-        assertEquals(HttpStatus.OK, response.status());
+        assertThat(getConfig(), hasStatus(OK));
 
         restManager.setState(INITIALIZATION);
 
-        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("configuration/node/", String.class));
-
-        assertEquals(HttpStatus.CONFLICT, e.getStatus());
+        assertThrowsProblem(this::getConfig, isProblem().withStatus(CONFLICT));
 
         state = mock(ClusterState.class);
 
-        HttpClientResponseException e1 = assertThrows(HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("configuration/node/", String.class));
+        assertThrowsProblem(this::getConfig, isProblem().withStatus(CONFLICT));
+    }
 
-        assertEquals(HttpStatus.CONFLICT, e1.getStatus());
+    private HttpResponse<String> getConfig() {
+        return client.toBlocking().exchange("configuration/node/", String.class);
     }
 }

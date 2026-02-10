@@ -27,6 +27,12 @@ import static org.apache.ignite.compute.TaskStatus.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.getTaskSplitArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
+import static org.apache.ignite.internal.compute.events.ComputeEventsFactory.logEvent;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_CANCELED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_COMPLETED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_EXECUTING;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_FAILED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.COMPUTE_TASK_QUEUED;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
@@ -41,12 +47,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
@@ -57,8 +63,12 @@ import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.ResultUnmarshallingJobExecution;
 import org.apache.ignite.internal.compute.TaskStateImpl;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -90,7 +100,13 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
     private final CancelHandle cancelHandle = CancelHandle.create();
 
+    private final EventLog eventLog;
+
     private final AtomicBoolean isCancelled;
+
+    private final UUID taskId = UUID.randomUUID();
+
+    private final ComputeEventMetadata eventMetadata;
 
     private volatile @Nullable Marshaller<R, byte[]> reduceResultMarshallerRef;
 
@@ -98,31 +114,43 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
      * Construct an execution object and starts executing.
      *
      * @param executorService Compute jobs executor.
+     * @param eventLog Event log.
      * @param jobSubmitter Compute jobs submitter.
      * @param taskClass Map reduce task class.
      * @param context Task execution context.
      * @param isCancelled Flag which is passed to the execution context so that the task can check it for cancellation request.
+     * @param metadataBuilder Event metadata builder.
      * @param arg Task argument.
      */
     public TaskExecutionInternal(
             PriorityQueueExecutor executorService,
+            EventLog eventLog,
             JobSubmitter<M, T> jobSubmitter,
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
-            I arg
+            ComputeEventMetadataBuilder metadataBuilder,
+            @Nullable I arg
     ) {
+        this.eventLog = eventLog;
         this.isCancelled = isCancelled;
+        eventMetadata = metadataBuilder.taskId(taskId).build();
+
         LOG.debug("Executing task {}", taskClass.getName());
+
+        logEvent(eventLog, COMPUTE_TASK_QUEUED, eventMetadata);
+
         splitExecution = executorService.submit(
                 () -> {
+                    logEvent(eventLog, COMPUTE_TASK_EXECUTING, eventMetadata);
+
                     MapReduceTask<I, M, T, R> task = instantiateTask(taskClass);
 
                     reduceResultMarshallerRef = task.reduceJobResultMarshaller();
 
                     Class<?> splitArgumentType = getTaskSplitArgumentType(taskClass);
-                    return task.splitAsync(context, unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType))
-                            .thenApply(jobs -> new SplitResult<>(task, jobs));
+                    I input = unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType, taskClass.getClassLoader());
+                    return task.splitAsync(context, input).thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
 
                 Integer.MAX_VALUE,
@@ -132,7 +160,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
         executionsFuture = splitExecution.resultAsync().thenCompose(splitResult -> {
             List<MapReduceJob<M, T>> runners = splitResult.runners();
             LOG.debug("Submitting {} jobs for {}", runners.size(), taskClass.getName());
-            return jobSubmitter.submit(runners, cancelHandle.token());
+            return jobSubmitter.submit(runners, metadataBuilder, cancelHandle.token());
         });
 
         resultsFuture = executionsFuture.thenCompose(TaskExecutionInternal::resultsAsync);
@@ -151,24 +179,48 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
                     Integer.MAX_VALUE,
                     0
             );
-        }).whenComplete(this::captureReduceFailure);
+        }).whenComplete(this::captureReduceExecution);
     }
 
-    private void captureReduceFailure(QueueExecution<R> reduceExecution, Throwable throwable) {
+    private void captureReduceExecution(QueueExecution<R> reduceExecution, Throwable throwable) {
         if (throwable != null) {
-            // Capture the reduce execution failure reason and time.
-            TaskStatus status = throwable instanceof CancellationException ? CANCELED : FAILED;
-
-            JobState state = splitExecution.state();
-            if (state != null) {
-                reduceFailedState.set(
-                        TaskStateImpl.toBuilder(state)
-                                .status(status)
-                                .finishTime(Instant.now())
-                                .build()
-                );
-            }
+            captureReduceSubmitFailure(throwable);
+        } else {
+            handleReduceResult(reduceExecution);
         }
+    }
+
+    private void captureReduceSubmitFailure(Throwable throwable) {
+        // Capture the reduce submit failure reason and time.
+        TaskStatus status = isCancelled.get() ? CANCELED : FAILED;
+
+        logEvent(eventLog, status == CANCELED ? COMPUTE_TASK_CANCELED : COMPUTE_TASK_FAILED, eventMetadata);
+
+        JobState state = splitExecution.state();
+        if (state != null) {
+            reduceFailedState.set(
+                    TaskStateImpl.toBuilder(state)
+                            .id(taskId)
+                            .status(status)
+                            .finishTime(Instant.now())
+                            .build()
+            );
+        }
+    }
+
+    private void handleReduceResult(QueueExecution<R> reduceExecution) {
+        reduceExecution.resultAsync().whenComplete((result, throwable) -> {
+            if (result != null) {
+                logEvent(eventLog, COMPUTE_TASK_COMPLETED, eventMetadata);
+            } else {
+                JobState reduceState = reduceExecution.state();
+                // The state should never be null since it was just submitted, but check just in case.
+                if (reduceState != null) {
+                    IgniteEventType type = reduceState.status() == JobStatus.FAILED ? COMPUTE_TASK_FAILED : COMPUTE_TASK_CANCELED;
+                    logEvent(eventLog, type, eventMetadata);
+                }
+            }
+        });
     }
 
     @Override
@@ -185,7 +237,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
         }
 
         if (splitState.status() != COMPLETED) {
-            return completedFuture(TaskStateImpl.toBuilder(splitState).build());
+            return completedFuture(TaskStateImpl.toBuilder(splitState).id(taskId).build());
         }
 
         // This future is complete when reduce execution job is submitted, return status from it.
@@ -197,7 +249,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
                         return null;
                     }
                     return TaskStateImpl.toBuilder(reduceState)
-                            .id(splitState.id())
+                            .id(taskId)
                             .createTime(splitState.createTime())
                             .startTime(splitState.startTime())
                             .build();
@@ -208,6 +260,7 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
         // At this point split is complete but reduce job is not submitted yet.
         return completedFuture(TaskStateImpl.toBuilder(splitState)
+                .id(taskId)
                 .status(EXECUTING)
                 .finishTime(null)
                 .build());

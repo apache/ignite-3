@@ -27,10 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -42,7 +43,7 @@ public class ConfigNode {
     @JsonProperty
     private List<ConfigAnnotation> annotations = new ArrayList<>();
     @JsonProperty
-    private final Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
+    private Map<String, Node> childNodeMap = new LinkedHashMap<>();
     @JsonProperty
     private String flagsHexString;
     @JsonProperty
@@ -52,7 +53,7 @@ public class ConfigNode {
 
     // Non-serializable fields.
     @JsonIgnore
-    @Nullable 
+    @Nullable
     private ConfigNode parent;
     @JsonIgnore
     private EnumSet<Flags> flags;
@@ -154,10 +155,17 @@ public class ConfigNode {
     }
 
     /**
+     * Returns flags for this node.
+     */
+    public Set<Flags> flags() {
+        return flags;
+    }
+
+    /**
      * Returns the child nodes of this node.
      */
-    public Collection<ConfigNode> childNodes() {
-        return childNodeMap.values();
+    public Map<String, Node> children() {
+        return childNodeMap;
     }
 
     /**
@@ -173,7 +181,10 @@ public class ConfigNode {
     void addChildNodes(Collection<ConfigNode> childNodes) {
         assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
 
-        childNodes.forEach(e -> childNodeMap.put(e.name(), e));
+        childNodes.forEach(e -> {
+            e.parent = this;
+            addChildNode(e.name(), new Node(e));
+        });
     }
 
     /**
@@ -185,11 +196,24 @@ public class ConfigNode {
     }
 
     /**
-     * Returns {@code true} if this node is a root node, {@code false} otherwise.
+     * Add a polymorphic child node to this node.
      */
-    @JsonIgnore
-    public boolean isRoot() {
-        return parent == null;
+    void addPolymorphicNode(String name, Map<String, ConfigNode> childNodes, @Nullable String defaultId) {
+        boolean nameMatches = childNodes.values().stream().allMatch(n -> n.name().equals(name));
+        if (!nameMatches) {
+            throw new IllegalArgumentException("All nodes name should be equal to: " + name);
+        }
+        for (ConfigNode n : childNodes.values()) {
+            n.parent = this;
+        }
+        addChildNode(name, new Node(childNodes, defaultId));
+    }
+
+    private void addChildNode(String name, Node node) {
+        Node existing = childNodeMap.put(name, node);
+        if (existing != null) {
+            throw new IllegalArgumentException("Child node already exists: " + name);
+        }
     }
 
     /**
@@ -198,6 +222,30 @@ public class ConfigNode {
     @JsonIgnore
     public boolean isValue() {
         return flags.contains(Flags.IS_VALUE);
+    }
+
+    /**
+     * Returns {@code true} if this node represents a named list node, {@code false} otherwise.
+     */
+    @JsonIgnore
+    public boolean isNamedNode() {
+        return flags.contains(Flags.IS_NAMED_NODE);
+    }
+
+    /**
+     * Returns {@code true} if this node represents an inner config node, {@code false} otherwise.
+     */
+    @JsonIgnore
+    public boolean isInnerNode() {
+        return flags.contains(Flags.IS_INNER_NODE);
+    }
+
+    /**
+     * Returns {@code true} if a configuration value that this node presents has a default value, otherwise {@code false}.
+     */
+    @JsonIgnore
+    public boolean hasDefault() {
+        return flags.contains(Flags.HAS_DEFAULT);
     }
 
     /**
@@ -238,6 +286,14 @@ public class ConfigNode {
     }
 
     /**
+     * Returns an id of a polymorphic instance.
+     */
+    @Nullable String polymorphicInstanceId() {
+        return attributes.get(Attributes.POLYMORPHIC_INSTANCE_ID);
+    }
+
+
+    /**
      * Constructs the full path of this node in the configuration tree.
      */
     @JsonIgnore
@@ -253,8 +309,15 @@ public class ConfigNode {
     public void accept(ConfigShuttle visitor) {
         visitor.visit(this);
 
-        for (ConfigNode child : childNodes()) {
-            child.accept(visitor);
+        for (Node child : children().values()) {
+            if (child.isPolymorphic()) {
+                // Make traversal order deterministic
+                for (ConfigNode instanceNode : new TreeMap<>(child.nodes()).values()) {
+                    instanceNode.accept(visitor);
+                }
+            } else {
+                child.node().accept(visitor);
+            }
         }
     }
 
@@ -294,7 +357,10 @@ public class ConfigNode {
         IS_ROOT(1),
         IS_VALUE(1 << 1),
         IS_DEPRECATED(1 << 2),
-        IS_INTERNAL(1 << 3);
+        IS_INTERNAL(1 << 3),
+        IS_NAMED_NODE(1 << 4),
+        IS_INNER_NODE(1 << 5),
+        HAS_DEFAULT(1 << 6);
 
         private final int mask;
 
@@ -329,8 +395,124 @@ public class ConfigNode {
      * Common attribute keys.
      */
     static class Attributes {
-        static String NAME = "name";
-        static String KIND = "kind";
-        static String CLASS = "class";
+        static final String NAME = "name";
+        static final String KIND = "kind";
+        static final String CLASS = "class";
+        static final String POLYMORPHIC_INSTANCE_ID = "polymorphicInstanceId";
+    }
+
+    /**
+     * Node holds a references either to a single node or to a map of possible polymorphic nodes with extra `base` node that 
+     * includes fields common to all polymorphic instances. Each polymorphic node has child nodes that represent its fields 
+     * and fields common to its polymorphic configuration as well.
+     */
+    public static class Node {
+        /**
+         * Non-polymorphic node.
+         */
+        @JsonProperty
+        private @Nullable ConfigNode single;
+
+        @JsonProperty
+        private @Nullable String defaultPolymorphicInstanceId;
+
+        /**
+         * All polymorphic instances.
+         */
+        @JsonProperty
+        private @Nullable Map<String, ConfigNode> polymorphicNodes = new LinkedHashMap<>();
+
+        @SuppressWarnings("unused")
+        Node() {
+            // Default constructor for Jackson deserialization.
+        }
+
+        Node(ConfigNode single) {
+            this.single = single;
+            this.polymorphicNodes = null;
+            this.defaultPolymorphicInstanceId = null;
+        }
+
+        Node(Map<String, ConfigNode> polymorphicNodes, @Nullable String defaultPolymorphicInstanceId) {
+            this.single = null;
+            this.defaultPolymorphicInstanceId = defaultPolymorphicInstanceId;
+            this.polymorphicNodes = Map.copyOf(polymorphicNodes);
+        }
+
+        /**
+         * Returns {@code true} if this node represents a polymorphic configuration node.
+         */
+        @JsonIgnore
+        boolean isPolymorphic() {
+            return polymorphicNodes != null;
+        }
+
+        /** Returns the id of default polymorphic configuration. */
+        public @Nullable String defaultPolymorphicInstanceId() {
+            return defaultPolymorphicInstanceId;
+        }
+
+        /**
+         * Returns a single node if this node is a simple node or throws.
+         */
+        ConfigNode node() {
+            assert single != null : "Use the nodes() method instead.";
+            return single;
+        }
+
+        /**
+         * Returns a map of polymorphic instances if this node is polymorphic or throws.
+         */
+        Map<String, ConfigNode> nodes() {
+            assert polymorphicNodes != null : "Use the node() method instead.";
+            return polymorphicNodes;
+        }
+
+        /**
+         * Returns {@code true} if this node represents a value node.
+         *
+         * @see ConfigNode#isValue()
+         */
+        @JsonIgnore
+        boolean isValue() {
+            return anyNode().isValue();
+        }
+
+        /**
+         * Returns {@code true} if this node has a default value.
+         *
+         * @see ConfigNode#hasDefault()
+         */
+        boolean hasDefault() {
+            return anyNode().hasDefault();
+        }
+
+        /**
+         * Returns legacy names.
+         *
+         * @see ConfigNode#legacyPropertyNames()
+         */
+        Set<String> legacyPropertyNames() {
+            return anyNode().legacyPropertyNames();
+        }
+
+        /**
+         * Returns the full path of this node in the configuration tree.
+         */
+        String path() {
+            return anyNode().path();
+        }
+
+        /**
+         * A shortcut to access a node. Should only be used to access node's flags or other common attributes such as path, because a
+         * configuration field is guaranteed to have the same values for them for every polymorphic instance.
+         */
+        private ConfigNode anyNode() {
+            if (single != null) {
+                return single;
+            } else {
+                return polymorphicNodes.values().iterator().next();
+            }
+        }
     }
 }

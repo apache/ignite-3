@@ -20,9 +20,10 @@ package org.apache.ignite.internal.sql.engine.sql;
 import org.apache.calcite.sql.Symbolizable;
 
 /**
- * Symbol for an {@code ALL} zone option.
+ * Special symbols for zone option processing.
  */
 public enum IgniteSqlZoneOptionMode implements Symbolizable {
-    ALL
+    ALL,
+    SCALE_OFF
 }
 

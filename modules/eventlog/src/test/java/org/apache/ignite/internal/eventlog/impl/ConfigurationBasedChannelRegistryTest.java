@@ -32,6 +32,7 @@ import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,12 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
                 cfg,
                 new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default"))
         );
+        registry.start();
+    }
+
+    @AfterEach
+    void tearDown() {
+        registry.stop();
     }
 
     @Test

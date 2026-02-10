@@ -17,11 +17,13 @@
 
 package org.apache.ignite.tx;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.function.Function.identity;
+import static org.apache.ignite.tx.IgniteTransactionDefaults.DEFAULT_RW_TX_TIMEOUT_SECONDS;
+import static org.apache.ignite.tx.RunInTransactionInternalImpl.runInTransactionAsyncInternal;
+import static org.apache.ignite.tx.RunInTransactionInternalImpl.runInTransactionInternal;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.table.Table;
@@ -115,7 +117,7 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>The correct variant will be:
+     * <p>The <b>correct</b> variant will be:
      * <pre>
      * {@code
      * igniteTransactions.runInTransaction(tx -> {
@@ -125,7 +127,12 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
+     * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
+     * <br>
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * exceptions related to the primary replica change, etc.
      *
      * @param clo The closure.
      *
@@ -153,7 +160,7 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>The correct variant will be:
+     * <p>The <b>correct</b> variant will be:
      * <pre>
      * {@code
      * igniteTransactions.runInTransaction(tx -> {
@@ -163,7 +170,12 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
+     * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
+     * <br>
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * exceptions related to the primary replica change, etc.
      *
      * @param options Transaction options.
      * @param clo The closure.
@@ -197,7 +209,7 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>The correct variant will be:
+     * <p>The <b>correct</b> variant will be:
      * <pre>
      * {@code
      * igniteTransactions.runInTransaction(tx -> {
@@ -207,7 +219,12 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
+     * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
+     * <br>
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * exceptions related to the primary replica change, etc.
      *
      * @param clo Closure.
      * @param <T> Closure result type.
@@ -237,7 +254,7 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>The correct variant will be:
+     * <p>The <b>correct</b> variant will be:
      * <pre>
      * {@code
      * igniteTransactions.runInTransaction(tx -> {
@@ -247,7 +264,12 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed.
+     * <p>If the closure is executed normally (no exceptions) the transaction is automatically committed. In a case of exception, the
+     * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
+     * <br>
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * exceptions related to the primary replica change, etc.
      *
      * @param clo The closure.
      * @param options Transaction options.
@@ -257,26 +279,11 @@ public interface IgniteTransactions {
      * @throws TransactionException If a transaction can't be finished successfully.
      */
     default <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
-        Objects.requireNonNull(clo);
-
-        Transaction tx = begin(options);
-
-        try {
-            T ret = clo.apply(tx);
-
-            tx.commit();
-
-            return ret;
-        } catch (Throwable t) {
-            // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-17838 Implement auto retries
-            try {
-                tx.rollback(); // Try rolling back on user exception.
-            } catch (Exception e) {
-                t.addSuppressed(e);
-            }
-
-            throw t;
-        }
+        // This start timestamp is not related to transaction's begin timestamp and only serves as local time for counting the timeout of
+        // possible retries.
+        long startTimestamp = System.currentTimeMillis();
+        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
+        return runInTransactionInternal(this, clo, options, startTimestamp, initialTimeout);
     }
 
     /**
@@ -293,7 +300,12 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>If the asynchronous chain resulted in no exception, the commitAsync will be automatically called.
+     * <p>If the asynchronous chain resulted with no exception, the commitAsync will be automatically called. In a case of exception, the
+     * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
+     * <br>
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * exceptions related to the primary replica change, etc.
      *
      * @param clo The closure.
      * @param <T> Closure result type.
@@ -317,7 +329,13 @@ public interface IgniteTransactions {
      * }
      * </pre>
      *
-     * <p>If the asynchronous chain resulted in no exception, the commitAsync will be automatically called.
+     * <p>If the asynchronous chain resulted with no exception, the commitAsync will be automatically called. In a case of exception, the
+     * closure will be retried automatically within the transaction timeout, so it must be pure function. If the transaction timeout
+     * expires before the closure completes successfully and the transaction has been committed, the transaction is rolled back instead.
+     * <br>
+     * The closure is retried only in cases of "expected" exceptions, like {@code LockException}, {@code TimeoutException},
+     * exceptions related to the primary replica change, etc.
+     *
      *
      * @param clo The closure.
      * @param options Transaction options.
@@ -326,28 +344,12 @@ public interface IgniteTransactions {
      */
     default <T> CompletableFuture<T> runInTransactionAsync(
             Function<Transaction, CompletableFuture<T>> clo,
-            @Nullable TransactionOptions options) {
-        Objects.requireNonNull(clo);
-
-        // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-17838 Implement auto retries
-        return beginAsync(options).thenCompose(tx -> {
-            try {
-                return clo.apply(tx).handle((res, e) -> {
-                    if (e != null) {
-                        return tx.rollbackAsync().exceptionally(e0 -> {
-                            e.addSuppressed(e0);
-                            return null;
-                        }).thenCompose(ignored -> CompletableFuture.<T>failedFuture(e));
-                    }
-
-                    return completedFuture(res);
-                }).thenCompose(identity()).thenCompose(val -> tx.commitAsync().thenApply(ignored -> val));
-            } catch (Exception e) {
-                return tx.rollbackAsync().exceptionally(e0 -> {
-                    e.addSuppressed(e0);
-                    return null;
-                }).thenCompose(ignored -> CompletableFuture.failedFuture(e));
-            }
-        });
+            @Nullable TransactionOptions options
+    ) {
+        // This start timestamp is not related to transaction's begin timestamp and only serves as local time for counting the timeout of
+        // possible retries.
+        long startTimestamp = System.currentTimeMillis();
+        long initialTimeout = options == null ? TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS) : options.timeoutMillis();
+        return runInTransactionAsyncInternal(this, clo, options, startTimestamp, initialTimeout, null);
     }
 }

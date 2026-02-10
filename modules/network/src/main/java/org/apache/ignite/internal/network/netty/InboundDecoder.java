@@ -27,9 +27,9 @@ import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.direct.DirectMessageReader;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageFormat;
 import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 
@@ -52,6 +52,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
     /** Message group type, for partially read message headers. */
     private static final AttributeKey<Short> GROUP_TYPE_KEY = AttributeKey.valueOf("GROUP_TYPE");
 
+    private final MessageFormat messageFormat;
+
     /** Serialization service. */
     private final PerSessionSerializationService serializationService;
 
@@ -60,7 +62,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
      *
      * @param serializationService Serialization service.
      */
-    public InboundDecoder(PerSessionSerializationService serializationService) {
+    public InboundDecoder(MessageFormat messageFormat, PerSessionSerializationService serializationService) {
+        this.messageFormat = messageFormat;
         this.serializationService = serializationService;
     }
 
@@ -73,7 +76,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
         MessageReader reader = readerAttr.get();
 
         if (reader == null) {
-            reader = new DirectMessageReader(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
+            reader = messageFormat.reader(serializationService.serializationRegistry(), ConnectionManager.DIRECT_PROTOCOL_VERSION);
             readerAttr.set(reader);
         }
 

@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NO
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -45,25 +44,20 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -107,7 +101,6 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
                 placementDriver,
                 clusterService,
                 lowWatermark,
-                new SystemPropertiesNodeProperties(),
                 changeIndexStatusTaskScheduler
         );
 
@@ -206,7 +199,6 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void testScheduleStartBuildingTasksOnTableAddedToZoneWhereWeArePrimary() {
         String tableName = NOT_PRECREATED_TABLE_NAME;
         String indexName = "index2";
@@ -222,7 +214,6 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void testStopAllTableTasksOnTableDropFromZoneWhereWeArePrimary() {
         int tableId = tableId();
 
@@ -258,10 +249,8 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
         setPrimaryReplica(new ClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class)));
     }
 
-    private void setPrimaryReplica(ClusterNode clusterNode) {
-        ReplicationGroupId groupId = IgniteSystemProperties.colocationEnabled()
-                ? new ZonePartitionId(zoneId(), 0)
-                : new TablePartitionId(tableId(), 0);
+    private void setPrimaryReplica(InternalClusterNode clusterNode) {
+        ZonePartitionId groupId = new ZonePartitionId(zoneId(), 0);
 
         ReplicaMeta replicaMeta = newPrimaryReplicaMeta(clusterNode, groupId, HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE);
 

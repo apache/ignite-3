@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -55,7 +56,6 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -661,8 +661,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         int tableId = 100500;
         String name = "DUMMY";
 
-        prepareServer(server, tableId, name);
-        prepareServer(server2, tableId, name);
+        // Lease start time must be the same on both servers.
+        long leaseStartTime = server.clock().nowLong();
+
+        prepareServer(server, tableId, name, leaseStartTime);
+        prepareServer(server2, tableId, name, leaseStartTime);
 
         executeSql(null, 0);
 
@@ -678,8 +681,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey3, null, tx -> executeSql(tx, 3L));
     }
 
-    private void prepareServer(FakeIgnite server, int tableId, String name) {
-        long leaseStartTime = new HybridClockImpl().nowLong();
+    private void prepareServer(FakeIgnite server, int tableId, String name, long leaseStartTime) {
         initPrimaryReplicas(server.placementDriver(), null, leaseStartTime, tableId);
 
         createTable(server, tableId, name);
@@ -749,7 +751,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     }
 
     private static void initPrimaryReplicas(@Nullable List<String> replicas) {
-        long leaseStartTime = new HybridClockImpl().nowLong();
+        // Lease start time must be the same on both servers.
+        long leaseStartTime = testServer.clock().nowLong();
 
         initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
         initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
@@ -804,7 +807,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

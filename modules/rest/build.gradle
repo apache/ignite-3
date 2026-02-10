@@ -46,18 +46,23 @@ dependencies {
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-partition-replicator')
     implementation project(':ignite-system-disaster-recovery')
+    implementation project(':ignite-configuration-storage')
+    implementation project(':ignite-distribution-zones')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
+    implementation libs.micronaut.management
     implementation libs.micronaut.openapi
     implementation libs.micronaut.security
     implementation libs.micronaut.security.annotations
     // TODO It might worth shadowing reactor library https://issues.apache.org/jira/browse/IGNITE-18942
     implementation libs.micronaut.reactor
     implementation libs.micronaut.reactor.http.client
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config
+    compileOnly libs.jsr305 // Fix unknown enum constant warning
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
@@ -66,6 +71,7 @@ dependencies {
     testImplementation project(':ignite-security')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-rest-api'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
 
@@ -73,10 +79,12 @@ dependencies {
     integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-core')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-security')
@@ -90,6 +98,8 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(":ignite-rest-api"))
+    integrationTestImplementation testFixtures(project(":ignite-distribution-zones"))
+
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test

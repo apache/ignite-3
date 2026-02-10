@@ -71,10 +71,12 @@ public @interface Zone {
     String distributionAlgorithm() default "";
 
     /**
-     * Timeout in seconds between node added or node left topology event itself and data nodes switch.
+     * Deprecated, should not be used anymore. Timeout in seconds between node added or node left topology event itself and data nodes
+     * switch.
      *
      * @return Timeout.
      */
+    @Deprecated
     int dataNodesAutoAdjust() default -1;
 
     /**

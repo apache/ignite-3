@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -246,7 +247,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
     private void addMetricSet(String srcName, MetricSet metricSet) {
         assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
+        SortedMap<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
 
         metricSets.put(srcName, metricSet);
 
@@ -262,7 +263,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
     private void removeMetricSet(String srcName) {
         assert lock.isHeldByCurrentThread() : "Access to a shared state from an incorrect thread " + Thread.currentThread().getName();
 
-        Map<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
+        SortedMap<String, MetricSet> metricSets = new TreeMap<>(metricSnapshot.metrics());
 
         metricSets.remove(srcName);
 
@@ -274,7 +275,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
      *
      * @param metricSets New map of metric sets that should be saved to new version of metric snapshot.
      */
-    private void updateMetricSnapshot(Map<String, MetricSet> metricSets) {
+    private void updateMetricSnapshot(SortedMap<String, MetricSet> metricSets) {
         assert lock.isHeldByCurrentThread() : "Access to shared state from an incorrect thread " + Thread.currentThread().getName();
 
         MetricSnapshot old = metricSnapshot;

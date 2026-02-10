@@ -22,9 +22,9 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,12 +34,12 @@ import org.jetbrains.annotations.Nullable;
 public class TestMessagingService extends AbstractMessagingService {
 
     @Override
-    public void weakSend(ClusterNode recipient, NetworkMessage msg) {
+    public void weakSend(InternalClusterNode recipient, NetworkMessage msg) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
+    public CompletableFuture<Void> send(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
         return failedFuture(new UnsupportedOperationException());
     }
 
@@ -54,7 +54,7 @@ public class TestMessagingService extends AbstractMessagingService {
     }
 
     @Override
-    public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId) {
+    public CompletableFuture<Void> respond(InternalClusterNode recipient, ChannelType channelType, NetworkMessage msg, long correlationId) {
         return failedFuture(new UnsupportedOperationException());
     }
 
@@ -64,7 +64,12 @@ public class TestMessagingService extends AbstractMessagingService {
     }
 
     @Override
-    public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType channelType, NetworkMessage msg, long timeout) {
+    public CompletableFuture<NetworkMessage> invoke(
+            InternalClusterNode recipient,
+            ChannelType channelType,
+            NetworkMessage msg,
+            long timeout
+    ) {
         return failedFuture(new UnsupportedOperationException());
     }
 
@@ -75,13 +80,13 @@ public class TestMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * Calls {@link NetworkMessageHandler#onReceived(NetworkMessage, ClusterNode, Long)} on all registered.
+     * Calls {@link NetworkMessageHandler#onReceived(NetworkMessage, InternalClusterNode, Long)} on all registered.
      *
      * @param msg Message.
      * @param sender Sender node.
      * @param correlationId Correlation ID.
      */
-    public void fireMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
+    public void fireMessage(NetworkMessage msg, InternalClusterNode sender, @Nullable Long correlationId) {
         getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, sender, correlationId));
     }
 }

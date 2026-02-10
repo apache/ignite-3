@@ -3,11 +3,11 @@ Sort
     fetch: 100
     est: (rows=100)
   Filter
-      predicate: >(CASE(>(CAST(AVG_MONTHLY_SALES):DECIMAL(32767, 2), 0.00), /(ABS(-(SUM_SALES, AVG_MONTHLY_SALES)), AVG_MONTHLY_SALES), null:DECIMAL(32767, 0)), 0)
-      est: (rows=8101)
+      predicate: CASE(>(AVG_MONTHLY_SALES, 0E-16), >(/(ABS(-(SUM_SALES, AVG_MONTHLY_SALES)), AVG_MONTHLY_SALES), 0.100000000000000000000000000000000000000000000), false)
+      est: (rows=4051)
     Project
         fieldNames: [I_MANAGER_ID, SUM_SALES, AVG_MONTHLY_SALES]
-        projection: [I_MANAGER_ID, SUM_SALES, CAST(/(CAST(CASE(>(COUNT(SUM_SALES) OVER (PARTITION BY I_MANAGER_ID), 0), CAST(SUM(SUM_SALES) OVER (PARTITION BY I_MANAGER_ID)):DECIMAL(32767, 2), null:DECIMAL(32767, 2))):DECIMAL(32781, 16), COUNT(SUM_SALES) OVER (PARTITION BY I_MANAGER_ID))):DECIMAL(32781, 16)]
+        projection: [I_MANAGER_ID, SUM_SALES, CAST(/(CAST(CASE(>(COUNT(SUM_SALES) OVER (PARTITION BY I_MANAGER_ID), 0), CAST(SUM(SUM_SALES) OVER (PARTITION BY I_MANAGER_ID)):DECIMAL(28, 2), null:DECIMAL(28, 2))):DECIMAL(28, 16), COUNT(SUM_SALES) OVER (PARTITION BY I_MANAGER_ID))):DECIMAL(28, 16)]
         est: (rows=16202)
       ColocatedHashAggregate
           fieldNames: [I_MANAGER_ID, D_MOY, SUM_SALES]
@@ -27,7 +27,7 @@ Sort
                 est: (rows=73049)
               TableScan
                   table: PUBLIC.DATE_DIM
-                  predicate: OR(=(D_MONTH_SEQ, 1211), =(D_MONTH_SEQ, +(1211, 1)), =(D_MONTH_SEQ, +(1211, 2)), =(D_MONTH_SEQ, +(1211, 3)), =(D_MONTH_SEQ, +(1211, 4)), =(D_MONTH_SEQ, +(1211, 5)), =(D_MONTH_SEQ, +(1211, 6)), =(D_MONTH_SEQ, +(1211, 7)), =(D_MONTH_SEQ, +(1211, 8)), =(D_MONTH_SEQ, +(1211, 9)), =(D_MONTH_SEQ, +(1211, 10)), =(D_MONTH_SEQ, +(1211, 11)))
+                  predicate: SEARCH(D_MONTH_SEQ, Sarg[1211, 1212, 1213, 1214, 1215, 1216, 1217, 1218, 1219, 1220, 1221, 1222])
                   fieldNames: [D_DATE_SK, D_MONTH_SEQ, D_MOY]
                   est: (rows=73049)
             HashJoin

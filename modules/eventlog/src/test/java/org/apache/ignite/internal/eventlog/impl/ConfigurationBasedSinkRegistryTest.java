@@ -31,6 +31,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +55,12 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
                 UUID::randomUUID, "default");
 
         registry = new ConfigurationBasedSinkRegistry(cfg, new TestSinkFactory(defaultFactory, inMemoryCollectionSink));
+        registry.start();
+    }
+
+    @AfterEach
+    void tearDown() {
+        registry.stop();
     }
 
     @Test

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.table.mapper;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.AbstractMap.SimpleEntry;
@@ -26,7 +28,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.catalog.annotations.Column;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Mapper builder provides methods for mapping object fields to columns.
@@ -114,12 +115,20 @@ public final class MapperBuilder<T> {
         }
 
         try {
-            type.getDeclaredConstructor();
-
-            return type;
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+            boolean isRecord = RecordSupport.isRecord(type);
+            if (!isRecord) {
+                try {
+                    type.getDeclaredConstructor();
+                } catch (NoSuchMethodException e) {
+                    throw new IllegalArgumentException("Class must have default constructor: " + type.getName());
+                }
+            }
+        } catch (IllegalAccessException e) {
+            // Alternatively, we can skip the check instead of raising the error.
+            throw new RuntimeException("Could not check if the provided class is a record", e);
         }
+
+        return type;
     }
 
     /**
@@ -170,7 +179,7 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(String fieldName, String columnName, String... fieldColumnPairs) {
         ensureNotStale();
 
-        String colName0 = IgniteNameUtils.parseIdentifier(columnName);
+        String colName0 = parseIdentifier(columnName);
 
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
@@ -182,7 +191,7 @@ public final class MapperBuilder<T> {
 
         for (int i = 0; i < fieldColumnPairs.length; i += 2) {
             if (columnToFields.put(
-                    IgniteNameUtils.parseIdentifier(Objects.requireNonNull(fieldColumnPairs[i + 1])),
+                    parseIdentifier(Objects.requireNonNull(fieldColumnPairs[i + 1])),
                     requireValidField(fieldColumnPairs[i])) != null
             ) {
                 throw new IllegalArgumentException("Mapping for a column already exists: " + colName0);
@@ -229,7 +238,7 @@ public final class MapperBuilder<T> {
     public <ObjectT, ColumnT> MapperBuilder<T> convert(String columnName, TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
-        if (columnConverters.put(IgniteNameUtils.parseIdentifier(columnName), converter) != null) {
+        if (columnConverters.put(parseIdentifier(columnName), converter) != null) {
             throw new IllegalArgumentException("Column converter already exists: " + columnName);
         }
 
@@ -279,7 +288,7 @@ public final class MapperBuilder<T> {
                     .map(MapperBuilder::getColumnToFieldMapping)
                     .filter(entry -> !fields.contains(entry.getValue()))
                     // Ignore manually mapped fields/columns.
-                    .forEach(entry -> mapping.putIfAbsent(entry.getKey().toUpperCase(), entry.getValue()));
+                    .forEach(entry -> mapping.putIfAbsent(entry.getKey(), entry.getValue()));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
@@ -288,11 +297,7 @@ public final class MapperBuilder<T> {
     private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
         String fldName = fld.getName();
         var column = fld.getAnnotation(Column.class);
-        if (column == null) {
-            return new SimpleEntry<>(fldName, fldName);
-        } else {
-            var columnName = column.value().isEmpty() ? fldName : column.value();
-            return new SimpleEntry<>(columnName, fldName);
-        }
+        var columnName = column != null && !column.value().isEmpty() ? column.value() : fldName;
+        return new SimpleEntry<>(parseIdentifier(columnName), fldName);
     }
 }

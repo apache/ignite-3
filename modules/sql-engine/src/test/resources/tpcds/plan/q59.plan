@@ -26,7 +26,7 @@ Limit
                 est: (rows=18262)
               TableScan
                   table: PUBLIC.DATE_DIM
-                  predicate: AND(>=(D_MONTH_SEQ, 1205), <=(D_MONTH_SEQ, +(1205, 11)))
+                  predicate: SEARCH(D_MONTH_SEQ, Sarg[[1205..1216]])
                   fieldNames: [D_MONTH_SEQ, D_WEEK_SEQ]
                   est: (rows=18262)
             HashJoin
@@ -81,7 +81,7 @@ Limit
               est: (rows=18262)
             TableScan
                 table: PUBLIC.DATE_DIM
-                predicate: AND(>=(D_MONTH_SEQ, +(1205, 12)), <=(D_MONTH_SEQ, +(1205, 23)))
+                predicate: SEARCH(D_MONTH_SEQ, Sarg[[1217..1228]])
                 fieldNames: [D_MONTH_SEQ, D_WEEK_SEQ]
                 est: (rows=18262)
           HashJoin

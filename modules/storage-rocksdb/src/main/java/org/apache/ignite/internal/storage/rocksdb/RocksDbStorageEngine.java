@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -29,12 +28,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -185,11 +182,9 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     private void registerProfile(RocksDbProfileConfiguration profileConfig) {
-        initDataRegionSize(profileConfig);
-
         String profileName = profileConfig.name().value();
 
-        var profile = new RocksDbStorageProfile((RocksDbProfileView) profileConfig.value());
+        var profile = new RocksDbStorageProfile(profileConfig);
 
         profile.start();
 
@@ -198,28 +193,6 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDbStorage previousStorage = storageByProfileName.put(profileName, new RocksDbStorage(profile, rocksDbInstance));
 
         assert previousStorage == null : "Storage already exists for profile: " + profileName;
-    }
-
-    private static void initDataRegionSize(RocksDbProfileConfiguration storageProfileConfiguration) {
-        ConfigurationValue<Long> dataRegionSize = storageProfileConfiguration.sizeBytes();
-
-        if (dataRegionSize.value() == UNSPECIFIED_SIZE) {
-            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
-
-            CompletableFuture<Void> updateFuture = dataRegionSize.update(defaultDataRegionSize);
-
-            // Node local configuration is synchronous, wait just in case.
-            try {
-                updateFuture.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new StorageException(e);
-            }
-
-            LOG.info(
-                    "{}.{} property is not specified, setting its value to {}",
-                    storageProfileConfiguration.name().value(), dataRegionSize.key(), defaultDataRegionSize
-            );
-        }
     }
 
     private SharedRocksDbInstance newRocksDbInstance(String profileName, RocksDbStorageProfile profile) {
@@ -275,6 +248,13 @@ public class RocksDbStorageEngine implements StorageEngine {
         for (RocksDbStorage rocksDbStorage : storageByProfileName.values()) {
             rocksDbStorage.rocksDbInstance.destroyTable(tableId);
         }
+    }
+
+    @Override
+    public long requiredOffHeapMemorySize() {
+        return storageByProfileName.values().stream()
+                .mapToLong(storage -> storage.profile.regionSize())
+                .sum();
     }
 
     @Override

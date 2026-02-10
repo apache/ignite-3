@@ -3,7 +3,7 @@ Sort
     est: (rows=1080219)
   Project
       fieldNames: [L_RETURNFLAG, L_LINESTATUS, SUM_QTY, SUM_BASE_PRICE, SUM_DISC_PRICE, SUM_CHARGE, AVG_QTY, AVG_PRICE, AVG_DISC, COUNT_ORDER]
-      projection: [f0, f1, f0_2, f0_3, f0_4, f0_5, DECIMAL_DIVIDE(f0_6, f1_7, 29, 16), DECIMAL_DIVIDE(f0_8, f1_9, 29, 16), DECIMAL_DIVIDE(f0_10, f1_11, 29, 16), CAST(f0_12):BIGINT NOT NULL]
+      projection: [f0, f1, f0_2, f0_3, f0_4, f0_5, DECIMAL_DIVIDE(CAST(f0_6):DECIMAL(30, 2) NOT NULL, f1_7, 29, 16), DECIMAL_DIVIDE(CAST(f0_8):DECIMAL(30, 2) NOT NULL, f1_9, 29, 16), DECIMAL_DIVIDE(CAST(f0_10):DECIMAL(30, 2) NOT NULL, f1_11, 29, 16), CAST(f0_12):BIGINT NOT NULL]
       est: (rows=1080219)
     ReduceHashAggregate
         fieldNames: [f0, f1, f0_2, f0_3, f0_4, f0_5, f0_6, f1_7, f0_8, f1_9, f0_10, f1_11, f0_12]
@@ -15,7 +15,7 @@ Sort
           est: (rows=1080219)
         Project
             fieldNames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-            projection: [L_RETURNFLAG, L_LINESTATUS, _ACC0, _ACC1, _ACC2, _ACC3, _ACC4, CAST(_ACC5):DECIMAL(32767, 0) NOT NULL, _ACC6, CAST(_ACC7):DECIMAL(32767, 0) NOT NULL, _ACC8, CAST(_ACC9):DECIMAL(32767, 0) NOT NULL, _ACC10, _GROUP_ID]
+            projection: [L_RETURNFLAG, L_LINESTATUS, _ACC0, _ACC1, _ACC2, _ACC3, CAST(_ACC4):DECIMAL(60, 2) NOT NULL, CAST(_ACC5):DECIMAL(38, 0) NOT NULL, CAST(_ACC6):DECIMAL(60, 2) NOT NULL, CAST(_ACC7):DECIMAL(38, 0) NOT NULL, CAST(_ACC8):DECIMAL(60, 2) NOT NULL, CAST(_ACC9):DECIMAL(38, 0) NOT NULL, _ACC10, _GROUP_ID]
             est: (rows=1080219)
           MapHashAggregate
               fieldNames: [L_RETURNFLAG, L_LINESTATUS, _ACC0, _ACC1, _ACC2, _ACC3, _ACC4, _ACC5, _ACC6, _ACC7, _ACC8, _ACC9, _ACC10, _GROUP_ID]
@@ -26,8 +26,8 @@ Sort
                 table: PUBLIC.LINEITEM
                 index: L_SD
                 type: SORTED
-                predicate: <=(L_SHIPDATE, -(1998-12-01, 7776000000:INTERVAL DAY))
-                searchBounds: [RangeBounds [lowerBound=null, upperBound=-(1998-12-01, 7776000000:INTERVAL DAY), lowerInclude=true, upperInclude=true]]
+                predicate: <=(L_SHIPDATE, 1998-09-02)
+                searchBounds: [..<1998-09-02>]
                 fieldNames: [L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, $f4, $f5, L_DISCOUNT]
                 projection: [L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), *(*(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), +(1, L_TAX)), L_DISCOUNT]
                 collation: []

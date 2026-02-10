@@ -43,7 +43,9 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Hash join converter.
  */
 public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJoin> {
-    private static final EnumSet<JoinRelType> TYPES_SUPPORTING_NON_EQUI_CONDITIONS = EnumSet.of(JoinRelType.INNER, JoinRelType.SEMI);
+    private static final EnumSet<JoinRelType> TYPES_SUPPORTING_NON_EQUI_CONDITIONS = EnumSet.of(
+            JoinRelType.INNER, JoinRelType.SEMI, JoinRelType.LEFT
+    );
 
     public static final RelOptRule INSTANCE = new HashJoinConverterRule();
 
@@ -83,7 +85,7 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
 
         //noinspection RedundantIfStatement
         if (!joinInfo.isEqui() && !TYPES_SUPPORTING_NON_EQUI_CONDITIONS.contains(join.getJoinType())) {
-            // Joins which emits unmatched left or right part requires special handling of `nonEquiCondition`
+            // Joins which emits unmatched right part requires special handling of `nonEquiCondition`
             // on execution level. As of now it's known limitations.
             return false;
         }

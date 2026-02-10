@@ -110,6 +110,6 @@ public class DistributionMetricTest {
     public void testGetValueAsString() {
         DistributionMetric distribution = createAndPrepareMetric();
 
-        assertEquals("[0_50:1, 50_500:2, 500_inf:3]", distribution.getValueAsString());
+        assertEquals("[0_50: 1, 50_500: 2, 500_inf: 3]", distribution.getValueAsString());
     }
 }

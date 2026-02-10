@@ -60,6 +60,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.ComputeChangePriority => ClientOperationType.ComputeChangePriority,
                 ClientOp.SqlExec => ClientOperationType.SqlExecute,
                 ClientOp.SqlExecScript => ClientOperationType.SqlExecuteScript,
+                ClientOp.SqlExecBatch => ClientOperationType.SqlExecuteBatch,
                 ClientOp.SqlCursorNextPage => null,
                 ClientOp.SqlCursorClose => null,
                 ClientOp.TxBegin => null,

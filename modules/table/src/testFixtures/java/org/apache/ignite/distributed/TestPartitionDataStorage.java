@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -78,16 +79,6 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public void acquirePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to take any lock.
-    }
-
-    @Override
-    public void releasePartitionSnapshotsReadLock() {
-        // There is no 'write' side, so we don't need to releasetestbala any lock.
-    }
-
-    @Override
     public CompletableFuture<Void> flush(boolean trigger) {
         return partitionStorage.flush(trigger);
     }
@@ -122,10 +113,10 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
-        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
     }
 
     @Override
@@ -167,8 +158,8 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        return partitionStorage.peek(lowWatermark);
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        return partitionStorage.peek(lowWatermark, count);
     }
 
     @Override

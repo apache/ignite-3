@@ -16,106 +16,112 @@
 #
 
 [versions]
-assertj = "3.27.3"
-asm = "9.8"
-bouncycastle = "1.81"
-compileTesting = "0.21.0"
+assertj = "3.27.7"
+asm = "9.9.1"
+bouncycastle = "1.83"
+compileTesting = "0.23.0"
 commons-collections4 = "4.5.0"
-commons-lang3 = "3.18.0"
+commons-lang3 = "3.20.0"
 fliptables = "1.1.1"
 fmpp = "0.9.16"
-jackson = "2.19.1"
+jackson = "2.21.0"
 jakarta = "2.0.0"
 jansi = "2.4.2"
-netty = "4.1.119.Final"
+netty = "4.2.10.Final"
 javapoet = "1.13.0"
 javax = "1.3.2"
-jetbrainsAnnotations = "26.0.2"
+jetbrainsAnnotations = "26.0.2-1"
 jline = "3.29.0"
 jmh = "1.37"
-junit5 = "5.13.3"
-junit5-platform = "1.13.3"
+junit5 = "5.14.2"
+junit5-platform = "1.14.2"
 junitPioneer = "2.3.0"
 jsr305 = "3.0.2"
-okhttp = "5.1.0"
-gson = "2.13.1"
+okhttp = "5.3.2"
+gson = "2.13.2"
 gsonFire = "1.9.0"
-threetenbp = "1.7.1"
+threetenbp = "1.7.2"
 micronaut = "3.10.4"
 micronautPicocli = "4.4.0"
 micronautJunit5 = "3.9.2"
 micronautSecurity="3.11.1"
 micronautReactor="2.6.0"
-mockito = "5.18.0"
+mockito = "5.21.0"
 picocli = "4.7.5"
 slf4j = "2.0.17"
-log4j = "2.25.1"
+log4j = "2.25.3"
 spoon = "10.4.3-beta-21"
-swagger = "2.2.34"
-swaggerParser = "2.1.31"
-swaggerLegacy = "1.6.16"
-typesafe = "1.4.4"
+swagger = "2.2.42"
+swaggerParser = "2.1.37"
+typesafe = "1.4.5"
 hamcrest = "3.0"
 hamcrestOptional = "2.0.0"
 hamcrestPath = "1.0.1"
 hamcrestJson = "0.3"
 scalecube = "2.6.15"
-calcite = "1.40.0"
-value = "2.11.1"
+calcite = "1.41.0"
+value = "2.12.1"
 janino = "3.1.12"
-jsonpath = "2.9.0"
+jsonpath = "2.10.0"
 javassist = "3.30.2-GA"
 rocksdb = "10.2.1"
 disruptor = "4.0.0"
-metrics = "4.2.33"
+metrics = "4.2.38"
 jctools = "4.0.5"
 msgpack = "0.8.24"
-caffeine = "3.2.0"
-fastutil = "8.5.16"
+caffeine = "3.2.3"
+fastutil = "8.5.18"
 kryo = "5.6.2"
-bytebuddy = "1.17.6"
-mockServer = "5.15.0"
+bytebuddy = "1.18.4"
+wiremock = "3.13.2"
 archunit = "1.4.1"
-testkit = "1.13.3"
+testkit = "1.14.2"
 openapi = "4.10.0"
 autoService = "1.1.1"
 awaitility = "4.3.0"
-progressBar = "0.9.4"
-guava = "33.4.8-jre"
-jna = "5.17.0"
-tree-sitter = "0.25.3"
+progressBar = "0.10.1"
+guava = "33.5.0-jre"
+jna = "5.18.1"
+tree-sitter = "0.26.3.1"
 tree-sitter-json = "0.24.8"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
-otel = "1.52.0"
-spring-boot = "3.5.3"
-spring-data = "3.5.1"
-testcontainers = "1.21.3"
+otel = "1.59.0"
+spring-boot = "3.5.7"
+spring-data = "3.5.5"
+testcontainers = "2.0.3"
 gradleToolingApi = "8.6"
-protobuf = "4.31.1"
+protobuf = "4.33.5"
 cytodynamics = "0.2.0"
+japicmp = "0.25.4"
+
+# JDBC connection pools (for testing purposes)
+hikariCP = "7.0.2"
+c3p0 = "0.11.2"
 
 #Tools
-pmdTool = "6.55.0"
-checkstyleTool = "10.3.3"
-spotbugsTool = "4.8.3"
+pmdTool = "7.13.0"
+# NOTE: do not update checkstyle to 11.x.x+, because newer versions are not compatible with Java 11.
+checkstyleTool = "10.26.1"
+spotbugsTool = "4.9.8"
 
 [plugins]
-openapiGenerator = "org.openapi.generator:7.12.0"
+openapiGenerator = "org.openapi.generator:7.19.0"
 javacc = "com.intershop.gradle.javacc:4.1.3"
-shadow = "com.gradleup.shadow:8.3.8"
+shadow = "com.gradleup.shadow:8.3.9"
 cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
 # NOTE: do not update nebula to 12.x.x+, because newer versions are not compatible with Java 11.
 nebula = "com.netflix.nebula.ospackage:11.11.2"
 docker = "com.palantir.docker:0.36.0"
-dockerRemoteApi = "com.bmuschko.docker-remote-api:9.4.0"
+dockerRemoteApi = "com.bmuschko.docker-remote-api:10.0.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
-ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.2"
-spotbugs = "com.github.spotbugs:6.2.2"
+ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.4"
+spotbugs = "com.github.spotbugs:6.4.8"
 jmh = 'me.champeau.jmh:0.7.3'
 jmhReport = 'io.morethan.jmhreport:0.9.6'
+license = 'com.github.jk1.dependency-license-report:2.9'
 
 
 [libraries]
@@ -165,6 +171,7 @@ micronaut-http-core = { module = "io.micronaut:micronaut-http", version.ref = "m
 micronaut-http-server-core = { module = "io.micronaut:micronaut-http-server", version.ref = "micronaut" }
 micronaut-http-client = { module = "io.micronaut:micronaut-http-client", version.ref = "micronaut" }
 micronaut-http-server-netty = { module = "io.micronaut:micronaut-http-server-netty", version.ref = "micronaut" }
+micronaut-management = { module = "io.micronaut:micronaut-management", version.ref = "micronaut" }
 micronaut-security = { module = "io.micronaut.security:micronaut-security", version.ref = "micronautSecurity" }
 micronaut-security-annotations = { module = "io.micronaut.security:micronaut-security-annotations", version.ref = "micronautSecurity" }
 micronaut-reactor = { module = "io.micronaut.reactor:micronaut-reactor", version.ref = "micronautReactor" }
@@ -182,10 +189,11 @@ picocli-annotation-processor = { module = "info.picocli:picocli-codegen", versio
 
 jansi-core = { module = "org.fusesource.jansi:jansi", version.ref = "jansi" }
 
-jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
-jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
-jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
-jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson" }
+jackson-core = { module = "com.fasterxml.jackson.core:jackson-core" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
+jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
 
 typesafe-config = { module = "com.typesafe:config", version.ref = "typesafe" }
 
@@ -209,10 +217,8 @@ threetenbp = { module = "org.threeten:threetenbp", version.ref = "threetenbp" }
 
 swaggerv3-annotations = { module = "io.swagger.core.v3:swagger-annotations", version.ref = "swagger" }
 swagger-parser = { module = "io.swagger.parser.v3:swagger-parser", version.ref = "swaggerParser" }
-swagger-legacy-annotations = { module = "io.swagger:swagger-annotations", version.ref = "swaggerLegacy" }
 
-mock-server-netty = { module = "org.mock-server:mockserver-netty", version.ref = "mockServer" }
-mock-server-junit = { module = "org.mock-server:mockserver-junit-jupiter", version.ref = "mockServer" }
+wiremock = { module = "org.wiremock:wiremock", version.ref = "wiremock" }
 
 msgpack-core = { module = "org.msgpack:msgpack-core", version.ref = "msgpack" }
 
@@ -277,6 +283,9 @@ auto-service-annotations = { module = "com.google.auto.service:auto-service-anno
 
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
+hikariCP = { module = "com.zaxxer:HikariCP", version.ref = "hikariCP" }
+c3p0 = { module = "com.mchange:c3p0", version.ref = "c3p0" }
+
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
@@ -294,7 +303,7 @@ spring-boot-test = { module = "org.springframework.boot:spring-boot-test", versi
 spring-data-jdbc = { module = "org.springframework.data:spring-data-jdbc", version.ref = "spring-data"}
 
 testcontainers-core = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers"}
-testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers"}
+testcontainers-junit = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
 
 commons-collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "commons-collections4" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
@@ -306,6 +315,8 @@ gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 
 cytodynamics-nucleus = { module = "com.linkedin.cytodynamics:cytodynamics-nucleus", version.ref = "cytodynamics" }
+
+japicmp = { module = "com.github.siom79.japicmp:japicmp", version.ref = "japicmp" }
 
 [bundles]
 junit = ["junit5-api", "junit5-impl", "junit5-params", "junit-pioneer"]

@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.List;
 import java.util.Objects;
@@ -51,10 +51,10 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 
 /** Helper class for index management. */
 class IndexManagementUtils {
@@ -236,11 +236,12 @@ class IndexManagementUtils {
                 .execute(MakeIndexAvailableCommand.builder().indexId(indexId).build())
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        Throwable unwrappedCause = unwrapCause(throwable);
-
-                        if (!(unwrappedCause instanceof IndexNotFoundValidationException)
-                                && !(unwrappedCause instanceof ChangeIndexStatusValidationException)
-                                && !(unwrappedCause instanceof NodeStoppingException)) {
+                        if (!hasCause(
+                                throwable,
+                                IndexNotFoundValidationException.class,
+                                ChangeIndexStatusValidationException.class,
+                                NodeStoppingException.class
+                        )) {
                             String errorMessage = "Error processing the command to make the index available: " + indexId;
                             failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
@@ -283,7 +284,7 @@ class IndexManagementUtils {
      * @param localNode Local node.
      * @param timestamp Timestamp of interest.
      */
-    static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
+    static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, InternalClusterNode localNode, HybridTimestamp timestamp) {
         return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
                 && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
     }
@@ -293,7 +294,7 @@ class IndexManagementUtils {
      *
      * @param clusterService Cluster service.
      */
-    static ClusterNode localNode(ClusterService clusterService) {
+    static InternalClusterNode localNode(ClusterService clusterService) {
         return clusterService.topologyService().localMember();
     }
 

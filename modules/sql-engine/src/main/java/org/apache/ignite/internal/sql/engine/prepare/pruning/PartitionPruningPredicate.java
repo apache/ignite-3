@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -43,7 +44,7 @@ import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -67,6 +68,7 @@ public final class PartitionPruningPredicate {
     /**
      * Applies partition pruning to the given colocation group. This group should have the same number of assignments as the source table.
      *
+     * @param sourceId Source id.
      * @param table Table.
      * @param pruningColumns Partition pruning metadata.
      * @param dynamicParameters Values dynamic parameters.
@@ -74,6 +76,7 @@ public final class PartitionPruningPredicate {
      * @return New colocation group.
      */
     public static ColocationGroup prunePartitions(
+            long sourceId,
             IgniteTable table,
             PartitionPruningColumns pruningColumns,
             Object[] dynamicParameters,
@@ -120,8 +123,9 @@ public final class PartitionPruningPredicate {
             }
         }
 
+        // Replace group id.
         return new ColocationGroup(
-                colocationGroup.sourceIds(),
+                LongList.of(sourceId),
                 List.copyOf(newNodes),
                 newAssignments,
                 partitionsPerNode
@@ -143,7 +147,7 @@ public final class PartitionPruningPredicate {
             ExecutionContext<RowT> context,
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
-            ExpressionFactory<RowT> expressionFactory,
+            SqlExpressionFactory expressionFactory,
             Int2ObjectMap<NodeWithConsistencyToken> assignments,
             String nodeName
     ) {

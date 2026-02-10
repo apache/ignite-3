@@ -32,24 +32,34 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.PersistentTxStateVacuumResult;
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.VacuumizableTx;
+import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
-
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+
+    /**
+     * Creates and starts the storage.
+     *
+     * <p>Intended for tests/benchmarks where the storage is used directly without a full component lifecycle.
+     */
+    @TestOnly
+    public static VolatileTxStateMetaStorage createStarted() {
+        VolatileTxStateMetaStorage storage = new VolatileTxStateMetaStorage();
+        storage.start();
+        return storage;
+    }
 
     /**
      * Starts the storage.
@@ -69,10 +79,17 @@ public class VolatileTxStateMetaStorage {
      * Initializes the meta state for a created transaction.
      *
      * @param tx Transaction object.
+     * @param txLabel Transaction label.
      */
-    public void initialize(InternalTransaction tx) {
-        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx, null));
-
+    public void initialize(InternalTransaction tx, @Nullable String txLabel) {
+        TxStateMeta previous = txStateMap.put(
+                tx.id(),
+                TxStateMeta.builder(PENDING)
+                        .txCoordinatorId(tx.coordinatorId())
+                        .tx(tx)
+                        .txLabel(txLabel)
+                        .build()
+        );
 
         assert previous == null : "Transaction state has already defined [txId=" + tx.id() + ", state=" + previous.txState() + ']';
     }
@@ -144,26 +161,19 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-            // Should be changed to ZonePartitionId.
-            Function<Map<ReplicationGroupId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
+            Function<Map<ZonePartitionId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp,
+            ResourceVacuumMetrics resourceVacuumMetrics
     ) {
-        LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
-
-        AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
-        AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
-        AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-        // Should be changed to ZonePartitionId.
-        Map<ReplicationGroupId, Set<VacuumizableTx>> txIds = new HashMap<>();
+        Map<ZonePartitionId, Set<VacuumizableTx>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
+
+        var skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger();
 
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
                 if (meta0.tx() != null && meta0.tx().isReadOnly()) {
                     if (meta0.tx().isFinishingOrFinished()) {
-                        vacuumizedTxnsCount.incrementAndGet();
+                        resourceVacuumMetrics.onVolatileStateVacuum();
 
                         return null;
                     }
@@ -177,12 +187,10 @@ public class VolatileTxStateMetaStorage {
 
                     if (shouldBeVacuumized) {
                         if (meta0.commitPartitionId() == null) {
-                            vacuumizedTxnsCount.incrementAndGet();
+                            resourceVacuumMetrics.onVolatileStateVacuum();
 
                             return null;
                         } else {
-                            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-                            // Should be changed to ZonePartitionId.
                             Set<VacuumizableTx> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
                             ids.add(new VacuumizableTx(txId, cleanupCompletionTimestamp));
 
@@ -193,7 +201,7 @@ public class VolatileTxStateMetaStorage {
                             return meta0;
                         }
                     } else {
-                        alreadyMarkedTxnsCount.incrementAndGet();
+                        resourceVacuumMetrics.onMarkedForVacuum();
 
                         return meta0;
                     }
@@ -217,7 +225,7 @@ public class VolatileTxStateMetaStorage {
                                 TxStateMeta newMeta = (Objects.equals(cleanupCompletionTs, v.cleanupCompletionTimestamp())) ? null : v;
 
                                 if (newMeta == null) {
-                                    vacuumizedTxnsCount.incrementAndGet();
+                                    resourceVacuumMetrics.onVolatileStateVacuum();
                                 }
 
                                 return newMeta;
@@ -225,18 +233,9 @@ public class VolatileTxStateMetaStorage {
                         });
                     }
 
-                    LOG.info("Vacuum finished [vacuumObservationTimestamp={}, "
-                                    + "txnResourceTtl={}, "
-                                    + "vacuumizedTxnsCount={}, "
-                                    + "vacuumizedPersistentTxnStatesCount={}, "
-                                    + "alreadyMarkedTxnsCount={}, "
-                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
-                            vacuumObservationTimestamp,
-                            txnResourceTtl,
-                            vacuumizedTxnsCount,
+                    resourceVacuumMetrics.onVacuumFinish(
                             vacuumResult.vacuumizedPersistentTxnStatesCount,
-                            alreadyMarkedTxnsCount,
-                            skippedForFurtherProcessingUnfinishedTxnsCount
+                            skippedForFurtherProcessingUnfinishedTxnsCount.get()
                     );
                 });
     }

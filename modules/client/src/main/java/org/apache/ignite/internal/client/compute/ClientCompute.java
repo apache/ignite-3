@@ -66,7 +66,6 @@ import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -140,13 +139,16 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
+        // Assign common task ID to all jobs
+        UUID taskId = UUID.randomUUID();
+
         if (target instanceof AllNodesBroadcastJobTarget) {
             AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
             Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
 
             //noinspection unchecked
             CompletableFuture<SubmitResult>[] futures = nodes.stream()
-                    .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, arg))
+                    .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, taskId, arg))
                     .toArray(CompletableFuture[]::new);
 
             return mapSubmitFutures(futures, descriptor, cancellationToken);
@@ -154,11 +156,11 @@ public class ClientCompute implements IgniteCompute {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
             QualifiedName tableName = tableJobTarget.tableName();
             return getTable(tableName)
-                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
+                    .thenCompose(table -> table.partitionDistribution().primaryReplicasAsync())
                     .thenCompose(replicas -> {
                         //noinspection unchecked
                         CompletableFuture<SubmitResult>[] futures = replicas.keySet().stream()
-                                .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                                .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, taskId, arg))
                                 .toArray(CompletableFuture[]::new);
 
                         return mapSubmitFutures(futures, descriptor, cancellationToken);
@@ -208,7 +210,7 @@ public class ClientCompute implements IgniteCompute {
         if (target instanceof AnyNodeJobTarget) {
             AnyNodeJobTarget anyNodeJobTarget = (AnyNodeJobTarget) target;
 
-            return executeOnAnyNodeAsync(anyNodeJobTarget.nodes(), descriptor, arg);
+            return executeOnAnyNodeAsync(anyNodeJobTarget.nodes(), descriptor, null, arg);
         }
 
         if (target instanceof ColocatedJobTarget) {
@@ -315,7 +317,7 @@ public class ClientCompute implements IgniteCompute {
     private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
         return ch.serviceAsync(
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
-                w -> packTask(w.out(), taskDescriptor, arg),
+                w -> packTask(w, taskDescriptor, arg),
                 ClientCompute::unpackSubmitTaskResult,
                 (String) null,
                 null,
@@ -323,7 +325,12 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private <T, R> CompletableFuture<SubmitResult> executeOnAnyNodeAsync(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor, T arg) {
+    private <T, R> CompletableFuture<SubmitResult> executeOnAnyNodeAsync(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable UUID taskId,
+            @Nullable T arg
+    ) {
         ClusterNode node = randomNode(nodes);
 
         return ch.serviceAsync(
@@ -331,6 +338,7 @@ public class ClientCompute implements IgniteCompute {
                 w -> {
                     packNodeNames(w.out(), nodes);
                     packJob(w, descriptor, arg);
+                    packTaskId(w, taskId);
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
@@ -354,7 +362,7 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private static <K, T, R> CompletableFuture<SubmitResult> executeColocatedObjectKey(
+    private <K, T, R> CompletableFuture<SubmitResult> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
@@ -371,22 +379,23 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    private static <T, R> CompletableFuture<SubmitResult> executeColocatedTupleKey(
+    private <T, R> CompletableFuture<SubmitResult> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
             JobDescriptor<T, R> descriptor,
             T arg
     ) {
+        ClientTupleSerializer ser = new ClientTupleSerializer(t.tableId(), t::qualifiedName);
         return executeColocatedInternal(
                 t,
-                (outputChannel, schema) -> ClientTupleSerializer.writeTupleRaw(key, schema, outputChannel, true),
+                (outputChannel, schema) -> ser.writeTupleRaw(key, schema, outputChannel, true),
                 ClientTupleSerializer.getPartitionAwarenessProvider(key),
                 descriptor,
                 arg
         );
     }
 
-    private static <T, R> CompletableFuture<SubmitResult> executeColocatedInternal(
+    private <T, R> CompletableFuture<SubmitResult> executeColocatedInternal(
             ClientTable t,
             BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
             PartitionAwarenessProvider partitionAwarenessProvider,
@@ -404,6 +413,7 @@ public class ClientCompute implements IgniteCompute {
                     keyWriter.accept(outputChannel, schema);
 
                     packJob(outputChannel, descriptor, arg);
+                    packTaskId(outputChannel, null); // Placeholder for a possible future usage
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
@@ -415,25 +425,27 @@ public class ClientCompute implements IgniteCompute {
             QualifiedName tableName,
             Partition partition,
             JobDescriptor<T, R> descriptor,
+            UUID taskId,
             @Nullable T arg
     ) {
-        return getTable(tableName).thenCompose(table -> executePartitioned(table, partition, descriptor, arg)
+        return getTable(tableName).thenCompose(table -> executePartitioned(table, partition, descriptor, taskId, arg)
                 .handle((res, err) -> handleMissingTable(
                         tableName,
                         res,
                         err,
-                        () -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                        () -> doExecutePartitionedAsync(tableName, partition, descriptor, taskId, arg))
                 )
                 .thenCompose(Function.identity()));
     }
 
-    private static <T, R> CompletableFuture<SubmitResult> executePartitioned(
+    private <T, R> CompletableFuture<SubmitResult> executePartitioned(
             ClientTable t,
             Partition partition,
             JobDescriptor<T, R> descriptor,
+            UUID taskId,
             @Nullable T arg
     ) {
-        int partitionId = ((HashPartition) partition).partitionId();
+        long partitionId = partition.id();
         return t.doSchemaOutOpAsync(
                 ClientOp.COMPUTE_EXECUTE_PARTITIONED,
                 (schema, outputChannel, unused) -> {
@@ -441,12 +453,13 @@ public class ClientCompute implements IgniteCompute {
 
                     w.packInt(t.tableId());
 
-                    w.packInt(partitionId);
+                    w.packLong(partitionId);
 
                     packJob(outputChannel, descriptor, arg);
+                    packTaskId(outputChannel, taskId);
                 },
                 ClientCompute::unpackSubmitResult,
-                PartitionAwarenessProvider.of(partitionId),
+                PartitionAwarenessProvider.of(Math.toIntExact(partitionId)),
                 true,
                 null
         );
@@ -507,17 +520,31 @@ public class ClientCompute implements IgniteCompute {
         }
     }
 
-    private static <T, R> void packJob(PayloadOutputChannel out, JobDescriptor<T, R> descriptor, T arg) {
+    private <T, R> void packJob(PayloadOutputChannel out, JobDescriptor<T, R> descriptor, T arg) {
         boolean platformComputeSupported = out.clientChannel().protocolContext()
                 .isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB);
 
-        ClientComputeJobPacker.packJob(descriptor, arg, platformComputeSupported, out.out());
+        ClientComputeJobPacker.packJob(descriptor, arg, platformComputeSupported, out.out(), getJobObservableTs(out));
     }
 
-    private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        w.packDeploymentUnits(taskDescriptor.units());
-        w.packString(taskDescriptor.taskClassName());
-        ClientComputeJobPacker.packJobArgument(arg, taskDescriptor.splitJobArgumentMarshaller(), w);
+    private static void packTaskId(PayloadOutputChannel out, @Nullable UUID taskId) {
+        if (out.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.COMPUTE_TASK_ID)) {
+            out.out().packUuidNullable(taskId);
+        }
+    }
+
+    private <T, R> void packTask(PayloadOutputChannel w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        w.out().packDeploymentUnits(taskDescriptor.units());
+        w.out().packString(taskDescriptor.taskClassName());
+        ClientComputeJobPacker.packJobArgument(arg, taskDescriptor.splitJobArgumentMarshaller(), w.out(), getJobObservableTs(w));
+    }
+
+    private @Nullable Long getJobObservableTs(PayloadOutputChannel w) {
+        if (!w.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS)) {
+            return null;
+        }
+
+        return ch.observableTimestamp().getLong();
     }
 
     /**

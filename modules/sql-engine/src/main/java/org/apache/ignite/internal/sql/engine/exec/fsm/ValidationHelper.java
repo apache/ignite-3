@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -45,11 +46,7 @@ public final class ValidationHelper {
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
-        if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type. Expected {} but got {}.", allowedTypes, queryType);
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
+        validateQueryType(allowedTypes, queryType);
     }
 
     /** Performs validation of dynamic params provided. **/
@@ -70,6 +67,24 @@ public final class ValidationHelper {
 
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
+        }
+    }
+
+    /** Validates query type. */
+    static void validateQueryType(
+            Set<SqlQueryType> allowedTypes,
+            SqlQueryType queryType
+    ) {
+        if (!allowedTypes.contains(queryType)) {
+            String allowedTypesString = allowedTypes.stream()
+                    .map(SqlQueryType::displayName)
+                    .collect(Collectors.joining(", ", "[", "]"));
+
+            String message = format(
+                    "Statement of type \"{}\" is not allowed in current context [allowedTypes={}].",
+                    queryType.displayName(), allowedTypesString);
+
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
     }
 }

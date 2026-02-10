@@ -24,13 +24,14 @@ import java.util.Set;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.internal.wrapper.Wrapper;
 
 /**
  * {@link StorageEngine} that wraps storages it creates to perform thread assertions read/write operations.
  *
  * @see ThreadAssertions
  */
-public class ThreadAssertingStorageEngine implements StorageEngine {
+public class ThreadAssertingStorageEngine implements StorageEngine, Wrapper {
     private final StorageEngine storageEngine;
 
     /** Constructor. */
@@ -74,9 +75,19 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
     }
 
     @Override
+    public long requiredOffHeapMemorySize() {
+        return storageEngine.requiredOffHeapMemorySize();
+    }
+
+    @Override
     public Set<Integer> tableIdsOnDisk() {
         assertThreadAllowsToRead();
 
         return storageEngine.tableIdsOnDisk();
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return classToUnwrap.cast(storageEngine);
     }
 }

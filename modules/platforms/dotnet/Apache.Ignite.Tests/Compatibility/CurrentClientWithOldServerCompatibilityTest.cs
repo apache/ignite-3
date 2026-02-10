@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Common;
 using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
@@ -34,6 +35,7 @@ using NUnit.Framework;
 using TestHelpers;
 
 [TestFixture("3.0.0")]
+[Category(TestUtils.CategoryIntensive)]
 public class CurrentClientWithOldServerCompatibilityTest
 {
     private const string TableNameTest = "TEST";
@@ -75,8 +77,11 @@ public class CurrentClientWithOldServerCompatibilityTest
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
-        _client.Dispose();
-        _javaServer.Dispose();
+        // ReSharper disable ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
+        _client?.Dispose();
+        _javaServer?.Dispose();
+
+        // ReSharper restore ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
         _workDir.Dispose();
     }
 
@@ -134,7 +139,7 @@ public class CurrentClientWithOldServerCompatibilityTest
         ITable? table = await _client.Tables.GetTableAsync(TableNameTest);
         Assert.IsNotNull(table);
 
-        IReadOnlyDictionary<IPartition, IClusterNode> primaryReplicas = await table.PartitionManager.GetPrimaryReplicasAsync();
+        IReadOnlyDictionary<IPartition, IClusterNode> primaryReplicas = await table.PartitionDistribution.GetPrimaryReplicasAsync();
         Assert.AreEqual(25, primaryReplicas.Count);
 
         var clusterNode = _client.GetConnections().Select(x => x.Node).First();

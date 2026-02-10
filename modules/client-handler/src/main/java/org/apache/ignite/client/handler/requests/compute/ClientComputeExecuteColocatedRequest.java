@@ -21,17 +21,26 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJob;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackTaskId;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.COMPUTE_TASK_ID;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientContext;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ExecutionContext;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
+import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
@@ -47,7 +56,7 @@ public class ClientComputeExecuteColocatedRequest {
      * @param tables Tables.
      * @param cluster Cluster service
      * @param notificationSender Notification sender.
-     * @param enablePlatformJobs Enable platform jobs.
+     * @param clientContext Client context.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -56,24 +65,36 @@ public class ClientComputeExecuteColocatedRequest {
             IgniteTables tables,
             ClusterService cluster,
             NotificationSender notificationSender,
-            boolean enablePlatformJobs) {
+            ClientContext clientContext
+    ) {
         int tableId = in.unpackInt();
         int schemaId = in.unpackInt();
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
 
-        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
+        boolean enablePlatformJobs = clientContext.hasFeature(PLATFORM_COMPUTE_JOB);
+        boolean enableObservableTs = clientContext.hasFeature(COMPUTE_OBSERVABLE_TS);
+        Job job = unpackJob(in, enablePlatformJobs, enableObservableTs);
+        unpackTaskId(in, clientContext.hasFeature(COMPUTE_TASK_ID)); // Placeholder for a possible future usage
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
+                    ComputeEventMetadataBuilder metadataBuilder = ComputeEventMetadata.builder(Type.SINGLE)
+                            .eventUser(clientContext.userDetails())
+                            .tableName(table.name())
+                            .clientAddress(clientContext.remoteAddress().toString());
+
                     CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                             table,
                             keyTuple,
-                            job.deploymentUnits(),
-                            job.jobClassName(),
-                            job.options(),
-                            job.arg(),
+                            new ExecutionContext(
+                                    job.options(),
+                                    job.deploymentUnits(),
+                                    job.jobClassName(),
+                                    metadataBuilder,
+                                    job.arg()
+                            ),
                             null
                     );
 

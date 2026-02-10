@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Listener that gets called after a new Raft group leader has been elected.
@@ -29,5 +29,5 @@ public interface LeaderElectionListener {
      * @param leader New leader node.
      * @param term New leader term.
      */
-    void onLeaderElected(ClusterNode leader, long term);
+    void onLeaderElected(InternalClusterNode leader, long term);
 }

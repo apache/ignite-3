@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
@@ -45,23 +45,10 @@ public class ClientFutureUtilsTest {
     public void testDoWithRetryAsyncWithCompletedFutureReturnsResult() {
         var res = ClientFutureUtils.doWithRetryAsync(
                 () -> CompletableFuture.completedFuture("test"),
-                null,
                 ctx -> false
         ).join();
 
         assertEquals("test", res);
-    }
-
-    @Test
-    public void testDoWithRetryAsyncWithResultValidatorRejectsAllThrowsIllegalState() {
-        var fut = ClientFutureUtils.doWithRetryAsync(
-                () -> CompletableFuture.completedFuture("test"),
-                x -> false,
-                ctx -> false
-        );
-
-        var ex = assertThrows(CompletionException.class, fut::join);
-        assertSame(IllegalStateException.class, ex.getCause().getClass());
     }
 
     @Test
@@ -70,7 +57,6 @@ public class ClientFutureUtilsTest {
 
         var fut = ClientFutureUtils.doWithRetryAsync(
                 () -> CompletableFuture.failedFuture(new Exception("fail_" + counter.get())),
-                null,
                 ctx -> counter.incrementAndGet() < 3
         );
 
@@ -92,7 +78,6 @@ public class ClientFutureUtilsTest {
                 () -> counter.getAndIncrement() < 3
                         ? CompletableFuture.failedFuture(new Exception("fail"))
                         : CompletableFuture.completedFuture("test"),
-                null,
                 ctx -> {
                     assertNotNull(ctx.lastError());
 
@@ -118,11 +103,49 @@ public class ClientFutureUtilsTest {
                         return CompletableFuture.failedFuture(new Exception("fail2"));
                     }
                 },
-                null,
                 ctx -> true
         );
 
         var ex = assertThrows(CompletionException.class, fut::join);
         assertEquals("fail1", ex.getCause().getMessage());
+    }
+
+    @Test
+    public void testDoWithRetryAsyncPreventsDuplicatesAndSelfReferenceInSuppressedExceptions() {
+        var counter = new AtomicInteger();
+
+        var ex1 = new Exception("1");
+        var ex2 = new Exception("2");
+
+        var fut = ClientFutureUtils.doWithRetryAsync(
+                () -> {
+                    switch (counter.get()) {
+                        case 0: // Self.
+                            return CompletableFuture.failedFuture(ex1);
+
+                        case 1: // Other.
+                            return CompletableFuture.failedFuture(ex2);
+
+                        case 2: // Self wrapped.
+                            return CompletableFuture.failedFuture(new Exception(ex1));
+
+                        case 3: // Other wrapped.
+                            return CompletableFuture.failedFuture(new Exception(ex2));
+
+                        default:
+                            return CompletableFuture.failedFuture(new Exception("Other"));
+                    }
+                },
+                ctx -> counter.incrementAndGet() < 4
+        );
+
+        var completionEx = assertThrows(CompletionException.class, fut::join);
+        var ex = (Exception) completionEx.getCause();
+
+        assertEquals(ex1, ex, "Expected the first exception to be the main one.");
+
+        Throwable[] suppressed = ex.getSuppressed();
+        assertEquals(1, suppressed.length, "Should not have duplicate suppressed exceptions.");
+        assertEquals(ex2, unwrapCause(suppressed[0]));
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
@@ -45,6 +46,12 @@ public class MultiStepPlan implements ExplainablePlan {
 
     private final @Nullable QueryPlan fastPlan;
 
+    private final int numSources;
+
+    private final PartitionAwarenessMetadata partitionAwarenessMetadata;
+
+    private final PartitionPruningMetadata partitionPruningMetadata;
+
     /** Constructor. */
     public MultiStepPlan(
             PlanId id,
@@ -53,7 +60,10 @@ public class MultiStepPlan implements ExplainablePlan {
             ResultSetMetadata meta,
             ParameterMetadata parameterMetadata,
             int catalogVersion,
-            @Nullable QueryPlan fastPlan
+            int numSources,
+            @Nullable QueryPlan fastPlan,
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata,
+            @Nullable PartitionPruningMetadata partitionPruningMetadata
     ) {
         this.id = id;
         this.type = type;
@@ -62,6 +72,9 @@ public class MultiStepPlan implements ExplainablePlan {
         this.parameterMetadata = parameterMetadata;
         this.catalogVersion = catalogVersion;
         this.fastPlan = fastPlan;
+        this.numSources = numSources;
+        this.partitionAwarenessMetadata = partitionAwarenessMetadata;
+        this.partitionPruningMetadata = partitionPruningMetadata;
     }
 
     /** {@inheritDoc} */
@@ -85,7 +98,19 @@ public class MultiStepPlan implements ExplainablePlan {
     /** {@inheritDoc} */
     @Override
     public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
-        return null;
+        return partitionAwarenessMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return partitionPruningMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int numSources() {
+        return numSources;
     }
 
     /** {@inheritDoc} */

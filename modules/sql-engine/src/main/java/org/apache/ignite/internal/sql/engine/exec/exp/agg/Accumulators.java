@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
-import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
@@ -27,11 +26,14 @@ import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
-import org.apache.calcite.DataContexts;
+import java.util.stream.Collectors;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
@@ -39,9 +41,10 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
+import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
@@ -60,7 +63,7 @@ public class Accumulators {
     private final IgniteTypeFactory typeFactory;
 
     /**
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-15859 Documentation.
      */
     public Accumulators(IgniteTypeFactory typeFactory) {
         this.typeFactory = typeFactory;
@@ -69,11 +72,11 @@ public class Accumulators {
     /**
      * Returns a supplier that creates a accumulator functions for the given aggregate call.
      */
-    public Supplier<Accumulator> accumulatorFactory(AggregateCall call, RelDataType inputType) {
-        return accumulatorFunctionFactory(call, inputType);
+    public Supplier<Accumulator> accumulatorFactory(DataContext context, AggregateCall call, RelDataType inputType) {
+        return accumulatorFunctionFactory(context, call, inputType);
     }
 
-    private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call, RelDataType inputType) {
+    private Supplier<Accumulator> accumulatorFunctionFactory(DataContext context, AggregateCall call, RelDataType inputType) {
         // Update documentation in IgniteCustomType when you add an aggregate
         // that can work for any type out of the box.
         switch (call.getAggregation().getName()) {
@@ -93,15 +96,18 @@ public class Accumulators {
                 return minMaxFactory(false, call);
             case "SINGLE_VALUE":
                 return singleValueFactory(call);
+            case "SAME_VALUE":
+                return sameValueFactory(call);
             case "ANY_VALUE":
                 return anyValueFactory(call);
             case "LITERAL_AGG":
                 assert call.rexList.size() == 1 : "Incorrect number of pre-operands for LiteralAgg: " + call + ", input: " + inputType;
                 RexNode lit = call.rexList.get(0);
                 assert lit instanceof RexLiteral : "Non-literal argument for LiteralAgg: " + call + ", argument: " + lit;
-                assert lit.getType().getSqlTypeName() == BOOLEAN : "Unsupported argument for LiteralAgg: " + call + ", argument: " + lit;
 
-                return LiteralVal.newAccumulator((RexLiteral) lit);
+                return LiteralVal.newAccumulator(context, (RexLiteral) lit);
+            case "GROUPING":
+                return groupingFactory(call);
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -189,9 +195,7 @@ public class Accumulators {
             case VARBINARY:
                 return min ? VarBinaryMinMax.MIN_FACTORY : VarBinaryMinMax.MAX_FACTORY;
             default:
-                if (type instanceof IgniteCustomType) {
-                    return MinMaxAccumulator.newAccumulator(min, typeFactory, type);
-                } else if (type.getSqlTypeName() == ANY) {
+                if (type.getSqlTypeName() == ANY) {
                     throw unsupportedAggregateFunction(call);
                 } else {
                     return MinMaxAccumulator.newAccumulator(min, typeFactory, type);
@@ -202,21 +206,100 @@ public class Accumulators {
     private Supplier<Accumulator> singleValueFactory(AggregateCall call) {
         RelDataType type = call.getType();
 
-        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+        if (type.getSqlTypeName() == ANY) {
             throw unsupportedAggregateFunction(call);
         }
 
         return SingleVal.newAccumulator(type);
     }
 
+    private Supplier<Accumulator> sameValueFactory(AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return SameVal.newAccumulator(type);
+    }
+
     private Supplier<Accumulator> anyValueFactory(AggregateCall call) {
         RelDataType type = call.getType();
 
-        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+        if (type.getSqlTypeName() == ANY) {
             throw unsupportedAggregateFunction(call);
         }
 
         return AnyVal.newAccumulator(type);
+    }
+
+    private Supplier<Accumulator> groupingFactory(AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return GroupingAccumulator.newAccumulator(call.getArgList());
+    }
+
+    /**
+     * {@code GROUPING(column [, ...])} accumulator. Pseudo accumulator that accepts group key columns set.
+     */
+    public static class GroupingAccumulator implements Accumulator {
+        private final List<Integer> argList;
+
+        public static Supplier<Accumulator> newAccumulator(List<Integer> argList) {
+            return () -> new GroupingAccumulator(argList);
+        }
+
+        private GroupingAccumulator(List<Integer> argList) {
+            if (argList.isEmpty()) {
+                throw new IllegalArgumentException("GROUPING function must have at least one argument.");
+            }
+
+            if (argList.size() >= Long.SIZE) {
+                throw new IllegalArgumentException("GROUPING function with more than 63 arguments is not supported.");
+            }
+
+            this.argList = argList;
+        }
+
+        @Override
+        public void add(AccumulatorsState state, Object[] args) {
+            throw new UnsupportedOperationException("This method should not be called.");
+        }
+
+        @Override
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            ImmutableBitSet groupKey = (ImmutableBitSet) state.get();
+
+            if (groupKey == null) {
+                throw new IllegalStateException("Invalid accumulator state");
+            }
+
+            long res = 0;
+            long bit = 1L << (argList.size() - 1);
+            for (Integer col : argList) {
+                res += groupKey.get(col) ? bit : 0L;
+                bit >>= 1;
+            }
+
+            result.set(res);
+            state.set(null);
+        }
+
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return argList.stream()
+                    .map(i -> typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), true))
+                    .collect(Collectors.toList());
+        }
+
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return typeFactory.createSqlType(BIGINT);
+        }
     }
 
     /**
@@ -267,6 +350,88 @@ public class Accumulators {
     }
 
     /**
+     * {@code SAME_VALUE(SUBQUERY)} accumulator. Pseudo accumulator that returns a first value produced by a subquery and an error if
+     * subsequent values produced by the subquery differs from that first value.
+     */
+    public static class SameVal implements Accumulator {
+
+        private final RelDataType type;
+
+        /** Creates a factory for SameVal accumulator. */
+        public static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            if (SqlTypeUtil.isBinary(type)) {
+                return () -> new SameBinaryVal(type);
+            } else {
+                return () -> new SameVal(type);
+            }
+        }
+
+        private SameVal(RelDataType type) {
+            this.type = type;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void add(AccumulatorsState state, Object... args) {
+            assert args.length == 1;
+
+            if (state.hasValue()) {
+                Object current = state.get();
+                if (!compareValues(current, args[0])) {
+                    throw new SqlException(Sql.RUNTIME_ERR, "Subquery produced different values.");
+                }
+            } else {
+                state.set(args[0]);
+            }
+        }
+
+        protected boolean compareValues(@Nullable Object current, @Nullable Object newValue) {
+            return Objects.equals(current, newValue);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void end(AccumulatorsState state, AccumulatorsState result) {
+            result.set(state.get());
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createTypeWithNullability(typeFactory.createSqlType(ANY), true));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return type;
+        }
+    }
+
+    /**
+     * {@code SAME_VALUE} accumulator for binary types.
+     *
+     * @see SameVal
+     */
+    private static final class SameBinaryVal extends SameVal {
+
+        private SameBinaryVal(RelDataType type) {
+            super(type);
+        }
+
+        @Override
+        protected boolean compareValues(@Nullable Object current, @Nullable Object newValue) {
+            if (newValue != null && current != null) {
+                byte[] argBytes = (byte[]) newValue;
+                byte[] currentBytes = (byte[]) current;
+                return Arrays.equals(argBytes, currentBytes);
+            } else {
+                return super.compareValues(current, newValue);
+            }
+        }
+    } 
+
+    /**
      * {@code LITERAL_AGG} accumulator. Pseudo accumulator that accepts a single literal as an operand and returns that literal.
      *
      * @see SqlLiteralAggFunction
@@ -288,12 +453,12 @@ public class Accumulators {
          * @param literal Literal.
          * @return Accumulator factory function.
          */
-        public static Supplier<Accumulator> newAccumulator(RexLiteral literal) {
+        public static Supplier<Accumulator> newAccumulator(DataContext context, RexLiteral literal) {
             Class<?> javaClass = (Class<?>) Commons.typeFactory().getJavaClass(literal.getType());
             if (javaClass.isPrimitive()) {
                 javaClass = Primitives.wrap(javaClass);
             }
-            Object value = RexUtils.literalValue(DataContexts.EMPTY, literal, javaClass);
+            Object value = RexUtils.literalValue(context, literal, javaClass);
 
             return () -> new LiteralVal(literal.getType(), value);
         }

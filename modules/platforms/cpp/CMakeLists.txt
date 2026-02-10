@@ -17,13 +17,15 @@
 
 cmake_minimum_required(VERSION 3.18)
 
+include(CMakePackageConfigHelpers)
+
 file(READ _version.txt IGNITE_VERSION)
 if(NOT DEFINED IGNITE_VERSION)
   set(IGNITE_VERSION 3.0.0)
   message(WARNING "Failed to read version from _version.txt file. Using default version \"${IGNITE_VERSION}\".")
 endif()
 
-project(Ignite.C++ VERSION ${IGNITE_VERSION} LANGUAGES CXX)
+project(ignite3 VERSION ${IGNITE_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,10 +37,12 @@ option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
 option(ENABLE_ODBC "Build Ignite ODBC driver module" OFF)
 option(ENABLE_PROTOCOL "Build Ignite Protocol library" ON)
 option(ENABLE_TESTS "Build Ignite.C++ tests" OFF)
+option(ENABLE_COMPATIBILITY_TESTS "Build Ignite.C++ compatibility tests" OFF)
 option(ENABLE_ADDRESS_SANITIZER "If address sanitizer is enabled" OFF)
 option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
+option(ENABLE_IWYU "Enable include-what-you-use tool" OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
@@ -46,9 +50,17 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
+set(IGNITE_CMAKE_TOP_DIR ${CMAKE_CURRENT_LIST_DIR})
+
 include(dependencies)
-if(${INSTALL_IGNITE_FILES})
-    set(CMAKE_INSTALL_PREFIX ${IGNITE_INSTALL_DESTINATION})
+
+if(ENABLE_IWYU)
+    find_program(IWYU_PATH NAMES include-what-you-use iwyu)
+    if(NOT IWYU_PATH)
+        message(FATAL_ERROR "Could not find the program include-what-you-use")
+    endif()
+    set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
+    set(CMAKE_C_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
 endif()
 
 # Configure build paths.
@@ -73,9 +85,10 @@ else()
 endif()
 
 set(IGNITE_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
-if(${INSTALL_IGNITE_FILES})
-    message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
-endif()
+
+include(cmake/packaging.cmake)
+include(CPack)
+
 message(STATUS "IGNITE_INCLUDEDIR=${IGNITE_INCLUDEDIR}")
 include(ignite_install_headers)
 
@@ -144,16 +157,21 @@ endif()
 
 # Add integration tests.
 if (${ENABLE_TESTS})
-    if (${ENABLE_CLIENT} OR ${ENABLE_ODBC})
+    if (${ENABLE_CLIENT} OR ${ENABLE_ODBC} OR ${ENABLE_COMPATIBILITY_TESTS})
         add_subdirectory(tests/test-common)
     endif()
 
     if (${ENABLE_CLIENT})
         add_subdirectory(tests/client-test)
+        add_subdirectory(tests/fake_server)
     endif()
 
     if (${ENABLE_ODBC})
         add_subdirectory(tests/odbc-test)
+    endif()
+
+    if (${ENABLE_COMPATIBILITY_TESTS})
+        add_subdirectory(tests/compatibility-tests)
     endif()
 endif()
 
@@ -172,3 +190,36 @@ if (CLANG_FORMAT_BIN)
 else()
     message(STATUS "Failed to find clang-format. So there is no 'format' target now.")
 endif()
+
+if (${ENABLE_CLIENT})
+    list(APPEND IGNITE_AVAILABLE_COMPONENTS client)
+endif()
+if (${ENABLE_ODBC})
+    list(APPEND IGNITE_AVAILABLE_COMPONENTS odbc)
+endif()
+
+configure_package_config_file(
+    "cmake/ignite-config.cmake.in"
+    "cmake/ignite-config.cmake"
+    INSTALL_DESTINATION "cmake"
+)
+
+add_subdirectory(pkgconfig)
+
+write_basic_package_version_file(
+    "cmake/ignite-config-version.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config-version.cmake"
+    COMPONENT client
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+)
+
+# Do not export the package by default
+cmake_policy(SET CMP0090 NEW)
+
+# Make this package visible to the system
+export(PACKAGE ignite)

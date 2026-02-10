@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JS
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Delete;
 import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.QueryValue;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,6 +31,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Collection;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
@@ -103,5 +106,22 @@ public interface SqlQueryApi {
     @Delete("queries/{queryId}")
     CompletableFuture<Void> killQuery(
             @Schema(name = "queryId", description = "The unique identifier of the sql query.", requiredMode = REQUIRED) UUID queryId
+    );
+
+    /**
+     * Invalidates SQL query planner cache.
+     *
+     * @return The result of the operation.
+     */
+    @Operation(
+            summary = "Invalidates SQL planner cache.",
+            description = "Invalidates SQL planner cache records on node that related to provided table names.")
+    @ApiResponse(responseCode = "200", description = "Successfully cleared SQL query plan cache.")
+    @Get("plan/clear-cache")
+    CompletableFuture<Void> clearCache(
+            @QueryValue
+            @Schema(description = "SQL query plans, which are related to given tables, will be evicted from cache. Case-sensitive, "
+                    + "cache will be reset if empty.")
+            Optional<Set<String>> tableNames
     );
 }

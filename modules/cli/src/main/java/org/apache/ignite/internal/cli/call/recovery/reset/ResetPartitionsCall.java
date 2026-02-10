@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cli.call.recovery.reset;
 
-import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
-
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -26,7 +24,6 @@ import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.ResetPartitionsRequest;
 import org.apache.ignite.rest.client.model.ResetZonePartitionsRequest;
 
 /** Call to reset partitions. */
@@ -43,22 +40,12 @@ public class ResetPartitionsCall implements Call<ResetPartitionsCallInput, Strin
         RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
         try {
-            if (nullOrEmpty(input.tableName())) {
-                ResetZonePartitionsRequest command = new ResetZonePartitionsRequest();
+            ResetZonePartitionsRequest command = new ResetZonePartitionsRequest();
 
-                command.setPartitionIds(input.partitionIds());
-                command.setZoneName(input.zoneName());
+            command.setPartitionIds(input.partitionIds());
+            command.setZoneName(input.zoneName());
 
-                client.resetZonePartitions(command);
-            } else {
-                ResetPartitionsRequest command = new ResetPartitionsRequest();
-
-                command.setPartitionIds(input.partitionIds());
-                command.setTableName(input.tableName());
-                command.setZoneName(input.zoneName());
-
-                client.resetPartitions(command);
-            }
+            client.resetZonePartitions(command);
 
             return DefaultCallOutput.success("Successfully reset partitions.");
         } catch (ApiException e) {

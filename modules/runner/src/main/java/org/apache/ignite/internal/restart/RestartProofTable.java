@@ -28,6 +28,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionDistribution;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
@@ -81,9 +82,14 @@ class RestartProofTable implements Table, Wrapper {
                 ignite -> new RestartProofPartitionManager(
                         attachmentLock,
                         ignite,
-                        currentIgnite -> tableCache.actualFor(currentIgnite).partitionManager()
+                        currentIgnite -> tableCache.actualFor(currentIgnite).partitionDistribution()
                 )
         );
+    }
+
+    @Override
+    public PartitionDistribution partitionDistribution() {
+        return partitionManager();
     }
 
     @Override

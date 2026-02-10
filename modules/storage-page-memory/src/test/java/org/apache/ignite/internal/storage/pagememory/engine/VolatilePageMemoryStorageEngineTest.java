@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -40,6 +41,9 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
     @InjectConfiguration("mock.profiles.default.engine = aimem")
     private StorageConfiguration storageConfig;
 
+    @InjectConfiguration
+    SystemLocalConfiguration systemConfig;
+
     @Override
     protected StorageEngine createEngine() {
         return createEngine(storageConfig);
@@ -53,18 +57,11 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
         return new VolatilePageMemoryStorageEngine(
                 "test",
                 configuration,
+                systemConfig,
                 ioRegistry,
                 mock(FailureManager.class),
                 clock
         );
-    }
-
-    @Test
-    void dataRegionSizeGetsInitialized() {
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-            assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-        }
     }
 
     @Test
@@ -80,20 +77,7 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
             assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(123000L));
             assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(12345000L));
         }
-    }
 
-    @Test
-    void initSizeSetToMaxSizeByDefault(
-            @InjectConfiguration("mock.profiles.default {engine = aimem, maxSizeBytes = 12345000}")
-            StorageConfiguration storageConfig
-    ) {
-        StorageEngine anotherEngine = createEngine(storageConfig);
-
-        anotherEngine.start();
-
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(12345000L));
-            assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(12345000L));
-        }
+        assertThat(anotherEngine.requiredOffHeapMemorySize(), is(12345000L));
     }
 }

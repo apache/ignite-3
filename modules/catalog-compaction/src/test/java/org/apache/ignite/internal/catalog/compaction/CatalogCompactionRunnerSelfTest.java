@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.catalog.compaction;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -94,14 +94,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
@@ -117,8 +118,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.logging.log4j.Level;
 import org.awaitility.Awaitility;
@@ -145,7 +144,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     private static final List<LogicalNode> logicalNodes = List.of(NODE1, NODE2, NODE3);
     private static final Pattern CATALOG_COMPACTION_ITERATION_HAS_FAILED = Pattern.compile(".*Catalog compaction iteration has failed.*");
 
-    private final AtomicReference<ClusterNode> coordinatorNodeHolder = new AtomicReference<>();
+    private final AtomicReference<InternalClusterNode> coordinatorNodeHolder = new AtomicReference<>();
 
     private DummyPrimaryAffinity primaryAffinity = new DummyPrimaryAffinity(logicalNodes);
 
@@ -177,15 +176,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
 
         Map<String, Long> nodeToTime = Map.of(
@@ -204,7 +203,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         expectEarliestVersion("Compaction should have been triggered", is(expectedEarliestCatalogVersion));
 
         verify(messagingService, times(logicalNodes.size() - 1))
-                .invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong());
+                .invoke(any(InternalClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong());
 
         // Nothing should be changed if catalog already compacted for previous timestamp.
         compactionRunner.triggerCompaction(clockService.now());
@@ -232,15 +231,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
         int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
@@ -281,15 +280,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
         int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
@@ -328,15 +327,15 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog2 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog2 = catalogManager.latestCatalog();
         assertNotNull(catalog2);
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog3 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog3 = catalogManager.latestCatalog();
         assertNotNull(catalog3);
         int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
@@ -408,7 +407,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
 
         // Still send messages to propagate min time to replicas.
-        verify(messagingService, times(logicalNodes.size() - 1)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
+        verify(messagingService, times(logicalNodes.size() - 1))
+                .invoke(any(InternalClusterNode.class), any(NetworkMessage.class), anyLong());
     }
 
     @Test
@@ -431,13 +431,13 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(command), willCompleteSuccessfully());
         assertThat(catalogManager.execute(createIndex), willCompleteSuccessfully());
 
-        Catalog firstCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog firstCatalog = catalogManager.latestCatalog();
         CatalogIndexDescriptor index = firstCatalog.indexes().stream().filter(idx -> "T1_VAL_IDX".equals(idx.name()))
                 .findFirst()
                 .orElseThrow();
         int indexId = index.id();
 
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         // ConcurrentMap so we can modify it as we go.
@@ -465,7 +465,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         // Advances time, so nodes can observe the latest catalog time at the moment.
         Runnable advanceTime = () -> {
-            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+            Catalog catalog = catalogManager.latestCatalog();
             long latestTime = catalog.time();
 
             nodeToTime.put(NODE1.name(), latestTime);
@@ -535,7 +535,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
 
         // Still send messages to propagate min time to replicas.
-        verify(messagingService, times(logicalNodes.size() - 1)).invoke(any(ClusterNode.class), any(NetworkMessage.class), anyLong());
+        verify(messagingService, times(logicalNodes.size() - 1))
+                .invoke(any(InternalClusterNode.class), any(NetworkMessage.class), anyLong());
     }
 
     @Test
@@ -553,7 +554,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         long time = catalog1.time();
@@ -586,7 +587,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertEquals(firstVersion, catalogManager.earliestCatalogVersion());
 
             verify(messagingService, times(logicalNodes.size() - 1))
-                    .invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong());
         }
 
         // Make all partitions available, so the compaction takes place.
@@ -617,7 +618,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
 
         assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
-        Catalog catalog1 = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog1 = catalogManager.latestCatalog();
         assertNotNull(catalog1);
 
         long time = catalog1.time();
@@ -651,7 +652,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertEquals(firstVersion, catalogManager.earliestCatalogVersion());
 
             verify(messagingService, times(logicalNodes.size() - 1))
-                    .invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong());
+                    .invoke(any(InternalClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong());
         }
 
         // Make all partitions available, so the compaction takes place.
@@ -860,7 +861,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         List<LogicalNode> assignments = List.of(NODE1, NODE2, NODE3);
         LogicalNode coordinator = NODE1;
 
-        int replicationGroupsMultiplier = colocationEnabled() ? /* zones */1 : /* tables */ 3;
+        int replicationGroupsMultiplier = /* zones */1;
 
         {
             CatalogCompactionRunner compactor = createRunner(NODE1, coordinator, (n) -> catalog.time(), logicalTopology, assignments);
@@ -900,7 +901,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         Catalog catalog = prepareCatalogWithTables();
         CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalNodes, logicalNodes);
 
-        when(messagingService.send(any(ClusterNode.class), any(CatalogCompactionPrepareUpdateTxBeginTimeMessage.class)))
+        when(messagingService.send(any(InternalClusterNode.class), any(CatalogCompactionPrepareUpdateTxBeginTimeMessage.class)))
                 .thenReturn(CompletableFuture.failedFuture(new NodeStoppingException("This is expected")));
 
         LogInspector logInspector = new LogInspector(
@@ -941,13 +942,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             assertThat(compactor.propagateTimeToLocalReplicas(catalog.time()), willCompleteSuccessfully());
 
-            if (colocationEnabled()) {
-                verify(replicaService, times(/* zones */ 1 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
-                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
-            } else {
-                verify(replicaService, times(/* tables */ 3 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
-                        .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
-            }
+            verify(replicaService, times(/* zones */ 1 * /* partitions */ (CatalogUtils.DEFAULT_PARTITION_COUNT - /* skipped */ 1)))
+                    .invoke(eq(NODE1.name()), any(ReplicaRequest.class));
         }
 
         {
@@ -1103,7 +1099,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(expectedCompactionErr));
 
-        when(messagingService.send(any(ClusterNode.class), any(NetworkMessage.class)))
+        when(messagingService.send(any(InternalClusterNode.class), any(NetworkMessage.class)))
                 .thenReturn(CompletableFuture.failedFuture(expectedPropagationErr));
 
         compactor.triggerCompaction(clockService.now());
@@ -1150,8 +1146,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     }
 
     private CatalogCompactionRunner createRunner(
-            ClusterNode localNode,
-            ClusterNode coordinator,
+            InternalClusterNode localNode,
+            InternalClusterNode coordinator,
             Function<String, Long> timeSupplier
     ) {
         return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), logicalNodes, logicalNodes,
@@ -1159,8 +1155,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     }
 
     private CatalogCompactionRunner createRunner(
-            ClusterNode localNode,
-            ClusterNode coordinator,
+            InternalClusterNode localNode,
+            InternalClusterNode coordinator,
             Function<String, Long> timeSupplier,
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes
@@ -1170,8 +1166,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     }
 
     private CatalogCompactionRunner createRunner(
-            ClusterNode localNode,
-            ClusterNode coordinator,
+            InternalClusterNode localNode,
+            InternalClusterNode coordinator,
             MinTimeSupplier timeSupplier,
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes,
@@ -1191,9 +1187,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 catalogManager, clockService, messagesFactory, timeSupplier, coordinator.name()
         );
 
-        when(messagingService.invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong()))
+        when(messagingService.invoke(any(InternalClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong()))
                 .thenAnswer(invocation -> CompletableFuture.supplyAsync(() -> {
-                    String nodeName = ((ClusterNode) invocation.getArgument(0)).name();
+                    String nodeName = ((InternalClusterNode) invocation.getArgument(0)).name();
 
                     assertThat("Coordinator shouldn't send messages to himself",
                             nodeName, not(Matchers.equalTo(coordinatorNodeHolder.get().name())));
@@ -1201,8 +1197,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                     return minTimeCollector.reply(nodeName);
                 }));
 
-        when(messagingService.send(any(ClusterNode.class), any(NetworkMessage.class)))
-                .thenReturn(CompletableFuture.completedFuture(null));
+        when(messagingService.send(any(InternalClusterNode.class), any(NetworkMessage.class)))
+                .thenReturn(nullCompletedFuture());
 
         Set<Assignment> assignments = assignmentNodes.stream()
                 .map(node -> Assignment.forPeer(node.name()))
@@ -1241,7 +1237,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                             return null;
                         }));
 
-        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(CompletableFutures.nullCompletedFuture());
+        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(nullCompletedFuture());
 
         CatalogCompactionRunner runner = new CatalogCompactionRunner(
                 localNode.name(),
@@ -1253,7 +1249,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 clockService,
                 schemaSyncService,
                 topologyService,
-                new SystemPropertiesNodeProperties(),
+                new TestLowWatermark(),
                 clockService::nowLong,
                 minTimeCollector,
                 rebalanceMinimumRequiredTimeProvider
@@ -1319,7 +1315,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             List<AvailablePartitionsMessage> availablePartitions = new ArrayList<>();
 
-            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+            Catalog catalog = catalogManager.latestCatalog();
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 Entry<String, Integer> nodeTableId = Map.entry(nodeName, table.id());
@@ -1373,8 +1369,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             Long minTime = timeSupplier.minLocalTimeAtNode(coordinator);
             Map<TablePartitionId, Long> values = new HashMap<>();
 
-            int version = catalogManager.latestCatalogVersion();
-            Catalog catalog = catalogManager.catalog(version);
+            Catalog catalog = catalogManager.latestCatalog();
 
             for (CatalogTableDescriptor table : catalog.tables()) {
                 for (int i = 0; i < CatalogUtils.DEFAULT_PARTITION_COUNT; i++) {

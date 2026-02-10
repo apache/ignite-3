@@ -20,12 +20,12 @@ package org.apache.ignite.internal.eventlog.event;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.exception.NotUniqueEventTypeException;
 
 /**
  * Registry of all event types that are known to the system. Every new event type must be registered in this registry once. For the example
- * of usage, see {@link IgniteEvents}. The class is thread-safe.
+ * of usage, see {@link IgniteEventType}. The class is thread-safe.
  */
 public final class EventTypeRegistry {
     private static final Object DUMMY = new Object();

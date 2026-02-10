@@ -24,7 +24,6 @@ public enum CompoundConditionType {
     AND(0),
     OR(1);
 
-
     private final int id;
 
     CompoundConditionType(int id) {

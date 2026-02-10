@@ -33,6 +33,7 @@ public enum MigrationMode {
     /**
      * Any additional columns/fields in the cache record will be serialized to JSON and stored in the `__EXTRA__` column.
      * This is an additional column that the tool adds to the table, it is not a native feature.
+     *
      * <p>This mode will allow to leverage the <i>IgniteAdapter.Builder#allowExtraFields</i> feature in the adapter module.</p>
      */
     PACK_EXTRA

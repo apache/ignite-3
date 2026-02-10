@@ -146,7 +146,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId,
             int catalogVersion
     ) {
@@ -163,7 +163,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            AddWriteResult result = mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            AddWriteResult result = mvPartitionStorage.addWrite(rowId, row, txId, commitZoneId, commitPartitionId);
 
             if (result.status() == AddWriteResultStatus.TX_MISMATCH) {
                 throw new TxIdMismatchException(result.currentWriteIntentTxId(), txId);
@@ -259,6 +259,11 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
     @Override
     public void updateLowWatermark(HybridTimestamp newLowWatermark) {
         lowWatermark.updateLowWatermark(newLowWatermark);
+    }
+
+    @Override
+    public boolean isVolatile() {
+        return mvTableStorage.isVolatile();
     }
 
     private MvPartitionStorage getMvPartitionStorage() {

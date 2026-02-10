@@ -26,13 +26,15 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.core.NodeImpl.ReadIndexHeartbeatResponseClosure;
+import org.apache.ignite.raft.jraft.core.NodeImpl.QuorumConfirmedHeartbeatResponseClosure;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderResponse;
 import org.apache.ignite.raft.jraft.rpc.InvokeContext;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
@@ -161,7 +163,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
      * @return True if the read index request.
      */
     private static boolean isReadIndexRequest(RpcResponseClosure<AppendEntriesResponse> doneClosure) {
-        return doneClosure instanceof ReadIndexHeartbeatResponseClosure;
+        return doneClosure instanceof QuorumConfirmedHeartbeatResponseClosure;
     }
 
     @Override
@@ -194,6 +196,12 @@ public class DefaultRaftClientService extends AbstractClientService implements R
     @Override
     public Future<Message> readIndex(final PeerId peerId, final ReadIndexRequest request, final int timeoutMs,
         final RpcResponseClosure<ReadIndexResponse> done) {
+        return invokeWithDone(peerId, request, done, timeoutMs);
+    }
+
+    @Override
+    public Future<Message> getLeaderAndTerm( PeerId peerId, GetLeaderRequest request, int timeoutMs,
+            RpcResponseClosure<GetLeaderResponse> done) {
         return invokeWithDone(peerId, request, done, timeoutMs);
     }
 

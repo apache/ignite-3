@@ -4,52 +4,49 @@ Sort
     est: (rows=100)
   Project
       fieldNames: [SS_CUSTOMER_SK, RATIO, STORE_QTY, STORE_WHOLESALE_COST, STORE_SALES_PRICE, OTHER_CHAN_QTY, OTHER_CHAN_WHOLESALE_COST, OTHER_CHAN_SALES_PRICE]
-      projection: [SS_CUSTOMER_SK, ROUND(/(SS_QTY, +(CASE(IS NOT NULL(WS_QTY), CAST(WS_QTY):BIGINT NOT NULL, 0:BIGINT), CASE(IS NOT NULL(CS_QTY), CAST(CS_QTY):BIGINT NOT NULL, 0:BIGINT))), 2), SS_QTY, SS_WC, SS_SP, +(CASE(IS NOT NULL(WS_QTY), CAST(WS_QTY):BIGINT NOT NULL, 0:BIGINT), CASE(IS NOT NULL(CS_QTY), CAST(CS_QTY):BIGINT NOT NULL, 0:BIGINT)), +(CASE(IS NOT NULL(WS_WC), CAST(WS_WC):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)), CASE(IS NOT NULL(CS_WC), CAST(CS_WC):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2))), +(CASE(IS NOT NULL(WS_SP), CAST(WS_SP):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)), CASE(IS NOT NULL(CS_SP), CAST(CS_SP):DECIMAL(32767, 2) NOT NULL, 0.00:DECIMAL(32767, 2)))]
-      est: (rows=174335870849843040000)
+      projection: [SS_CUSTOMER_SK, ROUND(/(SS_QTY, +(CASE(IS NOT NULL(WS_QTY), CAST(WS_QTY):BIGINT NOT NULL, 0:BIGINT), CASE(IS NOT NULL(CS_QTY), CAST(CS_QTY):BIGINT NOT NULL, 0:BIGINT))), 2), SS_QTY, SS_WC, SS_SP, +(CASE(IS NOT NULL(WS_QTY), CAST(WS_QTY):BIGINT NOT NULL, 0:BIGINT), CASE(IS NOT NULL(CS_QTY), CAST(CS_QTY):BIGINT NOT NULL, 0:BIGINT)), +(CASE(IS NOT NULL(WS_WC), CAST(WS_WC):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2)), CASE(IS NOT NULL(CS_WC), CAST(CS_WC):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2))), +(CASE(IS NOT NULL(WS_SP), CAST(WS_SP):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2)), CASE(IS NOT NULL(CS_SP), CAST(CS_SP):DECIMAL(14, 2) NOT NULL, 0.00:DECIMAL(14, 2)))]
+      est: (rows=5169421725)
     Filter
-        predicate: OR(>(CASE(IS NOT NULL(WS_QTY), CAST(WS_QTY):BIGINT NOT NULL, 0:BIGINT), 0), >(CASE(IS NOT NULL(CS_QTY), CAST(CS_QTY):BIGINT NOT NULL, 0:BIGINT), 0))
-        est: (rows=174335870849843040000)
+        predicate: OR(>(CAST(WS_QTY):BIGINT NOT NULL, 0), >(CAST(CS_QTY):BIGINT NOT NULL, 0))
+        est: (rows=5169421725)
       MergeJoin
           predicate: AND(=(CS_SOLD_YEAR, SS_SOLD_YEAR), =(CS_ITEM_SK, SS_ITEM_SK), =(CS_CUSTOMER_SK, SS_CUSTOMER_SK))
           type: left
-          est: (rows=697343483399372100000)
+          est: (rows=20677686899)
         MergeJoin
             predicate: AND(=(WS_SOLD_YEAR, SS_SOLD_YEAR), =(WS_ITEM_SK, SS_ITEM_SK), =(WS_CUSTOMER_SK, SS_CUSTOMER_SK))
             type: left
-            est: (rows=362331281903755)
+            est: (rows=34778483)
           Sort
               collation: [SS_SOLD_YEAR ASC, SS_ITEM_SK ASC, SS_CUSTOMER_SK ASC]
-              est: (rows=757119798)
+              est: (rows=117019)
             ColocatedHashAggregate
                 fieldNames: [SS_SOLD_YEAR, SS_ITEM_SK, SS_CUSTOMER_SK, SS_QTY, SS_WC, SS_SP]
                 group: [SS_SOLD_YEAR, SS_ITEM_SK, SS_CUSTOMER_SK]
                 aggregation: [SUM(SS_QUANTITY), SUM(SS_WHOLESALE_COST), SUM(SS_SALES_PRICE)]
-                est: (rows=757119798)
+                est: (rows=117019)
               Project
                   fieldNames: [SS_SOLD_YEAR, SS_ITEM_SK, SS_CUSTOMER_SK, SS_QUANTITY, SS_WHOLESALE_COST, SS_SALES_PRICE]
                   projection: [D_YEAR, SS_ITEM_SK, SS_CUSTOMER_SK, SS_QUANTITY, SS_WHOLESALE_COST, SS_SALES_PRICE]
-                  est: (rows=1551474997)
-                MergeJoin
+                  est: (rows=239794)
+                HashJoin
                     predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
                     type: inner
-                    est: (rows=1551474997)
+                    est: (rows=239794)
                   Filter
                       predicate: IS NULL(SR_TICKET_NUMBER)
-                      est: (rows=4659084074)
+                      est: (rows=720101)
                     HashJoin
                         predicate: AND(=(SR_TICKET_NUMBER, SS_TICKET_NUMBER), =(SS_ITEM_SK, SR_ITEM_SK))
                         type: left
-                        est: (rows=18636336297)
+                        est: (rows=2880404)
                       Exchange
                           distribution: single
                           est: (rows=2880404)
-                        Sort
-                            collation: [SS_SOLD_DATE_SK ASC]
+                        TableScan
+                            table: PUBLIC.STORE_SALES
+                            fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_TICKET_NUMBER, SS_QUANTITY, SS_WHOLESALE_COST, SS_SALES_PRICE]
                             est: (rows=2880404)
-                          TableScan
-                              table: PUBLIC.STORE_SALES
-                              fieldNames: [SS_SOLD_DATE_SK, SS_ITEM_SK, SS_CUSTOMER_SK, SS_TICKET_NUMBER, SS_QUANTITY, SS_WHOLESALE_COST, SS_SALES_PRICE]
-                              est: (rows=2880404)
                       Exchange
                           distribution: single
                           est: (rows=287514)
@@ -60,47 +57,41 @@ Sort
                   Exchange
                       distribution: single
                       est: (rows=24325)
-                    Sort
-                        collation: [D_DATE_SK ASC]
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        predicate: =(D_YEAR, 2001)
+                        fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=24325)
-                      TableScan
-                          table: PUBLIC.DATE_DIM
-                          predicate: =(D_YEAR, 2001)
-                          fieldNames: [D_DATE_SK, D_YEAR]
-                          est: (rows=24325)
           Sort
               collation: [WS_SOLD_YEAR ASC, WS_ITEM_SK ASC, WS_CUSTOMER_SK ASC]
-              est: (rows=141796838)
+              est: (rows=87765)
             ColocatedHashAggregate
                 fieldNames: [WS_SOLD_YEAR, WS_ITEM_SK, WS_CUSTOMER_SK, WS_QTY, WS_WC, WS_SP]
                 group: [WS_SOLD_YEAR, WS_ITEM_SK, WS_CUSTOMER_SK]
                 aggregation: [SUM(WS_QUANTITY), SUM(WS_WHOLESALE_COST), SUM(WS_SALES_PRICE)]
-                est: (rows=141796838)
+                est: (rows=87765)
               Project
                   fieldNames: [WS_SOLD_YEAR, WS_ITEM_SK, WS_CUSTOMER_SK, WS_QUANTITY, WS_WHOLESALE_COST, WS_SALES_PRICE]
                   projection: [D_YEAR, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_QUANTITY, WS_WHOLESALE_COST, WS_SALES_PRICE]
-                  est: (rows=290567291)
-                MergeJoin
+                  est: (rows=179846)
+                HashJoin
                     predicate: =(WS_SOLD_DATE_SK, D_DATE_SK)
                     type: inner
-                    est: (rows=290567291)
+                    est: (rows=179846)
                   Filter
                       predicate: IS NULL(WR_ORDER_NUMBER)
-                      est: (rows=290567291)
+                      est: (rows=179846)
                     HashJoin
                         predicate: AND(=(WR_ORDER_NUMBER, WS_ORDER_NUMBER), =(WS_ITEM_SK, WR_ITEM_SK))
                         type: left
-                        est: (rows=1162269163)
+                        est: (rows=719384)
                       Exchange
                           distribution: single
                           est: (rows=719384)
-                        Sort
-                            collation: [WS_SOLD_DATE_SK ASC]
+                        TableScan
+                            table: PUBLIC.WEB_SALES
+                            fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_ORDER_NUMBER, WS_QUANTITY, WS_WHOLESALE_COST, WS_SALES_PRICE]
                             est: (rows=719384)
-                          TableScan
-                              table: PUBLIC.WEB_SALES
-                              fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_ORDER_NUMBER, WS_QUANTITY, WS_WHOLESALE_COST, WS_SALES_PRICE]
-                              est: (rows=719384)
                       Exchange
                           distribution: single
                           est: (rows=71763)
@@ -111,46 +102,40 @@ Sort
                   Exchange
                       distribution: single
                       est: (rows=73049)
-                    Sort
-                        collation: [D_DATE_SK ASC]
+                    TableScan
+                        table: PUBLIC.DATE_DIM
+                        fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=73049)
-                      TableScan
-                          table: PUBLIC.DATE_DIM
-                          fieldNames: [D_DATE_SK, D_YEAR]
-                          est: (rows=73049)
         Sort
             collation: [CS_SOLD_YEAR ASC, CS_ITEM_SK ASC, CS_CUSTOMER_SK ASC]
-            est: (rows=570252128)
+            est: (rows=175869)
           ColocatedHashAggregate
               fieldNames: [CS_SOLD_YEAR, CS_ITEM_SK, CS_CUSTOMER_SK, CS_QTY, CS_WC, CS_SP]
               group: [CS_SOLD_YEAR, CS_ITEM_SK, CS_CUSTOMER_SK]
               aggregation: [SUM(CS_QUANTITY), SUM(CS_WHOLESALE_COST), SUM(CS_SALES_PRICE)]
-              est: (rows=570252128)
+              est: (rows=175869)
             Project
                 fieldNames: [CS_SOLD_YEAR, CS_ITEM_SK, CS_CUSTOMER_SK, CS_QUANTITY, CS_WHOLESALE_COST, CS_SALES_PRICE]
                 projection: [D_YEAR, CS_ITEM_SK, CS_BILL_CUSTOMER_SK, CS_QUANTITY, CS_WHOLESALE_COST, CS_SALES_PRICE]
-                est: (rows=1168549442)
-              MergeJoin
+                est: (rows=360387)
+              HashJoin
                   predicate: =(CS_SOLD_DATE_SK, D_DATE_SK)
                   type: inner
-                  est: (rows=1168549442)
+                  est: (rows=360387)
                 Filter
                     predicate: IS NULL(CR_ORDER_NUMBER)
-                    est: (rows=1168549442)
+                    est: (rows=360387)
                   HashJoin
                       predicate: AND(=(CR_ORDER_NUMBER, CS_ORDER_NUMBER), =(CS_ITEM_SK, CR_ITEM_SK))
                       type: left
-                      est: (rows=4674197767)
+                      est: (rows=1441548)
                     Exchange
                         distribution: single
                         est: (rows=1441548)
-                      Sort
-                          collation: [CS_SOLD_DATE_SK ASC]
+                      TableScan
+                          table: PUBLIC.CATALOG_SALES
+                          fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_ITEM_SK, CS_ORDER_NUMBER, CS_QUANTITY, CS_WHOLESALE_COST, CS_SALES_PRICE]
                           est: (rows=1441548)
-                        TableScan
-                            table: PUBLIC.CATALOG_SALES
-                            fieldNames: [CS_SOLD_DATE_SK, CS_BILL_CUSTOMER_SK, CS_ITEM_SK, CS_ORDER_NUMBER, CS_QUANTITY, CS_WHOLESALE_COST, CS_SALES_PRICE]
-                            est: (rows=1441548)
                     Exchange
                         distribution: single
                         est: (rows=144067)
@@ -161,10 +146,7 @@ Sort
                 Exchange
                     distribution: single
                     est: (rows=73049)
-                  Sort
-                      collation: [D_DATE_SK ASC]
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      fieldNames: [D_DATE_SK, D_YEAR]
                       est: (rows=73049)
-                    TableScan
-                        table: PUBLIC.DATE_DIM
-                        fieldNames: [D_DATE_SK, D_YEAR]
-                        est: (rows=73049)

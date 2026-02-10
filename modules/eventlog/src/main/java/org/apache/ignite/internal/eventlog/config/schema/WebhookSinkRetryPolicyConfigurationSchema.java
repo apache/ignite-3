@@ -19,6 +19,7 @@ package org.apache.ignite.internal.eventlog.config.schema;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -33,11 +34,13 @@ public class WebhookSinkRetryPolicyConfigurationSchema {
     /** Base delay between retry attempt, in milliseconds. */
     @Value(hasDefault = true)
     @Range(min = 1)
+    @PublicName(legacyNames = "initBackoff")
     public final long initBackoffMillis = TimeUnit.SECONDS.toMillis(1L);
 
     /** Maximum delay between retry attempt, in milliseconds. */
     @Value(hasDefault = true)
     @Range(min = 1)
+    @PublicName(legacyNames = "maxBackoff")
     public final long maxBackoffMillis = TimeUnit.SECONDS.toMillis(5L);
 
     /** Delay multiplier. */

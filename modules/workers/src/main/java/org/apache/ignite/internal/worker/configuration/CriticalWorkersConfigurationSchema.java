@@ -27,9 +27,9 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class CriticalWorkersConfigurationSchema {
-    public static final int DEFAULT_LIVENESS_CHECK_INTERVAL_MILLIS = 200;
-    public static final int DEFAULT_MAX_ALLOWED_LAG_MILLIS = 500;
-    public static final int DEFAULT_NETTY_THREADS_HEARTBEAT_INTERVAL_MILLIS = 100;
+    public static final int DEFAULT_LIVENESS_CHECK_INTERVAL_MILLIS = 2000;
+    public static final int DEFAULT_MAX_ALLOWED_LAG_MILLIS = 5000;
+    public static final int DEFAULT_NETTY_THREADS_HEARTBEAT_INTERVAL_MILLIS = 1000;
 
     /**
      * Interval between liveness checks (ms) performed by the critical workers infrastructure.

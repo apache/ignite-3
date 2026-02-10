@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.rest;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
-import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCodeAndBody;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -33,7 +34,6 @@ import com.typesafe.config.ConfigFactory;
 import io.micronaut.http.HttpStatus;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
     @Test
     @DisplayName("Node configuration is available when the cluster in not initialized")
-    void nodeConfiguration() throws Exception {
+    void nodeConfiguration() {
         // When GET /management/v1/configuration/node.
         HttpResponse<String> response = send(get("/management/v1/configuration/node"));
 
@@ -55,7 +55,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node configuration can be changed when the cluster in not initialized")
-    void nodeConfigurationUpdate() throws Exception {
+    void nodeConfigurationUpdate() {
         // When PATCH /management/v1/configuration/node rest.port=10333.
         HttpResponse<String> patchResponse = send(patch("/management/v1/configuration/node", "ignite.rest.port=10333"));
         // Then
@@ -72,7 +72,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Physical topology is available on not initialized cluster")
-    void physicalTopology() throws Exception {
+    void physicalTopology() {
         // When GET /management/v1/cluster/topology/physical.
         HttpResponse<String> response = send(get("/management/v1/cluster/topology/physical"));
 
@@ -91,7 +91,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node state is available on not initialized cluster and it is STARTING")
-    void nodeState() throws Exception {
+    void nodeState() {
         // When GET /management/v1/node/state.
         HttpResponse<String> response = send(get("/management/v1/node/state"));
 
@@ -105,7 +105,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Node version is available on not initialized cluster")
-    void nodeVersion() throws Exception {
+    void nodeVersion() {
         // When GET /management/v1/node/version/.
         HttpResponse<String> response = send(get("/management/v1/node/version/"));
 
@@ -120,7 +120,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster is not initialized, if config has a syntax error")
-    void initClusterWithInvalidHoconConfig() throws Exception {
+    void initClusterWithInvalidHoconConfig() {
         // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
@@ -135,10 +135,8 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // Then.
         HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
-        Problem initProblem = getProblem(initResponse);
 
-        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(initProblem, isProblem()
+        assertThat(initResponse, isProblemResponse()
                 .withStatus(HttpStatus.BAD_REQUEST.getCode())
                 .withTitle(HttpStatus.BAD_REQUEST.getReason())
                 .withDetail(containsString("Key 'qwe123' may not be followed"))
@@ -150,7 +148,7 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
     @Test
     @DisplayName("Cluster is not initialized, if config has logic error")
-    void initClusterWithInvalidConfig() throws Exception {
+    void initClusterWithInvalidConfig() {
         // When POST /management/v1/cluster/init with invalid config.
         String requestBody = "{\n"
                 + "    \"metaStorageNodes\": [\n"
@@ -165,10 +163,8 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // Then.
         HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", requestBody));
-        Problem initProblem = getProblem(initResponse);
 
-        assertThat(initResponse.statusCode(), is(HttpStatus.BAD_REQUEST.getCode()));
-        assertThat(initProblem, isProblem()
+        assertThat(initResponse, isProblemResponse()
                 .withStatus(HttpStatus.BAD_REQUEST.getCode())
                 .withTitle(HttpStatus.BAD_REQUEST.getReason())
                 .withDetail(containsString("'boolean' is expected as a type for the 'ignite.security.enabled' configuration value"))
@@ -176,5 +172,27 @@ public class ItNotInitializedClusterRestTest extends AbstractRestTestBase {
 
         // And cluster is not initialized.
         cluster.servers().forEach(node -> assertThat(node.waitForInitAsync(), willTimeoutFast()));
+    }
+
+    @Test
+    void notInitializedProbes() {
+        cluster.runningNodes().forEach(node -> {
+            assertThat(
+                    send(get(getHost(node), "/health/liveness")),
+                    hasStatusCodeAndBody(200, hasJsonPath("$.status", is("UP")))
+            );
+
+            // Readiness is "DOWN" until the node has joined the cluster.
+            assertThat(
+                    send(get(getHost(node), "/health/readiness")),
+                    hasStatusCodeAndBody(503, hasJsonPath("$.status", is("DOWN")))
+            );
+
+            // Health probe is a combination of all indicators not qualified as "liveness".
+            assertThat(
+                    send(get(getHost(node), "/health")),
+                    hasStatusCodeAndBody(503, hasJsonPath("$.status", is("DOWN")))
+            );
+        });
     }
 }

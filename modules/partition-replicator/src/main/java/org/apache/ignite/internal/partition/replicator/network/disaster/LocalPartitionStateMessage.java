@@ -31,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
 public interface LocalPartitionStateMessage extends NetworkMessage {
     /** Table Partition ID. */
     @Nullable
+    @Deprecated(forRemoval = true)
     TablePartitionIdMessage partitionId();
 
     /** Zone Partition ID. */
@@ -45,4 +46,7 @@ public interface LocalPartitionStateMessage extends NetworkMessage {
 
     /** Estimated number of rows for this partition. */
     long estimatedRows();
+
+    /** Returns whether the node holding this partition is a learner in the Raft group. */
+    boolean isLearner();
 }

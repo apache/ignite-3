@@ -38,8 +38,8 @@ Sort
                   table: PUBLIC.ORDERS
                   index: O_OD
                   type: SORTED
-                  predicate: AND(>=(O_ORDERDATE, 1993-10-01), <(O_ORDERDATE, +(1993-10-01, 3:INTERVAL MONTH)))
-                  searchBounds: [RangeBounds [lowerBound=1993-10-01, upperBound=+(1993-10-01, 3:INTERVAL MONTH), lowerInclude=true, upperInclude=false]]
+                  predicate: SEARCH(O_ORDERDATE, Sarg[[1993-10-01..1994-01-01)])
+                  searchBounds: [<1993-10-01>..<1994-01-01>)
                   fieldNames: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
                   collation: [O_ORDERDATE ASC]
                   est: (rows=375000)

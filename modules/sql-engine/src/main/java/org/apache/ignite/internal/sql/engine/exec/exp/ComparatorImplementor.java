@@ -24,7 +24,8 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementor which implements {@link SqlComparator}. */
@@ -34,54 +35,56 @@ class ComparatorImplementor {
      * Implements comparator {@link SqlComparator} from given collation.
      *
      * @param collation The collation to implement comparator from.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of comparator.
      * @see SqlComparator
      */
-    <RowT> SqlComparator<RowT> implement(RelCollation collation) {
+    SqlComparator implement(RelCollation collation) {
         assert collation != null && !nullOrEmpty(collation.getFieldCollations()) : collation;
 
-        return (context, r1, r2) -> {
-            RowHandler<RowT> hnd = context.rowHandler();
-            List<RelFieldCollation> collations = collation.getFieldCollations();
+        return new SqlComparator() {
+            @Override
+            public <RowT> int compare(SqlEvaluationContext<RowT> context, RowT r1, RowT r2) {
+                RowAccessor<RowT> hnd = context.rowAccessor();
+                List<RelFieldCollation> collations = collation.getFieldCollations();
 
-            int colsCountRow1 = hnd.columnCount(r1);
-            int colsCountRow2 = hnd.columnCount(r2);
+                int colsCountRow1 = hnd.columnsCount(r1);
+                int colsCountRow2 = hnd.columnsCount(r2);
 
-            // The index range condition can contain the prefix of the index columns (not all index columns).
-            int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
+                // The index range condition can contain the prefix of the index columns (not all index columns).
+                int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
 
-            for (int i = 0; i < maxCols; i++) {
-                RelFieldCollation field = collations.get(i);
-                boolean ascending = field.direction == Direction.ASCENDING;
+                for (int i = 0; i < maxCols; i++) {
+                    RelFieldCollation field = collations.get(i);
+                    boolean ascending = field.direction == Direction.ASCENDING;
 
-                if (i == colsCountRow1) {
-                    // There is no more values in first row.
-                    return ascending ? -1 : 1;
+                    if (i == colsCountRow1) {
+                        // There is no more values in first row.
+                        return ascending ? -1 : 1;
+                    }
+
+                    if (i == colsCountRow2) {
+                        // There is no more values in second row.
+                        return ascending ? 1 : -1;
+                    }
+
+                    int fieldIdx = field.getFieldIndex();
+
+                    Object c1 = hnd.get(fieldIdx, r1);
+                    Object c2 = hnd.get(fieldIdx, r2);
+
+                    int nullComparison = field.nullDirection.nullComparison;
+
+                    int res = ascending
+                            ? ComparatorImplementor.compare(c1, c2, nullComparison)
+                            : ComparatorImplementor.compare(c2, c1, -nullComparison);
+
+                    if (res != 0) {
+                        return res;
+                    }
                 }
 
-                if (i == colsCountRow2) {
-                    // There is no more values in second row.
-                    return ascending ? 1 : -1;
-                }
-
-                int fieldIdx = field.getFieldIndex();
-
-                Object c1 = hnd.get(fieldIdx, r1);
-                Object c2 = hnd.get(fieldIdx, r2);
-
-                int nullComparison = field.nullDirection.nullComparison;
-
-                int res = ascending
-                        ? compare(c1, c2, nullComparison)
-                        : compare(c2, c1, -nullComparison);
-
-                if (res != 0) {
-                    return res;
-                }
+                return 0;
             }
-
-            return 0;
         };
     }
 
@@ -97,11 +100,10 @@ class ComparatorImplementor {
      * @param left The collation of the left side of the join.
      * @param right The collation of the right side of the join.
      * @param equalNulls Bit set of the fields in provided collations which must threat NULLs as equal.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of comparator.
      * @see SqlComparator
      */
-    <RowT> SqlComparator<RowT> implement(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls) {
+    SqlComparator implement(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls) {
         if (nullOrEmpty(left) || nullOrEmpty(right) || left.size() != right.size()) {
             throw new IllegalArgumentException("Both inputs should be non-empty and have the same size: left="
                     + (left != null ? left.size() : "null") + ", right=" + (right != null ? right.size() : "null"));
@@ -118,39 +120,42 @@ class ComparatorImplementor {
             }
         }
 
-        return (context, r1, r2) -> {
-            boolean hasNulls = false;
-            RowHandler<RowT> hnd = context.rowHandler();
+        return new SqlComparator() {
+            @Override
+            public <RowT> int compare(SqlEvaluationContext<RowT> context, RowT r1, RowT r2) {
+                boolean hasNulls = false;
+                RowAccessor<RowT> hnd = context.rowAccessor();
 
-            for (int i = 0; i < left.size(); i++) {
-                RelFieldCollation leftField = left.get(i);
-                RelFieldCollation rightField = right.get(i);
+                for (int i = 0; i < left.size(); i++) {
+                    RelFieldCollation leftField = left.get(i);
+                    RelFieldCollation rightField = right.get(i);
 
-                int leftIdx = leftField.getFieldIndex();
-                int rightIdx = rightField.getFieldIndex();
+                    int leftIdx = leftField.getFieldIndex();
+                    int rightIdx = rightField.getFieldIndex();
 
-                Object c1 = hnd.get(leftIdx, r1);
-                Object c2 = hnd.get(rightIdx, r2);
+                    Object c1 = hnd.get(leftIdx, r1);
+                    Object c2 = hnd.get(rightIdx, r2);
 
-                if (!equalNulls.get(leftIdx) && c1 == null && c2 == null) {
-                    hasNulls = true;
-                    continue;
+                    if (!equalNulls.get(leftIdx) && c1 == null && c2 == null) {
+                        hasNulls = true;
+                        continue;
+                    }
+
+                    int nullComparison = leftField.nullDirection.nullComparison;
+
+                    int res = leftField.direction == RelFieldCollation.Direction.ASCENDING
+                            ? ComparatorImplementor.compare(c1, c2, nullComparison)
+                            : ComparatorImplementor.compare(c2, c1, -nullComparison);
+
+                    if (res != 0) {
+                        return res;
+                    }
                 }
 
-                int nullComparison = leftField.nullDirection.nullComparison;
-
-                int res = leftField.direction == RelFieldCollation.Direction.ASCENDING
-                        ? compare(c1, c2, nullComparison)
-                        : compare(c2, c1, -nullComparison);
-
-                if (res != 0) {
-                    return res;
-                }
+                // If compared rows contain NULLs, they shouldn't be treated as equals, since NULL <> NULL in SQL.
+                // Expect for cases with IS NOT DISTINCT
+                return hasNulls ? 1 : 0;
             }
-
-            // If compared rows contain NULLs, they shouldn't be treated as equals, since NULL <> NULL in SQL.
-            // Expect for cases with IS NOT DISTINCT
-            return hasNulls ? 1 : 0;
         };
     }
 

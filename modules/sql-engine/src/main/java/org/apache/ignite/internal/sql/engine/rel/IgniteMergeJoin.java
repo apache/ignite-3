@@ -325,7 +325,6 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         return rightCollation;
     }
 
-
     /** Creates pair with default collation for parent and simple yet sufficient collation for children nodes. */
     private Pair<RelTraitSet, List<RelTraitSet>> defaultCollationPair(
             RelTraitSet nodeTraits,

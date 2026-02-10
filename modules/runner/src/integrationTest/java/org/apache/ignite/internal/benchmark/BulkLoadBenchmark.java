@@ -21,6 +21,11 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
@@ -57,7 +62,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
     @Param("3")
-    private int clusterSize;
+    private static int clusterSize;
 
     @Param("32")
     private int partitionCount;
@@ -70,6 +75,14 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
 
     @Param("5")
     private int batchSize;
+
+    /**
+     * Benchmark for SQL insert via JDBC client.
+     */
+    @Benchmark
+    public void jdbcInsert(JdbcState state) throws SQLException {
+        state.upload(count, batchSize);
+    }
 
     /**
      * Benchmark for SQL insert via thin client.
@@ -87,6 +100,27 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
         state.upload(count, batchSize);
     }
 
+    @Override
+    protected void createTablesOnStartup() {
+        createTable(TABLE_NAME,
+                List.of(
+                        "ycsb_key int",
+                        "field1   int",
+                        "field2   varchar(100)",
+                        "field3   varchar(100)",
+                        "field4   varchar(100)",
+                        "field5   varchar(100)",
+                        "field6   varchar(100)",
+                        "field7   varchar(100)",
+                        "field8   varchar(100)",
+                        "field9   varchar(100)",
+                        "field10  varchar(100)"
+                ),
+                List.of("ycsb_key", "field1"),
+                List.of()
+        );
+    }
+
     /**
      * Benchmark's entry point.
      */
@@ -96,6 +130,54 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
                 .build();
 
         new Runner(opt).run();
+    }
+
+    /**
+     * Benchmark state for {@link #jdbcInsert(JdbcState)}.
+     *
+     * <p>Holds {@link Connection} and {@link PreparedStatement}.
+     */
+    @State(Scope.Benchmark)
+    public static class JdbcState {
+        private Connection connection;
+        private PreparedStatement statement;
+
+        /**
+         * Initializes session and statement.
+         */
+        @Setup
+        public void setUp() throws SQLException {
+            String queryStr = createInsertStatement();
+
+            String clientAddrs = String.join(",", getServerEndpoints(clusterSize));
+
+            String jdbcUrl = "jdbc:ignite:thin://" + clientAddrs;
+
+            connection = DriverManager.getConnection(jdbcUrl);
+
+            connection.setAutoCommit(false);
+
+            statement = connection.prepareStatement(queryStr);
+        }
+
+        /**
+         * Closes resources.
+         */
+        @TearDown
+        public void tearDown() throws Exception {
+            connection.close();
+        }
+
+        void upload(int count, int batch) throws SQLException {
+            for (int i = 0; i < count; i++) {
+                if (i % batch == 0) {
+                    connection.commit();
+                }
+
+                statement.setInt(1, i);
+                statement.executeUpdate();
+            }
+        }
     }
 
     /**
@@ -116,9 +198,9 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            client = IgniteClient.builder()
-                    .addresses("127.0.0.1:10800", "127.0.0.1:10801", "127.0.0.1:10802")
-                    .build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
 
             sql = client.sql();
 
@@ -130,8 +212,7 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            closeAll(/* statement, */ client);
+            closeAll(client);
         }
 
         void upload(int count, int batch) {
@@ -167,13 +248,13 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            for (int i = 1; i < 11; i++) {
+            for (int i = 2; i < 11; i++) {
                 tuple.set("field" + i, FIELD_VAL);
             }
 
-            client = IgniteClient.builder()
-                    .addresses("127.0.0.1:10800", "127.0.0.1:10801", "127.0.0.1:10802")
-                    .build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
 
             kvView = client.tables().table(TABLE_NAME).keyValueView();
         }
@@ -194,7 +275,7 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
                     tx = client.transactions().begin();
                 }
 
-                kvView.put(tx, Tuple.create().set("ycsb_key", i), tuple);
+                kvView.put(tx, Tuple.create().set("ycsb_key", i).set("field1", 1), tuple);
             }
         }
     }
@@ -203,7 +284,7 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
         String insertQueryTemplate = "insert into {}({}, {}) values(?, {})";
 
         String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
-        String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
+        String valQ = "1, " + IntStream.range(2, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
     }

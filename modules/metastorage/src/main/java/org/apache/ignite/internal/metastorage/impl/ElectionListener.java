@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Describes an object which has interest in change of the leader.
@@ -30,5 +30,5 @@ import org.apache.ignite.network.ClusterNode;
 @FunctionalInterface
 public interface ElectionListener {
     /** Notifies the listener that new leader has been elected. */
-    void onLeaderElected(ClusterNode newLeader);
+    void onLeaderElected(InternalClusterNode newLeader);
 }

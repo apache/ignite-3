@@ -20,16 +20,16 @@ package org.apache.ignite.internal.sql.engine.metadata;
 import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.CyclicMetadataException;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdDistinctRowCount;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.NumberUtil;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * IgniteMdDistinctRowCount.
@@ -38,8 +38,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
     public static final RelMetadataProvider SOURCE =
-            ReflectiveRelMetadataProvider.reflectiveSource(
-                    BuiltInMethod.DISTINCT_ROW_COUNT.method, new IgniteMdDistinctRowCount());
+            ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdDistinctRowCount(), BuiltInMetadata.DistinctRowCount.Handler.class);
 
     @Override
     public Double getDistinctRowCount(Aggregate rel, RelMetadataQuery mq, ImmutableBitSet groupKey, @Nullable RexNode predicate) {

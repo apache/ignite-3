@@ -19,7 +19,8 @@
 
 if [ "$1" = 'cli' ]; then
   shift
-  exec sh "$IGNITE_CLI_HOME"/bin/ignite3 "$@"
+  # Override user.home property to keep CLI-produced files in the separate work directory
+  IGNITE3_OPTS=-Duser.home=$IGNITE_CLI_WORK_DIR exec sh "$IGNITE_CLI_HOME"/bin/ignite3 "$@"
 fi
 
 . @LIB_DIR@/@BOOTSTRAP_FILE_NAME@

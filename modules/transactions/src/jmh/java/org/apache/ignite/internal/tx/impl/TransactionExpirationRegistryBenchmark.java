@@ -26,8 +26,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
@@ -64,7 +63,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register transactions in the cycle. */
     @Benchmark
     public static void register() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(transactions.get(i), i);
         }
@@ -73,7 +72,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register transactions in batches of 10, using the same expiration time for each batch. */
     @Benchmark
     public static void register10() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         int iterCnt = ITERATIONS_COUNT / 10;
         for (int i = 0; i < iterCnt; i++) {
             for (int j = 0; j < 10; j++) {
@@ -85,7 +84,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register and unregister transactions in the cycle. */
     @Benchmark
     public static void registerUnregister() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(transactions.get(i), i);
         }
@@ -98,7 +97,7 @@ public class TransactionExpirationRegistryBenchmark {
     /** Register and expire transactions in the cycle. */
     @Benchmark
     public static void registerExpire() {
-        TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+        TransactionExpirationRegistry registry = new TransactionExpirationRegistry(new VolatileTxStateMetaStorage());
         for (int i = 0; i < ITERATIONS_COUNT; i++) {
             registry.register(transactions.get(i), i);
         }
@@ -121,7 +120,7 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+        public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
             return null;
         }
 
@@ -131,18 +130,18 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+        public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
             return false;
         }
 
         @Override
-        public TablePartitionId commitPartition() {
+        public ZonePartitionId commitPartition() {
             return null;
         }
 
         @Override
         public void enlist(
-                ReplicationGroupId replicationGroupId,
+                ZonePartitionId replicationGroupId,
                 int tableId,
                 String primaryNodeConsistentId,
                 long consistencyToken
@@ -219,7 +218,7 @@ public class TransactionExpirationRegistryBenchmark {
 
         @Override
         public CompletableFuture<Void> rollbackAsync() {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override

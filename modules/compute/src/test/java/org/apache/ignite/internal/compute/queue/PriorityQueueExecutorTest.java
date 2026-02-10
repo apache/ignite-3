@@ -44,6 +44,7 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -612,7 +613,8 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
         priorityQueueExecutor = new PriorityQueueExecutor(
                 configuration,
                 IgniteThreadFactory.create(nodeName, "compute", LOG),
-                new InMemoryComputeStateMachine(configuration, nodeName)
+                new InMemoryComputeStateMachine(configuration, nodeName),
+                EventLog.NOOP
         );
     }
 

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.thread.PublicApiThreading.execUserSyncOperation;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.network.ClusterNode;
@@ -42,6 +43,11 @@ public class PublicApiThreadingIgniteCluster implements IgniteCluster, Wrapper {
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(cluster);
+    }
+
+    @Override
+    public UUID id() {
+        return execUserSyncOperation(cluster::id);
     }
 
     @Override

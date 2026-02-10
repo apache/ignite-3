@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_CONFIG_NAME;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.writeConfigurationFile;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.writeConfigurationFileApplyingTestDefaults;
@@ -30,11 +29,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteRunner;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -42,9 +38,6 @@ import org.apache.ignite.internal.logger.Loggers;
  * Represents the Ignite node running in the external process.
  */
 public class RunnerNode {
-    private static final Map<String, String> DEFAULTS = IgniteVersions.INSTANCE.configOverrides();
-    private static final Map<String, Map<String, String>> DEFAULTS_PER_VERSION = getTestDefaultsPerVersion();
-
     private final Process process;
 
     private final String nodeName;
@@ -65,7 +58,7 @@ public class RunnerNode {
      * @param igniteVersion Version of the Ignite. Used to get the configuration defaults.
      * @param clusterConfiguration Test cluster configuration.
      * @param nodesCount Overall number of nodes.
-     * @param nodeIndex Current node index.
+     * @param nodeName Node name.
      * @return Instance of the control object.
      * @throws IOException If an I/O exception occurs.
      */
@@ -74,26 +67,25 @@ public class RunnerNode {
             File argFile,
             String igniteVersion,
             ClusterConfiguration clusterConfiguration,
+            String nodeConfig,
             int nodesCount,
-            int nodeIndex
+            String nodeName
     ) throws IOException {
-        String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
         Path workDir = clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
-        String configStr = formatConfig(clusterConfiguration, nodeIndex, nodesCount);
 
         Files.createDirectories(workDir);
         Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
 
         boolean useTestDefaults = true;
         if (useTestDefaults) {
-            Map<String, String> defaultsPerVersion = DEFAULTS_PER_VERSION.get(igniteVersion);
             writeConfigurationFileApplyingTestDefaults(
-                    configStr,
+                    nodeConfig,
                     configPath,
-                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS
+                    getDefaults(igniteVersion),
+                    getStorageProfiles(igniteVersion)
             );
         } else {
-            writeConfigurationFile(configStr, configPath);
+            writeConfigurationFile(nodeConfig, configPath);
         }
 
         Process process = executeRunner(javaHome, argFile, configPath, workDir, nodeName);
@@ -150,31 +142,12 @@ public class RunnerNode {
         return nodeName;
     }
 
-    private static Map<String, Map<String, String>> getTestDefaultsPerVersion() {
-        return IgniteVersions.INSTANCE.versions().stream()
-                .filter(version -> version.configOverrides() != null)
-                .collect(Collectors.toMap(
-                        Version::version,
-                        Version::configOverrides
-                ));
+    private static Map<String, String> getDefaults(String version) {
+        return IgniteVersions.INSTANCE.getOrDefault(version, Version::configOverrides, IgniteVersions::configOverrides);
     }
 
-    private static String seedAddressesString(ClusterConfiguration clusterConfiguration, int seedsCount) {
-        return IntStream.range(0, seedsCount)
-                .map(nodeIndex -> clusterConfiguration.basePort() + nodeIndex)
-                .mapToObj(port -> "\"localhost:" + port + '\"')
-                .collect(joining(", "));
-    }
-
-    private static String formatConfig(ClusterConfiguration clusterConfiguration, int nodeIndex, int nodesCount) {
-        return IgniteStringFormatter.format(
-                clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
-                clusterConfiguration.basePort() + nodeIndex,
-                seedAddressesString(clusterConfiguration, nodesCount),
-                clusterConfiguration.baseClientPort() + nodeIndex,
-                clusterConfiguration.baseHttpPort() + nodeIndex,
-                clusterConfiguration.baseHttpsPort() + nodeIndex
-        );
+    private static Map<String, String> getStorageProfiles(String version) {
+        return IgniteVersions.INSTANCE.getOrDefault(version, Version::storageProfilesOverrides, IgniteVersions::storageProfilesOverrides);
     }
 
     @SuppressWarnings("UseOfProcessBuilder")

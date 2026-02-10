@@ -59,7 +59,7 @@ final class Script implements Iterable<Command>, AutoCloseable {
 
     private final BufferedReader buffReader;
 
-    /** The current line in a script .**/
+    /** The current line in a script. **/
     private int lineNum;
 
     /** A script execution context. **/

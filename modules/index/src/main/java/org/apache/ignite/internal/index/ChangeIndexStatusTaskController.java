@@ -39,7 +39,6 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
@@ -49,11 +48,9 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.LongPriorityQueue;
 
 /**
  * Component that reacts to certain Catalog changes and starts or stops corresponding {@link ChangeIndexStatusTask}s via the
@@ -87,8 +84,6 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private final LowWatermark lowWatermark;
 
-    private final NodeProperties nodeProperties;
-
     private final ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
     /** Tables IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
@@ -109,14 +104,12 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LowWatermark lowWatermark,
-            NodeProperties nodeProperties,
             ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler
     ) {
         this.catalogService = catalogManager;
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
         this.lowWatermark = lowWatermark;
-        this.nodeProperties = nodeProperties;
         this.changeIndexStatusTaskScheduler = changeIndexStatusTaskScheduler;
     }
 
@@ -143,12 +136,10 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
         catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-        if (nodeProperties.colocationEnabled()) {
-            catalogService.listen(CatalogEvent.TABLE_CREATE, EventListener.fromConsumer(this::onTableCreated));
-            catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onTableDropped));
+        catalogService.listen(CatalogEvent.TABLE_CREATE, EventListener.fromConsumer(this::onTableCreated));
+        catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onTableDropped));
 
-            lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, EventListener.fromConsumer(this::onLwmChanged));
-        }
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, EventListener.fromConsumer(this::onLwmChanged));
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, EventListener.fromConsumer(this::onPrimaryReplicaElected));
     }
@@ -210,7 +201,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
     private void onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         inBusyLock(busyLock, () -> {
 
-            PartitionGroupId primaryReplicaId = (PartitionGroupId) parameters.groupId();
+            ZonePartitionId primaryReplicaId = (ZonePartitionId) parameters.groupId();
 
             if (primaryReplicaId.partitionId() != 0) {
                 // We are only interested in the 0 partition.
@@ -236,15 +227,15 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         });
     }
 
-    private void scheduleTasksOnPrimaryReplicaElectedBusy(PartitionGroupId partitionGroupId) {
+    private void scheduleTasksOnPrimaryReplicaElectedBusy(ZonePartitionId zonePartitionId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
-        Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+        Catalog catalog = catalogService.latestCatalog();
 
         IntArrayList tableIds =
-                getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, id -> !localNodeIsPrimaryReplicaForTableIds.contains(id));
+                getTableIdsForPrimaryReplicaElected(catalog, zonePartitionId, id -> !localNodeIsPrimaryReplicaForTableIds.contains(id));
         localNodeIsPrimaryReplicaForTableIds.addAll(tableIds);
 
-        List<Integer> zoneIds = getZoneIdsForPrimaryReplicaElected(partitionGroupId);
+        List<Integer> zoneIds = getZoneIdsForPrimaryReplicaElected(zonePartitionId);
         localNodeIsPrimaryReplicaForZoneIds.addAll(zoneIds);
 
         tableIds.forEach(tableId -> {
@@ -267,56 +258,38 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
         });
     }
 
-    private void handlePrimacyLoss(PartitionGroupId partitionGroupId) {
+    private void handlePrimacyLoss(ZonePartitionId zonePartitionId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
-        Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
+        Catalog catalog = catalogService.latestCatalog();
 
         IntArrayList tableIds =
-                getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, localNodeIsPrimaryReplicaForTableIds::contains);
+                getTableIdsForPrimaryReplicaElected(catalog, zonePartitionId, localNodeIsPrimaryReplicaForTableIds::contains);
 
         localNodeIsPrimaryReplicaForTableIds.removeAll(tableIds);
-        if (nodeProperties.colocationEnabled()) {
-            localNodeIsPrimaryReplicaForZoneIds.remove(((ZonePartitionId) partitionGroupId).zoneId());
-        }
+        localNodeIsPrimaryReplicaForZoneIds.remove(zonePartitionId.zoneId());
 
         tableIds.forEach(changeIndexStatusTaskScheduler::stopTasksForTable);
     }
 
-    private IntArrayList getTableIdsForPrimaryReplicaElected(
+    private static IntArrayList getTableIdsForPrimaryReplicaElected(
             Catalog catalog,
-            PartitionGroupId partitionGroupId,
+            ZonePartitionId zonePartitionId,
             IntPredicate predicate
     ) {
         var tableIds = new IntArrayList();
 
-        if (nodeProperties.colocationEnabled()) {
-            ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
-
-            for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
-                if (predicate.test(table.id())) {
-                    tableIds.add(table.id());
-                }
-            }
-        } else {
-            TablePartitionId tablePartitionId = (TablePartitionId) partitionGroupId;
-
-            if (predicate.test(tablePartitionId.tableId())) {
-                tableIds.add(tablePartitionId.tableId());
+        for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
+            if (predicate.test(table.id())) {
+                tableIds.add(table.id());
             }
         }
 
         return tableIds;
     }
 
-    private List<Integer> getZoneIdsForPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
-        if (nodeProperties.colocationEnabled()) {
-            ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
-
-            if (!localNodeIsPrimaryReplicaForZoneIds.contains(zonePartitionId.zoneId())) {
-                return List.of(zonePartitionId.zoneId());
-            } else {
-                return List.of();
-            }
+    private List<Integer> getZoneIdsForPrimaryReplicaElected(ZonePartitionId zonePartitionId) {
+        if (!localNodeIsPrimaryReplicaForZoneIds.contains(zonePartitionId.zoneId())) {
+            return List.of(zonePartitionId.zoneId());
         } else {
             return List.of();
         }

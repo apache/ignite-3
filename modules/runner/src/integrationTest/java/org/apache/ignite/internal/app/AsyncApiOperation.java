@@ -41,6 +41,7 @@ import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * Asynchronous API operation.
@@ -60,12 +61,12 @@ enum AsyncApiOperation {
     KV_VIEW_GET_AND_PUT(refs -> refs.kvView.getAndPutAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_PUT(refs -> refs.kvView.getNullableAndPutAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_PUT_IF_ABSENT(refs -> refs.kvView.putIfAbsentAsync(null, KEY_TUPLE, VALUE_TUPLE)),
-    KV_VIEW_REMOVE(refs -> refs.kvView.removeAsync(null, KEY_TUPLE)),
+    KV_VIEW_REMOVE(refs -> refs.kvView.removeAsync(KEY_TUPLE)),
     KV_VIEW_REMOVE_EXACT(refs -> refs.kvView.removeAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REMOVE_ALL(refs -> refs.kvView.removeAllAsync(null, List.of(KEY_TUPLE))),
     KV_VIEW_GET_AND_REMOVE(refs -> refs.kvView.getAndRemoveAsync(null, KEY_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_REMOVE(refs -> refs.kvView.getNullableAndRemoveAsync(null, KEY_TUPLE)),
-    KV_VIEW_REPLACE(refs -> refs.kvView.replaceAsync(null, KEY_TUPLE, VALUE_TUPLE)),
+    KV_VIEW_REPLACE(refs -> refs.kvView.replaceAsync(KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REPLACE_EXACT(refs -> refs.kvView.replaceAsync(null, KEY_TUPLE, VALUE_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_AND_REPLACE(refs -> refs.kvView.getAndReplaceAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_REPLACE(refs -> refs.kvView.getNullableAndReplaceAsync(null, KEY_TUPLE, VALUE_TUPLE)),
@@ -117,18 +118,28 @@ enum AsyncApiOperation {
 
     MAPPED_RECORD_VIEW_GET(refs -> refs.mappedRecordView.getAsync(null, new Record(1, ""))),
 
+    PARTITION_MANAGER_PARTITIONS(refs -> refs.partitionManager.partitionsAsync()),
     PARTITION_MANAGER_PRIMARY_REPLICA(refs -> refs.partitionManager.primaryReplicaAsync(new HashPartition(0))),
     PARTITION_MANAGER_PRIMARY_REPLICAS(refs -> refs.partitionManager.primaryReplicasAsync()),
+    PARTITION_MANAGER_PRIMARY_REPLICAS_BY_NODE(refs -> refs.partitionManager.primaryReplicasAsync(refs.clusterNodes.iterator().next())),
     PARTITION_MANAGER_PARTITION_BY_KEY(refs -> refs.partitionManager.partitionAsync(1, Mapper.of(Integer.class))),
     PARTITION_MANAGER_PARTITION_BY_TUPLE(refs -> refs.partitionManager.partitionAsync(KEY_TUPLE)),
+
+    PARTITION_DISTRIBUTION_PARTITIONS(refs -> refs.partitionDistribution.partitionsAsync()),
+    PARTITION_DISTRIBUTION_PRIMARY_REPLICA(refs -> refs.partitionDistribution.primaryReplicaAsync(new HashPartition(0))),
+    PARTITION_DISTRIBUTION_PRIMARY_REPLICAS(refs -> refs.partitionDistribution.primaryReplicasAsync()),
+    PARTITION_DISTRIBUTION_PRIMARY_REPLICAS_BY_NODE(refs ->
+            refs.partitionManager.primaryReplicasAsync(refs.clusterNodes.iterator().next())),
+    PARTITION_DISTRIBUTION_PARTITION_BY_KEY(refs -> refs.partitionDistribution.partitionAsync(1, Mapper.of(Integer.class))),
+    PARTITION_DISTRIBUTION_PARTITION_BY_TUPLE(refs -> refs.partitionDistribution.partitionAsync(KEY_TUPLE)),
 
     TRANSACTIONS_BEGIN(refs -> refs.transactions.beginAsync()),
     TRANSACTIONS_BEGIN_WITH_OPTS(refs -> refs.transactions.beginAsync(null)),
     TRANSACTIONS_RUN_IN_TRANSACTION(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture())),
     TRANSACTIONS_RUN_IN_TRANSACTION_WITH_OPTS(refs -> refs.transactions.runInTransactionAsync(tx -> nullCompletedFuture(), null)),
 
-    SQL_EXECUTE(refs -> refs.sql.executeAsync(null, SELECT_IDS_QUERY)),
-    SQL_EXECUTE_STATEMENT(refs -> refs.sql.executeAsync(null, refs.selectIdsStatement)),
+    SQL_EXECUTE(refs -> refs.sql.executeAsync(SELECT_IDS_QUERY)),
+    SQL_EXECUTE_STATEMENT(refs -> refs.sql.executeAsync((Transaction) null, refs.selectIdsStatement)),
     // TODO: IGNITE-18695 - uncomment the following 2 lines.
     // SQL_EXECUTE_WITH_MAPPER(refs -> refs.sql.executeAsync(null, Mapper.of(Integer.class), SELECT_IDS_QUERY)),
     // SQL_EXECUTE_STATEMENT_WITH_MAPPER(refs -> refs.sql.executeAsync(null, Mapper.of(Integer.class), refs.selectIdsStatement)),

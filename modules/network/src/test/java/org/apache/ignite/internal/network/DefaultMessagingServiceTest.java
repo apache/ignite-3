@@ -61,6 +61,7 @@ import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
@@ -72,9 +73,7 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
-import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -88,7 +87,6 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -127,13 +125,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     private final ChannelTypeRegistry channelTypeRegistry = defaultChannelTypeRegistry();
 
-    private final ClusterNode senderNode = new ClusterNodeImpl(
+    private final InternalClusterNode senderNode = new ClusterNodeImpl(
             randomUUID(),
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
-    private final ClusterNode receiverNode = new ClusterNodeImpl(
+    private final InternalClusterNode receiverNode = new ClusterNodeImpl(
             randomUUID(),
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
@@ -477,12 +475,12 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(ClusterNodeChanger.class)
     void testResolveRecipientAddressToSelf(ClusterNodeChanger clusterNodeChanger) throws Exception {
-        ClusterNode node = senderNode;
+        InternalClusterNode node = senderNode;
         NetworkConfiguration senderNetworkConfig = this.senderNetworkConfig;
 
         try (Services services = createMessagingService(node, senderNetworkConfig)) {
-            ClusterNode nodeToCheck = clusterNodeChanger.changer.apply(node, services);
-            ClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
+            InternalClusterNode nodeToCheck = clusterNodeChanger.changer.apply(node, services);
+            InternalClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
 
             DefaultMessagingService messagingService = services.messagingService;
 
@@ -494,8 +492,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     @Test
     void testResolveRecipientAddressToOther() throws Exception {
         try (Services services = createMessagingService(senderNode, senderNetworkConfig)) {
-            ClusterNode nodeToCheck = receiverNode;
-            ClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
+            InternalClusterNode nodeToCheck = receiverNode;
+            InternalClusterNode nodeToCheckWithoutName = copyWithoutName(nodeToCheck);
 
             DefaultMessagingService messagingService = services.messagingService;
 
@@ -509,9 +507,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     void sendByClusterNodeFailsIfActualNodeIdIsDifferent(SendByClusterNodeOperation operation) throws Exception {
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
-                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+                Services unused = createMessagingService(receiverNode, receiverNetworkConfig)
         ) {
-            ClusterNode receiverWithAnotherId = copyWithDifferentId();
+            InternalClusterNode receiverWithAnotherId = copyWithDifferentId();
 
             assertThat(
                     operation.sendAction.send(senderServices.messagingService, testMessage("test"), receiverWithAnotherId),
@@ -532,7 +530,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @EnumSource(SendByConsistentCoordinateOperation.class)
     void sendByConsistentCoordinateSucceedsIfActualNodeIdIsDifferent(SendByConsistentCoordinateOperation operation) throws Exception {
-        ClusterNode receiverWithAnotherId = copyWithDifferentId();
+        InternalClusterNode receiverWithAnotherId = copyWithDifferentId();
 
         lenient().when(topologyService.getByConsistentId(receiverWithAnotherId.name())).thenReturn(receiverWithAnotherId);
         lenient().when(topologyService.getByAddress(receiverWithAnotherId.address())).thenReturn(receiverWithAnotherId);
@@ -566,7 +564,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static ClusterNode copyWithoutName(ClusterNode node) {
+    private static InternalClusterNode copyWithoutName(InternalClusterNode node) {
         return new ClusterNodeImpl(node.id(), null, node.address());
     }
 
@@ -582,16 +580,16 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return testMessagesFactory.testMessage().msg(message).build();
     }
 
-    private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig) {
+    private Services createMessagingService(InternalClusterNode node, NetworkConfiguration networkConfig) {
         return createMessagingService(node, networkConfig, () -> {});
     }
 
-    private Services createMessagingService(ClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
+    private Services createMessagingService(InternalClusterNode node, NetworkConfiguration networkConfig, Runnable beforeHandshake) {
         return createMessagingService(node, networkConfig, beforeHandshake, messageSerializationRegistry);
     }
 
     private Services createMessagingService(
-            ClusterNode node,
+            InternalClusterNode node,
             NetworkConfiguration networkConfig,
             Runnable beforeHandshake,
             MessageSerializationRegistry registry
@@ -625,17 +623,14 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        ConnectionManager connectionManager = new ConnectionManager(
-                networkConfig.value(),
+        ConnectionManager connectionManager = new TestConnectionManager(
+                networkConfig,
                 serializationService,
-                node.name(),
-                node.id(),
+                node,
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
-                initiatorHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
-                channelTypeRegistry,
-                new DefaultIgniteProductVersionSource()
+                beforeHandshake
         );
         connectionManager.start();
         connectionManager.setLocalNode(node);
@@ -647,39 +642,61 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
-    private RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactoryAdding(
-            Runnable beforeHandshake,
-            NettyBootstrapFactory bootstrapFactory,
-            StaleIdDetector staleIdDetector,
-            ClusterIdSupplier clusterIdSupplier
-    ) {
-        return new RecoveryInitiatorHandshakeManagerFactory() {
-            @Override
-            public RecoveryInitiatorHandshakeManager create(
-                    ClusterNode localNode,
-                    short connectionId,
-                    RecoveryDescriptorProvider recoveryDescriptorProvider
-            ) {
-                return new RecoveryInitiatorHandshakeManager(
-                        localNode,
-                        connectionId,
-                        recoveryDescriptorProvider,
-                        bootstrapFactory,
-                        staleIdDetector,
-                        clusterIdSupplier,
-                        channel -> {},
-                        () -> false,
-                        new DefaultIgniteProductVersionSource()
-                ) {
-                    @Override
-                    protected void finishHandshake() {
-                        beforeHandshake.run();
+    private class TestConnectionManager extends ConnectionManager {
+        private final Runnable beforeHandshake;
 
-                        super.finishHandshake();
-                    }
-                };
-            }
-        };
+        private TestConnectionManager(
+                NetworkConfiguration networkConfig,
+                SerializationService serializationService,
+                InternalClusterNode node,
+                NettyBootstrapFactory bootstrapFactory,
+                StaleIdDetector staleIdDetector,
+                ClusterIdSupplier clusterIdSupplier,
+                Runnable beforeHandshake
+        ) {
+            super(
+                    networkConfig.value(),
+                    serializationService,
+                    node.name(),
+                    node.id(),
+                    bootstrapFactory,
+                    staleIdDetector,
+                    clusterIdSupplier,
+                    DefaultMessagingServiceTest.this.channelTypeRegistry,
+                    new DefaultIgniteProductVersionSource(),
+                    DefaultMessagingServiceTest.this.topologyService,
+                    DefaultMessagingServiceTest.this.failureProcessor
+            );
+
+            this.beforeHandshake = beforeHandshake;
+        }
+
+        @Override
+        protected RecoveryInitiatorHandshakeManager newRecoveryInitiatorHandshakeManager(
+                short connectionId,
+                InternalClusterNode localNode
+        ) {
+            return new RecoveryInitiatorHandshakeManager(
+                    localNode,
+                    connectionId,
+                    descriptorProvider,
+                    bootstrapFactory.handshakeEventLoopSwitcher(),
+                    staleIdDetector,
+                    clusterIdSupplier,
+                    channel -> {},
+                    () -> false,
+                    new DefaultIgniteProductVersionSource(),
+                    this.topologyService,
+                    new NoOpFailureManager()
+            ) {
+                @Override
+                protected void finishHandshake() {
+                    beforeHandshake.run();
+
+                    super.finishHandshake();
+                }
+            };
+        }
     }
 
     private static String localHostName() {
@@ -718,7 +735,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @FunctionalInterface
     private interface SendAction {
-        void send(MessagingService service, TestMessage message, ClusterNode recipient);
+        void send(MessagingService service, TestMessage message, InternalClusterNode recipient);
     }
 
     private enum SendOperation {
@@ -743,7 +760,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @FunctionalInterface
     private interface RespondAction {
-        void respond(MessagingService service, NetworkMessage message, ClusterNode recipient, long correlationId);
+        void respond(MessagingService service, NetworkMessage message, InternalClusterNode recipient, long correlationId);
     }
 
     private enum RespondOperation {
@@ -794,16 +811,16 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 new NetworkAddress(localHostName(), node.address().port())
         ));
 
-        private final BiFunction<ClusterNode, Services, ClusterNode> changer;
+        private final BiFunction<InternalClusterNode, Services, InternalClusterNode> changer;
 
-        ClusterNodeChanger(BiFunction<ClusterNode, Services, ClusterNode> changer) {
+        ClusterNodeChanger(BiFunction<InternalClusterNode, Services, InternalClusterNode> changer) {
             this.changer = changer;
         }
     }
 
     @FunctionalInterface
     private interface AsyncSendAction {
-        CompletableFuture<?> send(MessagingService service, TestMessage message, ClusterNode recipient);
+        CompletableFuture<?> send(MessagingService service, TestMessage message, InternalClusterNode recipient);
     }
 
     private enum SendByClusterNodeOperation {

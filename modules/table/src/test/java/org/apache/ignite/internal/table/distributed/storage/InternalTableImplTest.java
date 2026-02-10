@@ -19,32 +19,39 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.nio.ByteBuffer;
@@ -56,7 +63,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -64,9 +74,11 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.SingleRowPkReplicaRequest;
@@ -75,34 +87,41 @@ import org.apache.ignite.internal.partition.replicator.network.replication.SwapR
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.IndexScanCriteria;
+import org.apache.ignite.internal.table.IndexScanCriteria.Range;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -133,20 +152,38 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = new TestClockService(clock);
 
-    private final ClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000));
+    private final InternalClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000));
+
+    private VolatileTxStateMetaStorage txStateVolatileStorage;
 
     @BeforeEach
     void setupMocks() {
+        txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
         lenient().when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
                 .then(invocation -> {
-                    ReplicationGroupId groupId = invocation.getArgument(0);
+                    ZonePartitionId groupId = invocation.getArgument(0);
 
                     return completedFuture(
                             new Lease(clusterNode.name(), clusterNode.id(), HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE, groupId)
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), any(), any())).thenReturn(nullCompletedFuture());
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+                .thenReturn(nullCompletedFuture());
+
+        // Mock for creating implicit transactions when null is passed
+        lenient().when(txManager.beginImplicitRw(any())).then(invocation -> {
+            HybridTimestampTracker tracker = invocation.getArgument(0);
+            return new ReadWriteTransactionImpl(
+                    txManager,
+                    tracker,
+                    TestTransactionIds.newTransactionId(),
+                    randomUUID(),
+                    true, // implicit
+                    10_000
+            );
+        });
 
         lenient().when(replicaService.invoke(anyString(), any())).then(invocation -> {
             ReplicaRequest request = invocation.getArgument(1);
@@ -178,7 +215,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
             }
 
             if (request instanceof ScanRetrieveBatchReplicaRequest) {
-                return completedFuture(List.of());
+                return emptyListCompletedFuture();
             }
 
             return nullCompletedFuture();
@@ -193,39 +230,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         return request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() == requestType;
     }
 
-    @Test
-    void testUpdatePartitionTrackers() {
-        InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
-
-        // Let's check the empty table.
-        assertNull(internalTable.getPartitionSafeTimeTracker(0));
-        assertNull(internalTable.getPartitionStorageIndexTracker(0));
-
-        // Let's check the first insert.
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime0 = mock(PendingComparableValuesTracker.class);
-        PendingComparableValuesTracker<Long, Void> storageIndex0 = mock(PendingComparableValuesTracker.class);
-
-        internalTable.updatePartitionTrackers(0, safeTime0, storageIndex0);
-
-        assertSame(safeTime0, internalTable.getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex0, internalTable.getPartitionStorageIndexTracker(0));
-
-        verify(safeTime0, never()).close();
-        verify(storageIndex0, never()).close();
-
-        // Let's check the new insert.
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime1 = mock(PendingComparableValuesTracker.class);
-        PendingComparableValuesTracker<Long, Void> storageIndex1 = mock(PendingComparableValuesTracker.class);
-
-        internalTable.updatePartitionTrackers(0, safeTime1, storageIndex1);
-
-        assertSame(safeTime1, internalTable.getPartitionSafeTimeTracker(0));
-        assertSame(storageIndex1, internalTable.getPartitionStorageIndexTracker(0));
-
-        verify(safeTime0).close();
-        verify(storageIndex0).close();
-    }
-
     private InternalTableImpl newInternalTable(int tableId, int partitionCount) {
         // number of partitions.
         return new InternalTableImpl(
@@ -236,17 +240,16 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
                 mock(MvTableStorage.class),
-                mock(TxStateStorage.class),
                 replicaService,
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
-                new TransactionInflights(placementDriver, clockService),
+                new TransactionInflights(placementDriver, clockService, txStateVolatileStorage),
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
                 () -> 10_000L,
-                colocationEnabled()
+                new TableMetricSource(QualifiedName.fromSimple("test"))
         );
     }
 
@@ -347,7 +350,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(EnlistingOperation.class)
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void tableIdGetsEnlisted(EnlistingOperation operation) {
         InternalTable table = newInternalTable(10, 1);
         InternalTransaction transaction = newReadWriteTransaction();
@@ -362,7 +364,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @EnumSource(EnlistingOperation.class)
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
     void anotherTableIdGetsEnlistedInSameZonePartitionEnlistment(EnlistingOperation operation) {
         InternalTable table1 = newInternalTable(10, 1);
         InternalTable table2 = newInternalTable(11, 1);
@@ -378,17 +379,21 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     }
 
     private PendingTxPartitionEnlistment extractSingleEnlistmentForZone() {
-        Map<ReplicationGroupId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
-        assertThat(capturedEnlistments, is(aMapWithSize(1)));
-        PendingTxPartitionEnlistment enlistment = capturedEnlistments.get(new ZonePartitionId(ZONE_ID, 0));
+        return extractSingleEnlistmentForZone(1, 0);
+    }
+
+    private PendingTxPartitionEnlistment extractSingleEnlistmentForZone(int expected, int partition) {
+        Map<ZonePartitionId, PendingTxPartitionEnlistment> capturedEnlistments = extractEnlistmentsFromTxFinish();
+        assertThat(capturedEnlistments, is(aMapWithSize(expected)));
+        PendingTxPartitionEnlistment enlistment = capturedEnlistments.get(new ZonePartitionId(ZONE_ID, partition));
         assertThat(enlistment, is(notNullValue()));
         return enlistment;
     }
 
-    private Map<ReplicationGroupId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
-        ArgumentCaptor<Map<ReplicationGroupId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
+    private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
+        ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
-        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
+        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
         return enlistmentsCaptor.getValue();
     }
@@ -400,9 +405,20 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000,
-                colocationEnabled()
+                10_000
         );
+    }
+
+    private InternalTransaction newReadOnlyTransaction() {
+        InternalTransaction readOnlyTx = mock(InternalTransaction.class);
+        lenient().when(readOnlyTx.id()).thenReturn(TestTransactionIds.newTransactionId());
+        lenient().when(readOnlyTx.isReadOnly()).thenReturn(true);
+        lenient().when(readOnlyTx.readTimestamp()).thenReturn(clock.now());
+        lenient().when(readOnlyTx.implicit()).thenReturn(false);
+        lenient().when(readOnlyTx.remote()).thenReturn(false);
+        lenient().when(readOnlyTx.state()).thenReturn(null);
+        lenient().when(readOnlyTx.isRolledBackWithTimeoutExceeded()).thenReturn(false);
+        return readOnlyTx;
     }
 
     private enum EnlistingOperation {
@@ -422,7 +438,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         DELETE_ALL((table, tx) -> table.deleteAll(List.of(createBinaryRow()), tx)),
         DELETE_ALL_EXACT((table, tx) -> table.deleteAllExact(List.of(createBinaryRow()), tx)),
         SCAN_MV_STORAGE(adaptScan((table, tx) -> table.scan(0, tx))),
-        SCAN_INDEX(adaptScan((table, tx) -> table.scan(0, tx, 1, null, null, 0, null)));
+        SCAN_INDEX(adaptScan((table, tx) -> table.scan(0, tx, 1, IndexScanCriteria.unbounded())));
 
         private final BiFunction<InternalTable, InternalTransaction, CompletableFuture<?>> action;
 
@@ -446,6 +462,390 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<?> perform(InternalTable table, InternalTransaction transaction) {
             return action.apply(table, transaction);
+        }
+    }
+
+    @Test
+    void testInvalidPartitionParameterScan() {
+        InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+        // Test negative partition ID
+        assertThrowsWithCause(() -> internalTable.scan(-1, null), IllegalArgumentException.class,
+                "Invalid partition [partition=-1, minValue=0, maxValue=0].");
+
+        // Test partition ID >= number of partitions (table has 1 partition, so partition 1 is invalid)
+        assertThrowsWithCause(() -> internalTable.scan(1, null), IllegalArgumentException.class,
+                "Invalid partition [partition=1, minValue=0, maxValue=0].");
+    }
+
+    @Nested
+    class ScanWithIndexAndRangeCriteriaTest {
+        private static final int VALID_INDEX_ID = 1;
+        private static final int VALID_PARTITION = 0;
+        private static final int PARTITION_COUNT = 3;
+
+        private Supplier<CompletableFuture<Void>> buildAction(InternalTable table, int partition,
+                InternalTransaction tx, int index, Range range) {
+            return () -> {
+                Publisher<BinaryRow> publisher = table.scan(partition, tx, index, range);
+                CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+                publisher.subscribe(new BlackholeSubscriber(resultFuture));
+                return resultFuture;
+            };
+        }
+
+        private Supplier<CompletableFuture<Void>> buildAction(InternalTable table, InternalTransaction tx, int index, Range range) {
+            return () -> {
+                Publisher<BinaryRow> publisher = table.scan(VALID_PARTITION, tx, index, range);
+                CompletableFuture<Void> resultFuture = new CompletableFuture<>();
+                publisher.subscribe(new BlackholeSubscriber(resultFuture));
+                return resultFuture;
+            };
+        }
+
+        private void commitTxAndAssertEnlistment(InternalTransaction tx, InternalTableImpl internalTable) {
+            assertDoesNotThrow(tx::commit);
+            PendingTxPartitionEnlistment enlistment = extractSingleEnlistmentForZone();
+            assertThat(enlistment.tableIds(), contains(internalTable.tableId()));
+        }
+
+        /**
+         * Creates a BinaryTuplePrefix with a single integer value.
+         */
+        private BinaryTuplePrefix createBinaryTuplePrefix(int value) {
+            BinaryTuple tuple = new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(value).build());
+            return BinaryTuplePrefix.fromBinaryTuple(tuple);
+        }
+
+        @Test
+        void testInvalidPartitionIdThrowsException() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, PARTITION_COUNT);
+            InternalTransaction tx = newReadWriteTransaction();
+            // Test negative partition ID
+
+            assertThrowsWithCause(() -> internalTable.scan(-1, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded()),
+                    IllegalArgumentException.class,
+                    "Invalid partition [partition=-1, minValue=0, maxValue=2]");
+
+            // Test partition ID >= number of partitions
+            assertThrowsWithCause(() -> internalTable.scan(PARTITION_COUNT + 1, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded()),
+                    IllegalArgumentException.class,
+                    "Invalid partition [partition=4, minValue=0, maxValue=2]");
+
+            // Test partition ID == number of partitions (boundary)
+            assertThrowsWithCause(() -> internalTable.scan(PARTITION_COUNT, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded()),
+                    IllegalArgumentException.class,
+                    "Invalid partition [partition=3, minValue=0, maxValue=2]");
+        }
+
+        @Test
+        void testValidPartitionIds() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, PARTITION_COUNT);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Test valid partition IDs
+            for (int partition = 0; partition < PARTITION_COUNT; partition++) {
+                Supplier<CompletableFuture<Void>> action = buildAction(internalTable, partition, tx,
+                        VALID_INDEX_ID, IndexScanCriteria.unbounded());
+                assertThat(action.get(), willCompleteSuccessfully());
+            }
+            assertDoesNotThrow(tx::commit);
+            for (int partition = 0; partition < PARTITION_COUNT; partition++) {
+                PendingTxPartitionEnlistment enlistment = extractSingleEnlistmentForZone(3, partition);
+                assertThat(enlistment.tableIds(), contains(internalTable.tableId()));
+            }
+        }
+
+        @Test
+        void testNullTransactionCreatesImplicit() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, null, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+            assertThat(action.get(), willCompleteSuccessfully());
+        }
+
+        @Test
+        void testUnboundedRange() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+            // Test unbounded range (both bounds null)
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @ParameterizedTest
+        @CsvSource({
+            "0, 0",           // GREATER | LESS (both exclusive)
+            "1, 0",           // GREATER_OR_EQUAL | LESS (lower inclusive, upper exclusive)
+            "0, 2",           // GREATER | LESS_OR_EQUAL (lower exclusive, upper inclusive)
+            "1, 2"            // GREATER_OR_EQUAL | LESS_OR_EQUAL (both inclusive)
+        })
+        void testRangeWithDifferentFlags(int lowerFlag, int upperFlag) {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            BinaryTuplePrefix lowerBound = createBinaryTuplePrefix(10);
+            BinaryTuplePrefix upperBound = createBinaryTuplePrefix(20);
+            int flags = lowerFlag | upperFlag;
+
+            IndexScanCriteria.Range criteria = IndexScanCriteria.range(lowerBound, upperBound, flags);
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, VALID_INDEX_ID, criteria);
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testLowerBoundOnly() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            BinaryTuplePrefix lowerBound = createBinaryTuplePrefix(10);
+            IndexScanCriteria.Range criteria = IndexScanCriteria.range(lowerBound, null, GREATER_OR_EQUAL);
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, VALID_INDEX_ID, criteria);
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testUpperBoundOnly() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            BinaryTuplePrefix upperBound = createBinaryTuplePrefix(20);
+            IndexScanCriteria.Range criteria = IndexScanCriteria.range(null, upperBound, LESS_OR_EQUAL);
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, VALID_INDEX_ID, criteria);
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testBothBoundsSet() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            BinaryTuplePrefix lowerBound = createBinaryTuplePrefix(10);
+            BinaryTuplePrefix upperBound = createBinaryTuplePrefix(20);
+            IndexScanCriteria.Range criteria = IndexScanCriteria.range(lowerBound, upperBound, GREATER_OR_EQUAL | LESS_OR_EQUAL);
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, VALID_INDEX_ID, criteria);
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testEqualBounds() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            BinaryTuplePrefix bound = createBinaryTuplePrefix(10);
+            IndexScanCriteria.Range criteria = IndexScanCriteria.range(bound, bound, GREATER_OR_EQUAL | LESS_OR_EQUAL);
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, VALID_INDEX_ID, criteria);
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testFlagsWithNullBounds() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Flags should be ignored when bounds are null, but should not throw
+            IndexScanCriteria.Range criteria = IndexScanCriteria.range(null, null, GREATER_OR_EQUAL | LESS_OR_EQUAL);
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, VALID_INDEX_ID, criteria);
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testZeroIndexId() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Index ID 0 might be valid (could be primary key index)
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, 0, IndexScanCriteria.unbounded());
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testNegativeIndexId() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Negative index ID - should be handled gracefully
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, -1, IndexScanCriteria.unbounded());
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testLargeIndexId() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Large index ID - should be handled gracefully
+            Supplier<CompletableFuture<Void>> action = buildAction(internalTable, tx, Integer.MAX_VALUE, IndexScanCriteria.unbounded());
+
+            assertThat(action.get(), willCompleteSuccessfully());
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testScanWithDataReturned() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Create mock binary rows to return
+            BinaryRow row1 = mock(BinaryRow.class);
+            BinaryRow row2 = mock(BinaryRow.class);
+            List<BinaryRow> scanResults = List.of(row1, row2);
+
+            // Mock replica service to return data for scan requests
+            when(replicaService.invoke(anyString(), any(ReadWriteScanRetrieveBatchReplicaRequest.class)))
+                    .thenReturn(completedFuture(scanResults));
+
+            Publisher<BinaryRow> publisher = internalTable.scan(0, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<List<BinaryRow>> resultFuture = subscribeToList(publisher);
+
+            // Wait for scan to complete
+            assertThat(resultFuture, willCompleteSuccessfully());
+            List<BinaryRow> collectedRows = resultFuture.join();
+
+            // Verify that data was returned
+            assertThat(collectedRows, hasSize(2));
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testScanWithEmptyResult() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Mock replica service to return empty list
+            when(replicaService.invoke(anyString(), any(ReadWriteScanRetrieveBatchReplicaRequest.class)))
+                    .thenReturn((CompletableFuture) emptyListCompletedFuture());
+
+            Publisher<BinaryRow> publisher = internalTable.scan(0, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<List<BinaryRow>> resultFuture = subscribeToList(publisher);
+
+            // Wait for scan to complete
+            assertThat(resultFuture, willCompleteSuccessfully());
+            List<BinaryRow> collectedRows = resultFuture.join();
+
+            // Verify that empty result was returned
+            assertThat(collectedRows, hasSize(0));
+
+            commitTxAndAssertEnlistment(tx, internalTable);
+        }
+
+        @Test
+        void testScanWithCommittedTransactionThrowsException() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Mock transaction manager to mark transaction as committed
+            UUID txId = tx.id();
+            when(txManager.stateMeta(txId)).thenReturn(new TxStateMeta(
+                    TxState.COMMITTED,
+                    txId,
+                    null,
+                    null,
+                    null,
+                    null
+            ));
+
+            // Commit the transaction
+            assertDoesNotThrow(tx::commit);
+
+            // Try to scan with committed transaction - should throw TransactionException
+            Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<Void> completed = new CompletableFuture<>();
+
+            publisher.subscribe(new BlackholeSubscriber(completed));
+
+            // Wait for error
+            try {
+                completed.get(10, TimeUnit.SECONDS);
+                fail("Expected TransactionException but scan completed successfully");
+            } catch (Exception e) {
+                Throwable cause = unwrapRootCause(e);
+                assertThat("Error should be TransactionException", cause, is(instanceOf(TransactionException.class)));
+                TransactionException txEx = (TransactionException) cause;
+                assertThat("Error code should be TX_ALREADY_FINISHED_ERR", txEx.code(), is(TX_ALREADY_FINISHED_ERR));
+            }
+        }
+
+        @Test
+        void testScanWithAbortedTransactionThrowsException() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction tx = newReadWriteTransaction();
+
+            // Mock transaction manager to mark transaction as aborted
+            UUID txId = tx.id();
+            when(txManager.stateMeta(txId)).thenReturn(new TxStateMeta(
+                    TxState.ABORTED,
+                    txId,
+                    null,
+                    null,
+                    null,
+                    null
+            ));
+
+            // Rollback the transaction
+            assertDoesNotThrow(tx::rollback);
+
+            // Try to scan with aborted transaction - should throw TransactionException
+            Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<Void> completed = new CompletableFuture<>();
+            publisher.subscribe(new BlackholeSubscriber(completed));
+
+            // Wait for error
+            try {
+                completed.get(10, TimeUnit.SECONDS);
+                fail("Expected TransactionException but scan completed successfully");
+            } catch (Exception e) {
+                Throwable cause = unwrapRootCause(e);
+                assertThat("Error should be TransactionException", cause, is(instanceOf(TransactionException.class)));
+                TransactionException txEx = (TransactionException) cause;
+                assertThat("Error code should be TX_ALREADY_FINISHED_ERR", txEx.code(), is(TX_ALREADY_FINISHED_ERR));
+            }
+        }
+
+        @Test
+        void testScanWithReadOnlyTransactionThrowsException() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+            InternalTransaction readOnlyTx = newReadOnlyTransaction();
+
+            try {
+                internalTable.scan(VALID_PARTITION, readOnlyTx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+                fail("Expected exception when scanning with read-only transaction");
+            } catch (TransactionException e) {
+                assertThat("Error code should be TX_FAILED_READ_WRITE_OPERATION_ERR",
+                        e.code(), is(TX_FAILED_READ_WRITE_OPERATION_ERR));
+            }
         }
     }
 }

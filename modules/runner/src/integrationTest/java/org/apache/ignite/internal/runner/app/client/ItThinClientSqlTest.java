@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,13 +34,25 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.QueryModifier;
+import org.apache.ignite.internal.security.authentication.UserDetails;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -47,12 +63,17 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -77,7 +98,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteAsyncSimpleSelect() {
         AsyncResultSet<SqlRow> resultSet = client().sql()
-                .executeAsync(null, "select 1 as num, 'hello' as str")
+                .executeAsync("select 1 as num, 'hello' as str")
                 .join();
 
         assertTrue(resultSet.hasRowSet());
@@ -102,7 +123,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteSimpleSelect() {
         ResultSet<SqlRow> resultSet = client().sql()
-                .execute(null, "select 1 as num, 'hello' as str");
+                .execute("select 1 as num, 'hello' as str");
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -123,7 +144,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         IgniteSql sql = client().sql();
 
         // Create table.
-        sql.execute(null, "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+        sql.execute("CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
 
         // Async
         Transaction tx = client().transactions().begin();
@@ -169,10 +190,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         });
 
         for (int i = 0; i < 10; i++) {
-            sql.execute(null, "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
+            sql.execute("INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
         }
 
-        ResultSet<SqlRow> selectRes = sql.execute(null, "SELECT * FROM testExecuteDdlDml ORDER BY ID");
+        ResultSet<SqlRow> selectRes = sql.execute("SELECT * FROM testExecuteDdlDml ORDER BY ID");
 
         var rows = new ArrayList<SqlRow>();
         selectRes.forEachRemaining(rows::add);
@@ -180,7 +201,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1 + 1 + 10, rows.size());
 
         // Delete table.
-        sql.execute(null, "DROP TABLE testExecuteDdlDml");
+        sql.execute("DROP TABLE testExecuteDdlDml");
     }
 
     @Test
@@ -189,7 +210,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Create table.
         AsyncResultSet createRes = sql
-                .executeAsync(null, "CREATE TABLE testExecuteAsyncDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)")
+                .executeAsync("CREATE TABLE testExecuteAsyncDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)")
                 .join();
 
         assertFalse(createRes.hasRowSet());
@@ -201,7 +222,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         // Insert data.
         for (int i = 0; i < 10; i++) {
             AsyncResultSet insertRes = sql
-                    .executeAsync(null, "INSERT INTO testExecuteAsyncDdlDml VALUES (?, ?)", i, "hello " + i)
+                    .executeAsync("INSERT INTO testExecuteAsyncDdlDml VALUES (?, ?)", i, "hello " + i)
                     .join();
 
             assertFalse(insertRes.hasRowSet());
@@ -213,7 +234,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Query data.
         AsyncResultSet<SqlRow> selectRes = sql
-                .executeAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
+                .executeAsync("SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
                 .join();
 
         assertTrue(selectRes.hasRowSet());
@@ -225,7 +246,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(3, columns.size());
         assertEquals("MYVALUE", columns.get(0).name());
         assertEquals("ID", columns.get(1).name());
-        assertEquals("ID + 1", columns.get(2).name());
+        assertEquals("\"ID + 1\"", columns.get(2).name());
 
         var rows = new ArrayList<SqlRow>();
         selectRes.currentPage().forEach(rows::add);
@@ -237,7 +258,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Update data.
         AsyncResultSet updateRes = sql
-                .executeAsync(null, "UPDATE testExecuteAsyncDdlDml SET VAL='upd' WHERE ID < 5").join();
+                .executeAsync("UPDATE testExecuteAsyncDdlDml SET VAL='upd' WHERE ID < 5").join();
 
         assertFalse(updateRes.wasApplied());
         assertFalse(updateRes.hasRowSet());
@@ -245,7 +266,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(5, updateRes.affectedRows());
 
         // Delete table.
-        AsyncResultSet deleteRes = sql.executeAsync(null, "DROP TABLE testExecuteAsyncDdlDml").join();
+        AsyncResultSet deleteRes = sql.executeAsync("DROP TABLE testExecuteAsyncDdlDml").join();
 
         assertFalse(deleteRes.hasRowSet());
         assertNull(deleteRes.metadata());
@@ -258,9 +279,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         IgniteSql sql = client().sql();
 
         // Create table.
-        ResultSet createRes = sql.execute(
-                null,
-                "CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
+        ResultSet createRes = sql.execute("CREATE TABLE testExecuteDdlDml(ID INT NOT NULL PRIMARY KEY, VAL VARCHAR)");
 
         assertFalse(createRes.hasRowSet());
         assertNull(createRes.metadata());
@@ -269,9 +288,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Insert data.
         for (int i = 0; i < 10; i++) {
-            ResultSet insertRes = sql.execute(
-                    null,
-                    "INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
+            ResultSet insertRes = sql.execute("INSERT INTO testExecuteDdlDml VALUES (?, ?)", i, "hello " + i);
 
             assertFalse(insertRes.hasRowSet());
             assertNull(insertRes.metadata());
@@ -281,7 +298,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Query data.
         ResultSet<SqlRow> selectRes = sql
-                .execute(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteDdlDml ORDER BY ID");
+                .execute("SELECT VAL as MYVALUE, ID, ID + 1 FROM testExecuteDdlDml ORDER BY ID");
 
         assertTrue(selectRes.hasRowSet());
         assertFalse(selectRes.wasApplied());
@@ -307,7 +324,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("TESTEXECUTEDDLDML", columns.get(1).origin().tableName());
         assertFalse(columns.get(1).nullable());
 
-        assertEquals("ID + 1", columns.get(2).name());
+        assertEquals("\"ID + 1\"", columns.get(2).name());
         assertNull(columns.get(2).origin());
 
         var rows = new ArrayList<SqlRow>();
@@ -319,7 +336,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, rows.get(1).intValue(2));
 
         // Update data.
-        ResultSet updateRes = sql.execute(null, "UPDATE testExecuteDdlDml SET VAL='upd' WHERE ID < 5");
+        ResultSet updateRes = sql.execute("UPDATE testExecuteDdlDml SET VAL='upd' WHERE ID < 5");
 
         assertFalse(updateRes.wasApplied());
         assertFalse(updateRes.hasRowSet());
@@ -327,7 +344,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(5, updateRes.affectedRows());
 
         // Delete table.
-        ResultSet deleteRes = sql.execute(null, "DROP TABLE testExecuteDdlDml");
+        ResultSet deleteRes = sql.execute("DROP TABLE testExecuteDdlDml");
 
         assertFalse(deleteRes.hasRowSet());
         assertNull(deleteRes.metadata());
@@ -338,15 +355,15 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testFetchNextPage() {
         IgniteSql sql = client().sql();
 
-        sql.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT)").join();
+        sql.executeAsync("CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT)").join();
 
         for (int i = 0; i < 10; i++) {
-            sql.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (?, ?)", i, i).join();
+            sql.executeAsync("INSERT INTO testFetchNextPage VALUES (?, ?)", i, i).join();
         }
 
         Statement statement = client().sql().statementBuilder().pageSize(4).query("SELECT ID FROM testFetchNextPage ORDER BY ID").build();
 
-        AsyncResultSet<SqlRow> asyncResultSet = sql.executeAsync(null, statement).join();
+        AsyncResultSet<SqlRow> asyncResultSet = sql.executeAsync((Transaction) null, statement).join();
 
         assertEquals(4, asyncResultSet.currentPageSize());
         assertTrue(asyncResultSet.hasMorePages());
@@ -369,7 +386,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testInvalidSqlThrowsException() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> client().sql().executeAsync(null, "select x from bad").join());
+                () -> client().sql().executeAsync("select x from bad").join());
 
         var clientEx = (IgniteException) ex.getCause();
 
@@ -380,16 +397,73 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testTransactionRollbackRevertsSqlUpdate() {
         IgniteSql sql = client().sql();
 
-        sql.executeAsync(null, "CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT)").join();
+        sql.executeAsync("CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT)").join();
 
-        sql.executeAsync(null, "INSERT INTO testTx VALUES (1, 1)").join();
+        sql.executeAsync("INSERT INTO testTx VALUES (1, 1)").join();
 
         Transaction tx = client().transactions().begin();
         sql.executeAsync(tx, "UPDATE testTx SET VAL=2").join();
         tx.rollback();
 
-        var res = sql.executeAsync(null, "SELECT VAL FROM testTx").join();
+        var res = sql.executeAsync("SELECT VAL FROM testTx").join();
         assertEquals(1, res.currentPage().iterator().next().intValue(0));
+    }
+
+    /** The purpose of this test is to check clients with different timeZone settings.
+     * In case when literal is a part of primary key and has a type: TIMESTAMP WITH LOCAL TIME ZONE - no
+     * partition awareness meta need to be calculated.
+     */
+    @Test
+    void testPartitionAwarenessNotExtractedForTsLiteral() {
+        IgniteClient client = client();
+        IgniteSql sql = client.sql();
+
+        sql.execute("CREATE TABLE my_table (id int, ts TIMESTAMP WITH LOCAL TIME ZONE, val INT, "
+                + "PRIMARY KEY(id, ts))");
+
+        int count = 100;
+
+        for (int i = 0; i < count; i++) {
+            sql.execute("INSERT INTO my_table VALUES (?, TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00', ?)", i, i);
+        }
+
+        StatementBuilder builder = sql.statementBuilder();
+
+        String query = "SELECT * FROM my_table WHERE id = ? AND ts = TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00'";
+
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("Asia/Nicosia"));
+        Statement stmt1 = builder.build();
+
+        builder = sql.statementBuilder();
+        builder.query(query);
+        builder.timeZoneId(ZoneId.of("UTC"));
+        Statement stmt2 = builder.build();
+
+        Transaction tx = null;
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt1, i);
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (i % 5 == 0) {
+                if (tx != null) {
+                    tx.commit();
+                }
+
+                tx = client.transactions().begin();
+            }
+
+            sql.execute(tx, stmt2, i);
+        }
     }
 
     @Test
@@ -397,26 +471,26 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         IgniteClient client = client();
         IgniteSql sql = client.sql();
 
-        sql.execute(null, "CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+        sql.execute("CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
 
         // First, let's fill the table and check every row in implicit tx.
         // This should also prepare partition awareness metadata.
         int count = 10;
         for (int i = 0; i < count; i++) {
-            try (ResultSet<?> ignored = sql.execute(null, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+            try (ResultSet<?> ignored = sql.execute("INSERT INTO my_table VALUES (?, ?)", i, i)) {
                 // No-op.
             }
         }
 
         for (int i = 0; i < count; i++) {
-            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+            try (ResultSet<SqlRow> rs = sql.execute("SELECT * FROM my_table WHERE id = ?", i)) {
                 assertEquals(i, rs.next().intValue(1));
             }
         }
 
         // Now let's clean the table and do the same steps but within explicit tx.
 
-        try (ResultSet<?> ignored = sql.execute(null, "DELETE FROM my_table")) {
+        try (ResultSet<?> ignored = sql.execute("DELETE FROM my_table")) {
             // No-op.
         }
 
@@ -435,25 +509,24 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
             // All just inserted rows should not be visible yet
             for (int i = 0; i < count; i++) {
-                try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                try (ResultSet<SqlRow> rs = sql.execute("SELECT * FROM my_table WHERE id = ?", i)) {
                     assertFalse(rs.hasNext());
                 }
             }
 
             // The same for explicit RO transaction
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-25921 uncomment section below
-            // client.transactions().runInTransaction(roTx -> {
-            //     for (int i = 0; i < count; i++) {
-            //         try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
-            //             assertFalse(rs.hasNext());
-            //         }
-            //     }
-            // }, new TransactionOptions().readOnly(true));
+            client.transactions().runInTransaction(roTx -> {
+                for (int i = 0; i < count; i++) {
+                    try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                        assertFalse(rs.hasNext());
+                    }
+                }
+            }, new TransactionOptions().readOnly(true));
         });
 
         // And now changes are published.
         for (int i = 0; i < count; i++) {
-            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+            try (ResultSet<SqlRow> rs = sql.execute("SELECT * FROM my_table WHERE id = ?", i)) {
                 assertEquals(i, rs.next().intValue(1));
             }
         }
@@ -464,11 +537,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         IgniteClient client = client();
         IgniteSql sql = client.sql();
 
-        sql.execute(null, "CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+        sql.execute("CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
 
         int count = 10;
         for (int i = 0; i < count; i++) {
-            try (ResultSet<?> ignored = sql.execute(null, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+            try (ResultSet<?> ignored = sql.execute("INSERT INTO my_table VALUES (?, ?)", i, i)) {
                 // No-op.
             }
         }
@@ -482,7 +555,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Changes has not been published yet.
         for (int i = 0; i < count; i++) {
-            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+            try (ResultSet<SqlRow> rs = sql.execute("SELECT * FROM my_table WHERE id = ?", i)) {
                 assertEquals(i, rs.next().intValue(1));
             }
         }
@@ -498,7 +571,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // And now changes are published.
         for (int i = 0; i < count; i++) {
-            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+            try (ResultSet<SqlRow> rs = sql.execute("SELECT * FROM my_table WHERE id = ?", i)) {
                 assertEquals(rs.hasNext(), i % 2 != 0);
             }
         }
@@ -511,8 +584,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         String query = "select 123 + ? as num, 'Hello!' as str";
 
         ResultSet<Pojo> resultSet = useStatement
-                ? sql.execute(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), 10)
-                : sql.execute(null, Mapper.of(Pojo.class), query, 10);
+                ? sql.execute((Transaction) null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), 10)
+                : sql.execute((Transaction) null, Mapper.of(Pojo.class), query, 10);
 
         assertTrue(resultSet.hasRowSet());
 
@@ -529,8 +602,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         String query = "select 1 as num, concat('hello ', ?) as str";
 
         AsyncResultSet<Pojo> resultSet = useStatement
-                ? sql.executeAsync(null, Mapper.of(Pojo.class), client().sql().statementBuilder().query(query).build(), "world").join()
-                : sql.executeAsync(null, Mapper.of(Pojo.class), query, "world").join();
+                ? sql.executeAsync((Transaction) null, Mapper.of(Pojo.class), sql.statementBuilder().query(query).build(), "world").join()
+                : sql.executeAsync((Transaction) null, Mapper.of(Pojo.class), query, "world").join();
 
         assertTrue(resultSet.hasRowSet());
         assertEquals(1, resultSet.currentPageSize());
@@ -541,14 +614,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("hello world", row.str);
     }
 
-
     @Test
     void testResultSetMappingColumnNameMismatch() {
         String query = "select 1 as foo, 2 as bar";
 
         IgniteException e = assertThrows(
                 IgniteException.class,
-                () -> client().sql().execute(null, Mapper.of(Pojo.class), query));
+                () -> client().sql().execute((Transaction) null, Mapper.of(Pojo.class), query));
 
         assertEquals("Failed to deserialize server response: No mapped object field found for column 'FOO'", e.getMessage());
     }
@@ -573,7 +645,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "VAL_UUID UUID, "
                 + "VAL_BYTES VARBINARY)";
 
-        sql.execute(null, createTable);
+        sql.execute((Transaction) null, createTable);
 
         String insertData = "INSERT INTO testAllColumnTypes VALUES ("
                 + "1, "
@@ -591,9 +663,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 + "'10000000-2000-3000-4000-500000000000'::UUID, "
                 + "x'42')";
 
-        sql.execute(null, insertData);
+        sql.execute((Transaction) null, insertData);
 
-        var resultSet = sql.execute(null, "SELECT *, NULL FROM testAllColumnTypes");
+        var resultSet = sql.execute((Transaction) null, "SELECT *, NULL FROM testAllColumnTypes");
         assertTrue(resultSet.hasRowSet());
 
         var row = resultSet.next();
@@ -652,12 +724,186 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
     public void testClientSqlRowToString() {
         AsyncResultSet<SqlRow> resultSet = client().sql()
-                .executeAsync(null, "select 1 as num, 'hello' as str")
+                .executeAsync("select 1 as num, 'hello' as str")
                 .join();
 
         SqlRow row = resultSet.currentPage().iterator().next();
 
         assertEquals("ClientSqlRow [NUM=1, STR=hello]", row.toString());
+    }
+
+    @Test
+    public void testCurrentUser() {
+        String expectedUsername = UserDetails.UNKNOWN.username();
+        IgniteSql sql = client().sql();
+
+        try (ResultSet<SqlRow> rs = sql.execute("SELECT CURRENT_USER")) {
+            assertEquals(ColumnType.STRING, rs.metadata().columns().get(0).type());
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        sql.execute("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        sql.execute("INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)").close();
+
+        try (ResultSet<SqlRow> rs = sql.execute("SELECT val FROM t1 WHERE val = CURRENT_USER")) {
+            assertTrue(rs.hasNext());
+            assertEquals(expectedUsername, rs.next().stringValue(0));
+            assertFalse(rs.hasNext());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testSqlQueryModifiers() {
+        ClientSql sql = (ClientSql) client().sql();
+
+        Set<QueryModifier> selectType = EnumSet.of(QueryModifier.ALLOW_ROW_SET_RESULT);
+        Set<QueryModifier> dmlType = EnumSet.of(QueryModifier.ALLOW_AFFECTED_ROWS_RESULT);
+        Set<QueryModifier> ddlType = EnumSet.of(QueryModifier.ALLOW_APPLIED_RESULT);
+
+        Statement ddlStatement = client().sql().createStatement("CREATE TABLE x(id INT PRIMARY KEY)");
+        Statement dmlStatement = client().sql().createStatement("INSERT INTO x VALUES (1), (2), (3)");
+        Statement selectStatement = client().sql().createStatement("SELECT * FROM x");
+        Statement multiStatement = client().sql().createStatement("SELECT 1; SELECT 2;");
+
+        BiConsumer<Statement, Set<QueryModifier>> check = (stmt, types) -> {
+            await(sql.executeAsyncInternal(
+                    null,
+                    null,
+                    null,
+                    types,
+                    stmt
+            ));
+        };
+
+        // Incorrect modifier for DDL.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, selectType),
+                    "Statement of type \"DDL\" is not allowed in current context"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(ddlStatement, dmlType),
+                    "Statement of type \"DDL\" is not allowed in current context"
+            );
+        }
+
+        // Incorrect modifier for DML.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, selectType),
+                    "Statement of type \"DML\" is not allowed in current context"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(dmlStatement, ddlType),
+                    "Statement of type \"DML\" is not allowed in current context"
+            );
+        }
+
+        // Incorrect modifier for SELECT.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, dmlType),
+                    "Statement of type \"Query\" is not allowed in current context"
+            );
+
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(selectStatement, ddlType),
+                    "Statement of type \"Query\" is not allowed in current context"
+            );
+        }
+
+        // Incorrect modifier for multi-statement.
+        {
+            IgniteTestUtils.assertThrows(
+                    SqlException.class,
+                    () -> check.accept(multiStatement, QueryModifier.SINGLE_STMT_MODIFIERS),
+                    "Multiple statements are not allowed."
+            );
+        }
+
+        // No exception expected with correct query modifier.
+        check.accept(ddlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(dmlStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(selectStatement, QueryModifier.SINGLE_STMT_MODIFIERS);
+        check.accept(multiStatement, QueryModifier.ALL);
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26567")
+    public void testBroadcastQueryTxInflightStateCleanup() {
+        IgniteSql sql = client().sql();
+
+        sql.execute("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+        sql.execute("CREATE INDEX IF NOT EXISTS idx1 ON t1 (val)");
+        sql.execute("INSERT INTO t1 (id, val) VALUES (1, 'test1')").close();
+
+        try (ResultSet<SqlRow> rs = sql.execute("SELECT id FROM t1 WHERE val = ?", "test1")) {
+            assertTrue(rs.hasNext());
+            assertEquals(1, rs.next().intValue(0));
+            assertFalse(rs.hasNext());
+        }
+
+        for (int i = 0; i < nodes(); i++) {
+            IgniteImpl server = TestWrappers.unwrapIgniteImpl(server(i));
+            TxManager txManager = server.txManager();
+            TransactionInflights transactionInflights = IgniteTestUtils.getFieldValue(txManager, "transactionInflights");
+            assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights");
+        }
+    }
+
+    @Test
+    void testKvAndDistributedDmlInSameTransaction() {
+        IgniteSql sql = client().sql();
+        sql.executeScript("CREATE TABLE my_table (id INT PRIMARY KEY, val INT)");
+
+        KeyValueView<Integer, Integer> view = client().tables()
+                .table("my_table")
+                .keyValueView(Integer.class, Integer.class);
+
+        // First, we need to await table creation.
+        for (int i = 0; i < 10; i++) {
+            view.put(null, i, 0);
+        }
+
+        Transaction tx = client().transactions().begin();
+
+        try {
+            // Then run few operations to make sure transaction is initialized with commitPartition.
+            for (int i = 0; i < 10; i++) {
+                view.put(tx, i, 0);
+            }
+
+            // Run first batch of distributed DML queries. PartitionAwareness meta may be not prepared yet.
+            for (int i = 0; i < 5; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "UPDATE my_table SET val = val * 10 WHERE id = ?", i)) {
+                    // NO-OP
+                }
+            }
+
+            // Hence, let's wait for PA meta to be ready.
+            Awaitility.await().until(() -> ((ClientSql) sql).partitionAwarenessCachedMetas(), is(not(empty())));
+
+            // And retry distributed DML queries one more time. Here, even though PA meta is available, we expect
+            // these statements to be executed in proxy mode and no exceptions should be thrown.
+            for (int i = 0; i < 5; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "UPDATE my_table SET val = val * 10 WHERE id = ?", i)) {
+                    // NO-OP
+                }
+            }
+        } finally {
+            tx.rollback();
+        }
     }
 
     private static class Pojo {

@@ -42,7 +42,7 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
         int requiredCatalogVersion = o instanceof CatalogVersionAware
                 ? ((CatalogVersionAware) o).requiredCatalogVersion()
-                : PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
+                : NO_VERSION_REQUIRED;
 
         stream.setBuffer(buffer);
         // We need fixed values here to know the offset for binary patcher.

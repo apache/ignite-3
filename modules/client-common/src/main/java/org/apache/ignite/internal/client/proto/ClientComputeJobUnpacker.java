@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.client.proto;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.jetbrains.annotations.Nullable;
@@ -45,15 +47,23 @@ public final class ClientComputeJobUnpacker {
             @Nullable Marshaller<?, byte[]> marshaller,
             @Nullable Class<?> resultClass
     ) {
-        ComputeJobDataHolder holder = unpackJobArgumentWithoutMarshaller(unpacker);
+        ComputeJobDataHolder holder = unpackJobArgumentWithoutMarshaller(unpacker, false);
 
         return SharedComputeUtils.unmarshalArgOrResult(holder, marshaller, resultClass);
     }
 
     /** Unpacks compute job argument without marshaller. */
-    public static @Nullable ComputeJobDataHolder unpackJobArgumentWithoutMarshaller(ClientMessageUnpacker unpacker) {
+    public static @Nullable ComputeJobDataHolder unpackJobArgumentWithoutMarshaller(
+            ClientMessageUnpacker unpacker,
+            boolean enableObservableTs) {
+        long observableTs = enableObservableTs
+                ? unpacker.unpackLong()
+                : HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
         if (unpacker.tryUnpackNil()) {
-            return null;
+            return observableTs == HybridTimestamp.NULL_HYBRID_TIMESTAMP
+                    ? null
+                    : new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, observableTs);
         }
 
         int typeId = unpacker.unpackInt();
@@ -62,11 +72,14 @@ public final class ClientComputeJobUnpacker {
             throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
         }
 
-        return new ComputeJobDataHolder(type, unpacker.readBinary());
+        return new ComputeJobDataHolder(type, unpacker.readBinary(), observableTs);
     }
 
     /** Unpacks compute job info. */
-    public static Job unpackJob(ClientMessageUnpacker unpacker, boolean enablePlatformJobs) {
+    public static Job unpackJob(
+            ClientMessageUnpacker unpacker,
+            boolean enablePlatformJobs,
+            boolean enableObservableTs) {
         List<DeploymentUnit> deploymentUnits = unpacker.unpackDeploymentUnits();
         String jobClassName = unpacker.unpackString();
         var options = JobExecutionOptions.builder().priority(unpacker.unpackInt()).maxRetries(unpacker.unpackInt());
@@ -75,9 +88,20 @@ public final class ClientComputeJobUnpacker {
             options.executorType(JobExecutorType.fromOrdinal(unpacker.unpackInt()));
         }
 
-        ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(unpacker);
+        ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(unpacker, enableObservableTs);
 
         return new Job(deploymentUnits, jobClassName, options.build(), args);
+    }
+
+    /**
+     * Unpacks compute job task ID.
+     *
+     * @param unpacker Unpacker.
+     * @param enableTaskId {@code true} if {@link ProtocolBitmaskFeature#COMPUTE_TASK_ID} is supported.
+     * @return Task ID.
+     */
+    public static @Nullable UUID unpackTaskId(ClientMessageUnpacker unpacker, boolean enableTaskId) {
+        return enableTaskId ? unpacker.unpackUuidNullable() : null;
     }
 
     /** Job info. */

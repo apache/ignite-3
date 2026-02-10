@@ -25,6 +25,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include <chrono>
+#include <thread>
 
 using namespace ignite;
 
@@ -43,6 +44,83 @@ public:
         return cfg;
     }
 };
+
+TEST_F(client_test, configuration_set_invalid_heartbeat) {
+    using namespace std::chrono_literals;
+
+    auto cfg = create_default_client_config();
+
+    EXPECT_THROW(
+        {
+            try {
+                cfg.set_heartbeat_interval(-1s);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Heartbeat interval can not be negative"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(client_test, configuration_set_invalid_operation_timeout) {
+    using namespace std::chrono_literals;
+
+    auto cfg = create_default_client_config();
+
+    EXPECT_THROW(
+        {
+            try {
+                cfg.set_operation_timeout(-1s);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Operation timeout can't be negative"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(client_test, configuration_set_empty_address_constructor) {
+    EXPECT_THROW(
+        {
+            try {
+                ignite_client_configuration _cfg({});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Connection endpoint list can not be empty"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(client_test, configuration_set_empty_address_setter_1) {
+    auto cfg = create_default_client_config();
+
+    EXPECT_THROW(
+        {
+            try {
+                cfg.set_endpoints({});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Connection endpoint list can not be empty"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(client_test, configuration_set_empty_address_setter_2) {
+    auto cfg = create_default_client_config();
+
+    EXPECT_THROW(
+        {
+            try {
+                cfg.set_endpoints(std::vector<std::string>{});
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Connection endpoint list can not be empty"));
+                throw;
+            }
+        },
+        ignite_error);
+}
 
 TEST_F(client_test, get_configuration) {
     using namespace std::chrono_literals;
@@ -111,5 +189,3 @@ TEST_F(client_test, heartbeat_disable_connection_is_closed) {
         },
         ignite_error);
 }
-
-

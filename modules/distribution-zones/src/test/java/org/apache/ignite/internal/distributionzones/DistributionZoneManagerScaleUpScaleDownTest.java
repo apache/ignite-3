@@ -25,12 +25,10 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.dataNodeHistoryContext;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.logicalNodeFromNode;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -47,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -88,13 +85,9 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_A);
 
-        int defaultZoneId = getDefaultZone().id();
+        createDefaultZone(catalogManager);
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());
-        }
+        int defaultZoneId = getDefaultZone().id();
 
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
 
@@ -124,6 +117,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
     void testDataNodesPropagationAfterScaleUpTriggeredOnNewCluster() throws Exception {
         startDistributionZoneManager();
 
+        createDefaultZone(catalogManager);
+
         alterZone(getDefaultZone().name(), IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, null, null);
@@ -144,13 +139,9 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_A, NODE_B);
 
-        int defaultZoneId = getDefaultZone().id();
+        createDefaultZone(catalogManager);
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());
-        }
+        int defaultZoneId = getDefaultZone().id();
 
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
 
@@ -180,13 +171,9 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_A);
 
-        CatalogZoneDescriptor defaultZone = getDefaultZone();
+        createDefaultZone(catalogManager);
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());
-        }
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
 
         assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes, keyValueStorage);
 
@@ -213,13 +200,9 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_A, NODE_B);
 
-        CatalogZoneDescriptor defaultZone = getDefaultZone();
+        createDefaultZone(catalogManager);
 
-        if (colocationEnabled()) {
-            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());
-        }
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
 
         assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes, keyValueStorage);
 
@@ -234,70 +217,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         alterZone(defaultZone.name(), INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes2, keyValueStorage);
-    }
-
-    @Test
-    void testDropZoneDoNotPropagateDataNodesAfterScaleUp() throws Exception {
-        startDistributionZoneManager();
-
-        topology.putNode(NODE_A);
-
-        topology.putNode(NODE_B);
-
-        Set<LogicalNode> clusterNodes2 = Set.of(NODE_A, NODE_B);
-
-        assertLogicalTopology(clusterNodes2, keyValueStorage);
-
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, null, null);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-
-        DataNodesHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertTrue(context.scaleUpTimerPresent());
-        assertTrue(context.scaleDownTimerPresent());
-
-        dropZone(ZONE_NAME);
-
-        // Data nodes history should not be dropped after zone drop. Deferred removal should happen on LWM move.
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-        context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertFalse(context.scaleUpTimerPresent());
-        assertFalse(context.scaleDownTimerPresent());
-    }
-
-    @Test
-    void testDropZoneDoNotPropagateDataNodesAfterScaleDown() throws Exception {
-        startDistributionZoneManager();
-
-        topology.putNode(NODE_A);
-
-        topology.putNode(NODE_B);
-
-        topology.removeNodes(Set.of(NODE_B));
-
-        Set<LogicalNode> clusterNodes2 = Set.of(NODE_A);
-
-        assertLogicalTopology(clusterNodes2, keyValueStorage);
-
-        createZone(ZONE_NAME, null, IMMEDIATE_TIMER_VALUE, null);
-
-        int zoneId = getZoneId(ZONE_NAME);
-
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-
-        DataNodesHistoryContext context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertTrue(context.scaleUpTimerPresent());
-        assertTrue(context.scaleDownTimerPresent());
-
-        dropZone(ZONE_NAME);
-
-        // Data nodes history should not be dropped after zone drop. Deferred removal should happen on LWM move.
-        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes2, keyValueStorage);
-        context = dataNodeHistoryContext(metaStorageManager, zoneId);
-        assertFalse(context.scaleUpTimerPresent());
-        assertFalse(context.scaleDownTimerPresent());
     }
 
     @Test

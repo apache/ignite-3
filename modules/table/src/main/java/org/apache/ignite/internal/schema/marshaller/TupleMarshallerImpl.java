@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.Set;
-import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -39,9 +41,9 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleHelper;
 import org.jetbrains.annotations.Nullable;
@@ -54,6 +56,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private static final Object POISON_OBJECT = new Object();
 
     private final SchemaDescriptor schema;
+    private final Supplier<QualifiedName> tableNameSupplier;
 
     private final int keyOnlyFixedLengthColumnSize;
     private final int valueOnlyFixedLengthColumnSize;
@@ -61,22 +64,36 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     /**
      * Creates marshaller for given schema.
      *
+     * @param tableNameSupplier Table name supplier.
      * @param schema Schema.
      */
-    public TupleMarshallerImpl(SchemaDescriptor schema) {
+    public TupleMarshallerImpl(Supplier<QualifiedName> tableNameSupplier, SchemaDescriptor schema) {
         this.schema = schema;
+        this.tableNameSupplier = tableNameSupplier;
 
-        keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
-                .map(Column::type)
-                .filter(NativeType::fixedLength)
-                .mapToInt(NativeType::sizeInBytes)
-                .sum();
+        keyOnlyFixedLengthColumnSize = fixedLengthColumnSize(schema.keyColumns());
+        valueOnlyFixedLengthColumnSize = fixedLengthColumnSize(schema.valueColumns());
+    }
 
-        valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
-                .map(Column::type)
-                .filter(NativeType::fixedLength)
-                .mapToInt(NativeType::sizeInBytes)
-                .sum();
+    /**
+     * {@link TupleMarshallerImpl}'s constructor can be a very hot piece of code. For this reason we do not use streams and iterators here.
+     */
+    private static int fixedLengthColumnSize(List<Column> columns) {
+        int sum = 0;
+
+        assert columns instanceof RandomAccess : columns;
+
+        //noinspection ForLoopReplaceableByForEach
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            NativeType type = column.type();
+
+            if (type.fixedLength()) {
+                sum += type.sizeInBytes();
+            }
+        }
+
+        return sum;
     }
 
     @Override
@@ -108,7 +125,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             TuplePart part = TuplePart.KEY_VALUE;
-            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+
+            var valuesWithStatistics = new ValuesWithStatistics(schema.length());
 
             gatherStatistics(part, tuple, valuesWithStatistics);
 
@@ -120,15 +138,21 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new MarshallerException(ex.getMessage(), ex);
+            String msg = format("Failed to serialize row for table {}. {}",
+                    tableNameSupplier.get().toCanonicalForm(),
+                    ex.getMessage());
+
+            throw new MarshallerException(msg, ex);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws MarshallerException {
+        boolean keyOnly = valTuple == null;
+
         try {
-            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+            var valuesWithStatistics = new ValuesWithStatistics(valTuple == null ? schema.keyColumns().size() : schema.length());
 
             gatherStatistics(TuplePart.KEY, keyTuple, valuesWithStatistics);
 
@@ -138,7 +162,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                                 schema.version(), extraColumnNames(keyTuple, true, schema)));
             }
 
-            boolean keyOnly = valTuple == null;
             if (!keyOnly) {
                 gatherStatistics(TuplePart.VALUE, valTuple, valuesWithStatistics);
 
@@ -151,7 +174,12 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(keyOnly ? TuplePart.KEY : TuplePart.KEY_VALUE, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new MarshallerException(ex.getMessage(), ex);
+            String msg = format("Failed to serialize {} for table {}. {}",
+                    keyOnly ? "key tuple" : "row",
+                    tableNameSupplier.get().toCanonicalForm(),
+                    ex.getMessage());
+
+            throw new MarshallerException(msg, ex);
         }
     }
 
@@ -159,7 +187,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     @Override
     public Row marshalKey(Tuple keyTuple) throws MarshallerException {
         try {
-            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+            var valuesWithStatistics = new ValuesWithStatistics(schema.keyColumns().size());
+
             TuplePart part = TuplePart.KEY;
 
             gatherStatistics(part, keyTuple, valuesWithStatistics);
@@ -170,7 +199,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new MarshallerException(ex.getMessage(), ex);
+            String msg = format("Failed to serialize key tuple for table {}. {}",
+                    tableNameSupplier.get().toCanonicalForm(),
+                    ex.getMessage());
+
+            throw new MarshallerException(msg, ex);
         }
     }
 
@@ -221,9 +254,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                         estimatedValueSize += getValueSize(val, colType);
                     } catch (ClassCastException e) {
-                        throw new MarshallerException(
-                                UUID.randomUUID(),
-                                Marshalling.COMMON_ERR,
+                        throw new SchemaMismatchException(
                                 String.format(
                                         "Invalid value type provided for column [name='%s', expected='%s', actual='%s']",
                                         col.name(),
@@ -334,10 +365,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * to build row with {@link RowAssembler}.
      */
     static class ValuesWithStatistics {
-        private final Map<String, Object> values = new HashMap<>();
+        private final Map<String, Object> values;
 
         private int estimatedValueSize;
         private int knownColumns;
+
+        ValuesWithStatistics(int numValues) {
+            values = newHashMap(numValues);
+        }
 
         @Nullable Object value(String columnName) {
             return values.get(columnName);

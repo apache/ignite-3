@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.Collections.emptyNavigableMap;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static java.util.regex.Pattern.quote;
@@ -47,6 +48,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.StringJoiner;
 import java.util.TreeMap;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -92,6 +95,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Root keys. Mapping: {@link RootKey#key()} -> identity (itself). */
     private final Map<String, RootKey<?, ?, ?>> rootKeys;
+
+    private final Lazy<Map<String, Serializable>> defaultsMap = new Lazy<>(this::createDefaultsMap);
 
     /** Configuration storage. */
     private final ConfigurationStorage storage;
@@ -671,6 +676,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             validateConfiguration(curRoots, changes);
 
+            // In some cases some storages may not want to persist configuration defaults.
+            // Need to filter it from change map before write to storage.
+            if (!storage.supportDefaults()) {
+                removeDefaultValues(allChanges);
+            }
+
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
             // fail and the update will be recalculated and there is a chance that the new local configuration will produce a non-empty
@@ -697,7 +708,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             throw new ConfigurationValidationException(validationIssues);
         }
     }
-
 
     private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
         List<ValidationIssue> validationIssues = configurationValidator.validate(curRoots, changes);
@@ -786,6 +796,31 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     private static void dropUnnecessarilyDeletedKeys(Map<String, Serializable> allChanges, StorageRoots localRoots) {
         allChanges.entrySet().removeIf(entry -> entry.getValue() == null && !localRoots.storageData.containsKey(entry.getKey()));
+    }
+
+    private void removeDefaultValues(Map<String, Serializable> allChanges) {
+        defaultsMap.get().forEach((key, defaultValue) -> {
+            Serializable change = allChanges.get(key);
+            if (Objects.deepEquals(change, defaultValue)) {
+                allChanges.put(key, null);
+            }
+        });
+    }
+
+    private Map<String, Serializable> createDefaultsMap() {
+        SuperRoot superRoot = new SuperRoot(rootCreator());
+        for (RootKey<?, ?, ?> rootKey : rootKeys.values()) {
+            superRoot.addRoot(rootKey, createRootNode(rootKey));
+        }
+
+        SuperRoot defaults = superRoot.copy();
+        addDefaults(defaults);
+
+        return createFlattenedUpdatesMap(
+                superRoot,
+                defaults,
+                emptyNavigableMap()
+        );
     }
 
     /** {@inheritDoc} */

@@ -152,7 +152,7 @@ namespace Apache.Ignite
         ComputeChangePriority,
 
         /// <summary>
-        /// Get primary replicas (<see cref="IPartitionManager.GetPrimaryReplicasAsync"/>).
+        /// Get primary replicas (<see cref="IPartitionDistribution.GetPrimaryReplicasAsync()"/>).
         /// </summary>
         PrimaryReplicasGet,
 
@@ -164,6 +164,11 @@ namespace Apache.Ignite
         /// <summary>
         /// Send data streamer batch with receiver (<see cref="IDataStreamerTarget{T}"/>).
         /// </summary>
-        StreamerWithReceiverBatchSend
+        StreamerWithReceiverBatchSend,
+
+        /// <summary>
+        /// SQL batch (<see cref="ISql.ExecuteBatchAsync"/>).
+        /// </summary>
+        SqlExecuteBatch
     }
 }

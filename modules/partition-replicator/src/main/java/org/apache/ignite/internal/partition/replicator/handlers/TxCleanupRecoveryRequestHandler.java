@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,7 +34,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
@@ -52,14 +53,14 @@ public class TxCleanupRecoveryRequestHandler {
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final TxManager txManager;
     private final FailureProcessor failureProcessor;
-    private final ReplicationGroupId replicationGroupId;
+    private final ZonePartitionId replicationGroupId;
 
     /** Constructor. */
     public TxCleanupRecoveryRequestHandler(
             TxStatePartitionStorage txStatePartitionStorage,
             TxManager txManager,
             FailureProcessor failureProcessor,
-            ReplicationGroupId replicationGroupId
+            ZonePartitionId replicationGroupId
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.txManager = txManager;
@@ -152,7 +153,11 @@ public class TxCleanupRecoveryRequestHandler {
                 txMeta.commitTimestamp(),
                 txId
         ).exceptionally(throwable -> {
-            LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
+            LOG.warn(
+                    "Failed to cleanup transaction {}.",
+                    throwable,
+                    formatTxInfo(txId, txManager)
+            );
 
             return null;
         });

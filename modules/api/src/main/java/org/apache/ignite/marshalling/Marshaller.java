@@ -17,7 +17,6 @@
 
 package org.apache.ignite.marshalling;
 
-
 import org.jetbrains.annotations.Nullable;
 
 /**

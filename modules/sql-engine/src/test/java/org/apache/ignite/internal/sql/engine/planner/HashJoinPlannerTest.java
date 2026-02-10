@@ -157,13 +157,13 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("joinConditions")
     @SuppressWarnings("ThrowableNotThrown")
-    public void hashJoinAppliedConditions(String sql, boolean canBePlanned, boolean skipIfNotInnerAndNotSemi) throws Exception {
+    public void hashJoinAppliedConditions(String sql, boolean canBePlanned, boolean skipIfRightOrFull) throws Exception {
         IgniteTable tbl = createTestTable("ID", "C1");
 
         IgniteSchema schema = createSchema(tbl);
 
         for (String type : joinTypes) {
-            if (skipIfNotInnerAndNotSemi && !Set.of("INNER", "SEMI").contains(type)) {
+            if (skipIfRightOrFull && !Set.of("INNER", "SEMI", "LEFT").contains(type)) {
                 continue;
             }
 

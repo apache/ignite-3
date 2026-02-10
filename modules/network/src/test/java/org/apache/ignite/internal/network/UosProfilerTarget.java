@@ -66,7 +66,7 @@ public class UosProfilerTarget {
         int accumulatedCode = 1;
         int count = (obj instanceof TestClass) ? 30_000_000 : 100_000;
         for (int i = 0; i < count; i++) {
-            byte[] bytes = doMarshal(UosProfilerTarget.obj);
+            byte[] bytes = doMarshal(obj);
             int code = Arrays.hashCode(bytes);
             accumulatedCode ^= code;
         }

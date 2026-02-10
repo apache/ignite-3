@@ -19,10 +19,12 @@ package org.apache.ignite.internal.placementdriver.wrappers;
 
 import static java.util.function.Function.identity;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -65,5 +67,13 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return decorateFuture(super.previousPrimaryExpired(grpId));
+    }
+
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long timeoutMillis
+    ) {
+        return decorateFuture(super.awaitNonEmptyAssignments(replicationGroupIds, timeoutMillis));
     }
 }

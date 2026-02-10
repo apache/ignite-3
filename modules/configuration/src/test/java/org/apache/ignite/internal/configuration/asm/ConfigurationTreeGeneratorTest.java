@@ -74,7 +74,6 @@ public class ConfigurationTreeGeneratorTest {
     /** Configuration generator. */
     private static ConfigurationTreeGenerator generator;
 
-
     private static Collection<Class<?>> extensions = List.of(
             ExtendedTestRootConfigurationSchema.class,
             ExtendedSecondTestRootConfigurationSchema.class,

@@ -16,7 +16,8 @@
  */
 
 #include "config_tools.h"
-#include "ignite/odbc/common_types.h"
+#include "configuration.h"
+#include "ignite/odbc/odbc_error.h"
 
 #include <gtest/gtest.h>
 
@@ -73,4 +74,53 @@ TEST_F(config_tools_test, parse_connection_string_basic) {
     test_parse_connection_string({}, ";;");
 
     test_parse_connection_string({{"k1", "v1"}}, "k1=v1;k1=v2;k1=v3");
+}
+
+TEST_F(config_tools_test, parse_connection_string_heartbeat) {
+    auto test_parse_connection_string_return_map = [](const config_map &exp, std::string_view in) {
+        auto map = parse_connection_string(in);
+        EXPECT_EQ(map, exp);
+        return map;
+    };
+
+    configuration config;
+    EXPECT_EQ(config.get_heartbeat_interval().get_value(), std::chrono::seconds(30));
+
+    auto map = test_parse_connection_string_return_map({{"heartbeat_interval", "2000"}, {"host", "127.0.0.1:5000"}},
+        "host=127.0.0.1:5000;heartbeat_interval=2000");
+    config.from_config_map(map);
+    EXPECT_EQ(config.get_heartbeat_interval().get_value(), std::chrono::milliseconds(2000));
+
+    map = test_parse_connection_string_return_map({{"heartbeat_interval", "0"}, {"host", "127.0.0.1:5000"}},
+        "host=127.0.0.1:5000;heartbeat_interval=0");
+    config.from_config_map(map);
+    EXPECT_EQ(config.get_heartbeat_interval().get_value(), std::chrono::milliseconds(0));
+}
+
+TEST_F(config_tools_test, parse_connection_string_negative_heartbeat) {
+    EXPECT_THROW(
+        try {
+            auto config_map = parse_connection_string("host=127.0.0.1:5000;heartbeat_interval=-1");
+            ignite::configuration configuration;
+            configuration.from_config_map(config_map);
+        } catch (const ignite::odbc_error& error) {
+            EXPECT_EQ(error.what(), std::string("Heartbeat interval value could not be negative: -1"));
+            throw;
+        },
+        ignite::odbc_error
+    );
+}
+
+TEST_F(config_tools_test, parse_connection_string_invalid_heartbeat) {
+    EXPECT_THROW(
+        try {
+            auto config_map = parse_connection_string("host=127.0.0.1:5000;heartbeat_interval=abc");
+            ignite::configuration configuration;
+            configuration.from_config_map(config_map);
+        } catch (const ignite::odbc_error& error) {
+            EXPECT_EQ(error.what(), std::string("Invalid heartbeat interval value: abc"));
+            throw;
+        },
+        ignite::odbc_error
+    );
 }

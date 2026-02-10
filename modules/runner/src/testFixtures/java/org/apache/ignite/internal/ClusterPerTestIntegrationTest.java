@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
-import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
 import java.nio.file.Path;
@@ -34,12 +31,14 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,61 +56,6 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
-
-    /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder.netClusterNodes: [ {} ]\n"
-            + "  },\n"
-            + "  storage.profiles: {"
-            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
-            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
-            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
-            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
-            + "  },\n"
-            + "  clientConnector.port: {},\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
-    public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncIntervalMillis: 1000,\n"
-            + "      failurePingIntervalMillis: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipIntervalMillis: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
-
-    /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
-    protected static final String DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      failurePingIntervalMillis: 1000000000\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {},\n"
-            + "  failureHandler.dumpThreadsOnFailure: false\n"
-            + "}";
 
     protected Cluster cluster;
 
@@ -143,8 +87,6 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @Timeout(60)
     public void stopCluster() {
         cluster.shutdown();
-
-        MicronautCleanup.removeShutdownHooks();
 
         TestMvTableStorage.resetPartitionStorageFactory();
     }
@@ -278,17 +220,29 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     protected final List<List<Object>> executeSql(int nodeIndex, String sql, Object... args) {
-        Ignite ignite = node(nodeIndex);
-
-        return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, sql, args);
+        return executeSql(nodeIndex, null, sql, args);
     }
 
-    protected ClusterNode clusterNode(int index) {
+    protected final List<List<Object>> executeSql(int nodeIndex, @Nullable Transaction tx, String sql, Object... args) {
+        Ignite ignite = node(nodeIndex);
+
+        return ClusterPerClassIntegrationTest.sql(ignite, tx, null, null, sql, args);
+    }
+
+    protected InternalClusterNode clusterNode(int index) {
         return clusterNode(node(index));
     }
 
-    protected static ClusterNode clusterNode(Ignite node) {
+    protected static InternalClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node();
+    }
+
+    protected ClusterNode publicClusterNode(int index) {
+        return publicClusterNode(node(index));
+    }
+
+    protected static ClusterNode publicClusterNode(Ignite node) {
+        return unwrapIgniteImpl(node).node().toPublicNode();
     }
 
     protected final IgniteImpl findNode(Predicate<? super IgniteImpl> predicate) {
@@ -297,6 +251,20 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
                 .filter(predicate)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("node not found"));
+    }
+
+    protected final IgniteImpl anyNode() {
+        return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
+    }
+
+    /** Cluster configuration that aggressively increases low watermark to speed up data cleanup in tests. */
+    public static String aggressiveLowWatermarkIncreaseClusterConfig() {
+        return "{\n"
+                + "  ignite.gc.lowWatermark {\n"
+                + "    dataAvailabilityTimeMillis: 1000,\n"
+                + "    updateIntervalMillis: 100\n"
+                + "  },\n"
+                + "}";
     }
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */

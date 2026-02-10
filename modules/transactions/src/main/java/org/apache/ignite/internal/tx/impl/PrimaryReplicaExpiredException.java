@@ -22,11 +22,12 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /** Unchecked exception that is thrown when primary replica has expired. */
-public class PrimaryReplicaExpiredException extends IgniteInternalException {
+public class PrimaryReplicaExpiredException extends IgniteInternalException implements RetriableTransactionException {
     /**
      * The constructor.
      *
@@ -36,7 +37,7 @@ public class PrimaryReplicaExpiredException extends IgniteInternalException {
      * @param currentPrimaryReplica Current primary replica
      */
     public PrimaryReplicaExpiredException(
-            ReplicationGroupId groupId,
+            ZonePartitionId groupId,
             long expectedEnlistmentConsistencyToken,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable ReplicaMeta currentPrimaryReplica

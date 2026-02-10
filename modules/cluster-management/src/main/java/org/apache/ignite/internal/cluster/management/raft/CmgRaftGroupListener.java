@@ -56,12 +56,13 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -87,6 +88,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
+    private final Consumer<RaftGroupConfiguration> onConfigurationCommittedListener;
+
     /**
      * Creates a new instance.
      *
@@ -103,7 +106,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             ValidationManager validationManager,
             LongConsumer onLogicalTopologyChanged,
             ClusterIdStore clusterIdStore,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            Consumer<RaftGroupConfiguration> onConfigurationCommittedListener
     ) {
         this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
@@ -111,6 +115,12 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
         this.clusterIdStore = clusterIdStore;
         this.failureProcessor = failureProcessor;
+        this.onConfigurationCommittedListener = onConfigurationCommittedListener;
+    }
+
+    @Override
+    public void onConfigurationCommitted(RaftGroupConfiguration config, long lastAppliedIndex, long lastAppliedTerm) {
+        onConfigurationCommittedListener.accept(config);
     }
 
     @Override
@@ -183,7 +193,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 } else if (command instanceof JoinRequestCommand) {
                     ValidationResult response = validateNode((JoinRequestCommand) command);
 
-                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                    clo.result(response.isValid()
+                            ? null
+                            : new ValidationErrorResponse(response.errorDescription(), response.isInvalidNodeConfig()));
                 } else if (command instanceof JoinReadyCommand) {
                     ValidationResult response = completeValidation((JoinReadyCommand) command);
 
@@ -192,7 +204,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                         onLogicalTopologyChanged.accept(clo.term());
                     }
 
-                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                    clo.result(response.isValid()
+                            ? null
+                            : new ValidationErrorResponse(response.errorDescription(), response.isInvalidNodeConfig()));
                 } else if (command instanceof NodesLeaveCommand) {
                     removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
@@ -236,7 +250,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                     command.clusterState()
             );
 
-            return validationResult.isValid() ? state : new ValidationErrorResponse(validationResult.errorDescription());
+            return validationResult.isValid() ? state
+                    : new ValidationErrorResponse(validationResult.errorDescription(), validationResult.isInvalidNodeConfig());
         }
     }
 
@@ -282,7 +297,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private static LogicalNode logicalNodeFromClusterNodeMessage(ClusterNodeMessage message) {
-        ClusterNode node = message.asClusterNode();
+        InternalClusterNode node = message.asClusterNode();
 
         return new LogicalNode(
                 node,
@@ -293,7 +308,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
-        Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
+        Set<InternalClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
         // Nodes will be removed from a topology, so it is safe to set nodeAttributes to the default value
         Set<LogicalNode> logicalNodes = nodes.stream()
@@ -304,7 +319,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         validationManager.removeValidatedNodes(logicalNodes);
 
         if (LOG.isInfoEnabled()) {
-            LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(ClusterNode::name).collect(toList()));
+            LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(InternalClusterNode::name).collect(toList()));
         }
     }
 

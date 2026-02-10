@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,6 @@ class NoOpMapReduceTask implements MapReduceTask<Void, Void, String, Void> {
 
     @Override
     public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 }

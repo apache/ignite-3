@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.replicator.message;
 
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /** Message for transferring a {@link ZonePartitionId}. */
@@ -36,7 +35,7 @@ public interface ZonePartitionIdMessage extends ReplicationGroupIdMessage {
     }
 
     @Override
-    default ReplicationGroupId asReplicationGroupId() {
+    default ZonePartitionId asReplicationGroupId() {
         return asZonePartitionId();
     }
 }

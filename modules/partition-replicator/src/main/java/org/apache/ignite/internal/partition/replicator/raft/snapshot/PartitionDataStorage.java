@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
@@ -43,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, int, int)}, {@link #abortWrite}
  * and {@link #commitWrite}) and TX data storage MUST be invoked under a lock acquired using
- * {@link #acquirePartitionSnapshotsReadLock()}.
+ * {@link PartitionSnapshots#acquireReadLock()}.
  *
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
  * {@link RowId#compareTo} comparison order.
@@ -68,16 +70,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @see MvPartitionStorage#runConsistently(WriteClosure)
      */
     <V> V runConsistently(WriteClosure<V> closure) throws StorageException;
-
-    /**
-     * Acquires the read lock on partition snapshots.
-     */
-    void acquirePartitionSnapshotsReadLock();
-
-    /**
-     * Releases the read lock on partition snapshots.
-     */
-    void releasePartitionSnapshotsReadLock();
 
     /**
      * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
@@ -134,9 +126,9 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      */
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
+     *
      * <p>In details:</p>
      * <ul>
      * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
@@ -147,7 +139,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @param rowId Row ID.
      * @param row Table row to update. {@code null} means value removal.
      * @param txId Transaction ID.
-     * @param commitTableOrZoneId Commit table/zone ID.
+     * @param commitZoneId Commit zone ID.
      * @param commitPartitionId Commit partition ID.
      * @return Result of add write intent.
      * @throws StorageException If failed to write data to the storage.
@@ -157,12 +149,13 @@ public interface PartitionDataStorage extends ManuallyCloseable {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException;
 
     /**
      * Creates a committed version.
+     *
      * <p>In details:</p>
      * <ul>
      * <li>If there is no uncommitted version, a new committed version is added.</li>
@@ -185,7 +178,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
-     * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
+     * <p>This must be called under a lock acquired using {@link PartitionSnapshots#acquireReadLock()}.
      *
      * @param rowId Row ID.
      * @param txId Transaction ID that abort write intent.
@@ -198,7 +191,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
-     * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
+     * <p>This must be called under a lock acquired using {@link PartitionSnapshots#acquireReadLock()}.
      *
      * @param rowId Row ID.
      * @param timestamp Timestamp to associate with committed value.
@@ -244,11 +237,11 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException;
 
     /**
-     * Returns the head of GC queue.
+     * Returns entries from the queue starting from the head.
      *
-     * @see MvPartitionStorage#peek(HybridTimestamp)
+     * @see MvPartitionStorage#peek
      */
-    @Nullable GcEntry peek(HybridTimestamp lowWatermark);
+    List<GcEntry> peek(HybridTimestamp lowWatermark, int count);
 
     /**
      * Delete GC entry from the GC queue and corresponding version chain.

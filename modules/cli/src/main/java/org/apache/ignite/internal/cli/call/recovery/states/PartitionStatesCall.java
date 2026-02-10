@@ -29,22 +29,15 @@ import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.GlobalPartitionStateResponse;
-import org.apache.ignite.rest.client.model.GlobalPartitionStatesResponse;
-import org.apache.ignite.rest.client.model.LocalPartitionStateResponse;
-import org.apache.ignite.rest.client.model.LocalPartitionStatesResponse;
+import org.apache.ignite.rest.client.model.GlobalZonePartitionStateResponse;
+import org.apache.ignite.rest.client.model.GlobalZonePartitionStatesResponse;
+import org.apache.ignite.rest.client.model.LocalZonePartitionStateResponse;
+import org.apache.ignite.rest.client.model.LocalZonePartitionStatesResponse;
 
 /** Call to get partition states. */
 @Singleton
 public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table> {
     private final ApiClientFactory clientFactory;
-
-    private static final List<String> GLOBAL_HEADERS = List.of("Zone name", "Schema name", "Table ID", "Table name", "Partition ID",
-            "State");
-
-    private static final List<String> LOCAL_HEADERS = Stream
-            .concat(Stream.of("Node name"), GLOBAL_HEADERS.stream())
-            .collect(toList());
 
     private static final List<String> ZONE_GLOBAL_HEADERS = List.of("Zone name", "Partition ID", "State");
 
@@ -76,36 +69,14 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
             RecoveryApi client,
             List<String> zoneNames
     ) throws ApiException {
-        GlobalPartitionStatesResponse globalStates = client.getGlobalPartitionStates(
-                zoneNames,
-                input.partitionIds()
-        );
+        GlobalZonePartitionStatesResponse globalStates = client.getZoneGlobalPartitionStates(zoneNames, input.partitionIds());
 
-        boolean colocationEnabled = globalStates.getStates().stream().anyMatch(g -> g.getTableId() == -1);
-
-        if (colocationEnabled) {
-            return DefaultCallOutput.success(new Table(ZONE_GLOBAL_HEADERS, globalStates.getStates().stream()
-                    .flatMap(PartitionStatesCall::globalZoneState)
-                    .collect(toList())));
-        } else {
-            return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, globalStates.getStates().stream()
-                    .flatMap(PartitionStatesCall::globalTableSate)
-                    .collect(toList())));
-        }
+        return DefaultCallOutput.success(new Table<>(ZONE_GLOBAL_HEADERS, globalStates.getStates().stream()
+                .flatMap(PartitionStatesCall::globalZoneState)
+                .collect(toList())));
     }
 
-    private static Stream<String> globalTableSate(GlobalPartitionStateResponse state) {
-        return Stream.of(
-                state.getZoneName(),
-                state.getSchemaName(),
-                String.valueOf(state.getTableId()),
-                state.getTableName(),
-                String.valueOf(state.getPartitionId()),
-                state.getState()
-        );
-    }
-
-    private static Stream<String> globalZoneState(GlobalPartitionStateResponse state) {
+    private static Stream<String> globalZoneState(GlobalZonePartitionStateResponse state) {
         return Stream.of(
                 state.getZoneName(),
                 String.valueOf(state.getPartitionId()),
@@ -118,38 +89,17 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
             List<String> zoneNames,
             PartitionStatesCallInput input
     ) throws ApiException {
-        LocalPartitionStatesResponse localStates = client.getLocalPartitionStates(
+        LocalZonePartitionStatesResponse localStates = client.getZoneLocalPartitionStates(
                 zoneNames,
                 input.nodeNames(),
-                input.partitionIds()
-        );
+                input.partitionIds());
 
-        boolean colocationEnabled = localStates.getStates().stream().anyMatch(g -> g.getTableId() == -1);
-
-        if (colocationEnabled) {
-            return DefaultCallOutput.success(new Table(ZONE_LOCAL_HEADERS, localStates.getStates().stream()
-                    .flatMap(PartitionStatesCall::localZoneState)
-                    .collect(toList())));
-        } else {
-            return DefaultCallOutput.success(new Table(LOCAL_HEADERS, localStates.getStates().stream()
-                    .flatMap(PartitionStatesCall::localTableState)
-                    .collect(toList())));
-        }
+        return DefaultCallOutput.success(new Table<>(ZONE_LOCAL_HEADERS, localStates.getStates().stream()
+                .flatMap(PartitionStatesCall::localZoneState)
+                .collect(toList())));
     }
 
-    private static Stream<String> localTableState(LocalPartitionStateResponse state) {
-        return Stream.of(
-                state.getNodeName(),
-                state.getZoneName(),
-                state.getSchemaName(),
-                String.valueOf(state.getTableId()),
-                state.getTableName(),
-                String.valueOf(state.getPartitionId()),
-                state.getState()
-        );
-    }
-
-    private static Stream<String> localZoneState(LocalPartitionStateResponse state) {
+    private static Stream<String> localZoneState(LocalZonePartitionStateResponse state) {
         return Stream.of(
                 state.getNodeName(),
                 state.getZoneName(),

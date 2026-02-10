@@ -133,6 +133,9 @@ namespace Apache.Ignite.Internal.Proto
         /** Send streamer batch. */
         StreamerBatchSend = 62,
 
+        /** Execute SQL batch. */
+        SqlExecBatch = 63,
+
         /** Execute MapReduce task. */
         ComputeExecuteMapReduce = 64,
 

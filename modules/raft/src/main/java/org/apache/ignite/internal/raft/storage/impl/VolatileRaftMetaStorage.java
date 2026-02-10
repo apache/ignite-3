@@ -72,4 +72,9 @@ public class VolatileRaftMetaStorage implements RaftMetaStorage, VolatileStorage
 
         return true;
     }
+
+    @Override
+    public void createAfterDestroy() {
+        // no-op
+    }
 }

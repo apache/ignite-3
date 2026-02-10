@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.jdbc;
 
-import static java.sql.Connection.TRANSACTION_NONE;
+import static java.sql.Connection.TRANSACTION_SERIALIZABLE;
+import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
-import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.RowIdLifetime.ROWID_UNSUPPORTED;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static org.apache.ignite.internal.jdbc.JdbcUtils.createObjectListResultSet;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -31,14 +33,16 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
+import org.apache.ignite.internal.jdbc.proto.JdbcDatabaseMetadataHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
@@ -51,6 +55,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 
@@ -61,6 +67,9 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** Driver name. */
     public static final String DRIVER_NAME = "Apache Ignite JDBC Driver";
 
+    /** Product name. */
+    public static final String PRODUCT_NAME = "Apache Ignite";
+
     /** The only possible name for catalog. */
     public static final String CATALOG_NAME = "IGNITE";
 
@@ -70,16 +79,37 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** Name of system view type. */
     public static final String TYPE_VIEW = "VIEW";
 
-    /** Connection. */
-    private final JdbcConnection conn;
+    private final JdbcDatabaseMetadataHandler handler;
+
+    private final String url;
+
+    private final String userName;
+
+    private final Connection connection;
+
+    private final Supplier<ZoneId> timeZoneSupplier;
 
     /**
      * Constructor.
      *
-     * @param conn Connection.
+     * @param connection Connection
+     * @param handler Handler.
+     * @param url URL
+     * @param userName User name,
+     * @param timeZoneSupplier Time zone supplier.
      */
-    JdbcDatabaseMetadata(JdbcConnection conn) {
-        this.conn = conn;
+    public JdbcDatabaseMetadata(
+            Connection connection,
+            JdbcDatabaseMetadataHandler handler,
+            String url,
+            String userName,
+            Supplier<ZoneId> timeZoneSupplier
+    ) {
+        this.handler = handler;
+        this.connection = connection;
+        this.url = url;
+        this.userName = userName;
+        this.timeZoneSupplier = timeZoneSupplier;
     }
 
     /** {@inheritDoc} */
@@ -97,13 +127,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getURL() {
-        return conn.url();
+        return url;
     }
 
     /** {@inheritDoc} */
     @Override
     public String getUserName() {
-        return "";
+        return userName;
     }
 
     /** {@inheritDoc} */
@@ -139,7 +169,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getDatabaseProductName() {
-        return "Apache Ignite";
+        return PRODUCT_NAME;
     }
 
     /** {@inheritDoc} */
@@ -157,19 +187,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getDriverVersion() {
-        return ProtocolVersion.LATEST_VER.toString();
+        return IgniteProductVersion.CURRENT_VERSION.toString();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getDriverMajorVersion() {
-        return ProtocolVersion.LATEST_VER.major();
+        return IgniteProductVersion.CURRENT_VERSION.major();
     }
 
     /** {@inheritDoc} */
     @Override
     public int getDriverMinorVersion() {
-        return ProtocolVersion.LATEST_VER.minor();
+        return IgniteProductVersion.CURRENT_VERSION.minor();
     }
 
     /** {@inheritDoc} */
@@ -307,13 +337,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsConvert() {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsConvert(int fromType, int toType) {
-        return true;
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -373,19 +403,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsMultipleTransactions() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsNonNullableColumns() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsMinimumSQLGrammar() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -397,7 +427,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsExtendedSQLGrammar() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -410,7 +440,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsANSI92IntermediateSQL() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -434,7 +464,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsFullOuterJoins() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -446,7 +476,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public String getSchemaTerm() {
-        return "";
+        return "schema";
     }
 
     /** {@inheritDoc} */
@@ -488,7 +518,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsSchemasInTableDefinitions() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -626,19 +656,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getMaxBinaryLiteralLength() {
-        return 0;
+        return Integer.MAX_VALUE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxCharLiteralLength() {
-        return 0;
+        return Integer.MAX_VALUE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxColumnNameLength() {
-        return 0;
+        return 128;
     }
 
     /** {@inheritDoc} */
@@ -692,7 +722,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getMaxSchemaNameLength() {
-        return 0;
+        return 128;
     }
 
     /** {@inheritDoc} */
@@ -752,19 +782,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getDefaultTransactionIsolation() {
-        return TRANSACTION_NONE;
+        return TRANSACTION_SERIALIZABLE;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsTransactions() {
-        return false;
+        return true;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsTransactionIsolationLevel(int level) {
-        return false;
+        return level == TRANSACTION_SERIALIZABLE;
     }
 
     /** {@inheritDoc} */
@@ -795,13 +825,18 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getProcedures(String catalog, String schemaPtrn,
             String procedureNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("PROCEDURE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("PROCEDURE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("PROCEDURE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("PROCEDURE_TYPE", ColumnType.STRING),
-                new JdbcColumnMeta("SPECIFIC_NAME", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("PROCEDURE_CAT", ColumnType.STRING),
+                columnMeta("PROCEDURE_SCHEM", ColumnType.STRING),
+                columnMeta("PROCEDURE_NAME", ColumnType.STRING),
+                columnMeta("", ColumnType.NULL),
+                columnMeta("", ColumnType.NULL),
+                columnMeta("", ColumnType.NULL),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("PROCEDURE_TYPE", ColumnType.INT16),
+                columnMeta("SPECIFIC_NAME", ColumnType.STRING)
         ));
     }
 
@@ -809,27 +844,29 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getProcedureColumns(String catalog, String schemaPtrn, String procedureNamePtrn,
             String colNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("PROCEDURE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("PROCEDURE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("PROCEDURE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_TYPE", ColumnType.INT16),
-                new JdbcColumnMeta("COLUMN_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PRECISION", ColumnType.INT32),
-                new JdbcColumnMeta("LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("SCALE", ColumnType.INT16),
-                new JdbcColumnMeta("RADIX", ColumnType.INT16),
-                new JdbcColumnMeta("NULLABLE", ColumnType.INT16),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_DEF", ColumnType.STRING),
-                new JdbcColumnMeta("SQL_DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("SQL_DATETIME_SUB", ColumnType.INT32),
-                new JdbcColumnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("ORDINAL_POSITION", ColumnType.INT32),
-                new JdbcColumnMeta("IS_NULLABLE", ColumnType.STRING),
-                new JdbcColumnMeta("SPECIFIC_NAME", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("PROCEDURE_CAT", ColumnType.STRING),
+                columnMeta("PROCEDURE_SCHEM", ColumnType.STRING),
+                columnMeta("PROCEDURE_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_TYPE", ColumnType.INT16),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("PRECISION", ColumnType.INT32),
+                columnMeta("LENGTH", ColumnType.INT32),
+                columnMeta("SCALE", ColumnType.INT16),
+                columnMeta("RADIX", ColumnType.INT16),
+                columnMeta("NULLABLE", ColumnType.INT16),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("COLUMN_DEF", ColumnType.STRING),
+                columnMeta("SQL_DATA_TYPE", ColumnType.INT32),
+                columnMeta("SQL_DATETIME_SUB", ColumnType.INT32),
+                columnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
+                columnMeta("ORDINAL_POSITION", ColumnType.INT32),
+                columnMeta("IS_NULLABLE", ColumnType.STRING),
+                columnMeta("SPECIFIC_NAME", ColumnType.STRING)
         ));
     }
 
@@ -837,19 +874,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getTables(String catalog, String schemaPtrn, String tblNamePtrn, String[] tblTypes)
             throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
-        final List<JdbcColumnMeta> meta = asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_TYPE", ColumnType.STRING),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("SELF_REFERENCING_COL_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("REF_GENERATION", ColumnType.STRING));
+        List<ColumnMetadata> meta = asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_NAME", ColumnType.STRING),
+                columnMeta("TABLE_TYPE", ColumnType.STRING),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("TYPE_CAT", ColumnType.STRING),
+                columnMeta("TYPE_SCHEM", ColumnType.STRING),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("SELF_REFERENCING_COL_NAME", ColumnType.STRING),
+                columnMeta("REF_GENERATION", ColumnType.STRING));
 
         boolean tblTypeMatch = false;
 
@@ -866,12 +903,12 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         }
 
         if (!isValidCatalog(catalog) || !tblTypeMatch) {
-            return new JdbcResultSet(Collections.emptyList(), meta);
+            return createObjectListResultSet(meta);
         }
 
         try {
             JdbcMetaTablesResult res
-                    = conn.handler().tablesMetaAsync(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes)).get();
+                    = handler.tablesMetaAsync(new JdbcMetaTablesRequest(schemaPtrn, tblNamePtrn, tblTypes)).get();
 
             if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -883,7 +920,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.add(tableRow(tblMeta));
             }
 
-            return new JdbcResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -902,19 +939,19 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
-        List<JdbcColumnMeta> meta = asList(
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_CATALOG", ColumnType.STRING)
+        List<ColumnMetadata> meta = asList(
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_CATALOG", ColumnType.STRING)
         );
 
         if (!isValidCatalog(catalog)) {
-            return new JdbcResultSet(Collections.emptyList(), meta);
+            return createObjectListResultSet(meta);
         }
 
         try {
-            JdbcMetaSchemasResult res = conn.handler().schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).get();
+            JdbcMetaSchemasResult res = handler.schemasMetaAsync(new JdbcMetaSchemasRequest(schemaPtrn)).get();
 
             if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -931,7 +968,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.add(row);
             }
 
-            return new JdbcResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -945,57 +982,61 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override
     public ResultSet getCatalogs() throws SQLException {
-        return new JdbcResultSet(singletonList(singletonList(CATALOG_NAME)),
-                asList(new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING)));
+        ensureNotClosed();
+
+        return createObjectListResultSet(singletonList(singletonList(CATALOG_NAME)),
+                asList(columnMeta("TABLE_CAT", ColumnType.STRING)), timeZoneSupplier);
     }
 
     /** {@inheritDoc} */
     @SuppressWarnings("ArraysAsListWithZeroOrOneArgument")
     @Override
     public ResultSet getTableTypes() throws SQLException {
-        return new JdbcResultSet(
-                asList(List.of(TYPE_TABLE, TYPE_VIEW)),
-                asList(new JdbcColumnMeta("TABLE_TYPE", ColumnType.STRING)));
+        ensureNotClosed();
+
+        return createObjectListResultSet(
+                asList(List.of(TYPE_TABLE), List.of(TYPE_VIEW)),
+                asList(columnMeta("TABLE_TYPE", ColumnType.STRING)), timeZoneSupplier);
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet getColumns(String catalog, String schemaPtrn, String tblNamePtrn, String colNamePtrn) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
-        final List<JdbcColumnMeta> meta = asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),      // 1
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),    // 2
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),     // 3
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),    // 4
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT16),       // 5
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),      // 6
-                new JdbcColumnMeta("COLUMN_SIZE", ColumnType.INT32),   // 7
-                new JdbcColumnMeta("BUFFER_LENGTH", ColumnType.INT32), // 8
-                new JdbcColumnMeta("DECIMAL_DIGITS", ColumnType.INT32), // 9
-                new JdbcColumnMeta("NUM_PREC_RADIX", ColumnType.INT16),  // 10
-                new JdbcColumnMeta("NULLABLE", ColumnType.INT16),        // 11
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),        // 12
-                new JdbcColumnMeta("COLUMN_DEF", ColumnType.STRING),     // 13
-                new JdbcColumnMeta("SQL_DATA_TYPE", ColumnType.INT32), // 14
-                new JdbcColumnMeta("SQL_DATETIME_SUB", ColumnType.INT32), // 15
-                new JdbcColumnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32), // 16
-                new JdbcColumnMeta("ORDINAL_POSITION", ColumnType.INT32), // 17
-                new JdbcColumnMeta("IS_NULLABLE", ColumnType.STRING),    // 18
-                new JdbcColumnMeta("SCOPE_CATLOG", ColumnType.STRING),   // 19
-                new JdbcColumnMeta("SCOPE_SCHEMA", ColumnType.STRING),   // 20
-                new JdbcColumnMeta("SCOPE_TABLE", ColumnType.STRING),    // 21
-                new JdbcColumnMeta("SOURCE_DATA_TYPE", ColumnType.INT16), // 22
-                new JdbcColumnMeta("IS_AUTOINCREMENT", ColumnType.STRING), // 23
-                new JdbcColumnMeta("IS_GENERATEDCOLUMN", ColumnType.STRING) // 24
+        List<ColumnMetadata> meta = asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),      // 1
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),    // 2
+                columnMeta("TABLE_NAME", ColumnType.STRING),     // 3
+                columnMeta("COLUMN_NAME", ColumnType.STRING),    // 4
+                columnMeta("DATA_TYPE", ColumnType.INT32),       // 5
+                columnMeta("TYPE_NAME", ColumnType.STRING),      // 6
+                columnMeta("COLUMN_SIZE", ColumnType.INT32),   // 7
+                columnMeta("BUFFER_LENGTH", ColumnType.INT32), // 8
+                columnMeta("DECIMAL_DIGITS", ColumnType.INT32), // 9
+                columnMeta("NUM_PREC_RADIX", ColumnType.INT16),  // 10
+                columnMeta("NULLABLE", ColumnType.INT32),        // 11
+                columnMeta("REMARKS", ColumnType.STRING),        // 12
+                columnMeta("COLUMN_DEF", ColumnType.STRING),     // 13
+                columnMeta("SQL_DATA_TYPE", ColumnType.INT32), // 14
+                columnMeta("SQL_DATETIME_SUB", ColumnType.INT32), // 15
+                columnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32), // 16
+                columnMeta("ORDINAL_POSITION", ColumnType.INT32), // 17
+                columnMeta("IS_NULLABLE", ColumnType.STRING),    // 18
+                columnMeta("SCOPE_CATLOG", ColumnType.STRING),   // 19
+                columnMeta("SCOPE_SCHEMA", ColumnType.STRING),   // 20
+                columnMeta("SCOPE_TABLE", ColumnType.STRING),    // 21
+                columnMeta("SOURCE_DATA_TYPE", ColumnType.INT16), // 22
+                columnMeta("IS_AUTOINCREMENT", ColumnType.STRING), // 23
+                columnMeta("IS_GENERATEDCOLUMN", ColumnType.STRING) // 24
         );
 
         if (!isValidCatalog(catalog)) {
-            return new JdbcResultSet(Collections.emptyList(), meta);
+            return createObjectListResultSet(meta);
         }
 
         try {
-            JdbcMetaColumnsResult res = conn.handler().columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
+            JdbcMetaColumnsResult res = handler.columnsMetaAsync(new JdbcMetaColumnsRequest(schemaPtrn, tblNamePtrn, colNamePtrn))
                     .get();
 
             if (!res.success()) {
@@ -1008,7 +1049,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.add(columnRow(res.meta().get(i), i + 1));
             }
 
-            return new JdbcResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -1022,15 +1063,17 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getColumnPrivileges(String catalog, String schema, String tbl,
             String colNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("GRANTOR", ColumnType.STRING),
-                new JdbcColumnMeta("GRANTEE", ColumnType.STRING),
-                new JdbcColumnMeta("PRIVILEGE", ColumnType.STRING),
-                new JdbcColumnMeta("IS_GRANTABLE", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("GRANTOR", ColumnType.STRING),
+                columnMeta("GRANTEE", ColumnType.STRING),
+                columnMeta("PRIVILEGE", ColumnType.STRING),
+                columnMeta("IS_GRANTABLE", ColumnType.STRING)
         ));
     }
 
@@ -1038,14 +1081,16 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getTablePrivileges(String catalog, String schemaPtrn,
             String tblNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("GRANTOR", ColumnType.STRING),
-                new JdbcColumnMeta("GRANTEE", ColumnType.STRING),
-                new JdbcColumnMeta("PRIVILEGE", ColumnType.STRING),
-                new JdbcColumnMeta("IS_GRANTABLE", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_NAME", ColumnType.STRING),
+                columnMeta("GRANTOR", ColumnType.STRING),
+                columnMeta("GRANTEE", ColumnType.STRING),
+                columnMeta("PRIVILEGE", ColumnType.STRING),
+                columnMeta("IS_GRANTABLE", ColumnType.STRING)
         ));
     }
 
@@ -1053,52 +1098,54 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getBestRowIdentifier(String catalog, String schema, String tbl, int scope,
             boolean nullable) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("SCOPE", ColumnType.INT16),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_SIZE", ColumnType.INT32),
-                new JdbcColumnMeta("BUFFER_LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("DECIMAL_DIGITS", ColumnType.INT16),
-                new JdbcColumnMeta("PSEUDO_COLUMN", ColumnType.INT16)
+        return createObjectListResultSet(asList(
+                columnMeta("SCOPE", ColumnType.INT16),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_SIZE", ColumnType.INT32),
+                columnMeta("BUFFER_LENGTH", ColumnType.INT32),
+                columnMeta("DECIMAL_DIGITS", ColumnType.INT16),
+                columnMeta("PSEUDO_COLUMN", ColumnType.INT16)
         ));
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet getVersionColumns(String catalog, String schema, String tbl) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("SCOPE", ColumnType.INT16),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_SIZE", ColumnType.INT32),
-                new JdbcColumnMeta("BUFFER_LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("DECIMAL_DIGITS", ColumnType.INT16),
-                new JdbcColumnMeta("PSEUDO_COLUMN", ColumnType.INT16)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("SCOPE", ColumnType.INT16),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_SIZE", ColumnType.INT32),
+                columnMeta("BUFFER_LENGTH", ColumnType.INT32),
+                columnMeta("DECIMAL_DIGITS", ColumnType.INT16),
+                columnMeta("PSEUDO_COLUMN", ColumnType.INT16)
         ));
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet getPrimaryKeys(String catalog, String schema, String tbl) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
-        final List<JdbcColumnMeta> meta = asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("KEY_SEQ", ColumnType.INT16),
-                new JdbcColumnMeta("PK_NAME", ColumnType.STRING));
+        List<ColumnMetadata> meta = asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("KEY_SEQ", ColumnType.INT16),
+                columnMeta("PK_NAME", ColumnType.STRING));
 
         if (!isValidCatalog(catalog)) {
-            return new JdbcResultSet(Collections.emptyList(), meta);
+            return createObjectListResultSet(meta);
         }
 
         try {
-            JdbcMetaPrimaryKeysResult res = conn.handler().primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).get();
+            JdbcMetaPrimaryKeysResult res = handler.primaryKeysMetaAsync(new JdbcMetaPrimaryKeysRequest(schema, tbl)).get();
 
             if (!res.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -1110,7 +1157,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 rows.addAll(primaryKeyRows(pkMeta));
             }
 
-            return new JdbcResultSet(rows, meta);
+            return createObjectListResultSet(rows, meta, timeZoneSupplier);
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -1123,42 +1170,46 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public ResultSet getImportedKeys(String catalog, String schema, String tbl) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("PKTABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("PKTABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("PKTABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PKCOLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("FKCOLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("KEY_SEQ", ColumnType.INT16),
-                new JdbcColumnMeta("UPDATE_RULE", ColumnType.INT16),
-                new JdbcColumnMeta("DELETE_RULE", ColumnType.INT16),
-                new JdbcColumnMeta("FK_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PK_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DEFERRABILITY", ColumnType.INT16)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("PKTABLE_CAT", ColumnType.STRING),
+                columnMeta("PKTABLE_SCHEM", ColumnType.STRING),
+                columnMeta("PKTABLE_NAME", ColumnType.STRING),
+                columnMeta("PKCOLUMN_NAME", ColumnType.STRING),
+                columnMeta("FKTABLE_CAT", ColumnType.STRING),
+                columnMeta("FKTABLE_SCHEM", ColumnType.STRING),
+                columnMeta("FKTABLE_NAME", ColumnType.STRING),
+                columnMeta("FKCOLUMN_NAME", ColumnType.STRING),
+                columnMeta("KEY_SEQ", ColumnType.INT16),
+                columnMeta("UPDATE_RULE", ColumnType.INT16),
+                columnMeta("DELETE_RULE", ColumnType.INT16),
+                columnMeta("FK_NAME", ColumnType.STRING),
+                columnMeta("PK_NAME", ColumnType.STRING),
+                columnMeta("DEFERRABILITY", ColumnType.INT16)
         ));
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet getExportedKeys(String catalog, String schema, String tbl) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("PKTABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("PKTABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("PKTABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PKCOLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("FKCOLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("KEY_SEQ", ColumnType.INT16),
-                new JdbcColumnMeta("UPDATE_RULE", ColumnType.INT16),
-                new JdbcColumnMeta("DELETE_RULE", ColumnType.INT16),
-                new JdbcColumnMeta("FK_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PK_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DEFERRABILITY", ColumnType.INT16)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("PKTABLE_CAT", ColumnType.STRING),
+                columnMeta("PKTABLE_SCHEM", ColumnType.STRING),
+                columnMeta("PKTABLE_NAME", ColumnType.STRING),
+                columnMeta("PKCOLUMN_NAME", ColumnType.STRING),
+                columnMeta("FKTABLE_CAT", ColumnType.STRING),
+                columnMeta("FKTABLE_SCHEM", ColumnType.STRING),
+                columnMeta("FKTABLE_NAME", ColumnType.STRING),
+                columnMeta("FKCOLUMN_NAME", ColumnType.STRING),
+                columnMeta("KEY_SEQ", ColumnType.INT16),
+                columnMeta("UPDATE_RULE", ColumnType.INT16),
+                columnMeta("DELETE_RULE", ColumnType.INT16),
+                columnMeta("FK_NAME", ColumnType.STRING),
+                columnMeta("PK_NAME", ColumnType.STRING),
+                columnMeta("DEFERRABILITY", ColumnType.INT16)
         ));
     }
 
@@ -1166,27 +1217,31 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTbl,
             String foreignCatalog, String foreignSchema, String foreignTbl) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("PKTABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("PKTABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("PKTABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PKCOLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("FKTABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("FKCOLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("KEY_SEQ", ColumnType.INT16),
-                new JdbcColumnMeta("UPDATE_RULE", ColumnType.INT16),
-                new JdbcColumnMeta("DELETE_RULE", ColumnType.INT16),
-                new JdbcColumnMeta("FK_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PK_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DEFERRABILITY", ColumnType.INT16)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("PKTABLE_CAT", ColumnType.STRING),
+                columnMeta("PKTABLE_SCHEM", ColumnType.STRING),
+                columnMeta("PKTABLE_NAME", ColumnType.STRING),
+                columnMeta("PKCOLUMN_NAME", ColumnType.STRING),
+                columnMeta("FKTABLE_CAT", ColumnType.STRING),
+                columnMeta("FKTABLE_SCHEM", ColumnType.STRING),
+                columnMeta("FKTABLE_NAME", ColumnType.STRING),
+                columnMeta("FKCOLUMN_NAME", ColumnType.STRING),
+                columnMeta("KEY_SEQ", ColumnType.INT16),
+                columnMeta("UPDATE_RULE", ColumnType.INT16),
+                columnMeta("DELETE_RULE", ColumnType.INT16),
+                columnMeta("FK_NAME", ColumnType.STRING),
+                columnMeta("PK_NAME", ColumnType.STRING),
+                columnMeta("DEFERRABILITY", ColumnType.INT16)
         ));
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet getTypeInfo() throws SQLException {
+        ensureNotClosed();
+
         List<List<Object>> types = new ArrayList<>(21);
 
         types.add(asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
@@ -1279,51 +1334,51 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "ARRAY", 0, 0,
                 Types.ARRAY, 0, null));
 
-        return new JdbcResultSet(types, asList(
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("PRECISION", ColumnType.INT32),
-                new JdbcColumnMeta("LITERAL_PREFIX", ColumnType.STRING),
-                new JdbcColumnMeta("LITERAL_SUFFIX", ColumnType.STRING),
-                new JdbcColumnMeta("CREATE_PARAMS", ColumnType.STRING),
-                new JdbcColumnMeta("NULLABLE", ColumnType.INT16),
-                new JdbcColumnMeta("CASE_SENSITIVE", ColumnType.BOOLEAN),
-                new JdbcColumnMeta("SEARCHABLE", ColumnType.INT16),
-                new JdbcColumnMeta("UNSIGNED_ATTRIBUTE", ColumnType.BOOLEAN),
-                new JdbcColumnMeta("FIXED_PREC_SCALE", ColumnType.BOOLEAN),
-                new JdbcColumnMeta("AUTO_INCREMENT", ColumnType.BOOLEAN),
-                new JdbcColumnMeta("LOCAL_TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("MINIMUM_SCALE", ColumnType.INT16),
-                new JdbcColumnMeta("MAXIMUM_SCALE", ColumnType.INT16),
-                new JdbcColumnMeta("SQL_DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("SQL_DATETIME_SUB", ColumnType.INT32),
-                new JdbcColumnMeta("NUM_PREC_RADIX", ColumnType.INT32)
-        ));
+        return createObjectListResultSet(types, asList(
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("PRECISION", ColumnType.INT32),
+                columnMeta("LITERAL_PREFIX", ColumnType.STRING),
+                columnMeta("LITERAL_SUFFIX", ColumnType.STRING),
+                columnMeta("CREATE_PARAMS", ColumnType.STRING),
+                columnMeta("NULLABLE", ColumnType.INT16),
+                columnMeta("CASE_SENSITIVE", ColumnType.BOOLEAN),
+                columnMeta("SEARCHABLE", ColumnType.INT16),
+                columnMeta("UNSIGNED_ATTRIBUTE", ColumnType.BOOLEAN),
+                columnMeta("FIXED_PREC_SCALE", ColumnType.BOOLEAN),
+                columnMeta("AUTO_INCREMENT", ColumnType.BOOLEAN),
+                columnMeta("LOCAL_TYPE_NAME", ColumnType.STRING),
+                columnMeta("MINIMUM_SCALE", ColumnType.INT16),
+                columnMeta("MAXIMUM_SCALE", ColumnType.INT16),
+                columnMeta("SQL_DATA_TYPE", ColumnType.INT32),
+                columnMeta("SQL_DATETIME_SUB", ColumnType.INT32),
+                columnMeta("NUM_PREC_RADIX", ColumnType.INT32)
+        ), timeZoneSupplier);
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet getIndexInfo(String catalog, String schema, String tbl, boolean unique,
             boolean approximate) throws SQLException {
-        conn.ensureNotClosed();
+        ensureNotClosed();
 
-        final List<JdbcColumnMeta> meta = asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("NON_UNIQUE", ColumnType.BOOLEAN),
-                new JdbcColumnMeta("INDEX_QUALIFIER", ColumnType.STRING),
-                new JdbcColumnMeta("INDEX_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE", ColumnType.INT16),
-                new JdbcColumnMeta("ORDINAL_POSITION", ColumnType.INT16),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("ASC_OR_DESC", ColumnType.STRING),
-                new JdbcColumnMeta("CARDINALITY", ColumnType.INT32),
-                new JdbcColumnMeta("PAGES", ColumnType.INT32),
-                new JdbcColumnMeta("FILTER_CONDITION", ColumnType.STRING));
+        List<ColumnMetadata> meta = asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_NAME", ColumnType.STRING),
+                columnMeta("NON_UNIQUE", ColumnType.BOOLEAN),
+                columnMeta("INDEX_QUALIFIER", ColumnType.STRING),
+                columnMeta("INDEX_NAME", ColumnType.STRING),
+                columnMeta("TYPE", ColumnType.INT16),
+                columnMeta("ORDINAL_POSITION", ColumnType.INT16),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("ASC_OR_DESC", ColumnType.STRING),
+                columnMeta("CARDINALITY", ColumnType.INT32),
+                columnMeta("PAGES", ColumnType.INT32),
+                columnMeta("FILTER_CONDITION", ColumnType.STRING));
 
         if (!isValidCatalog(catalog)) {
-            return new JdbcResultSet(Collections.emptyList(), meta);
+            return createObjectListResultSet(meta);
         }
 
         throw new UnsupportedOperationException("Index info is not supported yet.");
@@ -1405,21 +1460,23 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getUDTs(String catalog, String schemaPtrn, String typeNamePtrn,
             int[] types) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("TYPE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("CLASS_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("BASE_TYPE", ColumnType.INT16)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("TYPE_CAT", ColumnType.STRING),
+                columnMeta("TYPE_SCHEM", ColumnType.STRING),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("CLASS_NAME", ColumnType.STRING),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("BASE_TYPE", ColumnType.INT16)
         ));
     }
 
     /** {@inheritDoc} */
     @Override
     public Connection getConnection() {
-        return conn;
+        return connection;
     }
 
     /** {@inheritDoc} */
@@ -1450,13 +1507,15 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getSuperTypes(String catalog, String schemaPtrn,
             String typeNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("TYPE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("SUPERTYPE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("SUPERTYPE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("SUPERTYPE_NAME", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("TYPE_CAT", ColumnType.STRING),
+                columnMeta("TYPE_SCHEM", ColumnType.STRING),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("SUPERTYPE_CAT", ColumnType.STRING),
+                columnMeta("SUPERTYPE_SCHEM", ColumnType.STRING),
+                columnMeta("SUPERTYPE_NAME", ColumnType.STRING)
         ));
     }
 
@@ -1464,11 +1523,13 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getSuperTables(String catalog, String schemaPtrn,
             String tblNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("SUPERTABLE_NAME", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_NAME", ColumnType.STRING),
+                columnMeta("SUPERTABLE_NAME", ColumnType.STRING)
         ));
     }
 
@@ -1476,41 +1537,43 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getAttributes(String catalog, String schemaPtrn, String typeNamePtrn,
             String attributeNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("TYPE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("ATTR_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("ATTR_TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("ATTR_SIZE", ColumnType.INT32),
-                new JdbcColumnMeta("DECIMAL_DIGITS", ColumnType.INT32),
-                new JdbcColumnMeta("NUM_PREC_RADIX", ColumnType.INT32),
-                new JdbcColumnMeta("NULLABLE", ColumnType.INT32),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("ATTR_DEF", ColumnType.STRING),
-                new JdbcColumnMeta("SQL_DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("SQL_DATETIME_SUB", ColumnType.INT32),
-                new JdbcColumnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("ORDINAL_POSITION", ColumnType.INT32),
-                new JdbcColumnMeta("IS_NULLABLE", ColumnType.STRING),
-                new JdbcColumnMeta("SCOPE_CATALOG", ColumnType.STRING),
-                new JdbcColumnMeta("SCOPE_SCHEMA", ColumnType.STRING),
-                new JdbcColumnMeta("SCOPE_TABLE", ColumnType.STRING),
-                new JdbcColumnMeta("SOURCE_DATA_TYPE", ColumnType.INT16)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("TYPE_CAT", ColumnType.STRING),
+                columnMeta("TYPE_SCHEM", ColumnType.STRING),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("ATTR_NAME", ColumnType.STRING),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("ATTR_TYPE_NAME", ColumnType.STRING),
+                columnMeta("ATTR_SIZE", ColumnType.INT32),
+                columnMeta("DECIMAL_DIGITS", ColumnType.INT32),
+                columnMeta("NUM_PREC_RADIX", ColumnType.INT32),
+                columnMeta("NULLABLE", ColumnType.INT32),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("ATTR_DEF", ColumnType.STRING),
+                columnMeta("SQL_DATA_TYPE", ColumnType.INT32),
+                columnMeta("SQL_DATETIME_SUB", ColumnType.INT32),
+                columnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
+                columnMeta("ORDINAL_POSITION", ColumnType.INT32),
+                columnMeta("IS_NULLABLE", ColumnType.STRING),
+                columnMeta("SCOPE_CATALOG", ColumnType.STRING),
+                columnMeta("SCOPE_SCHEMA", ColumnType.STRING),
+                columnMeta("SCOPE_TABLE", ColumnType.STRING),
+                columnMeta("SOURCE_DATA_TYPE", ColumnType.INT16)
         ));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean supportsResultSetHoldability(int holdability) {
-        return holdability == HOLD_CURSORS_OVER_COMMIT;
+        return holdability == CLOSE_CURSORS_AT_COMMIT;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getResultSetHoldability() {
-        return HOLD_CURSORS_OVER_COMMIT;
+        return CLOSE_CURSORS_AT_COMMIT;
     }
 
     /** {@inheritDoc} */
@@ -1540,7 +1603,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public int getSQLStateType() {
-        return DatabaseMetaData.sqlStateSQL99;
+        return sqlStateSQL99;
     }
 
     /** {@inheritDoc} */
@@ -1575,12 +1638,14 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSet getClientInfoProperties() throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("NAME", ColumnType.STRING),
-                new JdbcColumnMeta("MAX_LEN", ColumnType.INT32),
-                new JdbcColumnMeta("DEFAULT_VALUE", ColumnType.STRING),
-                new JdbcColumnMeta("DESCRIPTION", ColumnType.STRING)
+    public ResultSet getClientInfoProperties() {
+        // We do not check whether connection is closed as 
+        // this operation is not expected to do any server calls.  
+        return createObjectListResultSet(asList(
+                columnMeta("NAME", ColumnType.STRING),
+                columnMeta("MAX_LEN", ColumnType.INT32),
+                columnMeta("DEFAULT_VALUE", ColumnType.STRING),
+                columnMeta("DESCRIPTION", ColumnType.STRING)
         ));
     }
 
@@ -1590,13 +1655,15 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getFunctions(String catalog, String schemaPtrn,
             String functionNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("FUNCTION_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("FUNCTION_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("FUNCTION_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("FUNCTION_TYPE", ColumnType.STRING),
-                new JdbcColumnMeta("SPECIFIC_NAME", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("FUNCTION_CAT", ColumnType.STRING),
+                columnMeta("FUNCTION_SCHEM", ColumnType.STRING),
+                columnMeta("FUNCTION_NAME", ColumnType.STRING),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("FUNCTION_TYPE", ColumnType.STRING),
+                columnMeta("SPECIFIC_NAME", ColumnType.STRING)
         ));
     }
 
@@ -1604,24 +1671,26 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getFunctionColumns(String catalog, String schemaPtrn, String functionNamePtrn,
             String colNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("FUNCTION_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("FUNCTION_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("FUNCTION_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_TYPE", ColumnType.INT16),
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("TYPE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("PRECISION", ColumnType.INT32),
-                new JdbcColumnMeta("LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("SCALE", ColumnType.INT16),
-                new JdbcColumnMeta("RADIX", ColumnType.INT16),
-                new JdbcColumnMeta("NULLABLE", ColumnType.INT16),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("ORDINAL_POSITION", ColumnType.INT32),
-                new JdbcColumnMeta("IS_NULLABLE", ColumnType.STRING),
-                new JdbcColumnMeta("SPECIFIC_NAME", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("FUNCTION_CAT", ColumnType.STRING),
+                columnMeta("FUNCTION_SCHEM", ColumnType.STRING),
+                columnMeta("FUNCTION_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_TYPE", ColumnType.INT16),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("TYPE_NAME", ColumnType.STRING),
+                columnMeta("PRECISION", ColumnType.INT32),
+                columnMeta("LENGTH", ColumnType.INT32),
+                columnMeta("SCALE", ColumnType.INT16),
+                columnMeta("RADIX", ColumnType.INT16),
+                columnMeta("NULLABLE", ColumnType.INT16),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
+                columnMeta("ORDINAL_POSITION", ColumnType.INT32),
+                columnMeta("IS_NULLABLE", ColumnType.STRING),
+                columnMeta("SPECIFIC_NAME", ColumnType.STRING)
         ));
     }
 
@@ -1645,19 +1714,21 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getPseudoColumns(String catalog, String schemaPtrn, String tblNamePtrn,
             String colNamePtrn) throws SQLException {
-        return new JdbcResultSet(Collections.emptyList(), asList(
-                new JdbcColumnMeta("TABLE_CAT", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_SCHEM", ColumnType.STRING),
-                new JdbcColumnMeta("TABLE_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("COLUMN_NAME", ColumnType.STRING),
-                new JdbcColumnMeta("DATA_TYPE", ColumnType.INT32),
-                new JdbcColumnMeta("COLUMN_SIZE", ColumnType.INT32),
-                new JdbcColumnMeta("DECIMAL_DIGITS", ColumnType.INT32),
-                new JdbcColumnMeta("NUM_PREC_RADIX", ColumnType.INT32),
-                new JdbcColumnMeta("COLUMN_USAGE", ColumnType.INT32),
-                new JdbcColumnMeta("REMARKS", ColumnType.STRING),
-                new JdbcColumnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
-                new JdbcColumnMeta("IS_NULLABLE", ColumnType.STRING)
+        ensureNotClosed();
+
+        return createObjectListResultSet(asList(
+                columnMeta("TABLE_CAT", ColumnType.STRING),
+                columnMeta("TABLE_SCHEM", ColumnType.STRING),
+                columnMeta("TABLE_NAME", ColumnType.STRING),
+                columnMeta("COLUMN_NAME", ColumnType.STRING),
+                columnMeta("DATA_TYPE", ColumnType.INT32),
+                columnMeta("COLUMN_SIZE", ColumnType.INT32),
+                columnMeta("DECIMAL_DIGITS", ColumnType.INT32),
+                columnMeta("NUM_PREC_RADIX", ColumnType.INT32),
+                columnMeta("COLUMN_USAGE", ColumnType.INT32),
+                columnMeta("REMARKS", ColumnType.STRING),
+                columnMeta("CHAR_OCTET_LENGTH", ColumnType.INT32),
+                columnMeta("IS_NULLABLE", ColumnType.STRING)
         ));
     }
 
@@ -1666,7 +1737,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      *
      * @param catalog Catalog name or {@code null}.
      * @return {@code true} If catalog equal ignoring case to {@link JdbcDatabaseMetadata#CATALOG_NAME} or null (which means any catalog),
-     *      otherwise returns {@code false}.
+     *         otherwise returns {@code false}.
      */
     private static boolean isValidCatalog(String catalog) {
         return catalog == null || catalog.equalsIgnoreCase(CATALOG_NAME);
@@ -1705,7 +1776,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
      * Constructs a list of rows in jdbc format for a given column metadata.
      *
      * @param colMeta Column metadata.
-     * @param pos     Ordinal position.
+     * @param pos Ordinal position.
      * @return Column metadata row.
      */
     public static List<Object> columnRow(JdbcColumnMeta colMeta, int pos) {
@@ -1714,7 +1785,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         row.add(CATALOG_NAME);                  // 1. TABLE_CAT
         row.add(colMeta.schemaName());          // 2. TABLE_SCHEM
         row.add(colMeta.tableName());           // 3. TABLE_NAME
-        row.add(colMeta.columnLabel());          // 4. COLUMN_NAME
+        row.add(colMeta.columnLabel());         // 4. COLUMN_NAME
         row.add(colMeta.dataType());            // 5. DATA_TYPE
         row.add(colMeta.dataTypeName());        // 6. TYPE_NAME
         row.add(colMeta.precision() == -1 ? null : colMeta.precision()); // 7. COLUMN_SIZE
@@ -1762,5 +1833,15 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         }
 
         return rows;
+    }
+
+    private void ensureNotClosed() throws SQLException {
+        if (connection.isClosed()) {
+            throw new SQLException("Connection is closed.", CONNECTION_CLOSED);
+        }
+    }
+
+    private static ColumnMetadata columnMeta(String name, ColumnType type) {
+        return new ColumnMetadataImpl(name, type, -1, -1, true, null);
     }
 }

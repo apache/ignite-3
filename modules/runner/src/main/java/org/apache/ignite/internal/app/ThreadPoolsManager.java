@@ -51,7 +51,7 @@ public class ThreadPoolsManager implements IgniteComponent {
      * Separate executor for IO operations like partition storage initialization, partition raft group meta data persisting,
      * index storage creation...
      */
-    private final ExecutorService tableIoExecutor;
+    private final ScheduledExecutorService tableIoExecutor;
 
     /**
      * Executor on which partition operations are executed. Might do storage reads and writes (so it's expected to execute disk I/O).
@@ -59,6 +59,9 @@ public class ThreadPoolsManager implements IgniteComponent {
     private final ExecutorService partitionOperationsExecutor;
 
     private final ScheduledExecutorService commonScheduler;
+
+    /** Executor for scheduling rebalance routine. */
+    private final ScheduledExecutorService rebalanceScheduler;
 
     private final MetricManager metricManager;
 
@@ -70,7 +73,7 @@ public class ThreadPoolsManager implements IgniteComponent {
     public ThreadPoolsManager(String nodeName, MetricManager metricManager) {
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        tableIoExecutor = Executors.newFixedThreadPool(
+        tableIoExecutor = Executors.newScheduledThreadPool(
                 Math.min(cpus * 3, 25),
                 IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE)
         );
@@ -90,6 +93,8 @@ public class ThreadPoolsManager implements IgniteComponent {
         );
 
         commonScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "common-scheduler", LOG));
+
+        rebalanceScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
 
         this.metricManager = metricManager;
 
@@ -117,6 +122,7 @@ public class ThreadPoolsManager implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(tableIoExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, SECONDS);
 
         return nullCompletedFuture();
     }
@@ -124,7 +130,7 @@ public class ThreadPoolsManager implements IgniteComponent {
     /**
      * Returns executor used to create/destroy storages, start partition Raft groups, create index storages...
      */
-    public ExecutorService tableIoExecutor() {
+    public ScheduledExecutorService tableIoExecutor() {
         return tableIoExecutor;
     }
 
@@ -140,5 +146,10 @@ public class ThreadPoolsManager implements IgniteComponent {
      */
     public ScheduledExecutorService commonScheduler() {
         return commonScheduler;
+    }
+
+    /** Returns executor for scheduling rebalance routine. */
+    public ScheduledExecutorService rebalanceScheduler() {
+        return rebalanceScheduler;
     }
 }

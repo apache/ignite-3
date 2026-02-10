@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +29,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A group of a sources which shares common set of nodes and assignments to be executed.
@@ -67,6 +70,18 @@ public class ColocationGroup implements Serializable {
         this.partitionsPerNode = Objects.requireNonNull(partitionsPerNode, "partitionsPerNode");
     }
 
+    private ColocationGroup(
+            List<String> nodeNames,
+            LongList sourceIds,
+            Int2ObjectMap<NodeWithConsistencyToken> assignments,
+            @Nullable Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode
+    ) {
+        this.sourceIds = sourceIds;
+        this.nodeNames = nodeNames;
+        this.assignments = assignments;
+        this.partitionsPerNode = partitionsPerNode;
+    }
+
     /**
      * Get lists of colocation group sources.
      */
@@ -103,5 +118,12 @@ public class ColocationGroup implements Serializable {
         } else {
             return PartitionProvider.partitionsForNode(assignments, nodeName);
         }
+    }
+
+    /** Creates a copy of this colocation group that does not have the specified source ids. */
+    public ColocationGroup removeSources(LongSet ids) {
+        LongList list = new LongArrayList(sourceIds);
+        list.removeAll(ids);
+        return new ColocationGroup(nodeNames, list, assignments, partitionsPerNode);
     }
 }

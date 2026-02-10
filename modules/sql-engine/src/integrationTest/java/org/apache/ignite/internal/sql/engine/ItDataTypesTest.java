@@ -583,7 +583,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775809 AS BIGINT)", true),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(' -9223372036854775809' AS BIGINT)", true),
 
-
                 // INTEGER
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.1 AS INTEGER)", false),
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 AS INTEGER)", false),
@@ -598,7 +597,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483649 AS INTEGER)", true),
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(' -2147483649' AS INTEGER)", true),
 
-
                 // SMALLINT
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.1 AS SMALLINT)", false),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 AS SMALLINT)", false),
@@ -612,7 +610,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST('32768' AS SMALLINT)", true),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32769 AS SMALLINT)", true),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(' -32769' AS SMALLINT)", true),
-
 
                 // TINYINT
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(127.1 AS TINYINT)", false),
@@ -806,7 +803,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 () -> sql("SELECT CAST(1 AS CHAR(0))")
         );
 
-
         // Varchar
 
         assertThrowsSqlException(
@@ -976,7 +972,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1"))
         );
     }
-
 
     private static RelDataType sqlType(SqlTypeName typeName) {
         return Commons.typeFactory().createSqlType(typeName);

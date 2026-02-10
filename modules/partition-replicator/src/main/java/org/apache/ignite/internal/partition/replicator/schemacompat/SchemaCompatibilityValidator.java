@@ -249,11 +249,11 @@ public class SchemaCompatibilityValidator {
             throw IncompatibleSchemaVersionException.tableDropped(tableAtBeginTs.name());
         }
 
-        if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
+        if (tableAtOpTs.latestSchemaVersion() != tableAtBeginTs.latestSchemaVersion()) {
             throw IncompatibleSchemaVersionException.schemaChanged(
                     tableAtBeginTs.name(),
-                    tableAtBeginTs.tableVersion(),
-                    tableAtOpTs.tableVersion()
+                    tableAtBeginTs.latestSchemaVersion(),
+                    tableAtOpTs.latestSchemaVersion()
             );
         }
     }
@@ -287,7 +287,7 @@ public class SchemaCompatibilityValidator {
 
         assert table != null : "No table " + tableId + " at " + txTs;
 
-        if (table.tableVersion() != requestSchemaVersion) {
+        if (table.latestSchemaVersion() != requestSchemaVersion) {
             throw new InternalSchemaVersionMismatchException();
         }
     }

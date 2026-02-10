@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.lang.ByteArray.fromString;
 import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -63,10 +62,10 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -83,14 +82,17 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -105,7 +107,6 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -147,6 +148,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
@@ -161,7 +165,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private BiFunction<LeaseGrantedMessage, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
-    private final AtomicInteger nextTableOrZoneId = new AtomicInteger();
+    private final AtomicInteger nextZoneId = new AtomicInteger();
 
     private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
@@ -220,6 +224,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         raftManager = TestLozaFactory.create(
                 clusterService,
                 raftConfiguration,
+                systemLocalConfiguration,
                 nodeClock,
                 eventsClientListener
         );
@@ -263,8 +268,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 mock(FailureProcessor.class),
-                new SystemPropertiesNodeProperties(),
-                replicationConfiguration
+                replicationConfiguration,
+                Runnable::run,
+                mock(MetricManager.class),
+                zoneId -> completedFuture(Set.of())
         );
 
         ComponentContext componentContext = new ComponentContext();
@@ -389,8 +396,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Set<Assignment> assignments = Set.of();
 
-        String stableAssignmentsPrefix =
-                enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX;
+        String stableAssignmentsPrefix = ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 
         metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
@@ -419,25 +425,24 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testPrimaryReplicaEvents() throws Exception {
         PartitionGroupId grpPart0 =
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp);
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp);
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
-        ConcurrentHashMap<UUID, HybridTimestamp> electedEvts = new ConcurrentHashMap<>(2);
-        ConcurrentHashMap<UUID, HybridTimestamp> expiredEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, PrimaryReplicaEventParameters> electedEvts = new ConcurrentHashMap<>(2);
+        ConcurrentHashMap<UUID, PrimaryReplicaEventParameters> expiredEvts = new ConcurrentHashMap<>(2);
 
         placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, evt -> {
-            log.info("Primary replica is elected [grp={}]", evt.groupId());
-
-            electedEvts.put(evt.leaseholderId(), evt.startTime());
+            log.info("Primary replica is elected [grp={}, recipient={}]", evt.groupId(), evt.leaseholderId());
+            electedEvts.put(evt.leaseholderId(), evt);
 
             return falseCompletedFuture();
         });
 
         placementDriverManager.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
-            log.info("Primary replica is expired [grp={}]", evt.groupId());
+            log.info("Primary replica is expired [grp={}, recipient={}]", evt.groupId(), evt.leaseholder());
 
-            expiredEvts.put(evt.leaseholderId(), evt.startTime());
+            expiredEvts.put(evt.leaseholderId(), evt);
 
             return falseCompletedFuture();
         });
@@ -445,7 +450,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 2, 1, 1);
 
         metaStorageManager.put(
-                fromString((enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX) + grpPart0),
+                fromString(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + grpPart0),
                 Assignments.toBytes(assignments, assignmentsTimestamp)
         );
 
@@ -455,19 +460,22 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             ReplicaMeta meta = sync(fut);
 
-            return meta != null && meta.getLeaseholder().equals(anotherNodeName);
+            return meta != null && meta.getLeaseholder().equals(anotherNodeName)
+                    && electedEvts.values().stream().anyMatch(v -> v.leaseholder().equals(anotherNodeName))
+                    && expiredEvts.values().stream().anyMatch(v -> v.leaseholder().equals(nodeName));
         }, 10_000));
 
         Lease lease2 = checkLeaseCreated(grpPart0, true);
 
         assertNotEquals(lease1.getLeaseholder(), lease2.getLeaseholder());
 
-        assertEquals(1, electedEvts.size());
-        assertEquals(1, expiredEvts.size());
-
         assertTrue(electedEvts.containsKey(lease2.getLeaseholderId()));
         assertTrue(expiredEvts.containsKey(lease1.getLeaseholderId()));
 
+        // Clear events from the previous lease change to verify only new events after node restart.
+        // At this point, the maps can have either size 1 from put above, or size 2 from cluster start and put.
+        electedEvts.clear();
+        expiredEvts.clear();
         stopAnotherNode(anotherClusterService);
         anotherClusterService = startAnotherNode(anotherNodeName, PORT + 1);
 
@@ -477,13 +485,16 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             ReplicaMeta meta = sync(fut);
 
-            return meta != null && meta.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id());
+            return meta != null
+                    && meta.getLeaseholderId().equals(anotherClusterService.topologyService().localMember().id())
+                    // Check event map sizes to prevent race condition between receiving events and the check above.
+                    && electedEvts.size() == 1 && expiredEvts.size() == 1;
         }, 10_000));
 
         Lease lease3 = checkLeaseCreated(grpPart0, true);
 
-        assertEquals(2, electedEvts.size());
-        assertEquals(2, expiredEvts.size());
+        assertEquals(1, electedEvts.size());
+        assertEquals(1, expiredEvts.size());
 
         assertTrue(electedEvts.containsKey(lease3.getLeaseholderId()));
         assertTrue(expiredEvts.containsKey(lease2.getLeaseholderId()));
@@ -542,8 +553,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testLeaseRemovedAfterExpirationAndAssignmetnsRemoval() throws Exception {
         List<PartitionGroupId> groupIds = List.of(
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp),
-                createAssignments(metaStorageManager, nextTableOrZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp)
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp),
+                createAssignments(metaStorageManager, nextZoneId.incrementAndGet(), List.of(nodeName), assignmentsTimestamp)
         );
 
         Map<PartitionGroupId, AtomicBoolean> leaseExpirationMap =
@@ -565,9 +576,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         assertFalse(leaseExpirationMap.get(groupIds.get(0)).get());
         assertFalse(leaseExpirationMap.get(groupIds.get(1)).get());
 
-        metaStorageManager.remove(
-                fromString((enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX) + groupIds.get(0))
-        );
+        assertThat(metaStorageManager.remove(
+                fromString(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + groupIds.get(0))
+        ), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
@@ -727,7 +738,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     private PartitionGroupId createAssignments() {
         return createAssignments(
                 metaStorageManager,
-                nextTableOrZoneId.incrementAndGet(),
+                nextZoneId.incrementAndGet(),
                 List.of(nodeName, anotherNodeName),
                 assignmentsTimestamp
         );
@@ -788,7 +799,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         }
 
         @Override
-        public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
+        public CompletableFuture<Set<InternalClusterNode>> validatedNodesOnLeader() {
             return completedFuture(Set.copyOf(clusterService.topologyService().allMembers()));
         }
     }

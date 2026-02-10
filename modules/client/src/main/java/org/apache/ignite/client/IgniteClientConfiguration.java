@@ -43,6 +43,9 @@ public interface IgniteClientConfiguration {
     /** Default background reconnect interval, in milliseconds. */
     long DFLT_BACKGROUND_RECONNECT_INTERVAL = 30_000L;
 
+    /** Default interval sets how long the resolved addresses will be considered valid, in milliseconds. */
+    long DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL = 30_000L;
+
     /** Default operation timeout, in milliseconds. */
     int DFLT_OPERATION_TIMEOUT = 0;
 
@@ -210,4 +213,28 @@ public interface IgniteClientConfiguration {
      * @return Cache size, in number of entries.
      */
     int sqlPartitionAwarenessMetadataCacheSize();
+
+    /**
+     * Gets the client name. Default is {@code null}, which means that Ignite will generate a unique name automatically.
+     *
+     * <p>Client name is used for identifying clients in JMX metrics. The name is only used locally and is not sent to the server.
+     *
+     * <p>If multiple clients with the same exist in the same JVM, JMX metrics will be exposed only for one of them.
+     * Others will log an error.
+     *
+     * @return Client name.
+     */
+    @Nullable String name();
+
+    /**
+     * Gets how long the resolved addresses will be considered valid, in milliseconds. Set to {@code 0} for infinite validity.
+     * Default is {@link #DFLT_BACKGROUND_RE_RESOLVE_ADDRESSES_INTERVAL}.
+     *
+     * <p>Ignite client resolves the provided hostnames into multiple IP addresses, each corresponds to an active cluster node.
+     * However, additional IP addresses can be collected after updating the DNS records. This property controls how often Ignite
+     * client will try to re-resolve provided hostnames and connect to newly discovered addresses.
+     *
+     * @return Background re-resolve interval, in milliseconds.
+     */
+    long backgroundReResolveAddressesInterval();
 }

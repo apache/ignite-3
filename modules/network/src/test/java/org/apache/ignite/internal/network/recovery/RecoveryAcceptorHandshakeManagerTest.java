@@ -40,37 +40,34 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelProgressivePromise;
 import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.EventExecutor;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
-import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.handshake.NoOpHandshakeEventLoopSwitcher;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
-class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
+class RecoveryAcceptorHandshakeManagerTest extends HandshakeManagerTest {
     private static final UUID LOWER_ID = new UUID(1, 1);
     private static final UUID HIGHER_ID = new UUID(2, 2);
 
@@ -83,8 +80,6 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final String INITIATOR_HOST = "initiator-host";
 
     private static final int PORT = 1000;
-
-    private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
     private static final UUID CORRECT_CLUSTER_ID = new UUID(11, 12);
 
@@ -108,6 +103,9 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     @Captor
     private ArgumentCaptor<OutNetworkObject> sentMessageCaptor;
+
+    @Mock
+    private TopologyService topologyService;
 
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
@@ -177,12 +175,14 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
                 new ClusterNodeImpl(launchId, ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
-                () -> List.of(channel.eventLoop()),
+                new NoOpHandshakeEventLoopSwitcher(),
                 new AllIdsAreFresh(),
                 new ConstantClusterIdSupplier(CORRECT_CLUSTER_ID),
                 channelCreationListener,
                 stopping,
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                topologyService,
+                new NoOpFailureManager()
         );
 
         manager.onInit(context);
@@ -246,5 +246,12 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
         assertThat(finalHandshakeFuture.toCompletableFuture(), willThrow(NodeStoppingException.class));
 
         assertThat(recoveryDescriptor.holder(), is(nullValue()));
+    }
+
+    @Test
+    void gettingHandshakeRejectedMessageWithReasonStoppingCausesHandshakeToBeFinishedWithRecipientLeftException() {
+        RecoveryAcceptorHandshakeManager manager = acceptorHandshakeManager(LOWER_ID);
+
+        assertThatRejectionWithStoppingCausesRecipientLeftException(manager);
     }
 }

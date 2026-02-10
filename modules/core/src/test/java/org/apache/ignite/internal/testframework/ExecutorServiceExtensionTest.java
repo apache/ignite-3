@@ -133,12 +133,12 @@ public class ExecutorServiceExtensionTest {
             checkExecutorService(
                     instanceExecutorServiceWithDefaults,
                     CPUS,
-                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "instanceExecutorServiceWithDefaults")
+                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "test-instanceExecutorServiceWithDefaults")
             );
             checkScheduledExecutorService(
                     instanceScheduledExecutorServiceWithDefaults,
                     1,
-                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "instanceScheduledExecutorServiceWithDefaults")
+                    String.format(DEFAULT_THREAD_PREFIX_FORMAT, "test-instanceScheduledExecutorServiceWithDefaults")
             );
             checkExecutorService(
                     parameterExecutorServiceWithDefaults,

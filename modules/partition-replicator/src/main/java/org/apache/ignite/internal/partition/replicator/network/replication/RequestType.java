@@ -69,9 +69,6 @@ public enum RequestType {
         return requestTypeId;
     }
 
-    /** Cached array with all enum values. */
-    private static final RequestType[] VALUES = values();
-
     /**
      * Returns {@code true} if the operation is an RW read.
      */
@@ -104,6 +101,20 @@ public enum RequestType {
             case RW_GET_AND_DELETE:
             case RW_GET_AND_REPLACE:
             case RW_GET_AND_UPSERT:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation is a read-only.
+     */
+    public boolean isReadOnly() {
+        switch (this) {
+            case RO_GET:
+            case RO_GET_ALL:
+            case RO_SCAN:
                 return true;
             default:
                 return false;

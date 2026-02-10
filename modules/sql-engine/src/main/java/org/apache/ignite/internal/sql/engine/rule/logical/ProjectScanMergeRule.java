@@ -283,7 +283,6 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
                 .withRuleFactory(ProjectSystemViewScanMergeRule::new)
                 .withScanRuleConfig(IgniteLogicalSystemViewScan.class, "ProjectSystemViewScanMergeSkipCorrelatedRule", true);
 
-
         /**
          * Create rule's configuration.
          */

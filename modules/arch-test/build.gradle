@@ -37,6 +37,7 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-raft'))
 }
 
 tasks.withType(Test).configureEach {

@@ -166,7 +166,7 @@ public abstract class DefaultValue {
 
             ConstantValue that = (ConstantValue) o;
 
-            return Objects.equals(value, that.value);
+            return Objects.deepEquals(value, that.value);
         }
 
         /** {@inheritDoc} */

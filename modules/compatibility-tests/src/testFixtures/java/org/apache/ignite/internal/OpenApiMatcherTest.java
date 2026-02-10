@@ -28,6 +28,7 @@ import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
@@ -152,6 +153,17 @@ class OpenApiMatcherTest {
     }
 
     @Test
+    void differentParameterSchemaFormat() {
+        OpenAPI baseApi = new OpenAPI().path("test", new PathItem().get(new Operation()
+                .addParametersItem(new Parameter().name("param").schema(new Schema().type("integer").format("int32")))));
+        OpenAPI currentApi = new OpenAPI().path("test", new PathItem().get(new Operation()
+                .addParametersItem(new Parameter().name("param").schema(new Schema().type("integer").format("int64")))));
+
+        assertThatMismatchedWithDescription(baseApi, currentApi, "operation <GET> at path \"test\" has incompatible schemas "
+                + "of parameter \"param\" : Schema \"test/param\" has different formats");
+    }
+
+    @Test
     void differentParameterSchemaRef() {
         OpenAPI baseApi = new OpenAPI().path("test", new PathItem().get(new Operation()
                 .addParametersItem(new Parameter().name("param").schema(new Schema().$ref("#/components/schemas/test")))));
@@ -164,8 +176,7 @@ class OpenApiMatcherTest {
 
     @Test
     void differentComponentsSchemaType() {
-        PathItem pathItem = new PathItem().get(new Operation().addParametersItem(new Parameter().name("param")
-                .schema(new Schema().$ref("#/components/schemas/testSchema"))));
+        PathItem pathItem = createPathItem();
         OpenAPI baseApi = new OpenAPI().path("test", pathItem)
                 .components(new Components().addSchemas("testSchema", new Schema().type("object")));
         OpenAPI currentApi = new OpenAPI().path("test", pathItem)
@@ -177,8 +188,7 @@ class OpenApiMatcherTest {
 
     @Test
     void differentComponentsSchemaAdditionalType() {
-        PathItem pathItem = new PathItem().get(new Operation().addParametersItem(new Parameter().name("param")
-                .schema(new Schema().$ref("#/components/schemas/testSchema"))));
+        PathItem pathItem = createPathItem();
         OpenAPI baseApi = new OpenAPI().path("test", pathItem)
                 .components(new Components().addSchemas("testSchema", new Schema().type("object")
                         .additionalProperties(new Schema().type("object"))));
@@ -192,8 +202,7 @@ class OpenApiMatcherTest {
 
     @Test
     void differentComponentsSchemaInnerType() {
-        PathItem pathItem = new PathItem().get(new Operation().addParametersItem(new Parameter().name("param")
-                .schema(new Schema().$ref("#/components/schemas/testSchema"))));
+        PathItem pathItem = createPathItem();
         OpenAPI baseApi = new OpenAPI().path("test", pathItem)
                 .components(new Components().addSchemas("testSchema", new Schema().type("object")
                         .addProperty("value", new Schema().type("object"))));
@@ -207,8 +216,7 @@ class OpenApiMatcherTest {
 
     @Test
     void newRequiredParameters() {
-        PathItem pathItem = new PathItem().get(new Operation().addParametersItem(new Parameter().name("param")
-                .schema(new Schema().$ref("#/components/schemas/testSchema"))));
+        PathItem pathItem = createPathItem();
         OpenAPI baseApi = new OpenAPI().path("test", pathItem)
                 .components(new Components().addSchemas("testSchema", new Schema().type("object")
                         .addProperty("prop", new Schema())));
@@ -242,6 +250,23 @@ class OpenApiMatcherTest {
                 + "incompatible content: Schema \"#/components/schemas/testSchema\" has new optional properties <[prop]>");
     }
 
+    @Test
+    void newEnumValuesInRequest() {
+        PathItem pathItem = createPathItem();
+        StringSchema baseSchema = new StringSchema().type("string");
+        baseSchema.addEnumItemObject("FIRST");
+        baseSchema.addEnumItemObject("SECOND");
+        OpenAPI baseApi = new OpenAPI().path("test", pathItem)
+                .components(new Components().addSchemas("testSchema", baseSchema));
+        StringSchema currentSchema = new StringSchema().type("string");
+        currentSchema.addEnumItemObject("FIRST");
+        OpenAPI currentApi = new OpenAPI().path("test", pathItem)
+                .components(new Components().addSchemas("testSchema", currentSchema));
+
+        assertThatMismatchedWithDescription(baseApi, currentApi, "operation <GET> at path \"test\" has incompatible schemas "
+                + "of parameter \"param\" : Schema \"#/components/schemas/testSchema\" has missing enum values <[SECOND]>");
+    }
+
     private static void assertThatMismatchedWithDescription(OpenAPI baseApi, OpenAPI currentApi, String description) {
         Matcher<OpenAPI> matcher = isCompatibleWith(baseApi);
         assertThat(matcher.matches(currentApi), is(false));
@@ -249,5 +274,10 @@ class OpenApiMatcherTest {
         StringDescription stringDescription = new StringDescription();
         matcher.describeMismatch(currentApi, stringDescription);
         assertThat(stringDescription.toString(), is(description));
+    }
+
+    private static PathItem createPathItem() {
+        return new PathItem().get(new Operation().addParametersItem(new Parameter().name("param")
+                .schema(new Schema().$ref("#/components/schemas/testSchema"))));
     }
 }

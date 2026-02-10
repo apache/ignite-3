@@ -18,17 +18,38 @@
 package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.eventlog.event.EventBuilder;
 import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 
 /**
  * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique within the system. The
  * event type is used to filter the events in the event log.
+ *
+ * <p>If you want to create an instance of the Event with the specified type, use the {@link #create} method.
+ *
+ * <p>For example, to create an event of the type USER_AUTHENTICATED:
+ * <pre>{@code IgniteEventType.USER_AUTHENTICATION_SUCCESS.create(EventUser.system());}</pre>
  */
 public enum IgniteEventType {
     USER_AUTHENTICATION_SUCCESS,
     USER_AUTHENTICATION_FAILURE,
     CLIENT_CONNECTION_ESTABLISHED,
     CLIENT_CONNECTION_CLOSED,
+
+    COMPUTE_JOB_QUEUED,
+    COMPUTE_JOB_EXECUTING,
+    COMPUTE_JOB_FAILED,
+    COMPUTE_JOB_COMPLETED,
+    COMPUTE_JOB_CANCELING,
+    COMPUTE_JOB_CANCELED,
+
+    COMPUTE_TASK_QUEUED,
+    COMPUTE_TASK_EXECUTING,
+    COMPUTE_TASK_FAILED,
+    COMPUTE_TASK_COMPLETED,
+    COMPUTE_TASK_CANCELED,
+
     QUERY_STARTED,
     QUERY_FINISHED;
 
@@ -42,5 +63,28 @@ public enum IgniteEventType {
      * Registers all event types through the static initialization block once.
      */
     public static void initialize() {
+    }
+
+    /**
+     * Creates an event of this type with current timestamp and specified event user.
+     *
+     * @param user Event user.
+     * @return Created event.
+     */
+    public Event create(EventUser user) {
+        return builder()
+                .user(user)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
+    /**
+     * Creates new event build of this type.
+     *
+     * @return Created event builder.
+     */
+    public EventBuilder builder() {
+        return Event.builder()
+                .type(name());
     }
 }

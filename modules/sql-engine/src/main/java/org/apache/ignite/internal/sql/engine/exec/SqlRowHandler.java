@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.readValue;
+import static org.apache.ignite.sql.ColumnType.NULL;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -33,13 +34,15 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,12 +58,12 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Factory method {@link RowFactory#create(InternalTuple)} allows to
  * create rows without any additional conversions. But the fields in
- * binary tuple must match the factory {@link RowSchema row schema}.
+ * binary tuple must match the factory {@link StructNativeType row schema}.
  */
-public class SqlRowHandler implements RowHandler<RowWrapper> {
-    public static final RowHandler<RowWrapper> INSTANCE = new SqlRowHandler();
+public class SqlRowHandler implements RowHandler<RowWrapper>, RowFactoryFactory<RowWrapper> {
+    public static final SqlRowHandler INSTANCE = new SqlRowHandler();
 
-    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(RowSchema.builder().build(), new Object[0]);
+    private static final ObjectsArrayRowWrapper EMPTY_ROW = new ObjectsArrayRowWrapper(NativeTypes.structBuilder().build(), new Object[0]);
 
     private SqlRowHandler() {
     }
@@ -78,14 +81,14 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     }
 
     @Override
-    public int columnCount(RowWrapper row) {
+    public int columnsCount(RowWrapper row) {
         return row.columnsCount();
     }
 
     @Override
     public String toString(RowWrapper row) {
         IgniteStringBuilder buf = new IgniteStringBuilder("Row[");
-        int maxIdx = columnCount(row) - 1;
+        int maxIdx = columnsCount(row) - 1;
 
         for (int i = 0; i <= maxIdx; i++) {
             buf.app(row.get(i));
@@ -104,16 +107,10 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     }
 
     @Override
-    public RowFactory<RowWrapper> factory(RowSchema rowSchema) {
+    public RowFactory<RowWrapper> create(StructNativeType rowSchema) {
         int schemaLen = rowSchema.fields().size();
 
         return new RowFactory<>() {
-            /** {@inheritDoc} */
-            @Override
-            public RowHandler<RowWrapper> handler() {
-                return SqlRowHandler.this;
-            }
-
             @Override
             public RowBuilder<RowWrapper> rowBuilder() {
                 return new RowBuilderImpl(rowSchema);
@@ -143,7 +140,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
             /** {@inheritDoc} */
             @Override
-            public RowSchema rowSchema() {
+            public StructNativeType rowSchema() {
                 return rowSchema;
             }
 
@@ -178,12 +175,12 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
      * Wrapper over an array of objects.
      */
     private static class ObjectsArrayRowWrapper extends RowWrapper {
-        private final RowSchema rowSchema;
+        private final StructNativeType rowType;
         private final Object[] row;
 
-        ObjectsArrayRowWrapper(RowSchema rowSchema, Object[] row) {
-            assert row.length == rowSchema.fields().size();
-            this.rowSchema = rowSchema;
+        ObjectsArrayRowWrapper(StructNativeType rowType, Object[] row) {
+            assert row.length == rowType.fields().size();
+            this.rowType = rowType;
             this.row = row;
         }
 
@@ -208,9 +205,9 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             int estimatedSize = 0;
             boolean exactEstimate = true;
             for (int i = 0; i < row.length; i++) {
-                NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(i));
+                NativeType nativeType = rowType.fields().get(i).type();
 
-                if (nativeType == null) {
+                if (nativeType.spec() == NULL) {
                     assert row[i] == null;
 
                     continue;
@@ -247,26 +244,24 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             for (int i = 0; i < row.length; i++) {
                 Object value = row[i];
 
-                appendValue(tupleBuilder, rowSchema.fields().get(i), value);
+                appendValue(tupleBuilder, rowType.fields().get(i).type(), value);
             }
 
             return new BinaryTuple(row.length, tupleBuilder.build());
         }
 
-        private static void appendValue(BinaryTupleBuilder builder, TypeSpec schemaType, @Nullable Object value) {
+        private static void appendValue(BinaryTupleBuilder builder, NativeType type, @Nullable Object value) {
             if (value == null) {
                 builder.appendNull();
 
                 return;
             }
 
-            NativeType nativeType = RowSchemaTypes.toNativeType(schemaType);
+            value = TypeUtils.fromInternal(value, type.spec());
 
-            value = TypeUtils.fromInternal(value, nativeType.spec());
+            assert value != null : type;
 
-            assert value != null : nativeType;
-
-            switch (nativeType.spec()) {
+            switch (type.spec()) {
                 case BOOLEAN:
                     builder.appendBoolean((boolean) value);
                     break;
@@ -296,7 +291,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     break;
 
                 case DECIMAL:
-                    builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
+                    builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) type).scale());
                     break;
 
                 case UUID:
@@ -336,7 +331,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     break;
 
                 default:
-                    throw new UnsupportedOperationException("Unknown type " + nativeType);
+                    throw new UnsupportedOperationException("Unknown type " + type);
             }
         }
     }
@@ -345,11 +340,11 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
      * Wrapper over an {@link BinaryTuple}.
      */
     private static class BinaryTupleRowWrapper extends RowWrapper {
-        private final RowSchema rowSchema;
+        private final StructNativeType rowType;
         private final InternalTuple tuple;
 
-        BinaryTupleRowWrapper(RowSchema rowSchema, InternalTuple tuple) {
-            this.rowSchema = rowSchema;
+        BinaryTupleRowWrapper(StructNativeType rowType, InternalTuple tuple) {
+            this.rowType = rowType;
             this.tuple = tuple;
         }
 
@@ -361,9 +356,9 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         @Override
         @Nullable
         Object get(int field) {
-            NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(field));
+            NativeType nativeType = rowType.fields().get(field).type();
 
-            if (nativeType == null) {
+            if (nativeType.spec() == NULL) {
                 return null;
             }
 
@@ -395,15 +390,15 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         private final int schemaLen;
 
-        private final RowSchema rowSchema;
+        private final StructNativeType rowType;
 
         Object[] data;
 
         int fieldIdx;
 
-        RowBuilderImpl(RowSchema rowSchema) {
-            this.rowSchema = rowSchema;
-            this.schemaLen = rowSchema.fields().size();
+        RowBuilderImpl(StructNativeType rowType) {
+            this.rowType = rowType;
+            this.schemaLen = rowType.fields().size();
             fieldIdx = 0;
         }
 
@@ -425,7 +420,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         public RowWrapper build() {
             checkState();
 
-            return rowSchema.fields().isEmpty() ? EMPTY_ROW : new ObjectsArrayRowWrapper(rowSchema, data);
+            return rowType.fields().isEmpty() ? EMPTY_ROW : new ObjectsArrayRowWrapper(rowType, data);
         }
 
         /** {@inheritDoc} */

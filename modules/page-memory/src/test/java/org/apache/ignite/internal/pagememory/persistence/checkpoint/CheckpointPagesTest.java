@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.fullPageId;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.dirtyFullPageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -32,43 +32,43 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.junit.jupiter.api.Test;
 
 /** For {@link CheckpointPages} testing. */
 public class CheckpointPagesTest {
     @Test
     void testContains() {
-        CheckpointPages checkpointPages = createCheckpointPages(new FullPageId(0, 0), new FullPageId(1, 0));
+        CheckpointPages checkpointPages = createCheckpointPages(new DirtyFullPageId(0, 0, 1), new DirtyFullPageId(1, 0, 1));
 
-        assertTrue(checkpointPages.contains(new FullPageId(0, 0)));
-        assertTrue(checkpointPages.contains(new FullPageId(1, 0)));
+        assertTrue(checkpointPages.contains(new DirtyFullPageId(0, 0, 1)));
+        assertTrue(checkpointPages.contains(new DirtyFullPageId(1, 0, 1)));
 
-        assertFalse(checkpointPages.contains(new FullPageId(2, 0)));
-        assertFalse(checkpointPages.contains(new FullPageId(3, 0)));
+        assertFalse(checkpointPages.contains(new DirtyFullPageId(2, 0, 1)));
+        assertFalse(checkpointPages.contains(new DirtyFullPageId(3, 0, 1)));
     }
 
     @Test
     void testSize() {
-        CheckpointPages checkpointPages = createCheckpointPages(fullPageId(0, 0), fullPageId(1, 0));
+        CheckpointPages checkpointPages = createCheckpointPages(dirtyFullPageId(0, 0), dirtyFullPageId(1, 0));
 
         assertEquals(2, checkpointPages.size());
     }
 
     @Test
     void testRemoveOnCheckpoint() {
-        CheckpointPages checkpointPages = createCheckpointPages(fullPageId(0, 0), fullPageId(1, 0), fullPageId(2, 0));
+        CheckpointPages checkpointPages = createCheckpointPages(dirtyFullPageId(0, 0), dirtyFullPageId(1, 0), dirtyFullPageId(2, 0));
 
-        assertTrue(checkpointPages.removeOnCheckpoint(fullPageId(0, 0)));
-        assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
+        assertTrue(checkpointPages.removeOnCheckpoint(dirtyFullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(new DirtyFullPageId(0, 0, 1)));
         assertEquals(2, checkpointPages.size());
 
-        assertFalse(checkpointPages.removeOnCheckpoint(fullPageId(0, 0)));
-        assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
+        assertFalse(checkpointPages.removeOnCheckpoint(dirtyFullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(new DirtyFullPageId(0, 0, 1)));
         assertEquals(2, checkpointPages.size());
 
-        assertTrue(checkpointPages.removeOnCheckpoint(fullPageId(1, 0)));
-        assertFalse(checkpointPages.contains(new FullPageId(0, 0)));
+        assertTrue(checkpointPages.removeOnCheckpoint(dirtyFullPageId(1, 0)));
+        assertFalse(checkpointPages.contains(new DirtyFullPageId(0, 0, 1)));
         assertEquals(1, checkpointPages.size());
     }
 
@@ -76,27 +76,27 @@ public class CheckpointPagesTest {
     void testRemoveOnPageReplacement() throws Exception {
         var checkpointProgress = new CheckpointProgressImpl(10);
 
-        CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, fullPageId(0, 0), fullPageId(1, 0));
+        CheckpointPages checkpointPages = createCheckpointPages(checkpointProgress, dirtyFullPageId(0, 0), dirtyFullPageId(1, 0));
 
         // Let's make sure that the check will not complete until the dirty page sorting phase completes.
         checkpointProgress.transitTo(LOCK_RELEASED);
 
         CompletableFuture<Boolean> removeOnPageReplacementFuture = runAsync(
-                () -> checkpointPages.removeOnPageReplacement(fullPageId(0, 0))
+                () -> checkpointPages.removeOnPageReplacement(dirtyFullPageId(0, 0))
         );
         assertThat(removeOnPageReplacementFuture, willTimeoutFast());
 
         checkpointProgress.transitTo(PAGES_SORTED);
         assertThat(removeOnPageReplacementFuture, willBe(true));
-        assertFalse(checkpointPages.contains(fullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(dirtyFullPageId(0, 0)));
         assertEquals(1, checkpointPages.size());
 
-        assertFalse(checkpointPages.removeOnPageReplacement(fullPageId(0, 0)));
-        assertFalse(checkpointPages.contains(fullPageId(0, 0)));
+        assertFalse(checkpointPages.removeOnPageReplacement(dirtyFullPageId(0, 0)));
+        assertFalse(checkpointPages.contains(dirtyFullPageId(0, 0)));
         assertEquals(1, checkpointPages.size());
 
-        assertTrue(checkpointPages.removeOnPageReplacement(fullPageId(1, 0)));
-        assertFalse(checkpointPages.contains(fullPageId(1, 0)));
+        assertTrue(checkpointPages.removeOnPageReplacement(dirtyFullPageId(1, 0)));
+        assertFalse(checkpointPages.contains(dirtyFullPageId(1, 0)));
         assertEquals(0, checkpointPages.size());
     }
 
@@ -110,12 +110,12 @@ public class CheckpointPagesTest {
 
         assertThrows(
                 Exception.class,
-                () -> checkpointPages.removeOnPageReplacement(fullPageId(0, 0)),
+                () -> checkpointPages.removeOnPageReplacement(dirtyFullPageId(0, 0)),
                 "from test"
         );
     }
 
-    private static CheckpointPages createCheckpointPages(FullPageId... pageIds) {
+    private static CheckpointPages createCheckpointPages(DirtyFullPageId... pageIds) {
         var checkpointProgress = new CheckpointProgressImpl(10);
 
         checkpointProgress.transitTo(PAGES_SORTED);
@@ -123,8 +123,8 @@ public class CheckpointPagesTest {
         return createCheckpointPages(checkpointProgress, pageIds);
     }
 
-    private static CheckpointPages createCheckpointPages(CheckpointProgressImpl checkpointProgress, FullPageId... pageIds) {
-        var set = new HashSet<FullPageId>(pageIds.length);
+    private static CheckpointPages createCheckpointPages(CheckpointProgressImpl checkpointProgress, DirtyFullPageId... pageIds) {
+        var set = new HashSet<DirtyFullPageId>(pageIds.length);
 
         Collections.addAll(set, pageIds);
 

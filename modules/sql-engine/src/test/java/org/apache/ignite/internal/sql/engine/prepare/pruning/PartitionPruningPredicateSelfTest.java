@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateLiteral;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
@@ -38,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -65,6 +67,8 @@ import org.mockito.Mockito;
  * Tests for {@link PartitionPruningPredicate}.
  */
 public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
+
+    private static final long SOURCE_ID = ThreadLocalRandom.current().nextLong();
 
     private final long seed = System.nanoTime();
 
@@ -147,7 +151,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
         Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
-        ColocationGroup group = new ColocationGroup(LongList.of(0L), nodeNames, assignments);
+        ColocationGroup group = new ColocationGroup(LongList.of(0, 1, 2, 3), nodeNames, assignments);
 
         expectPartitionsPruned(table, columns, new Object[0], group, val);
     }
@@ -174,7 +178,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
         Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
-        ColocationGroup group = new ColocationGroup(LongList.of(0L), nodeNames, assignments);
+        ColocationGroup group = new ColocationGroup(LongList.of(0, 1, 2, 3), nodeNames, assignments);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
         if (nativeType instanceof TemporalNativeType) {
@@ -195,7 +199,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
             ColocationGroup group
     ) {
 
-        ColocationGroup newGroup = PartitionPruningPredicate.prunePartitions(table, pruningColumns, dynamicParameters, group);
+        ColocationGroup newGroup = PartitionPruningPredicate.prunePartitions(SOURCE_ID, table, pruningColumns, dynamicParameters, group);
         assertSame(newGroup, group, "Partitions should not have been pruned");
     }
 
@@ -212,7 +216,10 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         PartitionWithConsistencyToken expectedPartition = computeExpectedPartition(table, group.assignments(), values);
 
         // Apply partition pruning to obtain new colocation group.
-        ColocationGroup newGroup = PartitionPruningPredicate.prunePartitions(table, pruningColumns, dynamicParameters, group);
+        ColocationGroup newGroup = PartitionPruningPredicate.prunePartitions(SOURCE_ID, table, pruningColumns, dynamicParameters, group);
+
+        assertNotNull(newGroup);
+        assertEquals(LongList.of(SOURCE_ID), newGroup.sourceIds(), "sourceIds");
 
         String expectedNode = assignments.get(expectedPartition.partId()).name();
 
@@ -243,10 +250,10 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                     .executor(Mockito.mock(QueryTaskExecutor.class))
                     .dynamicParameters(dynamicParameters)
                     .build();
-            ExpressionFactory<Object[]> expressionFactory = ctx.expressionFactory();
+            SqlExpressionFactory sqlExpressionFactory = ctx.expressionFactory();
 
             List<PartitionWithConsistencyToken> result = PartitionPruningPredicate.prunePartitions(
-                    ctx, pruningColumns, table, expressionFactory, assignments, nodeName
+                    ctx, pruningColumns, table, sqlExpressionFactory, assignments, nodeName
             );
             dynamicActual.put(nodeName, result);
         }

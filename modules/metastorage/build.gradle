@@ -51,7 +51,9 @@ dependencies {
     testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation testFixtures(project(':ignite-configuration-system'))
+    testImplementation testFixtures(project(':ignite-raft'))
 
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-replicator')

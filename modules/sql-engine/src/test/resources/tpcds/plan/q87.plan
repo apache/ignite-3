@@ -34,7 +34,7 @@ ColocatedHashAggregate
                 est: (rows=18262)
               TableScan
                   table: PUBLIC.DATE_DIM
-                  predicate: AND(>=(D_MONTH_SEQ, 1221), <=(D_MONTH_SEQ, +(1221, 11)))
+                  predicate: SEARCH(D_MONTH_SEQ, Sarg[[1221..1232]])
                   fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                   est: (rows=18262)
           Exchange
@@ -72,7 +72,7 @@ ColocatedHashAggregate
                 est: (rows=18262)
               TableScan
                   table: PUBLIC.DATE_DIM
-                  predicate: AND(>=(D_MONTH_SEQ, 1221), <=(D_MONTH_SEQ, +(1221, 11)))
+                  predicate: SEARCH(D_MONTH_SEQ, Sarg[[1221..1232]])
                   fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                   est: (rows=18262)
           Exchange
@@ -110,7 +110,7 @@ ColocatedHashAggregate
                 est: (rows=18262)
               TableScan
                   table: PUBLIC.DATE_DIM
-                  predicate: AND(>=(D_MONTH_SEQ, 1221), <=(D_MONTH_SEQ, +(1221, 11)))
+                  predicate: SEARCH(D_MONTH_SEQ, Sarg[[1221..1232]])
                   fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                   est: (rows=18262)
           Exchange

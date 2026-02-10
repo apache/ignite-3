@@ -23,8 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -52,12 +52,13 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      * Creates a new primary meta with unbounded period.
      *
      * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, UUID, HybridTimestamp, HybridTimestamp,
-     * ReplicationGroupId)}, where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.
+     * ReplicationGroupId)}, where {@code leaseholder} is {@link InternalClusterNode#name()} and {@code leaseholderId}
+     * is {@link InternalClusterNode#id()}.
      * The replication group is being set to {@code null} value.</p>
      *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      */
-    TestReplicaMetaImpl(@Nullable ClusterNode leaseholder) {
+    TestReplicaMetaImpl(@Nullable InternalClusterNode leaseholder) {
         this(leaseholder, MIN_VALUE, MAX_VALUE);
     }
 
@@ -86,14 +87,15 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      * Creates a new primary meta.
      *
      * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, UUID, HybridTimestamp, HybridTimestamp,
-     * ReplicationGroupId)}, where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.
+     * ReplicationGroupId)}, where {@code leaseholder} is {@link InternalClusterNode#name()} and {@code leaseholderId}
+     * is {@link InternalClusterNode#id()}.
      * The replication group is being set to {@code null} value.</p>
      *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.
      * @param expirationTime Lease expiration timestamp.
      */
-    public TestReplicaMetaImpl(@Nullable ClusterNode leaseholder, HybridTimestamp startTime, HybridTimestamp expirationTime) {
+    public TestReplicaMetaImpl(@Nullable InternalClusterNode leaseholder, HybridTimestamp startTime, HybridTimestamp expirationTime) {
         this(
                 leaseholder == null ? null : leaseholder.name(),
                 leaseholder == null ? null : leaseholder.id(),

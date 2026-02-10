@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobDescriptor;
@@ -47,7 +46,7 @@ public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Void, Stri
                                     .priority(Integer.MAX_VALUE)
                                     .build())
                                 .build())
-                        .nodes(Set.of(node))
+                        .node(node)
                         .build()
         ).collect(toList()));
     }

@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -59,7 +60,7 @@ class TxStateRocksDbSharedStorageTest {
                 workDir,
                 scheduler,
                 executor,
-                () -> {},
+                new NoOpLogSyncer(),
                 new FailureManager(new NoOpFailureHandler())
         );
 
@@ -79,7 +80,7 @@ class TxStateRocksDbSharedStorageTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void remembersCreatedTableOrZoneIdsOnDisk(boolean restart) {
+    void remembersCreatedZoneIdsOnDisk(boolean restart) {
         createZoneTxStateStorageLeavingTraceOnDisk(1);
         createZoneTxStateStorageLeavingTraceOnDisk(3);
 
@@ -87,14 +88,14 @@ class TxStateRocksDbSharedStorageTest {
             flushAndRestartSharedStorage();
         }
 
-        assertThat(sharedStorage.tableOrZoneIdsOnDisk(), containsInAnyOrder(1, 3));
+        assertThat(sharedStorage.zoneIdsOnDisk(), containsInAnyOrder(1, 3));
     }
 
     private void createZoneTxStateStorageLeavingTraceOnDisk(int zoneId) {
         TxStateRocksDbStorage zoneStorage = new TxStateRocksDbStorage(zoneId, 2, sharedStorage);
         zoneStorage.start();
 
-        TxStateRocksDbPartitionStorage partitionStorage = zoneStorage.createPartitionStorage(0);
+        TxStateRocksDbPartitionStorage partitionStorage = zoneStorage.getOrCreatePartitionStorage(0);
         partitionStorage.start();
 
         partitionStorage.committedGroupConfiguration(new byte[]{1, 2, 3}, 1, 1);
@@ -109,7 +110,7 @@ class TxStateRocksDbSharedStorageTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void tableOrZoneIdsOnDiskGetRemovedOnPersistedDestruction(boolean restart) {
+    void zoneIdsOnDiskGetRemovedOnPersistedDestruction(boolean restart) {
         createZoneTxStateStorageLeavingTraceOnDisk(1);
         createZoneTxStateStorageLeavingTraceOnDisk(3);
 
@@ -119,6 +120,6 @@ class TxStateRocksDbSharedStorageTest {
             flushAndRestartSharedStorage();
         }
 
-        assertThat(sharedStorage.tableOrZoneIdsOnDisk(), contains(3));
+        assertThat(sharedStorage.zoneIdsOnDisk(), contains(3));
     }
 }

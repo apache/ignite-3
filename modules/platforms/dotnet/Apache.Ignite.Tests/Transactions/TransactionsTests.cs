@@ -21,12 +21,13 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
+    using Common.Table;
     using Ignite.Transactions;
     using Internal;
     using Internal.Transactions;
     using NUnit.Framework;
-    using Table;
     using Tx;
+    using static Common.Table.TestTables;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
 
     /// <summary>
@@ -209,29 +210,32 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
+        [Repeat(10)]
         public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
+            var recordView = PocoView;
+
             var key = Random.Shared.NextInt64(1000, long.MaxValue);
             var keyPoco = new Poco { Key = key };
 
-            await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
+            await recordView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
             await using var roTx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
             if (readBeforeUpdate)
             {
-                Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
+                Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
             }
 
             // Update data in a different (implicit) tx.
-            await PocoView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
+            await recordView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
             // Old read-only tx sees old data.
-            Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
+            Assert.AreEqual("11", (await recordView.GetAsync(roTx, keyPoco)).Value.Val);
 
             // New tx sees new data
             await using var tx3 = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-            Assert.AreEqual("22", (await PocoView.GetAsync(tx3, keyPoco)).Value.Val);
+            Assert.AreEqual("22", (await recordView.GetAsync(tx3, keyPoco)).Value.Val);
         }
 
         [Test]

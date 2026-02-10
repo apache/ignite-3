@@ -63,7 +63,7 @@ KeyValueGet
 
 # kvGet with an extra condition and functional source expression
 explain plan
-SELECT * FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE) AND c3 > 10;
+SELECT * FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE)::INTEGER AND c3 > 10;
 ----
 KeyValueGet
     table: PUBLIC.TEST_TABLE
@@ -73,7 +73,7 @@ KeyValueGet
     est: (rows=1)
 
 
-## Tests on KeyValueModify node
+## Tests on KeyValueModify#INSERT node
 
 # insert single tuple with literals
 explain plan
@@ -106,6 +106,30 @@ KeyValueModify
     fieldNames: [ROWCOUNT]
     sourceExpression: [1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
     type: INSERT
+    est: (rows=1)
+
+## Tests on KeyValueModify#DELETE node
+
+# delete single tuple with literals
+explain plan
+DELETE FROM test_table WHERE c1 = 1
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [ROWCOUNT]
+    type: DELETE
+    key: [1]
+    est: (rows=1)
+
+# delete single tuple by functional key expression
+explain plan
+DELETE FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE)::INTEGER;
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    fieldNames: [ROWCOUNT]
+    type: DELETE
+    key: [CAST(EXTRACT(FLAG(DAY), CURRENT_DATE)):INTEGER NOT NULL]
     est: (rows=1)
 
 ## Tests on SelectCount node

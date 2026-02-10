@@ -62,7 +62,7 @@ public interface FileHeader extends NetworkMessage {
      * @return List of file headers.
      */
     static List<FileHeader> fromPaths(FileTransferFactory factory, List<Path> paths) {
-        return paths.stream().map(path -> FileHeader.fromPath(factory, path))
+        return paths.stream().map(path -> fromPath(factory, path))
                 .collect(toList());
     }
 }

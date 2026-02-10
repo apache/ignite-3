@@ -34,6 +34,7 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-rest-api')
     implementation project(':ignite-network')
+    implementation platform(libs.jackson.bom)
     implementation libs.jackson.core
     implementation libs.jetbrains.annotations
     implementation libs.jackson.databind
@@ -45,8 +46,7 @@ dependencies {
 
     testImplementation libs.hamcrest.json
     testImplementation libs.awaitility
-    testImplementation libs.mock.server.netty
-    testImplementation libs.mock.server.junit
+    testImplementation libs.wiremock
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-eventlog'))

@@ -67,7 +67,6 @@ public enum LocalPartitionStateEnum {
         }
     }
 
-
     private final int id;
 
     LocalPartitionStateEnum(int id) {

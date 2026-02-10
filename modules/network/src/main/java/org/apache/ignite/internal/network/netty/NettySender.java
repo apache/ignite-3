@@ -110,9 +110,7 @@ public class NettySender {
         // We need this to avoid message reordering due to switching from old channel to a new one.
         // Also, we ALWAYS execute the writes on the event loop (by adding them to the event loop queue) even if we are on
         // the event loop thread, to avoid another reordering.
-        channel.eventLoop().execute(() -> writeWithRecovery(obj, channel, triggerChannelRecreation));
-
-        return obj.acknowledgedFuture();
+        return toCompletableFuture(channel.eventLoop().submit(() -> writeWithRecovery(obj, channel, triggerChannelRecreation), null));
     }
 
     private void chainRecoverSendAfterChannelClosure(

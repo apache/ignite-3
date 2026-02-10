@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.schema;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -33,10 +32,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -125,13 +124,21 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
 
-        CatalogTableDescriptor descriptor = new CatalogTableDescriptor(
-                tableId, -1, -1, "test", 0, columns, List.of("k1"), null, DEFAULT_STORAGE_PROFILE
-        );
+        CatalogTableDescriptor descriptor = CatalogTableDescriptor.builder()
+                .id(tableId)
+                .schemaId(-1)
+                .primaryKeyIndexId(-1)
+                .name("test")
+                .zoneId(0)
+                .newColumns(columns)
+                .primaryKeyColumns(IntList.of(0))
+                .storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE)
+                .build();
 
         for (int ver = CatalogTableDescriptor.INITIAL_TABLE_VERSION + 1; ver <= tableVersion; ver++) {
-            descriptor = descriptor.newDescriptor(
-                    "test", ver, columns, CatalogManager.INITIAL_TIMESTAMP, DEFAULT_STORAGE_PROFILE);
+            descriptor = descriptor.copyBuilder()
+                    .newColumns(columns)
+                    .build();
         }
 
         return descriptor;

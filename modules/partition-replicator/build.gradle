@@ -52,11 +52,16 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation testFixtures(project(':ignite-schema'))
     testImplementation testFixtures(project(':ignite-storage-api'))
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-transactions'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
+    testImplementation testFixtures(project(':ignite-raft'))
+    testImplementation testFixtures(project(':ignite-distribution-zones'))
+
+    testImplementation libs.awaitility
 
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
@@ -99,12 +104,15 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-configuration-storage')
+    integrationTestImplementation project(':ignite-sql-engine-api') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-sql-engine') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-system-view-api') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-system-view') // TODO: IGNITE-22522 - remove.
     integrationTestImplementation project(':ignite-eventlog') // TODO: IGNITE-22522 - remove.
 
     integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.awaitility
 }
 
 description = 'ignite-partition-replicator'

@@ -41,11 +41,11 @@ import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -144,8 +144,8 @@ class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
 
         // And the cluster is operational
 
-        metaStorageAndCmgNode.api().sql().execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
-        metaStorageAndCmgNode.api().sql().execute(null, "INSERT INTO TEST VALUES (1, 'foo')");
+        metaStorageAndCmgNode.api().sql().execute("CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
+        metaStorageAndCmgNode.api().sql().execute("INSERT INTO TEST VALUES (1, 'foo')");
         KeyValueView<Integer, String> kvView = secondNode.api().tables().table("TEST").keyValueView(Integer.class, String.class);
         assertThat(kvView.get(null, 1), is("foo"));
     }
@@ -196,7 +196,7 @@ class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static Collection<ClusterNode> getPhysicalTopologyMembers(IgniteServer node) {
+    private static Collection<InternalClusterNode> getPhysicalTopologyMembers(IgniteServer node) {
         return ((IgniteServerImpl) node).igniteImpl().clusterService().topologyService().allMembers();
     }
 }

@@ -287,7 +287,6 @@ public class MapperTest {
         assertThrows(IllegalStateException.class, usedBuilder::automap);
     }
 
-
     @Test
     public void mapperBuilder() {
         // Automapping.

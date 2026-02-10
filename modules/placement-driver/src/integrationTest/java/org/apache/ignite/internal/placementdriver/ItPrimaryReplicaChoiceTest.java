@@ -21,7 +21,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
@@ -49,16 +48,14 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -66,15 +63,16 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.IndexScanCriteria;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.OperationContext;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.TxContext;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
-import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.internal.wrapper.Wrappers;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
@@ -129,7 +127,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryChangeSubscription() throws Exception {
         TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
 
-        ReplicationGroupId tblReplicationGrp = partitionReplicationGroupId(tbl);
+        ZonePartitionId tblReplicationGrp = partitionReplicationGroupId(tbl);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = igniteImpl(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -157,12 +155,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(primaryChanged::get, 10_000));
     }
 
-    private static ReplicationGroupId partitionReplicationGroupId(TableViewInternal tbl) {
-        if (colocationEnabled()) {
-            return new ZonePartitionId(tbl.internalTable().zoneId(), PART_ID);
-        } else {
-            return new TablePartitionId(tbl.tableId(), PART_ID);
-        }
+    private static ZonePartitionId partitionReplicationGroupId(TableViewInternal tbl) {
+        return new ZonePartitionId(tbl.internalTable().zoneId(), PART_ID);
     }
 
     @Test
@@ -170,7 +164,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = igniteImpl(0);
         TableViewInternal tbl = unwrapTableImpl(node.tables().table(TABLE_NAME));
 
-        ReplicationGroupId tblReplicationGrp = partitionReplicationGroupId(tbl);
+        ZonePartitionId tblReplicationGrp = partitionReplicationGroupId(tbl);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -226,7 +220,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             assertTrue(publicTableOnNode0.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
         }
 
-        ReplicationGroupId tblReplicationGrp = partitionReplicationGroupId(unwrappedTableOnNode0);
+        ZonePartitionId tblReplicationGrp = partitionReplicationGroupId(unwrappedTableOnNode0);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = igniteImpl(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -335,21 +329,23 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
+            InternalClusterNode primaryNode = ClusterNodeImpl.fromPublicClusterNode(
+                    node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get()
+            );
+
+            OperationContext opCtx = OperationContext.create(TxContext.readOnly(tx));
 
             if (idxId == null) {
-                publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
+                publisher = internalTable.scan(PART_ID, primaryNode, opCtx);
             } else if (exactKey == null) {
-                publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null,
-                        tx.coordinatorId());
+                publisher = internalTable.scan(PART_ID, primaryNode, idxId, IndexScanCriteria.unbounded(), opCtx);
             } else {
-                publisher = internalTable.lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null,
-                        tx.coordinatorId());
+                publisher = internalTable.scan(PART_ID, primaryNode, idxId, IndexScanCriteria.lookup(exactKey), opCtx);
             }
         } else if (idxId == null) {
             publisher = unwrappedTable.internalTable().scan(PART_ID, tx);
         } else if (exactKey == null) {
-            publisher = unwrappedTable.internalTable().scan(PART_ID, tx, idxId, null, null, 0, null);
+            publisher = unwrappedTable.internalTable().scan(PART_ID, tx, idxId, IndexScanCriteria.unbounded());
         } else {
             ReadWriteTransactionImpl rwTx = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 
@@ -364,17 +360,16 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
+            InternalClusterNode primaryNode = ClusterNodeImpl.fromPublicClusterNode(
+                    node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get()
+            );
 
-            publisher = unwrappedTable.internalTable().lookup(
+            publisher = unwrappedTable.internalTable().scan(
                     PART_ID,
-                    rwTx.id(),
-                    rwTx.commitPartition(),
-                    rwTx.coordinatorId(),
-                    new PrimaryReplica(primaryNode, primaryReplicaFut.get().getStartTime().longValue()),
+                    primaryNode,
                     idxId,
-                    exactKey,
-                    null
+                    IndexScanCriteria.lookup(exactKey),
+                    OperationContext.create(TxContext.readWrite(rwTx, primaryReplicaFut.get().getStartTime().longValue()))
             );
         }
 
@@ -397,11 +392,11 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @return Index id.
      */
     private int getIndexId(String idxName) {
-        CatalogManager catalogManager = igniteImpl(0).catalogManager();
-
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-
-        return catalog.indexes().stream()
+        return igniteImpl(0)
+                .catalogManager()
+                .latestCatalog()
+                .indexes()
+                .stream()
                 .filter(index -> {
                     log.info("Scanned idx " + index.name());
 
@@ -422,7 +417,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static void waitForLeaderCache(IgniteImpl node, TableViewInternal tbl) throws InterruptedException {
         RaftGroupService raftSrvc = ReplicaTestUtils.getRaftClient(
                         node,
-                        colocationEnabled() ? tbl.internalTable().zoneId() : tbl.tableId(),
+                        tbl.internalTable().zoneId(),
                         0
                 )
                 .orElseThrow(AssertionError::new);

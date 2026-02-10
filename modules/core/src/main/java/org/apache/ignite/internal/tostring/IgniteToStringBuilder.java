@@ -18,18 +18,13 @@
 package org.apache.ignite.internal.tostring;
 
 import static java.util.Objects.nonNull;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 
 import java.io.Externalizable;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -44,15 +39,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -91,24 +83,25 @@ public class IgniteToStringBuilder {
     private static final Object[] EMPTY_ARRAY = new Object[0];
 
     /** Max collection elements to be written. */
-    private static final int COLLECTION_LIMIT = getInteger(IGNITE_TO_STRING_COLLECTION_LIMIT, 100);
+    public static final int COLLECTION_LIMIT = 100;
 
-    /** Ignore flag for runtime exceptions while building string. */
-    private static final boolean IGNORE_RUNTIME_EXCEPTION = !getBoolean(IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION, false);
+    /** {@link #sensitiveDataPolicy} var handle. */
+    private static final VarHandle SENSITIVE_DATA_POLICY;
 
-    /** Supplier for {@link #includeSensitive} with default behavior. */
-    private static final AtomicReference<Supplier<SensitiveDataLoggingPolicy>> SENS_DATA_LOG_SUP_REF =
-            new AtomicReference<>(new Supplier<>() {
-                /** Sensitive data logging policy. */
-                final SensitiveDataLoggingPolicy sensitiveDataLoggingPolicy =
-                        SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase());
+    /** Policy for logging sensitive data. */
+    private static SensitiveDataLoggingPolicy sensitiveDataPolicy = SensitiveDataLoggingPolicy.HASH;
 
-                /** {@inheritDoc} */
-                @Override
-                public SensitiveDataLoggingPolicy get() {
-                    return sensitiveDataLoggingPolicy;
-                }
-            });
+    static {
+        try {
+            SENSITIVE_DATA_POLICY = MethodHandles.lookup().findStaticVarHandle(
+                    IgniteToStringBuilder.class,
+                    "sensitiveDataPolicy",
+                    SensitiveDataLoggingPolicy.class
+            );
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     /** Every thread has its own string builder. */
     private static final ThreadLocal<StringBuilderLimitedLength> threadLocSB = ThreadLocal.withInitial(() ->
@@ -126,49 +119,33 @@ public class IgniteToStringBuilder {
     private static final Map<String, ClassDescriptor> classCache = new ConcurrentHashMap<>();
 
     /**
-     * Initialization-on-demand holder.
-     *
-     * @see <a href= "https://en.wikipedia.org/wiki/Initialization-on-demand_holder_idiom">
-     * "Initialization-on-demand holder idiom"</a>
-     */
-    private static final class Holder {
-        /** Supplier holder for {@link #includeSensitive} and {@link #getSensitiveDataLogging}. */
-        static final Supplier<SensitiveDataLoggingPolicy> SENS_DATA_LOG_SUP = SENS_DATA_LOG_SUP_REF.get();
-    }
-
-    /**
      * Returns {@link SensitiveDataLoggingPolicy} Log levels for sensitive data.
      *
      * @return {@link SensitiveDataLoggingPolicy} Log levels for sensitive data
      */
     public static SensitiveDataLoggingPolicy getSensitiveDataLogging() {
-        return Holder.SENS_DATA_LOG_SUP.get();
+        return (SensitiveDataLoggingPolicy) SENSITIVE_DATA_POLICY.getOpaque();
     }
 
     /**
      * Setting the logic of the {@link #includeSensitive} and {@link #getSensitiveDataLogging} methods.
      *
-     * <p>Overrides default supplier that uses {@link IgniteSystemProperties#IGNITE_SENSITIVE_DATA_LOGGING} system property.
-     *
-     * <b>Important!</b> Changing the logic is possible only until the first
-     * call of {@link #includeSensitive} or {@link #getSensitiveDataLogging} methods.
-     *
-     * @param sup {@link SensitiveDataLoggingPolicy} supplier.
+     * @param policy Policy.
      */
-    public static void setSensitiveDataLoggingPolicySupplier(Supplier<SensitiveDataLoggingPolicy> sup) {
-        assert nonNull(sup);
+    public static void setSensitiveDataPolicy(SensitiveDataLoggingPolicy policy) {
+        assert nonNull(policy);
 
-        SENS_DATA_LOG_SUP_REF.set(sup);
+        SENSITIVE_DATA_POLICY.setOpaque(policy);
     }
 
     /**
      * Return include sensitive data flag.
      *
      * @return {@code true} if need to include sensitive data, {@code false} otherwise.
-     * @see IgniteToStringBuilder#setSensitiveDataLoggingPolicySupplier(Supplier)
+     * @see IgniteToStringBuilder#setSensitiveDataPolicy(SensitiveDataLoggingPolicy)
      */
     public static boolean includeSensitive() {
-        return Holder.SENS_DATA_LOG_SUP.get() == SensitiveDataLoggingPolicy.PLAIN;
+        return getSensitiveDataLogging() == SensitiveDataLoggingPolicy.PLAIN;
     }
 
     /**
@@ -1414,6 +1391,7 @@ public class IgniteToStringBuilder {
      * @param triplets Triplets {@code {name, value, sensitivity}}.
      * @return String presentation.
      */
+    @SuppressWarnings("PMD.AvoidArrayLoops")
     public static String toString(String str, Object... triplets) {
         if (triplets.length % 3 != 0) {
             throw new IllegalArgumentException("Array length must be a multiple of 3");
@@ -1813,12 +1791,8 @@ public class IgniteToStringBuilder {
                             try {
                                 toString(buf, fd.fieldClass(), fieldValue);
                             } catch (RuntimeException e) {
-                                if (IGNORE_RUNTIME_EXCEPTION) {
-                                    buf.app("Runtime exception was caught when building string representation: "
-                                            + e.getMessage());
-                                } else {
-                                    throw e;
-                                }
+                                buf.app("Runtime exception was caught when building string representation: "
+                                        + e.getMessage());
                             }
 
                             break;
@@ -2230,7 +2204,8 @@ public class IgniteToStringBuilder {
             if (i > 0) {
                 b.append(", ");
             }
-            b.append(tuple.columnName(i)).append('=').append((Object) tuple.value(i));
+            Object value = tuple.value(i);
+            b.append(tuple.columnName(i)).append('=').append(value);
         }
         b.append(']');
 

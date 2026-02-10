@@ -1,15 +1,15 @@
 Project
     fieldNames: [S_NAME, S_ADDRESS]
     projection: [S_NAME, S_ADDRESS]
-    est: (rows=39960000)
+    est: (rows=485612316585)
   HashJoin
       predicate: =(S_NATIONKEY, N_NATIONKEY)
       type: inner
-      est: (rows=39960000)
+      est: (rows=485612316585)
     HashJoin
         predicate: =(S_SUPPKEY, PS_SUPPKEY)
         type: inner
-        est: (rows=120000000)
+        est: (rows=1458295245000)
       Exchange
           distribution: single
           est: (rows=10000)
@@ -24,77 +24,63 @@ Project
           collation: [PS_SUPPKEY ASC]
           group: [PS_SUPPKEY]
           aggregation: []
-          est: (rows=120000000)
+          est: (rows=1458295245000)
         Project
             fieldNames: [PS_SUPPKEY]
             projection: [PS_SUPPKEY]
-            est: (rows=600000000)
-          Filter
-              predicate: >(CAST(PS_AVAILQTY):DECIMAL(32767, 3) NOT NULL, EXPR$0)
-              est: (rows=600000000)
-            CorrelatedNestedLoopJoin
-                predicate: true
-                type: left
-                correlates: [$cor2]
+            est: (rows=7291476225000)
+          HashJoin
+              predicate: AND(=(PS_PARTKEY, L_PARTKEY), =(PS_SUPPKEY, L_SUPPKEY), >(CAST(PS_AVAILQTY):DECIMAL(32, 3) NOT NULL, *(0.5:DECIMAL(2, 1), $f2)))
+              type: inner
+              est: (rows=7291476225000)
+            HashJoin
+                predicate: =(PS_PARTKEY, P_PARTKEY)
+                type: inner
                 est: (rows=1200000000)
-              Project
-                  fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY]
-                  projection: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY]
-                  est: (rows=1200000000)
-                HashJoin
-                    predicate: =(PS_PARTKEY, P_PARTKEY)
-                    type: inner
-                    est: (rows=1200000000)
-                  Exchange
-                      distribution: single
-                      est: (rows=800000)
-                    IndexScan
-                        table: PUBLIC.PARTSUPP
-                        index: PS_SK_PK
-                        type: SORTED
-                        fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY]
-                        collation: [PS_SUPPKEY ASC, PS_PARTKEY ASC]
-                        est: (rows=800000)
-                  Exchange
-                      distribution: single
-                      est: (rows=10000)
-                    ColocatedHashAggregate
-                        group: [P_PARTKEY]
-                        aggregation: []
-                        est: (rows=10000)
-                      TableScan
-                          table: PUBLIC.PART
-                          predicate: LIKE(P_NAME, _UTF-8'forest%')
-                          fieldNames: [P_PARTKEY]
-                          est: (rows=50000)
-              Project
-                  fieldNames: [EXPR$0]
-                  projection: [*(0.5:DECIMAL(2, 1), $f0)]
-                  est: (rows=1)
-                ReduceSortAggregate
-                    fieldNames: [$f0]
-                    collation: []
-                    group: []
-                    aggregation: [SUM(_ACC0)]
-                    est: (rows=1)
-                  Exchange
-                      distribution: single
-                      est: (rows=1)
-                    MapSortAggregate
-                        fieldNames: [_ACC0]
-                        collation: []
-                        group: []
-                        aggregation: [SUM(L_QUANTITY)]
-                        est: (rows=1)
-                      IndexScan
-                          table: PUBLIC.LINEITEM
-                          index: L_SK_PK
-                          type: SORTED
-                          predicate: AND(=(L_PARTKEY, $cor2.PS_PARTKEY), =(L_SUPPKEY, $cor2.PS_SUPPKEY), >=(L_SHIPDATE, 1994-01-01), <(L_SHIPDATE, +(1994-01-01, 12:INTERVAL YEAR)))
-                          searchBounds: [ExactBounds [bound=$cor2.PS_SUPPKEY], ExactBounds [bound=$cor2.PS_PARTKEY]]
-                          fieldNames: [L_QUANTITY]
-                          collation: []
-                          est: (rows=166367)
+              Exchange
+                  distribution: single
+                  est: (rows=800000)
+                IndexScan
+                    table: PUBLIC.PARTSUPP
+                    index: PS_SK_PK
+                    type: SORTED
+                    fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_AVAILQTY]
+                    collation: [PS_SUPPKEY ASC, PS_PARTKEY ASC]
+                    est: (rows=800000)
+              Exchange
+                  distribution: single
+                  est: (rows=10000)
+                ColocatedHashAggregate
+                    group: [P_PARTKEY]
+                    aggregation: []
+                    est: (rows=10000)
+                  TableScan
+                      table: PUBLIC.PART
+                      predicate: LIKE(P_NAME, _UTF-8'forest%')
+                      fieldNames: [P_PARTKEY]
+                      est: (rows=50000)
+            ReduceHashAggregate
+                fieldNames: [L_PARTKEY, L_SUPPKEY, $f2]
+                group: [L_PARTKEY, L_SUPPKEY]
+                aggregation: [SUM(_ACC0)]
+                est: (rows=540109)
+              Exchange
+                  distribution: single
+                  est: (rows=540109)
+                MapHashAggregate
+                    fieldNames: [L_PARTKEY, L_SUPPKEY, _ACC0, _GROUP_ID]
+                    group: [L_PARTKEY, L_SUPPKEY]
+                    aggregation: [SUM(L_QUANTITY)]
+                    est: (rows=540109)
+                  IndexScan
+                      table: PUBLIC.LINEITEM
+                      index: L_SD
+                      type: SORTED
+                      predicate: SEARCH(L_SHIPDATE, Sarg[[1994-01-01..1995-01-01)])
+                      searchBounds: [<1994-01-01>..<1995-01-01>)
+                      fieldNames: [L_PARTKEY, L_SUPPKEY, L_QUANTITY]
+                      collation: []
+                      est: (rows=1500304)
     Exchange
         distribution: single
         est: (rows=8)

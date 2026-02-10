@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -49,6 +48,7 @@ public class ClientSqlExecuteBatchRequest {
      * @param requestId Id of the request.
      * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another
      *         thread.
+     * @param username Authenticated user name.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -58,20 +58,30 @@ public class ClientSqlExecuteBatchRequest {
             ClientResourceRegistry resources,
             long requestId,
             Map<Long, CancelHandle> cancelHandleMap,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            String username
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandleMap.put(requestId, cancelHandle);
 
-        InternalTransaction tx = readTx(in, tsTracker, resources, null, null, null);
-        ClientSqlProperties props = new ClientSqlProperties(in);
+        CompletableFuture<InternalTransaction> txFut = readTx(
+                in,
+                tsTracker,
+                resources,
+                null,
+                null,
+                null,
+                null
+        );
+
+        ClientSqlProperties props = new ClientSqlProperties(in, false);
         String statement = in.unpackString();
         BatchedArguments arguments = readArgs(in);
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         tsTracker.update(clientTs);
 
-        return nullCompletedFuture().thenComposeAsync(none -> {
+        return txFut.thenComposeAsync(tx -> {
             return IgniteSqlImpl.executeBatchCore(
                             sql,
                             tsTracker,
@@ -79,7 +89,7 @@ public class ClientSqlExecuteBatchRequest {
                             cancelHandle.token(),
                             statement,
                             arguments,
-                            props.toSqlProps(),
+                            props.toSqlProps().userName(username),
                             () -> true,
                             () -> {},
                             cursor -> 0,

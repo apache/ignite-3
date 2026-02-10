@@ -21,6 +21,7 @@ import static org.apache.ignite.catalog.ColumnType.INTEGER;
 import static org.apache.ignite.catalog.ColumnType.VARCHAR;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -95,8 +96,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // Given zone definition
         ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME)
                 .distributionAlgorithm("rendezvous")
-                .dataNodesAutoAdjust(1)
-                .filter("filter")
+                .filter(DEFAULT_FILTER)
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
                 .build();
 
@@ -413,7 +413,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         ColumnDefinition column3 = column("COL3", ColumnType.BOOLEAN);
         ColumnDefinition column4 = column("COL4", ColumnType.VARCHAR);
         ColumnDefinition column5 = column("COL5", ColumnType.DECIMAL);
-
 
         TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
                 .zone(ZONE_NAME)

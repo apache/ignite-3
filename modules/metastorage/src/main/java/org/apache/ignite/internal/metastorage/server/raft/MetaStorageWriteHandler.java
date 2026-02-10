@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorage.INVOKE_RESULT_FALSE_BYTES;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorage.INVOKE_RESULT_TRUE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
@@ -31,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntConsumer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -91,16 +94,20 @@ public class MetaStorageWriteHandler {
     private final HybridClock clock;
     private final ClusterTimeImpl clusterTime;
 
+    private final IntConsumer idempotentCacheSizeListener;
+
     private final Map<CommandId, CommandResultAndTimestamp> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
             HybridClock clock,
-            ClusterTimeImpl clusterTime
+            ClusterTimeImpl clusterTime,
+            IntConsumer idempotentCacheSizeListener
     ) {
         this.storage = storage;
         this.clock = clock;
         this.clusterTime = clusterTime;
+        this.idempotentCacheSizeListener = idempotentCacheSizeListener;
     }
 
     /**
@@ -118,7 +125,24 @@ public class MetaStorageWriteHandler {
             CommandResultAndTimestamp cachedResult = idempotentCommandCache.get(commandId);
 
             if (cachedResult != null) {
-                clo.result(cachedResult.commandResult);
+                Serializable commandResult = cachedResult.commandResult;
+
+                // For MultiInvokeCommand, represent boolean results as 0/1 wrapped in a StatementResult,
+                // because the closure for this command type expects a StatementResult.
+                // Rationale: when restoring the idempotent-command cache from a snapshot, single-byte values (0/1)
+                // are read as booleans, while StatementResult persists raw bytes (0 or 1) and exposes them via its API
+                // (for example, getAsBoolean()).
+                // This maintains backward compatibility.
+                if (commandResult instanceof Boolean && command instanceof MultiInvokeCommand) {
+                    var booleanResult = (Boolean) commandResult;
+
+                    clo.result(MSG_FACTORY.statementResult()
+                            .result(ByteBuffer.wrap(booleanResult ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES))
+                            .build()
+                    );
+                } else {
+                    clo.result(commandResult);
+                }
 
                 return;
             } else {
@@ -356,20 +380,22 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    boolean beforeApply(Command command) {
+    Command beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
             // Alter command by setting safe time based on the adjusted clock.
-            MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command;
+            // We need to clone the original command, because we have no control over its lifecycle. For example, raft client might send it
+            // second time during the retry, this would lead to changing an already processing command in such a case, which is a data race.
+            MetaStorageWriteCommand writeCommand = (MetaStorageWriteCommand) command.clone();
 
             clusterTime.adjustClock(writeCommand.initiatorTime());
 
             writeCommand.safeTime(clock.now());
 
-            return true;
+            return writeCommand;
         }
 
-        return false;
+        return command;
     }
 
     /**
@@ -387,15 +413,26 @@ public class MetaStorageWriteHandler {
                     CommandId commandId = CommandId.fromString(commandIdString);
 
                     Serializable result;
-                    if (entry.value().length == 1) {
-                        result = byteToBoolean(entry.value()[0]);
+
+                    byte[] entryValue = entry.value();
+
+                    assert entryValue != null;
+
+                    // A single-byte array is not guaranteed to represent a boolean.
+                    // This guard avoids treating arbitrary 1-byte values as booleans.
+                    // We apply it uniformly (including for StatementResult) to keep backward compatibility.
+                    // When reading from the cache, boolean results are normalized to 0/1 so a correct StatementResult can be rebuilt.
+                    if (entryValue.length == 1 && (entryValue[0] | 1) == 1) {
+                        result = byteToBoolean(entryValue[0]);
                     } else {
-                        result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entry.value())).build();
+                        result = MSG_FACTORY.statementResult().result(ByteBuffer.wrap(entryValue)).build();
                     }
 
                     idempotentCommandCache.put(commandId, new CommandResultAndTimestamp(result, entry.timestamp()));
                 }
             }
+
+            idempotentCacheSizeListener.accept(idempotentCommandCache.size());
         }
     }
 
@@ -406,8 +443,6 @@ public class MetaStorageWriteHandler {
      * @param context Command operation context.
      */
     private void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, KeyValueUpdateContext context) {
-        LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
-
         List<CommandId> evictedCommandIds = evictCommandsFromCache(evictionTimestamp);
 
         if (evictedCommandIds.isEmpty()) {
@@ -415,14 +450,6 @@ public class MetaStorageWriteHandler {
         }
 
         storage.removeAll(toIdempotentCommandKeyBytes(evictedCommandIds), context);
-
-        LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
-                        + " removedEntriesCount={}, cacheSize={}].",
-                evictionTimestamp,
-                clock.now(),
-                evictedCommandIds.size(),
-                idempotentCommandCache.size()
-        );
     }
 
     private class ResultCachingClosure implements CommandClosure<WriteCommand> {
@@ -456,6 +483,8 @@ public class MetaStorageWriteHandler {
             // Exceptions are not cached.
             if (!(res instanceof Throwable)) {
                 idempotentCommandCache.put(command.id(), new CommandResultAndTimestamp(res, command.safeTime()));
+
+                idempotentCacheSizeListener.accept(idempotentCommandCache.size());
             }
 
             closure.result(res);
@@ -476,6 +505,8 @@ public class MetaStorageWriteHandler {
                 result.add(entry.getKey());
             }
         }
+
+        idempotentCacheSizeListener.accept(idempotentCommandCache.size());
 
         return result;
     }

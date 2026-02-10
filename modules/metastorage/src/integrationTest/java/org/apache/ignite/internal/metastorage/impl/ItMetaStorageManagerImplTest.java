@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
@@ -133,8 +135,13 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private MetaStorageManagerImpl metaStorageManager;
 
+    private HybridClock clock;
+
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutorService;
@@ -150,7 +157,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         clusterService = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        HybridClock clock = new HybridClockImpl();
+        clock = new HybridClockImpl();
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
@@ -161,9 +168,17 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 workingDir.raftLogPath()
         );
 
-        raftManager = TestLozaFactory.create(clusterService, raftConfiguration, clock, raftGroupEventsClientListener);
+        raftManager = TestLozaFactory.create(
+                clusterService,
+                raftConfiguration,
+                systemLocalConfiguration,
+                clock,
+                raftGroupEventsClientListener
+        );
 
         var logicalTopologyService = mock(LogicalTopologyService.class);
+
+        when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
 
         var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterService,
@@ -291,7 +306,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(LogicalTopologyService.class),
                 raftManager,
                 storage,
-                new HybridClockImpl(),
+                clock,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 mock(MetastorageRepairStorage.class),

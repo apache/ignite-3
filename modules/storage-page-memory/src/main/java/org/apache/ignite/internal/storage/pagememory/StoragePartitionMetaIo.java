@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.pagememory.mv.BlobStorage;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,31 +37,63 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
 
     private static final int LAST_APPLIED_INDEX_OFF = PARTITION_META_HEADER_END;
 
-    private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_INDEX_BYTES = Long.BYTES;
 
-    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + LAST_APPLIED_INDEX_BYTES;
 
-    private static final int FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
+    private static final int LAST_APPLIED_TERM_BYTES = Long.BYTES;
 
-    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + LAST_APPLIED_TERM_BYTES;
 
-    private static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_BYTES = Long.BYTES;
 
-    private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
+    private static final int FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF
+            + LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_BYTES;
 
-    private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
+    private static final int FREE_LIST_ROOT_PAGE_ID_BYTES = Long.BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_ID_HIGH_OFF = LEASE_START_TIME_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = FREE_LIST_ROOT_PAGE_ID_OFF + FREE_LIST_ROOT_PAGE_ID_BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_ID_LOW_OFF = PRIMARY_REPLICA_NODE_ID_HIGH_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_BYTES = Long.BYTES;
 
-    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_LOW_OFF + Long.BYTES;
+    private static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + VERSION_CHAIN_TREE_ROOT_PAGE_ID_BYTES;
+
+    private static final int INDEX_TREE_META_PAGE_ID_BYTES = Long.BYTES;
+
+    private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + INDEX_TREE_META_PAGE_ID_BYTES;
+
+    private static final int GC_QUEUE_META_PAGE_ID_BYTES = Long.BYTES;
+
+    private static final int LEASE_START_TIME_OFF = GC_QUEUE_META_PAGE_ID_OFF + GC_QUEUE_META_PAGE_ID_BYTES;
+
+    private static final int LEASE_START_TIME_BYTES = Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_HIGH_OFF = LEASE_START_TIME_OFF + LEASE_START_TIME_BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_HIGH_BYTES = Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_LOW_OFF = PRIMARY_REPLICA_NODE_ID_HIGH_OFF + PRIMARY_REPLICA_NODE_ID_HIGH_BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_ID_LOW_BYTES = Long.BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF = PRIMARY_REPLICA_NODE_ID_LOW_OFF
+            + PRIMARY_REPLICA_NODE_ID_LOW_BYTES;
+
+    private static final int PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_BYTES = Long.BYTES;
 
     /** Estimated size here is not a size of a meta, but an approximate rows count. */
-    private static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
+    protected static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF
+            + PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_BYTES;
 
-    /** I/O versions. */
-    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(new StoragePartitionMetaIo(1));
+    /** Size of estimated size field. */
+    protected static final int ESTIMATED_SIZE_BYTES = Long.BYTES;
+
+    /**
+     * Constructor.
+     */
+    protected StoragePartitionMetaIo() {
+        this(1);
+    }
 
     /**
      * Constructor.
@@ -72,9 +104,12 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         super(T_TABLE_PARTITION_META_IO, ver);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
+        initMetaIoV1(pageAddr, pageId, pageSize);
+    }
+
+    protected final void initMetaIoV1(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
 
         setLastAppliedIndex(pageAddr, 0);
@@ -296,7 +331,6 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         return new UUID(high, low);
     }
 
-
     /**
      * Sets the primary replica node name first page id.
      *
@@ -338,6 +372,17 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
      */
     public long getEstimatedSize(long pageAddr) {
         return getLong(pageAddr, ESTIMATED_SIZE_OFF);
+    }
+
+    /**
+     * Retrieves the head link of the write intent list from the partition metadata.
+     *
+     * @param pageAddr The address of the page to read.
+     * @return The head link of the write intent list.
+     */
+    public long getWiHead(long pageAddr) {
+        // Not supported in this version, just return the default value.
+        return PageIdUtils.NULL_LINK;
     }
 
     @Override

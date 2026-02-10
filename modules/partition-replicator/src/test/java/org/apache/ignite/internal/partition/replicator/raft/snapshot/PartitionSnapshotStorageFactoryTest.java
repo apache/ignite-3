@@ -29,6 +29,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.metrics.RaftSnapshotsMetricsSource;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.startup.StartupPartitionSnapshotReader;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -43,13 +44,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest {
     private final PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
-            new ZonePartitionKey(1, 1),
+            new PartitionKey(1, 1),
             mock(TopologyService.class),
             mock(OutgoingSnapshotsManager.class),
             mock(PartitionTxStateAccess.class),
             mock(CatalogService.class),
             mock(FailureProcessor.class),
-            mock(Executor.class)
+            mock(Executor.class),
+            mock(LogStorageAccess.class),
+            new RaftSnapshotsMetricsSource()
     );
 
     @Mock

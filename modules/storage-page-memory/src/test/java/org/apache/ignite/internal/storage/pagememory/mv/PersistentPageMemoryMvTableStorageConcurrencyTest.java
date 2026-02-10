@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -52,8 +53,8 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -63,7 +64,7 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,
@@ -74,11 +75,6 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
         );
 
         engine.start();
-
-        tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
-                indexDescriptorSupplier
-        );
 
         initialize();
     }

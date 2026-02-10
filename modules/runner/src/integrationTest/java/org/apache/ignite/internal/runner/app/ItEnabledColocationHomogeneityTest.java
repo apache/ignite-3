@@ -21,10 +21,11 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
 import org.apache.ignite.internal.BaseIgniteRestartTest;
-import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
+import org.apache.ignite.internal.cluster.management.InvalidNodeConfigurationException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -32,6 +33,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests to check enabled colocation homogeneity within node join validation.
  */
 @SuppressWarnings("ThrowableNotThrown")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-27071")
 public class ItEnabledColocationHomogeneityTest extends BaseIgniteRestartTest {
     private String commonColocationFeatureFlag;
 
@@ -58,7 +60,7 @@ public class ItEnabledColocationHomogeneityTest extends BaseIgniteRestartTest {
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(!colocationEnabled));
         assertThrowsWithCause(
                 () -> startNode(1),
-                JoinDeniedException.class,
+                InvalidNodeConfigurationException.class,
                 IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
                         + " cluster colocation mode is: {}", !colocationEnabled, colocationEnabled)
         );

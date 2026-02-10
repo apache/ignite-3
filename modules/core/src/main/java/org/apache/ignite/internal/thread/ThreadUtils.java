@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class contains utility methods for working with threads.
@@ -53,23 +54,15 @@ public class ThreadUtils {
     private static final String NL = System.lineSeparator();
 
     /**
-     * Performs thread dump and prints all available info to the given log with WARN logging level.
-     *
-     * @param log Logger.
-     */
-    public static void dumpThreads(IgniteLogger log) {
-        dumpThreads(log, false);
-    }
-
-    /**
      * Performs thread dump and prints all available info to the given log
      * with WARN or ERROR logging level depending on {@code isErrorLevel} parameter.
      *
      * @param log Logger.
+     * @param message Additional message to print with the thread dump.
      * @param isErrorLevel {@code true} if thread dump must be printed with ERROR logging level,
      *      {@code false} if thread dump must be printed with WARN logging level.
      */
-    public static void dumpThreads(IgniteLogger log, boolean isErrorLevel) {
+    public static void dumpThreads(IgniteLogger log, @Nullable String message, boolean isErrorLevel) {
         ThreadMXBean mxBean = ManagementFactory.getThreadMXBean();
 
         Set<Long> deadlockedThreadsIds = getDeadlockedThreadIds(mxBean);
@@ -85,6 +78,7 @@ public class ThreadUtils {
                 mxBean.dumpAllThreads(mxBean.isObjectMonitorUsageSupported(), mxBean.isSynchronizerUsageSupported());
 
         StringBuilder sb = new StringBuilder(THREAD_DUMP_MSG)
+                .append(message == null ? "" : message)
                 .append(THREAD_DUMP_FMT.format(Instant.ofEpochMilli(System.currentTimeMillis())))
                 .append(NL);
 

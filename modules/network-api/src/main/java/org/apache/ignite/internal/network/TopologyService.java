@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network;
 
 import java.util.Collection;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,27 +25,32 @@ import org.jetbrains.annotations.Nullable;
  * Entry point for obtaining physical cluster topology information.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
-public interface TopologyService extends ClusterNodeResolver, JoinedNodes {
+public interface TopologyService extends ClusterNodeResolver, LogicalTopologyEventsListener {
     /**
      * Returns information about the current node.
      *
      * @return Information about the local network member.
      */
-    ClusterNode localMember();
+    InternalClusterNode localMember();
 
     /**
      * Returns a list of all discovered cluster members, including the local member itself.
      *
      * @return List of the discovered cluster members.
      */
-    Collection<ClusterNode> allMembers();
+    Collection<InternalClusterNode> allMembers();
 
     /**
      * Returns a list of all logical topology members, including the local member.
      *
      * @return List of logical topology members.
      */
-    Collection<ClusterNode> logicalTopologyMembers();
+    Collection<InternalClusterNode> logicalTopologyMembers();
+
+    /**
+     * Returns the logical topology version.
+     */
+    long logicalTopologyVersion();
 
     /**
      * Registers a handler for physical topology change events.
@@ -68,5 +72,5 @@ public interface TopologyService extends ClusterNodeResolver, JoinedNodes {
      * @param addr The network address.
      * @return The node object; {@code null} if the node has not been discovered or is offline.
      */
-    @Nullable ClusterNode getByAddress(NetworkAddress addr);
+    @Nullable InternalClusterNode getByAddress(NetworkAddress addr);
 }

@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
-import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
@@ -39,13 +37,10 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
-import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -71,14 +66,11 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
 
         stopNode(nodeToStop);
 
-        assertThrows(SqlException.class, () -> executeSql(selectSql), "Mandatory nodes was excluded from mapping:");
+        assertThrows(SqlException.class, () -> executeSql(selectSql), "Mandatory nodes were excluded from mapping:");
 
         DisasterRecoveryManager disasterRecoveryManager = unwrapIgniteImpl(cluster.aliveNode()).disasterRecoveryManager();
-        CompletableFuture<Void> resetFuture = TestDisasterRecoveryUtils.resetPartitions(
-                disasterRecoveryManager,
+        CompletableFuture<Void> resetFuture = disasterRecoveryManager.resetPartitions(
                 DEFAULT_ZONE_NAME,
-                DEFAULT_SCHEMA_NAME,
-                TABLE_NAME,
                 Set.of(),
                 true,
                 -1
@@ -86,15 +78,15 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
 
         assertThat(resetFuture, willCompleteSuccessfully());
 
-        assertTrue(waitForCondition(() -> !hasAssignmentsForNode(DEFAULT_ZONE_NAME, TABLE_NAME, nodeToStop), 10000));
+        assertTrue(waitForCondition(() -> !hasAssignmentsForNode(DEFAULT_ZONE_NAME, nodeToStop), 10000));
 
         assertDoesNotThrow(() -> executeSql(selectSql));
     }
 
-    private boolean hasAssignmentsForNode(String zoneName, String tableName, String nodeName) {
+    private boolean hasAssignmentsForNode(String zoneName, String nodeName) {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
-        ByteArray keyPrefix = prefix(zoneName, tableName, ignite);
+        ByteArray keyPrefix = prefix(zoneName, ignite);
 
         Publisher<Entry> publisher = ignite.metaStorageManager().prefix(keyPrefix);
 
@@ -108,16 +100,10 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
                 .anyMatch(assignment -> nodeName.equals(assignment.consistentId()));
     }
 
-    private static ByteArray prefix(String zoneName, String tableName, IgniteImpl ignite) {
-        if (colocationEnabled()) {
-            int zoneId = getZoneId(ignite.catalogManager(), zoneName, ignite.clock().nowLong());
+    private static ByteArray prefix(String zoneName, IgniteImpl ignite) {
+        int zoneId = getZoneId(ignite.catalogManager(), zoneName, ignite.clock().nowLong());
 
-            return new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + zoneId);
-        } else {
-            int tableId = unwrapTableViewInternal(ignite.tables().table(tableName)).tableId();
-
-            return new ByteArray(RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + tableId);
-        }
+        return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + zoneId);
     }
 
     private static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.configuration;
 
-
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
@@ -324,7 +323,6 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty,
                 this::assertOutputIsNotEmpty
         );
-
 
         // Emulate config with spaces
         execute("cluster", "config", "update", "--url", NODE_URL,

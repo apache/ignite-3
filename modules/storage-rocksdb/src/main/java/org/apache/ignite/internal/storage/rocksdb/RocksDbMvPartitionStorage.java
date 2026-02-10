@@ -21,6 +21,7 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocate;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
+import static java.util.Collections.emptyIterator;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.DATA_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.DATA_ID_WITH_TX_STATE_SIZE;
@@ -53,6 +54,8 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -72,6 +75,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.RowMeta;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
@@ -93,6 +97,7 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
+import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -107,17 +112,17 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>Key:
  * <pre>{@code
  * For write-intents
- * | Table ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) |
+ * | Zone ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) |
  *
  * For committed rows
- * | Table ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) | Commit Timestamp (8 bytes, DESC) |
+ * | Zone ID (4 bytes, BE) | Partition ID (2 bytes, BE) | Row ID (16 bytes, BE) | Commit Timestamp (8 bytes, DESC) |
  * }</pre>
  *
  * <p>Value:
  *
  * <pre>{@code
  * For write-intents
- * | Data ID (24 bytes, BE) | Commit Table ID (16 bytes) | Commit Partition ID (2 bytes) |
+ * | Data ID (24 bytes, BE) | Commit Zone ID (16 bytes) | Commit Partition ID (2 bytes) |
  *
  * For committed rows
  * | Data ID (24 bytes, BE) |
@@ -445,15 +450,15 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) throws StorageException {
-        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
         return busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
-            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId);
 
             try {
                 // Check concurrent transaction data.
@@ -500,7 +505,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     return AddWriteResult.success(previousRow);
                 } else {
-                    ByteBuffer txState = createTxState(rowId, txId, commitTableOrZoneId, commitPartitionId, row == null);
+                    ByteBuffer txState = createTxState(rowId, txId, commitZoneId, commitPartitionId, row == null);
 
                     ByteBuffer dataId = readDataIdFromTxState(txState);
 
@@ -516,7 +521,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 throw new IgniteRocksDbException(
                         "Failed to update a row in storage: [{}]",
                         e,
-                        addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId)
+                        addWriteInfo(rowId, row, txId, commitZoneId, commitPartitionId)
                 );
             }
         });
@@ -530,7 +535,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return buffer.rewind();
     }
 
-    private static ByteBuffer createTxState(RowId rowId, UUID txId, int commitTableId, int commitPartitionId, boolean isTombstone) {
+    private static ByteBuffer createTxState(RowId rowId, UUID txId, int commitZoneId, int commitPartitionId, boolean isTombstone) {
         ByteBuffer buffer = TX_STATE_BUFFER.get().clear();
 
         putDataId(buffer, rowId, TransactionIds.beginTimestamp(txId), isTombstone);
@@ -538,7 +543,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return buffer
                 .putLong(txId.getMostSignificantBits())
                 .putLong(txId.getLeastSignificantBits())
-                .putInt(commitTableId)
+                .putInt(commitZoneId)
                 .putShort((short) commitPartitionId)
                 .rewind();
     }
@@ -985,7 +990,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 && rowId.leastSignificantBits() == normalize(dataIdKey.getLong());
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-26175
     @Override
+    @SuppressWarnings("PMD.UseDiamondOperator")
     public Cursor<ReadResult> scanVersions(RowId rowId) throws StorageException {
         return busy(() -> {
             assert rowIsLocked(rowId);
@@ -1111,6 +1118,101 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
+    @Override
+    public @Nullable RowId highestRowId() throws StorageException {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            ByteBuffer keyBuf = DIRECT_DATA_ID_KEY_BUFFER.get().clear()
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
+
+            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
+                it.seekToLast();
+
+                if (!it.isValid()) {
+                    it.status();
+
+                    return null;
+                }
+
+                it.key(keyBuf);
+
+                return getRowId(keyBuf);
+            } catch (RocksDBException e) {
+                throw new IgniteRocksDbException("Error finding highest Row ID", e);
+            }
+        });
+    }
+
+    @Override
+    public List<RowMeta> rowsStartingWith(RowId lowerBoundInclusive, RowId upperBoundInclusive, int limit) throws StorageException {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            @Nullable RowId upperBoundExclusive = upperBoundInclusive.increment();
+
+            ByteBuffer keyBuf = prepareDirectDataIdKeyBuf(lowerBoundInclusive)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
+            @Nullable ByteBuffer upperBoundBuf;
+            if (upperBoundExclusive != null) {
+                upperBoundBuf = allocate(ROW_PREFIX_SIZE).order(KEY_BYTE_ORDER);
+                writeRowPrefix(upperBoundBuf, upperBoundExclusive);
+            } else {
+                upperBoundBuf = null;
+            }
+
+            List<RowMeta> result = new ArrayList<>();
+
+            try (
+                    @Nullable Slice maybeUpperBound = upperBoundBuf != null ? new Slice(upperBoundBuf.array()) : null;
+                    ReadOptions readOptions = new ReadOptions()
+                            .setIterateUpperBound(maybeUpperBound != null ? maybeUpperBound : helper.upperBound)
+                            .setAutoPrefixMode(true);
+                    RocksIterator it = db.newIterator(helper.partCf, readOptions)
+            ) {
+                it.seek(keyBuf);
+
+                for (int i = 0; i < limit; i++) {
+                    if (!it.isValid()) {
+                        it.status();
+
+                        break;
+                    }
+
+                    keyBuf.rewind();
+                    int keyLength = it.key(keyBuf);
+                    boolean isWriteIntent = keyLength == ROW_PREFIX_SIZE;
+
+                    RowId rowId = getRowId(keyBuf);
+
+                    RowMeta row;
+                    if (isWriteIntent) {
+                        ByteBuffer transactionState = ByteBuffer.wrap(it.value());
+
+                        readDataIdFromTxState(transactionState);
+                        UUID txId = new UUID(transactionState.getLong(), transactionState.getLong());
+                        int commitZoneId = transactionState.getInt();
+                        int commitPartitionId = Short.toUnsignedInt(transactionState.getShort());
+
+                        row = new RowMeta(rowId, txId, commitZoneId, commitPartitionId);
+                    } else {
+                        row = RowMeta.withoutWriteIntent(rowId);
+                    }
+
+                    result.add(row);
+
+                    it.next();
+                }
+            } catch (RocksDBException e) {
+                throw new IgniteRocksDbException("Error finding following Row IDs", e);
+            }
+
+            return result;
+        });
+    }
+
     private static void incrementRowId(ByteBuffer buf) {
         long lsb = 1 + buf.getLong(ROW_ID_OFFSET + Long.BYTES);
 
@@ -1189,13 +1291,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        WriteBatchWithIndex batch = requireWriteBatch();
+    public List<GcEntry> peek(HybridTimestamp lowWatermark, int count) {
+        return busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-        // No busy lock required, we're already in "runConsistently" closure.
-        throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-        return gc.peek(batch, lowWatermark);
+            return gc.peek(lowWatermark, count);
+        });
     }
 
     @Override
@@ -1215,6 +1316,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public long estimatedSize() {
         return estimatedSize;
+    }
+
+    @Override
+    public Cursor<RowId> scanWriteIntents() {
+        return Cursor.fromBareIterator(emptyIterator());
     }
 
     @Override
@@ -1640,12 +1746,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableOrZoneId,
+            int commitZoneId,
             int commitPartitionId
     ) {
         return format(
-                "rowId={}, rowIsTombstone={}, txId={}, commitTableOrZoneId={}, commitPartitionId={}, {}",
-                rowId, row == null, txId, commitTableOrZoneId, commitPartitionId, createStorageInfo()
+                "rowId={}, rowIsTombstone={}, txId={}, commitZoneId={}, commitPartitionId={}, {}",
+                rowId, row == null, txId, commitZoneId, commitPartitionId, createStorageInfo()
         );
     }
 

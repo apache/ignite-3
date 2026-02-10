@@ -42,19 +42,17 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.core.TableModify.Operation;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
@@ -63,6 +61,9 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NativeTypes.StructTypeBuilder;
+import org.apache.ignite.internal.type.StructNativeType;
+import org.apache.ignite.internal.type.StructNativeType.Field;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -83,23 +84,22 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     private static final long SOURCE_ID = 42;
 
-    private static final RowSchema INT_LONG_SCHEMA = RowSchema.builder()
-            .addField(NativeTypes.INT32)
-            .addField(NativeTypes.INT64)
+    private static final StructNativeType INT_LONG_SCHEMA = NativeTypes.structBuilder()
+            .addField("C0", NativeTypes.INT32, true)
+            .addField("C1", NativeTypes.INT64, true)
             .build();
 
     @SuppressWarnings("OverridableMethodCallDuringObjectConstruction")
     private final RowHandler<RowWrapper> handler = rowHandler();
-    private final RowHandler.RowFactory<RowWrapper> rowFactory = handler.factory(INT_LONG_SCHEMA);
 
     @Mock
     private UpdatableTable updatableTable;
 
     @BeforeEach
     void setUpMock() {
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.INT64)
+        StructNativeType rowSchema = NativeTypes.structBuilder()
+                .addField("C1", NativeTypes.INT32, false)
+                .addField("C2", NativeTypes.INT64, false)
                 .build();
 
         TableDescriptor tableDescriptor = createTableDescriptor(rowSchema);
@@ -114,7 +114,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null, INT_LONG_SCHEMA
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -147,7 +147,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, INT_LONG_SCHEMA
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -180,7 +180,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null, INT_LONG_SCHEMA
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -213,7 +213,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null, INT_LONG_SCHEMA
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -241,7 +241,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, INT_LONG_SCHEMA
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -269,7 +269,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null, INT_LONG_SCHEMA
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -324,29 +324,29 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         // MergeRow:  src_c1, src_c2, null, dst_c1, dst_c2, dst_c3, update_col1, ...,
 
         ExecutionContext<RowWrapper> context = executionContext();
-        RowHandler<RowWrapper> rowHandler = context.rowHandler();
+        RowHandler<RowWrapper> rowHandler = context.rowAccessor();
 
-        RowSchema.Builder dstRowSchemaBuilder = RowSchema.builder();
-
-        for (int i = 0; i < colCount; i++) {
-            dstRowSchemaBuilder.addField(NativeTypes.INT32, true);
-        }
-
-        RowSchema dstRowSchema = dstRowSchemaBuilder.build();
-
-        RowSchema.Builder srcRowSchemaBuilder = RowSchema.builder();
+        StructTypeBuilder dstRowSchemaBuilder = NativeTypes.structBuilder();
 
         for (int i = 0; i < colCount; i++) {
-            srcRowSchemaBuilder.addField(NativeTypes.INT32, true);
+            dstRowSchemaBuilder.addField("C" + i, NativeTypes.INT32, true);
         }
 
-        RowSchema srcRowSchema = srcRowSchemaBuilder.build();
+        StructNativeType dstRowSchema = dstRowSchemaBuilder.build();
 
-        RowSchema updateSchema = RowSchema.builder()
-                .addField(NativeTypes.INT32, true)
+        StructTypeBuilder srcRowSchemaBuilder = NativeTypes.structBuilder();
+
+        for (int i = 0; i < colCount; i++) {
+            srcRowSchemaBuilder.addField("C" + i, NativeTypes.INT32, true);
+        }
+
+        StructNativeType srcRowSchema = srcRowSchemaBuilder.build();
+
+        StructNativeType updateSchema = NativeTypes.structBuilder()
+                .addField("C0", NativeTypes.INT32, true)
                 .build();
 
-        RowSchema mergeRowSchema = RowSchema.concat(RowSchema.concat(srcRowSchema, dstRowSchema), updateSchema);
+        StructNativeType mergeRowSchema = concat(srcRowSchema, dstRowSchema, updateSchema);
 
         Mockito.reset(updatableTable);
 
@@ -364,7 +364,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
             when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
         }
 
-        RowFactory<RowWrapper> dstFactory = rowHandler.factory(dstRowSchema);
+        RowFactory<RowWrapper> dstFactory = context.rowFactoryFactory().create(dstRowSchema);
 
         Object[] dstRow1Data = new Object[colCount];
         dstRow1Data[0] = 1;
@@ -372,7 +372,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         RowWrapper dstRow2 = dstFactory.create(dstRow2Data);
 
-        RowFactory<RowWrapper> srcFactory = rowHandler.factory(srcRowSchema);
+        RowFactory<RowWrapper> srcFactory = context.rowFactoryFactory().create(srcRowSchema);
 
         Object[] srcRow1Data = new Object[colCount];
         srcRow1Data[0] = 2;
@@ -383,22 +383,15 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         srcRow2Data[1] = 5;
         RowWrapper srcRow2 = srcFactory.create(srcRow2Data);
 
-        RowFactory<RowWrapper> updateFactory = rowHandler.factory(updateSchema);
+        RowFactory<RowWrapper> updateFactory = context.rowFactoryFactory().create(updateSchema);
 
         RowWrapper update = updateFactory.create(4);
         RowWrapper noUpdate = updateFactory.create(new Object[]{null});
 
-        RowFactory<RowWrapper> mergeRowFactory = rowHandler.factory(mergeRowSchema);
+        RowFactory<RowWrapper> mergeRowFactory = context.rowFactoryFactory().create(mergeRowSchema);
 
         RowWrapper mergeRow1 = concatRow(mergeRowFactory, srcRow1, dstRow1, noUpdate);
         RowWrapper mergeRow2 = concatRow(mergeRowFactory, srcRow2, dstRow2, update);
-
-        Builder inputRowBuilder = RowSchema.builder();
-        srcFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
-        dstFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
-        inputRowBuilder.addField(NativeTypes.INT32, true); // updated field value
-
-        RowFactory<RowWrapper> inputRowFactory = rowHandler.factory(inputRowBuilder.build());
 
         Node<RowWrapper> sourceNode = new ScanNode<>(
                 context, DataProvider.fromCollection(List.of(mergeRow1, mergeRow2))
@@ -407,7 +400,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.MERGE, List.of("C1"), inputRowFactory
+                context, updatableTable, SOURCE_ID, Operation.MERGE, List.of("C1"), mergeRowSchema
         );
         modifyNode.register(List.of(sourceNode));
         modifyNode.onRegister(downstream);
@@ -440,12 +433,12 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         }
     }
 
-    private static RowWrapper concatRow(RowFactory<RowWrapper> rowFactory, RowWrapper...  rows) {
-        RowHandler<RowWrapper> handler = rowFactory.handler();
+    private RowWrapper concatRow(RowFactory<RowWrapper> rowFactory, RowWrapper...  rows) {
+        RowHandler<RowWrapper> handler = rowHandler();
         RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
 
         for (RowWrapper row : rows) {
-            int cols = handler.columnCount(row);
+            int cols = handler.columnsCount(row);
             for (int i = 0; i < cols; i++) {
                 builder.addField(handler.get(i, row));
             }
@@ -454,19 +447,19 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         return builder.build();
     }
 
-    private static TableDescriptor createTableDescriptor(RowSchema rowSchema) {
+    private static TableDescriptor createTableDescriptor(StructNativeType rowSchema) {
         List<ColumnDescriptor> columns = new ArrayList<>();
 
         for (int i = 0; i < rowSchema.fields().size(); i++) {
-            BaseTypeSpec typeSpec = (BaseTypeSpec) rowSchema.fields().get(i);
+            Field field = rowSchema.fields().get(i);
             ColumnDescriptorImpl col = new ColumnDescriptorImpl(
-                    "C" + i,
+                    field.name(),
                     false,
                     false,
                     false,
-                    typeSpec.isNullable(),
+                    field.nullable(),
                     i,
-                    typeSpec.nativeType(),
+                    field.type(),
                     DefaultValueStrategy.DEFAULT_NULL,
                     null
             );
@@ -477,7 +470,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     }
 
     private static void expectRow(RowWrapper row, RowHandler<RowWrapper> rowHandler, int expectedRowSize, List<Object> expectRowPrefix) {
-        int rowSize = rowHandler.columnCount(row);
+        int rowSize = rowHandler.columnsCount(row);
 
         assertEquals(expectedRowSize, rowSize);
         assertTrue(expectRowPrefix.size() <= rowSize, "Incorrect number of expected vals");
@@ -495,9 +488,9 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         return rowCount / MODIFY_BATCH_SIZE + (rowCount % MODIFY_BATCH_SIZE == 0 ? 0 : 1);
     }
 
-    private Node<RowWrapper> createSource(int rowCount, ExecutionContext<RowWrapper> context) {
+    private static Node<RowWrapper> createSource(int rowCount, ExecutionContext<RowWrapper> context) {
         return new ScanNode<>(
-                context, DataProvider.fromRow(rowFactory.create(1, 1L), rowCount)
+                context, DataProvider.fromRow(context.rowFactoryFactory().create(INT_LONG_SCHEMA).create(1, 1L), rowCount)
         );
     }
 
@@ -507,8 +500,25 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     }
 
     @Override
+    protected RowFactoryFactory<RowWrapper> rowFactoryFactory() {
+        return SqlRowHandler.INSTANCE;
+    }
+
+    @Override
     protected FragmentDescription getFragmentDescription() {
         ColocationGroup colocationGroup = new ColocationGroup(LongList.of(), List.of(), Int2ObjectMaps.emptyMap());
         return new FragmentDescription(0, true, Long2ObjectMaps.singleton(SOURCE_ID, colocationGroup), null, null, null);
+    }
+
+    private static StructNativeType concat(StructNativeType... types) {
+        StructTypeBuilder builder = NativeTypes.structBuilder();
+
+        for (StructNativeType type : types) {
+            for (Field field : type.fields()) {
+                builder.addField(field.name(), field.type(), field.nullable());
+            }
+        }
+
+        return builder.build();
     }
 }

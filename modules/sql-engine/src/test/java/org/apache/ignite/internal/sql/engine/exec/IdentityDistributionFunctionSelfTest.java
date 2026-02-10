@@ -27,14 +27,15 @@ import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.rel.RelDistribution.Type;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -49,10 +50,11 @@ public class IdentityDistributionFunctionSelfTest {
     private static final String NODE_3 = "node3";
 
     private final RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
+    private final RowFactoryFactory<Object[]> rowFactoryFactory = ArrayRowHandler.INSTANCE;
 
-    private final RowSchema rowSchema = RowSchema.builder()
-            .addField(NativeTypes.STRING)
-            .addField(NativeTypes.STRING)
+    private final StructNativeType rowSchema = NativeTypes.structBuilder()
+            .addField("C1", NativeTypes.STRING, true)
+            .addField("C2", NativeTypes.STRING, true)
             .build();
 
     private final ColocationGroup colocationGroup = new ColocationGroup(LongList.of(1L), List.of(NODE_1, NODE_2, NODE_3),
@@ -81,7 +83,7 @@ public class IdentityDistributionFunctionSelfTest {
 
     @Test
     public void destinationRowTargets() {
-        Object[] row = rowHandler.factory(rowSchema).create(NODE_1, "Ne prikhodya v soznanie");
+        Object[] row = rowFactoryFactory.create(rowSchema).create(NODE_1, "Ne prikhodya v soznanie");
 
         Destination<Object[]> destination0 = destinationFactory.createDestination(IgniteDistributions.identity(0), colocationGroup);
         Destination<Object[]> destination1 = destinationFactory.createDestination(IgniteDistributions.identity(1), colocationGroup);
@@ -95,7 +97,7 @@ public class IdentityDistributionFunctionSelfTest {
         assertThat(targets, Matchers.contains(NODE_1));
 
         // Validate column mapping
-        Object[] otherRow = rowHandler.factory(rowSchema).create("UNKNOWN", NODE_2);
+        Object[] otherRow = rowFactoryFactory.create(rowSchema).create("UNKNOWN", NODE_2);
         targets = destination1.targets(otherRow);
 
         assertThat(targets.size(), equalTo(1));
@@ -109,13 +111,13 @@ public class IdentityDistributionFunctionSelfTest {
     public void destinationForInvalidRow() {
         Destination<Object[]> destination = destinationFactory.createDestination(IgniteDistributions.identity(0), colocationGroup);
 
-        Object[] invalidRow1 = rowHandler.factory(rowSchema).create("UNKNOWN", NODE_2);
+        Object[] invalidRow1 = rowFactoryFactory.create(rowSchema).create("UNKNOWN", NODE_2);
         Assertions.assertThrows(IllegalStateException.class, () -> destination.targets(invalidRow1));
 
-        Object[] invalidRow2 = rowHandler.factory(rowSchema).create("", NODE_2);
+        Object[] invalidRow2 = rowFactoryFactory.create(rowSchema).create("", NODE_2);
         Assertions.assertThrows(IllegalStateException.class, () -> destination.targets(invalidRow2));
 
-        Object[] invalidRow3 = rowHandler.factory(rowSchema).create(null, NODE_2);
+        Object[] invalidRow3 = rowFactoryFactory.create(rowSchema).create(null, NODE_2);
         Assertions.assertThrows(IllegalStateException.class, () -> destination.targets(invalidRow3));
     }
 }

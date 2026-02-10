@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.RAND_UUID;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.random;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
 
@@ -27,6 +28,7 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -73,7 +75,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
      * @param rowType  Output row type.
      */
     public IgniteProject(RelOptCluster cluster, RelTraitSet traits, RelNode input, List<? extends RexNode> projects, RelDataType rowType) {
-        super(cluster, traits, List.of(), input, projects, rowType);
+        super(cluster, traits, List.of(), input, projects, rowType, Set.of());
     }
 
     /**
@@ -232,10 +234,15 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
 
         RelOptCost cost = planner.getCostFactory().makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0);
 
-        if (distribution() == single()) {
-            // make single distributed projection slightly more expensive to help
-            // planner prefer distributed option, if exists
+        // Small adjustment to cost to:
+        //     1) help optimizer to choose distributed plan over single
+        //     2) make result stable when several equivalent options exists,
+        //        but projection convert one of them to random
+        if (distribution() == random()) {
             cost = cost.plus(planner.getCostFactory().makeTinyCost());
+        } else if (distribution() == single()) {
+            // Between single and random the later should be preferable.
+            cost = cost.plus(planner.getCostFactory().makeTinyCost().multiplyBy(2));
         }
 
         return cost;

@@ -22,12 +22,15 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
-public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException {
+public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException,
+        RetriableTransactionException {
     private static final long serialVersionUID = 8755220779942651494L;
 
     /**
@@ -36,10 +39,29 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
      * @param txId Transaction id.
      * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
      * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
+     * @param replicationGroupId Replication group id, {@code null} if absent.
      */
-    public PrimaryReplicaMissException(UUID txId, Long expectedEnlistmentConsistencyToken, Long currentEnlistmentConsistencyToken) {
+    public PrimaryReplicaMissException(
+            UUID txId, 
+            Long expectedEnlistmentConsistencyToken, 
+            Long currentEnlistmentConsistencyToken,
+            @Nullable ReplicationGroupId replicationGroupId
+    ) {
         super(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, expectedEnlistmentConsistencyToken={}, "
-                + "currentEnlistmentConsistencyToken={}].", txId, expectedEnlistmentConsistencyToken,
+                + "currentEnlistmentConsistencyToken={}, replicationGroupId={}].", 
+                txId, expectedEnlistmentConsistencyToken, currentEnlistmentConsistencyToken, replicationGroupId));
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param txInfo Transaction info formatted with label.
+     * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
+     * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
+     */
+    public PrimaryReplicaMissException(String txInfo, Long expectedEnlistmentConsistencyToken, Long currentEnlistmentConsistencyToken) {
+        super(REPLICA_MISS_ERR, format("The primary replica has changed [{}, expectedEnlistmentConsistencyToken={}, "
+                        + "currentEnlistmentConsistencyToken={}].", txInfo, expectedEnlistmentConsistencyToken,
                 currentEnlistmentConsistencyToken));
     }
 
@@ -52,6 +74,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
      * @param currentLeaseholderId Current leaseholder id, {@code null} if absent.
      * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
      * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
+     * @param replicationGroupId Replication group id, {@code null} if absent.
      * @param cause Cause exception, {@code null} if absent.
      */
     public PrimaryReplicaMissException(
@@ -61,20 +84,22 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
             @Nullable UUID currentLeaseholderId,
             @Nullable Long expectedEnlistmentConsistencyToken,
             @Nullable Long currentEnlistmentConsistencyToken,
+            @Nullable ReplicationGroupId replicationGroupId,
             @Nullable Throwable cause
     ) {
         super(
                 REPLICA_MISS_ERR,
                 "The primary replica has changed "
                         + "[expectedLeaseholderName={}, currentLeaseholderName={}, expectedLeaseholderId={}, currentLeaseholderId={},"
-                        + " expectedEnlistmentConsistencyToken={}, currentEnlistmentConsistencyToken={}]",
+                        + " expectedEnlistmentConsistencyToken={}, currentEnlistmentConsistencyToken={}, replicationGroupId={}]",
                 cause,
                 expectedLeaseholderName,
                 currentLeaseholderName,
                 expectedLeaseholderId,
                 currentLeaseholderId,
                 expectedEnlistmentConsistencyToken,
-                currentEnlistmentConsistencyToken
+                currentEnlistmentConsistencyToken,
+                replicationGroupId
         );
     }
 }

@@ -23,11 +23,13 @@ import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,11 +37,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -50,17 +54,23 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
+    private static final List<Integer> RETRIABLE_ERRORS = List.of(
+            ACQUIRE_LOCK_ERR,
+            REPLICA_MISS_ERR,
+            GROUP_OVERLOADED_ERR,
+            REPLICA_ABSENT_ERR
+    );
+
     /** Message service. */
     private final MessagingService messagingService;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    /** A hybrid logical clock service. */
+    private final ClockService clockService;
 
     private final Executor partitionOperationsExecutor;
 
@@ -78,18 +88,18 @@ public class ReplicaService {
      * The constructor of replica client.
      *
      * @param messagingService Cluster message service.
-     * @param clock A hybrid logical clock.
+     * @param clockService A hybrid logical clock service.
      * @param replicationConfiguration Replication configuration.
      */
     @TestOnly
     public ReplicaService(
             MessagingService messagingService,
-            HybridClock clock,
+            ClockService clockService,
             ReplicationConfiguration replicationConfiguration
     ) {
         this(
                 messagingService,
-                clock,
+                clockService,
                 ForkJoinPool.commonPool(),
                 replicationConfiguration,
                 null
@@ -100,20 +110,20 @@ public class ReplicaService {
      * The constructor of replica client.
      *
      * @param messagingService Cluster message service.
-     * @param clock A hybrid logical clock.
+     * @param clockService A hybrid logical clock service.
      * @param partitionOperationsExecutor Partition operation executor.
      * @param replicationConfiguration Replication configuration.
      * @param retryExecutor Retry executor.
      */
     public ReplicaService(
             MessagingService messagingService,
-            HybridClock clock,
+            ClockService clockService,
             Executor partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             @Nullable ScheduledExecutorService retryExecutor
     ) {
         this.messagingService = messagingService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.replicationConfiguration = replicationConfiguration;
         this.retryExecutor = retryExecutor;
@@ -126,11 +136,14 @@ public class ReplicaService {
     /**
      * Sends request to the replica node and provides raw response.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param targetNodeConsistentId A consistent id of the replica node.
      * @param req Replica request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     private CompletableFuture<ReplicaResponse> sendToReplicaRaw(String targetNodeConsistentId, ReplicaRequest req) {
@@ -160,13 +173,17 @@ public class ReplicaService {
                 assert response instanceof ReplicaResponse : "Unexpected message response [resp=" + response + ']';
 
                 if (response instanceof TimestampAware) {
-                    clock.update(((TimestampAware) response).timestamp());
+                    clockService.updateClock(((TimestampAware) response).timestamp());
                 }
 
                 if (response instanceof ErrorReplicaResponse) {
                     var errResp = (ErrorReplicaResponse) response;
 
-                    if (errResp.throwable() instanceof ReplicaUnavailableException) {
+                    // If replica is absent, it means it is not in assignments and won't appear on that node, no need to wait.
+                    boolean shouldWaitForReplica = errResp.throwable() instanceof ReplicaUnavailableException
+                            && ((ReplicaUnavailableException) errResp.throwable()).code() != REPLICA_ABSENT_ERR;
+
+                    if (shouldWaitForReplica) {
                         CompletableFuture<NetworkMessage> requestFuture = new CompletableFuture<>();
 
                         CompletableFuture<NetworkMessage> awaitReplicaFut = pendingInvokes.computeIfAbsent(
@@ -203,7 +220,7 @@ public class ReplicaService {
 
                                 if (throwable0 instanceof TimeoutException) {
                                     res.completeExceptionally(withCause(
-                                            ReplicationTimeoutException::new,
+                                            AwaitReplicaTimeoutException::new,
                                             REPLICA_TIMEOUT_ERR,
                                             format(
                                                     "Could not wait for the replica readiness due to timeout [replicaGroupId={}, req={}]",
@@ -244,7 +261,7 @@ public class ReplicaService {
                     } else {
                         int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryIntervalMillis().value();
                         if (retryExecutor != null
-                                && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR, GROUP_OVERLOADED_ERR)
+                                && matchAny(unwrapCause(errResp.throwable()), RETRIABLE_ERRORS)
                                 && replicaOperationRetryInterval > 0) {
                             retryExecutor.schedule(
                                     // Need to resubmit again to pool which is valid for synchronous IO execution.
@@ -268,25 +285,31 @@ public class ReplicaService {
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param node Replica node.
      * @param request Request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
-    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
+    public <R> CompletableFuture<R> invoke(InternalClusterNode node, ReplicaRequest request) {
         return invokeRaw(node, request).thenApply(r -> (R) r.result());
     }
 
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param replicaConsistentId A consistent id of the replica node.
      * @param request Request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(String replicaConsistentId, ReplicaRequest request) {
@@ -296,15 +319,18 @@ public class ReplicaService {
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
+     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
+     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
+     *
      * @param node Replica node.
      * @param request Request.
      * @param storageId Storage id.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
+     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
-    public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
+    public <R> CompletableFuture<R> invoke(InternalClusterNode node, ReplicaRequest request, String storageId) {
         return sendToReplica(node.name(), request);
     }
 
@@ -316,7 +342,7 @@ public class ReplicaService {
      * @param request The request.
      * @return Response future with either evaluation raw response or completed exceptionally.
      */
-    public CompletableFuture<ReplicaResponse> invokeRaw(ClusterNode node, ReplicaRequest request) {
+    public CompletableFuture<ReplicaResponse> invokeRaw(InternalClusterNode node, ReplicaRequest request) {
         return invokeRaw(node.name(), request);
     }
 

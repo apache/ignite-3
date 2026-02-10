@@ -17,21 +17,24 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.internal.tx.TransactionInternalException;
+import org.apache.ignite.internal.tx.TxManager;
 
-/** Error that occurs when a stale operation of a completed transaction is detected. */
-// TODO: IGNITE-22748 - make this exception public?
+/** Error that occurs when a stale operation is detected. */
 public class StaleTransactionOperationException extends TransactionInternalException {
     /**
      * Constructor.
      *
      * @param txId Transaction ID.
+     * @param txManager tx manager to retrieve label for logging.
      */
-    public StaleTransactionOperationException(UUID txId) {
-        super(TX_STALE_OPERATION_ERR, format("Stale operation of a completed transaction was detected: [txId={}]", txId));
+    public StaleTransactionOperationException(UUID txId, TxManager txManager) {
+        super(TX_STALE_OPERATION_ERR,
+                "Stale operation was detected: " + formatTxInfo(txId, txManager)
+        );
     }
 }

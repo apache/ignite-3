@@ -17,60 +17,33 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 import org.apache.ignite.internal.util.Constants;
 
-/**
- * Util class that encapsulates write speed formatting. Ported from {@code Ignite 2.x}.
- */
+/** Util class that encapsulates write speed formatting. */
 public class WriteSpeedFormatter {
-    private static final DecimalFormatSymbols SEPARATOR = new DecimalFormatSymbols();
-
-    static {
-        SEPARATOR.setDecimalSeparator('.');
-    }
-
-    /** Format for speed > 10 MB/sec. */
-    private static final DecimalFormat HIGH_SPEED_FORMAT = new DecimalFormat("#", SEPARATOR);
-
-    /** Format for speed in range 1-10 MB/sec. */
-    private static final DecimalFormat MEDIUM_SPEED_FORMAT = new DecimalFormat("#.##", SEPARATOR);
-
     /**
-     * Format for speed < 1 MB/sec For cases when user deployed Grid to inappropriate HW, e.g. AWS EFS, where throughput is elastic and can
-     * degrade to near-zero values.
-     */
-    private static final DecimalFormat LOW_SPEED_FORMAT = new DecimalFormat("#.####", SEPARATOR);
-
-    /** Constructor. */
-    private WriteSpeedFormatter() {
-        // no-op
-    }
-
-    /**
-     * Format write speed in MB/sec.
+     * Formats write speed in MB/sec.
      *
-     * @param avgWriteSpeedInBytes Write speed in bytes.
+     * @param bytes Total number of bytes.
+     * @param durationInNanos Duration in nanoseconds.
      * @return Formatted write speed.
      */
-    public static String formatWriteSpeed(float avgWriteSpeedInBytes) {
-        float speedInMbs = avgWriteSpeedInBytes / Constants.MiB;
+    public static String formatWriteSpeed(long bytes, long durationInNanos) {
+        if (bytes == 0 || durationInNanos == 0) {
+            return "0";
+        }
+
+        double durationInSeconds = durationInNanos / 1_000_000_000.0;
+        double speedInBs = bytes / durationInSeconds;
+        double speedInMbs = speedInBs / Constants.MiB;
 
         if (speedInMbs >= 10.0) {
-            synchronized (HIGH_SPEED_FORMAT) {
-                return HIGH_SPEED_FORMAT.format(speedInMbs);
-            }
+            return String.format(Locale.US, "%.0f", speedInMbs);
+        } else if (speedInMbs >= 0.1) {
+            return String.format(Locale.US, "%.2f", speedInMbs);
         }
 
-        if (speedInMbs >= 0.1) {
-            synchronized (MEDIUM_SPEED_FORMAT) {
-                return MEDIUM_SPEED_FORMAT.format(speedInMbs);
-            }
-        }
-
-        synchronized (LOW_SPEED_FORMAT) {
-            return LOW_SPEED_FORMAT.format(speedInMbs);
-        }
+        return String.format(Locale.US, "%.4f", speedInMbs);
     }
 }

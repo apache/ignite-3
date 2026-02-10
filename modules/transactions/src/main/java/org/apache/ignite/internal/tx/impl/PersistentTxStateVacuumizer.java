@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -36,18 +36,21 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -62,7 +65,7 @@ public class PersistentTxStateVacuumizer {
 
     private final ReplicaService replicaService;
 
-    private final ClusterNode localNode;
+    private final InternalClusterNode localNode;
 
     private final ClockService clockService;
 
@@ -81,7 +84,7 @@ public class PersistentTxStateVacuumizer {
      */
     public PersistentTxStateVacuumizer(
             ReplicaService replicaService,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             ClockService clockService,
             PlacementDriver placementDriver,
             FailureProcessor failureProcessor
@@ -100,9 +103,7 @@ public class PersistentTxStateVacuumizer {
      * @return A future, result is the set of successfully processed txn states and count of persistent states that were vacuumized.
      */
     public CompletableFuture<PersistentTxStateVacuumResult> vacuumPersistentTxStates(
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-            // Should be changed to ZonePartitionId.
-            Map<ReplicationGroupId, Set<VacuumizableTx>> txIds
+            Map<ZonePartitionId, Set<VacuumizableTx>> txIds
     ) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<?>> futures = new ArrayList<>();
@@ -137,9 +138,7 @@ public class PersistentTxStateVacuumizer {
 
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                                    // TODO https://issues.apache.org/jira/browse/IGNITE-22522
-                                    // Should be changed to ZonePartitionId.
-                                    .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
+                                    .groupId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartitionId))
                                     .transactionIds(filteredTxIds)
                                     .build();
 
@@ -174,11 +173,22 @@ public class PersistentTxStateVacuumizer {
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
     }
 
-    private boolean expectedException(Throwable e) {
+    private static boolean expectedException(Throwable e) {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
-                GroupOverloadedException.class
+                ComponentStoppingException.class,
+                GroupOverloadedException.class,
+                // AwaitReplicaTimeoutException can be thrown from ReplicaService on receiver node, when there
+                // is no replica. This may happen if it was removed after getting the primary replica but before the message was received
+                // on the receiver (during rebalancing, or distribution zone is deleted, etc.).
+                // We can ignore the exception in this case because we rely on the placement driver, that it won't prolong the non-existing
+                // replica's lease, the primary replica will be moved to another node and that another node will handle the vacuumization of
+                // the persistent tx state.
+                // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
+                // happen on another node.
+                AwaitReplicaTimeoutException.class,
+                ReplicaUnavailableException.class
         );
     }
 

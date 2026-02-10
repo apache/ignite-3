@@ -31,7 +31,7 @@ Sort
               est: (rows=4)
             TableScan
                 table: PUBLIC.STORE
-                predicate: =(CAST(S_GMT_OFFSET):DECIMAL(12, 2), -6.00)
+                predicate: =(S_GMT_OFFSET, -6.00)
                 fieldNames: [S_STORE_SK, S_STORE_ID, S_STORE_NAME, S_GMT_OFFSET]
                 est: (rows=4)
         Exchange

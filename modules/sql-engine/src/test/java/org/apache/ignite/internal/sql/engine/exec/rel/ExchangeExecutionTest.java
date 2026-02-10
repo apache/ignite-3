@@ -51,6 +51,8 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -60,7 +62,6 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.ClusterServiceFactory;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
@@ -75,9 +76,9 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.PredicateMatcher
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.util.NonReentrantLock;
 import org.hamcrest.CustomMatcher;
@@ -94,9 +95,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     private static final String ROOT_NODE_NAME = "N1";
     private static final String ANOTHER_NODE_NAME = "N2";
     private static final List<String> NODE_NAMES = List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME);
-    private static final ClusterNode ROOT_NODE =
+    private static final InternalClusterNode ROOT_NODE =
             new ClusterNodeImpl(randomUUID(), ROOT_NODE_NAME, NetworkAddress.from("127.0.0.1:10001"));
-    private static final ClusterNode ANOTHER_NODE =
+    private static final InternalClusterNode ANOTHER_NODE =
             new ClusterNodeImpl(randomUUID(), ANOTHER_NODE_NAME, NetworkAddress.from("127.0.0.1:10002"));
     private static final int SOURCE_FRAGMENT_ID = 0;
     private static final int TARGET_FRAGMENT_ID = 1;
@@ -112,9 +113,9 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
      * Schema of the rows used in the tests. All data providers created within this test class must
      * conform to this row schema.
      */
-    private static final RowSchema ROW_SCHEMA = RowSchema.builder()
-            .addField(NativeTypes.INT32)
-            .addField(NativeTypes.INT32)
+    private static final StructNativeType ROW_SCHEMA = NativeTypes.structBuilder()
+            .addField("C1", NativeTypes.INT32, true)
+            .addField("C2", NativeTypes.INT32, true)
             .build();
 
     private final Map<String, MailboxRegistry> mailboxes = new HashMap<>();
@@ -142,7 +143,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         List<Outbox<?>> sourceFragments = new ArrayList<>();
 
         int idx = 0;
-        for (ClusterNode node : List.of(ROOT_NODE, ANOTHER_NODE)) {
+        for (InternalClusterNode node : List.of(ROOT_NODE, ANOTHER_NODE)) {
             Outbox<?> outbox = createSourceFragment(
                     queryId,
                     node,
@@ -247,7 +248,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, dataNode1Name, dataNode2Name));
 
         TestDataProvider node1DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode1 = new ClusterNodeImpl(randomUUID(), dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
+        InternalClusterNode dataNode1 = new ClusterNodeImpl(randomUUID(), dataNode1Name, NetworkAddress.from("127.0.0.1:10001"));
         createSourceFragment(
                 queryId,
                 dataNode1,
@@ -256,7 +257,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         );
 
         TestDataProvider node2DataProvider = new TestDataProvider(3);
-        ClusterNode dataNode2 = new ClusterNodeImpl(randomUUID(), dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
+        InternalClusterNode dataNode2 = new ClusterNodeImpl(randomUUID(), dataNode2Name, NetworkAddress.from("127.0.0.1:10002"));
         createSourceFragment(
                 queryId,
                 dataNode2,
@@ -329,7 +330,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(1200);
-        ClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        InternalClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -396,7 +397,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClusterServiceFactory serviceFactory = TestBuilders.clusterServiceFactory(List.of(ROOT_NODE_NAME, ANOTHER_NODE_NAME, dataNodeName));
 
         TestDataProvider nodeDataProvider = new TestDataProvider(8000);
-        ClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
+        InternalClusterNode dataNode = new ClusterNodeImpl(randomUUID(), dataNodeName, NetworkAddress.from("127.0.0.1:10001"));
 
         createSourceFragmentMultiTarget(
                 queryId,
@@ -495,7 +496,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     private RewindableAsyncRoot<Object[], Object[]> createRootFragment(
             UUID queryId,
             int limit,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             List<String> sourceNodeNames,
             boolean ordered,
             ClusterServiceFactory serviceFactory
@@ -516,8 +517,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowHandler().factory(ROW_SCHEMA),
-                SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator,
+                targetCtx.rowFactoryFactory().create(ROW_SCHEMA), SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 
         mailboxRegistry.register(inbox);
@@ -540,7 +541,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private Outbox<?> createSourceFragment(
             UUID queryId,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             ClusterServiceFactory serviceFactory,
             DataProvider<Object[]> dataProvider
     ) {
@@ -572,7 +573,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private Outbox<?> createSourceFragmentMultiTarget(
             UUID queryId,
-            ClusterNode localNode,
+            InternalClusterNode localNode,
             ClusterServiceFactory serviceFactory,
             DataProvider<Object[]> dataProvider
     ) {
@@ -765,6 +766,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     @Override
     protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
+
+    @Override
+    protected RowFactoryFactory<Object[]> rowFactoryFactory() {
         return ArrayRowHandler.INSTANCE;
     }
 }

@@ -5,30 +5,30 @@ Sort
   Project
       fieldNames: [PREV_YEAR, year, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, PREV_YR_CNT, CURR_YR_CNT, SALES_CNT_DIFF, SALES_AMT_DIFF]
       projection: [D_YEAR$0, D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT$0, SALES_CNT, -(SALES_CNT, SALES_CNT$0), -(SALES_AMT, SALES_AMT$0)]
-      est: (rows=1164251132626172)
+      est: (rows=49404956)
     HashJoin
         predicate: AND(=(I_BRAND_ID, I_BRAND_ID$0), =(I_CLASS_ID, I_CLASS_ID$0), =(I_CATEGORY_ID, I_CATEGORY_ID$0), =(I_MANUFACT_ID, I_MANUFACT_ID$0), <(/(CAST(SALES_CNT):DECIMAL(17, 2), CAST(SALES_CNT$0):DECIMAL(17, 2)), 0.90000000000000000000))
         fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT, D_YEAR$0, I_BRAND_ID$0, I_CLASS_ID$0, I_CATEGORY_ID$0, I_MANUFACT_ID$0, SALES_CNT$0, SALES_AMT$0]
         type: inner
-        est: (rows=1164251132626172)
+        est: (rows=49404956)
       ColocatedHashAggregate
           group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID]
           aggregation: [SUM(SALES_CNT), SUM(SALES_AMT)]
-          est: (rows=2144646975)
+          est: (rows=441792)
         ColocatedHashAggregate
             group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
             aggregation: []
-            est: (rows=2144646975)
+            est: (rows=441792)
           UnionAll
-              est: (rows=2713764677)
+              est: (rows=559029)
             Project
                 fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
                 projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(CS_QUANTITY, CASE(IS NOT NULL(CR_RETURN_QUANTITY), CAST(CR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(CS_EXT_SALES_PRICE, CASE(IS NOT NULL(CR_RETURN_AMOUNT), CAST(CR_RETURN_AMOUNT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
-                est: (rows=518317116)
+                est: (rows=159852)
               HashJoin
                   predicate: AND(=(CS_ORDER_NUMBER, CR_ORDER_NUMBER), =(CS_ITEM_SK, CR_ITEM_SK))
                   type: left
-                  est: (rows=518317116)
+                  est: (rows=159852)
                 HashJoin
                     predicate: =(D_DATE_SK, CS_SOLD_DATE_SK)
                     type: inner
@@ -70,11 +70,11 @@ Sort
             Project
                 fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
                 projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(SS_QUANTITY, CASE(IS NOT NULL(SR_RETURN_QUANTITY), CAST(SR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(SS_EXT_SALES_PRICE, CASE(IS NOT NULL(SR_RETURN_AMT), CAST(SR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
-                est: (rows=2066564696)
+                est: (rows=319405)
               HashJoin
                   predicate: AND(=(SS_TICKET_NUMBER, SR_TICKET_NUMBER), =(SS_ITEM_SK, SR_ITEM_SK))
                   type: left
-                  est: (rows=2066564696)
+                  est: (rows=319405)
                 HashJoin
                     predicate: =(D_DATE_SK, SS_SOLD_DATE_SK)
                     type: inner
@@ -116,11 +116,11 @@ Sort
             Project
                 fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
                 projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(WS_QUANTITY, CASE(IS NOT NULL(WR_RETURN_QUANTITY), CAST(WR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(WS_EXT_SALES_PRICE, CASE(IS NOT NULL(WR_RETURN_AMT), CAST(WR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
-                est: (rows=128882865)
+                est: (rows=79772)
               HashJoin
                   predicate: AND(=(WS_ORDER_NUMBER, WR_ORDER_NUMBER), =(WS_ITEM_SK, WR_ITEM_SK))
                   type: left
-                  est: (rows=128882865)
+                  est: (rows=79772)
                 HashJoin
                     predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
                     type: inner
@@ -162,21 +162,21 @@ Sort
       ColocatedHashAggregate
           group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID]
           aggregation: [SUM(SALES_CNT), SUM(SALES_AMT)]
-          est: (rows=2144646975)
+          est: (rows=441792)
         ColocatedHashAggregate
             group: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
             aggregation: []
-            est: (rows=2144646975)
+            est: (rows=441792)
           UnionAll
-              est: (rows=2713764677)
+              est: (rows=559029)
             Project
                 fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
                 projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(CS_QUANTITY, CASE(IS NOT NULL(CR_RETURN_QUANTITY), CAST(CR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(CS_EXT_SALES_PRICE, CASE(IS NOT NULL(CR_RETURN_AMOUNT), CAST(CR_RETURN_AMOUNT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
-                est: (rows=518317116)
+                est: (rows=159852)
               HashJoin
                   predicate: AND(=(CS_ORDER_NUMBER, CR_ORDER_NUMBER), =(CS_ITEM_SK, CR_ITEM_SK))
                   type: left
-                  est: (rows=518317116)
+                  est: (rows=159852)
                 HashJoin
                     predicate: =(D_DATE_SK, CS_SOLD_DATE_SK)
                     type: inner
@@ -205,7 +205,7 @@ Sort
                       est: (rows=24325)
                     TableScan
                         table: PUBLIC.DATE_DIM
-                        predicate: =(D_YEAR, -(2001, 1))
+                        predicate: =(D_YEAR, 2000)
                         fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=24325)
                 Exchange
@@ -218,11 +218,11 @@ Sort
             Project
                 fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
                 projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(SS_QUANTITY, CASE(IS NOT NULL(SR_RETURN_QUANTITY), CAST(SR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(SS_EXT_SALES_PRICE, CASE(IS NOT NULL(SR_RETURN_AMT), CAST(SR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
-                est: (rows=2066564696)
+                est: (rows=319405)
               HashJoin
                   predicate: AND(=(SS_TICKET_NUMBER, SR_TICKET_NUMBER), =(SS_ITEM_SK, SR_ITEM_SK))
                   type: left
-                  est: (rows=2066564696)
+                  est: (rows=319405)
                 HashJoin
                     predicate: =(D_DATE_SK, SS_SOLD_DATE_SK)
                     type: inner
@@ -251,7 +251,7 @@ Sort
                       est: (rows=24325)
                     TableScan
                         table: PUBLIC.DATE_DIM
-                        predicate: =(D_YEAR, -(2001, 1))
+                        predicate: =(D_YEAR, 2000)
                         fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=24325)
                 Exchange
@@ -264,11 +264,11 @@ Sort
             Project
                 fieldNames: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, SALES_CNT, SALES_AMT]
                 projection: [D_YEAR, I_BRAND_ID, I_CLASS_ID, I_CATEGORY_ID, I_MANUFACT_ID, -(WS_QUANTITY, CASE(IS NOT NULL(WR_RETURN_QUANTITY), CAST(WR_RETURN_QUANTITY):INTEGER NOT NULL, 0)), -(WS_EXT_SALES_PRICE, CASE(IS NOT NULL(WR_RETURN_AMT), CAST(WR_RETURN_AMT):DECIMAL(7, 2) NOT NULL, 0.00:DECIMAL(7, 2)))]
-                est: (rows=128882865)
+                est: (rows=79772)
               HashJoin
                   predicate: AND(=(WS_ORDER_NUMBER, WR_ORDER_NUMBER), =(WS_ITEM_SK, WR_ITEM_SK))
                   type: left
-                  est: (rows=128882865)
+                  est: (rows=79772)
                 HashJoin
                     predicate: =(D_DATE_SK, WS_SOLD_DATE_SK)
                     type: inner
@@ -297,7 +297,7 @@ Sort
                       est: (rows=24325)
                     TableScan
                         table: PUBLIC.DATE_DIM
-                        predicate: =(D_YEAR, -(2001, 1))
+                        predicate: =(D_YEAR, 2000)
                         fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=24325)
                 Exchange

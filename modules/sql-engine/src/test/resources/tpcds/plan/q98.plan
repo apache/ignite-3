@@ -3,7 +3,7 @@ Sort
     est: (rows=368296)
   Project
       fieldNames: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, ITEMREVENUE, REVENUERATIO]
-      projection: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, ITEMREVENUE, /(*(ITEMREVENUE, 100), CASE(>(COUNT(ITEMREVENUE) OVER (PARTITION BY I_CLASS), 0), CAST(SUM(ITEMREVENUE) OVER (PARTITION BY I_CLASS)):DECIMAL(32767, 2), null:DECIMAL(32767, 2)))]
+      projection: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, ITEMREVENUE, /(*(ITEMREVENUE, 100), CASE(>(COUNT(ITEMREVENUE) OVER (PARTITION BY I_CLASS), 0), CAST(SUM(ITEMREVENUE) OVER (PARTITION BY I_CLASS)):DECIMAL(28, 2), null:DECIMAL(28, 2)))]
       est: (rows=368296)
     ColocatedHashAggregate
         fieldNames: [I_ITEM_ID, I_ITEM_DESC, I_CATEGORY, I_CLASS, I_CURRENT_PRICE, ITEMREVENUE]
@@ -34,7 +34,7 @@ Sort
                 est: (rows=18262)
               TableScan
                   table: PUBLIC.DATE_DIM
-                  predicate: AND(>=(D_DATE, 2002-01-05), <=(D_DATE, +(2002-01-05, *(30, 86400000:INTERVAL DAY))))
+                  predicate: SEARCH(D_DATE, Sarg[[2002-01-05..2002-02-04]])
                   fieldNames: [D_DATE_SK, D_DATE]
                   est: (rows=18262)
           Exchange

@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
@@ -36,10 +39,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.configuration.NodeChange;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestExtensionChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ClusterNotInitializedException;
 import org.apache.ignite.lang.NodeStartException;
 import org.junit.jupiter.api.AfterEach;
@@ -53,10 +62,19 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * IgniteServer interface tests.
  */
+@SuppressWarnings("ThrowableNotThrown")
 @ExtendWith(WorkDirectoryExtension.class)
 class ItIgniteServerTest extends BaseIgniteAbstractTest {
-    /** Network ports of the test nodes. */
-    private static final int[] PORTS = {3344, 3345, 3346};
+    private static final String NODE_CONFIGURATION_TEMPLATE = "ignite {\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false,\n"
+            + "  storage.profiles.default {engine: aipersist, sizeBytes: " + 256 * MiB + "}\n"
+            + "}";
 
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
@@ -72,54 +90,13 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
      */
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        String node0Name = testNodeName(testInfo, PORTS[0]);
-        String node1Name = testNodeName(testInfo, PORTS[1]);
-        String node2Name = testNodeName(testInfo, PORTS[2]);
-
-        nodesBootstrapCfg.put(
-                node0Name,
-                "ignite {\n"
-                        + "  network: {\n"
-                        + "    port: " + PORTS[0] + ",\n"
-                        + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "    }\n"
-                        + "  },\n"
-                        + "  clientConnector.port: 10800,\n"
-                        + "  rest.port: 10300,\n"
-                        + "  failureHandler.dumpThreadsOnFailure: false\n"
-                        + "}"
-        );
-
-        nodesBootstrapCfg.put(
-                node1Name,
-                "ignite {\n"
-                        + "  network: {\n"
-                        + "    port: " + PORTS[1] + ",\n"
-                        + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "    }\n"
-                        + "  },\n"
-                        + "  clientConnector.port: 10801,\n"
-                        + "  rest.port: 10301,\n"
-                        + "  failureHandler.dumpThreadsOnFailure: false\n"
-                        + "}"
-        );
-
-        nodesBootstrapCfg.put(
-                node2Name,
-                "ignite {\n"
-                        + "  network: {\n"
-                        + "    port: " + PORTS[2] + ",\n"
-                        + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "    }\n"
-                        + "  },\n"
-                        + "  clientConnector.port: 10802,\n"
-                        + "  rest.port: 10302,\n"
-                        + "  failureHandler.dumpThreadsOnFailure: false\n"
-                        + "}"
-        );
+        for (int i = 0; i < 3; i++) {
+            int port = 3344 + i;
+            nodesBootstrapCfg.put(
+                    testNodeName(testInfo, port),
+                    format(NODE_CONFIGURATION_TEMPLATE, port, 10800 + i, 10300 + i)
+            );
+        }
     }
 
     /**
@@ -150,7 +127,7 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Check that EmbeddedNode.start() with bootstrap configuration returns a node and its api() method returns Ignite instance after init.
+     * Check that IgniteServer.start() with bootstrap configuration returns a node and its api() method returns Ignite instance after init.
      */
     @Test
     void testNodesStartWithBootstrapConfigurationInitializedCluster() {
@@ -171,12 +148,30 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         assertThat(igniteServer.api(), notNullValue());
 
         startedIgniteServers.forEach(node -> {
-            if (node != igniteServer) {
-                assertThrowsWithCause(node::api, ClusterNotInitializedException.class, "Cluster is not initialized.");
-            }
             assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
             assertThat(node.api(), notNullValue());
         });
+    }
+
+    /**
+     * Check that cluster can be initialized even if nodes in the metastorage group doesn't call waitForInitAsync.
+     */
+    @Test
+    void testClusterInitWithoutWait() {
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startAndRegisterNode(e.getKey(), name -> startNode(name, e.getValue()));
+        }
+
+        assertThat(startedIgniteServers, hasSize(3));
+
+        IgniteServer igniteServer = startedIgniteServers.get(0);
+
+        // Initialize the cluster with all nodes in the metastorage group
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(startedIgniteServers)
+                .clusterName("cluster")
+                .build();
+        assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
     }
 
     /**
@@ -208,55 +203,107 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
         assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
     }
 
+    @Test
+    void startWithConfigStringIsReadOnly() {
+        // Start a single node
+        Map.Entry<String, String> firstNode = nodesBootstrapCfg.entrySet().stream().findFirst().orElseThrow();
+        startAndRegisterNode(firstNode.getKey(), name -> startNode(name, firstNode.getValue(), StartKind.START_STRING_CONFIG));
+
+        // Initialize cluster
+        IgniteServer igniteServer = startedIgniteServers.get(0);
+        InitParameters initParameters = InitParameters.builder().clusterName("cluster").build();
+        assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
+
+        IgniteImpl igniteImpl = Wrappers.unwrap(igniteServer.api(), IgniteImpl.class);
+
+        // Try to change node configuration
+        CompletableFuture<Void> changeFuture = igniteImpl.nodeConfiguration().change(superRootChange -> {
+            NodeChange nodeChange = superRootChange.changeRoot(NodeConfiguration.KEY);
+            ((RestExtensionChange) nodeChange).changeRest().changePort(10400);
+        });
+
+        assertThat(changeFuture, willThrow(ConfigurationChangeException.class));
+    }
+
     private void startAndRegisterNode(String nodeName, Function<String, IgniteServer> starter) {
         startedIgniteServers.add(starter.apply(nodeName));
     }
 
     private IgniteServer startNode(String name, String config) {
-        return startNode(name, config, IgniteServer::start);
+        return startNode(name, config, StartKind.START_FILE_CONFIG);
     }
 
     private IgniteServer startNode(String name, String config, Starter starter) {
-        Path nodeWorkDir = workDir.resolve(name);
+        return starter.start(name, config, workDir.resolve(name));
+    }
+
+    private static Path writeConfig(Path nodeWorkDir, String config) {
         Path configPath = nodeWorkDir.resolve("ignite-config.conf");
         try {
             Files.createDirectories(nodeWorkDir);
-            Files.writeString(configPath, config);
+            return Files.writeString(configPath, config);
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
-        return starter.start(name, configPath, nodeWorkDir);
     }
 
     @FunctionalInterface
     private interface Starter {
-        IgniteServer start(String name, Path config, Path workDir);
+        IgniteServer start(String name, String config, Path workDir);
     }
 
     enum StartKind implements Starter {
-        START {
+        START_FILE_CONFIG {
             @Override
-            public IgniteServer start(String name, Path config, Path workDir) {
+            public IgniteServer start(String name, String config, Path workDir) {
+                return IgniteServer.start(name, writeConfig(workDir, config), workDir);
+            }
+        },
+        START_ASYNC_JOIN_FILE_CONFIG {
+            @Override
+            public IgniteServer start(String name, String config, Path workDir) {
+                return interruptibleJoin(IgniteServer.startAsync(name, writeConfig(workDir, config), workDir));
+            }
+        },
+        BUILD_START_FILE_CONFIG {
+            @Override
+            public IgniteServer start(String name, String config, Path workDir) {
+                IgniteServer server = IgniteServer.builder(name, writeConfig(workDir, config), workDir).build();
+                server.start();
+                return server;
+            }
+        },
+        BUILD_START_ASYNC_JOIN_FILE_CONFIG {
+            @Override
+            public IgniteServer start(String name, String config, Path workDir) {
+                IgniteServer server = IgniteServer.builder(name, writeConfig(workDir, config), workDir).build();
+                interruptibleJoin(server.startAsync());
+                return server;
+            }
+        },
+        START_STRING_CONFIG {
+            @Override
+            public IgniteServer start(String name, String config, Path workDir) {
                 return IgniteServer.start(name, config, workDir);
             }
         },
-        START_ASYNC_JOIN {
+        START_ASYNC_JOIN_STRING_CONFIG {
             @Override
-            public IgniteServer start(String name, Path config, Path workDir) {
+            public IgniteServer start(String name, String config, Path workDir) {
                 return interruptibleJoin(IgniteServer.startAsync(name, config, workDir));
             }
         },
-        BUILD_START {
+        BUILD_START_STRING_CONFIG {
             @Override
-            public IgniteServer start(String name, Path config, Path workDir) {
+            public IgniteServer start(String name, String config, Path workDir) {
                 IgniteServer server = IgniteServer.builder(name, config, workDir).build();
                 server.start();
                 return server;
             }
         },
-        BUILD_START_ASYNC_JOIN {
+        BUILD_START_ASYNC_JOIN_STRING_CONFIG {
             @Override
-            public IgniteServer start(String name, Path config, Path workDir) {
+            public IgniteServer start(String name, String config, Path workDir) {
                 IgniteServer server = IgniteServer.builder(name, config, workDir).build();
                 interruptibleJoin(server.startAsync());
                 return server;

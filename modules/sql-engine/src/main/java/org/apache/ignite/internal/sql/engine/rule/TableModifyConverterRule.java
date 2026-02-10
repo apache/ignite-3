@@ -114,8 +114,10 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         RelDataType rowCountType = modifiedRowsField.getType();
         RelDataType sumType = IgniteTypeSystem.INSTANCE.deriveSumType(typeFactory, rowCountType);
 
-        AggregateCall sum = AggregateCall.create(SqlStdOperatorTable.SUM0, false, false,
-                false, ImmutableList.of(0), -1, null, RelCollations.EMPTY, 0, tableModify,
+        AggregateCall sum = AggregateCall.create(SqlStdOperatorTable.SUM0,
+                false, false, false,
+                ImmutableList.of(), ImmutableList.of(0), -1,
+                null, RelCollations.EMPTY,
                 sumType, null);
 
         IgniteColocatedHashAggregate sumAgg = new IgniteColocatedHashAggregate(

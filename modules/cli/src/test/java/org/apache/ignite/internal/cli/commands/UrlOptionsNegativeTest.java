@@ -20,9 +20,12 @@ package org.apache.ignite.internal.cli.commands;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.mockito.Mockito.mock;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Replaces;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.IOException;
@@ -70,8 +73,9 @@ import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListCommand;
 import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListReplCommand;
+import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeAll;
@@ -88,7 +92,7 @@ import picocli.CommandLine;
  */
 @MicronautTest
 @ExtendWith(WorkDirectoryExtension.class)
-public class UrlOptionsNegativeTest {
+public class UrlOptionsNegativeTest extends BaseIgniteAbstractTest {
     private static final String NODE_URL = "http://localhost:10300";
 
     private static final String NODE_URL_OPTION = "--url=";
@@ -106,9 +110,6 @@ public class UrlOptionsNegativeTest {
 
     @Inject
     TestConfigManagerProvider configManagerProvider;
-
-    @Inject
-    NodeNameRegistry nodeNameRegistry;
 
     @WorkDirectory
     protected static Path WORK_DIR;
@@ -139,7 +140,7 @@ public class UrlOptionsNegativeTest {
         exitCode = cmd.execute(options.toArray(new String[0]));
     }
 
-    static List<Arguments> cmdClassAndOptionsProvider() {
+    private static List<Arguments> cmdClassAndOptionsProvider() {
         return List.of(
                 arguments(NodeConfigShowCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeConfigUpdateCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
@@ -165,7 +166,7 @@ public class UrlOptionsNegativeTest {
         );
     }
 
-    static List<Arguments> cmdReplClassAndOptionsProvider() {
+    private static List<Arguments> cmdReplClassAndOptionsProvider() {
         return List.of(
                 arguments(NodeConfigShowReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeConfigUpdateReplCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
@@ -229,7 +230,6 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertExitCodeIsFailure,
-                this::assertOutputIsEmpty,
                 () -> assertErrOutputIs(
                         "Unknown host: http://no-such-host.com" + System.lineSeparator())
         );
@@ -243,7 +243,6 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertExitCodeIsFailure,
-                this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
                         + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
         );
@@ -283,10 +282,7 @@ public class UrlOptionsNegativeTest {
     void invalidUrlRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, "http://no-such-host.com", additionalOptions);
 
-        assertAll(
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Unknown host: http://no-such-host.com" + System.lineSeparator())
-        );
+        assertErrOutputIs("Unknown host: http://no-such-host.com" + System.lineSeparator());
     }
 
     @ParameterizedTest
@@ -295,11 +291,8 @@ public class UrlOptionsNegativeTest {
     void connectErrorRepl(Class<?> cmdClass, String urlOptionName, List<String> additionalOptions) {
         execute(cmdClass, urlOptionName, NODE_URL, additionalOptions);
 
-        assertAll(
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
-                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator())
-        );
+        assertErrOutputIs("Node unavailable" + System.lineSeparator()
+                        + "Could not connect to node with URL " + NODE_URL + System.lineSeparator());
     }
 
     @Test
@@ -344,4 +337,9 @@ public class UrlOptionsNegativeTest {
                 .contains(expectedErrOutput);
     }
 
+    @Bean
+    @Replaces(ConnectionHeartBeat.class)
+    public static ConnectionHeartBeat connectionHeartBeat() {
+        return mock(ConnectionHeartBeat.class);
+    }
 }

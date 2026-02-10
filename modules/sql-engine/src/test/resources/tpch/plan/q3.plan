@@ -27,7 +27,7 @@ Sort
                 index: L_SD
                 type: SORTED
                 predicate: >(L_SHIPDATE, 1995-03-15)
-                searchBounds: [RangeBounds [lowerBound=1995-03-15, upperBound=null:DATE, lowerInclude=false, upperInclude=false]]
+                searchBounds: (<1995-03-15>..<null:DATE>)
                 fieldNames: [L_ORDERKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_SHIPDATE]
                 collation: [L_SHIPDATE ASC]
                 est: (rows=3000608)
@@ -43,7 +43,7 @@ Sort
                   index: O_OD
                   type: SORTED
                   predicate: <(O_ORDERDATE, 1995-03-15)
-                  searchBounds: [RangeBounds [lowerBound=null, upperBound=1995-03-15, lowerInclude=true, upperInclude=false]]
+                  searchBounds: [..<1995-03-15>)
                   fieldNames: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE, O_SHIPPRIORITY]
                   collation: [O_ORDERDATE ASC]
                   est: (rows=750000)

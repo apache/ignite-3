@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -45,32 +45,36 @@ class SearchBoundsImplementor {
      * @param indexKeyType The type of the index key.
      * @param comparator Optional comparator to sort resulting ranges in order to provide result matching index collation.
      * @param rowProviderImplementor The function to use to implement every single bound within a compound bounds.
-     * @param <RowT> The type of the execution row.
      * @return An implementation of scalar.
      * @see SqlScalar
      */
-    <RowT> SqlScalar<RowT, RangeIterable<RowT>> implement(
+    SqlRangeConditionsProvider implement(
             List<SearchBounds> searchBounds,
             RelDataType indexKeyType,
-            @Nullable SqlComparator<RowT> comparator,
-            Function<List<RexNode>, SqlRowProvider<RowT>> rowProviderImplementor
+            @Nullable SqlComparator comparator,
+            Function<List<RexNode>, SqlRowProvider> rowProviderImplementor,
+            Function<RexNode, SqlScalar<Boolean>> scalarImplementor
     ) {
-        return context -> {
-            List<RangeCondition<RowT>> ranges = new ArrayList<>();
+        return new SqlRangeConditionsProvider() {
+            @Override
+            public <RowT> RangeIterable<RowT> get(SqlEvaluationContext<RowT> context) {
+                List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
-            expandBounds(
-                    rowProviderImplementor,
-                    context,
-                    ranges,
-                    searchBounds,
-                    0,
-                    Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
-                    Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
-                    true,
-                    true
-            );
+                expandBounds(
+                        rowProviderImplementor,
+                        scalarImplementor,
+                        context,
+                        ranges,
+                        searchBounds,
+                        0,
+                        Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
+                        Arrays.asList(new RexNode[indexKeyType.getFieldCount()]),
+                        true,
+                        true
+                );
 
-            return new RangeIterableImpl<>(context, ranges, comparator);
+                return new RangeIterableImpl<>(context, ranges, comparator);
+            }
         };
     }
 
@@ -104,8 +108,9 @@ class SearchBoundsImplementor {
      * @param upperInclude Include current upper row.
      */
     private <RowT> void expandBounds(
-            Function<List<RexNode>, SqlRowProvider<RowT>> rowProviderFunction,
-            ExecutionContext<RowT> context,
+            Function<List<RexNode>, SqlRowProvider> rowProviderFunction,
+            Function<RexNode, SqlScalar<Boolean>> scalarImplementor,
+            SqlEvaluationContext<RowT> context,
             List<RangeCondition<RowT>> ranges,
             List<SearchBounds> searchBounds,
             int fieldIdx,
@@ -142,8 +147,8 @@ class SearchBoundsImplementor {
         for (SearchBounds fieldSingleBounds : fieldMultiBounds) {
             RexNode fieldLowerBound;
             RexNode fieldUpperBound;
-            boolean fieldLowerInclude;
-            boolean fieldUpperInclude;
+            boolean fieldLowerInclude = lowerInclude;
+            boolean fieldUpperInclude = upperInclude;
 
             if (fieldSingleBounds instanceof ExactBounds) {
                 fieldLowerBound = fieldUpperBound = ((ExactBounds) fieldSingleBounds).bound();
@@ -151,10 +156,19 @@ class SearchBoundsImplementor {
             } else if (fieldSingleBounds instanceof RangeBounds) {
                 RangeBounds fieldRangeBounds = (RangeBounds) fieldSingleBounds;
 
-                fieldLowerBound = fieldRangeBounds.lowerBound();
-                fieldUpperBound = fieldRangeBounds.upperBound();
-                fieldLowerInclude = fieldRangeBounds.lowerInclude();
-                fieldUpperInclude = fieldRangeBounds.upperInclude();
+                fieldLowerBound = deriveBound(
+                        scalarImplementor, context, fieldRangeBounds, true
+                );
+                if (fieldLowerBound != null) {
+                    fieldLowerInclude = fieldRangeBounds.lowerInclude();
+                }
+
+                fieldUpperBound = deriveBound(
+                        scalarImplementor, context, fieldRangeBounds, false
+                );
+                if (fieldUpperBound != null) {
+                    fieldUpperInclude = fieldRangeBounds.upperInclude();
+                }
             } else {
                 throw new IllegalStateException("Unexpected bounds: " + fieldSingleBounds);
             }
@@ -169,6 +183,7 @@ class SearchBoundsImplementor {
 
             expandBounds(
                     rowProviderFunction,
+                    scalarImplementor,
                     context,
                     ranges,
                     searchBounds,
@@ -184,15 +199,14 @@ class SearchBoundsImplementor {
         curUpper.set(fieldIdx, null);
     }
 
-
     private static class RangeConditionImpl<RowT> implements RangeCondition<RowT> {
-        private final ExecutionContext<RowT> context;
+        private final SqlEvaluationContext<RowT> context;
 
         /** Lower bound expression. */
-        private final @Nullable SqlRowProvider<RowT> lowerBound;
+        private final @Nullable SqlRowProvider lowerBound;
 
         /** Upper bound expression. */
-        private final @Nullable SqlRowProvider<RowT> upperBound;
+        private final @Nullable SqlRowProvider upperBound;
 
         /** Inclusive lower bound flag. */
         private final boolean lowerInclude;
@@ -207,9 +221,9 @@ class SearchBoundsImplementor {
         private @Nullable RowT upperRow;
 
         private RangeConditionImpl(
-                ExecutionContext<RowT> context,
-                @Nullable SqlRowProvider<RowT> lowerScalar,
-                @Nullable SqlRowProvider<RowT> upperScalar,
+                SqlEvaluationContext<RowT> context,
+                @Nullable SqlRowProvider lowerScalar,
+                @Nullable SqlRowProvider upperScalar,
                 boolean lowerInclude,
                 boolean upperInclude
         ) {
@@ -260,18 +274,17 @@ class SearchBoundsImplementor {
     }
 
     private static class RangeIterableImpl<RowT> implements RangeIterable<RowT> {
-        private final ExecutionContext<RowT> context;
-        private final @Nullable SqlComparator<RowT> comparator;
+        private final SqlEvaluationContext<RowT> context;
+        private final @Nullable SqlComparator comparator;
 
         private List<RangeCondition<RowT>> ranges;
-
 
         private boolean sorted;
 
         RangeIterableImpl(
-                ExecutionContext<RowT> context,
+                SqlEvaluationContext<RowT> context,
                 List<RangeCondition<RowT>> ranges,
-                @Nullable SqlComparator<RowT> comparator
+                @Nullable SqlComparator comparator
         ) {
             this.context = context;
             this.ranges = ranges;
@@ -385,7 +398,7 @@ class SearchBoundsImplementor {
                 return null;
             }
 
-            SqlRowProvider<RowT> newLowerBound;
+            SqlRowProvider newLowerBound;
             RowT newLowerRow;
             boolean newLowerInclude;
 
@@ -401,7 +414,7 @@ class SearchBoundsImplementor {
                 newLowerInclude = second.lowerInclude();
             }
 
-            SqlRowProvider<RowT> newUpperBound;
+            SqlRowProvider newUpperBound;
             RowT newUpperRow;
             boolean newUpperInclude;
 
@@ -425,5 +438,36 @@ class SearchBoundsImplementor {
 
             return newRangeCondition;
         }
+    }
+
+    private static <RowT> @Nullable RexNode deriveBound(
+            Function<RexNode, SqlScalar<Boolean>> scalarImplementor,
+            SqlEvaluationContext<RowT> context,
+            RangeBounds bounds,
+            boolean lower
+    ) {
+        RexNode shouldComputeExpression;
+        RexNode bound;
+        if (lower) {
+            shouldComputeExpression = bounds.shouldComputeLower();
+            bound = bounds.lowerBound();
+        } else {
+            shouldComputeExpression = bounds.shouldComputeUpper();
+            bound = bounds.upperBound();
+        }
+
+        if (shouldComputeExpression == null) {
+            return null;
+        }
+
+        boolean shouldCompute = shouldComputeExpression.isAlwaysTrue();
+
+        if (!shouldCompute) {
+            SqlScalar<Boolean> scalar = scalarImplementor.apply(shouldComputeExpression);
+
+            shouldCompute = scalar.get(context) == Boolean.TRUE;
+        }
+
+        return shouldCompute ? bound : null;
     }
 }

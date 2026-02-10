@@ -18,20 +18,28 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
 import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -55,8 +63,11 @@ import org.rocksdb.CompressionType;
 import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
 import org.rocksdb.Priority;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
+import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 import org.rocksdb.util.SizeUnit;
@@ -64,6 +75,10 @@ import org.rocksdb.util.SizeUnit;
 /** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
+
+    static final byte[] FINISHED_META_MIGRATION_META_KEY = {0};
+
+    static final byte[] STORAGE_CREATED_META_PREFIX = {1};
 
     /** Name of the log factory, will be used in logs. */
     private final String factoryName;
@@ -85,6 +100,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** Write options to use in writes to database. */
     private WriteOptions writeOptions;
+
+    private ColumnFamilyHandle metaHandle;
 
     /** Configuration column family handle. */
     private ColumnFamilyHandle confHandle;
@@ -166,6 +183,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         this.flushListener = new LoggingRocksDbFlushListener(factoryName, nodeName);
 
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
+                // Column family to store metadata.
+                new ColumnFamilyDescriptor("Meta".getBytes(UTF_8), cfOption),
                 // Column family to store configuration log entry.
                 new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8), cfOption),
                 // Default column family to store user data log entry.
@@ -185,14 +204,22 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             // Setup background compactions pool
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
-            assert (columnFamilyHandles.size() == 2);
-            this.confHandle = columnFamilyHandles.get(0);
-            this.dataHandle = columnFamilyHandles.get(1);
+            assert (columnFamilyHandles.size() == 3);
+            this.metaHandle = columnFamilyHandles.get(0);
+            this.confHandle = columnFamilyHandles.get(1);
+            this.dataHandle = columnFamilyHandles.get(2);
+
+            MetadataMigration metadataMigration = metadataMigration();
+            metadataMigration.migrateIfNeeded();
         } catch (Exception e) {
             closeRocksResources();
 
             throw e;
         }
+    }
+
+    MetadataMigration metadataMigration() {
+        return new MetadataMigration(db, writeOptions, metaHandle, confHandle, dataHandle);
     }
 
     @Override
@@ -226,29 +253,31 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
         // raftOptions is ignored as fsync status is passed via dbOptions.
 
-        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, raftNodeStorageId, writeOptions, executorService);
+        return new RocksDbSharedLogStorage(this, db, metaHandle, confHandle, dataHandle, raftNodeStorageId, writeOptions, executorService);
     }
 
     @Override
     public void destroyLogStorage(String uri) {
-        try {
+        try (WriteBatch writeBatch = new WriteBatch()) {
             RocksDbSharedLogStorage.destroyAllEntriesBetween(
-                    db,
+                    writeBatch,
                     confHandle,
                     dataHandle,
                     raftNodeStorageStartPrefix(uri),
                     raftNodeStorageEndPrefix(uri)
             );
+
+            writeBatch.delete(metaHandle, RocksDbSharedLogStorage.storageCreatedKey(uri));
+
+            db.write(this.writeOptions, writeBatch);
         } catch (RocksDBException e) {
             throw new LogStorageException("Fail to destroy the log storage for " + uri, e);
         }
     }
 
     @Override
-    public void sync() throws RocksDBException {
-        if (!dbOptions.useFsync()) {
-            db.syncWal();
-        }
+    public LogSyncer logSyncer() {
+        return fsync ? new NoOpLogSyncer() : () -> db.syncWal();
     }
 
     /**
@@ -338,5 +367,60 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         }
 
         return opts;
+    }
+
+    @Override
+    public Set<String> raftNodeStorageIdsOnDisk() {
+        var groupIdsForStorage = new HashSet<String>();
+
+        try (
+                Slice upperBoundSlice = new Slice(incrementPrefix(STORAGE_CREATED_META_PREFIX));
+                ReadOptions readOptions = new ReadOptions().setIterateUpperBound(upperBoundSlice);
+                RocksIterator iterator = db.newIterator(metaHandle, readOptions)
+        ) {
+            iterator.seek(STORAGE_CREATED_META_PREFIX);
+
+            while (iterator.isValid()) {
+                byte[] key = iterator.key();
+
+                String idForStorage = new String(
+                        key,
+                        STORAGE_CREATED_META_PREFIX.length,
+                        key.length - STORAGE_CREATED_META_PREFIX.length,
+                        UTF_8
+                );
+                groupIdsForStorage.add(idForStorage);
+
+                iterator.next();
+            }
+
+            // Doing this to make an exception thrown if the iteration was stopped due to an error and not due to exhausting
+            // the iteration space.
+            iterator.status();
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "Cannot get group storage IDs", e);
+        }
+
+        return unmodifiableSet(groupIdsForStorage);
+    }
+
+    @TestOnly
+    RocksDB db() {
+        return db;
+    }
+
+    @TestOnly
+    ColumnFamilyHandle metaColumnFamilyHandle() {
+        return metaHandle;
+    }
+
+    @TestOnly
+    ColumnFamilyHandle confColumnFamilyHandle() {
+        return confHandle;
+    }
+
+    @TestOnly
+    ColumnFamilyHandle dataColumnFamilyHandle() {
+        return dataHandle;
     }
 }

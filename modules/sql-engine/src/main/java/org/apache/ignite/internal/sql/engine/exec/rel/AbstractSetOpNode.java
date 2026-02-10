@@ -27,9 +27,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 
@@ -129,7 +129,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Downstream<RowT> requestDownstream(int idx) {
-        return new Downstream<RowT>() {
+        return new Downstream<>() {
             @Override
             public void push(RowT row) throws Exception {
                 AbstractSetOpNode.this.push(row, idx);
@@ -212,7 +212,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         private final int columnCnt;
 
         protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnCnt, AggregateType type, boolean all) {
-            hnd = ctx.rowHandler();
+            hnd = ctx.rowAccessor();
             this.columnCnt = columnCnt;
             this.type = type;
             this.all = all;
@@ -264,7 +264,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         }
 
         protected GroupKey createKey(RowT row) {
-            int size = hnd.columnCount(row);
+            int size = hnd.columnsCount(row);
 
             Object[] fields = new Object[size];
 

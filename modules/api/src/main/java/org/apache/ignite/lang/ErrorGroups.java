@@ -202,6 +202,9 @@ public class ErrorGroups {
          **/
         public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** This error code indicates that a node is attempting to start over an unsupported table based replication mode. */
+        public static final int UNSUPPORTED_TABLE_BASED_REPLICATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 10);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
          * should be considered as a non-recoverable error
@@ -276,6 +279,12 @@ public class ErrorGroups {
 
         /** Server to client request failed. */
         public static final int SERVER_TO_CLIENT_REQUEST_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
+
+        /** Resource not found. */
+        public static final int RESOURCE_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Client operation timeout. */
+        public static final int OPERATION_TIMEOUT_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** SQL error group. */
@@ -447,6 +456,9 @@ public class ErrorGroups {
 
         /** Operation failed because the transaction is already finished with timeout. */
         public static final int TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR = TX_ERR_GROUP.registerErrorCode((short) 16);
+
+        /** Operation failed due to replication delayed ack failure. */
+        public static final int TX_DELAYED_ACK_ERR = TX_ERR_GROUP.registerErrorCode((short) 17);
     }
 
     /** Replicator error group. */
@@ -481,6 +493,12 @@ public class ErrorGroups {
 
         /** Replication group overloaded exception code. */
         public static final int GROUP_OVERLOADED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
+
+        /** Replication group unavailable exception code. */
+        public static final int GROUP_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Replica is absent on the node and the node is not in assignments for this replica. */
+        public static final int REPLICA_ABSENT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** Storage error group. */
@@ -504,6 +522,9 @@ public class ErrorGroups {
 
         /** Distribution zone was not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Empty data nodes. */
+        public static final int EMPTY_DATA_NODES_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Network error group. */
@@ -515,8 +536,8 @@ public class ErrorGroups {
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 1);
 
-        /** Port is in use. */
-        public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+        /** Address or port bind error. */
+        public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
         /** File transfer error. */
         public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
@@ -529,6 +550,10 @@ public class ErrorGroups {
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Alias for BIND_ERROR. This was the old name, now deprecated. */
+        @Deprecated
+        public static final int PORT_IN_USE_ERR = BIND_ERR;
     }
 
     /** Node configuration error group. */
@@ -548,6 +573,9 @@ public class ErrorGroups {
 
         /** Config parse error. */
         public static final int CONFIG_PARSE_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Join denied error. */
+        public static final int JOIN_DENIED_ERR = NODE_CONFIGURATION_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Code deployment error group. */
@@ -567,6 +595,15 @@ public class ErrorGroups {
 
         /** Deployment unit is unavailable for computing. */
         public static final int UNIT_UNAVAILABLE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Deployment unit zip deploy error. */
+        public static final int UNIT_ZIP_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Deployment unit write to fs error. */
+        public static final int UNIT_WRITE_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Duplicate filenames in the unit content. */
+        public static final int UNIT_NON_UNIQUE_FILENAMES_ERR = CODE_DEPLOYMENT_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /**
@@ -678,6 +715,9 @@ public class ErrorGroups {
 
         /** Primary replica await error. */
         public static final int PRIMARY_REPLICA_AWAIT_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Error that occurs if there are no assignments for a group. */
+        public static final int EMPTY_ASSIGNMENTS_ERR = PLACEMENT_DRIVER_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /** Critical workers error group. */
@@ -710,6 +750,18 @@ public class ErrorGroups {
 
         /** Error while returning partition states. */
         public static final int CLUSTER_NOT_IDLE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Error when not enough alive nodes to perform restart with clean up. */
+        public static final int NOT_ENOUGH_ALIVE_NODES_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Error when node names are not in valid set. */
+        public static final int ILLEGAL_NODES_SET_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Error when forwarding disaster recovery request to another node failed. */
+        public static final int REQUEST_FORWARD_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Error when multi node operation fails on any node. */
+        public static final int REMOTE_NODE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Embedded API error group. */
@@ -755,5 +807,20 @@ public class ErrorGroups {
 
         /** Cluster has not yet been initialized or the node is in the process of stopping. */
         public static final int CLUSTER_NOT_INIT_ERR = REST_ERR_GROUP.registerErrorCode((short) 1);
+    }
+
+    /** Configuration error group. */
+    @ErrorCodeGroup
+    public static class CommonConfiguration {
+        public static final ErrorGroup COMMON_CONF_ERR_GROUP = registerGroup("COMMONCFG", (short) 24);
+
+        /** Configuration apply failed. */
+        public static final int CONFIGURATION_APPLY_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Configuration parse error. */
+        public static final int CONFIGURATION_PARSE_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Configuration validation error. */
+        public static final int CONFIGURATION_VALIDATION_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 3);
     }
 }

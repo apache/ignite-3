@@ -126,6 +126,13 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         }
     }
 
+    @Override
+    public Set<String> raftNodeStorageIdsOnDisk() {
+        // This is a volatile storage; the storage is destroyed as a whole on startup, so nothing can remain on disk to the moment
+        // when this method is called.
+        return Set.of();
+    }
+
     private LogStorageBudget createLogStorageBudget() {
         return newBudget(logStorageBudgetConfig);
     }
@@ -139,10 +146,5 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         }
 
         return factory.create(logStorageBudgetConfig);
-    }
-
-    @Override
-    public void sync() {
-        // No-op.
     }
 }

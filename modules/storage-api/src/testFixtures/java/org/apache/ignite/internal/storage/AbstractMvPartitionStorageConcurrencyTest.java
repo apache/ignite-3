@@ -51,6 +51,146 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
     private final UUID txId = newTransactionId();
 
     @Test
+    void testAddAndAbortSameRow() {
+        for (int i = 0; i < REPEATS; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(rowId, TABLE_ROW, newTransactionId()),
+                    () -> abortWrite(rowId, txId)
+            );
+        }
+    }
+
+    @Test
+    void testAddAndAbortAnotherRow() {
+        for (int i = 0; i < REPEATS; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+            RowId anotherRowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(anotherRowId, TABLE_ROW, newTransactionId()),
+                    () -> abortWrite(rowId, txId)
+            );
+        }
+    }
+
+    @Test
+    void testAddAndCommitSameRow() {
+        for (int i = 0; i < REPEATS; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(rowId, TABLE_ROW, newTransactionId()),
+                    () -> commitWrite(rowId, clock.now(), txId)
+            );
+        }
+    }
+
+    @Test
+    void testAddAndCommitAnotherRow() {
+        for (int i = 0; i < REPEATS; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+            RowId anotherRowId = new RowId(PARTITION_ID);
+
+            addWrite(rowId, TABLE_ROW, txId);
+
+            runRace(
+                    () -> addWrite(anotherRowId, TABLE_ROW, newTransactionId()),
+                    () -> commitWrite(rowId, clock.now(), txId)
+            );
+        }
+    }
+
+    @Test
+    void testMixedAddCommitAborts() {
+        runRace(
+                this::makeManySimpleCommittedTransactions,
+                this::makeManySimpleCommittedTransactions,
+                this::makeManySimpleAbortedTransactions,
+                this::makeManySimpleAbortedTransactions
+        );
+    }
+
+    @Test
+    void testMixedAddCommitAbortsWithWriteIntentReplacement() {
+        runRace(
+                this::makeManyCommittedTransactionsWithWriteIntentReplacement,
+                this::makeManyCommittedTransactionsWithWriteIntentReplacement,
+                this::makeManyAbortedTransactionsWithWriteIntentReplacement,
+                this::makeManyAbortedTransactionsWithWriteIntentReplacement
+        );
+    }
+
+    private void makeManySimpleCommittedTransactions() {
+        makeManyTransactions(true, false);
+    }
+
+    private void makeManySimpleAbortedTransactions() {
+        makeManyTransactions(false, false);
+    }
+
+    private void makeManyCommittedTransactionsWithWriteIntentReplacement() {
+        makeManyTransactions(true, true);
+    }
+
+    private void makeManyAbortedTransactionsWithWriteIntentReplacement() {
+        makeManyTransactions(false, true);
+    }
+
+    private void makeManyTransactions(boolean commit, boolean doWriteIntentReplacement) {
+        for (int i = 0; i < 1000; i++) {
+            addFewWritesAndFinish(commit, doWriteIntentReplacement);
+        }
+    }
+
+    private void addFewWritesAndFinish(boolean commit, boolean doWriteIntentReplacement) {
+        RowId rowId = new RowId(PARTITION_ID);
+        RowId rowId2 = new RowId(PARTITION_ID);
+        UUID txId = newTransactionId();
+
+        addWrite(rowId, TABLE_ROW, txId);
+        if (doWriteIntentReplacement) {
+            addWrite(rowId, TABLE_ROW, txId);
+        }
+        addWrite(rowId2, TABLE_ROW, txId);
+
+        if (commit) {
+            HybridTimestamp commitTs = clock.now();
+
+            commitWrite(rowId, commitTs, txId);
+            commitWrite(rowId2, commitTs, txId);
+        } else {
+            abortWrite(rowId, txId);
+            abortWrite(rowId2, txId);
+        }
+    }
+
+    @Test
+    void testWriteIntentReplacements() {
+        runRace(
+                this::makeManyWriteIntentReplacements,
+                this::makeManyWriteIntentReplacements
+        );
+    }
+
+    private void makeManyWriteIntentReplacements() {
+        for (int i = 0; i < 1000; i++) {
+            RowId rowId = new RowId(PARTITION_ID);
+            UUID txId = newTransactionId();
+
+            addWrite(rowId, TABLE_ROW, txId);
+            addWrite(rowId, TABLE_ROW, txId);
+        }
+    }
+
+    @Test
     void testAbortAndRead() {
         for (int i = 0; i < REPEATS; i++) {
             addWrite(ROW_ID, TABLE_ROW, txId);
@@ -154,6 +294,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             abortWrite(ROW_ID, txId);
 
             assertNull(storage.closestRowId(ROW_ID));
+            assertThat(storage.rowsStartingWith(ROW_ID, RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE), is(empty()));
+
+            assertNull(storage.highestRowId());
         }
     }
 
@@ -196,6 +339,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             );
 
             assertNull(storage.closestRowId(ROW_ID));
+            assertThat(storage.rowsStartingWith(ROW_ID, RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE), is(empty()));
+
+            assertNull(storage.highestRowId());
         }
     }
 
@@ -222,6 +368,9 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             assertNull(pollForVacuum(HybridTimestamp.MAX_VALUE));
 
             assertNull(storage.closestRowId(ROW_ID));
+            assertThat(storage.rowsStartingWith(ROW_ID, RowId.highestRowId(PARTITION_ID), Integer.MAX_VALUE), is(empty()));
+
+            assertNull(storage.highestRowId());
 
             assertThat(rows, empty());
         }

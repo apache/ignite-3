@@ -178,20 +178,6 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void zoneAutoAdjust() {
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneBuilder().dataNodesAutoAdjust(-1).build(),
-                "Invalid data nodes auto adjust"
-        );
-
-        // Let's check the success cases.
-        createZoneBuilder().dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build();
-        createZoneBuilder().dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build();
-        createZoneBuilder().dataNodesAutoAdjust(10).build();
-    }
-
-    @Test
     void zoneAutoAdjustScaleUp() {
         assertThrows(
                 CatalogValidationException.class,
@@ -217,76 +203,6 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         createZoneBuilder().dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build();
         createZoneBuilder().dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build();
         createZoneBuilder().dataNodesAutoAdjustScaleDown(10).build();
-    }
-
-    @Test
-    void zoneAutoAdjustCompatibility() {
-        // Auto adjust + scale up.
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, IMMEDIATE_TIMER_VALUE, null),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, INFINITE_TIMER_VALUE, null),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, 77, null),
-                "Not compatible parameters"
-        );
-
-        // Auto adjust + scale down.
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, null, IMMEDIATE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, null, INFINITE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, null, 88),
-                "Not compatible parameters"
-        );
-
-        // Auto adjust + scale up + scale down.
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE),
-                "Not compatible parameters"
-        );
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> createZoneParams(66, 77, 88),
-                "Not compatible parameters"
-        );
-
-        // Let's check the success cases.
-
-        // Auto adjust only.
-        createZoneParams(IMMEDIATE_TIMER_VALUE, null, null);
-        createZoneParams(INFINITE_TIMER_VALUE, null, null);
-        createZoneParams(66, null, null);
-        createZoneParams(null, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
-        createZoneParams(null, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
-        createZoneParams(null, 77, 88);
     }
 
     @Test
@@ -350,9 +266,8 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         );
     }
 
-    private static CatalogCommand createZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {
+    private static CatalogCommand createZoneParams(@Nullable Integer scaleUp, @Nullable Integer scaleDown) {
         return createZoneBuilder()
-                .dataNodesAutoAdjust(autoAdjust)
                 .dataNodesAutoAdjustScaleUp(scaleUp)
                 .dataNodesAutoAdjustScaleDown(scaleDown)
                 .build();

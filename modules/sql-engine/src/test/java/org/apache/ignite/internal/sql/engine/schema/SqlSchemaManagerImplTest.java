@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -78,7 +77,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -114,13 +112,12 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void init() {
-        sqlStatisticManager = tableId -> 10_000L;
+        sqlStatisticManager = tableId -> 10_000;
 
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
                 sqlStatisticManager,
-                new SystemPropertiesNodeProperties(),
                 CaffeineCacheFactory.INSTANCE,
                 200
         );
@@ -170,8 +167,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        assertNotNull(rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME));
-        assertNotNull(rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME));
+        assertNotNull(rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME));
+        assertNotNull(rootSchema.subSchemas().get(SYSTEM_SCHEMA_NAME));
     }
 
     /** Basic schema with several tables. */
@@ -190,7 +187,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteSchema schema = unwrapSchema(schemaPlus);
@@ -207,7 +204,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(versionAfter).zone(zoneId);
             assertNotNull(zoneDescriptor, "Zone does not exist: " + zoneId);
 
-            Table table = schema.getTable(tableDescriptor.name());
+            Table table = schema.tables().get(tableDescriptor.name());
             assertThat(table, notNullValue());
 
             IgniteTable igniteTable = assertInstanceOf(IgniteTable.class, table);
@@ -249,11 +246,11 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteSchema schema = unwrapSchema(schemaPlus);
-        Table table = schema.getTable("T");
+        Table table = schema.tables().get("T");
         assertNotNull(table);
 
         IgniteTable igniteTable = assertInstanceOf(IgniteTable.class, table);
@@ -277,7 +274,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 column("VAL_NOT_NULLABLE", columnType, precision, scale, false)
                         ))
                         .primaryKey(primaryKey("ID"))
-                        .zone("Default")
                         .build()
         )));
 
@@ -288,7 +284,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteTable table = getTable(unwrapSchema(schemaPlus), "TEST");
@@ -347,7 +343,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                         .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build()
                         ))
                         .primaryKey(primaryKey("C1", "C4"))
-                        .zone("Default")
                         .build()
         )));
 
@@ -358,7 +353,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteTable table = getTable(unwrapSchema(schemaPlus), "TEST");
@@ -400,7 +395,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C4").type(ColumnType.INT8).nullable(true).build()
                         ))
                         .primaryKey(primaryKey)
-                        .zone("Default")
                         .build()
         )));
 
@@ -411,7 +405,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteTable table = getTable(unwrapSchema(schemaPlus), "TEST");
@@ -447,8 +441,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("C3").type(ColumnType.INT32).build(),
                         ColumnParams.builder().name("C4").type(ColumnType.INT32).build()
                 ))
-                .primaryKey(primaryKey("C1", "C2", "C3", "C4"))
-                .zone("Default");
+                .primaryKey(primaryKey("C1", "C2", "C3", "C4"));
 
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
@@ -473,7 +466,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         {
@@ -483,7 +476,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(1),
                     table.id(),
-                    colocationEnabled() ? table.zoneId() : table.id(),
+                    table.zoneId(),
                     "table PUBLIC.T1 in zone \"Default\"")));
         }
 
@@ -494,7 +487,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(3, 1),
                     table.id(),
-                    colocationEnabled() ? table.zoneId() : table.id(),
+                    table.zoneId(),
                     "table PUBLIC.T2 in zone \"Default\"")));
         }
 
@@ -505,7 +498,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(2, 1, 0),
                     table.id(),
-                    colocationEnabled() ? table.zoneId() : table.id(),
+                    table.zoneId(),
                     "table PUBLIC.T3 in zone \"Default\"")));
         }
     }
@@ -524,7 +517,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertNotNull(schemas);
             SchemaPlus rootSchema = schemas.root();
 
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
             IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
@@ -544,7 +537,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertNotNull(schemas);
             SchemaPlus rootSchema = schemas.root();
 
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
             IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
@@ -578,7 +571,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
@@ -614,7 +607,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertNotNull(schemas);
             SchemaPlus rootSchema = schemas.root();
 
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
             IgniteIndex index1 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
@@ -637,7 +630,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertNotNull(schemas);
             SchemaPlus rootSchema = schemas.root();
 
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
             IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
@@ -665,7 +658,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             assertNotNull(schemas);
             SchemaPlus rootSchema = schemas.root();
 
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
             assertNotNull(schemaPlus);
 
             IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
@@ -703,7 +696,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(PUBLIC_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         IgniteIndex index1 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
@@ -742,7 +735,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void makeIndexAvailable(String name) {
-        Map<String, CatalogIndexDescriptor> indices = catalogManager.catalog(catalogManager.latestCatalogVersion()).indexes()
+        Map<String, CatalogIndexDescriptor> indices = catalogManager.latestCatalog().indexes()
                 .stream().collect(Collectors.toMap(CatalogIndexDescriptor::name, Function.identity()));
 
         CatalogIndexDescriptor indexDescriptor = indices.get(name);
@@ -770,7 +763,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         {
@@ -811,7 +804,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertNotNull(schemas);
         SchemaPlus rootSchema = schemas.root();
 
-        SchemaPlus schemaPlus = rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME);
+        SchemaPlus schemaPlus = rootSchema.subSchemas().get(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
         CatalogSchemaDescriptor schemaDescriptor = catalogManager.catalog(versionAfter).schema(SYSTEM_SCHEMA_NAME);
@@ -859,9 +852,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-
     private static IgniteSystemView getSystemView(IgniteSchema schema, String name) {
-        Table systemViewTable = schema.getTable(name);
+        Table systemViewTable = schema.tables().get(name);
         assertNotNull(systemViewTable);
 
         IgniteSystemView systemView = assertInstanceOf(IgniteSystemView.class, systemViewTable);
@@ -877,13 +869,13 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private static IgniteTable getTable(IgniteSchema schema, String name) {
-        IgniteTable table = (IgniteTable) schema.getTable(name);
+        IgniteTable table = (IgniteTable) schema.tables().get(name);
         assertNotNull(table);
         return table;
     }
 
     private static @Nullable IgniteIndex findIndex(IgniteSchema schema, String tableName, String indexName) {
-        IgniteTable table = (IgniteTable) schema.getTable(tableName);
+        IgniteTable table = (IgniteTable) schema.tables().get(tableName);
         assertNotNull(table);
         return table.indexes().get(indexName);
     }
@@ -921,7 +913,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 .primaryKey(TableHashPrimaryKey.builder()
                         .columns(List.of("ID"))
                         .build())
-                .zone("Default")
                 .build();
     }
 

@@ -34,7 +34,7 @@ Sort
                 est: (rows=375000)
               TableScan
                   table: PUBLIC.ORDERS
-                  predicate: AND(>=(O_ORDERDATE, 1994-01-01), <(O_ORDERDATE, +(1994-01-01, 12:INTERVAL YEAR)))
+                  predicate: SEARCH(O_ORDERDATE, Sarg[[1994-01-01..1995-01-01)])
                   fieldNames: [O_ORDERKEY, O_CUSTKEY, O_ORDERDATE]
                   est: (rows=375000)
             Exchange

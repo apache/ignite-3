@@ -99,7 +99,6 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
         execUserSyncOperation(() -> catalog.createZone(definition));
     }
 
-
     @Override
     public CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName) {
         return execUserSyncOperation(() -> catalog.zoneDefinitionAsync(zoneName));

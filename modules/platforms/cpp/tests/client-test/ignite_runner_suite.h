@@ -57,6 +57,7 @@ public:
     inline static const std::string CONCAT_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ConcatJob";
     inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";
+    inline static const std::string RETURN_NULL_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ReturnNullJob";
 
     static constexpr const char *KEY_COLUMN = "KEY";
     static constexpr const char *VAL_COLUMN = "VAL";
@@ -128,7 +129,7 @@ public:
     }
 
     /**
-     * Get a path to a SSL file.
+     * Get a path to an SSL file.
      * @param file
      * @return
      */
@@ -143,7 +144,7 @@ public:
     }
 
     /**
-     * Try connect to ssl server successfully.
+     * Try to connect to ssl server successfully.
      * @param timeout Timeout.
      * @return Client.
      */

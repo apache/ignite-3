@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -62,7 +64,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -84,12 +85,19 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     private static final UUID TEST_NODE_ID = UUID.randomUUID();
 
-    private static final ClusterNode TEST_NODE = new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, new NetworkAddress("host", 3000));
+    private static final InternalClusterNode TEST_NODE = new ClusterNodeImpl(
+            TEST_NODE_ID,
+            TEST_NODE_NAME,
+            new NetworkAddress("host", 3000)
+    );
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
     @Nullable
     private Consumer<Boolean> afterInvokeInterceptor;
+
+    @Nullable
+    private Consumer<Long> onRevisionAppliedInterceptor;
 
     /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
@@ -152,10 +160,14 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             HybridClock clock,
             ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
+        LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
+
+        when(logicalTopologyService.validatedNodesOnLeader()).thenReturn(emptySetCompletedFuture());
+
         return new StandaloneMetaStorageManager(
                 mockClusterService(),
                 mockClusterGroupManager(),
-                mock(LogicalTopologyService.class),
+                logicalTopologyService,
                 mockRaftManager(),
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
@@ -235,6 +247,19 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         this.afterInvokeInterceptor = afterInvokeInterceptor;
     }
 
+    public void setOnRevisionAppliedInterceptor(@Nullable Consumer<Long> onRevisionAppliedInterceptor) {
+        this.onRevisionAppliedInterceptor = onRevisionAppliedInterceptor;
+    }
+
+    @Override
+    protected void onRevisionApplied(long revision) {
+        super.onRevisionApplied(revision);
+
+        if (onRevisionAppliedInterceptor != null) {
+            onRevisionAppliedInterceptor.accept(revision);
+        }
+    }
+
     @Override
     public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
         return super.invoke(cond, success, failure)
@@ -287,7 +312,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 Command command = invocation.getArgument(0);
 
                 if (listener instanceof BeforeApplyHandler && command instanceof WriteCommand) {
-                    ((BeforeApplyHandler) listener).onBeforeApply(command);
+                    command = ((BeforeApplyHandler) listener).onBeforeApply(command);
                 }
 
                 return runCommand(command, listener);

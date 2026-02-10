@@ -30,8 +30,8 @@ Project
                   table: PUBLIC.LINEITEM
                   index: L_SD
                   type: SORTED
-                  predicate: AND(>=(L_SHIPDATE, 1996-01-01), <(L_SHIPDATE, +(1996-01-01, 3:INTERVAL MONTH)))
-                  searchBounds: [RangeBounds [lowerBound=1996-01-01, upperBound=+(1996-01-01, 3:INTERVAL MONTH), lowerInclude=true, upperInclude=false]]
+                  predicate: SEARCH(L_SHIPDATE, Sarg[[1996-01-01..1996-04-01)])
+                  searchBounds: [<1996-01-01>..<1996-04-01>)
                   fieldNames: [L_SUPPKEY, $f1]
                   projection: [L_SUPPKEY, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
                   collation: []
@@ -62,8 +62,8 @@ Project
                       table: PUBLIC.LINEITEM
                       index: L_SD
                       type: SORTED
-                      predicate: AND(>=(L_SHIPDATE, 1996-01-01), <(L_SHIPDATE, +(1996-01-01, 3:INTERVAL MONTH)))
-                      searchBounds: [RangeBounds [lowerBound=1996-01-01, upperBound=+(1996-01-01, 3:INTERVAL MONTH), lowerInclude=true, upperInclude=false]]
+                      predicate: SEARCH(L_SHIPDATE, Sarg[[1996-01-01..1996-04-01)])
+                      searchBounds: [<1996-01-01>..<1996-04-01>)
                       fieldNames: [L_SUPPKEY, $f1]
                       projection: [L_SUPPKEY, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT))]
                       collation: []

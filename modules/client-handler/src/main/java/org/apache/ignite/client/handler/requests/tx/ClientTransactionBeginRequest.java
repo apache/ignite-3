@@ -62,6 +62,7 @@ public class ClientTransactionBeginRequest {
 
         InternalTxOptions txOptions = InternalTxOptions.builder()
                 .timeoutMillis(timeoutMillis)
+                .readTimestamp(observableTs)
                 .build();
 
         var tx = startExplicitTx(tsTracker, txManager, observableTs, readOnly, txOptions);

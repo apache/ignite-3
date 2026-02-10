@@ -26,7 +26,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStableAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -38,10 +37,10 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.tableState;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_IDLE_ERR;
 
 import java.util.ArrayList;
@@ -59,7 +58,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -75,7 +73,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -84,80 +81,87 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A colocation-aware handler for {@link GroupUpdateRequest}.
  */
-abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
+class GroupUpdateRequestHandler {
     private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
 
     private final GroupUpdateRequest request;
 
-    public static GroupUpdateRequestHandler<?> handler(GroupUpdateRequest request) {
-        return request.colocationEnabled()
-                ? new ZoneGroupUpdateRequestHandler(request)
-                : new TableGroupUpdateRequestHandler(request);
+    public static GroupUpdateRequestHandler handler(GroupUpdateRequest request) {
+        return new GroupUpdateRequestHandler(request);
     }
 
-    GroupUpdateRequestHandler(GroupUpdateRequest request) {
+    private GroupUpdateRequestHandler(GroupUpdateRequest request) {
         this.request = request;
     }
 
     public CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long msRevision, HybridTimestamp msTimestamp) {
-        int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msTimestamp.longValue());
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msTimestamp.longValue());
 
-        if (request.catalogVersion() != catalogVersion) {
-            return failedFuture(
-                    new DisasterRecoveryException(CLUSTER_NOT_IDLE_ERR, "Cluster is not idle, concurrent DDL update detected.")
-            );
-        }
-
-        Catalog catalog = disasterRecoveryManager.catalogManager.catalog(catalogVersion);
-
-        int zoneId = request.zoneId();
-
-        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-
-        Set<Integer> allZonePartitionsToReset = new HashSet<>();
-        request.partitionIds().values().forEach(allZonePartitionsToReset::addAll);
-
-        CompletableFuture<Set<String>> dataNodesFuture =
-                disasterRecoveryManager.dzManager.dataNodes(msTimestamp, catalogVersion, zoneId);
-
-        CompletableFuture<Map<T, LocalPartitionStateMessageByNode>> localStatesFuture =
-                localStatesFuture(disasterRecoveryManager, Set.of(zoneDescriptor.name()), allZonePartitionsToReset, catalog);
-
-        return dataNodesFuture.thenCombine(localStatesFuture, (dataNodes, localStatesMap) -> {
-            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
-
-            List<CompletableFuture<Void>> assignmentsUpdateFuts = new ArrayList<>(request.partitionIds().size());
-
-            for (Entry<Integer, Set<Integer>> partitionEntry : request.partitionIds().entrySet()) {
-
-                int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionEntry.getValue(), zoneDescriptor.partitions());
-
-                assignmentsUpdateFuts.add(forceAssignmentsUpdate(
-                        partitionEntry.getKey(),
-                        zoneDescriptor,
-                        dataNodes,
-                        nodeConsistentIds,
-                        msRevision,
-                        msTimestamp,
-                        disasterRecoveryManager.metaStorageManager,
-                        localStatesMap,
-                        catalog.time(),
-                        partitionIdsArray,
-                        request.manualUpdate()
-                ));
+            if (request.catalogVersion() != catalogVersion) {
+                return failedFuture(
+                        new DisasterRecoveryException(CLUSTER_NOT_IDLE_ERR, "Cluster is not idle, concurrent DDL update detected.")
+                );
             }
 
-            return allOf(assignmentsUpdateFuts.toArray(new CompletableFuture[]{}));
-        })
-        .thenCompose(Function.identity())
-        .whenComplete((unused, throwable) -> {
-            // TODO: IGNITE-23635 Add fail handling for failed resetPeers
-            if (throwable != null) {
-                LOG.error("Failed to reset partition", throwable);
-            }
+            Catalog catalog = disasterRecoveryManager.catalogManager.catalog(catalogVersion);
+
+            int zoneId = request.zoneId();
+
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+            Set<Integer> allZonePartitionsToReset = new HashSet<>();
+            request.partitionIds().values().forEach(allZonePartitionsToReset::addAll);
+
+            CompletableFuture<Set<String>> dataNodesFuture =
+                    disasterRecoveryManager.dzManager.dataNodes(msTimestamp, catalogVersion, zoneId);
+
+            CompletableFuture<Map<ZonePartitionId, LocalPartitionStateMessageByNode>> localStatesFuture =
+                    disasterRecoveryManager.localPartitionStatesInternal(
+                            Set.of(zoneDescriptor.name()),
+                            emptySet(),
+                            allZonePartitionsToReset,
+                            catalog,
+                            zoneState()
+                    );
+
+            return dataNodesFuture.thenCombine(localStatesFuture, (dataNodes, localStatesMap) -> {
+                return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+                    Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
+                            .stream()
+                            .map(NodeWithAttributes::nodeName)
+                            .collect(toSet());
+
+                    List<CompletableFuture<Void>> assignmentsUpdateFuts = new ArrayList<>(request.partitionIds().size());
+
+                    for (Entry<Integer, Set<Integer>> partitionEntry : request.partitionIds().entrySet()) {
+
+                        int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionEntry.getValue(), zoneDescriptor.partitions());
+
+                        assignmentsUpdateFuts.add(forceAssignmentsUpdate(
+                                partitionEntry.getKey(),
+                                zoneDescriptor,
+                                dataNodes,
+                                nodeConsistentIds,
+                                msRevision,
+                                msTimestamp,
+                                disasterRecoveryManager.metaStorageManager,
+                                localStatesMap,
+                                catalog.time(),
+                                partitionIdsArray,
+                                request.manualUpdate(),
+                                disasterRecoveryManager
+                        ));
+                    }
+
+                    return allOf(assignmentsUpdateFuts.toArray(new CompletableFuture[]{}));
+                }).whenComplete((unused, throwable) -> {
+                    // TODO: IGNITE-23635 Add fail handling for failed resetPeers
+                    if (throwable != null) {
+                        LOG.error("Failed to reset partition", throwable);
+                    }
+                });
+            }).thenCompose(Function.identity());
         });
     }
 
@@ -174,10 +178,10 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
      * @param timestamp Meta-storage timestamp to be associated with reassignment.
      * @param metaStorageManager Meta-storage manager.
      * @param localStatesMap Local partition states retrieved by
-     *         {@link DisasterRecoveryManager#localTablePartitionStates(Set, Set, Set)}.
+     *         {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
-    private CompletableFuture<Void> forceAssignmentsUpdate(
+    private static CompletableFuture<Void> forceAssignmentsUpdate(
             int replicationId,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
@@ -185,37 +189,41 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageManager,
-            Map<T, LocalPartitionStateMessageByNode> localStatesMap,
+            Map<ZonePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
             int[] partitionIds,
-            boolean manualUpdate
+            boolean manualUpdate,
+            DisasterRecoveryManager disasterRecoveryManager
     ) {
-        CompletableFuture<Map<Integer, Assignments>> stableAssignments =
-                stableAssignments(metaStorageManager, replicationId, partitionIds);
-        return stableAssignments
-                .thenCompose(assignments -> {
-                    if (assignments.isEmpty()) {
-                        return nullCompletedFuture();
-                    }
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            CompletableFuture<Map<Integer, Assignments>> stableAssignments =
+                    zoneStableAssignments(metaStorageManager, replicationId, partitionIds);
+            return stableAssignments
+                    .thenCompose(assignments -> inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+                        if (assignments.isEmpty()) {
+                            return nullCompletedFuture();
+                        }
 
-                    return updateAssignments(
-                            replicationId,
-                            zoneDescriptor,
-                            dataNodes,
-                            aliveNodesConsistentIds,
-                            revision,
-                            timestamp,
-                            metaStorageManager,
-                            localStatesMap,
-                            assignmentsTimestamp,
-                            partitionIds,
-                            assignments,
-                            manualUpdate
-                    );
-                });
+                        return updateAssignments(
+                                replicationId,
+                                zoneDescriptor,
+                                dataNodes,
+                                aliveNodesConsistentIds,
+                                revision,
+                                timestamp,
+                                metaStorageManager,
+                                localStatesMap,
+                                assignmentsTimestamp,
+                                partitionIds,
+                                assignments,
+                                manualUpdate,
+                                disasterRecoveryManager
+                        );
+                    }));
+        });
     }
 
-    private CompletableFuture<Void> updateAssignments(
+    private static CompletableFuture<Void> updateAssignments(
             int replicationId,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
@@ -223,48 +231,52 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageManager,
-            Map<T, LocalPartitionStateMessageByNode> localStatesMap,
+            Map<ZonePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
             int[] partitionIds,
             Map<Integer, Assignments> stableAssignments,
-            boolean manualUpdate
+            boolean manualUpdate,
+            DisasterRecoveryManager disasterRecoveryManager
     ) {
-        Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        CompletableFuture<?>[] futures = new CompletableFuture[partitionIds.length];
+            CompletableFuture<?>[] futures = new CompletableFuture[partitionIds.length];
 
-        for (int i = 0; i < partitionIds.length; i++) {
-            T replicaGrpId = replicationGroupId(replicationId, partitionIds[i]);
-            LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
-                    ? localStatesMap.get(replicaGrpId)
-                    : new LocalPartitionStateMessageByNode(emptyMap());
+            for (int i = 0; i < partitionIds.length; i++) {
+                var replicaGrpId = new ZonePartitionId(replicationId, partitionIds[i]);
+                LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
+                        ? localStatesMap.get(replicaGrpId)
+                        : new LocalPartitionStateMessageByNode(emptyMap());
 
-            futures[i] = partitionUpdate(
-                    replicaGrpId,
-                    aliveDataNodes,
-                    aliveNodesConsistentIds,
-                    zoneDescriptor.partitions(),
-                    zoneDescriptor.replicas(),
-                    zoneDescriptor.consensusGroupSize(),
-                    revision,
-                    timestamp,
-                    metaStorageManager,
-                    stableAssignments.get(replicaGrpId.partitionId()).nodes(),
-                    localStatesByNode,
-                    assignmentsTimestamp,
-                    manualUpdate
-            ).thenAccept(res -> {
-                DisasterRecoveryManager.LOG.info(
-                        "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
-                );
-            });
-        }
+                futures[i] = partitionUpdate(
+                        replicaGrpId,
+                        aliveDataNodes,
+                        aliveNodesConsistentIds,
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
+                        revision,
+                        timestamp,
+                        metaStorageManager,
+                        stableAssignments.get(replicaGrpId.partitionId()).nodes(),
+                        localStatesByNode,
+                        assignmentsTimestamp,
+                        manualUpdate,
+                        disasterRecoveryManager
+                ).thenAccept(res -> {
+                    DisasterRecoveryManager.LOG.info(
+                            "Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res)
+                    );
+                });
+            }
 
-        return allOf(futures);
+            return allOf(futures);
+        });
     }
 
-    private CompletableFuture<Integer> partitionUpdate(
-            T partId,
+    private static CompletableFuture<Integer> partitionUpdate(
+            ZonePartitionId partId,
             Collection<String> aliveDataNodes,
             Set<String> aliveNodesConsistentIds,
             int partitions,
@@ -276,51 +288,93 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             Set<Assignment> currentAssignments,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
             long assignmentsTimestamp,
-            boolean manualUpdate
+            boolean manualUpdate,
+            DisasterRecoveryManager disasterRecoveryManager
     ) {
-        Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
-        Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
+        return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
+            Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
+            Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
 
-        if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
-            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+            if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
+                return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+            }
+
+            if (aliveStableNodes.isEmpty() && !manualUpdate) {
+                return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+            }
+
+            if (manualUpdate) {
+                enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
+            }
+
+            // We need to recalculate assignments to ensure that we have a valid set of nodes with correct roles (peers/learners).
+            partAssignments = calculateAssignmentForPartition(
+                    partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
+                    partId.partitionId(),
+                    partitions,
+                    replicas,
+                    consensusGroupSize
+            );
+
+            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
+
+            boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
+
+            assert partAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
+                    "Recovery nodes set doesn't contain the reset node assignment [partAssignments={}, nextAssignment={}]",
+                    partAssignments,
+                    nextAssignment
+            );
+
+            // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
+            // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
+            // for the case of the manual update, that was triggered by a user.
+            AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
+                    .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
+                    .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
+                    .toQueue();
+            if (!manualUpdate) {
+                ByteArray pendingKey = ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId);
+                var entry = metaStorageMgr.getLocally(pendingKey);
+                if (entry != null) {
+                    AssignmentsQueue pendingQueue = AssignmentsQueue.fromBytes(entry.value());
+                    if (pendingQueue != null && !pendingQueue.isEmpty()) {
+                        AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
+                        assignmentsQueue = new AssignmentsQueue(assignmentsQueue, filteredPendingQueue);
+                    }
+                }
+            }
+            return invoke(
+                    partId,
+                    revision,
+                    timestamp,
+                    metaStorageMgr,
+                    assignmentsTimestamp,
+                    assignmentsQueue,
+                    isProposedPendingEqualsProposedPlanned,
+                    partAssignments
+            );
+        });
+    }
+
+    private static AssignmentsQueue filterAliveNodesOnly(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds) {
+        List<Assignments> filteredAssignments = new ArrayList<>();
+
+        for (Assignments assignments : queue) {
+            Set<Assignment> aliveAssignments = assignments.nodes().stream()
+                    .filter(assignment -> aliveNodesConsistentIds.contains(assignment.consistentId()))
+                    .collect(toSet());
+
+            if (!aliveAssignments.isEmpty()) {
+                filteredAssignments.add(new Assignments(
+                        aliveAssignments,
+                        assignments.force(),
+                        assignments.timestamp(),
+                        assignments.fromReset())
+                );
+            }
         }
-
-        if (aliveStableNodes.isEmpty() && !manualUpdate) {
-            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-        }
-
-        if (manualUpdate) {
-            enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
-        }
-
-        Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
-
-        boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
-
-        assert partAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
-                "Recovery nodes set doesn't contain the reset node assignment [partAssignments={}, nextAssignment={}]",
-                partAssignments,
-                nextAssignment
-        );
-
-        // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
-        // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
-        // for the case of the manual update, that was triggered by a user.
-        AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
-                .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
-                .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
-                .toQueue();
-
-        return invoke(
-                partId,
-                revision,
-                timestamp,
-                metaStorageMgr,
-                assignmentsTimestamp,
-                assignmentsQueue,
-                isProposedPendingEqualsProposedPlanned,
-                partAssignments
-        );
+        return new AssignmentsQueue(filteredAssignments.toArray(Assignments[]::new));
     }
 
     /**
@@ -351,7 +405,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
      * Returns a modifiable set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
      * {@link LocalPartitionStateEnum#CATCHING_UP}.
      */
-    private static Set<Assignment> getAliveNodesWithData(
+    static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
@@ -362,7 +416,11 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             LocalPartitionStateEnum state = entry.getValue().state();
 
             if (aliveNodesConsistentIds.contains(nodeName) && (state == HEALTHY || state == CATCHING_UP)) {
-                partAssignments.add(Assignment.forPeer(nodeName));
+                if (entry.getValue().isLearner()) {
+                    partAssignments.add(Assignment.forLearner(nodeName));
+                } else {
+                    partAssignments.add(Assignment.forPeer(nodeName));
+                }
             }
         }
 
@@ -401,23 +459,22 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
         }
     }
 
-    abstract CompletableFuture<Map<T, LocalPartitionStateMessageByNode>> localStatesFuture(
-            DisasterRecoveryManager disasterRecoveryManager,
-            Set<String> zoneNames,
-            Set<Integer> partitionIds,
-            Catalog catalog
-    );
-
-    abstract CompletableFuture<Map<Integer, Assignments>> stableAssignments(
-            MetaStorageManager metaStorageManager,
-            int replicationId,
-            int[] partitionIds
-    );
-
-    abstract T replicationGroupId(int replicationId, int partitionId);
-
-    abstract CompletableFuture<Integer> invoke(
-            T partId,
+    /**
+     * Executes meta-storage's {@link MetaStorageManager#invoke(Iif)} call.
+     *
+     * <p>The internal {@link Iif} is:
+     * <ul>
+     *     <li>Guards the condition with a standard {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)} check.</li>
+     *     <li>Adds additional guard with comparison of real and proposed values of
+     *          {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}, just in case.</li>
+     *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)}.</li>
+     *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}.</li>
+     *     <li>Updates the value of {@link ZoneRebalanceUtil#plannedPartAssignmentsKey(ZonePartitionId)} or removes it, if
+     *          {@code plannedAssignmentsBytes} is {@code null}.</li>
+     * </ul>
+     */
+    private static CompletableFuture<Integer> invoke(
+            ZonePartitionId partId,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
@@ -425,7 +482,47 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             AssignmentsQueue assignmentsQueue,
             boolean isProposedPendingEqualsProposedPlanned,
             Set<Assignment> partAssignments
-    );
+    ) {
+        // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
+        Iif invokeClosure = executeInvoke(
+                longToBytesKeepingOrder(timestamp.longValue()),
+                assignmentsQueue.toBytes(),
+                isProposedPendingEqualsProposedPlanned
+                        ? null
+                        : Assignments.toBytes(partAssignments, assignmentsTimestamp, true),
+                ZoneRebalanceUtil.pendingChangeTriggerKey(partId),
+                ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId),
+                ZoneRebalanceUtil.plannedPartAssignmentsKey(partId)
+        );
+
+        return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
+            switch (UpdateStatus.valueOf(sr.getAsInt())) {
+                case PENDING_KEY_UPDATED:
+                    LOG.info(
+                            "Force update metastore pending partitions key [key={}, partition={}, zone={}, newVal={}]",
+                            ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId).toString(),
+                            partId.partitionId(),
+                            partId.zoneId(),
+                            assignmentsQueue
+                    );
+
+                    break;
+                case OUTDATED_UPDATE_RECEIVED:
+                    LOG.info(
+                            "Received outdated force rebalance trigger event [revision={}, partition={}, zone={}]",
+                            revision,
+                            partId.partitionId(),
+                            partId.zoneId()
+                    );
+
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
+            }
+
+            return sr.getAsInt();
+        });
+    }
 
     static Iif executeInvoke(
             byte[] timestampBytes,
@@ -446,209 +543,5 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 ).yield(PENDING_KEY_UPDATED.ordinal()),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
         );
-    }
-
-    static class TableGroupUpdateRequestHandler extends GroupUpdateRequestHandler<TablePartitionId> {
-
-        TableGroupUpdateRequestHandler(GroupUpdateRequest request) {
-            super(request);
-        }
-
-        @Override
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStatesFuture(
-                DisasterRecoveryManager disasterRecoveryManager,
-                Set<String> zoneNames,
-                Set<Integer> partitionIds,
-                Catalog catalog
-        ) {
-            return disasterRecoveryManager.localPartitionStatesInternal(
-                    zoneNames,
-                    emptySet(),
-                    partitionIds,
-                    catalog,
-                    tableState()
-            );
-        }
-
-        @Override
-        CompletableFuture<Map<Integer, Assignments>> stableAssignments(
-                MetaStorageManager metaStorageManager,
-                int tableId,
-                int[] partitionIds) {
-            return tableStableAssignments(metaStorageManager, tableId, partitionIds);
-        }
-
-        @Override
-        TablePartitionId replicationGroupId(int id, int partitionId) {
-            return new TablePartitionId(id, partitionId);
-        }
-
-        /**
-         * Executes meta-storage's {@link MetaStorageManager#invoke(Iif)} call.
-         *
-         * <p>The internal {@link Iif} is:
-         * <ul>
-         *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
-         *     <li>Adds additional guard with comparison of real and proposed values of
-         *          {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}, just in case.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
-         *          {@code plannedAssignmentsBytes} is {@code null}.</li>
-         * </ul>
-         */
-        @Override
-        CompletableFuture<Integer> invoke(
-                TablePartitionId partId,
-                long revision,
-                HybridTimestamp timestamp,
-                MetaStorageManager metaStorageMgr,
-                long assignmentsTimestamp,
-                AssignmentsQueue assignmentsQueue,
-                boolean isProposedPendingEqualsProposedPlanned,
-                Set<Assignment> partAssignments
-        ) {
-            // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
-            Iif invokeClosure = executeInvoke(
-                    longToBytesKeepingOrder(timestamp.longValue()),
-                    assignmentsQueue.toBytes(),
-                    isProposedPendingEqualsProposedPlanned
-                            ? null
-                            : Assignments.toBytes(partAssignments, assignmentsTimestamp, true),
-                    RebalanceUtil.pendingChangeTriggerKey(partId),
-                    RebalanceUtil.pendingPartAssignmentsQueueKey(partId),
-                    RebalanceUtil.plannedPartAssignmentsKey(partId)
-            );
-
-            return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
-                switch (UpdateStatus.valueOf(sr.getAsInt())) {
-                    case PENDING_KEY_UPDATED:
-                        LOG.info(
-                                "Force update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
-                                RebalanceUtil.pendingPartAssignmentsQueueKey(partId).toString(),
-                                partId.partitionId(),
-                                partId.tableId(),
-                                assignmentsQueue
-                        );
-
-                        break;
-                    case OUTDATED_UPDATE_RECEIVED:
-                        LOG.info(
-                                "Received outdated force rebalance trigger event [revision={}, partition={}, table={}]",
-                                revision,
-                                partId.partitionId(),
-                                partId.tableId()
-                        );
-
-                        break;
-                    default:
-                        throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
-                }
-
-                return sr.getAsInt();
-            });
-        }
-    }
-
-    private static class ZoneGroupUpdateRequestHandler extends GroupUpdateRequestHandler<ZonePartitionId> {
-
-        ZoneGroupUpdateRequestHandler(GroupUpdateRequest request) {
-            super(request);
-        }
-
-        @Override
-        CompletableFuture<Map<ZonePartitionId, LocalPartitionStateMessageByNode>> localStatesFuture(
-                DisasterRecoveryManager disasterRecoveryManager,
-                Set<String> zoneNames,
-                Set<Integer> partitionIds,
-                Catalog catalog
-        ) {
-            return disasterRecoveryManager.localPartitionStatesInternal(
-                    zoneNames,
-                    emptySet(),
-                    partitionIds,
-                    catalog,
-                    zoneState()
-            );
-        }
-
-        @Override
-        CompletableFuture<Map<Integer, Assignments>> stableAssignments(
-                MetaStorageManager metaStorageManager,
-                int zoneId,
-                int[] partitionIds) {
-            return zoneStableAssignments(metaStorageManager, zoneId, partitionIds);
-        }
-
-        @Override
-        ZonePartitionId replicationGroupId(int id, int partitionId) {
-            return new ZonePartitionId(id, partitionId);
-        }
-
-        /**
-         * Executes meta-storage's {@link MetaStorageManager#invoke(Iif)} call.
-         *
-         * <p>The internal {@link Iif} is:
-         * <ul>
-         *     <li>Guards the condition with a standard {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)} check.</li>
-         *     <li>Adds additional guard with comparison of real and proposed values of
-         *          {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}, just in case.</li>
-         *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)}.</li>
-         *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}.</li>
-         *     <li>Updates the value of {@link ZoneRebalanceUtil#plannedPartAssignmentsKey(ZonePartitionId)} or removes it, if
-         *          {@code plannedAssignmentsBytes} is {@code null}.</li>
-         * </ul>
-         */
-        @Override
-        CompletableFuture<Integer> invoke(
-                ZonePartitionId partId,
-                long revision,
-                HybridTimestamp timestamp,
-                MetaStorageManager metaStorageMgr,
-                long assignmentsTimestamp,
-                AssignmentsQueue assignmentsQueue,
-                boolean isProposedPendingEqualsProposedPlanned,
-                Set<Assignment> partAssignments
-        ) {
-            // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
-            Iif invokeClosure = executeInvoke(
-                    longToBytesKeepingOrder(timestamp.longValue()),
-                    assignmentsQueue.toBytes(),
-                    isProposedPendingEqualsProposedPlanned
-                            ? null
-                            : Assignments.toBytes(partAssignments, assignmentsTimestamp, true),
-                    ZoneRebalanceUtil.pendingChangeTriggerKey(partId),
-                    ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId),
-                    ZoneRebalanceUtil.plannedPartAssignmentsKey(partId)
-            );
-
-            return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
-                switch (UpdateStatus.valueOf(sr.getAsInt())) {
-                    case PENDING_KEY_UPDATED:
-                        LOG.info(
-                                "Force update metastore pending partitions key [key={}, partition={}, zone={}, newVal={}]",
-                                ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId).toString(),
-                                partId.partitionId(),
-                                partId.zoneId(),
-                                assignmentsQueue
-                        );
-
-                        break;
-                    case OUTDATED_UPDATE_RECEIVED:
-                        LOG.info(
-                                "Received outdated force rebalance trigger event [revision={}, partition={}, zone={}]",
-                                revision,
-                                partId.partitionId(),
-                                partId.zoneId()
-                        );
-
-                        break;
-                    default:
-                        throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
-                }
-
-                return sr.getAsInt();
-            });
-        }
     }
 }

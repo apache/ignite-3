@@ -21,8 +21,10 @@ using System;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using Common.Table;
 using Ignite.Table;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests schema validation.
@@ -120,7 +122,7 @@ public class SchemaValidationTest : IgniteTestsBase
         };
 
         var ex = Assert.ThrowsAsync<MarshallerException>(async () => await TableRequiredVal.RecordBinaryView.UpsertAsync(null, igniteTuple));
-        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
+        StringAssert.Contains("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]
@@ -134,7 +136,7 @@ public class SchemaValidationTest : IgniteTestsBase
         };
 
         var ex = Assert.ThrowsAsync<MarshallerException>(async () => await Table.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
-        Assert.AreEqual("Missed key column: KEY", ex!.Message);
+        StringAssert.Contains("Missed key column: KEY", ex!.Message);
     }
 
     [Test]
@@ -149,7 +151,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
-        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
+        StringAssert.Contains("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]
@@ -249,7 +251,7 @@ public class SchemaValidationTest : IgniteTestsBase
     {
         var ex = Assert.ThrowsAsync<MarshallerException>(async () => await Table.GetRecordView<ValPoco>().UpsertAsync(null, new ValPoco()));
 
-        Assert.AreEqual("Missed key column: KEY", ex!.Message);
+        StringAssert.Contains("Missed key column: KEY", ex!.Message);
     }
 
     [Test]
@@ -258,7 +260,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.GetRecordView<KeyPoco>().UpsertAsync(null, new KeyPoco()));
 
-        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
+        StringAssert.Contains("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]
@@ -267,7 +269,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await Table.GetKeyValueView<ValPoco, string>().PutAsync(null, new ValPoco(), "x"));
 
-        Assert.AreEqual("Missed key column: KEY", ex!.Message);
+        StringAssert.Contains("Missed key column: KEY", ex!.Message);
     }
 
     [Test]
@@ -276,7 +278,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.GetKeyValueView<long, KeyPoco>().PutAsync(null, 1L, new KeyPoco()));
 
-        StringAssert.StartsWith("Column 'VAL' does not allow NULLs", ex!.Message);
+        StringAssert.Contains("Column 'VAL' does not allow NULLs", ex!.Message);
     }
 
     [Test]

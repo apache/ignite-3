@@ -19,11 +19,15 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Common;
+using Common.Compute;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+using static Common.Table.TestTables;
 
 /// <summary>
 /// Tests partition awareness in real cluster.
@@ -39,9 +43,12 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     [Test]
     public async Task TestPutRoutesRequestToPrimaryNode([Values(true, false)] bool withTx)
     {
+        using var loggerFactory = new ConsoleLogger(LogLevel.Trace);
         var proxies = GetProxies();
-        using var client = await IgniteClient.StartAsync(GetConfig(proxies));
+        using var client = await IgniteClient.StartAsync(GetConfig(proxies, loggerFactory));
         var recordView = (await client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
+
+        client.WaitForConnections(proxies.Count);
 
         // Warm up.
         await recordView.GetAsync(null, new IgniteTuple { ["KEY"] = 1L });
@@ -53,7 +60,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 
             var primaryNodeNameExec = await client.Compute.SubmitAsync(
                 JobTarget.Colocated(TableName, keyTuple),
-                ComputeTests.NodeNameJob,
+                JavaJobs.NodeNameJob,
                 null);
 
             var primaryNodeName = await primaryNodeNameExec.GetResultAsync();

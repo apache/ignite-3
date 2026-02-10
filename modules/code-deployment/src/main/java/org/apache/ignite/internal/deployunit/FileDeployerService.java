@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,16 +27,21 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.DeployerProcessor.DeployArg;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.deployunit.structure.UnitFolder;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProvider;
+import org.apache.ignite.internal.deployunit.tempstorage.TempStorageProviderImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Service for file deploying on local File System.
@@ -46,17 +49,18 @@ import org.apache.ignite.internal.util.IgniteUtils;
 public class FileDeployerService {
     private static final IgniteLogger LOG = Loggers.forClass(FileDeployerService.class);
 
-    private static final String TMP_SUFFIX = ".tmp";
-
     private static final int DEPLOYMENT_EXECUTOR_SIZE = 4;
+
+    private final TempStorageProviderImpl tempStorageProvider;
 
     /**
      * Folder for units.
      */
     private Path unitsFolder;
 
-
     private final ExecutorService executor;
+
+    private final DeploymentUnitProcessor<DeployArg, Boolean> deployProcessor;
 
     /** Constructor. */
     public FileDeployerService(String nodeName) {
@@ -64,10 +68,14 @@ public class FileDeployerService {
                 DEPLOYMENT_EXECUTOR_SIZE,
                 IgniteThreadFactory.create(nodeName, "deployment", LOG)
         );
+
+        tempStorageProvider = new TempStorageProviderImpl(executor);
+        deployProcessor = new DeployerProcessor(executor);
     }
 
-    public void initUnitsFolder(Path unitsFolder) {
+    public void initUnitsFolder(Path unitsFolder, Path tempFolder) {
         this.unitsFolder = unitsFolder;
+        tempStorageProvider.init(tempFolder);
     }
 
     /**
@@ -79,25 +87,17 @@ public class FileDeployerService {
      * @return Future with deploy result.
      */
     public CompletableFuture<Boolean> deploy(String id, Version version, DeploymentUnit deploymentUnit) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                Path unitFolder = unitPath(id, version);
+        try {
+            Path unitFolder = unitPath(id, version);
+            Files.createDirectories(unitFolder);
+            TempStorage storage = tempStorageProvider.tempStorage(id, version);
+            return deploymentUnit.process(deployProcessor, new DeployArg(unitFolder, storage))
+                    .whenComplete((unused, t) -> storage.close());
 
-                Files.createDirectories(unitFolder);
-
-                for (Entry<String, InputStream> entry : deploymentUnit.content().entrySet()) {
-                    String fileName = entry.getKey();
-                    Path unitPath = unitFolder.resolve(fileName);
-                    Path unitPathTmp = unitFolder.resolve(fileName + TMP_SUFFIX);
-                    Files.copy(entry.getValue(), unitPathTmp, REPLACE_EXISTING);
-                    Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
-                }
-                return true;
-            } catch (IOException e) {
-                LOG.error("Failed to deploy unit " + id + ":" + version, e);
-                return false;
-            }
-        }, executor);
+        } catch (IOException e) {
+            LOG.error("Failed to deploy unit " + id + ":" + version, e);
+            return falseCompletedFuture();
+        }
     }
 
     /**
@@ -113,7 +113,7 @@ public class FileDeployerService {
                 IgniteUtils.deleteIfExistsThrowable(unitPath(id, version));
                 return true;
             } catch (IOException e) {
-                LOG.debug("Failed to undeploy unit " + id + ":" + version, e);
+                LOG.error("Failed to undeploy unit " + id + ":" + version, e);
                 return false;
             }
         }, executor);
@@ -130,17 +130,64 @@ public class FileDeployerService {
         return CompletableFuture.supplyAsync(() -> {
             Map<String, byte[]> result = new HashMap<>();
             try {
-                Files.walkFileTree(unitPath(id, version), new SimpleFileVisitor<>() {
+                Path unitFolder = unitPath(id, version);
+                Files.walkFileTree(unitFolder, new SimpleFileVisitor<>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        result.put(file.getFileName().toString(), Files.readAllBytes(file));
+                        Path unitStructure = unitFolder.relativize(file);
+                        result.put(unitStructure.toString(), Files.readAllBytes(file));
                         return FileVisitResult.CONTINUE;
                     }
                 });
             } catch (IOException e) {
-                LOG.debug("Failed to get content for unit " + id + ":" + version, e);
+                LOG.error("Failed to get content for unit " + id + ":" + version, e);
             }
             return new UnitContent(result);
+        }, executor);
+    }
+
+    /**
+     * Returns unit content representation with tree structure.
+     *
+     * @param id Unit identifier.
+     * @param version Unit version.
+     */
+    public CompletableFuture<UnitFolder> getUnitStructure(String id, Version version) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                UnitStructureBuilder builder = new UnitStructureBuilder();
+                Path unitFolder = unitPath(id, version);
+                builder.pushFolder(id + "-" + version);
+
+                Files.walkFileTree(unitFolder, new SimpleFileVisitor<>() {
+
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                        if (!Files.isSameFile(dir, unitFolder)) {
+                            builder.pushFolder(dir.getFileName().toString());
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        builder.addFile(file.getFileName().toString(), attrs.size());
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, @Nullable IOException exc) throws IOException {
+                        if (!Files.isSameFile(dir, unitFolder)) {
+                            builder.popFolder(dir.getFileName().toString());
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+                return builder.build();
+            } catch (IOException e) {
+                LOG.error("Failed to get content for unit " + id + ":" + version, e);
+                return null;
+            }
         }, executor);
     }
 
@@ -177,5 +224,9 @@ public class FileDeployerService {
      */
     public void stop() {
         executor.shutdown();
+    }
+
+    public TempStorageProvider tempStorageProvider() {
+        return tempStorageProvider;
     }
 }

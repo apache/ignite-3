@@ -191,7 +191,6 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         return Stream.of("YEAR", "QUARTER", "MONTH", "WEEK").map(f -> Arguments.of(f, Types.DATE));
     }
 
-
     @ParameterizedTest
     @MethodSource("extractTimestamp")
     public void extractTimestamp(String field, NativeType nativeType) throws Exception {

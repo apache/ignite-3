@@ -28,20 +28,25 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Concurrent test for {@link TransactionExpirationRegistry}. */
 class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest {
 
-    private final TransactionExpirationRegistry registry = new TransactionExpirationRegistry();
+    private TransactionExpirationRegistry registry;
+
+    @BeforeEach
+    void setUp() {
+        registry = new TransactionExpirationRegistry(VolatileTxStateMetaStorage.createStarted());
+    }
 
     @Test
     void registerExpireUnregister() {
@@ -185,7 +190,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId replicationGroupId) {
+        public PendingTxPartitionEnlistment enlistedPartition(ZonePartitionId replicationGroupId) {
             return null;
         }
 
@@ -195,18 +200,17 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public boolean assignCommitPartition(ReplicationGroupId commitPartitionId) {
+        public boolean assignCommitPartition(ZonePartitionId commitPartitionId) {
             return false;
         }
 
         @Override
-        public TablePartitionId commitPartition() {
+        public ZonePartitionId commitPartition() {
             return null;
         }
 
         @Override
-        public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
-
+        public void enlist(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
         }
 
         @Override
@@ -282,7 +286,7 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         @Override
         public CompletableFuture<Void> rollbackAsync() {
             this.rollbackCount.incrementAndGet();
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override

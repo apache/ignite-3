@@ -71,7 +71,8 @@ public class MapReduceAggregates {
             "ANY",
             "AVG",
             "SINGLE_VALUE",
-            "ANY_VALUE"
+            "ANY_VALUE",
+            "GROUPING"
     );
 
     /**
@@ -364,6 +365,8 @@ public class MapReduceAggregates {
                 return createCountAgg(call, reduceArgumentOffset);
             case "AVG":
                 return createAvgAgg(cluster, call, reduceArgumentOffset, input, canBeNull);
+            case "GROUPING":
+                return createGroupingAgg(call, reduceArgumentOffset);
             default:
                 return createSimpleAgg(call, reduceArgumentOffset);
         }
@@ -487,6 +490,28 @@ public class MapReduceAggregates {
         return new MapReduceAgg(argList, call, reduceCall, USE_INPUT_FIELD);
     }
 
+    private static MapReduceAgg createGroupingAgg(AggregateCall call, int reduceArgumentOffset) {
+        IntList argList = IntList.of(reduceArgumentOffset);
+
+        AggregateCall reduceCall = AggregateCall.create(
+                IgniteSqlOperatorTable.SAME_VALUE,
+                call.isDistinct(),
+                call.isApproximate(),
+                call.ignoreNulls(),
+                ImmutableList.of(),
+                argList,
+                // there is no filtering on REDUCE phase
+                -1,
+                null,
+                call.collation,
+                call.type,
+                "GROUPING" + reduceArgumentOffset);
+
+        // For aggregate that use the same aggregate function for both MAP and REDUCE phases
+        // use the result of an aggregate as is.
+        return new MapReduceAgg(argList, call, reduceCall, USE_INPUT_FIELD);
+    }
+
     /**
      * Produces intermediate expressions that modify results of MAP/REDUCE aggregate.
      * For example: after splitting a function into a MAP aggregate and REDUCE aggregate it is necessary to add casts to
@@ -589,7 +614,6 @@ public class MapReduceAggregates {
                 reduceSumType,
                 "AVG_SUM" + reduceArgumentOffset);
 
-
         // SUM0(c)
         RelDataType reduceSumCountType = typeSystem.deriveSumType(tf, mapCount0.type);
         IntList reduceSumCountArgs = IntList.of(reduceArgumentOffset + 1);
@@ -629,24 +653,29 @@ public class MapReduceAggregates {
         // PROJECT: reduce_sum/reduce_count
 
         MakeReduceExpr reduceOutputExpr = (rexBuilder, input, args, typeFactory) -> {
-            RexNode numeratorRef = rexBuilder.makeInputRef(input, args.get(0));
-            RexInputRef denominatorRef = rexBuilder.makeInputRef(input, args.get(1));
+            RexNode numeratorRef = rexBuilder.makeInputRef(input, args.getInt(0));
+            RexInputRef denominatorRef = rexBuilder.makeInputRef(input, args.getInt(1));
 
             numeratorRef = rexBuilder.ensureType(mapSum0.type, numeratorRef, true);
 
-            RelDataType resultType = typeFactory.decimalOf(call.type);
+            RelDataType resultType = typeSystem.deriveAvgAggType(typeFactory, call.getType());
 
-            // Return correct decimal type with correct scale and precision.
-            int precision = resultType.getPrecision(); // not used.
-            int scale = resultType.getScale();
+            RexNode sumDivCnt;
+            if (SqlTypeUtil.isExactNumeric(resultType)) {
+                // Return correct decimal type with correct scale and precision.
+                int precision = resultType.getPrecision(); // not used.
+                int scale = resultType.getScale();
 
-            RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
-            RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
+                RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
+                RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
 
-            RexNode sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
+                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
 
-            if (call.getType().getSqlTypeName() != SqlTypeName.DECIMAL) {
-                sumDivCnt = rexBuilder.makeCast(call.getType(), sumDivCnt, false, false);
+                if (call.getType().getSqlTypeName() != SqlTypeName.DECIMAL) {
+                    sumDivCnt = rexBuilder.makeCast(call.getType(), sumDivCnt, false, false);
+                }
+            } else {
+                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DIVIDE, numeratorRef, denominatorRef);
             }
 
             if (canBeNull) {

@@ -52,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
@@ -88,7 +87,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
 
-    private ZoneId timeZoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+    private ZoneId timeZoneId = SqlCommon.DEFAULT_TIME_ZONE_ID;
 
     private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
 
@@ -141,7 +140,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
      * @return This.
      */
     @Override
-    public QueryChecker withParam(Object param) {
+    public QueryChecker withParam(@Nullable Object param) {
         return this.withParams(param);
     }
 
@@ -329,8 +328,10 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         SqlProperties properties = new SqlProperties()
                 .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES)
+                .allowMultiStatement(false)
                 .timeZoneId(timeZoneId)
-                .defaultSchema(defaultSchema);
+                .defaultSchema(defaultSchema)
+                .userName(Commons.SYSTEM_USER_NAME);
 
         String qry = queryTemplate.createQuery();
         boolean containExplain = "EXPLAIN ".equalsIgnoreCase(qry.substring(0, 8));

@@ -41,16 +41,15 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepare
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.PrepareInitCompleteMessage;
-import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,19 +68,15 @@ public class ClusterInitializer {
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
-    private final NodeProperties nodeProperties;
-
     /** Constructor. */
     public ClusterInitializer(
             ClusterService clusterService,
             ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
-            ConfigurationValidator clusterConfigurationValidator,
-            NodeProperties nodeProperties
+            ConfigurationValidator clusterConfigurationValidator
     ) {
         this.clusterService = clusterService;
         this.configurationDynamicDefaultsPatcher = configurationDynamicDefaultsPatcher;
         this.clusterConfigurationValidator = clusterConfigurationValidator;
-        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -151,7 +146,7 @@ public class ClusterInitializer {
 
         // See Javadoc for the explanation of how the nodes are chosen.
         if (msNodeNameSet.isEmpty() && cmgNodeNameSet.isEmpty()) {
-            Collection<ClusterNode> clusterNodes = clusterService.topologyService().allMembers();
+            Collection<InternalClusterNode> clusterNodes = clusterService.topologyService().allMembers();
             int topologySize = clusterNodes.size();
 
             // For efficiency, we limit the number of MS and CMG nodes chosen by default.
@@ -160,7 +155,7 @@ public class ClusterInitializer {
             // If the cluster has 4 nodes, use 3 MS/CMG nodes to maintain an odd number.
             int msNodesLimit = topologySize < 5 ? 3 : 5;
             Set<String> chosenNodes = clusterNodes.stream()
-                    .map(ClusterNode::name)
+                    .map(InternalClusterNode::name)
                     .sorted()
                     .limit(msNodesLimit)
                     .collect(Collectors.toSet());
@@ -177,14 +172,14 @@ public class ClusterInitializer {
         }
 
         try {
-            Map<String, ClusterNode> nodesByConsistentId = getValidTopologySnapshot();
+            Map<String, InternalClusterNode> nodesByConsistentId = getValidTopologySnapshot();
 
             // check that provided Meta Storage nodes are present in the topology
-            List<ClusterNode> msNodes = resolveNodes(nodesByConsistentId, msNodeNameSet);
+            List<InternalClusterNode> msNodes = resolveNodes(nodesByConsistentId, msNodeNameSet);
 
             LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
-            List<ClusterNode> cmgNodes = resolveNodes(nodesByConsistentId, cmgNodeNameSet);
+            List<InternalClusterNode> cmgNodes = resolveNodes(nodesByConsistentId, cmgNodeNameSet);
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
@@ -193,7 +188,7 @@ public class ClusterInitializer {
             validateConfiguration(patchedClusterConfiguration, clusterConfiguration);
 
             CmgPrepareInitMessage prepareInitMessage = msgFactory.cmgPrepareInitMessage()
-                    .initInitiatorColocationEnabled(nodeProperties.colocationEnabled())
+                    .initInitiatorColocationEnabled(true)
                     .build();
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
@@ -206,34 +201,38 @@ public class ClusterInitializer {
 
             // Handler of prepareInitMessage validates that all CMG nodes have the same enabledColocation mode.
             return invokeMessage(cmgNodes, prepareInitMessage)
-                    .thenCompose(ignored -> invokeMessage(cmgNodes, initMessage)
-                            .handle((v, e) -> {
-                                if (e == null) {
-                                    LOG.info(
-                                            "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
-                                            initMessage.clusterName(),
-                                            initMessage.cmgNodes(),
-                                            initMessage.metaStorageNodes()
-                                    );
+                    .thenCompose(ignored -> {
+                        LOG.info("CMG initialization preparation completed, going to send init message [initMessage={}].", initMessage);
 
-                                    return CompletableFutures.<Void>nullCompletedFuture();
-                                } else {
-                                    if (e instanceof CompletionException) {
-                                        e = e.getCause();
-                                    }
+                        return invokeMessage(cmgNodes, initMessage)
+                                .handle((v, e) -> {
+                                    if (e == null) {
+                                        LOG.info(
+                                                "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
+                                                initMessage.clusterName(),
+                                                initMessage.cmgNodes(),
+                                                initMessage.metaStorageNodes()
+                                        );
 
-                                    LOG.info("Initialization failed [reason={}]", e, e.getMessage());
-
-                                    if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
-                                        return CompletableFuture.<Void>failedFuture(e);
+                                        return CompletableFutures.<Void>nullCompletedFuture();
                                     } else {
-                                        LOG.debug("Critical error encountered, rolling back the init procedure");
+                                        if (e instanceof CompletionException) {
+                                            e = e.getCause();
+                                        }
 
-                                        return cancelInit(cmgNodes, e);
+                                        LOG.warn("Initialization failed [reason={}]", e, e.getMessage());
+
+                                        if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
+                                            return CompletableFuture.<Void>failedFuture(e);
+                                        } else {
+                                            LOG.debug("Critical error encountered, rolling back the init procedure");
+
+                                            return cancelInit(cmgNodes, e);
+                                        }
                                     }
-                                }
-                            })
-                            .thenCompose(Function.identity()));
+                                })
+                                .thenCompose(Function.identity());
+                    });
         } catch (Exception e) {
             return failedFuture(e);
         }
@@ -245,8 +244,8 @@ public class ClusterInitializer {
      *
      * @return A map from consistent id to node.
      */
-    private Map<String, ClusterNode> getValidTopologySnapshot() {
-        Map<String, ClusterNode> result = new HashMap<>();
+    private Map<String, InternalClusterNode> getValidTopologySnapshot() {
+        Map<String, InternalClusterNode> result = new HashMap<>();
         clusterService.topologyService().allMembers().forEach(node -> {
             if (result.put(node.name(), node) != null) {
                 LOG.error("Initialization failed, node \"{}\" has duplicate in the physical topology", node.name());
@@ -256,7 +255,7 @@ public class ClusterInitializer {
         return result;
     }
 
-    private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
+    private CompletableFuture<Void> cancelInit(Collection<InternalClusterNode> nodes, Throwable e) {
         CancelInitMessage cancelMessage = msgFactory.cancelInitMessage()
                 .reason(e.getMessage())
                 .build();
@@ -279,7 +278,7 @@ public class ClusterInitializer {
      * @param message message to send.
      * @return future that either resolves to a leader node ID or fails if any of the nodes return an error response.
      */
-    private CompletableFuture<Void> invokeMessage(Collection<ClusterNode> nodes, NetworkMessage message) {
+    private CompletableFuture<Void> invokeMessage(Collection<InternalClusterNode> nodes, NetworkMessage message) {
         return allOf(nodes, node ->
                 clusterService.messagingService()
                         .invoke(node, message, INIT_MESSAGE_SEND_TIMEOUT_MILLIS)
@@ -287,8 +286,10 @@ public class ClusterInitializer {
                             if (response instanceof InitErrorMessage) {
                                 var errorResponse = (InitErrorMessage) response;
 
+                                LOG.warn("Got error response from node \"{}\": {}", node.name(), errorResponse.cause());
+
                                 throw new InternalInitException(
-                                        String.format("Got error response from node \"%s\": %s", node.name(), errorResponse.cause()),
+                                        String.format("Initialization of node \"%s\" failed: %s", node.name(), errorResponse.cause()),
                                         errorResponse.shouldCancel()
                                 );
                             } else if (!(response instanceof InitCompleteMessage || response instanceof PrepareInitCompleteMessage)) {
@@ -301,23 +302,26 @@ public class ClusterInitializer {
         );
     }
 
-    private CompletableFuture<Void> sendMessage(Collection<ClusterNode> nodes, NetworkMessage message) {
+    private CompletableFuture<Void> sendMessage(Collection<InternalClusterNode> nodes, NetworkMessage message) {
         return allOf(nodes, node -> clusterService.messagingService().send(node, message));
     }
 
     private static CompletableFuture<Void> allOf(
-            Collection<ClusterNode> nodes,
-            Function<ClusterNode, CompletableFuture<?>> futureProducer
+            Collection<InternalClusterNode> nodes,
+            Function<InternalClusterNode, CompletableFuture<?>> futureProducer
     ) {
         CompletableFuture<?>[] futures = nodes.stream().map(futureProducer).toArray(CompletableFuture[]::new);
 
         return CompletableFuture.allOf(futures);
     }
 
-    private static List<ClusterNode> resolveNodes(Map<String, ClusterNode> nodesByConsistentId, Collection<String> consistentIds) {
+    private static List<InternalClusterNode> resolveNodes(
+            Map<String, InternalClusterNode> nodesByConsistentId,
+            Collection<String> consistentIds
+    ) {
         return consistentIds.stream()
                 .map(consistentId -> {
-                    ClusterNode node = nodesByConsistentId.get(consistentId);
+                    InternalClusterNode node = nodesByConsistentId.get(consistentId);
 
                     if (node == null) {
                         throw new IllegalArgumentException(String.format(
@@ -329,7 +333,6 @@ public class ClusterInitializer {
                 })
                 .collect(Collectors.toList());
     }
-
 
     private String patchClusterConfigurationWithDynamicDefaults(@Nullable String hocon) {
         return configurationDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon == null ? "" : hocon);

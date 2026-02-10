@@ -50,6 +50,7 @@ import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 
@@ -116,7 +116,7 @@ public class ScaleCubeClusterServiceFactory {
         // other component that watches topology events.
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
-            public void onDisappeared(ClusterNode member) {
+            public void onDisappeared(InternalClusterNode member) {
                 staleIds.markAsStale(member.id());
             }
         });
@@ -162,7 +162,9 @@ public class ScaleCubeClusterServiceFactory {
                         staleIds,
                         clusterIdSupplier,
                         channelTypeRegistry,
-                        productVersionSource
+                        productVersionSource,
+                        topologyService,
+                        failureProcessor
                 );
                 this.connectionMgr = connectionMgr;
 
@@ -173,8 +175,9 @@ public class ScaleCubeClusterServiceFactory {
 
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
-                    public void onDisappeared(ClusterNode member) {
-                        connectionMgr.handleNodeLeft(member.id());
+                    public void onDisappeared(InternalClusterNode member) {
+                        connectionMgr.handleNodeLeft(member.id()).thenRun(() ->
+                                nettyBootstrapFactory.handshakeEventLoopSwitcher().nodeLeftTopology(member));
                     }
                 });
 
@@ -209,7 +212,7 @@ public class ScaleCubeClusterServiceFactory {
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
                 Member localMember = createLocalMember(scalecubeLocalAddress, launchId, clusterConfig);
-                ClusterNode localNode = new ClusterNodeImpl(
+                InternalClusterNode localNode = new ClusterNodeImpl(
                         UUID.fromString(localMember.id()),
                         consistentId,
                         new NetworkAddress(localMember.address().host(), localMember.address().port())

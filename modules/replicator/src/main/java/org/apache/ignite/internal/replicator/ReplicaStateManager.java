@@ -169,7 +169,8 @@ class ReplicaStateManager {
     CompletableFuture<Boolean> weakStartReplica(
             ReplicationGroupId groupId,
             Supplier<CompletableFuture<Boolean>> startOperation,
-            @Nullable Assignments forcedAssignments
+            @Nullable Assignments forcedAssignments,
+            long revision
     ) {
         ReplicaStateContext context = getContext(groupId);
 
@@ -185,7 +186,7 @@ class ReplicaStateManager {
                     assert forcedAssignments.force() :
                             format("Unexpected assignments to force [assignments={}, groupId={}].", forcedAssignments, groupId);
 
-                    replicaManager.resetPeers(groupId, fromAssignments(forcedAssignments.nodes()));
+                    replicaManager.resetWithRetry(groupId, fromAssignments(forcedAssignments.nodes()), revision);
                 }
 
                 // Telling the caller that the replica is started.
@@ -280,6 +281,7 @@ class ReplicaStateManager {
                 if (context.reservedForPrimary) {
                     // If is primary, turning off the primary first.
                     context.replicaState = ReplicaState.RESTART_PLANNED;
+
                     return replicaManager.stopLeaseProlongation(groupId, null)
                             .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
                 } else {
@@ -412,7 +414,7 @@ class ReplicaStateManager {
      * <br>
      * Transitions:
      * <br>
-     * On {@link #weakStartReplica(ReplicationGroupId, Supplier, Assignments)} (this assumes that the replica is included into
+     * On {@link #weakStartReplica(ReplicationGroupId, Supplier, Assignments, long)} (this assumes that the replica is included into
      * assignments):
      * <ul>
      *     <li>if {@link #ASSIGNED}: next state is {@link #ASSIGNED};</li>

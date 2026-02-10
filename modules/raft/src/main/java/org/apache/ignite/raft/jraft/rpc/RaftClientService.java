@@ -103,4 +103,16 @@ public interface RaftClientService extends ClientService {
      */
     Future<Message> readIndex(final PeerId peerId, final RpcRequests.ReadIndexRequest request, final int timeoutMs,
         final RpcResponseClosure<RpcRequests.ReadIndexResponse> done);
+
+    /**
+     * Send a get-leader-and-term request and handle the response with done.
+     *
+     * @param peerId destination peer ID
+     * @param request request data
+     * @param timeoutMs timeout millis
+     * @param done callback
+     * @return a future result
+     */
+    Future<Message> getLeaderAndTerm(final PeerId peerId, final CliRequests.GetLeaderRequest request, final int timeoutMs,
+        final RpcResponseClosure<CliRequests.GetLeaderResponse> done);
 }

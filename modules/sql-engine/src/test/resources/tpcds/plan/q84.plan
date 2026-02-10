@@ -65,7 +65,7 @@ Limit
                         est: (rows=5)
                       TableScan
                           table: PUBLIC.INCOME_BAND
-                          predicate: AND(>=(IB_LOWER_BOUND, 37855), <=(IB_UPPER_BOUND, +(37855, 50000)))
+                          predicate: AND(>=(IB_LOWER_BOUND, 37855), <=(IB_UPPER_BOUND, 87855))
                           fieldNames: [IB_INCOME_BAND_SK, IB_LOWER_BOUND, IB_UPPER_BOUND]
                           est: (rows=5)
                 Exchange

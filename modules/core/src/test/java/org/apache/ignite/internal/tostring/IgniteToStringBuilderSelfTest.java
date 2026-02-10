@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tostring;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_MAX_LENGTH;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.identity;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -48,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
@@ -238,10 +235,10 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void testArrLimitWithRecursion() {
-        int limit = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_COLLECTION_LIMIT, 100);
+        int limit = 100;
 
         ArrayList[] arrOf = new ArrayList[limit + 1];
-        Arrays.fill(arrOf, new ArrayList());
+        Arrays.fill(arrOf, new ArrayList<>());
         ArrayList[] arr = Arrays.copyOf(arrOf, limit);
 
         arrOf[0].add(arrOf);
@@ -267,7 +264,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
     @Test
     public void testToStringCollectionLimits() {
-        int limit = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_COLLECTION_LIMIT, 100);
+        int limit = 100;
 
         Object[] vals = new Object[]{
                 Byte.MIN_VALUE, Boolean.TRUE, Short.MIN_VALUE, Integer.MIN_VALUE, Long.MIN_VALUE,
@@ -372,24 +369,23 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
     }
 
     @Test
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public void testToStringColAndMapLimitWithRecursion() {
-        int limit = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_COLLECTION_LIMIT, 100);
-        Map strMap = new TreeMap<>();
-        List strList = new ArrayList<>(limit + 1);
+        int limit = 100;
+        Map<String, String> strMap = new TreeMap<>();
+        List<String> strList = new ArrayList<>(limit + 1);
 
         TestClass1 testClass = new TestClass1();
         testClass.strMap = strMap;
         testClass.strListIncl = strList;
 
-        Map m = new TreeMap();
+        Map<String, Map<String, String>> m = new TreeMap<>();
         m.put("m", strMap);
 
-        List l = new ArrayList();
+        List<List<String>> l = new ArrayList<>();
         l.add(strList);
 
-        strMap.put("k0", m);
-        strList.add(l);
+        strMap.put("k0", m.toString());
+        strList.add(l.toString());
 
         for (int i = 1; i < limit; i++) {
             strMap.put("k" + i, "v");
@@ -420,7 +416,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
     @Test
     public void testToStringSizeLimits() {
-        int limit = IgniteSystemProperties.getInteger(IGNITE_TO_STRING_MAX_LENGTH, 10_000);
+        int limit = 10_000;
         final int tailLen = limit / 10 * 2;
 
         StringBuilder sb = new StringBuilder(limit + 10);

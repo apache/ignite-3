@@ -49,16 +49,19 @@ import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
@@ -70,7 +73,6 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -105,6 +107,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     }
 
     protected abstract RowHandler<T> rowHandler();
+
+    protected abstract RowFactoryFactory<T> rowFactoryFactory();
 
     protected ExecutionContext<T> executionContext() {
         return executionContext(-1, false);
@@ -141,9 +145,9 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         FragmentDescription fragmentDesc = getFragmentDescription();
 
-        ClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
+        InternalClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         ExecutionContext<T> executionContext = new ExecutionContext<>(
-                new ExpressionFactoryImpl<>(
+                new SqlExpressionFactoryImpl(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 taskExecutor,
@@ -153,11 +157,14 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 node.id(),
                 fragmentDesc,
                 rowHandler(),
+                rowFactoryFactory(),
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                SqlCommon.DEFAULT_TIME_ZONE_ID,
                 bufferSize,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                null,
+                1L
         );
 
         contexts.add(executionContext);
@@ -276,7 +283,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                                         return null;
                                 }
                             })
-                            .collect(Collectors.toList()).toArray(new Function[rowType.getFieldCount()])
+                            .collect(Collectors.toList()).toArray(new Function[0])
             );
         }
 
@@ -407,11 +414,16 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         }
     }
 
-    static SqlJoinProjection<Object[]> identityProjection() {
-        return (c, r1, r2) -> ArrayUtils.concat(r1, r2);
+    static SqlJoinProjection identityProjection() {
+        return new SqlJoinProjection() {
+            @Override
+            public <RowT> RowT project(SqlEvaluationContext<RowT> context, RowT left, RowT right) {
+                return (RowT) ArrayUtils.concat((Object[]) left, (Object[]) right);
+            }
+        };
     }
 
-    static @Nullable SqlJoinProjection<Object[]> createIdentityProjectionIfNeeded(JoinRelType type) {
+    static @Nullable SqlJoinProjection createIdentityProjectionIfNeeded(JoinRelType type) {
         if (type == SEMI || type == ANTI) {
             return null;
         }
@@ -429,7 +441,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
      * @return Returns field by offset.
      */
     static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
-        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
-                hnd.get(offset - hnd.columnCount(row1), row2);
+        return offset < hnd.columnsCount(row1) ? hnd.get(offset, row1) :
+                hnd.get(offset - hnd.columnsCount(row1), row2);
     }
 }

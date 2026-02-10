@@ -44,14 +44,14 @@ public class IgniteThreadFactory implements ThreadFactory {
     /**
      * Constructor.
      */
-    private IgniteThreadFactory(String nodeName, String poolName, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
+    protected IgniteThreadFactory(String nodeName, String poolName, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
         this(IgniteThread.threadPrefix(nodeName, poolName), daemon, log, allowedOperations);
     }
 
     /**
      * Constructor.
      */
-    private IgniteThreadFactory(String prefix, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
+    protected IgniteThreadFactory(String prefix, boolean daemon, IgniteLogger log, ThreadOperation[] allowedOperations) {
         this.prefix = Objects.requireNonNull(prefix, "prefix");
         this.daemon = daemon;
         this.exHnd = new LogUncaughtExceptionHandler(log);
@@ -60,12 +60,23 @@ public class IgniteThreadFactory implements ThreadFactory {
 
     @Override
     public IgniteThread newThread(Runnable r) {
-        IgniteThread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
+        IgniteThread t = createIgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
 
         t.setDaemon(this.daemon);
         t.setUncaughtExceptionHandler(exHnd);
 
         return t;
+    }
+
+    /**
+     * Creates ignite thread with given name.
+     *
+     * @param finalName Name of thread.
+     * @param r Runnable to execute.
+     * @param allowedOperations Operations which this thread allows to execute.
+     */
+    protected IgniteThread createIgniteThread(String finalName, Runnable r, ThreadOperation... allowedOperations) {
+        return new IgniteThread(finalName, r, allowedOperations);
     }
 
     /**

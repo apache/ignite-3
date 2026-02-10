@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.toPartitionB
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,14 +50,12 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -105,7 +102,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsPrimaryReplicaTrue() {
-        TablePartitionId replicaGroupId = new TablePartitionId(1, 0);
+        ZonePartitionId replicaGroupId = new ZonePartitionId(1, 0);
 
         HybridTimestamp startTime = clock.now();
         long dayInMillis = TimeUnit.DAYS.toMillis(1);
@@ -117,11 +114,9 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsPrimaryReplicaFalse() {
-        PartitionGroupId groupId = colocationEnabled()
-                ? new ZonePartitionId(0, 0)
-                : new TablePartitionId(1, 0);
+        ZonePartitionId groupId = new ZonePartitionId(0, 0);
 
-        ClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
+        InternalClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
 
         HybridTimestamp now = clock.now();
         long dayInMillis = TimeUnit.DAYS.toMillis(1);
@@ -141,7 +136,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testLocalNode() {
-        ClusterNode localNode = mock(ClusterNode.class);
+        InternalClusterNode localNode = mock(InternalClusterNode.class);
         ClusterService clusterService = clusterService(localNode);
 
         assertEquals(localNode, localNode(clusterService));
@@ -149,8 +144,8 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsLocalNode() {
-        ClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 8888));
-        ClusterNode notLocalNode = new ClusterNodeImpl(randomUUID(), "not-local", new NetworkAddress("127.0.0.1", 7777));
+        InternalClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 8888));
+        InternalClusterNode notLocalNode = new ClusterNodeImpl(randomUUID(), "not-local", new NetworkAddress("127.0.0.1", 7777));
 
         ClusterService clusterService = clusterService(localNode);
 
@@ -213,7 +208,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
         inOrder.verify(busyLock0).leaveBusy();
     }
 
-    private static ClusterService clusterService(ClusterNode localNode) {
+    private static ClusterService clusterService(InternalClusterNode localNode) {
         ClusterService clusterService = mock(ClusterService.class);
         TopologyService topologyService = mock(TopologyService.class);
 

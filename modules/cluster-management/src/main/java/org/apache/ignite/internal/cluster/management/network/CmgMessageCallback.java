@@ -22,7 +22,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.ClusterSta
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,25 +32,25 @@ public interface CmgMessageCallback {
     /**
      * Notifies about an incoming {@link ClusterStateMessage}.
      */
-    void onClusterStateMessageReceived(ClusterStateMessage message, ClusterNode sender, @Nullable Long correlationId);
+    void onClusterStateMessageReceived(ClusterStateMessage message, InternalClusterNode sender, @Nullable Long correlationId);
 
     /**
      * Notifies about an incoming {@link CancelInitMessage}.
      */
-    void onCancelInitMessageReceived(CancelInitMessage message, ClusterNode sender, @Nullable Long correlationId);
+    void onCancelInitMessageReceived(CancelInitMessage message, InternalClusterNode sender, @Nullable Long correlationId);
 
     /**
      * Notifies about an incoming {@link RefuseJoinMessage}.
      */
-    void onRefuseJoinMessageReceived(RefuseJoinMessage message, ClusterNode sender, @Nullable Long correlationId);
+    void onRefuseJoinMessageReceived(RefuseJoinMessage message, InternalClusterNode sender, @Nullable Long correlationId);
 
     /**
      * Notifies about an incoming {@link CmgInitMessage}.
      */
-    void onCmgInitMessageReceived(CmgInitMessage message, ClusterNode sender, @Nullable Long correlationId);
+    void onCmgInitMessageReceived(CmgInitMessage message, InternalClusterNode sender, @Nullable Long correlationId);
 
     /**
      * Notifies about an incoming {@link CmgPrepareInitMessage}.
      */
-    void onCmgPrepareInitMessageReceived(CmgPrepareInitMessage message, ClusterNode sender, @Nullable Long correlationId);
+    void onCmgPrepareInitMessageReceived(CmgPrepareInitMessage message, InternalClusterNode sender, @Nullable Long correlationId);
 }

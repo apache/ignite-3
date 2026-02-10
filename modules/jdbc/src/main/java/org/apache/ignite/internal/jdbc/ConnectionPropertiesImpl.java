@@ -58,17 +58,45 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty schema = new StringProperty(PROP_SCHEMA,
             "Schema name of the connection", "PUBLIC", null, false, null);
 
-    /** Query timeout. */
+    /**
+     * Query timeout.
+     *
+     * @deprecated Use {@link #qryTimeoutSeconds} instead.
+     */
+    @Deprecated
     private final IntegerProperty qryTimeout = new IntegerProperty("queryTimeout",
+            "Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute."
+                    + " Zero means there is no limits.",
+            0, false, 0, Integer.MAX_VALUE);
+
+    /** Query timeout. */
+    private final IntegerProperty qryTimeoutSeconds = new IntegerProperty("queryTimeoutSeconds",
             "Sets the number of seconds the driver will wait for a <code>Statement</code> object to execute."
                     + " Zero means there is no limits.",
             null, false, 0, Integer.MAX_VALUE);
 
-    /** JDBC connection timeout. */
+    /**
+     * JDBC connection timeout.
+     *
+     * @deprecated Use {@link #connTimeoutMillis} instead.
+     */
+    @Deprecated
     private final IntegerProperty connTimeout = new IntegerProperty("connectionTimeout",
-            "Sets the number of milliseconds JDBC client will waits for server to response."
+            "Sets the number of milliseconds JDBC client will wait for server to respond."
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
+
+    /** JDBC connection timeout. */
+    private final IntegerProperty connTimeoutMillis = new IntegerProperty("connectionTimeoutMillis",
+            "Sets the number of milliseconds JDBC client will wait for server to respond."
+                    + " Zero means there is no limits.",
+            null, false, 0, Integer.MAX_VALUE);
+
+    /** JDBC background reconnect interval. */
+    private final LongProperty backgroundReconnectInterval = new LongProperty("backgroundReconnectIntervalMillis",
+            "Sets the background reconnect interval."
+                    + " Zero means that background reconnect is disabled.",
+            IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL, false, 0, Long.MAX_VALUE);
 
     /** Path to the truststore. */
     private final StringProperty trustStorePath = new StringProperty("trustStorePath",
@@ -106,11 +134,17 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final TimeZoneProperty connectionTimeZone = new TimeZoneProperty("connectionTimeZone",
             "Client connection time-zone ID", ZoneId.systemDefault(), null, false, null);
 
+    /** The size of the partition awareness metadata cache. */
+    private final IntegerProperty partitionAwarenessMetadataCacheSize = new IntegerProperty("partitionAwarenessMetadataCacheSize",
+            "Partition awareness metadata cache size", IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE,
+            false, 0, Integer.MAX_VALUE);
+
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
-            qryTimeout, connTimeout, trustStorePath, trustStorePassword,
-            sslEnabled, ciphers, keyStorePath, keyStorePassword,
-            username, password, connectionTimeZone
+            qryTimeout, qryTimeoutSeconds, connTimeout, connTimeoutMillis, trustStorePath,
+            trustStorePassword, sslEnabled, ciphers, keyStorePath, keyStorePassword,
+            username, password, connectionTimeZone, partitionAwarenessMetadataCacheSize,
+            backgroundReconnectInterval
     };
 
     /** {@inheritDoc} */
@@ -177,26 +211,44 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public Integer getQueryTimeout() {
+    public int getQueryTimeout() {
+        Integer value = qryTimeoutSeconds.value();
+
+        if (value != null) {
+            return value;
+        }
+
         return qryTimeout.value();
     }
 
     /** {@inheritDoc} */
     @Override
     public void setQueryTimeout(@Nullable Integer timeout) throws SQLException {
-        qryTimeout.setValue(timeout);
+        qryTimeoutSeconds.setValue(timeout);
     }
 
     /** {@inheritDoc} */
     @Override
     public int getConnectionTimeout() {
+        Integer value = connTimeoutMillis.value();
+
+        if (value != null) {
+            return value;
+        }
+
         return connTimeout.value();
     }
 
     /** {@inheritDoc} */
     @Override
     public void setConnectionTimeout(@Nullable Integer timeout) throws SQLException {
-        connTimeout.setValue(timeout);
+        connTimeoutMillis.setValue(timeout);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long getBackgroundReconnectInterval() {
+        return backgroundReconnectInterval.value();
     }
 
     /** {@inheritDoc} */
@@ -298,6 +350,11 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setConnectionTimeZone(ZoneId timeZoneId) {
         connectionTimeZone.setValue(timeZoneId);
+    }
+
+    @Override
+    public int getPartitionAwarenessMetadataCacheSize() {
+        return partitionAwarenessMetadataCacheSize.value();
     }
 
     /**

@@ -109,7 +109,7 @@ explain plan
 SELECT x FROM (VALUES (1)) v(x) WHERE x != 0 AND EXTRACT(YEAR FROM CURRENT_DATE) > 2000;
 ----
 Filter
-    predicate: AND(<>(X, 0), >(EXTRACT(FLAG(YEAR), CURRENT_DATE), 2000))
+    predicate: >(EXTRACT(FLAG(YEAR), CURRENT_DATE), 2000)
     est: (rows=1)
   Values
       fieldNames: [X]

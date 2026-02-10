@@ -18,11 +18,13 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -95,15 +97,19 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void testClientRepairsBackgroundConnectionsPeriodically(boolean reconnectEnabled) throws Exception {
-        startTwoServers();
+        startTwoServers(false);
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902", "127.0.0.1:10903")
                 .backgroundReconnectInterval(reconnectEnabled ? 50 : 0)
-                .heartbeatInterval(50);
+                .heartbeatInterval(100)
+                .backgroundReResolveAddressesInterval(0L);
 
         try (var client = builder.build()) {
             waitForConnections(client, 2);
+
+            // Skip channels refresh on partition assignment during connection.
+            Thread.sleep(100L);
 
             server2.close();
             waitForConnections(client, 1);
@@ -123,9 +129,10 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
         }
     }
 
-    @Test
-    public void testFullClusterRestart() throws Exception {
-        startTwoServers();
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void testFullClusterRestart(boolean changeNodeIds) throws Exception {
+        startTwoServers(changeNodeIds);
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902")
@@ -138,16 +145,23 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
             closeAll(server, server2);
             waitForConnections(client, 0);
 
-            startTwoServers();
+            startTwoServers(changeNodeIds);
             waitForConnections(client, 2);
         }
     }
 
-    private void startTwoServers() {
-        FakeIgnite ignite = new FakeIgnite();
-        server = new TestServer(0, ignite, null, null, "node1", AbstractClientTest.clusterId, null, 10901);
-        FakeIgnite ignite1 = new FakeIgnite();
-        server2 = new TestServer(0, ignite1, null, null, "node2", AbstractClientTest.clusterId, null, 10902);
+    private void startTwoServers(boolean randomNodeIds) {
+        server = startServer("node1", 10901, randomNodeIds);
+        server2 = startServer("node2", 10902, randomNodeIds);
+    }
+
+    private static TestServer startServer(String nodeName, int port, boolean randomNodeId) {
+        return TestServer.builder()
+                .nodeName(nodeName)
+                .clusterId(AbstractClientTest.clusterId)
+                .port(port)
+                .nodeId(randomNodeId ? UUID.randomUUID() : deriveUuidFrom(nodeName))
+                .build();
     }
 
     private static void waitForConnections(IgniteClient client, int expectedConnections) throws InterruptedException {

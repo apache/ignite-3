@@ -2,20 +2,22 @@
   "artifacts": [
     "org.apache.ignite:ignite-runner"
   ],
+  "configOverrides": {
+    "ignite.network.membership.scaleCube.metadataTimeout": 10000,
+    "ignite.system.properties.aipersistThrottling": "disabled"
+  },
+  "storageProfilesOverrides": {
+    "ignite.storage.profiles.default_aipersist.engine": "aipersist",
+    "ignite.storage.profiles.default_aipersist.size": 268435456,
+    "ignite.storage.profiles.default_aimem.engine": "aimem",
+    "ignite.storage.profiles.default_aimem.initSize": 268435456,
+    "ignite.storage.profiles.default_aimem.maxSize": 268435456,
+    "ignite.storage.profiles.default.engine": "aipersist",
+    "ignite.storage.profiles.default.size": 268435456
+  },
   "versions": [
     {
-      "version": "3.0.0",
-      "configOverrides": {
-        "ignite.network.membership.scaleCube.metadataTimeout": 10000,
-        "ignite.storage.profiles.default_aipersist.engine": "aipersist",
-        "ignite.storage.profiles.default_aipersist.size": 268435456,
-        "ignite.storage.profiles.default_aimem.engine": "aimem",
-        "ignite.storage.profiles.default_aimem.initSize": 268435456,
-        "ignite.storage.profiles.default_aimem.maxSize": 268435456,
-        "ignite.storage.profiles.default.engine": "aipersist",
-        "ignite.storage.profiles.default.size": 268435456,
-        "ignite.system.properties.aipersistThrottling": "disabled"
-      }
+      "version": "3.1.0"
     }
   ]
 }

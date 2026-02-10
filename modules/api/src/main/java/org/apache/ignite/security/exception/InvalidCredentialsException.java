@@ -17,7 +17,6 @@
 
 package org.apache.ignite.security.exception;
 
-
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 
 import org.apache.ignite.lang.IgniteException;

@@ -40,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -84,8 +83,8 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
@@ -119,9 +118,13 @@ import org.jetbrains.annotations.TestOnly;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
-    public static final String PART_COL_NAME = "__PART";
-    // Old name for partition column. Kept for backward compatibility.
-    public static final String PART_COL_NAME_LEGACY = "__part";
+
+    public static final String PART_COL_NAME = "__PARTITION_ID";
+    // Old names for partition column. Kept for backward compatibility.
+    public static final String PART_COL_NAME_LEGACY1 = "__PART";
+    public static final String PART_COL_NAME_LEGACY2 = "__part";
+
+    public static final String SYSTEM_USER_NAME = "SYSTEM";
 
     public static final int IN_BUFFER_SIZE = 512;
 
@@ -170,6 +173,7 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
+                                    .hintStrategy(IgniteHint.DISABLE_DECORRELATION.name(), (hint, rel) -> true)
                                     .build()
                     )
             )
@@ -178,7 +182,7 @@ public final class Commons {
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
-                    .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
@@ -304,11 +308,11 @@ public final class Commons {
      * @param params Array of values.
      * @return Map of values.
      */
-    public static Int2ObjectMap<Object> arrayToMap(@Nullable Object[] params) {
+    public static <T> Int2ObjectMap<T> arrayToMap(@Nullable T[] params) {
         if (ArrayUtils.nullOrEmpty(params)) {
             return Int2ObjectMaps.emptyMap();
         } else {
-            Int2ObjectMap<Object> res = new Int2ObjectArrayMap<>(params.length);
+            Int2ObjectMap<T> res = new Int2ObjectArrayMap<>(params.length);
 
             for (int i = 0; i < params.length; i++) {
                 res.put(i, params[i]);
@@ -371,7 +375,7 @@ public final class Commons {
             final ICompilerFactory compilerFactory;
 
             try {
-                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(ExpressionFactoryImpl.class.getClassLoader());
+                compilerFactory = CompilerFactoryFactory.getDefaultCompilerFactory(SqlExpressionFactoryImpl.class.getClassLoader());
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Unable to instantiate java compiler", e);
@@ -380,6 +384,7 @@ public final class Commons {
             IClassBodyEvaluator cbe = compilerFactory.newClassBodyEvaluator();
 
             cbe.setImplementedInterfaces(new Class[]{interfaceType});
+            cbe.setParentClassLoader(Commons.class.getClassLoader());
 
             if (debug) {
                 // Add line numbers to the generated janino class
@@ -542,7 +547,6 @@ public final class Commons {
 
         return res;
     }
-
 
     /**
      * Quietly closes given object ignoring possible checked exception.
@@ -777,9 +781,7 @@ public final class Commons {
 
     /** Returns {@code true} if the specified properties allow multi-statement query execution. */
     public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
-        Set<SqlQueryType> allowedTypes = properties.allowedQueryTypes();
-
-        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
+        return properties.allowMultiStatement();
     }
 
     /**
@@ -843,5 +845,27 @@ public final class Commons {
             }
         }
         return true;
+    }
+
+    /**
+     * Creates {@link Mappings.TargetMapping} such that for every given source within provided sourceSize resulting target equals to source
+     * shifted by specified offset (e.g. {@code target = source + offset}).
+     */
+    public static TargetMapping targetOffsetMapping(int sourceCount, int offset) {
+        return Mappings.offsetTarget(
+                Mappings.createIdentity(sourceCount),
+                offset
+        );
+    }
+
+    /**
+     * Packs two integers into a single long value.
+     *
+     * @param high The first integer to pack.
+     * @param low The second integer to pack.
+     * @return A long value containing both integers.
+     */
+    public static long packIntsToLong(int high, int low) {
+        return (((long) high) << 32) | (low & 0xffffffffL);
     }
 }

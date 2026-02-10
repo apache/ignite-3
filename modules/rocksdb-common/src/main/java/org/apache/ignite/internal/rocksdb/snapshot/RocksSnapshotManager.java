@@ -155,7 +155,8 @@ public class RocksSnapshotManager {
                 EnvOptions envOptions = new EnvOptions();
                 Options options = new Options().setEnv(db.getEnv());
                 SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options);
-                RocksIterator it = snapshotIterator(range, snapshot)
+                ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
+                RocksIterator it = rangeIterator(range, readOptions)
         ) {
             Path sstFile = snapshotDir.resolve(range.columnFamily().name());
 
@@ -172,9 +173,7 @@ public class RocksSnapshotManager {
     /**
      * Creates an iterator over the provided key range.
      */
-    private static RocksIterator snapshotIterator(ColumnFamilyRange range, Snapshot snapshot) {
-        var options = new ReadOptions().setSnapshot(snapshot);
-
+    private static RocksIterator rangeIterator(ColumnFamilyRange range, ReadOptions options) {
         if (range.isFullRange()) {
             RocksIterator it = range.columnFamily().newIterator(options);
 

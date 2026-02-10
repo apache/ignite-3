@@ -25,6 +25,8 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.rest.constants.HttpCode;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -95,6 +97,18 @@ public class Problem {
         ProblemBuilder builder = new ProblemBuilder();
         builder.status(httpCode.code());
         builder.title(httpCode.message());
+
+        return builder;
+    }
+
+    /** Returns {@link ProblemBuilder} built from provided Ignite exception with http status and title. */
+    public static ProblemBuilder fromIgniteException(IgniteException exception, HttpCode httpCode) {
+        ProblemBuilder builder = new ProblemBuilder();
+        builder.status(httpCode.code())
+                .title(httpCode.message())
+                .code(exception.codeAsString())
+                .traceId(exception.traceId())
+                .detail(extractDetailMessageOrNull(exception));
 
         return builder;
     }
@@ -233,5 +247,14 @@ public class Problem {
         public Problem build() {
             return new Problem(title, status, code, type, detail, node, traceId, invalidParams);
         }
+    }
+
+    @Nullable
+    private static String extractDetailMessageOrNull(IgniteException exception) {
+        String detail = ErrorGroups.extractCauseMessage(exception.getMessage());
+        if (detail != null && detail.isBlank()) {
+            detail = null;
+        }
+        return detail;
     }
 }

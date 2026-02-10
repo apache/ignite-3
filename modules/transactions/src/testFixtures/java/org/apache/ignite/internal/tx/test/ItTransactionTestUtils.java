@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.test;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,8 +34,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -43,8 +41,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
@@ -72,10 +68,7 @@ public class ItTransactionTestUtils {
     public static Set<String> partitionAssignment(IgniteImpl node, PartitionGroupId grpId) {
         MetaStorageManager metaStorageManager = node.metaStorageManager();
 
-        ByteArray stableAssignmentKey =
-                colocationEnabled()
-                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) grpId)
-                        : RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) grpId);
+        ByteArray stableAssignmentKey = stablePartAssignmentsKey((ZonePartitionId) grpId);
 
         CompletableFuture<Entry> assignmentEntryFut = metaStorageManager.get(stableAssignmentKey);
 
@@ -143,9 +136,7 @@ public class ItTransactionTestUtils {
             int partId = partitionIdForTuple(node, tableName, t, tx);
             partitionIds.add(partId);
 
-            PartitionGroupId grpId = colocationEnabled()
-                    ? new ZonePartitionId(zoneId(node, tableName), partId)
-                    : new TablePartitionId(tableId(node, tableName), partId);
+            ZonePartitionId grpId = new ZonePartitionId(zoneId(node, tableName), partId);
 
             if (primary) {
                 ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, grpId);
@@ -224,7 +215,7 @@ public class ItTransactionTestUtils {
      * @param replicationGrpId Replication group.
      * @return Primary replica meta.
      */
-    public static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId replicationGrpId) {
+    public static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ZonePartitionId replicationGrpId) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 replicationGrpId,
                 node.clock().now(),

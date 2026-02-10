@@ -1,14 +1,14 @@
 Sort
     collation: [CNT DESC, C_LAST_NAME ASC]
-    est: (rows=6497)
+    est: (rows=3248)
   Project
       fieldNames: [C_LAST_NAME, C_FIRST_NAME, C_SALUTATION, C_PREFERRED_CUST_FLAG, SS_TICKET_NUMBER, CNT]
       projection: [C_LAST_NAME, C_FIRST_NAME, C_SALUTATION, C_PREFERRED_CUST_FLAG, SS_TICKET_NUMBER, CNT]
-      est: (rows=6497)
+      est: (rows=3248)
     HashJoin
         predicate: =(SS_CUSTOMER_SK, C_CUSTOMER_SK)
         type: inner
-        est: (rows=6497)
+        est: (rows=3248)
       Exchange
           distribution: single
           est: (rows=100000)
@@ -18,28 +18,28 @@ Sort
             est: (rows=100000)
       Filter
           predicate: SEARCH(CNT, Sarg[[1L:BIGINT..5L:BIGINT]]:BIGINT)
-          est: (rows=6497)
+          est: (rows=3248)
         ColocatedHashAggregate
             fieldNames: [SS_TICKET_NUMBER, SS_CUSTOMER_SK, CNT]
             group: [SS_TICKET_NUMBER, SS_CUSTOMER_SK]
             aggregation: [COUNT()]
-            est: (rows=25987)
+            est: (rows=12993)
           Project
               fieldNames: [SS_TICKET_NUMBER, SS_CUSTOMER_SK]
               projection: [SS_TICKET_NUMBER, SS_CUSTOMER_SK]
-              est: (rows=72186)
+              est: (rows=36093)
             HashJoin
                 predicate: =(SS_STORE_SK, S_STORE_SK)
                 type: inner
-                est: (rows=72186)
+                est: (rows=36093)
               HashJoin
                   predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
                   type: inner
-                  est: (rows=77851)
+                  est: (rows=38926)
                 HashJoin
                     predicate: =(SS_HDEMO_SK, HD_DEMO_SK)
                     type: inner
-                    est: (rows=409353)
+                    est: (rows=204677)
                   Exchange
                       distribution: single
                       est: (rows=2880404)
@@ -49,18 +49,18 @@ Sort
                         est: (rows=2880404)
                   Exchange
                       distribution: single
-                      est: (rows=1023)
+                      est: (rows=512)
                     TableScan
                         table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                        predicate: AND(SEARCH(HD_BUY_POTENTIAL, Sarg[_UTF-8'5001-10000', _UTF-8'>10000':CHAR(10) CHARACTER SET "UTF-8"]:CHAR(10) CHARACTER SET "UTF-8"), >(HD_VEHICLE_COUNT, 0), >(CASE(>(HD_VEHICLE_COUNT, 0), /(HD_DEP_COUNT, HD_VEHICLE_COUNT), null:INTEGER), 1))
+                        predicate: AND(SEARCH(HD_BUY_POTENTIAL, Sarg[_UTF-8'5001-10000':VARCHAR(10) CHARACTER SET "UTF-8", _UTF-8'>10000':VARCHAR(10) CHARACTER SET "UTF-8"]:VARCHAR(10) CHARACTER SET "UTF-8"), >(HD_VEHICLE_COUNT, 0), CASE(>(HD_VEHICLE_COUNT, 0), >(/(HD_DEP_COUNT, HD_VEHICLE_COUNT), 1), false))
                         fieldNames: [HD_DEMO_SK, HD_BUY_POTENTIAL, HD_DEP_COUNT, HD_VEHICLE_COUNT]
-                        est: (rows=1023)
+                        est: (rows=512)
                 Exchange
                     distribution: single
                     est: (rows=13893)
                   TableScan
                       table: PUBLIC.DATE_DIM
-                      predicate: AND(SEARCH(D_DOM, Sarg[[1..2]]), OR(=(D_YEAR, 2000), =(D_YEAR, +(2000, 1)), =(D_YEAR, +(2000, 2))))
+                      predicate: AND(SEARCH(D_DOM, Sarg[[1..2]]), SEARCH(D_YEAR, Sarg[2000, 2001, 2002]))
                       fieldNames: [D_DATE_SK, D_YEAR, D_DOM]
                       est: (rows=13893)
               Exchange

@@ -505,7 +505,6 @@ public class StreamerReceiverSerializer {
         );
     }
 
-
     private static <T> void appendTuple(BinaryTupleBuilder builder, Tuple arg) {
         builder.appendBytes(TupleWithSchemaMarshalling.marshal(arg));
     }

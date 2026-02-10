@@ -27,7 +27,7 @@ import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A <code>IgniteSqlExplain</code> is a node of a parse tree which represents an EXPLAIN statement.
@@ -42,7 +42,6 @@ public class IgniteSqlExplain extends SqlCall {
                     return new IgniteSqlExplain(pos, operands[0], operands[1], 0);
                 }
             };
-
 
     private SqlNode explicandum;
     private SqlNode mode;

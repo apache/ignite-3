@@ -20,16 +20,20 @@ package org.apache.ignite.internal.disaster.system;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryClient.initiateClusterReset;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -90,8 +94,8 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         assertThat(ignite.metaStorageManager().get(new ByteArray("abc")), willCompleteSuccessfully());
     }
 
-    private void initiateMgRepairVia(int conductorIndex, int mgReplicationFactor, int... newCmgIndexes) throws InterruptedException {
-        recoveryClient.initiateClusterReset("localhost", cluster.httpPort(conductorIndex), mgReplicationFactor, nodeNames(newCmgIndexes));
+    private void initiateMgRepairVia(int conductorIndex, int mgReplicationFactor, int... newCmgIndexes) {
+        initiateClusterReset("localhost", cluster.httpPort(conductorIndex), mgReplicationFactor, nodeNames(newCmgIndexes));
     }
 
     @Test
@@ -163,11 +167,10 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
         ClusterTime clusterTime = ignite.metaStorageManager().clusterTime();
         HybridTimestamp started = clusterTime.currentSafeTime();
 
-        assertTrue(
-                waitForCondition(() -> clusterTime.currentSafeTime().longValue() > started.longValue(), SECONDS.toMillis(10)),
-                () -> "Did not see " + ignite.name() + " to receive Metastorage SafeTime updates; current SafeTime is "
-                        + clusterTime.currentSafeTime()
-        );
+        await("Expected Metastorage SafeTime to advance")
+                .untilAsserted(() -> {
+                    assertThat(clusterTime.currentSafeTime().longValue(), greaterThan(started.longValue()));
+                });
     }
 
     @Test
@@ -345,5 +348,21 @@ class ItMetastorageGroupDisasterRecoveryTest extends ItSystemGroupDisasterRecove
 
         // Subsequent restart should also fail.
         assertThrowsWithCause(() -> cluster.restartNode(1), MetastorageDivergedException.class, "Metastorage has diverged");
+    }
+
+    @Test
+    void repairIsProhibitedWhenMgMajorityIsOnline() throws Exception {
+        startAndInitCluster(3, new int[]{0}, new int[]{0, 1, 2});
+        waitTillClusterStateIsSavedToVaultOnConductor(0);
+
+        // After this, MG majority will still be online.
+        cluster.stopNode(2);
+
+        IgniteImpl node0BeforeRestart = igniteImpl(0);
+
+        waitTillMgHasMajority(node0BeforeRestart);
+
+        Exception ex = assertThrows(Exception.class, () -> initiateMgRepairVia(0, 2, 0));
+        assertThat(ex.getMessage(), containsString("Majority repair is rejected because majority of Metastorage nodes are online"));
     }
 }

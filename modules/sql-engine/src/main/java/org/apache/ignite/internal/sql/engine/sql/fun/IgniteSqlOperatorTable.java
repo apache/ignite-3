@@ -46,10 +46,11 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
+import org.apache.calcite.util.Optionality;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Operator table that contains only Ignite-specific functions and operators.
@@ -57,9 +58,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlSingleOperandTypeChecker SAME_SAME =
             new SameFamilyOperandTypeChecker(2);
-
-    private static final SqlSingleOperandTypeChecker NOT_CUSTOM_TYPE =
-            new NotCustomTypeOperandTypeChecker();
 
     private static final SqlOperandTypeChecker DATETIME_MATCHING_INTERVAL =
             new SqlDateTimeIntervalTypeChecker(true);
@@ -70,22 +68,22 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(DATETIME_MATCHING_INTERVAL.and(NOT_CUSTOM_TYPE))
-                    .or(MATCHING_INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
+                    .or(DATETIME_MATCHING_INTERVAL)
+                    .or(MATCHING_INTERVAL_DATETIME);
 
     private static final SqlOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL).and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL));
 
     private static final SqlSingleOperandTypeChecker DIVISION_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
-                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.INTERVAL_NUMERIC);
 
     public static final SqlSingleOperandTypeChecker MULTIPLY_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
-                    .or(OperandTypes.INTERVAL_NUMERIC.and(NOT_CUSTOM_TYPE))
-                    .or(OperandTypes.NUMERIC_INTERVAL.and(NOT_CUSTOM_TYPE));
+                    .or(OperandTypes.INTERVAL_NUMERIC)
+                    .or(OperandTypes.NUMERIC_INTERVAL);
 
     public static final SqlFunction LENGTH =
             new SqlFunction(
@@ -458,13 +456,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
      * {@code EVERY} aggregate function.
      */
     public static final SqlAggFunction EVERY =
-            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+            new SqlMinMaxAggFunction("EVERY", SqlKind.MIN, OperandTypes.BOOLEAN);
 
     /**
      * {@code SOME} aggregate function.
      */
     public static final SqlAggFunction SOME =
-            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
+            new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN);
 
     /**
      * The <code>CURRENT_TIMESTAMP [(<i>precision</i>)]</code> function.
@@ -472,23 +470,72 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     public static final SqlFunction CURRENT_TIMESTAMP =
             new SqlAbstractTimeFunction("CURRENT_TIMESTAMP", SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {};
 
+    /**
+     * The {@code SAME_VALUE(val) } aggregate function.
+     */
+    public static final SqlAggFunction SAME_VALUE = new SqlAggFunction("SAME_VALUE", null,
+            SqlKind.OTHER_FUNCTION,
+            ReturnTypes.ARG0_NULLABLE_IF_EMPTY,
+            null, OperandTypes.ANY,
+            SqlFunctionCategory.SYSTEM, false,
+            false,
+            Optionality.FORBIDDEN
+    ) {
+        @Override
+        public boolean allowsFilter() {
+            return false;
+        }
+
+        @Deprecated
+        @Override
+        @SuppressWarnings("deprecation")
+        public List<RelDataType> getParameterTypes(RelDataTypeFactory typeFactory) {
+            throw new UnsupportedOperationException("getParameterTypes should not be called");
+        }
+
+        @Deprecated
+        @Override
+        @SuppressWarnings("deprecation")
+        public RelDataType getReturnType(RelDataTypeFactory typeFactory) {
+            throw new UnsupportedOperationException("getReturnType should not be called");
+        }
+
+        @Override
+        public Optionality getDistinctOptionality() {
+            return Optionality.IGNORED;
+        }
+
+        @Override
+        public SqlAggFunction getRollup() {
+            return this;
+        }
+    };
+
+    /** System function. Used to extract prefix from given patter from LIKE operator. */
+    public static final SqlFunction FIND_PREFIX =
+            new SqlFunction(
+                    "$FIND_PREFIX",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.ARG0_NULLABLE,
+                    null,
+                    OperandTypes.STRING_STRING,
+                    SqlFunctionCategory.SYSTEM
+            );
+
+    /** System function. Used to compute smallest string at most
+     *  of the same length as input which is lexicographically greater than input. */
+    public static final SqlFunction NEXT_GREATER_PREFIX =
+            new SqlFunction(
+                    "$NEXT_GREATER_PREFIX",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.ARG0_NULLABLE,
+                    null,
+                    OperandTypes.STRING,
+                    SqlFunctionCategory.SYSTEM
+            );
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
-
-    /** IgniteCustomType: A list of functions supported by all custom data types. */
-    public static final List<SqlFunction> CUSTOM_TYPE_FUNCTIONS = List.of(
-            SqlStdOperatorTable.CAST,
-            SqlStdOperatorTable.COALESCE,
-            SqlStdOperatorTable.NULLIF,
-            TYPEOF,
-            SqlStdOperatorTable.COUNT,
-            SqlStdOperatorTable.MIN,
-            SqlStdOperatorTable.MAX,
-            SqlStdOperatorTable.ANY_VALUE,
-            SOME,
-            SqlStdOperatorTable.SINGLE_VALUE,
-            EVERY
-    );
 
     /**
      * Default constructor.
@@ -544,9 +591,11 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.ANY_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.SINGLE_VALUE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.FILTER);
+        definedOperatorsBuilder.add(SqlStdOperatorTable.GROUPING);
 
         definedOperatorsBuilder.add(EVERY);
         definedOperatorsBuilder.add(SOME);
+        definedOperatorsBuilder.add(SAME_VALUE);
 
         // IS ... operator.
         definedOperatorsBuilder.add(SqlStdOperatorTable.IS_NULL);
@@ -761,6 +810,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIME);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIMESTAMP);
 
+        // Context variable functions
+        definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_USER);
+
         // Ignite specific operators
         definedOperatorsBuilder.add(LENGTH);
         definedOperatorsBuilder.add(SYSTEM_RANGE);
@@ -768,6 +820,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(LEAST2);
         definedOperatorsBuilder.add(GREATEST2);
         definedOperatorsBuilder.add(RAND_UUID);
+        definedOperatorsBuilder.add(FIND_PREFIX);
+        definedOperatorsBuilder.add(NEXT_GREATER_PREFIX);
 
         setOperators(buildIndex(definedOperatorsBuilder.build()));
     }

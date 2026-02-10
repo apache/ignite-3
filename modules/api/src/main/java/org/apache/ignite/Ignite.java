@@ -101,5 +101,10 @@ public interface Ignite {
      */
     IgniteCatalog catalog();
 
+    /**
+     * Returns the cluster object, which provides access to the cluster nodes and the local node.
+     *
+     * @return Ignite cluster.
+     */
     IgniteCluster cluster();
 }

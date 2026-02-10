@@ -23,6 +23,7 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')
@@ -86,6 +87,9 @@ dependencies {
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-low-watermark'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-transactions'))
+    testImplementation libs.hamcrest.core
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 

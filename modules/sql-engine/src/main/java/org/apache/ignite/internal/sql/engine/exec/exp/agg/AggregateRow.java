@@ -51,7 +51,7 @@ public class AggregateRow<RowT> {
     /** Checks whether the given row matches a grouping set with the given id. */
     public static <RowT> boolean groupMatches(RowHandler<RowT> handler, RowT row, AggregateType type, byte groupId) {
         if (type == AggregateType.REDUCE) {
-            int columnCount = handler.columnCount(row);
+            int columnCount = handler.columnsCount(row);
             byte targetGroupId = (byte) handler.get(columnCount - 1, row);
 
             return targetGroupId == groupId;
@@ -61,7 +61,7 @@ public class AggregateRow<RowT> {
     }
 
     /** Updates this row by using data of the given row. */
-    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
+    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet grpFields, RowHandler<RowT> handler, RowT row) {
         for (int i = 0; i < accs.size(); i++) {
             AccumulatorWrapper<RowT> acc = accs.get(i);
 
@@ -72,7 +72,9 @@ public class AggregateRow<RowT> {
 
             state.setIndex(i);
 
-            if (acc.isDistinct()) {
+            if (acc.isGrouping()) {
+                state.set(grpFields);
+            } else if (acc.isDistinct()) {
                 Set<Object> distinctSet = distinctSets.get(i);
                 distinctSet.add(args[0]);
             } else {
@@ -92,9 +94,14 @@ public class AggregateRow<RowT> {
     }
 
     /** Writes aggregate state of the given row to given array. */
-    public void writeTo(AggregateType type, List<AccumulatorWrapper<RowT>> accs, Object[] output, ImmutableBitSet allFields, byte groupId) {
-        int cardinality = allFields.cardinality();
-
+    public void writeTo(
+            AggregateType type,
+            List<AccumulatorWrapper<RowT>> accs,
+            Object[] output,
+            int offset,
+            ImmutableBitSet groupFields,
+            byte groupId
+    ) {
         AccumulatorsState result = new AccumulatorsState(accs.size());
 
         for (int i = 0; i < accs.size(); i++) {
@@ -104,6 +111,8 @@ public class AggregateRow<RowT> {
             result.setIndex(i);
 
             if (acc.isDistinct()) {
+                assert !acc.isGrouping();
+
                 Set<Object> distinctSet = distinctSets.get(i);
 
                 for (var arg : distinctSet) {
@@ -113,7 +122,7 @@ public class AggregateRow<RowT> {
 
             acc.accumulator().end(state, result);
 
-            output[i + cardinality] = acc.convertResult(result.get());
+            output[i + offset] = acc.convertResult(result.get());
 
             state.resetIndex();
             result.resetIndex();

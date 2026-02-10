@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.node.unit;
 
-
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 

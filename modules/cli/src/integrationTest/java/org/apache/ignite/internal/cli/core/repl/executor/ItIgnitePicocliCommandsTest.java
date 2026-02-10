@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.core.repl.executor;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -76,7 +75,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
             "ignite.security",
             "ignite.sql",
             "ignite.transaction",
-            "ignite.system"
+            "ignite.system",
+            "ignite.suggestions"
     };
 
     private static final String[] LOCAL_CONFIGURATION_KEYS = {
@@ -112,11 +112,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
-    }
-
-    @Override
-    protected String getNodeBootstrapConfigTemplate() {
-        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
     @BeforeEach
@@ -416,7 +411,6 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS)
         );
     }
-
 
     private Stream<Arguments> nodeNamesSource() {
         return Stream.of(

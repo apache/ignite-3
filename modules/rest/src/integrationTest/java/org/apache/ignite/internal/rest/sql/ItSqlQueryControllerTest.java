@@ -43,6 +43,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -73,7 +74,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
             assertThat(queryInfo, notNullValue());
             assertThat(queryInfo.schema(), is("PUBLIC"));
-            assertThat(queryInfo.type(), is("QUERY"));
+            assertThat(queryInfo.type(), is("Query"));
         }
     }
 
@@ -119,8 +120,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
             assertThrowsProblem(
                     () -> getSqlQuery(client, queryInfo.id()),
-                    NOT_FOUND,
-                    isProblem().withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
+                    isProblem().withStatus(NOT_FOUND).withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
             );
         }
     }
@@ -131,8 +131,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> getSqlQuery(client, queryId),
-                NOT_FOUND,
-                isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Sql query not found [queryId=" + queryId + "]")
         );
     }
 
@@ -142,8 +141,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsProblem(
                 () -> killSqlQuery(client, queryId),
-                NOT_FOUND,
-                isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
+                isProblem().withStatus(NOT_FOUND).withDetail("Sql query not found [queryId=" + queryId + "]")
         );
     }
 
@@ -151,7 +149,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         IgniteSql igniteSql = CLUSTER.aliveNode().sql();
         Statement stmt = igniteSql.statementBuilder().query(sql).pageSize(1).build();
 
-        return CLUSTER.aliveNode().sql().execute(null, stmt);
+        return CLUSTER.aliveNode().sql().execute((Transaction) null, stmt);
     }
 
     private static Map<UUID, SqlQueryInfo> getSqlQueries(HttpClient client) {

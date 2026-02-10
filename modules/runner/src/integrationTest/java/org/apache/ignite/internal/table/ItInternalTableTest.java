@@ -530,7 +530,6 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         assertEquals(15, retrievedItems.size());
     }
 
-
     /**
      * Scans all table entries.
      *
@@ -550,8 +549,10 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         InternalTransaction roTx =
                 (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
 
+        OperationContext operationContext = OperationContext.create(TxContext.readOnly(roTx));
+
         for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
+            Publisher<BinaryRow> res = internalTable.scan(i, node.node(), operationContext);
 
             res.subscribe(new Subscriber<>() {
                 @Override
@@ -633,11 +634,10 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
         String zoneName = zoneNameForTable(tableName);
         IgniteSql sql = node.sql();
 
-        sql.execute(null, String.format("create zone %s (partitions 3, replicas %d) storage profiles ['%s']",
+        sql.execute(String.format("create zone %s (partitions 3, replicas %d) storage profiles ['%s']",
                 zoneName, DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
 
-        sql.execute(null,
-                String.format(
+        sql.execute(String.format(
                         "create table %s (key bigint primary key, valInt int, valStr varchar default 'default') "
                                 + "zone %s",
                         tableName, zoneName
@@ -658,8 +658,8 @@ public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
     private static void stopTable(Ignite node, String tableName) {
         IgniteSql sql = node.sql();
 
-        sql.execute(null, "drop table " + tableName);
-        sql.execute(null, "drop zone " + zoneNameForTable(tableName));
+        sql.execute("drop table " + tableName);
+        sql.execute("drop zone " + zoneNameForTable(tableName));
     }
 
     protected static int nodes() {

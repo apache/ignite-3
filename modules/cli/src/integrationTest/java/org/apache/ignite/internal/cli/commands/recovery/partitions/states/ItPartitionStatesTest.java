@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -36,7 +35,6 @@ import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -60,7 +58,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DONT_CHECK_PARTITIONS = -1;
 
     private static final String GLOBAL_PARTITION_STATE_FIELDS =
-            "Zone name\tSchema name\tTable ID\tTable name\tPartition ID\tState" + System.lineSeparator();
+            "Zone name\tPartition ID\tState" + System.lineSeparator();
 
     private static final String LOCAL_PARTITION_STATE_FIELDS = "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS;
 
@@ -167,7 +165,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
                 PLAIN_OPTION
         );
 
-        assertErrOutputContains("Some distribution zones are missing: [UNKNOWN_ZONE]");
+        assertErrOutputContains("Distribution zones were not found [zoneNames=[UNKNOWN_ZONE]]");
 
         assertOutputIsEmpty();
     }
@@ -225,21 +223,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertOutputIsEmpty();
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
-    void testPartitionStatesEmptyResult(boolean global) {
-        // This test is not applicable for colocation enabled because empty zones are still have partitions.
-
-        execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_ZONE_NAMES_OPTION, EMPTY_ZONE,
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
-                PLAIN_OPTION
-        );
-
-        assertOutputIs(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
-    }
-
     @Test
     void testOutputFormatGlobal() {
         String zoneName = ZONES.stream().findAny().get();
@@ -253,7 +236,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "%1$s%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)%3$s",
+                "%1$s%2$s\t1\t(HEALTHY|AVAILABLE)%3$s",
                 GLOBAL_PARTITION_STATE_FIELDS,
                 zoneName,
                 System.lineSeparator()
@@ -276,7 +259,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "%1$s(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)%4$s",
+                "%1$s(%2$s)\t%3$s\t1\t(HEALTHY|AVAILABLE)%4$s",
                 LOCAL_PARTITION_STATE_FIELDS,
                 possibleNodeNames,
                 zoneName,
@@ -302,18 +285,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         if (!zoneNames.isEmpty()) {
             assertOutputContainsAll(zoneNames);
-
-            if (!colocationEnabled()) {
-                Set<String> tableNames = zoneNames.stream().map(it -> it + "_table").collect(toSet());
-
-                assertOutputContainsAllIgnoringCase(tableNames);
-            }
-        }
-
-        Set<String> anotherZones = CollectionUtils.difference(ZONES, zoneNames);
-
-        if (!anotherZones.isEmpty() && !colocationEnabled()) {
-            assertOutputDoesNotContain(anotherZones);
         }
 
         if (!zoneNames.isEmpty() && nodeNames.isEmpty()) {

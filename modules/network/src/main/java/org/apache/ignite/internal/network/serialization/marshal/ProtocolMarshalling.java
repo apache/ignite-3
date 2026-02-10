@@ -64,7 +64,6 @@ class ProtocolMarshalling {
         return readUnsignedVarInt(input);
     }
 
-
     static void writeLength(int length, DataOutput output) throws IOException {
         writeUnsignedVarInt(length, output);
     }

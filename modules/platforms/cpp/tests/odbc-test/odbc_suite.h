@@ -55,6 +55,16 @@ public:
     }
 
     /**
+     * Get heartbeat interval for tests.
+     *
+     * @return Heartbeat interval.
+     */
+    static std::chrono::milliseconds get_heartbeat_interval() {
+        using namespace std::chrono_literals;
+        return 2s;
+    }
+
+    /**
      * Get node addresses to use for tests.
      *
      * @return Addresses.
@@ -68,8 +78,11 @@ public:
      *
      * @return Basic connection string with specified addresses.
      */
-    static std::string get_basic_connection_string(const std::string &addrs) {
-        return "driver={" + DRIVER_NAME + "};address=" + addrs + ';';
+    static std::string get_basic_connection_string(const std::string &addrs,
+        std::chrono::milliseconds heartbeat_interval = get_heartbeat_interval()) {
+        return "driver={" + DRIVER_NAME + "};"
+               "address=" + addrs + ";"
+               "heartbeat_interval=" + std::to_string(heartbeat_interval.count()) + ";";
     }
 
     /**
@@ -77,8 +90,9 @@ public:
      *
      * @return Basic connection string with default addresses.
      */
-    static std::string get_basic_connection_string() {
-        return get_basic_connection_string(get_nodes_address());
+    static std::string get_basic_connection_string(
+        std::chrono::milliseconds heartbeat_interval = get_heartbeat_interval()) {
+        return get_basic_connection_string(get_nodes_address(), heartbeat_interval);
     }
 };
 

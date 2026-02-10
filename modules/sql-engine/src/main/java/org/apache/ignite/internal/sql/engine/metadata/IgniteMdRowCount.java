@@ -32,13 +32,13 @@ import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Sort;
+import org.apache.calcite.rel.metadata.BuiltInMetadata;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelColumnOrigin;
 import org.apache.calcite.rel.metadata.RelMdRowCount;
 import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.IntPair;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
@@ -53,9 +53,10 @@ import org.jetbrains.annotations.Nullable;
  */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdRowCount extends RelMdRowCount {
+    public static final double NON_EQUI_COEFF = 0.7;
+
     public static final RelMetadataProvider SOURCE =
-            ReflectiveRelMetadataProvider.reflectiveSource(
-                    BuiltInMethod.ROW_COUNT.method, new IgniteMdRowCount());
+            ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdRowCount(), BuiltInMetadata.RowCount.Handler.class);
 
     /** {@inheritDoc} */
     @Override
@@ -149,7 +150,11 @@ public class IgniteMdRowCount extends RelMdRowCount {
      * @see JoiningRelationType
      */
     public static @Nullable Double joinRowCount(RelMetadataQuery mq, Join rel) {
-        if (rel.getJoinType() != JoinRelType.INNER) {
+        if (rel.getJoinType() != JoinRelType.INNER
+                && rel.getJoinType() != JoinRelType.LEFT
+                && rel.getJoinType() != JoinRelType.RIGHT
+                && rel.getJoinType() != JoinRelType.FULL
+                && rel.getJoinType() != JoinRelType.SEMI) {
             // Fall-back to calcite's implementation.
             return RelMdUtil.getJoinRowCount(mq, rel, rel.getCondition());
         }
@@ -231,37 +236,87 @@ public class IgniteMdRowCount extends RelMdRowCount {
             return RelMdUtil.getJoinRowCount(mq, rel, rel.getCondition());
         }
 
-        double postFiltrationAdjustment = joinContexts.size() == 1 && joinInfo.isEqui() ? 1.0
+        double postFiltrationAdjustment = 1.0;
+
+        switch (rel.getJoinType()) {
+            case INNER:
+            case SEMI:
                 // Extra join keys as well as non-equi conditions serves as post-filtration,
                 // therefore we need to adjust final result with a little factor.
-                : 0.7;
+                postFiltrationAdjustment = joinContexts.size() == 1 && joinInfo.isEqui() ? 1.0 : NON_EQUI_COEFF;
 
-        double baseRowCount;
-        Double percentageAdjustment;
+                break;
+            default:
+                break;
+        }
+
+        double baseRowCount = 0.0;
+        Double percentageAdjustment = null;
         if (context.joinType() == JoiningRelationType.PK_ON_PK) {
-            // Assume we have two fact tables SALES and RETURNS sharing the same primary key. Every item
-            // can be sold, but only items which were sold can be returned back, therefore
-            // size(SALES) > size(RETURNS). When joining SALES on RETURNS by primary key, the estimated
-            // result size will be the same as the size of the smallest table (RETURNS in this case),
-            // adjusted by the percentage of rows of the biggest table (SALES in this case; percentage
-            // adjustment is required to account for predicates pushed down to the table, e.g. we are
-            // interested in returns of items with certain category)
-            if (leftRowCount > rightRowCount) {
-                baseRowCount = rightRowCount;
-                percentageAdjustment = mq.getPercentageOriginalRows(rel.getLeft());
-            } else {
+            if (rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.SEMI) {
+                // Assume we have two fact tables SALES and RETURNS sharing the same primary key. Every item
+                // can be sold, but only items which were sold can be returned back, therefore
+                // size(SALES) > size(RETURNS). When joining SALES on RETURNS by primary key, the estimated
+                // result size will be the same as the size of the smallest table (RETURNS in this case),
+                // adjusted by the percentage of rows of the biggest table (SALES in this case; percentage
+                // adjustment is required to account for predicates pushed down to the table, e.g. we are
+                // interested in returns of items with certain category)
+                if (leftRowCount > rightRowCount) {
+                    baseRowCount = rightRowCount;
+                    percentageAdjustment = mq.getPercentageOriginalRows(rel.getLeft());
+                } else {
+                    baseRowCount = leftRowCount;
+                    percentageAdjustment = mq.getPercentageOriginalRows(rel.getRight());
+                }
+            } else if (rel.getJoinType() == JoinRelType.LEFT) {
                 baseRowCount = leftRowCount;
-                percentageAdjustment = mq.getPercentageOriginalRows(rel.getRight());
+            } else if (rel.getJoinType() == JoinRelType.RIGHT) {
+                baseRowCount = rightRowCount;
+            } else if (rel.getJoinType() == JoinRelType.FULL) {
+                Double selectivity = mq.getSelectivity(rel, rel.getCondition());
+
+                // Fall-back to calcite's implementation.
+                if (selectivity == null) {
+                    return RelMdUtil.getJoinRowCount(mq, rel, rel.getCondition());
+                }
+
+                baseRowCount = rightRowCount + leftRowCount;
+                percentageAdjustment = 1.0 - selectivity;
             }
-        } else {
+        } else if (context.joinType() == JoiningRelationType.FK_ON_PK) {
             // For foreign key joins the base table is the one which is joined by non-primary key columns.
-            if (context.joinType() == JoiningRelationType.FK_ON_PK) {
+            if (rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.SEMI) {
                 baseRowCount = leftRowCount;
                 percentageAdjustment = mq.getPercentageOriginalRows(rel.getRight());
-            } else {
-                assert context.joinType() == JoiningRelationType.PK_ON_FK : context.joinType();
+            } else if (rel.getJoinType() == JoinRelType.LEFT || rel.getJoinType() == JoinRelType.RIGHT) {
+                baseRowCount = leftRowCount;
+            } else if (rel.getJoinType() == JoinRelType.FULL) {
+                Double selectivity = mq.getSelectivity(rel, rel.getCondition());
+
+                // Fall-back to calcite's implementation.
+                if (selectivity == null) {
+                    return RelMdUtil.getJoinRowCount(mq, rel, rel.getCondition());
+                }
+
+                baseRowCount = rightRowCount + leftRowCount;
+                percentageAdjustment = 1.0 - selectivity;
+            }
+        } else { // PK_ON_FK
+            if (rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.SEMI) {
                 baseRowCount = rightRowCount;
                 percentageAdjustment = mq.getPercentageOriginalRows(rel.getLeft());
+            } else if (rel.getJoinType() == JoinRelType.RIGHT || rel.getJoinType() == JoinRelType.LEFT) {
+                baseRowCount = rightRowCount;
+            } else if (rel.getJoinType() == JoinRelType.FULL) {
+                Double selectivity = mq.getSelectivity(rel, rel.getCondition());
+
+                // Fall-back to calcite's implementation.
+                if (selectivity == null) {
+                    return RelMdUtil.getJoinRowCount(mq, rel, rel.getCondition());
+                }
+
+                baseRowCount = rightRowCount + leftRowCount;
+                percentageAdjustment = 1.0 - selectivity;
             }
         }
 

@@ -22,6 +22,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Common;
+using Common.Compute;
 using Executor;
 using Ignite.Compute;
 using NUnit.Framework;
@@ -65,7 +67,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
             Options: new JobExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar));
 
         var nodes = await Client.GetClusterNodesAsync();
-        var target = JobTarget.Node(nodes.Single(x => x.Name == ComputeTests.PlatformTestNodeRunner));
+        var target = JobTarget.Node(nodes.Single(x => x.Name == JavaJobs.PlatformTestNodeRunner));
 
         var jobExec = await Client.Compute.SubmitAsync(target, jobDesc, "test1");
         var result = await jobExec.GetResultAsync();

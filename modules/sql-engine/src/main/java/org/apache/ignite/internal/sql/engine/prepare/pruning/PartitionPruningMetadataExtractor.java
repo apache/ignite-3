@@ -612,7 +612,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             // rhs  :  [c1 = 2, c2 = 3]
             // result :  [c1 = 1, c2 = 2], [c1 = 2, c2 = 3]
 
-
             if (res instanceof PruningColumnSet) {
                 PruningColumnSet columnSet = (PruningColumnSet) res;
                 candidates.add(columnSet);

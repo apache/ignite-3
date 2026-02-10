@@ -156,9 +156,6 @@ public class RebalanceUtil {
         }
     }
 
-    /** Rebalance scheduler pool size. */
-    public static final int REBALANCE_SCHEDULER_POOL_SIZE = 1;
-
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
@@ -249,7 +246,6 @@ public class RebalanceUtil {
 
         byte[] partAssignmentsPlannedBytes = targetAssignments.toBytes();
         byte[] partAssignmentsPendingQueueBytes = partAssignmentsPendingQueue.toBytes();
-
 
         //    if empty(partition.change.trigger) || partition.change.trigger < event.timestamp:
         //        if empty(partition.assignments.pending)
@@ -391,6 +387,12 @@ public class RebalanceUtil {
 
         return tableStableAssignments(metaStorageManager, tableDescriptor.id(), partitionIds)
                 .thenCompose(stableAssignments -> {
+                    // In case of empty assignments due to initially empty data nodes, assignments will be recalculated
+                    // after the transition to non-empty data nodes.
+                    // In case of empty assignments due to interrupted table creation, assignments will be written
+                    // during the node recovery and then replicas will be started.
+                    // In case when data nodes become empty, assignments are not recalculated
+                    // (see DistributionZoneRebalanceEngine.createDistributionZonesDataNodesListener).
                     if (stableAssignments.isEmpty()) {
                         return nullCompletedFuture();
                     }
@@ -426,8 +428,6 @@ public class RebalanceUtil {
         for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
-            // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
             futures[partId] = updatePendingAssignmentsKeys(
                     tableDescriptor,
                     replicaGrpId,
@@ -579,17 +579,6 @@ public class RebalanceUtil {
      */
     public static int extractZoneId(byte[] key, byte[] prefix) {
         return Integer.parseInt(toStringWithoutPrefix(key, prefix.length));
-    }
-
-    /**
-     * Checks if an error is recoverable, so we can retry a rebalance intent.
-     *
-     * @param t The throwable.
-     * @return {@code True} if this is a recoverable exception.
-     */
-    public static boolean recoverable(Throwable t) {
-        // As long as we don't have a general failure handler, we assume that all errors are recoverable.
-        return true;
     }
 
     /**

@@ -16,7 +16,7 @@ Sort
           est: (rows=377959933)
         Project
             fieldNames: [ITEM_SK, D_DATE, CUME_SALES]
-            projection: [ITEM_SK, D_DATE, CASE(>(COUNT($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING), 0), CAST(SUM($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING)):DECIMAL(32767, 2), null:DECIMAL(32767, 2))]
+            projection: [ITEM_SK, D_DATE, CASE(>(COUNT($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING), 0), CAST(SUM($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING)):DECIMAL(28, 2), null:DECIMAL(28, 2))]
             est: (rows=259236)
           ColocatedHashAggregate
               fieldNames: [ITEM_SK, D_DATE, $f2]
@@ -43,12 +43,12 @@ Sort
                     est: (rows=18262)
                   TableScan
                       table: PUBLIC.DATE_DIM
-                      predicate: AND(>=(D_MONTH_SEQ, 1214), <=(D_MONTH_SEQ, +(1214, 11)))
+                      predicate: SEARCH(D_MONTH_SEQ, Sarg[[1214..1225]])
                       fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                       est: (rows=18262)
         Project
             fieldNames: [ITEM_SK, D_DATE, CUME_SALES]
-            projection: [ITEM_SK, D_DATE, CASE(>(COUNT($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING), 0), CAST(SUM($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING)):DECIMAL(32767, 2), null:DECIMAL(32767, 2))]
+            projection: [ITEM_SK, D_DATE, CASE(>(COUNT($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING), 0), CAST(SUM($f2) OVER (PARTITION BY ITEM_SK ORDER BY D_DATE ROWS UNBOUNDED PRECEDING)):DECIMAL(28, 2), null:DECIMAL(28, 2))]
             est: (rows=64745)
           ColocatedHashAggregate
               fieldNames: [ITEM_SK, D_DATE, $f2]
@@ -75,6 +75,6 @@ Sort
                     est: (rows=18262)
                   TableScan
                       table: PUBLIC.DATE_DIM
-                      predicate: AND(>=(D_MONTH_SEQ, 1214), <=(D_MONTH_SEQ, +(1214, 11)))
+                      predicate: SEARCH(D_MONTH_SEQ, Sarg[[1214..1225]])
                       fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                       est: (rows=18262)

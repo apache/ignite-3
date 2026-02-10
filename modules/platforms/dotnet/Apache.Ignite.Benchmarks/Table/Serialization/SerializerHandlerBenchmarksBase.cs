@@ -18,12 +18,15 @@
 namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
     using System;
+    using System.Collections.Generic;
     using BenchmarkDotNet.Engines;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Table.Mapper;
     using Internal.Buffers;
     using Internal.Table;
     using Internal.Table.Serialization;
+    using Internal.Table.Serialization.Mappers;
 
     /// <summary>
     /// Base class for <see cref="IRecordSerializerHandler{T}"/> benchmarks.
@@ -58,6 +61,12 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
 
         internal static readonly IRecordSerializerHandler<Car> ObjectSerializerHandler = new ObjectSerializerHandler<Car>();
 
+        internal static readonly IRecordSerializerHandler<Car> MapperSerializerHandler = new MapperSerializerHandler<Car>(new CarMapper());
+
+        internal static readonly IRecordSerializerHandler<Car> MapperKnownOrderSerializerHandler = new MapperSerializerHandler<Car>(new CarMapperKnownOrder());
+
+        internal static readonly IRecordSerializerHandler<KvPair<Guid, string>> MapperPairSerializerHandler = new MapperPairSerializerHandler<Guid, string>(KeyValueMappers.TryCreate<Guid, string>()!);
+
         protected Consumer Consumer { get; } = new();
 
         internal static void VerifyWritten(PooledArrayBuffer pooledWriter)
@@ -87,6 +96,83 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             public string BodyType { get; set; } = null!;
 
             public int Seats { get; set; }
+        }
+
+        protected internal class CarMapper : IMapper<Car>
+        {
+            public void Write(Car obj, ref RowWriter rowWriter, IMapperSchema schema)
+            {
+                foreach (var column in schema.Columns)
+                {
+                    switch (column.Name)
+                    {
+                        case nameof(Car.Id):
+                            rowWriter.WriteGuid(obj.Id);
+                            break;
+
+                        case nameof(Car.BodyType):
+                            rowWriter.WriteString(obj.BodyType);
+                            break;
+
+                        case nameof(Car.Seats):
+                            rowWriter.WriteInt(obj.Seats);
+                            break;
+
+                        default:
+                            rowWriter.Skip();
+                            break;
+                    }
+                }
+            }
+
+            public Car Read(ref RowReader rowReader, IMapperSchema schema)
+            {
+                var res = new Car();
+
+                foreach (var column in schema.Columns)
+                {
+                    switch (column.Name)
+                    {
+                        case nameof(Car.Id):
+                            res.Id = rowReader.ReadGuid()!.Value;
+                            break;
+
+                        case nameof(Car.BodyType):
+                            res.BodyType = rowReader.ReadString()!;
+                            break;
+
+                        case nameof(Car.Seats):
+                            res.Seats = rowReader.ReadInt()!.Value;
+                            break;
+
+                        default:
+                            rowReader.Skip();
+                            break;
+                    }
+                }
+
+                return res;
+            }
+        }
+
+        protected internal class CarMapperKnownOrder : IMapper<Car>
+        {
+            public void Write(Car obj, ref RowWriter rowWriter, IMapperSchema schema)
+            {
+                rowWriter.WriteGuid(obj.Id);
+                rowWriter.WriteString(obj.BodyType);
+                rowWriter.WriteInt(obj.Seats);
+            }
+
+            public Car Read(ref RowReader rowReader, IMapperSchema schema)
+            {
+                return new Car
+                {
+                    Id = rowReader.ReadGuid()!.Value,
+                    BodyType = rowReader.ReadString()!,
+                    Seats = rowReader.ReadInt()!.Value
+                };
+            }
         }
     }
 }

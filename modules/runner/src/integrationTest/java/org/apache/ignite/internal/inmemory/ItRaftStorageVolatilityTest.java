@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -79,19 +78,15 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
-        if (colocationEnabled()) {
-            int zoneId = testZoneId(ignite);
+        int zoneId = testZoneId(ignite);
 
-            // Check that there are no meta files for partitions of the table.
-            assertThat(
-                    partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith(zoneId + "_part_")),
-                    everyItem(not(exists())));
+        // Check that there are no meta files for partitions of the table.
+        assertThat(
+                partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith(zoneId + "_part_")),
+                everyItem(not(exists())));
 
-            // The default zone still exists and uses persistent profile.
-            assertThat(partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith("0_part_")), everyItem(exists()));
-        } else {
-            assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
-        }
+        // The default zone still exists and uses persistent profile.
+        assertThat(partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith("0_part_")), everyItem(exists()));
     }
 
     private void createInMemoryTable() {
@@ -129,15 +124,6 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private static String testTablePartitionPrefix(IgniteImpl ignite) {
-        return testTableId(ignite) + "_part_";
-    }
-
-    private static int testTableId(IgniteImpl ignite) {
-        TableManager tables = unwrapTableManager(ignite.tables());
-        return tables.tableView(QualifiedName.fromSimple(TABLE_NAME)).tableId();
-    }
-
     private static String testZonePartitionPrefix(IgniteImpl ignite) {
         return testZoneId(ignite) + "_part_";
     }
@@ -152,24 +138,19 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         createInMemoryTable();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        String tablePartitionPrefix = testTablePartitionPrefix(ignite);
+        String zonePartitionPrefix = testZonePartitionPrefix(ignite);
 
         stopNode(0);
 
         Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
-        List<ColumnFamilyDescriptor> cfDescriptors = List.of(
-                // Column family to store configuration log entry.
-                new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8)),
-                // Default column family to store user data log entry.
-                new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY)
-        );
+        List<ColumnFamilyDescriptor> cfDescriptors = cfDescriptors();
 
         List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
         try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasNoDataForPartition(db, tablePartitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasNoDataForPartition(db, tablePartitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasNoDataForPartition(db, zonePartitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasNoDataForPartition(db, zonePartitionPrefix, cfHandles.get(2));
         }
     }
 
@@ -211,27 +192,30 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         createPersistentTable();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        String partitionPrefix = colocationEnabled()
-                ? testZonePartitionPrefix(ignite)
-                : testTablePartitionPrefix(ignite);
+        String partitionPrefix = testZonePartitionPrefix(ignite);
 
         stopNode(0);
 
         Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
-        List<ColumnFamilyDescriptor> cfDescriptors = List.of(
+        List<ColumnFamilyDescriptor> cfDescriptors = cfDescriptors();
+
+        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
+
+        try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(2));
+        }
+    }
+
+    private static List<ColumnFamilyDescriptor> cfDescriptors() {
+        return List.of(
+                new ColumnFamilyDescriptor("Meta".getBytes(UTF_8)),
                 // Column family to store configuration log entry.
                 new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8)),
                 // Default column family to store user data log entry.
                 new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY)
         );
-
-        List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
-
-        try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(1));
-        }
     }
 
     private static void assertThatFamilyHasDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
@@ -278,11 +262,10 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         cluster.doInSession(0, session -> {
             session.execute(
-                    null,
                     "create zone zone1 (partitions 1, replicas 1) "
                             + "storage profiles ['" + DEFAULT_AIMEM_PROFILE_NAME + "']"
             );
-            session.execute(null, "create table " + tableName
+            session.execute("create table " + tableName
                     + " (id int primary key, name varchar) zone ZONE1 storage profile '"
                     + DEFAULT_AIMEM_PROFILE_NAME + "'");
         });

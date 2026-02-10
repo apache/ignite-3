@@ -369,6 +369,10 @@ SINGLE_VALUE(<any>)
 #b454f7ac12dead652d1d09ed92cbb7e4c08761fd
 
 [internal]
+SAME_VALUE(<any>)
+#d2d8df63a238e59c64dd55011f8bb63bcbb6fdf0
+
+[internal]
 <any> FILTER <any>
 #b9102e525855e461ba8259fd7b7458d9699b513e
 
@@ -377,6 +381,9 @@ EVERY(<boolean>)
 
 SOME(<boolean>)
 #014b53be23fc2009080420e94b78d52bf2b09dbd
+
+GROUPING(...)
+#c19a178a82716bcc5f313ca5259637dd60c8ba0e
 
 [internal]
 LITERAL_AGG()
@@ -390,6 +397,12 @@ GREATEST(<equivalent_type>, <equivalent_type>)
 
 LEAST(<equivalent_type>, <equivalent_type>)
 #b31238bde19843e513c899fc5b16eb81f00f477c
+
+$FIND_PREFIX(<string>, <string>)
+#8d1aac23a600a78dc25b42ece7560b7aba53dc4a
+
+$NEXT_GREATER_PREFIX(<string>)
+#1a9fe941e676e8f2eef41af67aae575a7f619ec0
 
 CAST(<any> AS <type>) ***
 #77b6ca9302e03be11b2f841e86ed09cc8bf7372a
@@ -445,6 +458,9 @@ EXISTS <any>
 [internal]
 <any> DESC
 #cd2aa6863ed54bd03d844b08664115655e7ae2e4
+
+CURRENT_USER
+#3cfbde57fbba1435023dc75472eedaec6555d525
 
 TYPEOF(<any>)
 #85771dfef877b07351286b9f792f2ae2cd4a234d

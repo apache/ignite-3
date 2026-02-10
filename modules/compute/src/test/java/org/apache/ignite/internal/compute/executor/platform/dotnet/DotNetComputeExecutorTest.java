@@ -18,11 +18,18 @@
 package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,5 +48,31 @@ public class DotNetComputeExecutorTest {
 
         String result = new String(proc.getInputStream().readAllBytes(), UTF_8);
         assertThat(result, containsString("file was not found"));
+    }
+
+    @Test
+    public void beginUndeployUnitDoesNotStartProcess() {
+        DotNetComputeExecutor executor = new DotNetComputeExecutor(new NoOpTransport());
+
+        executor.beginUndeployUnit(Path.of("my.dll"));
+
+        assertNull(IgniteTestUtils.getFieldValue(executor, "process"));
+    }
+
+    private static class NoOpTransport implements PlatformComputeTransport {
+        @Override
+        public String serverAddress() {
+            return "";
+        }
+
+        @Override
+        public boolean sslEnabled() {
+            return false;
+        }
+
+        @Override
+        public CompletableFuture<PlatformComputeConnection> registerComputeExecutorId(String computeExecutorId) {
+            return nullCompletedFuture();
+        }
     }
 }
