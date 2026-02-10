@@ -308,8 +308,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
         public int runPipeline() {
             PrintWriter err = CommandLineContextProvider.getContext().err();
 
-            // Force auto-flush for real-time output
-            PrintWriter autoFlushOut = new PrintWriter(terminal.output(), true);
+            PrintWriter autoFlushOut = CommandLineContextProvider.getContext().out();
 
             try (PagedSqlResult pagedResult = sqlManager.executePaged(SqlQueryCall.trimQuotes(sql), pageSize)) {
                 if (!pagedResult.hasResultSet()) {
@@ -380,12 +379,8 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                     Table<String> finalTable = new Table<>(Arrays.asList(columnNames), allContent, false);
                     TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(finalTable);
 
-                    if (pagerSupport.isPagerEnabled()) {
-                        pagerSupport.write(tableOutput.toTerminalString());
-                    } else {
-                        autoFlushOut.print(tableOutput.toTerminalString());
-                        autoFlushOut.flush();
-                    }
+                    autoFlushOut.print(tableOutput.toTerminalString());
+                    autoFlushOut.flush();
                 }
 
                 if (timed) {
