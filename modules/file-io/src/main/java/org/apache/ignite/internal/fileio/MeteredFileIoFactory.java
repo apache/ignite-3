@@ -33,7 +33,6 @@ public class MeteredFileIoFactory implements FileIoFactory {
         this.metrics = metrics;
     }
 
-    /** {@inheritDoc} */
     @Override
     public FileIo create(Path filePath, OpenOption... modes) throws IOException {
         return new MeteredFileIo(delegate.create(filePath, modes), metrics);

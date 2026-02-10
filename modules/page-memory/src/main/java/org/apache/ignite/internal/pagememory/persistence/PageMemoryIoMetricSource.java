@@ -21,21 +21,15 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 
 /**
- * Metric source for page memory byte-level I/O operations.
- *
- * <p>This metric source tracks physical I/O performance including bytes transferred,
- * operation sizes, and latencies at the file I/O level.
+ * Metric source for page memory I/O operations.
  */
 public class PageMemoryIoMetricSource extends CollectionMetricSource {
-    /**
-     * Constructor.
-     */
     public PageMemoryIoMetricSource(String name) {
-        super(name, "storage", "Page memory byte-level I/O metrics");
+        super(name, "storage", "Page memory I/O metrics");
     }
 
     @Override
-    public synchronized <T extends Metric> T addMetric(T metric) {
+    public <T extends Metric> T addMetric(T metric) {
         return super.addMetric(metric);
     }
 }

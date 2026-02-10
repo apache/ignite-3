@@ -96,6 +96,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
+    private PageMemoryIoMetricSource ioMetricSource;
+
+    private CheckpointMetricSource checkpointMetricSource;
+
+    private PersistentPageMemoryStorageMetricSource storageMetricSource;
+
     private final StorageConfiguration storageConfig;
 
     private final PageIoRegistry ioRegistry;
@@ -184,7 +190,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         int pageSize = engineConfig.pageSizeBytes().value();
 
-        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource("storage." + ENGINE_NAME + ".io");
+        ioMetricSource = new PageMemoryIoMetricSource("storage." + ENGINE_NAME + ".io");
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
 
         try {
@@ -199,7 +205,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize, StoragePartitionMeta.FACTORY);
 
-        var checkpointMetricSource = new CheckpointMetricSource("storage." + ENGINE_NAME + ".checkpoint");
+        checkpointMetricSource = new CheckpointMetricSource("storage." + ENGINE_NAME + ".checkpoint");
 
         try {
             checkpointManager = new CheckpointManager(
@@ -248,7 +254,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         destructionExecutor = executor;
 
-        var storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
+        storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
 
         PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
 
@@ -276,6 +282,17 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     @Override
     public void stop() throws StorageException {
         try {
+            // Disable and unregister metric sources to prevent leaks
+            if (ioMetricSource != null) {
+                metricManager.unregisterSource(ioMetricSource);
+            }
+            if (checkpointMetricSource != null) {
+                metricManager.unregisterSource(checkpointMetricSource);
+            }
+            if (storageMetricSource != null) {
+                metricManager.unregisterSource(storageMetricSource);
+            }
+
             Stream<AutoCloseable> closeRegions = regions.values().stream().map(region -> region::stop);
 
             ExecutorService destructionExecutor = this.destructionExecutor;

@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 
 /**
- * File IO that records metrics for read and write operations under underlying File IO.
+ * FileIo decorator that records metrics for read and write operations.
  */
 public class MeteredFileIo implements FileIo {
     private final FileIo delegate;
@@ -31,6 +31,35 @@ public class MeteredFileIo implements FileIo {
     public MeteredFileIo(FileIo delegate, FileIoMetrics metrics) {
         this.delegate = delegate;
         this.metrics = metrics;
+    }
+
+    @FunctionalInterface
+    private interface IoIntSupplier {
+        int get() throws IOException;
+    }
+
+    private int measureRead(IoIntSupplier operation) throws IOException {
+        long startNanos = System.nanoTime();
+        int bytesRead = -1;
+        try {
+            bytesRead = operation.get();
+            return bytesRead;
+        } finally {
+            long durationNanos = System.nanoTime() - startNanos;
+            metrics.recordRead(bytesRead, durationNanos);
+        }
+    }
+
+    private int measureWrite(IoIntSupplier operation) throws IOException {
+        long startNanos = System.nanoTime();
+        int bytesWritten = -1;
+        try {
+            bytesWritten = operation.get();
+            return bytesWritten;
+        } finally {
+            long durationNanos = System.nanoTime() - startNanos;
+            metrics.recordWrite(bytesWritten, durationNanos);
+        }
     }
 
     @Override
@@ -45,158 +74,62 @@ public class MeteredFileIo implements FileIo {
 
     @Override
     public int read(ByteBuffer destBuf) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesRead = delegate.read(destBuf);
-
-        if (bytesRead > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordRead(bytesRead, durationNanos);
-        }
-        return bytesRead;
+        return measureRead(() -> delegate.read(destBuf));
     }
 
     @Override
     public int read(ByteBuffer destBuf, long position) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesRead = delegate.read(destBuf, position);
-
-        if (bytesRead > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordRead(bytesRead, durationNanos);
-        }
-        return bytesRead;
+        return measureRead(() -> delegate.read(destBuf, position));
     }
 
     @Override
     public int read(byte[] buf, int off, int len) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesRead = delegate.read(buf, off, len);
-
-        if (bytesRead > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordRead(bytesRead, durationNanos);
-        }
-        return bytesRead;
+        return measureRead(() -> delegate.read(buf, off, len));
     }
 
     @Override
     public int readFully(ByteBuffer destBuf) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesRead = delegate.readFully(destBuf);
-
-        if (bytesRead > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordRead(bytesRead, durationNanos);
-        }
-        return bytesRead;
+        return measureRead(() -> delegate.readFully(destBuf));
     }
 
     @Override
     public int readFully(ByteBuffer destBuf, long position) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesRead = delegate.readFully(destBuf, position);
-
-        if (bytesRead > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordRead(bytesRead, durationNanos);
-        }
-        return bytesRead;
+        return measureRead(() -> delegate.readFully(destBuf, position));
     }
 
     @Override
     public int readFully(byte[] buf, int off, int len) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesRead = delegate.readFully(buf, off, len);
-
-        if (bytesRead > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordRead(bytesRead, durationNanos);
-        }
-        return bytesRead;
+        return measureRead(() -> delegate.readFully(buf, off, len));
     }
 
     @Override
     public int write(ByteBuffer srcBuf) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesWritten = delegate.write(srcBuf);
-
-        if (bytesWritten > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordWrite(bytesWritten, durationNanos);
-        }
-        return bytesWritten;
+        return measureWrite(() -> delegate.write(srcBuf));
     }
 
     @Override
     public int write(ByteBuffer srcBuf, long position) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesWritten = delegate.write(srcBuf, position);
-
-        if (bytesWritten > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordWrite(bytesWritten, durationNanos);
-        }
-        return bytesWritten;
+        return measureWrite(() -> delegate.write(srcBuf, position));
     }
 
     @Override
     public int write(byte[] buf, int off, int len) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesWritten = delegate.write(buf, off, len);
-
-        if (bytesWritten > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordWrite(bytesWritten, durationNanos);
-        }
-        return bytesWritten;
+        return measureWrite(() -> delegate.write(buf, off, len));
     }
 
     @Override
     public int writeFully(ByteBuffer srcBuf) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesWritten = delegate.writeFully(srcBuf);
-
-        if (bytesWritten > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordWrite(bytesWritten, durationNanos);
-        }
-        return bytesWritten;
+        return measureWrite(() -> delegate.writeFully(srcBuf));
     }
 
     @Override
     public int writeFully(ByteBuffer srcBuf, long position) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesWritten = delegate.writeFully(srcBuf, position);
-
-        if (bytesWritten > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordWrite(bytesWritten, durationNanos);
-        }
-        return bytesWritten;
+        return measureWrite(() -> delegate.writeFully(srcBuf, position));
     }
 
     @Override
     public int writeFully(byte[] buf, int off, int len) throws IOException {
-        long startNanos = System.nanoTime();
-
-        int bytesWritten = delegate.writeFully(buf, off, len);
-
-        if (bytesWritten > 0) {
-            long durationNanos = System.nanoTime() - startNanos;
-            metrics.recordWrite(bytesWritten, durationNanos);
-        }
-        return bytesWritten;
+        return measureWrite(() -> delegate.writeFully(buf, off, len));
     }
 
     @Override

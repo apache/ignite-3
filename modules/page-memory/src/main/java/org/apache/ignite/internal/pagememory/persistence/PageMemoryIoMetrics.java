@@ -23,10 +23,7 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 
 /**
- * Page memory byte-level I/O metrics.
- *
- * <p>Tracks actual bytes transferred and latencies of physical I/O operations at the file level.
- * Complements existing page count metrics with byte-level granularity.
+ * Byte-level I/O metrics for page memory operations.
  */
 public class PageMemoryIoMetrics implements FileIoMetrics {
     public static final String TOTAL_BYTES_READ = "TotalBytesRead";
@@ -34,11 +31,8 @@ public class PageMemoryIoMetrics implements FileIoMetrics {
     public static final String READS_TIME = "ReadsTime";
     public static final String WRITES_TIME = "WritesTime";
 
-    private static final long[] DISK_IO_MICROSECONDS = {
-            100,       // 100µs - Fast IO
-            1_000,     // 1ms   - Slow IO
-            100_000    // 100ms - Very slow IO
-    };
+    /** Histogram buckets for I/O latency in microseconds: fast (50µs), normal (200µs), slow (1ms), very slow (10ms). */
+    private static final long[] DISK_IO_MICROSECONDS = {50, 200, 1_000, 10_000};
 
     private final LongAdderMetric totalBytesRead = new LongAdderMetric(
             TOTAL_BYTES_READ,
@@ -62,11 +56,7 @@ public class PageMemoryIoMetrics implements FileIoMetrics {
             DISK_IO_MICROSECONDS
     );
 
-    /**
-     * Constructor.
-     *
-     * @param source Metric source to get metrics from.
-     */
+    /** Constructor. */
     public PageMemoryIoMetrics(PageMemoryIoMetricSource source) {
         source.addMetric(totalBytesRead);
         source.addMetric(totalBytesWritten);
@@ -76,13 +66,17 @@ public class PageMemoryIoMetrics implements FileIoMetrics {
 
     @Override
     public void recordRead(int bytesRead, long durationNanos) {
-        totalBytesRead.add(bytesRead);
+        if (bytesRead > 0) {
+            totalBytesRead.add(bytesRead);
+        }
         readsTime.add(TimeUnit.NANOSECONDS.toMicros(durationNanos));
     }
 
     @Override
     public void recordWrite(int bytesWritten, long durationNanos) {
-        totalBytesWritten.add(bytesWritten);
+        if (bytesWritten > 0) {
+            totalBytesWritten.add(bytesWritten);
+        }
         writesTime.add(TimeUnit.NANOSECONDS.toMicros(durationNanos));
     }
 }
