@@ -41,8 +41,9 @@ public class PagerSupport {
     /** Number of lines to reserve for prompt and status. */
     private static final int TERMINAL_MARGIN = 2;
 
-    private final boolean pagerEnabled;
-    private final String pagerCommand;
+    private final ConfigManagerProvider configManagerProvider;
+    private final Boolean pagerEnabledOverride;
+    private final String pagerCommandOverride;
     private final Terminal terminal;
 
     /**
@@ -53,8 +54,9 @@ public class PagerSupport {
      */
     public PagerSupport(Terminal terminal, ConfigManagerProvider configManagerProvider) {
         this.terminal = terminal;
-        this.pagerEnabled = readPagerEnabled(configManagerProvider);
-        this.pagerCommand = readPagerCommand(configManagerProvider);
+        this.configManagerProvider = configManagerProvider;
+        this.pagerEnabledOverride = null;
+        this.pagerCommandOverride = null;
     }
 
     /**
@@ -66,8 +68,9 @@ public class PagerSupport {
      */
     PagerSupport(Terminal terminal, boolean pagerEnabled, String pagerCommand) {
         this.terminal = terminal;
-        this.pagerEnabled = pagerEnabled;
-        this.pagerCommand = resolveCommand(pagerCommand);
+        this.configManagerProvider = null;
+        this.pagerEnabledOverride = pagerEnabled;
+        this.pagerCommandOverride = resolveCommand(pagerCommand);
     }
 
     /**
@@ -94,7 +97,7 @@ public class PagerSupport {
      * @return true if the output exceeds terminal height and pager is enabled
      */
     boolean shouldUsePager(String output) {
-        if (!pagerEnabled || terminal == null) {
+        if (!isPagerEnabled() || terminal == null) {
             return false;
         }
         int lineCount = countLines(output);
@@ -146,21 +149,28 @@ public class PagerSupport {
     }
 
     /**
-     * Returns the pager command to use.
+     * Returns the pager command to use. Reads dynamically from config on each call.
      *
      * @return the pager command
      */
     public String getPagerCommand() {
-        return pagerCommand;
+        if (pagerCommandOverride != null) {
+            return pagerCommandOverride;
+        }
+        return readPagerCommand(configManagerProvider);
     }
 
     /**
-     * Returns whether the pager is enabled.
+     * Returns whether the pager is enabled. Reads dynamically from config on each call
+     * so that runtime config changes via {@code cli config set} take effect immediately.
      *
      * @return true if pager is enabled
      */
     public boolean isPagerEnabled() {
-        return pagerEnabled;
+        if (pagerEnabledOverride != null) {
+            return pagerEnabledOverride;
+        }
+        return readPagerEnabled(configManagerProvider);
     }
 
     /**
