@@ -61,7 +61,7 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.StaticNodeFinderChange;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -187,7 +187,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             assertThat(nettyBootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
-            clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
+            clusterSvc = new TestScaleCubeClusterService(
                     nodeName,
                     networkConfiguration,
                     nettyBootstrapFactory,

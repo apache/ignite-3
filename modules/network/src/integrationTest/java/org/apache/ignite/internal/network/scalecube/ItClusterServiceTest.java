@@ -61,8 +61,6 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        assertThat(service.isStopped(), is(true));
-
         ExecutionException e = assertThrows(
                 ExecutionException.class,
                 () -> service.messagingService()

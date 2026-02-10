@@ -602,18 +602,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
 
-        DefaultMessagingService messagingService = new DefaultMessagingService(
-                node.name(),
-                networkMessagesFactory,
-                topologyService,
-                staleIdDetector,
-                classDescriptorRegistry,
-                marshaller,
-                criticalWorkerRegistry,
-                failureProcessor,
-                channelTypeRegistry
-        );
-
         SerializationService serializationService = new SerializationService(
                 registry,
                 new UserObjectSerializationContext(classDescriptorRegistry, classDescriptorFactory, marshaller)
@@ -622,6 +610,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         String eventLoopGroupNamePrefix = node.name() + "-event-loop";
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
+
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConnectionManager connectionManager = new TestConnectionManager(
@@ -633,9 +622,21 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 beforeHandshake
         );
-        connectionManager.start();
 
-        messagingService.setConnectionManager(connectionManager);
+        DefaultMessagingService messagingService = new DefaultMessagingService(
+                node.name(),
+                networkMessagesFactory,
+                topologyService,
+                staleIdDetector,
+                classDescriptorRegistry,
+                marshaller,
+                criticalWorkerRegistry,
+                failureProcessor,
+                connectionManager,
+                channelTypeRegistry
+        );
+
+        connectionManager.start();
 
         messagingService.start();
 

@@ -1338,21 +1338,18 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception If failed to stop.
      */
     private static void stopForcefully(ClusterService cluster) throws Exception {
-        Field clusterSvcImplField = cluster.getClass().getDeclaredField("val$clusterSvc");
-        clusterSvcImplField.setAccessible(true);
-
-        ClusterService innerClusterSvc = (ClusterService) clusterSvcImplField.get(cluster);
-
-        Field clusterImplField = innerClusterSvc.getClass().getDeclaredField("cluster");
+        Field clusterImplField = ScaleCubeClusterService.class.getDeclaredField("cluster");
         clusterImplField.setAccessible(true);
 
-        ClusterImpl clusterImpl = (ClusterImpl) clusterImplField.get(innerClusterSvc);
-        Field transportField = clusterImpl.getClass().getDeclaredField("transport");
+        Field transportField = ClusterImpl.class.getDeclaredField("transport");
         transportField.setAccessible(true);
 
-        Transport transport = (Transport) transportField.get(clusterImpl);
-        Method stop = transport.getClass().getDeclaredMethod("stop");
+        Method stop = Transport.class.getDeclaredMethod("stop");
         stop.setAccessible(true);
+
+        ClusterImpl clusterImpl = (ClusterImpl) clusterImplField.get(cluster);
+
+        Transport transport = (Transport) transportField.get(clusterImpl);
 
         Mono<?> invoke = (Mono<?>) stop.invoke(transport);
         invoke.block();
