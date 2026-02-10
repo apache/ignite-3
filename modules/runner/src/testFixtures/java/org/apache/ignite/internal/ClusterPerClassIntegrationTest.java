@@ -134,14 +134,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         sql(format("ALTER ZONE \"{}\" SET DEFAULT",  CatalogUtils.DEFAULT_ZONE_NAME));
     }
 
-    protected static CatalogZoneDescriptor defaultZoneDefinition() {
-        CatalogZoneDescriptor defaultZoneDesc = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog().defaultZone();
-
-        assertNotNull(defaultZoneDesc);
-
-        return defaultZoneDesc;
-    }
-
     /**
      * Inheritors should override this method to change configuration of the test cluster before its creation.
      */

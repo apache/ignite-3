@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.events;
 
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.BROADCAST;
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.MAP_REDUCE;
 import static org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type.SINGLE;
@@ -45,6 +46,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,6 +70,7 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.ConfigOverride;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.compute.FailingJob;
 import org.apache.ignite.internal.compute.FailingJobMapReduceTask;
 import org.apache.ignite.internal.compute.FailingReduceMapReduceTask;
@@ -184,7 +187,11 @@ abstract class ItComputeEventsTest extends ClusterPerClassIntegrationTest {
 
         assertThat(broadcastExecution.resultsAsync(), willCompleteSuccessfully());
 
-        int defaultPartitionCount = defaultZoneDefinition().partitions();
+        CatalogZoneDescriptor defaultZoneDesc = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog().defaultZone();
+
+        assertNotNull(defaultZoneDesc);
+
+        int defaultPartitionCount = defaultZoneDesc.partitions();
         assertThat(broadcastExecution.executions(), hasSize(defaultPartitionCount));
         await().until(logInspector::events, hasSize(defaultPartitionCount * 3));
 
