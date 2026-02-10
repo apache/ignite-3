@@ -119,9 +119,9 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
         if (initialNodes() > 0 && needInitializeCluster()) {
             CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
-        }
 
-        createDefaultZone();
+            createDefaultZone();
+        }
     }
 
     private static void createDefaultZone() {
@@ -732,6 +732,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     /**
+     * Returns partition count by given zone name.
+     *
      * @param zoneName Zone to get partition count for.
      * @return Partition count for given zone name assumed the zone exists.
      */

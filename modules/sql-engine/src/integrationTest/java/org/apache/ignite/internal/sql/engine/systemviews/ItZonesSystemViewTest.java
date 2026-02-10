@@ -49,14 +49,6 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     @Test
     public void systemViewDefaultZone() {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
-
-        // Check that there is no default zone yet before test table is created.
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
-        // Table for lazy default zone creation.
-        createTableOnly("test_table");
-        // Check that the default zone was created and is presented on zone view.
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
-
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = Objects.requireNonNull(
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
@@ -173,22 +165,22 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 DEFAULT_CONSISTENCY_MODE.name()
         ).check();
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
 
         sql("DROP ZONE " + ALTER_ZONE_NAME);
     }
 
     @Test
     public void systemViewDropCustomZone() {
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
 
         sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
 
         sql("DROP ZONE " + ZONE_NAME);
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
     }
 
     @Test

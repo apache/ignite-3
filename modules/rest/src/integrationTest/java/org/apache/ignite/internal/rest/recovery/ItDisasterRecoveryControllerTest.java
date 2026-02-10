@@ -96,11 +96,21 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     @BeforeAll
     public static void setUp() {
         ZONES_CONTAINING_TABLES.forEach(name -> {
-            sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", name, DEFAULT_AIPERSIST_PROFILE_NAME));
+            sql(String.format(
+                    "CREATE ZONE \"%s\" (partitions %d) storage profiles ['%s']",
+                    name,
+                    DEFAULT_PARTITION_COUNT,
+                    DEFAULT_AIPERSIST_PROFILE_NAME
+            ));
             sql(String.format("CREATE TABLE PUBLIC.\"%s_table\" (id INT PRIMARY KEY, val INT) ZONE \"%1$s\"", name));
         });
 
-        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format(
+                "CREATE ZONE \"%s\" (partitions %d) storage profiles ['%s']",
+                EMPTY_ZONE,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_AIPERSIST_PROFILE_NAME
+        ));
 
         nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }
