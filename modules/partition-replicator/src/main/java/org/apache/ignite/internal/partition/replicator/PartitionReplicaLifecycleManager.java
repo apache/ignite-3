@@ -1354,7 +1354,21 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.RESTART,
-                () -> stopPartitionInternal(zonePartitionId, BEFORE_REPLICA_STOPPED, AFTER_REPLICA_STOPPED, revision, replica -> {})
+                () -> stopPartitionInternal(
+                        zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
+                        AFTER_REPLICA_STOPPED,
+                        revision,
+                        replicaWasStopped -> {
+                            if (replicaWasStopped) {
+                                ZonePartitionResources resources = zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
+
+                                if (resources != null) {
+                                    resources.txStatePartitionStorage().close();
+                                }
+                            }
+                        }
+                )
         );
     }
 
@@ -1812,7 +1826,11 @@ public class PartitionReplicaLifecycleManager extends
                         BEFORE_REPLICA_STOPPED,
                         AFTER_REPLICA_STOPPED,
                         -1L,
-                        replicaWasStopped -> {}
+                        replicaWasStopped -> {
+                            if (replicaWasStopped) {
+                                zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
+                            }
+                        }
                 ))
                 .toArray(CompletableFuture[]::new);
 
