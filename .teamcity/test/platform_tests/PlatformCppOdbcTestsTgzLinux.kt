@@ -55,7 +55,7 @@ object PlatformCppOdbcTestsTgzLinux : BuildType({
                 clang++ --version
                 ulimit -a
 
-                tar xzvf ignite3-odbc-deb/*.tgz -C /
+                tar xzvf ignite3-odbc-tgz/*.tgz -C /
                 odbcinst -i -d -f /usr/share/ignite/ignite3-odbc.ini -v
                 
                 cd %PATH__IGNITE_DIR%
