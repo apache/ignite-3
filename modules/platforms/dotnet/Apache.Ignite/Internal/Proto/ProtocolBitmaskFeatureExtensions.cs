@@ -38,4 +38,30 @@ internal static class ProtocolBitmaskFeatureExtensions
 
         return buffer.ToArray();
     }
+
+    /// <summary>
+    /// Gets the feature flags from bytes.
+    /// </summary>
+    /// <param name="bytes">Bytes.</param>
+    /// <returns>Flags.</returns>
+    public static ProtocolBitmaskFeature FromBytes(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.Length > 4)
+        {
+            throw new InvalidOperationException("Invalid bitmask feature length: " + bytes.Length);
+        }
+
+        if (bytes.Length < 4)
+        {
+            // Pad with zeros if less than 4 bytes.
+            Span<byte> buffer = stackalloc byte[4];
+            buffer.Clear();
+            bytes.CopyTo(buffer);
+
+            return (ProtocolBitmaskFeature) BinaryPrimitives.ReadInt32LittleEndian(buffer);
+        }
+
+        // BitSet.valueOf on the server is little-endian.
+        return (ProtocolBitmaskFeature) BinaryPrimitives.ReadInt32LittleEndian(bytes);
+    }
 }

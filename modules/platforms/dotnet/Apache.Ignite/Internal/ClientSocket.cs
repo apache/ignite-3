@@ -54,7 +54,7 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.StreamerReceiverExecutionOptions |
             ProtocolBitmaskFeature.SqlPartitionAwareness;
 
-        /** Features as byte array */
+        /** Features as a byte array */
         private static readonly byte[] FeatureBytes = Features.ToBytes();
 
         /** Version 3.0.0. */
@@ -432,10 +432,7 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Patch.
             reader.Skip(); // Pre-release.
 
-            ReadOnlySpan<byte> featureBits = reader.ReadBinary();
-            ProtocolBitmaskFeature features = featureBits.Length > 0
-                ? (ProtocolBitmaskFeature)featureBits[0] // Only one byte is used for now.
-                : 0;
+            ProtocolBitmaskFeature features = ProtocolBitmaskFeatureExtensions.FromBytes(reader.ReadBinary());
 
             int extensionMapSize = reader.ReadInt32();
             for (int i = 0; i < extensionMapSize; i++)
