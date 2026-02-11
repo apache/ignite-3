@@ -95,7 +95,7 @@ internal sealed class SqlPartitionMappingProvider
         // TODO: Reuse BinaryTupleBuilder for hash calculation
         for (int i = 0; i < colocationColumns.Length; i++)
         {
-            int idx = indexes[i];
+            int idx = indexes.Span[i];
 
             if (idx >= 0)
             {
@@ -110,7 +110,7 @@ internal sealed class SqlPartitionMappingProvider
             }
             else
             {
-                colocationHash = HashUtils.Combine(colocationHash, hash[-(idx + 1)]);
+                colocationHash = HashUtils.Combine(colocationHash, hash.Span[-(idx + 1)]);
             }
         }
 
