@@ -313,10 +313,13 @@ namespace Apache.Ignite.Internal.Sql
                 var paMeta = resultSet.PaMetadata;
                 if (paMeta != null)
                 {
+                    // TODO: We don't have the table name here, which makes it difficult
+                    // Reusing existing table cache in Tables.
+                    // Should we add the table name to the response?
                     var table = _paTableCache.GetOrAdd(
                         paMeta.TableId,
                         static (id, state) => new ClientTable(
-                            QualifiedName.Of("DUMMY", id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                            QualifiedName.Of("DUMMY", $"DUMMY_{id}"),
                             id,
                             state.Socket,
                             state.Sql),
