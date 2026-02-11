@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Sql;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
@@ -88,7 +89,7 @@ internal sealed class SqlPartitionMappingProvider
             return default;
         }
 
-        var paramsArray = args as object?[] ?? (args != null ? System.Linq.Enumerable.ToArray(args) : Array.Empty<object?>());
+        IList<object?> args0 = args as IList<object?> ?? args?.ToArray() ?? [];
 
         int colocationHash = 0;
 
@@ -99,13 +100,13 @@ internal sealed class SqlPartitionMappingProvider
 
             if (idx >= 0)
             {
-                if (idx >= paramsArray.Length)
+                if (idx >= args0.Count)
                 {
                     return default;
                 }
 
                 var column = colocationColumns[i];
-                int valueHash = HashValue(paramsArray[idx], column.Scale, column.Precision);
+                int valueHash = HashValue(args0[idx], column.Scale, column.Precision);
                 colocationHash = HashUtils.Combine(colocationHash, valueHash);
             }
             else
