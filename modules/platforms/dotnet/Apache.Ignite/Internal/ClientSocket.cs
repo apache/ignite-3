@@ -51,10 +51,11 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.TableReqsUseQualifiedName |
             ProtocolBitmaskFeature.PlatformComputeJob |
             ProtocolBitmaskFeature.PlatformComputeExecutor |
-            ProtocolBitmaskFeature.StreamerReceiverExecutionOptions;
+            ProtocolBitmaskFeature.StreamerReceiverExecutionOptions |
+            ProtocolBitmaskFeature.SqlPartitionAwareness;
 
         /** Features as byte array */
-        private static readonly byte[] FeatureBytes = [(byte)Features];
+        private static readonly byte[] FeatureBytes = Features.ToBytes();
 
         /** Version 3.0.0. */
         private static readonly ClientProtocolVersion Ver300 = new(3, 0, 0);

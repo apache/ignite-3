@@ -53,5 +53,10 @@ internal enum ProtocolBitmaskFeature
     /// <summary>
     /// Streamer receiver execution options, including .NET receivers.
     /// </summary>
-    StreamerReceiverExecutionOptions = 32
+    StreamerReceiverExecutionOptions = 32,
+
+    /// <summary>
+    /// Partition awareness for SQL requests.
+    /// </summary>
+    SqlPartitionAwareness = 1 << 9,
 }

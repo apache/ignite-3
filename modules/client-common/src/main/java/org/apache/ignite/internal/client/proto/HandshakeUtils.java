@@ -85,6 +85,7 @@ public class HandshakeUtils {
      * @return Features.
      */
     public static BitSet unpackFeatures(ClientMessageUnpacker unpacker) {
+        // BitSet.valueOf is always little-endian.
         return BitSet.valueOf(unpacker.readBinary());
     }
 
