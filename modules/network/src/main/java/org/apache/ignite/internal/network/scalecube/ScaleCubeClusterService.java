@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
@@ -40,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -77,6 +77,7 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ScaleCube-based implementation of {@link ClusterService}.
@@ -102,6 +103,9 @@ public class ScaleCubeClusterService implements ClusterService {
 
     private final NetworkConfiguration config;
 
+    private final AtomicBoolean isStopped = new AtomicBoolean();
+
+    @Nullable
     private volatile ClusterImpl cluster;
 
     /** Constructor. */
@@ -183,7 +187,9 @@ public class ScaleCubeClusterService implements ClusterService {
         // method.
         ClusterImpl cluster = createCluster();
 
-        // resolve cyclic dependencies
+        this.cluster = cluster;
+
+        // Resolve cyclic dependencies.
         topologyService.setCluster(cluster);
 
         connectionMgr.start();
@@ -191,7 +197,7 @@ public class ScaleCubeClusterService implements ClusterService {
         nodeFinder.start();
         cluster.startAwait();
 
-        // emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that)
+        // Emit an artificial event as if the local member has joined the topology (ScaleCube doesn't do that).
         MembershipEvent localMembershipEvent = createAdded(cluster.member(), null, System.currentTimeMillis());
         topologyService.onMembershipEvent(localMembershipEvent);
 
@@ -200,6 +206,17 @@ public class ScaleCubeClusterService implements ClusterService {
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        assert isStopped.get() : "ClusterService must have been stopped in the \"beforeNodeStop\" method";
+
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public void beforeNodeStop() {
+        if (!isStopped.compareAndSet(false, true)) {
+            return;
+        }
+
         try {
             IgniteUtils.closeAll(
                     connectionMgr::initiateStopping,
@@ -208,21 +225,19 @@ public class ScaleCubeClusterService implements ClusterService {
                     messagingService::stop,
                     connectionMgr::stop
             );
-
-            return nullCompletedFuture();
-        } catch (Throwable t) {
-            return failedFuture(t);
+        } catch (Exception e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
         }
     }
 
     @Override
-    public void beforeNodeStop() {
-        this.stopAsync(new ComponentContext()).join();
-    }
-
-    @Override
     public void updateMetadata(NodeMetadata metadata) {
+        ClusterImpl cluster = this.cluster;
+
+        assert cluster != null : "Cluster has not been started";
+
         cluster.updateMetadata(metadata).subscribe();
+
         topologyService.updateLocalMetadata(metadata);
     }
 
@@ -282,17 +297,13 @@ public class ScaleCubeClusterService implements ClusterService {
                 .membership(opts -> opts.seedMembers(parseAddresses(nodeFinder.findNodes())))
                 .metadataCodec(METADATA_CODEC);
 
-        var cluster = new ClusterImpl(clusterConfig)
+        return new ClusterImpl(clusterConfig)
                 .handler(cl -> new ClusterMessageHandler() {
                     @Override
                     public void onMembershipEvent(MembershipEvent event) {
                         topologyService.onMembershipEvent(event);
                     }
                 });
-
-        this.cluster = cluster;
-
-        return cluster;
     }
 
     private static InetSocketAddress localBindAddress(NetworkView configView) {
