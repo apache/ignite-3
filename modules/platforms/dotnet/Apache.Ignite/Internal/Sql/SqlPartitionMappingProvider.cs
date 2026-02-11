@@ -92,6 +92,7 @@ internal sealed class SqlPartitionMappingProvider
 
         int colocationHash = 0;
 
+        // TODO: Reuse BinaryTupleBuilder for hash calculation
         for (int i = 0; i < colocationColumns.Length; i++)
         {
             int idx = indexes[i];
