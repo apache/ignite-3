@@ -478,7 +478,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         verify(commonSafeTimeTracker, timeout(1_000).times(1)).close();
         verify(commonStorageIndexTracker, timeout(1_000).times(1)).close();
-        verify(commonZonePartitionResources.txStatePartitionStorage(), times(1)).close();
+
+        // We do not close tx state partition storage on restart.
+        verify(commonZonePartitionResources.txStatePartitionStorage(), times(0)).close();
     }
 
     @Test

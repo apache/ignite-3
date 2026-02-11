@@ -1361,11 +1361,7 @@ public class PartitionReplicaLifecycleManager extends
                         revision,
                         replicaWasStopped -> {
                             if (replicaWasStopped) {
-                                ZonePartitionResources resources = zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
-
-                                if (resources != null) {
-                                    resources.txStatePartitionStorage().close();
-                                }
+                                zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
                             }
                         }
                 )

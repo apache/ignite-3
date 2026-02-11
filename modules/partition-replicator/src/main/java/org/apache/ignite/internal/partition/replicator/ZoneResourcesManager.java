@@ -193,20 +193,15 @@ public class ZoneResourcesManager implements ManuallyCloseable {
     }
 
     /**
-     * Removes partition resources from the zone.
-     * It is safe to do so since resources should've been closed on before node stop event.
-     *
-     * @return removed resources or {@code null} if not found.
+     * Removes partition resources from the zone. It is safe to do so since resources should've been closed on before node stop event.
      */
-    @Nullable ZonePartitionResources removeZonePartitionResources(ZonePartitionId zonePartitionId) {
-        return inBusyLock(busyLock, () -> {
+    void removeZonePartitionResources(ZonePartitionId zonePartitionId) {
+        inBusyLock(busyLock, () -> {
             ZoneResources resources = resourcesByZoneId.get(zonePartitionId.zoneId());
 
             if (resources != null) {
-                return resources.resourcesByPartitionId.remove(zonePartitionId.partitionId());
+                resources.resourcesByPartitionId.remove(zonePartitionId.partitionId());
             }
-
-            return null;
         });
     }
 
