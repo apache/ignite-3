@@ -228,29 +228,28 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public void disable(MetricSource src) {
-        if (metricSources().contains(src)) {
-            inBusyLockSafe(busyLock, () -> {
+        inBusyLockSafe(busyLock, () -> {
+            if (metricSources().contains(src)) {
                 MetricSet metricSet = registry.snapshot().metrics().get(src.name());
 
                 registry.disable(src);
 
                 enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
-            });
-        }
-
+            }
+        });
     }
 
     @Override
     public void disable(String srcName) {
-        if (metricSources().stream().anyMatch(metricSource -> metricSource.name().equals(srcName))) {
-            inBusyLockSafe(busyLock, () -> {
+        inBusyLockSafe(busyLock, () -> {
+            if (metricSources().stream().anyMatch(metricSource -> metricSource.name().equals(srcName))) {
                 MetricSet metricSet = registry.snapshot().metrics().get(srcName);
 
                 registry.disable(srcName);
 
                 enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
-            });
-        }
+            }
+        });
     }
 
     @Override
