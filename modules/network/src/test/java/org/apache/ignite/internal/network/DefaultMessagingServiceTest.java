@@ -41,6 +41,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
@@ -633,7 +634,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 beforeHandshake
         );
         connectionManager.start();
-        connectionManager.setLocalNode(node);
 
         messagingService.setConnectionManager(connectionManager);
 
@@ -657,8 +657,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             super(
                     networkConfig.value(),
                     serializationService,
-                    node.name(),
-                    node.id(),
+                    new InetSocketAddress(node.address().host(), node.address().port()),
+                    node,
                     bootstrapFactory,
                     staleIdDetector,
                     clusterIdSupplier,
