@@ -25,6 +25,10 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,6 +57,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -117,21 +122,15 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
         CLUSTER = new Cluster(clusterConfiguration.build());
 
-        if (initialNodes() > 0 && needInitializeCluster()) {
-            CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
+        if (!shouldStartAndInitializeCluster()) {
+            return;
+        }
 
+        CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
+
+        if (shouldCreateDefaultZone()) {
             createDefaultZone();
         }
-    }
-
-    private static void createDefaultZone() {
-        sql(format(
-                "CREATE ZONE \"{}\" (PARTITIONS {}) STORAGE PROFILES['{}']",
-                CatalogUtils.DEFAULT_ZONE_NAME,
-                CatalogUtils.DEFAULT_PARTITION_COUNT,
-                CatalogService.DEFAULT_STORAGE_PROFILE
-        ));
-        sql(format("ALTER ZONE \"{}\" SET DEFAULT",  CatalogUtils.DEFAULT_ZONE_NAME));
     }
 
     /**
@@ -170,6 +169,21 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     protected String getNodeBootstrapConfigTemplate() {
         return NODE_BOOTSTRAP_CFG_TEMPLATE;
+    }
+
+    private boolean shouldStartAndInitializeCluster() {
+        return initialNodes() > 0 && needInitializeCluster();
+    }
+
+    protected boolean shouldCreateDefaultZone() {
+        return true;
+    }
+
+    private static void createDefaultZone() {
+        assertThat(CLUSTER, is(notNullValue()));
+        assertThat(CLUSTER.nodes(), is(not(empty())));
+
+        DistributionZonesTestUtil.createDefaultZone(igniteImpl(0).catalogManager());
     }
 
     /**

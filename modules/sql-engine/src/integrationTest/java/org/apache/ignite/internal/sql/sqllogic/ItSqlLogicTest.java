@@ -19,9 +19,11 @@ package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -45,10 +47,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -68,8 +68,6 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -393,25 +391,9 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     }
 
     private static void createDefaultZone() {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        assertThat(CLUSTER_NODES, is(not(empty())));
 
-        // Create a default zone manually for all tables that would attempt to create it lazily otherwise.
-        try(ResultSet<SqlRow> result = sql.execute(format(
-                "CREATE ZONE \"{}\" (PARTITIONS {}) STORAGE PROFILES['{}']",
-                CatalogUtils.DEFAULT_ZONE_NAME,
-                CatalogUtils.DEFAULT_PARTITION_COUNT,
-                CatalogService.DEFAULT_STORAGE_PROFILE
-        ))) {
-            assertTrue(result.wasApplied());
-        }
-
-        // Alter it to mark the new zone as the default one.
-        try(ResultSet<SqlRow> result = sql.execute(format(
-                "ALTER ZONE \"{}\" SET DEFAULT",
-                CatalogUtils.DEFAULT_ZONE_NAME
-        ))) {
-            assertTrue(result.wasApplied());
-        }
+        DistributionZonesTestUtil.createDefaultZone(unwrapIgniteImpl(CLUSTER_NODES.get(0)).catalogManager());
     }
 
     /** Disables all metrics except provided ones. */
