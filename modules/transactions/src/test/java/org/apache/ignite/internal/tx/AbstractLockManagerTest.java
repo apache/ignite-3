@@ -1134,11 +1134,10 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         CompletableFuture<Lock> fut1 = lockManager.acquire(newer, lockKey(), X);
         assertTrue(fut1.isDone());
 
-        // Currently only S locks are allowed to wait.
         CompletableFuture<Lock> fut2 = lockManager.acquire(older, lockKey(), S);
         assertFalse(fut2.isDone());
 
-        // Should do nothing.
+        // Should do nothing then called on owner.
         lockManager.failAllWaiters(newer, new Exception());
         assertFalse(fut2.isDone());
 
@@ -1169,6 +1168,8 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         lockManager.releaseAll(tx3);
 
+        assertThat(fut4, willThrowWithCauseOrSuppressed(PossibleDeadlockOnLockAcquireException.class));
+        // Failing already invalidated waiter should do nothing.
         lockManager.failAllWaiters(tx2, new Exception());
 
         lockManager.releaseAll(tx2);
@@ -1192,9 +1193,36 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
 
         lockManager.releaseAll(tx3);
 
+        assertThat(fut2, willThrowWithCauseOrSuppressed(PossibleDeadlockOnLockAcquireException.class));
+        // Failing already invalidated waiter should do nothing.
         lockManager.failAllWaiters(tx2, new Exception());
 
         lockManager.releaseAll(tx2);
+        lockManager.releaseAll(tx1);
+    }
+
+    @Test
+    public void testFailWaiter4() {
+        UUID tx1 = TestTransactionIds.newTransactionId();
+        UUID tx2 = TestTransactionIds.newTransactionId();
+        UUID tx3 = TestTransactionIds.newTransactionId();
+
+        CompletableFuture<Lock> fut3 = lockManager.acquire(tx3, lockKey(), S);
+        assertTrue(fut3.isDone());
+
+        CompletableFuture<Lock> fut2 = lockManager.acquire(tx2, lockKey(), X);
+        assertFalse(fut2.isDone());
+
+        CompletableFuture<Lock> fut1 = lockManager.acquire(tx1, lockKey(), X);
+        assertFalse(fut1.isDone());
+
+        lockManager.failAllWaiters(tx2, new Exception("test"));
+        assertThat(fut2, willThrowWithCauseOrSuppressed(Exception.class, "test"));
+        assertFalse(fut1.isDone());
+
+        lockManager.releaseAll(tx3);
+        assertThat(fut1, willCompleteSuccessfully());
+
         lockManager.releaseAll(tx1);
     }
 

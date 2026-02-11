@@ -808,7 +808,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
 
-                // Waiter can be null if it was invalidate by order conflict resolution logic.
+                // Waiter can be null if it was invalidated by order conflict resolution logic.
                 // See testFailWaiter3
                 if (waiter != null && waiter.hasLockIntent()) {
                     waiter0 = waiter;

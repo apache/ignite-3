@@ -1420,10 +1420,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
 
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
-            // At this point a transaction is marked as finished, preventing new locks.
+            // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
             // Safe to invalidate waiters, which otherwise will block the cleanup process.
             // Using non-retriable exception intentionally to prevent unnecessary retries.
-            // This adds additional latency on commit path, which should go away after implementing async write intent cleanup.
             lockManager.failAllWaiters(request.txId(), new TransactionException(
                     TX_ALREADY_FINISHED_ERR,
                     format("Can't acquire a lock because the transaction is already finished [{}].",
