@@ -32,6 +32,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -271,10 +272,12 @@ public class IgniteCluster {
         // Wait for the cluster to be initialized
         await()
                 .ignoreExceptions()
-                .timeout(30, TimeUnit.SECONDS)
+                .timeout(60, TimeUnit.SECONDS)
                 .until(
-                        () -> send(get("/management/v1/node/state")).body(),
-                        hasJsonPath("$.state", is(equalTo("STARTED")))
+                        () -> IntStream.range(0, runnerNodes.size())
+                                .mapToObj(nodeIndex -> send(get("/management/v1/node/state", nodeIndex)).body())
+                                .collect(toList()),
+                        everyItem(hasJsonPath("$.state", is(equalTo("STARTED"))))
                 );
 
         started = true;

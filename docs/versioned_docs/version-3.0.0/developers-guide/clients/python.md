@@ -48,7 +48,7 @@ To install Python DB API driver, download it from pip.
 pip install pyignite3_dbapi
 ```
 
-After this, you can import `pyignite3_dbapi` into your project and use it.
+After this, you can import `pyignite_dbapi` into your project and use it.
 
 ## Connecting to Cluster
 
@@ -78,7 +78,7 @@ To ensure secure connection to the cluster, you can enable SSL for it by providi
 
 ```python
 def create_ssl_connection():
-  """Create SSL-enabled connection to GridGain cluster."""
+  """Create SSL-enabled connection to Ignite cluster."""
   addr = ['127.0.0.1:10800']
   return pyignite_dbapi.connect(
       address=addr,
@@ -100,7 +100,7 @@ If the cluster uses [basic authorization](../../administrators-guide/security/au
 
 ```python
 def create_authenticated_connection():
-  """Create authenticated connection to GridGain cluster."""
+  """Create authenticated connection to Ignite cluster."""
   addr = ['127.0.0.1:10800']
   return pyignite_dbapi.connect(
       address=addr,
@@ -124,7 +124,7 @@ The example below shows how to set these properties:
 
 ```python
 def create_configured_connection():
-  """Create authenticated connection to GridGain cluster."""
+  """Create authenticated connection to Ignite cluster."""
   addr = ['127.0.0.1:10800']
   return conn = pyignite_dbapi.connect(
     address=addr,
