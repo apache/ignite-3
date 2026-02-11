@@ -68,6 +68,8 @@ import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -392,13 +394,24 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
 
     private static void createDefaultZone() {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        sql.execute(format(
+
+        // Create a default zone manually for all tables that would attempt to create it lazily otherwise.
+        try(ResultSet<SqlRow> result = sql.execute(format(
                 "CREATE ZONE \"{}\" (PARTITIONS {}) STORAGE PROFILES['{}']",
                 CatalogUtils.DEFAULT_ZONE_NAME,
                 CatalogUtils.DEFAULT_PARTITION_COUNT,
                 CatalogService.DEFAULT_STORAGE_PROFILE
-        ));
-        sql.execute(format("ALTER ZONE \"{}\" SET DEFAULT",  CatalogUtils.DEFAULT_ZONE_NAME));
+        ))) {
+            assertTrue(result.wasApplied());
+        }
+
+        // Alter it to mark the new zone as the default one.
+        try(ResultSet<SqlRow> result = sql.execute(format(
+                "ALTER ZONE \"{}\" SET DEFAULT",
+                CatalogUtils.DEFAULT_ZONE_NAME
+        ))) {
+            assertTrue(result.wasApplied());
+        }
     }
 
     /** Disables all metrics except provided ones. */
