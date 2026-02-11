@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
@@ -43,19 +44,19 @@ import org.junit.jupiter.api.Test;
 /** Test suite for the cases with a recovery of the group replication factor after reset by zone filter update. */
 public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends AbstractHighAvailablePartitionsRecoveryTest {
     private static final String GLOBAL_EU_NODES_CONFIG =
-            nodeConfig("{region = EU, zone = global}", "{segmented_aipersist.engine = aipersist}");
+            nodeConfigWithFailureHandler("{region = EU, zone = global}", "{segmented_aipersist.engine = aipersist}");
 
-    private static final String EU_ONLY_NODES_CONFIG = nodeConfig("{region = EU}", null);
+    private static final String EU_ONLY_NODES_CONFIG = nodeConfigWithFailureHandler("{region = EU}", null);
 
-    private static final String US_ONLY_NODES_CONFIG = nodeConfig("{region = US}", null);
+    private static final String US_ONLY_NODES_CONFIG = nodeConfigWithFailureHandler("{region = US}", null);
 
-    private static final String GLOBAL_NODES_CONFIG = nodeConfig("{zone = global}", null);
+    private static final String GLOBAL_NODES_CONFIG = nodeConfigWithFailureHandler("{zone = global}", null);
 
-    private static final String CUSTOM_NODES_CONFIG = nodeConfig("{zone = custom}", null);
+    private static final String CUSTOM_NODES_CONFIG = nodeConfigWithFailureHandler("{zone = custom}", null);
 
-    private static final String ROCKS_NODES_CONFIG = nodeConfig(null, "{lru_rocks.engine = rocksdb}");
+    private static final String ROCKS_NODES_CONFIG = nodeConfigWithFailureHandler(null, "{lru_rocks.engine = rocksdb}");
 
-    private static final String AIPERSIST_NODES_CONFIG = nodeConfig(null, "{segmented_aipersist.engine = aipersist}");
+    private static final String AIPERSIST_NODES_CONFIG = nodeConfigWithFailureHandler(null, "{segmented_aipersist.engine = aipersist}");
 
     @Override
     protected int initialNodes() {
@@ -65,6 +66,39 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     @Override
     protected String getNodeBootstrapConfigTemplate() {
         return GLOBAL_EU_NODES_CONFIG;
+    }
+
+    private static String nodeConfigWithFailureHandler(
+            @Nullable String nodeAttributes,
+            @Nullable String storageProfiles
+    ) {
+        return "ignite {\n"
+                + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
+                + (storageProfiles == null ? "" : "  storage.profiles: " + storageProfiles + ",\n")
+                + "  network: {\n"
+                + "    port: {},\n"
+                + "    nodeFinder: {\n"
+                + "      netClusterNodes: [ {} ]\n"
+                + "    },\n"
+                + "    membership: {\n"
+                + "      membershipSyncIntervalMillis: 1000,\n"
+                + "      failurePingIntervalMillis: 500,\n"
+                + "      scaleCube: {\n"
+                + "        membershipSuspicionMultiplier: 1,\n"
+                + "        failurePingRequestMembers: 1,\n"
+                + "        gossipIntervalMillis: 10\n"
+                + "      },\n"
+                + "    }\n"
+                + "  },\n"
+                + "  clientConnector: { port:{} }, \n"
+                + "  rest.port: {},\n"
+                + "  failureHandler: {\n"
+                + "    handler: {\n"
+                + "      type: \"" + StopNodeFailureHandlerConfigurationSchema.TYPE + "\"\n"
+                + "    },\n"
+                + "    dumpThreadsOnFailure: false\n"
+                + "  }\n"
+                + "}";
     }
 
     @Test
@@ -204,7 +238,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         //  Start one node from phase 2 (E)
         startNode(2);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 4));
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node0, HA_TABLE_NAME, PARTITION_IDS,  nodeNames(1, 2, 4));
 
         // Verify that no data is lost and reads from partition on nodes A and E are consistent with node G
         assertValuesPresentOnNodes(node0.clock().now(), table, 1, 2, 4);

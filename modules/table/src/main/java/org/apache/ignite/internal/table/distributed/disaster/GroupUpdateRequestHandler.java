@@ -303,12 +303,10 @@ class GroupUpdateRequestHandler {
                 return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
             }
 
-            if (manualUpdate) {
-                enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
-            }
+            enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
 
             // We need to recalculate assignments to ensure that we have a valid set of nodes with correct roles (peers/learners).
-            partAssignments = calculateAssignmentForPartition(
+            Set<Assignment> finalPartAssignments = calculateAssignmentForPartition(
                     partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
                     partId.partitionId(),
                     partitions,
@@ -316,13 +314,13 @@ class GroupUpdateRequestHandler {
                     consensusGroupSize
             );
 
-            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
+            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, finalPartAssignments);
 
-            boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
+            boolean isProposedPendingEqualsProposedPlanned = finalPartAssignments.size() == 1;
 
-            assert partAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
+            assert finalPartAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
                     "Recovery nodes set doesn't contain the reset node assignment [partAssignments={}, nextAssignment={}]",
-                    partAssignments,
+                    finalPartAssignments,
                     nextAssignment
             );
 
@@ -333,27 +331,35 @@ class GroupUpdateRequestHandler {
                     .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
                     .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
                     .toQueue();
+
+            CompletableFuture<AssignmentsQueue> assignmentsQueueFuture;
+
             if (!manualUpdate) {
                 ByteArray pendingKey = ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId);
-                var entry = metaStorageMgr.getLocally(pendingKey);
-                if (entry != null) {
-                    AssignmentsQueue pendingQueue = AssignmentsQueue.fromBytes(entry.value());
-                    if (pendingQueue != null && !pendingQueue.isEmpty()) {
-                        AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
-                        assignmentsQueue = new AssignmentsQueue(assignmentsQueue, filteredPendingQueue);
+                assignmentsQueueFuture = metaStorageMgr.get(pendingKey, revision).thenApply(entry -> {
+                    if (entry != null && !entry.empty()) {
+                        AssignmentsQueue pendingQueue = AssignmentsQueue.fromBytes(entry.value());
+                        if (pendingQueue != null && !pendingQueue.isEmpty()) {
+                            AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
+                            return new AssignmentsQueue(assignmentsQueue, filteredPendingQueue);
+                        }
                     }
-                }
+                    return assignmentsQueue;
+                });
+            } else {
+                assignmentsQueueFuture = completedFuture(assignmentsQueue);
             }
-            return invoke(
+
+            return assignmentsQueueFuture.thenCompose(finalAssignmentsQueue -> invoke(
                     partId,
                     revision,
                     timestamp,
                     metaStorageMgr,
                     assignmentsTimestamp,
-                    assignmentsQueue,
+                    finalAssignmentsQueue,
                     isProposedPendingEqualsProposedPlanned,
-                    partAssignments
-            );
+                    finalPartAssignments
+            ));
         });
     }
 
