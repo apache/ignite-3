@@ -3,10 +3,7 @@
 # group: [basic_queries]
 
 statement ok
-CREATE ZONE Z0( PARTITIONS 25 ) STORAGE PROFILES ['default'];
-
-statement ok
-CREATE TABLE T0( ID BIGINT PRIMARY KEY, VAL VARCHAR ) ZONE Z0;
+CREATE TABLE T0( ID BIGINT PRIMARY KEY, VAL VARCHAR );
 
 # Add
 statement ok

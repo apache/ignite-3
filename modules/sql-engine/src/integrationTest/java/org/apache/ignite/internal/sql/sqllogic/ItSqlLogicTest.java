@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -44,7 +45,10 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -382,6 +386,19 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
 
             enableMetrics(ignite, enabledMetrics);
         }
+
+        createDefaultZone();
+    }
+
+    private static void createDefaultZone() {
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        sql.execute(format(
+                "CREATE ZONE \"{}\" (PARTITIONS {}) STORAGE PROFILES['{}']",
+                CatalogUtils.DEFAULT_ZONE_NAME,
+                CatalogUtils.DEFAULT_PARTITION_COUNT,
+                CatalogService.DEFAULT_STORAGE_PROFILE
+        ));
+        sql.execute(format("ALTER ZONE \"{}\" SET DEFAULT",  CatalogUtils.DEFAULT_ZONE_NAME));
     }
 
     /** Disables all metrics except provided ones. */
