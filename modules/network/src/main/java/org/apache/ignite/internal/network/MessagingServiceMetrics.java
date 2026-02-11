@@ -20,37 +20,23 @@ package org.apache.ignite.internal.network;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 
 class MessagingServiceMetrics {
-    private final AtomicLongMetric messageTransmitFailures;
+    private final AtomicLongMetric messageHandlingFailures;
 
     private final AtomicLongMetric messageRecipientNotFound;
-
-    private final AtomicLongMetric requestSendingFailures;
-
-    private final AtomicLongMetric responseSendingFailures;
 
     private final AtomicLongMetric invokeTimeouts;
 
     private final AtomicLongMetric slowResponses;
 
     MessagingServiceMetrics(MessagingServiceMetricSource source) {
-        messageTransmitFailures = source.addMetric(new AtomicLongMetric(
-                "messageTransmitFailures",
-                "Total number of failed outgoing messages."
+        messageHandlingFailures = source.addMetric(new AtomicLongMetric(
+                "messageHandlingFailures",
+                "Total number of message handling failures."
         ));
 
         messageRecipientNotFound = source.addMetric(new AtomicLongMetric(
                 "messageRecipientNotFound",
                 "Total number of message recipient resolution failures."
-        ));
-
-        requestSendingFailures = source.addMetric(new AtomicLongMetric(
-                "requestSendingFailures",
-                "Total number of failed outgoing request invocations."
-        ));
-
-        responseSendingFailures = source.addMetric(new AtomicLongMetric(
-                "responseSendingFailures",
-                "Total number of failed outgoing responses to invoked requests."
         ));
 
         invokeTimeouts = source.addMetric(new AtomicLongMetric(
@@ -64,20 +50,12 @@ class MessagingServiceMetrics {
         ));
     }
 
-    void incrementMessageTransmitFailures() {
-        messageTransmitFailures.increment();
+    void incrementMessageHandlingFailures() {
+        messageHandlingFailures.increment();
     }
 
     void incrementMessageRecipientNotFound() {
         messageRecipientNotFound.increment();
-    }
-
-    void incrementRequestSendingFailures() {
-        requestSendingFailures.increment();
-    }
-
-    void incrementResponseSendingFailures() {
-        responseSendingFailures.increment();
     }
 
     void incrementInvokeTimeouts() {

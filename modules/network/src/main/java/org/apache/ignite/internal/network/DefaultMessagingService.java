@@ -281,7 +281,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
-            metrics.incrementRequestSendingFailures();
+            metrics.incrementMessageRecipientNotFound();
 
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
@@ -358,8 +358,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
             boolean strictIdCheck
     ) {
         if (connectionManager.isStopped()) {
-            metrics.incrementRequestSendingFailures();
-
             return failedFuture(new NodeStoppingException());
         }
 
@@ -534,7 +532,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
-                metrics.incrementResponseSendingFailures();
+                metrics.incrementMessageHandlingFailures();
 
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
