@@ -55,6 +55,7 @@ namespace Apache.Ignite.Internal.Sql
         /** Partition awareness mapping cache, keyed by (schema, query). */
         private readonly ConcurrentDictionary<(string? Schema, string Query), SqlPartitionMappingProvider> _paMappingCache = new();
 
+        // TODO: Cache in Tables._cachedTables?
         /** Cached Table instances used for PA schema and partition assignment loading. */
         private readonly ConcurrentDictionary<int, ClientTable> _paTableCache = new();
 

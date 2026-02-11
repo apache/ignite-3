@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Sql;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Partition awareness metadata returned by the server for SQL queries.
