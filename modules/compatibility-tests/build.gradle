@@ -91,6 +91,11 @@ dependencies {
     testFixturesImplementation project(':ignite-rest-api')
 }
 
+// Test fixtures reuse REST client from CLI which brings slf4j-jdk14 which conflicts with the slf4j-log4j used in tests.
+configurations {
+    testFixturesImplementation.exclude group: "org.slf4j", module: "slf4j-jdk14"
+}
+
 private def resolveAllDependencies(boolean transitive, String... dependencyNotations) {
     def dependencies = dependencyNotations.collect {
         dependencies.create(it)
