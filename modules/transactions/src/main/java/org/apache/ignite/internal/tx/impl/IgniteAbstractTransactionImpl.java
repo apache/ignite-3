@@ -181,7 +181,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
                                         .exceptionInfo(fromThrowable(throwable)).build())
                                         .orElse(builder(TxState.ABANDONED).exceptionInfo(fromThrowable(throwable)).build()));
             } else {
-                txManager.updateTxMeta(id, old -> recordExceptionInfo(old, throwable));
+                txManager.updateMetaSkippingStateValidation(id, old -> recordExceptionInfo(old, throwable));
             }
         });
     }

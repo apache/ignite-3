@@ -116,6 +116,27 @@ public class VolatileTxStateMetaStorage {
     }
 
     /**
+     * Atomically updates transaction metadata (TxStateMeta) without validating TxState transitions.
+     * Use this only for metadata-only changes (for example, exception info or labels) and never to update TxState itself.
+     *
+     * @param txId Transaction id.
+     * @param updater Transaction meta updater.
+     * @return Updated transaction state.
+     */
+    public @Nullable <T extends TxStateMeta> T updateMetaSkippingStateValidation(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return (T) txStateMap.compute(txId, (k, oldMeta) -> {
+            TxStateMeta newMeta = updater.apply(oldMeta);
+
+            if (newMeta == null) {
+                return null;
+            }
+
+            return newMeta;
+        });
+    }
+
+    /**
      * Returns a transaction state meta.
      *
      * @param txId Transaction id.

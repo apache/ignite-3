@@ -613,6 +613,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
+    public @Nullable <T extends TxStateMeta> T updateMetaSkippingStateValidation(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return txStateVolatileStorage.updateMetaSkippingStateValidation(txId, updater);
+    }
+
+    @Override
     public void finishFull(
             HybridTimestampTracker timestampTracker,
             UUID txId,
@@ -724,7 +729,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 )
         ).whenComplete((unused, throwable) -> {
             if (throwable != null) {
-                updateTxMeta(txId, old -> recordExceptionInfo(old, throwable));
+                updateMetaSkippingStateValidation(txId, old -> recordExceptionInfo(old, throwable));
             }
 
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
