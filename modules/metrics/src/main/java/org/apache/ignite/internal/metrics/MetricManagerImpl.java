@@ -187,16 +187,20 @@ public class MetricManagerImpl implements MetricManager {
     @Override
     public void unregisterSource(MetricSource src) {
         inBusyLockSafe(busyLock, () -> {
-            disable(src);
-            registry.unregisterSource(src);
+            if (metricSources().contains(src)) {
+                disable(src);
+                registry.unregisterSource(src);
+            }
         });
     }
 
     @Override
     public void unregisterSource(String srcName) {
         inBusyLockSafe(busyLock, () -> {
-            disable(srcName);
-            registry.unregisterSource(srcName);
+            if (metricSources().stream().anyMatch(metricSource -> metricSource.name().equals(srcName))) {
+                disable(srcName);
+                registry.unregisterSource(srcName);
+            }
         });
     }
 
