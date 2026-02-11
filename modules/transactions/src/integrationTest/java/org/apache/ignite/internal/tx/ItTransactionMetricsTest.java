@@ -54,8 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/**    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27812")
-
+/**
  * Tests transaction metrics.
  */
 public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
