@@ -82,7 +82,7 @@ import org.junit.jupiter.api.Test;
  * Integration test for REST controller {@link DeploymentManagementController}.
  */
 @MicronautTest(rebuildContext = true)
-public class DeploymentManagementControllerTest extends ClusterPerClassIntegrationTest {
+public class ItDeploymentManagementControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private Path smallFile;
@@ -213,17 +213,24 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
 
     @Test
     public void testZipDeployFailedWithCaseInsensitiveDuplicates() throws IOException {
-        Path zipFileWithDuplicates = WORK_DIR.resolve("zipWithDuplicates.zip");
+        Path zipFileWithDuplicateFiles = WORK_DIR.resolve("zipWithDuplicateFiles.zip");
+        Path zipFileWithDuplicateFolders = WORK_DIR.resolve("zipWithDuplicateFolders.zip");
 
-        createZipWithCaseVariantEntries(zipFileWithDuplicates);
+        createZipWithCaseVariantFiles(zipFileWithDuplicateFiles);
+        createZipWithCaseVariantFolders(zipFileWithDuplicateFolders);
 
         if (isCaseInsensitiveFileSystem()) {
             assertThrowsProblem(
-                    () -> deploy(UNIT_ID, VERSION, true, zipFileWithDuplicates),
+                    () -> deploy(UNIT_ID, VERSION, true, zipFileWithDuplicateFiles),
                     isProblem().withStatus(BAD_REQUEST).withDetail(containsString("ZIP contains case-insensitive duplicate: testfile.txt"))
             );
+            assertThrowsProblem(
+                    () -> deploy(UNIT_ID, "1.1.2", true, zipFileWithDuplicateFolders),
+                    isProblem().withStatus(BAD_REQUEST).withDetail(containsString("ZIP contains case-insensitive duplicate: testfolder"))
+            );
         } else {
-            assertThat(deploy(UNIT_ID, VERSION, true, zipFileWithDuplicates), hasStatus(OK));
+            assertThat(deploy(UNIT_ID, VERSION, true, zipFileWithDuplicateFiles), hasStatus(OK));
+            assertThat(deploy(UNIT_ID, "1.1.2", true, zipFileWithDuplicateFolders), hasStatus(OK));
         }
     }
 
@@ -234,7 +241,7 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
         return file;
     }
 
-    private static void createZipWithCaseVariantEntries(Path zipPath) throws IOException {
+    private static void createZipWithCaseVariantFiles(Path zipPath) throws IOException {
         try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipPath))) {
             // Add first entry
             ZipEntry entry1 = new ZipEntry("TestFile.txt");
@@ -246,6 +253,20 @@ public class DeploymentManagementControllerTest extends ClusterPerClassIntegrati
             ZipEntry entry2 = new ZipEntry("testfile.txt");
             zos.putNextEntry(entry2);
             zos.write("content2".getBytes());
+            zos.closeEntry();
+        }
+    }
+
+    private static void createZipWithCaseVariantFolders(Path zipPath) throws IOException {
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(zipPath))) {
+            // Add first entry
+            ZipEntry entry1 = new ZipEntry("TestFolder/");
+            zos.putNextEntry(entry1);
+            zos.closeEntry();
+
+            // Add second entry with same name but different case
+            ZipEntry entry2 = new ZipEntry("testfolder/");
+            zos.putNextEntry(entry2);
             zos.closeEntry();
         }
     }
