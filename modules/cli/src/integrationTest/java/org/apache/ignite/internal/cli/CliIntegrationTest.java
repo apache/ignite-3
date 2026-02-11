@@ -85,9 +85,9 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("index.builder").enabled(true),
             new MetricSource().name("raft.snapshots").enabled(true),
             new MetricSource().name("network.messaging").enabled(true),
-            new MetricSource().name("network.messaging.executor.inbound.Default").enabled(true),
-            new MetricSource().name("network.messaging.executor.inbound.DeploymentUnits").enabled(true),
-            new MetricSource().name("network.messaging.executor.inbound.ScaleCube").enabled(true),
+            new MetricSource().name("network.messaging.executor.inbound.default").enabled(true),
+            new MetricSource().name("network.messaging.executor.inbound.deploymentunits").enabled(true),
+            new MetricSource().name("network.messaging.executor.inbound.scalecube").enabled(true),
             new MetricSource().name("network.messaging.executor.outbound").enabled(true),
     };
 

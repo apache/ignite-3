@@ -94,7 +94,7 @@ class CriticalStripedThreadPoolExecutorFactory {
         var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0);
 
         if (metricManager != null && metricNamePrefix != null) {
-            String metricName = String.format("%s.%s", metricNamePrefix, channelType.name());
+            String metricName = String.format("%s.%s", metricNamePrefix, channelType.name().toLowerCase());
 
             executor.initMetricSource(metricManager, metricName, metricDescription);
         }
