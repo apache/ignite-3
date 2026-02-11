@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Sql;
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
@@ -30,5 +31,4 @@ using System.Diagnostics.CodeAnalysis;
 /// hash is stored in the <see cref="Hash"/> array at index <c>-(indexes[i] + 1)</c>.</item>
 /// </list>
 /// </summary>
-[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Internal DTO.")]
-internal sealed record SqlPartitionAwarenessMetadata(int TableId, int[] Indexes, int[] Hash);
+internal sealed record SqlPartitionAwarenessMetadata(int TableId, ReadOnlyMemory<int> Indexes, ReadOnlyMemory<int> Hash);
