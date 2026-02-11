@@ -75,6 +75,11 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         return 1;
     }
 
+    @Override
+    protected boolean shouldCreateDefaultZone() {
+        return false;
+    }
+
     @Test
     void testCreateZoneSucceedWithCorrectStorageProfileOnSameNode() {
         assertDoesNotThrow(() -> createZoneQuery(0, DEFAULT_STORAGE_PROFILE));
