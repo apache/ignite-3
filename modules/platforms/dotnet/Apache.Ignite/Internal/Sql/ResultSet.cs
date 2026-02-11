@@ -66,12 +66,14 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="rowReaderFactory">Row reader factory.</param>
         /// <param name="rowReaderArg">Row reader argument.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="readPaMetadata">Whether to read partition awareness metadata from the response.</param>
         public ResultSet(
             ClientSocket socket,
             PooledBuffer buf,
             RowReaderFactory<T> rowReaderFactory,
             object? rowReaderArg,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool readPaMetadata = false)
         {
             _socket = socket;
             _cancellationToken = cancellationToken;
@@ -87,6 +89,19 @@ namespace Apache.Ignite.Internal.Sql
             AffectedRows = reader.ReadInt64();
 
             _metadata = HasRowSet ? ReadMeta(ref reader) : null;
+
+            if (readPaMetadata)
+            {
+                if (!reader.TryReadNil())
+                {
+                    var tableId = reader.ReadInt32();
+                    var indexes = reader.ReadInt32Array();
+                    var hash = reader.ReadInt32Array();
+
+                    PaMetadata = new SqlPartitionAwarenessMetadata(tableId, indexes, hash);
+                }
+            }
+
             _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
             _rowReaderArg = rowReaderArg;
 
@@ -133,6 +148,11 @@ namespace Apache.Ignite.Internal.Sql
         /// Gets a value indicating whether this result set has any rows in it.
         /// </summary>
         internal bool HasRows { get; }
+
+        /// <summary>
+        /// Gets the partition awareness metadata, if available.
+        /// </summary>
+        internal SqlPartitionAwarenessMetadata? PaMetadata { get; }
 
         /// <inheritdoc/>
         public async ValueTask<List<T>> ToListAsync() =>

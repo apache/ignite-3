@@ -230,6 +230,36 @@ internal ref struct MsgPackReader
         : Instant.FromUnixTimeSeconds(ReadInt64()).PlusNanoseconds(ReadInt32());
 
     /// <summary>
+    /// Reads a MsgPack array header and returns the number of elements.
+    /// </summary>
+    /// <returns>Number of elements in the array.</returns>
+    public int ReadArrayHeader() =>
+        _span[_pos++] switch
+        {
+            var code when MsgPackCode.IsFixArr(code) => code & 0x0f,
+            MsgPackCode.Array16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
+            MsgPackCode.Array32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
+            var invalid => throw GetInvalidCodeException("array", invalid)
+        };
+
+    /// <summary>
+    /// Reads a MsgPack array of int32 values.
+    /// </summary>
+    /// <returns>Array of int values.</returns>
+    public int[] ReadInt32Array()
+    {
+        var count = ReadArrayHeader();
+        var result = new int[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            result[i] = ReadInt32();
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Skips a value.
     /// </summary>
     /// <param name="count">Count of elements to skip.</param>

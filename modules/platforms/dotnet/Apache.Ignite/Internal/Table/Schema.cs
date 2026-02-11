@@ -55,6 +55,25 @@ namespace Apache.Ignite.Internal.Table
         private readonly Lazy<IMapperSchema> _mapperSchemaKeyOnly =
             new(() => new MapperSchema(KeyColumns.Cast<IMapperColumn>().ToArray()));
 
+        private readonly Lazy<Column[]> _colocationColumns = new(() =>
+        {
+            var result = new Column[ColocationColumnCount];
+            foreach (var col in Columns)
+            {
+                if (col.IsColocation)
+                {
+                    result[col.ColocationIndex] = col;
+                }
+            }
+
+            return result;
+        });
+
+        /// <summary>
+        /// Gets the colocation columns ordered by colocation index.
+        /// </summary>
+        public Column[] ColocationColumns => _colocationColumns.Value;
+
         /// <summary>
         /// Gets the mapper schema.
         /// </summary>

@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
@@ -36,6 +37,8 @@ namespace Apache.Ignite.Internal.Sql
     using Table.Serialization;
     using Transactions;
 
+    using ClientTable = Table.Table;
+
     /// <summary>
     /// SQL API.
     /// </summary>
@@ -48,6 +51,12 @@ namespace Apache.Ignite.Internal.Sql
 
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
+
+        /** Partition awareness mapping cache, keyed by (schema, query). */
+        private readonly ConcurrentDictionary<(string? Schema, string Query), SqlPartitionMappingProvider> _paMappingCache = new();
+
+        /** Cached Table instances used for PA schema and partition assignment loading. */
+        private readonly ConcurrentDictionary<int, ClientTable> _paTableCache = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Sql"/> class.
@@ -279,15 +288,43 @@ namespace Apache.Ignite.Internal.Sql
             using var bufferWriter = ProtoCommon.GetMessageWriter();
             WriteStatement(bufferWriter, statement, args, tx, writeTx: true);
 
+            // Look up cached PA mapping to route the query to the preferred node.
+            var paKey = (statement.Schema, statement.Query);
+            PreferredNode preferredNode = default;
+
+            if (_paMappingCache.TryGetValue(paKey, out var mappingProvider))
+            {
+                preferredNode = mappingProvider.GetPreferredNode(args);
+            }
+
             PooledBuffer? buf = null;
 
             try
             {
                 (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(
-                    ClientOp.SqlExec, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    ClientOp.SqlExec, tx, bufferWriter, preferredNode: preferredNode, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
-                return new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken);
+                var resultSet = new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken, readPaMetadata: true);
+
+                // Cache PA metadata for subsequent queries.
+                var paMeta = resultSet.PaMetadata;
+                if (paMeta != null)
+                {
+                    var table = _paTableCache.GetOrAdd(
+                        paMeta.TableId,
+                        static (id, state) => new ClientTable(
+                            QualifiedName.Of("DUMMY", id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                            id,
+                            state.Socket,
+                            state.Sql),
+                        (Socket: _socket, Sql: this));
+
+                    _paMappingCache[paKey] = new SqlPartitionMappingProvider(table, paMeta);
+                }
+
+                return resultSet;
             }
             catch (SqlException e)
             {
@@ -430,6 +467,9 @@ namespace Apache.Ignite.Internal.Sql
 
             w.WriteObjectCollectionWithCountAsBinaryTuple(args);
             w.Write(_socket.ObservableTimestamp);
+
+            // Request partition awareness metadata from the server.
+            w.Write(true);
         }
     }
 }
