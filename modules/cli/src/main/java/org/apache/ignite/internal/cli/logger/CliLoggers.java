@@ -89,6 +89,9 @@ public class CliLoggers {
      * Stops redirecting output previously started by {@link CliLoggers#startOutputRedirect(PrintWriter, boolean[])}.
      */
     public static void stopOutputRedirect() {
+        if (output != null) {
+            output.flush();
+        }
         output = null;
         isVerbose = false;
         verbose = new boolean[0];
@@ -122,6 +125,7 @@ public class CliLoggers {
     public static void verboseLog(int minLevel, String message) {
         if (isVerbose && verbose.length >= minLevel) {
             output.println(message);
+            output.flush();
         }
     }
 
