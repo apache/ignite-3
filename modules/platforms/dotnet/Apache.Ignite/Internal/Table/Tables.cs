@@ -85,12 +85,7 @@ namespace Apache.Ignite.Internal.Table
                     var id = r.ReadInt32();
                     var qualifiedName = UnpackQualifiedName(ref r, packedAsQualified);
 
-                    var table = tables._cachedTables.GetOrAdd(
-                        id,
-                        static (int id0, (QualifiedName QualifiedName, Tables Tables) arg) =>
-                            new Table(arg.QualifiedName, id0, arg.Tables._socket, arg.Tables._sql),
-                        (qualifiedName, tables));
-
+                    var table = tables.GetOrCreateCachedTableInternal(id, qualifiedName);
                     res.Add(table);
                 }
 
@@ -152,16 +147,25 @@ namespace Apache.Ignite.Internal.Table
                 var tableId = r.ReadInt32();
                 var actualName = UnpackQualifiedName(ref r, op == ClientOp.TableGetQualified);
 
-                return tables._cachedTables.GetOrAdd(
-                    tableId,
-                    static (int id, (QualifiedName ActualName, Tables Tables) arg) =>
-                        new Table(arg.ActualName, id, arg.Tables._socket, arg.Tables._sql),
-                    (actualName, tables));
+                return tables.GetOrCreateCachedTableInternal(tableId, actualName);
             }
 
             static ClientOp Op(ClientSocket? socket) =>
                 UseQualifiedNames(socket) ? ClientOp.TableGetQualified : ClientOp.TableGet;
         }
+
+        /// <summary>
+        /// Gets or creates a cached table.
+        /// </summary>
+        /// <param name="id">Table id.</param>
+        /// <param name="qualifiedName">Table name.</param>
+        /// <returns>Table instance.</returns>
+        internal Table GetOrCreateCachedTableInternal(int id, QualifiedName qualifiedName) =>
+            _cachedTables.GetOrAdd(
+                key: id,
+                valueFactory: static (int id0, (QualifiedName QualifiedName, Tables Tables) arg) =>
+                    new Table(arg.QualifiedName, id0, arg.Tables._socket, arg.Tables._sql),
+                factoryArgument: (qualifiedName, this));
 
         private static QualifiedName UnpackQualifiedName(ref MsgPackReader r, bool packedAsQualified)
         {
