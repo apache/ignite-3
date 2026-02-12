@@ -156,7 +156,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
             boolean commitIntent,
             HybridTimestamp executionTimestamp,
             boolean full,
-            boolean timeoutExceeded
+            @Nullable Throwable finishReason
     ) {
         observableTsTracker.update(executionTimestamp);
 

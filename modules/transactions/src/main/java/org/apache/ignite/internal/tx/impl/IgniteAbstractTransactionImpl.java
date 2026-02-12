@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.Optional.ofNullable;
-import static org.apache.ignite.internal.tx.TxStateMeta.builder;
-import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
-import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
@@ -172,17 +168,9 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
     @Override
     public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
-        return rollbackAsync().whenComplete((v, t) -> {
-            if (t != null) {
-                // If rollback fails we consider that there is coordinator problem, but we keep original exception.
-                txManager.updateTxMeta(id,
-                        old -> ofNullable(old)
-                                .map(txStateMeta -> txStateMeta.mutate().txState(TxState.ABANDONED)
-                                        .exceptionInfo(fromThrowable(throwable)).build())
-                                        .orElse(builder(TxState.ABANDONED).exceptionInfo(fromThrowable(throwable)).build()));
-            } else {
-                txManager.updateMetaSkippingStateValidation(id, old -> recordExceptionInfo(old, throwable));
-            }
-        });
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, null, false, throwable),
+                TX_ROLLBACK_ERR
+        );
     }
 }

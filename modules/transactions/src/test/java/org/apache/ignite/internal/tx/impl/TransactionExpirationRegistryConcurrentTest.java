@@ -235,7 +235,10 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
 
         @Override
         public CompletableFuture<Void> finish(
-                boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+                boolean commit,
+                @Nullable HybridTimestamp executionTimestamp,
+                boolean full,
+                @Nullable Throwable finishReason
         ) {
             return nullCompletedFuture();
         }

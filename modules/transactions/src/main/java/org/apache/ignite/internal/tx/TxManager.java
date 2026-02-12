@@ -179,10 +179,14 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
      * @param commit {@code true} if a commit requested.
-     * @param timeoutExceeded {@code true} if a timeout exceeded. 'commit' and timeout must not be {@code true} at the same time.
+     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      */
     void finishFull(
-            HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded
+            HybridTimestampTracker timestampTracker,
+            UUID txId,
+            @Nullable HybridTimestamp ts,
+            boolean commit,
+            @Nullable Throwable finishReason
     );
 
     /**
@@ -192,7 +196,7 @@ public interface TxManager extends IgniteComponent {
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
      * @param commitIntent {@code true} if a commit requested.
-     * @param timeoutExceeded {@code true} if a timeout exceeded.
+     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      * @param recovery {@code true} if finished by recovery.
      * @param noRemoteWrites {@code true} if remote(directly mapped) part of this transaction has no writes.
      * @param enlistedGroups Map of enlisted partitions.
@@ -202,7 +206,7 @@ public interface TxManager extends IgniteComponent {
             HybridTimestampTracker timestampTracker,
             @Nullable ZonePartitionId commitPartition,
             boolean commitIntent,
-            boolean timeoutExceeded,
+            @Nullable Throwable finishReason,
             boolean recovery,
             boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,

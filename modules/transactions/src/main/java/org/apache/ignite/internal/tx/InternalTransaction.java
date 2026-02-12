@@ -122,16 +122,21 @@ public interface InternalTransaction extends Transaction {
     }
 
     /**
-     * Finishes a read-only transaction with a specific execution timestamp.
+     * Finishes a transaction with a specific execution timestamp.
      *
      * @param commit Commit flag. The flag is ignored for read-only transactions.
      * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node. The parameter
      *         is not used for read-write transactions.
      * @param full Full state transaction marker.
-     * @param timeoutExceeded Timeout exceeded flag (commit flag must be {@code false}).
+     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      * @return The future.
      */
-    CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded);
+    CompletableFuture<Void> finish(
+            boolean commit,
+            @Nullable HybridTimestamp executionTimestamp,
+            boolean full,
+            @Nullable Throwable finishReason
+    );
 
     /**
      * Checks if the transaction is finishing or finished. If {@code true}, no more operations can be performed on the transaction.

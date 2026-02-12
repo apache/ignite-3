@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-only implementation of an internal transaction.
@@ -110,7 +112,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> commitAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, readTimestamp, false, false),
+                finish(true, readTimestamp, false, null),
                 TX_COMMIT_ERR
         );
     }
@@ -118,17 +120,22 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false, false),
+                finish(false, readTimestamp, false, null),
+                TX_ROLLBACK_ERR
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, readTimestamp, false, throwable),
                 TX_ROLLBACK_ERR
         );
     }
 
     @Override
     public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, readTimestamp, false, true),
-                TX_ROLLBACK_ERR
-        );
+        return rollbackWithExceptionAsync(new java.util.concurrent.TimeoutException("Transaction timeout exceeded."));
     }
 
     @Override
@@ -136,10 +143,10 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean commitIntent,
             HybridTimestamp executionTimestamp,
             boolean full,
-            boolean timeoutExceeded
+            @Nullable Throwable finishReason
     ) {
         assert !full : "Read-only transactions cannot be full.";
-        assert !(commitIntent && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
+        assert !(commitIntent && finishReason != null) : "Transaction cannot commit with a finish reason.";
 
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
@@ -154,7 +161,11 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
                 new TxIdAndTimestamp(readTimestamp, id())
         );
 
-        this.timeoutExceeded = timeoutExceeded;
+        if (finishReason != null) {
+            txManager.updateMetaSkippingStateValidation(id(), old -> recordExceptionInfo(old, finishReason));
+        }
+
+        this.timeoutExceeded = finishReason instanceof java.util.concurrent.TimeoutException;
 
         return txFuture;
     }
@@ -166,6 +177,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
-        return finish(false, readTimestamp, false, false);
+        return finish(false, readTimestamp, false, null);
     }
 }

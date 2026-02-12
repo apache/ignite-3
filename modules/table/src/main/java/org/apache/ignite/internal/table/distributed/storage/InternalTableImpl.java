@@ -648,7 +648,7 @@ public class InternalTableImpl implements InternalTable {
                 assert hasError || r instanceof TimestampAware;
 
                 // Timestamp is set to commit timestamp for full transactions.
-                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, false);
+                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, hasError ? e : null);
 
                 if (e != null) {
                     sneakyThrow(e);
@@ -886,7 +886,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
         return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
             if (e != null) {
-                return tx.finish(false, clockService.current(), false, false)
+                return tx.finish(false, clockService.current(), false, e)
                         .handle((ignored, err) -> {
                             if (err != null) {
                                 // Preserve failed state.
@@ -898,7 +898,7 @@ public class InternalTableImpl implements InternalTable {
                         });
             }
 
-            return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
+            return tx.finish(true, clockService.current(), false, null).thenApply(ignored -> r);
         }).thenCompose(identity());
     }
 

@@ -39,8 +39,10 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
+import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
@@ -58,6 +60,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -109,6 +112,7 @@ import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaExceptionInfo;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
@@ -623,7 +627,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             UUID txId,
             @Nullable HybridTimestamp ts,
             boolean commit,
-            boolean timeoutExceeded
+            @Nullable Throwable finishReason
     ) {
         TxState finalState;
 
@@ -637,9 +641,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             finalState = ABORTED;
         }
 
+        boolean isTimeout = isTimeout(finishReason);
+        TxStateMetaExceptionInfo finishExceptionInfo = finishReason == null ? null : fromThrowable(finishReason);
+
         updateTxMeta(txId, old -> builder(old, finalState)
                 .commitTimestamp(ts)
-                .finishedDueToTimeout(timeoutExceeded)
+                .finishedDueToTimeout(isTimeout)
+                .exceptionInfo(finishExceptionInfo)
                 .build()
         );
 
@@ -657,7 +665,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker observableTimestampTracker,
             @Nullable ZonePartitionId commitPartition,
             boolean commitIntent,
-            boolean timeout,
+            @Nullable Throwable finishReason,
             boolean recovery,
             boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
@@ -668,13 +676,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         assert enlistedGroups != null;
 
+        boolean isTimeout = isTimeout(finishReason);
+        TxStateMetaExceptionInfo finishExceptionInfo = finishReason == null ? null : fromThrowable(finishReason);
+
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
             updateTxMeta(txId, old -> builder(old, commitIntent ? COMMITTED : ABORTED)
                     .txCoordinatorId(localNodeId)
                     .commitPartitionId(commitPartition)
                     .commitTimestamp(commitTimestamp(commitIntent))
-                    .finishedDueToTimeout(timeout)
+                    .finishedDueToTimeout(isTimeout)
+                    .exceptionInfo(finishExceptionInfo)
                     .build()
             );
 
@@ -697,10 +709,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         TxStateMetaFinishing finishingStateMeta =
                 txMeta == null
-                        ? new TxStateMetaFinishing(null, commitPartition, timeout, null)
-                        : txMeta.finishing(timeout);
+                        ? new TxStateMetaFinishing(null, commitPartition, isTimeout, null)
+                        : txMeta.finishing(isTimeout);
 
-        TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finishingStateMeta);
+        if (finishExceptionInfo != null) {
+            finishingStateMeta = (TxStateMetaFinishing) finishingStateMeta.mutate()
+                    .exceptionInfo(finishExceptionInfo)
+                    .build();
+        }
+
+        TxStateMetaFinishing finalFinishingStateMeta = finishingStateMeta;
+
+        TxStateMeta stateMeta = updateTxMeta(txId, oldMeta -> finalFinishingStateMeta);
 
         // Means we failed to CAS the state, someone else did it.
         if (finishingStateMeta != stateMeta) {
@@ -724,15 +744,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         commit,
                         enlistedGroups,
                         txId,
-                        finishingStateMeta.txFinishFuture(),
+                        finalFinishingStateMeta.txFinishFuture(),
                         txContext.isNoWrites() && noRemoteWrites && !recovery
                 )
         ).whenComplete((unused, throwable) -> {
             if (throwable != null) {
-                updateMetaSkippingStateValidation(txId, old -> recordExceptionInfo(old, throwable));
+                Throwable exceptionToRecord = finishReason != null ? finishReason : throwable;
+                updateMetaSkippingStateValidation(txId, old -> recordExceptionInfo(old, exceptionToRecord));
             }
 
-            if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
+            if (localNodeId.equals(finalFinishingStateMeta.txCoordinatorId())) {
                 txMetrics.onReadWriteTransactionFinished(txId, commitIntent && throwable == null);
 
                 decrementRwTxCount(txId);
@@ -740,6 +761,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             transactionInflights.removeTxContext(txId);
         });
+    }
+
+    private static boolean isTimeout(@Nullable Throwable finishReason) {
+        if (finishReason == null) {
+            return false;
+        }
+
+        return unwrapCause(finishReason) instanceof TimeoutException;
     }
 
     private CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
