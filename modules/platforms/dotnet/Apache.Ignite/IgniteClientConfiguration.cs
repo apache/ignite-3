@@ -37,6 +37,11 @@ namespace Apache.Ignite
         public const int DefaultPort = 10800;
 
         /// <summary>
+        /// Default SQL partition awareness metadata cache size.
+        /// </summary>
+        public const int DefaultSqlPartitionAwarenessMetadataCacheSize = 1024;
+
+        /// <summary>
         /// Default socket timeout.
         /// </summary>
         public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(30);
@@ -212,5 +217,30 @@ namespace Apache.Ignite
         /// See <see cref="BasicAuthenticator"/>.
         /// </summary>
         public IAuthenticator? Authenticator { get; set; }
+
+        /// <summary>
+        /// Gets or sets the size of cache to store partition awareness metadata of SQL queries, in number of entries.
+        /// Default is <see cref="DefaultSqlPartitionAwarenessMetadataCacheSize"/>.
+        /// </summary>
+        /// <remarks>
+        /// SQL partition awareness feature improves query performance by directing queries to the specific server nodes that hold the
+        /// relevant data, minimizing network overhead. Ignite client builds the metadata cache during the initial query execution and leverages
+        /// this cache to speed up subsequent queries.
+        /// <para />
+        /// In general, metadata is available for queries
+        /// which have equality predicate over all colocation columns, or which insert the whole tuple. For example:
+        /// <code>
+        /// // Create reservations table colocated by floor_no.
+        /// CREATE TABLE RoomsReservations (room_no INT, floor_no INT, PRIMARY_KEY (room_no, floor_no)) COLOCATE BY (floor_no);
+        ///
+        /// // Select reserved rooms by floor_no - allows computing a partition and routing.
+        /// SELECT room_no FROM RoomsReservations WHERE floor_no = ?;
+        ///
+        /// // INSERT: parametrized by floor_no - allows computing a partition and routing.
+        /// INSERT INTO RoomsReservations(room_no, floor_no) VALUES(?, ?);
+        /// </code>
+        /// </remarks>
+        /// <value>Cache size, in number of entries.</value>
+        public int SqlPartitionAwarenessMetadataCacheSize { get; set; } = DefaultSqlPartitionAwarenessMetadataCacheSize;
     }
 }
