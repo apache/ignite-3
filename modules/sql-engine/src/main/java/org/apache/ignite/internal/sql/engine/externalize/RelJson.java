@@ -133,10 +133,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 class RelJson {
     private static final ObjectMapper OBJECT_MAPPER = IgniteRelJsonUtils.OBJECT_MAPPER;
 
-    private static final List<Class> VALUE_CLASSES =
-            ImmutableList.of(NlsString.class, BigDecimal.class, ByteString.class,
-                    Boolean.class, TimestampString.class, DateString.class, TimeString.class);
-
     private static final IgniteRelJsonEnumCache ENUM_BY_NAME = IgniteRelJsonEnumCache.builder()
             .register(JoinConditionType.class)
             .register(JoinType.class)
@@ -806,6 +802,7 @@ class RelJson {
                         physical = false;
                     } else {
                         // No ROWS or RANGE clause
+                        // Note: lower and upper bounds are non-nullable, so this branch is not reachable
                         lowerBound = null;
                         upperBound = null;
                         physical = false;
@@ -929,13 +926,6 @@ class RelJson {
                 return rexBuilder.makeSearchArgumentLiteral(sarg, type);
             }
 
-            if (map.containsKey("dynamicParam")) {
-                final Object dynamicParamObject = requireNonNull(map.get("dynamicParam"));
-                final Integer index = (Integer) dynamicParamObject;
-                final RelDataType type = toType(typeFactory, map.get("type"));
-                return rexBuilder.makeDynamicParam(type, index);
-            }
-
             throw new UnsupportedOperationException("cannot convert to rex " + o);
         } else if (o instanceof Boolean) {
             return rexBuilder.makeLiteral((Boolean) o);
@@ -1000,10 +990,10 @@ class RelJson {
                 return Range.closed(rangeEndPointFromJson(list.get(1), type),
                         rangeEndPointFromJson(list.get(2), type));
             case "closedOpen":
-                return Range.closedOpen(rangeEndPointFromJson(list.get(1)),
+                return Range.closedOpen(rangeEndPointFromJson(list.get(1), type),
                         rangeEndPointFromJson(list.get(2), type));
             case "openClosed":
-                return Range.openClosed(rangeEndPointFromJson(list.get(1)),
+                return Range.openClosed(rangeEndPointFromJson(list.get(1), type),
                         rangeEndPointFromJson(list.get(2), type));
             case "open":
                 return Range.open(rangeEndPointFromJson(list.get(1), type),
@@ -1011,22 +1001,6 @@ class RelJson {
             default:
                 throw new AssertionError("unknown range type " + list.get(0));
         }
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    @Deprecated
-    private static <C extends Comparable<C>> C rangeEndPointFromJson(Object o) {
-        Exception e = null;
-        for (Class clsType : VALUE_CLASSES) {
-            try {
-                return (C) OBJECT_MAPPER.readValue((String) o, clsType);
-            } catch (JsonProcessingException ex) {
-                e = ex;
-            }
-        }
-        throw new RuntimeException(
-                "Error deserializing range endpoint (did not find compatible type): ",
-                e);
     }
 
     private static <C extends Comparable<C>> C rangeEndPointFromJson(Object o, RelDataType type) {
