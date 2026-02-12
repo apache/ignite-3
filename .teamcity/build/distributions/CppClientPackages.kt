@@ -7,7 +7,7 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 
 object CppClientPackages : BuildType({
-    name = "[11] ODBC and Client packages"
+    name = "[11] ODBC and C++ Client packages"
     description = "Apache Ignite 3 ODBC and C++ Client Packages"
 
     artifactRules = """
