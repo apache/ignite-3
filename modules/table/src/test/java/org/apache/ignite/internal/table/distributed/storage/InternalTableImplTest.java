@@ -884,10 +884,11 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 assertThat("Cause should be the last recorded exception", rootCause,
                         is(instanceOf(IllegalStateException.class)));
                 assertThat(rootCause.getMessage(), is(secondFailure.getMessage()));
-                Throwable suppressed = unwrapped.getCause().getSuppressed()[0];
-                assertThat("Suppressed should be the 1st recorded exception", suppressed,
+                Throwable[] suppressed = rootCause.getSuppressed();
+                assertThat("Expected exactly one suppressed exception", suppressed.length, is(1));
+                assertThat("Suppressed should be the 1st recorded exception", suppressed[0],
                         is(instanceOf(RuntimeException.class)));
-                assertThat(suppressed.getMessage(), is(firstFailure.getMessage()));
+                assertThat(suppressed[0].getMessage(), is(firstFailure.getMessage()));
             }
         }
 

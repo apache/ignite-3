@@ -2340,7 +2340,7 @@ public class InternalTableImpl implements InternalTable {
             return null;
         }
 
-        return TxStateMeta.aggregateExceptionInfos(txStateMeta.exceptionInfos());
+        return TxStateMeta.aggregateExceptionInfo(txStateMeta.exceptionInfo());
     }
 
     @FunctionalInterface

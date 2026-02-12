@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -63,16 +62,16 @@ public class TxStateMetaAbandoned extends TxStateMeta {
      * @param commitPartitionId Commit partition replication group id.
      * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param txLabel Transaction label.
-     * @param exceptionInfos Exception info for exceptional abort.
+     * @param exceptionInfo Exception info for exceptional abort.
      */
     public TxStateMetaAbandoned(
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable InternalTransaction tx,
             @Nullable String txLabel,
-            @Nullable List<TxStateMetaExceptionInfo> exceptionInfos
+            @Nullable TxStateMetaExceptionInfo exceptionInfo
     ) {
-        super(ABANDONED, txCoordinatorId, commitPartitionId, null, tx, null, null, null, txLabel, exceptionInfos);
+        super(ABANDONED, txCoordinatorId, commitPartitionId, null, tx, null, null, null, txLabel, exceptionInfo);
 
         this.lastAbandonedMarkerTs = FastTimestamps.coarseCurrentTimeMillis();
     }
@@ -154,7 +153,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == ABANDONED) {
-                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, exceptionInfos);
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, exceptionInfo);
             } else {
                 return super.build();
             }

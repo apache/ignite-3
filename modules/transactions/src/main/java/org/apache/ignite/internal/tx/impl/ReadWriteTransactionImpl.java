@@ -154,11 +154,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Nullable
     private Throwable aggregateExceptionInfos() {
         TxStateMeta meta = txManager.stateMeta(id());
-        if (meta == null || meta.exceptionInfos() == null || meta.exceptionInfos().isEmpty()) {
+        if (meta == null || meta.exceptionInfo() == null) {
             return null;
         }
 
-        return TxStateMeta.aggregateExceptionInfos(meta.exceptionInfos());
+        return TxStateMeta.aggregateExceptionInfo(meta.exceptionInfo());
     }
 
     /**
