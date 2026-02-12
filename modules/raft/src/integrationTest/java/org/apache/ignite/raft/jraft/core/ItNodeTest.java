@@ -4742,17 +4742,17 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @EnumSource(ApplyTaskMode.class)
     public void testApplyQueueByteSizeThrottlingExceedsLimit(ApplyTaskMode mode) throws Exception {
         RaftOptions raftOptions = new RaftOptions();
-        // Set limit to 300 KB
-        raftOptions.setMaxApplyQueueByteSize(300 * 1024);
+        // Set limit to 2 KB
+        raftOptions.setMaxApplyQueueByteSize(2 * 1024);
 
         Node node = setupSingleNodeClusterWithRaftOptions(raftOptions, mode);
 
-        int numTasks = 1500;
+        int numTasks = 10000;
         AtomicInteger overloadCount = new AtomicInteger(0);
 
         List<Task> tasks = new ArrayList<>(numTasks);
         for (int i = 0; i < numTasks; i++) {
-            byte[] bytes = new byte[100 * 1024]; // 100 KB each
+            byte[] bytes = new byte[1024]; // 1 KB each
             ByteBuffer data = ByteBuffer.wrap(bytes);
             Task task;
             task = new Task(data, new JoinableClosure(status -> {
