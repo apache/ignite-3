@@ -24,12 +24,12 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -161,7 +161,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             txManager.updateMetaSkippingStateValidation(id(), old -> recordExceptionInfo(old, finishReason));
         }
 
-        this.timeoutExceeded = finishReason instanceof TimeoutException;
+        this.timeoutExceeded = finishReason instanceof TransactionTimeoutException;
 
         return txFuture;
     }

@@ -78,7 +78,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -137,6 +136,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -763,7 +763,7 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 CompletableFuture<Void> rollbackFuture;
                 if (isFinishedDueToTimeout(e)) {
-                    rollbackFuture = tx0.rollbackWithExceptionAsync(new TimeoutException("Transaction timeout exceeded."));
+                    rollbackFuture = tx0.rollbackWithExceptionAsync(new TransactionTimeoutException());
                 } else {
                     rollbackFuture = tx0.rollbackWithExceptionAsync(e);
                 }

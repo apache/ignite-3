@@ -62,7 +62,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import org.apache.ignite.tx.TransactionTimeoutException;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -716,7 +716,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = prepareTransaction();
 
-        assertThat(tx.rollbackWithExceptionAsync(new TimeoutException("Transaction timeout exceeded.")), willSucceedFast());
+        assertThat(tx.rollbackWithExceptionAsync(new TransactionTimeoutException()), willSucceedFast());
 
         assertThat(tx.rollbackWithExceptionAsync(new RuntimeException("abort")), willSucceedFast());
 

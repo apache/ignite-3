@@ -124,6 +124,7 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -757,7 +758,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             return false;
         }
 
-        return unwrapCause(finishReason) instanceof TimeoutException;
+        Throwable unwrapped = unwrapCause(finishReason);
+        return unwrapped instanceof TransactionTimeoutException;
     }
 
     private CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
@@ -1009,7 +1011,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             @Override
             public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
-                if (throwable instanceof TimeoutException) {
+                if (throwable instanceof TransactionTimeoutException) {
                     isTimeout = true;
 
                     // Directly mapped entries become abandoned on local tx timeout.

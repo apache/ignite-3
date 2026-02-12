@@ -26,7 +26,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.TimeoutException;
+import org.apache.ignite.tx.TransactionTimeoutException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -125,7 +125,7 @@ class TransactionExpirationRegistry {
     }
 
     private void abortTransaction(InternalTransaction tx) {
-        tx.rollbackWithExceptionAsync(new TimeoutException("Transaction timeout exceeded.")).whenComplete((res, ex) -> {
+        tx.rollbackWithExceptionAsync(new TransactionTimeoutException()).whenComplete((res, ex) -> {
             if (ex != null) {
                 LOG.error("Transaction has aborted due to timeout {}.", ex,
                         formatTxInfo(tx.id(), volatileTxStateMetaStorage));

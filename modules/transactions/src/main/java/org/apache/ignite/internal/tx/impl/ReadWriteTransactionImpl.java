@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -244,7 +244,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
-                        this.timeoutExceeded = finishReason instanceof TimeoutException;
+                        this.timeoutExceeded = finishReason instanceof TransactionTimeoutException;
                     } else {
                         killed = true;
                     }
@@ -264,7 +264,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
-                        this.timeoutExceeded = finishReason instanceof TimeoutException;
+                        this.timeoutExceeded = finishReason instanceof TransactionTimeoutException;
                     } else {
                         killed = true;
                     }

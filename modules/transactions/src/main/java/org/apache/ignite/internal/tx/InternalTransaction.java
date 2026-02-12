@@ -171,7 +171,7 @@ public interface InternalTransaction extends Transaction {
 
     /**
      * Checks if the transaction was rolled back due to timeout exceeded. The only way to roll back a transaction due to timeout exceeded is
-     * to call {@link #rollbackWithExceptionAsync(Throwable)} with {@link java.util.concurrent.TimeoutException}.
+     * to call {@link #rollbackWithExceptionAsync(Throwable)} with {@link org.apache.ignite.tx.TransactionTimeoutException}.
      *
      * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
      */
