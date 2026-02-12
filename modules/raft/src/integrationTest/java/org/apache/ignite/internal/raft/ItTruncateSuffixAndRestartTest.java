@@ -198,9 +198,9 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureManager.class),
-                    new NoOpMetricManager(),
                     defaultChannelTypeRegistry(),
-                    new DefaultIgniteProductVersionSource()
+                    new DefaultIgniteProductVersionSource(),
+                    new NoOpMetricManager()
             );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());

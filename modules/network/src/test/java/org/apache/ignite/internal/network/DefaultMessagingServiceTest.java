@@ -634,6 +634,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 criticalWorkerRegistry,
                 failureProcessor,
                 connectionManager,
+                new NoOpMetricManager(),
                 channelTypeRegistry
         );
 

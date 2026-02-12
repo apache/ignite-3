@@ -638,9 +638,9 @@ public class IgniteImpl implements Ignite {
                 clusterIdService,
                 criticalWorkerRegistry,
                 failureManager,
-                metricManager,
                 ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader),
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                metricManager
         );
 
         clock = new HybridClockImpl(failureManager);

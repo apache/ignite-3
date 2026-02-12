@@ -406,9 +406,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterIdService,
                 workerRegistry,
                 failureProcessor,
-                new NoOpMetricManager(),
                 defaultChannelTypeRegistry(),
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                new NoOpMetricManager()
         );
 
         var hybridClock = new HybridClockImpl();
