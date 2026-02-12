@@ -1,6 +1,6 @@
 package test.platform_tests
 
-import build.distributions.ClientPackages
+import build.distributions.CppClientPackages
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.ParameterDisplay
 import jetbrains.buildServer.configs.kotlin.buildFeatures.XmlReport
@@ -30,7 +30,7 @@ object PlatformCppOdbcTestsDebLinux : BuildType({
     }
 
     dependencies {
-        dependency(ClientPackages) {
+        dependency(CppClientPackages) {
             snapshot {}
             artifacts {
                 cleanDestination = true
@@ -62,7 +62,7 @@ object PlatformCppOdbcTestsDebLinux : BuildType({
                 mkdir %PATH__CMAKE_BUILD_DIRECTORY%  || exit 2
                 cd %PATH__CMAKE_BUILD_DIRECTORY%  || exit 3
 
-                cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
+                cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DENABLE_CLIENT=OFF -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
                                              
                 ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%

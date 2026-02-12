@@ -6,9 +6,9 @@ import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 
-object ClientPackages : BuildType({
+object CppClientPackages : BuildType({
     name = "[11] ODBC and Client packages"
-    description = "Apache Ignite 3 ODBC and Client Packages"
+    description = "Apache Ignite 3 ODBC and C++ Client Packages"
 
     artifactRules = """
         %VCSROOT__IGNITE3%/modules/platforms/build/cpp/_packages/*odbc*.deb => odbc-deb

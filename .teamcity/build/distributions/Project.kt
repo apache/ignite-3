@@ -15,7 +15,7 @@ object Project : Project({
     listOf(
         CliDeb,
         CliRpm,
-        ClientPackages,
+        CppClientPackages,
         Deb,
         Docs,
         Docker,
