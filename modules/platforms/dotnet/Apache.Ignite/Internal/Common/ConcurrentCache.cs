@@ -86,6 +86,8 @@ internal sealed class ConcurrentCache<TKey, TValue>
 
         lock (_hand)
         {
+            int retries = _capacity; // Avoid infinite loop if all entries are visited.
+
             while (_map.Count > _capacity)
             {
                 // SIEVE-like eviction.
@@ -97,7 +99,7 @@ internal sealed class ConcurrentCache<TKey, TValue>
 
                 var current = _hand.Current;
 
-                if (current.Value.Visited)
+                if (current.Value.Visited && retries-- > 0)
                 {
                     current.Value.Visited = false;
                     continue;
