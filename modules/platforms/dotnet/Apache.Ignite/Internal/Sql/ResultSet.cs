@@ -62,23 +62,20 @@ namespace Apache.Ignite.Internal.Sql
         /// <summary>
         /// Initializes a new instance of the <see cref="ResultSet{T}"/> class.
         /// </summary>
-        /// <param name="socket">Socket.</param>
-        /// <param name="buf">Buffer to read initial data from.</param>
+        /// <param name="response">Response.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
         /// <param name="rowReaderArg">Row reader argument.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <param name="connectionContext">Connection context.</param>
         public ResultSet(
-            ClientSocket socket,
-            PooledBuffer buf,
+            ClientResponse response,
             RowReaderFactory<T> rowReaderFactory,
             object? rowReaderArg,
-            ConnectionContext connectionContext,
             CancellationToken cancellationToken)
         {
-            _socket = socket;
+            _socket = response.Socket;
             _cancellationToken = cancellationToken;
 
+            var buf = response.Buffer;
             var reader = buf.GetReader();
 
             // ReSharper disable once RedundantCast (required on .NET Core 3.1).
@@ -89,7 +86,7 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
             _metadata = ReadMeta(ref reader);
-            PartitionAwarenessMetadata = ReadPartitionAwarenessMetadata(connectionContext, ref reader);
+            PartitionAwarenessMetadata = ReadPartitionAwarenessMetadata(response.Socket.ConnectionContext, ref reader);
 
             _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
             _rowReaderArg = rowReaderArg;

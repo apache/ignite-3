@@ -208,7 +208,7 @@ namespace Apache.Ignite.Internal
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
-        public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
+        public async Task<ClientResponse> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
             PooledArrayBuffer? request = null,
@@ -226,7 +226,7 @@ namespace Apache.Ignite.Internal
 
                 // Use tx-specific socket without retry and failover.
                 var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications, cancellationToken).ConfigureAwait(false);
-                return (buffer, tx.Socket);
+                return new ClientResponse(buffer, tx.Socket);
             }
 
             return await DoWithRetryAsync(
@@ -237,7 +237,7 @@ namespace Apache.Ignite.Internal
                     PooledBuffer res = await socket.DoOutInOpAsync(
                         arg.clientOp, arg.request, arg.expectNotifications, arg.cancellationToken).ConfigureAwait(false);
 
-                    return (Buffer: res, Socket: socket);
+                    return new ClientResponse(Buffer: res, Socket: socket);
                 },
                 preferredNode,
                 retryPolicyOverride)

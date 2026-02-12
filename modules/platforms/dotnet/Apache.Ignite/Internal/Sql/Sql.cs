@@ -301,12 +301,13 @@ namespace Apache.Ignite.Internal.Sql
 
             try
             {
-                (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(
+                var response = await _socket.DoOutInOpAndGetSocketAsync(
                     ClientOp.SqlExec, tx, bufferWriter, preferredNode: preferredNode, cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
 
                 // ResultSet will dispose of the pooled buffer.
-                var resultSet = new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, socket.ConnectionContext, cancellationToken);
+                buf = response.Buffer;
+                var resultSet = new ResultSet<T>(response, rowReaderFactory, rowReaderArg, cancellationToken);
 
                 // Cache PA metadata for subsequent queries.
                 // TODO: Do not request meta if already cached.
