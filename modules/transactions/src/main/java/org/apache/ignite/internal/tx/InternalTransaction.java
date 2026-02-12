@@ -161,15 +161,6 @@ public interface InternalTransaction extends Transaction {
     CompletableFuture<Void> kill();
 
     /**
-     * Rolls back the transaction due to timeout exceeded. After this method is called, {@link #isRolledBackWithTimeoutExceeded()} will
-     * return {@code true}. A rollback of a completed or ending transaction has no effect and always succeeds when the transaction is
-     * completed.
-     *
-     * @return The future.
-     */
-    CompletableFuture<Void> rollbackTimeoutExceededAsync();
-
-    /**
      * Rolls back the transaction due to a non-user exception and records the abort reason.
      * A rollback of a completed or ending transaction has no effect and always succeeds when the transaction is completed.
      *
@@ -180,7 +171,7 @@ public interface InternalTransaction extends Transaction {
 
     /**
      * Checks if the transaction was rolled back due to timeout exceeded. The only way to roll back a transaction due to timeout exceeded is
-     * to call {@link #rollbackTimeoutExceededAsync()}.
+     * to call {@link #rollbackWithExceptionAsync(Throwable)} with {@link java.util.concurrent.TimeoutException}.
      *
      * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
      */

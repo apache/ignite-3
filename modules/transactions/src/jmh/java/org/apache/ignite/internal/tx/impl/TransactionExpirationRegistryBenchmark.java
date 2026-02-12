@@ -171,7 +171,10 @@ public class TransactionExpirationRegistryBenchmark {
 
         @Override
         public CompletableFuture<Void> finish(
-                boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded
+                boolean commit,
+                @Nullable HybridTimestamp executionTimestamp,
+                boolean full,
+                @Nullable Throwable finishReason
         ) {
             return null;
         }
@@ -189,11 +192,6 @@ public class TransactionExpirationRegistryBenchmark {
         @Override
         public CompletableFuture<Void> kill() {
             return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-            return nullCompletedFuture();
         }
 
         @Override

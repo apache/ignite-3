@@ -259,14 +259,6 @@ class TransactionExpirationRegistryConcurrentTest extends BaseIgniteAbstractTest
         }
 
         @Override
-        public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-            // Count the number of calls.
-            rollbackCount.incrementAndGet();
-
-            return nullCompletedFuture();
-        }
-
-        @Override
         public boolean isRolledBackWithTimeoutExceeded() {
             return false;
         }

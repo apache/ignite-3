@@ -1010,15 +1010,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             }
 
             @Override
-            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-                isTimeout = true;
+            public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+                if (throwable instanceof TimeoutException) {
+                    isTimeout = true;
 
-                // Directly mapped entries become abandoned on local tx timeout.
-                // Release locks to allow write intent resolution on abandoned path.
-                // Can be safely retried multiple times, because releaseAll is idempotent.
-                partitionOperationsExecutor.execute(() -> lockManager.releaseAll(txId));
+                    // Directly mapped entries become abandoned on local tx timeout.
+                    // Release locks to allow write intent resolution on abandoned path.
+                    // Can be safely retried multiple times, because releaseAll is idempotent.
+                    partitionOperationsExecutor.execute(() -> lockManager.releaseAll(txId));
 
-                return nullCompletedFuture();
+                    return nullCompletedFuture();
+                }
+
+                throw new AssertionError("Unexpected rollbackWithExceptionAsync call for remote transaction.");
             }
 
             @Override

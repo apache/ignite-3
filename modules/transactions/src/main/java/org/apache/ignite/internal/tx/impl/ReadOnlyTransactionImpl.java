@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -134,11 +135,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return rollbackWithExceptionAsync(new java.util.concurrent.TimeoutException("Transaction timeout exceeded."));
-    }
-
-    @Override
     public CompletableFuture<Void> finish(
             boolean commitIntent,
             HybridTimestamp executionTimestamp,
@@ -165,7 +161,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             txManager.updateMetaSkippingStateValidation(id(), old -> recordExceptionInfo(old, finishReason));
         }
 
-        this.timeoutExceeded = finishReason instanceof java.util.concurrent.TimeoutException;
+        this.timeoutExceeded = finishReason instanceof TimeoutException;
 
         return txFuture;
     }

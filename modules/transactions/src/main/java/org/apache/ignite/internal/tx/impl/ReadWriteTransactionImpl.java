@@ -188,11 +188,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return rollbackWithExceptionAsync(new TimeoutException("Transaction timeout exceeded."));
-    }
-
-    @Override
     public CompletableFuture<Void> finish(
             boolean commit,
             @Nullable HybridTimestamp executionTimestamp,

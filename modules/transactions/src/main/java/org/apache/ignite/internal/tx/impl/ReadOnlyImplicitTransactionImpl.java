@@ -147,11 +147,6 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
     }
 
     @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return nullCompletedFuture();
-    }
-
-    @Override
     public CompletableFuture<Void> finish(
             boolean commitIntent,
             HybridTimestamp executionTimestamp,
