@@ -44,8 +44,4 @@ object OdbcRpm : BuildType({
             dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
         }
     }
-
-    requirements {
-        equals("env.DIND_ENABLED", "true")
-    }
 })

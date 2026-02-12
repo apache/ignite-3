@@ -39,28 +39,6 @@ open class CustomBuildType(open val buildType: BuildType) {
 
 
         /**
-         * Non docker-in-docker-based agent requirement
-         */
-        @Suppress("unused")
-        fun requireNonDind() = apply {
-            buildType.requirements {
-                doesNotExist("env.DIND_ENABLED")
-            }
-        }
-
-
-        /**
-         * Docker-in-docker-based agent requirement
-         */
-        @Suppress("unused")
-        fun requireDind() = apply {
-            buildType.requirements {
-                equals("env.DIND_ENABLED", "true")
-            }
-        }
-
-
-        /**
          * Windows-based agent requirement
          */
         @Suppress("unused")
