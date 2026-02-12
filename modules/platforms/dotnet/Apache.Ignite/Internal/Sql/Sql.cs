@@ -34,10 +34,9 @@ namespace Apache.Ignite.Internal.Sql
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
+    using Table;
     using Table.Serialization;
     using Transactions;
-
-    using ClientTable = Table.Table;
 
     /// <summary>
     /// SQL API.
@@ -52,20 +51,20 @@ namespace Apache.Ignite.Internal.Sql
         /** Underlying connection. */
         private readonly ClientFailoverSocket _socket;
 
+        private readonly Tables _tables;
+
         /** Partition awareness mapping cache, keyed by (schema, query). */
         private readonly ConcurrentDictionary<(string? Schema, string Query), SqlPartitionMappingProvider> _paMappingCache = new();
-
-        // TODO: Cache in Tables._cachedTables?
-        /** Cached Table instances used for PA schema and partition assignment loading. */
-        private readonly ConcurrentDictionary<int, ClientTable> _paTableCache = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Sql"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
-        public Sql(ClientFailoverSocket socket)
+        /// <param name="tables">Tables.</param>
+        public Sql(ClientFailoverSocket socket, Tables tables)
         {
             _socket = socket;
+            _tables = tables;
         }
 
         /// <inheritdoc/>
@@ -295,7 +294,7 @@ namespace Apache.Ignite.Internal.Sql
 
             if (_paMappingCache.TryGetValue(paKey, out var mappingProvider))
             {
-                preferredNode = mappingProvider.GetPreferredNode(args);
+                preferredNode = await mappingProvider.GetPreferredNode(args).ConfigureAwait(false);
             }
 
             PooledBuffer? buf = null;
@@ -310,22 +309,13 @@ namespace Apache.Ignite.Internal.Sql
                 var resultSet = new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, socket.ConnectionContext, cancellationToken);
 
                 // Cache PA metadata for subsequent queries.
+                // TODO: Do not request meta if already cached.
                 var paMeta = resultSet.PartitionAwarenessMetadata;
                 if (paMeta != null)
                 {
-                    // TODO: We don't have the table name here, which makes it difficult
-                    // Reusing existing table cache in Tables.
-                    // Should we add the table name to the response?
-                    var table = _paTableCache.GetOrAdd(
-                        paMeta.TableId,
-                        static (id, state) => new ClientTable(
-                            QualifiedName.Of("DUMMY", $"DUMMY_{id}"),
-                            id,
-                            state.Socket,
-                            state.Sql),
-                        (Socket: _socket, Sql: this));
+                    var table = _tables.GetOrCreateCachedTableInternal(paMeta.TableId, paMeta.TableName);
 
-                    _paMappingCache[paKey] = new SqlPartitionMappingProvider(table, paMeta);
+                    _paMappingCache[paKey] = new SqlPartitionMappingProvider(paMeta, table);
                 }
 
                 return resultSet;
