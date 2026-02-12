@@ -95,6 +95,7 @@ dependencies {
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
+    integrationTestImplementation libs.typesafe.config
 }
 
 tasks.withType(Test).configureEach {

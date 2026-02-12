@@ -41,6 +41,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
@@ -602,19 +603,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
 
-        DefaultMessagingService messagingService = new DefaultMessagingService(
-                node.name(),
-                networkMessagesFactory,
-                topologyService,
-                staleIdDetector,
-                classDescriptorRegistry,
-                marshaller,
-                criticalWorkerRegistry,
-                failureProcessor,
-                new NoOpMetricManager(),
-                channelTypeRegistry
-        );
-
         SerializationService serializationService = new SerializationService(
                 registry,
                 new UserObjectSerializationContext(classDescriptorRegistry, classDescriptorFactory, marshaller)
@@ -623,6 +611,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         String eventLoopGroupNamePrefix = node.name() + "-event-loop";
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
+
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConnectionManager connectionManager = new TestConnectionManager(
@@ -634,10 +623,21 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 beforeHandshake
         );
-        connectionManager.start();
-        connectionManager.setLocalNode(node);
 
-        messagingService.setConnectionManager(connectionManager);
+        DefaultMessagingService messagingService = new DefaultMessagingService(
+                node.name(),
+                networkMessagesFactory,
+                topologyService,
+                staleIdDetector,
+                classDescriptorRegistry,
+                marshaller,
+                criticalWorkerRegistry,
+                failureProcessor,
+                connectionManager,
+                channelTypeRegistry
+        );
+
+        connectionManager.start();
 
         messagingService.start();
 
@@ -659,8 +659,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             super(
                     networkConfig.value(),
                     serializationService,
-                    node.name(),
-                    node.id(),
+                    new InetSocketAddress(node.address().host(), node.address().port()),
+                    node,
                     bootstrapFactory,
                     staleIdDetector,
                     clusterIdSupplier,

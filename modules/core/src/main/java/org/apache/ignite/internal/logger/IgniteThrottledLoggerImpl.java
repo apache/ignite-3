@@ -40,6 +40,10 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
     /** Log messages. */
     private final Map<LogThrottleKey, Long> messagesMap;
 
+    IgniteThrottledLoggerImpl(Logger delegate) {
+        this(delegate, Runnable::run);
+    }
+
     IgniteThrottledLoggerImpl(Logger delegate, Executor executor) {
         this.delegate = delegate;
 

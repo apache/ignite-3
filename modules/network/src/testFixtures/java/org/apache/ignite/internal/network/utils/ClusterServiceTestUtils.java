@@ -52,24 +52,20 @@ import org.apache.ignite.internal.network.configuration.StaticNodeFinderChange;
 import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
-import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeMetadata;
 import org.junit.jupiter.api.TestInfo;
 
 /**
  * Test utils that provide sort of cluster service mock that manages required node configuration internally.
  */
 public class ClusterServiceTestUtils {
-    private static final TestScaleCubeClusterServiceFactory SERVICE_FACTORY = new TestScaleCubeClusterServiceFactory();
-
     /**
      * Creates a {@link MessageSerializationRegistry} that is pre-populated with all {@link MessageSerializationRegistryInitializer}s,
      * accessible through the classpath.
@@ -232,7 +228,20 @@ public class ClusterServiceTestUtils {
 
         MessageSerializationRegistry serializationRegistry = defaultSerializationRegistry();
 
-        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(
+        nodeConfigurationMgr.startAsync(new ComponentContext()).join();
+
+        String[] netClusterNodes = nodeFinder.findNodes().stream().map(NetworkAddress::toString).toArray(String[]::new);
+
+        networkConfiguration.change(netCfg ->
+                netCfg
+                        .changePort(port)
+                        .changeNodeFinder(c -> c
+                                .convert(StaticNodeFinderChange.class)
+                                .changeNetClusterNodes(netClusterNodes)
+                        )
+        ).join();
+
+        return new TestScaleCubeClusterService(
                 nodeName,
                 networkConfiguration,
                 bootstrapFactory,
@@ -244,40 +253,22 @@ public class ClusterServiceTestUtils {
                 new NoOpMetricManager(),
                 defaultChannelTypeRegistry(),
                 productVersionSource
-        );
-
-        return new AbstractClusterService(nodeName, clusterSvc.topologyService(), clusterSvc.messagingService(), serializationRegistry) {
-            @Override
-            public boolean isStopped() {
-                return clusterSvc.isStopped();
-            }
-
-            @Override
-            public void updateMetadata(NodeMetadata metadata) {
-                clusterSvc.updateMetadata(metadata);
-            }
-
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-                nodeConfigurationMgr.startAsync(componentContext).join();
-
-                networkConfiguration.change(netCfg ->
-                        netCfg
-                                .changePort(port)
-                                .changeNodeFinder(c -> c
-                                        .convert(StaticNodeFinderChange.class)
-                                        .changeNetClusterNodes(
-                                                nodeFinder.findNodes().stream().map(NetworkAddress::toString).toArray(String[]::new)
-                                        )
-                                )
-                ).join();
-
-                return IgniteUtils.startAsync(componentContext, bootstrapFactory, clusterSvc);
+                return CompletableFuture.allOf(
+                        bootstrapFactory.startAsync(componentContext),
+                        super.startAsync(componentContext)
+                );
             }
 
             @Override
             public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                return IgniteUtils.stopAsync(componentContext, clusterSvc, bootstrapFactory, nodeConfigurationMgr);
+                return CompletableFuture.allOf(
+                        super.stopAsync(componentContext),
+                        bootstrapFactory.stopAsync(componentContext),
+                        nodeConfigurationMgr.stopAsync(componentContext)
+                );
             }
         };
     }
