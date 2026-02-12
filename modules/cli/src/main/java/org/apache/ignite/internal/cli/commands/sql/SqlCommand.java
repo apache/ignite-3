@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_F
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_SHORT;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -122,6 +123,9 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
         }
         if (file != null) {
             result.add(SCRIPT_FILE_OPTION + "=" + file);
+        }
+        for (int i = 0; i < verbose.length; i++) {
+            result.add(VERBOSE_OPTION_SHORT);
         }
         return result.toArray(new String[0]);
     }
