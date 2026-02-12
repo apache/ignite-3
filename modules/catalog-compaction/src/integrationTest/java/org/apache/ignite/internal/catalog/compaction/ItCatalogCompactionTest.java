@@ -157,14 +157,16 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         debug.recordCatalogState("init");
         debug.recordMinTxTimesState("init");
 
-        Catalog catalog1 = getLatestCatalog(node2);
+        Catalog catalog1 = awaitCatalogPublicationOnAllNodesAndGet(getLatestCatalog(node0).version());
+
         InternalTransaction tx1 = beginTx(node0, false);
         debug.recordTx(tx1);
 
         // Changing the catalog and starting transaction.
         sql("create table a(a int primary key)");
-        Catalog catalog2 = getLatestCatalog(node0);
-        assertThat(catalog2.version(), is(catalog1.version() + 1));
+
+        Catalog catalog2 = awaitCatalogPublicationOnAllNodesAndGet(catalog1.version() + 1);
+
         List<InternalTransaction> txs2 = Stream.of(node1, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
         List<InternalTransaction> ignoredReadonlyTxs = Stream.of(node0, node1, node2)
                 .map(node -> beginTx(node, true))
@@ -176,9 +178,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         // Changing the catalog again and starting transaction.
         sql("alter table a add column (b int)");
 
-        Awaitility.await().until(() -> getLatestCatalogVersion(node1), is(catalog2.version() + 1));
-        Catalog catalog3 = getLatestCatalog(node1);
-
+        Catalog catalog3 = awaitCatalogPublicationOnAllNodesAndGet(catalog2.version() + 1);
         List<InternalTransaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
         debug.recordTx(txs3);
@@ -332,6 +332,20 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                         catalogManager.earliestCatalogVersion(), is(expectedVersion));
             }
         });
+    }
+
+    private Catalog awaitCatalogPublicationOnAllNodesAndGet(int expectedVersion) {
+        Awaitility.await().pollInSameThread().untilAsserted(() -> {
+            for (int i = 0; i < initialNodes(); i++) {
+                assertThat("node#" + i, getLatestCatalogVersion(node(i)), is(expectedVersion));
+            }
+        });
+
+        Catalog catalog = getLatestCatalog(node(0));
+
+        assertThat(catalog.version(), is(expectedVersion));
+
+        return catalog;
     }
 
     private class DebugInfoCollector {
