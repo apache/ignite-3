@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneRecoveryTriggerRevisionKey;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -47,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -75,6 +77,7 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -303,10 +306,11 @@ class GroupUpdateRequestHandler {
                 return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
             }
 
-            enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
-
+            if (manualUpdate) {
+                enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
+            }
             // We need to recalculate assignments to ensure that we have a valid set of nodes with correct roles (peers/learners).
-            Set<Assignment> finalPartAssignments = calculateAssignmentForPartition(
+            partAssignments = calculateAssignmentForPartition(
                     partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
                     partId.partitionId(),
                     partitions,
@@ -314,13 +318,13 @@ class GroupUpdateRequestHandler {
                     consensusGroupSize
             );
 
-            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, finalPartAssignments);
+            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
-            boolean isProposedPendingEqualsProposedPlanned = finalPartAssignments.size() == 1;
+            boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
 
-            assert finalPartAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
+            assert partAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
                     "Recovery nodes set doesn't contain the reset node assignment [partAssignments={}, nextAssignment={}]",
-                    finalPartAssignments,
+                    partAssignments,
                     nextAssignment
             );
 
@@ -331,36 +335,50 @@ class GroupUpdateRequestHandler {
                     .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
                     .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
                     .toQueue();
-
-            CompletableFuture<AssignmentsQueue> assignmentsQueueFuture;
-
             if (!manualUpdate) {
                 ByteArray pendingKey = ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId);
-                assignmentsQueueFuture = metaStorageMgr.get(pendingKey, revision).thenApply(entry -> {
-                    if (entry != null && !entry.empty()) {
-                        AssignmentsQueue pendingQueue = AssignmentsQueue.fromBytes(entry.value());
-                        if (pendingQueue != null && !pendingQueue.isEmpty()) {
-                            AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
-                            return new AssignmentsQueue(assignmentsQueue, filteredPendingQueue);
+                var entry = metaStorageMgr.getLocally(pendingKey);
+                if (entry != null) {
+                    AssignmentsQueue pendingQueue = AssignmentsQueue.fromBytes(entry.value());
+                    if (pendingQueue != null && !pendingQueue.isEmpty()) {
+                        ByteArray recoveryTriggerRevisionKey = zoneRecoveryTriggerRevisionKey(partId.zoneId());
+                        var recoveryTriggerRevisionEntry = metaStorageMgr.getLocally(recoveryTriggerRevisionKey, revision);
+                        long reductionRevision = (recoveryTriggerRevisionEntry != null && recoveryTriggerRevisionEntry.value() != null)
+                                ? ByteUtils.bytesToLongKeepingOrder(recoveryTriggerRevisionEntry.value())
+                                : -1L;
+                        if (entry.revision() > reductionRevision
+                                && allAssignmentsRelyOnAliveNodes(pendingQueue, aliveNodesConsistentIds)) {
+                            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
                         }
+                        AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
+                        assignmentsQueue = new AssignmentsQueue(assignmentsQueue, filteredPendingQueue);
                     }
-                    return assignmentsQueue;
-                });
-            } else {
-                assignmentsQueueFuture = completedFuture(assignmentsQueue);
+                }
             }
-
-            return assignmentsQueueFuture.thenCompose(finalAssignmentsQueue -> invoke(
+            return invoke(
                     partId,
                     revision,
                     timestamp,
                     metaStorageMgr,
                     assignmentsTimestamp,
-                    finalAssignmentsQueue,
+                    assignmentsQueue,
                     isProposedPendingEqualsProposedPlanned,
-                    finalPartAssignments
-            ));
+                    partAssignments
+            );
         });
+    }
+
+    private static boolean allAssignmentsRelyOnAliveNodes(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds) {
+        for (Iterator<Assignments> it = queue.iterator(); it.hasNext();) {
+            Assignments assignments = it.next();
+            if (assignments
+                    .nodes()
+                    .stream()
+                    .map(Assignment::consistentId).anyMatch(name -> !aliveNodesConsistentIds.contains(name))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static AssignmentsQueue filterAliveNodesOnly(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds) {

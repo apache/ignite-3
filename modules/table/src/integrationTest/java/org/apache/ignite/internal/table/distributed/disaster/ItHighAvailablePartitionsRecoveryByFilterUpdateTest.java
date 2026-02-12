@@ -198,7 +198,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24513")
     void testSeveralHaResetsAndSomeNodeRestart() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -229,14 +228,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         // Stop the last node (G)
         stopNode(1);
 
-        // Start one node from phase 1 (A)
-        startNode(4);
-
-        // Start one node from phase 3 (G)
-        startNode(1);
-
-        //  Start one node from phase 2 (E)
-        startNode(2);
+        // Start nodes G, E, A in reverse order they were stopped
+        startNodes(1, 2, 4);
 
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node0, HA_TABLE_NAME, PARTITION_IDS,  nodeNames(1, 2, 4));
 
