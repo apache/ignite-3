@@ -57,64 +57,51 @@ set(IGNITE_CMAKE_TOP_DIR ${CMAKE_CURRENT_LIST_DIR})
 include(dependencies)
 
 if(ENABLE_IWYU)
-    find_program(IWYU_PATH NAMES include-what-you-use iwyu)
-    if(NOT IWYU_PATH)
-        message(FATAL_ERROR "Could not find the program include-what-you-use")
-    endif()
+    find_program(IWYU_PATH NAMES include-what-you-use iwyu REQUIRED)
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
     set(CMAKE_C_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
 endif()
 
 if(ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY_BIN clang-tidy REQUIRED)
-    if(CLANG_TIDY_BIN)
-        message(STATUS "clang-tidy: ${CLANG_TIDY_BIN}")
-        set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_BIN}
-                "--checks=-*,clang-analyzer-*,clang-analyzer-cplusplus*,bugprone*,concurrency-*,cppcoreguidelines-*,performance-*,portability-*,readability-*"
-                "--header-filter=\"^.*(client|common|network|odbc|protocol|tuple).*\"gm"
-                "--exclude-header-filter=\"^.*(build|tests).*\"gm")
-        set(CMAKE_CXX_CLANG_TIDY_EXPORT_FIXES_DIR "clang-tidy-reports-dir")
-    else()
-        message(STATUS "clang-tidy not found!")
-    endif()
+    message(STATUS "clang-tidy: ${CLANG_TIDY_BIN}")
+    set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_BIN})
+    set(CMAKE_C_CLANG_TIDY ${CLANG_TIDY_BIN})
+    set(CMAKE_CXX_CLANG_TIDY_EXPORT_FIXES_DIR "clang-tidy-reports-dir")
 endif()
 
 if(ENABLE_CPPCHECK)
     find_program(CPPCHECK_BIN cppcheck REQUIRED)
-    if(CPPCHECK_BIN)
-        message(STATUS "cppcheck: ${CPPCHECK_BIN}")
-        message(STATUS "Please do not use parallel build with cppcheck enabled! Cppcheck writes results to the file and result might be corrupted in case of parallel build.")
-        set(CMAKE_CXX_CPPCHECK ${CPPCHECK_BIN} --enable=all --xml --xml-version=3 --output-file=cppcheck_report.xml)
-        add_custom_target(cppcheck_html_report ALL
-            COMMAND cppcheck-htmlreport
-                --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/tuple/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/protocol/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/common/cppcheck_report.xml
-                --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/network/cppcheck_report.xml
-                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/client-test/cppcheck_report.xml>
-                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/fake_server/cppcheck_report.xml>
-                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/odbc-test/cppcheck_report.xml>
-                $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/test-common/cppcheck_report.xml>
-                $<$<BOOL:${ENABLE_ODBC}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/odbc/cppcheck_report.xml>
-                $<$<BOOL:${ENABLE_CLIENT}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/client/cppcheck_report.xml>
-                --report-dir=${CMAKE_CURRENT_BINARY_DIR}/cppcheck_report
-            DEPENDS
-                ignite-tuple
-                ignite-protocol
-                ignite-common
-                ignite-network
-                $<$<BOOL:${ENABLE_TESTS}>:ignite-client-test>
-                $<$<BOOL:${ENABLE_TESTS}>:ignite-fake-server>
-                $<$<BOOL:${ENABLE_TESTS}>:ignite-odbc-test>
-                $<$<BOOL:${ENABLE_TESTS}>:ignite-test-common>
-                $<$<BOOL:${ENABLE_ODBC}>:ignite3-odbc>
-                $<$<BOOL:${ENABLE_CLIENT}>:ignite3-client>
-            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-            VERBATIM
-        )
-    else()
-        message(STATUS "cppcheck not found!")
-    endif()
+    message(STATUS "cppcheck: ${CPPCHECK_BIN}")
+    message(STATUS "Please do not use parallel build with cppcheck enabled! Cppcheck writes results to the file and result might be corrupted in case of parallel build.")
+    set(CMAKE_CXX_CPPCHECK ${CPPCHECK_BIN} --enable=all --xml --output-file=cppcheck_report.xml)
+    add_custom_target(cppcheck_html_report ALL
+        COMMAND cppcheck-htmlreport
+            --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/tuple/cppcheck_report.xml
+            --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/common/cppcheck_report.xml
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/protocol/cppcheck_report.xml>
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/network/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/client-test/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/fake_server/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/odbc-test/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/test-common/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_ODBC}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/odbc/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_CLIENT}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/client/cppcheck_report.xml>
+            --report-dir=${CMAKE_CURRENT_BINARY_DIR}/cppcheck_report
+        DEPENDS
+            ignite-tuple
+            ignite-common
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<OR:$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>>:ignite-protocol>
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<OR:$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>>:ignite-network>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-client-test>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-fake-server>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-odbc-test>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-test-common>
+            $<$<BOOL:${ENABLE_ODBC}>:ignite3-odbc>
+            $<$<BOOL:${ENABLE_CLIENT}>:ignite3-client>
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        VERBATIM
+    )
 endif()
 
 # Configure build paths.
