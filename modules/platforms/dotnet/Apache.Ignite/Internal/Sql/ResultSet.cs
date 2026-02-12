@@ -341,9 +341,9 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private static SqlPartitionAwarenessMetadata? ReadPartitionAwarenessMetadata(ConnectionContext connectionContext, ref MsgPackReader reader)
+        private static SqlPartitionAwarenessMetadata? ReadPartitionAwarenessMetadata(ConnectionContext ctx, ref MsgPackReader reader)
         {
-            if (!connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness))
+            if (!ctx.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness))
             {
                 return null;
             }
@@ -355,7 +355,7 @@ namespace Apache.Ignite.Internal.Sql
 
             var tableId = reader.ReadInt32();
 
-            var tableName = connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
+            var tableName = ctx.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
                 ? QualifiedName.Of(reader.ReadStringNullable(), reader.ReadString())
                 : null;
 
