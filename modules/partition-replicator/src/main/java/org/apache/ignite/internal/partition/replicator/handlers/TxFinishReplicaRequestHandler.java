@@ -47,7 +47,7 @@ import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApp
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
-import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValidationResult;
+import org.apache.ignite.internal.partition.replicator.schemacompat.CompatibilityValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -230,27 +230,8 @@ public class TxFinishReplicaRequestHandler {
                 );
     }
 
-    private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
-        if (!validationResult.isSuccessful()) {
-            if (validationResult.isTableDropped()) {
-                throw new IncompatibleSchemaAbortException(
-                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
-                        txResult
-                );
-            } else {
-                throw new IncompatibleSchemaAbortException(
-                        format(
-                                "Commit failed because schema is not forward-compatible "
-                                        + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
-                                validationResult.fromSchemaVersion(),
-                                validationResult.toSchemaVersion(),
-                                validationResult.failedTableName(),
-                                validationResult.details()
-                        ),
-                        txResult
-                );
-            }
-        }
+    private static void throwIfSchemaValidationOnCommitFailed(CompatibilityValidationResult validationResult, TransactionResult txResult) {
+        validationResult.throwIfSchemaValidationOnCommitFailed(message -> new IncompatibleSchemaAbortException(message, txResult));
     }
 
     /**

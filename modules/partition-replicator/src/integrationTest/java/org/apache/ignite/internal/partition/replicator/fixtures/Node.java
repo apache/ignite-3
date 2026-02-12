@@ -173,8 +173,9 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
-import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
+import org.apache.ignite.internal.table.distributed.schema.CheckMetadataSufficiencyOnActionRequest;
+import org.apache.ignite.internal.table.distributed.schema.CheckMetadataSufficiencyOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -639,6 +640,13 @@ public class Node {
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout-" + name));
 
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
+        metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
+
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+
         replicaManager = new ReplicaManager(
                 name,
                 clusterService,
@@ -651,6 +659,7 @@ public class Node {
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new NoOpFailureManager(),
                 new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
+                new PartitionSafeTimeValidator(schemaSyncService),
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 partitionRaftConfigurer,
@@ -661,8 +670,6 @@ public class Node {
                 threadPoolsManager.commonScheduler()
         );
 
-        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
-
         catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
@@ -671,17 +678,12 @@ public class Node {
                 PartitionCountProvider.defaultPartitionCountProvider()
         );
 
-        raftManager.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
-        raftManager.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
+        raftManager.appendEntriesRequestInterceptor(new CheckMetadataSufficiencyOnAppendEntries(catalogManager, schemaSyncService));
+        raftManager.actionRequestInterceptor(new CheckMetadataSufficiencyOnActionRequest(catalogManager));
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
         schemaManager = new SchemaManager(registry, catalogManager);
-
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
-        metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
-
-        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 

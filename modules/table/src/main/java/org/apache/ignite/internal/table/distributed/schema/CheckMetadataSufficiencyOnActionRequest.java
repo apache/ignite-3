@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+import static org.apache.ignite.internal.table.distributed.schema.MetadataSufficiency.isMetadataAvailableForCatalogVersion;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshaller;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.raft.jraft.Node;
@@ -45,23 +44,17 @@ import org.jetbrains.annotations.Nullable;
  * An {@link ActionRequestInterceptor} that rejects requests (by returning EBUSY error code) if the incoming command
  * requires catalog version that is not available locally yet.
  */
-public class CheckCatalogVersionOnActionRequest implements ActionRequestInterceptor {
-    private static final IgniteLogger LOG = Loggers.forClass(CheckCatalogVersionOnActionRequest.class);
+public class CheckMetadataSufficiencyOnActionRequest implements ActionRequestInterceptor {
+    private static final IgniteLogger LOG = Loggers.forClass(CheckMetadataSufficiencyOnActionRequest.class);
 
     private final CatalogService catalogService;
 
-    public CheckCatalogVersionOnActionRequest(CatalogService catalogService) {
+    public CheckMetadataSufficiencyOnActionRequest(CatalogService catalogService) {
         this.catalogService = catalogService;
     }
 
     @Override
-    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller) {
-        Node node = rpcCtx.getNodeManager().get(request.groupId(), new PeerId(rpcCtx.getLocalConsistentId()));
-
-        if (node == null) {
-            return Loza.FACTORY.errorResponse().errorCode(RaftError.UNKNOWN.getNumber()).build();
-        }
-
+    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller, Node node) {
         Message errorIfNotLeader = errorResponseIfNotLeader(node);
         if (errorIfNotLeader != null) {
             return errorIfNotLeader;
@@ -83,10 +76,10 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
                 OptimizedMarshaller.ORDER));
 
         if (requiredCatalogVersion >= 0) {
-            if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
+            if (!isMetadataAvailableForCatalogVersion(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
-                        "Metadata not yet available, rejecting ActionRequest with EBUSY [group={}, requiredLevel={}].",
+                        "Metadata not yet available by catalog version, rejecting ActionRequest with EBUSY [group={}, requiredLevel={}].",
                         request.groupId(), requiredCatalogVersion
                 );
 
@@ -94,7 +87,8 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
                     .newResponse(
                             node.getRaftOptions().getRaftMessagesFactory(),
                             RaftError.EBUSY,
-                            "Metadata not yet available, rejecting ActionRequest with EBUSY [group=%s, requiredLevel=%d].",
+                            "Metadata not yet available by catalog version, rejecting ActionRequest with EBUSY "
+                                    + "[group=%s, requiredLevel=%d].",
                             request.groupId(), requiredCatalogVersion
                     );
             }

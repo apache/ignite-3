@@ -17,13 +17,25 @@
 
 package org.apache.ignite.internal.partition.replicator.schemacompat;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.io.Serializable;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Result of a schema compatibility validation.
  */
-public class CompatValidationResult {
-    private static final CompatValidationResult SUCCESSFUL_RESULT = new CompatValidationResult(ValidationStatus.SUCCESS, "", -1, -1, null);
+public class CompatibilityValidationResult implements Serializable {
+    private static final long serialVersionUID = 1924417766843882431L;
+
+    private static final CompatibilityValidationResult SUCCESSFUL_RESULT = new CompatibilityValidationResult(
+            ValidationStatus.SUCCESS,
+            "",
+            -1,
+            -1,
+            null
+    );
 
     private enum ValidationStatus {
         SUCCESS, INCOMPATIBLE_CHANGE, TABLE_DROPPED
@@ -40,7 +52,7 @@ public class CompatValidationResult {
      *
      * @return A successful validation result.
      */
-    public static CompatValidationResult success() {
+    public static CompatibilityValidationResult success() {
         return SUCCESSFUL_RESULT;
     }
 
@@ -52,13 +64,13 @@ public class CompatValidationResult {
      * @param toSchemaVersion Version number of the schema to which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static CompatValidationResult incompatibleChange(
+    public static CompatibilityValidationResult incompatibleChange(
             String failedTableName,
             int fromSchemaVersion,
             int toSchemaVersion,
             @Nullable String details
     ) {
-        return new CompatValidationResult(
+        return new CompatibilityValidationResult(
                 ValidationStatus.INCOMPATIBLE_CHANGE,
                 failedTableName,
                 fromSchemaVersion,
@@ -74,11 +86,11 @@ public class CompatValidationResult {
      * @param fromSchemaVersion Version number of the schema from which an incompatible transition tried to be made.
      * @return A validation result for a failure.
      */
-    public static CompatValidationResult tableDropped(String failedTableName, int fromSchemaVersion) {
-        return new CompatValidationResult(ValidationStatus.TABLE_DROPPED, failedTableName, fromSchemaVersion, null, null);
+    public static CompatibilityValidationResult tableDropped(String failedTableName, int fromSchemaVersion) {
+        return new CompatibilityValidationResult(ValidationStatus.TABLE_DROPPED, failedTableName, fromSchemaVersion, null, null);
     }
 
-    private CompatValidationResult(
+    private CompatibilityValidationResult(
             ValidationStatus status,
             String failedTableName,
             int fromSchemaVersion,
@@ -153,5 +165,31 @@ public class CompatValidationResult {
         assert details != null : "Should not be called when there are no details";
 
         return details;
+    }
+
+    /**
+     * Throws an exception produced by the given factory if the validation failed.
+     *
+     * @param exceptionFactory Exception factory.
+     */
+    public <X extends Exception> void throwIfSchemaValidationOnCommitFailed(Function<String, ? extends X> exceptionFactory) throws X {
+        if (!isSuccessful()) {
+            if (isTableDropped()) {
+                throw exceptionFactory.apply(
+                        format("Commit failed because a table was already dropped [table={}]", failedTableName())
+                );
+            } else {
+                throw exceptionFactory.apply(
+                        format(
+                                "Commit failed because schema is not forward-compatible "
+                                        + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
+                                fromSchemaVersion(),
+                                toSchemaVersion(),
+                                failedTableName(),
+                                details()
+                        )
+                );
+            }
+        }
     }
 }

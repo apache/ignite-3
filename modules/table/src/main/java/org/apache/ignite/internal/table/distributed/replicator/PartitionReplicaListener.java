@@ -133,6 +133,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schemacompat.CompatibilityValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
@@ -2523,6 +2524,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
                 UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
+                throwIfCommitSchemaValidationFailedInRaft(updateCommandResult);
+
                 if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(
                             cmd.txId(),
@@ -2590,6 +2593,15 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 request.skipDelayedAck(),
                 leaseStartTime
         );
+    }
+
+    private static void throwIfCommitSchemaValidationFailedInRaft(@Nullable UpdateCommandResult updateCommandResult) {
+        if (updateCommandResult != null && updateCommandResult.compatibilityValidationResult() != null) {
+            CompatibilityValidationResult validationResult = updateCommandResult.compatibilityValidationResult();
+            assert validationResult != null;
+
+            validationResult.throwIfSchemaValidationOnCommitFailed(IncompatibleSchemaVersionException::new);
+        }
     }
 
     /**
@@ -2664,6 +2676,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
                 UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+
+                throwIfCommitSchemaValidationFailedInRaft(updateCommandResult);
 
                 if (!updateCommandResult.isPrimaryReplicaMatch()) {
                     throw new PrimaryReplicaMissException(
@@ -3572,7 +3586,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             UUID txId,
             boolean full,
             UUID txCoordinatorId,
-            @Nullable HybridTimestamp initiatorTime,
+            HybridTimestamp initiatorTime,
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {

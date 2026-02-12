@@ -39,7 +39,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
+import org.apache.ignite.internal.table.distributed.schema.CheckMetadataSufficiencyOnAppendEntries;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
@@ -57,7 +57,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static final String TABLE_NAME = "TEST";
 
-    private final LogInspector appendEntriesInterceptorInspector = LogInspector.create(CheckCatalogVersionOnAppendEntries.class, true);
+    private final LogInspector appendEntriesInterceptorInspector = LogInspector.create(CheckMetadataSufficiencyOnAppendEntries.class, true);
 
     @Override
     protected int initialNodes() {
@@ -129,7 +129,8 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         CompletableFuture<?> rejectionTriggered = new CompletableFuture<>();
 
         appendEntriesInterceptorInspector.addHandler(
-                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available, rejecting AppendEntriesRequest"),
+                event -> event.getMessage().getFormattedMessage()
+                        .startsWith("Metadata not yet available by catalog version, rejecting AppendEntriesRequest"),
                 () -> rejectionTriggered.complete(null)
         );
 

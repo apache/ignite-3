@@ -42,7 +42,7 @@ public class InterceptingActionRequestProcessor extends ActionRequestProcessor {
 
     @Override
     protected void handleRequestInternal(RpcContext rpcCtx, Node node, ActionRequest request, Marshaller commandsMarshaller) {
-        Message interceptionResult = interceptor.intercept(rpcCtx, request, commandsMarshaller);
+        Message interceptionResult = interceptor.intercept(rpcCtx, request, commandsMarshaller, node);
 
         if (interceptionResult != null) {
             rpcCtx.sendResponse(interceptionResult);

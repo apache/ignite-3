@@ -146,6 +146,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.CatalogVe
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandBase;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -161,6 +162,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Reque
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schemacompat.CompatibilityValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -2101,6 +2103,74 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return Arrays.stream(RequestType.values())
                 .filter(RequestTypes::isMultipleRowsWrite)
                 .map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("singleRowWriteRequestTypes")
+    public void singleRowWritesRespectFailedSchemaValidationResult(RequestType requestType) {
+        RwListenerInvocation invocation;
+
+        if (requestType == RW_DELETE || requestType == RW_GET_AND_DELETE) {
+            invocation = (targetTxId, key) -> doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, true);
+        } else {
+            invocation = (targetTxId, key) -> doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, true);
+        }
+
+        testWritesRespectFailedSchemaValidationResult(requestType, invocation);
+    }
+
+    @Test
+    public void replaceRequestRespectsFailedSchemaValidationResult() {
+        RwListenerInvocation invocation = (targetTxId, key) -> doReplaceRequest(
+                targetTxId,
+                marshalKeyOrKeyValue(RW_REPLACE, key),
+                marshalKeyOrKeyValue(RW_REPLACE, key),
+                true
+        );
+
+        testWritesRespectFailedSchemaValidationResult(RW_REPLACE, invocation);
+    }
+
+    @ParameterizedTest
+    @MethodSource("multiRowsWriteRequestTypes")
+    public void multiRowWritesRespectFailedSchemaValidationResult(RequestType requestType) {
+        RwListenerInvocation invocation;
+
+        if (requestType == RW_DELETE_ALL) {
+            invocation = (targetTxId, key)
+                    -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, true);
+        } else {
+            invocation = (targetTxId, key)
+                    -> doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, true);
+        }
+
+        testWritesRespectFailedSchemaValidationResult(requestType, invocation);
+    }
+
+    private void testWritesRespectFailedSchemaValidationResult(RequestType requestType, RwListenerInvocation listenerInvocation) {
+        TestKey key = nextKey();
+
+        if (RequestTypes.looksUpFirst(requestType)) {
+            upsertInNewTxFor(key);
+
+            // While handling the upsert, our mocks were touched, let's reset them to prevent false-positives during verification.
+            Mockito.reset(schemaSyncService);
+        }
+
+        UUID targetTxId = newTxId();
+
+        UpdateCommandResult updateCommandResult = new UpdateCommandResult(
+                true,
+                true,
+                clock.nowLong(),
+                CompatibilityValidationResult.incompatibleChange("Oops", 1, 2, "No luck")
+        );
+        when(mockRaftClient.run(any(UpdateCommandBase.class)))
+                .thenReturn(completedFuture(updateCommandResult));
+
+        CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
+
+        assertThat(future, willThrow(IncompatibleSchemaVersionException.class));
     }
 
     @CartesianTest

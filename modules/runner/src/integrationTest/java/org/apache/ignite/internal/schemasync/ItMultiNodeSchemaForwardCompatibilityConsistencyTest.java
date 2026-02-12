@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl;
+package org.apache.ignite.internal.schemasync;
 
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RpcContext;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-/**
- * An {@link ActionRequestInterceptor} that never intercepts anything and always asks the standard handling
- * to be used.
- */
-public class NullActionRequestInterceptor implements ActionRequestInterceptor {
+@ExtendWith(ExecutorServiceExtension.class)
+class ItMultiNodeSchemaForwardCompatibilityConsistencyTest extends ItSchemaForwardCompatibilityConsistencyTest {
     @Override
-    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller, Node node) {
-        return null;
+    protected int initialNodes() {
+        return 3;
     }
 }

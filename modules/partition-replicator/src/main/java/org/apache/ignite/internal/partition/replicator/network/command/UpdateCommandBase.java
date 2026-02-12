@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-import org.apache.ignite.internal.raft.Marshaller;
-import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.rpc.ActionRequest;
-import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RpcContext;
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.PropertyName;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * An {@link ActionRequestInterceptor} that never intercepts anything and always asks the standard handling
- * to be used.
+ * Base for commands executing updates to the storage.
  */
-public class NullActionRequestInterceptor implements ActionRequestInterceptor {
-    @Override
-    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller, Node node) {
-        return null;
-    }
+public interface UpdateCommandBase extends PartitionCommand {
+    @PropertyName("tablePartitionId")
+    ReplicationGroupIdMessage commitPartitionId();
+
+    UUID txCoordinatorId();
+
+    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
+    @Nullable Long leaseStartTime();
 }

@@ -120,7 +120,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
-        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(
+        CompletableFuture<CompatibilityValidationResult> resultFuture = validator.validateCommit(
                 txId,
                 Set.of(tablePartitionId.tableId()),
                 commitTimestamp
@@ -128,7 +128,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
         assertThat(resultFuture, willCompleteSuccessfully());
 
-        CompatValidationResult result = resultFuture.getNow(null);
+        CompatibilityValidationResult result = resultFuture.getNow(null);
         assertThat(result, is(notNullValue()));
 
         assertThat("Change is incompatible", result.isSuccessful(), is(true));
@@ -144,7 +144,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
-        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(
+        CompletableFuture<CompatibilityValidationResult> resultFuture = validator.validateCommit(
                 txId,
                 Set.of(tablePartitionId.tableId()),
                 commitTimestamp
@@ -152,7 +152,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
         assertThat(resultFuture, willCompleteSuccessfully());
 
-        CompatValidationResult result = resultFuture.getNow(null);
+        CompatibilityValidationResult result = resultFuture.getNow(null);
         assertThat(result, is(notNullValue()));
 
         assertThat("Change is compatible", result.isSuccessful(), is(false));
@@ -363,11 +363,11 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 .thenReturn(changeSource.schemaVersions());
         when(schemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(nullCompletedFuture());
 
-        CompletableFuture<CompatValidationResult> resultFuture = validator.validateBackwards(2, TABLE_ID, txId);
+        CompletableFuture<CompatibilityValidationResult> resultFuture = validator.validateBackwards(2, TABLE_ID, txId);
 
         assertThat(resultFuture, willCompleteSuccessfully());
 
-        CompatValidationResult result = resultFuture.getNow(null);
+        CompatibilityValidationResult result = resultFuture.getNow(null);
         assertThat(result, is(notNullValue()));
 
         assertThat("Change is compatible", result.isSuccessful(), is(false));

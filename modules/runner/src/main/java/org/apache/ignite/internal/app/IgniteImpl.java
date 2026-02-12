@@ -269,8 +269,9 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
-import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
+import org.apache.ignite.internal.table.distributed.schema.CheckMetadataSufficiencyOnActionRequest;
+import org.apache.ignite.internal.table.distributed.schema.CheckMetadataSufficiencyOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -920,6 +921,11 @@ public class IgniteImpl implements Ignite {
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
 
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
+        metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+
         replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -932,6 +938,7 @@ public class IgniteImpl implements Ignite {
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 failureManager,
                 raftMarshaller,
+                new PartitionSafeTimeValidator(schemaSyncService),
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
                 partitionRaftConfigurer,
@@ -993,13 +1000,8 @@ public class IgniteImpl implements Ignite {
 
         this.indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
 
-        raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
-        raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
-
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
-        metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
-
-        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+        raftMgr.appendEntriesRequestInterceptor(new CheckMetadataSufficiencyOnAppendEntries(catalogManager, schemaSyncService));
+        raftMgr.actionRequestInterceptor(new CheckMetadataSufficiencyOnActionRequest(catalogManager));
 
         schemaManager = new SchemaManager(registry, catalogManager);
 

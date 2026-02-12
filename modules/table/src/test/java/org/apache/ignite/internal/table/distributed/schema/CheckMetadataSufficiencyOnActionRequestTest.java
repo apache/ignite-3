@@ -26,8 +26,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -44,7 +42,6 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Node;
-import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.core.State;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -65,7 +62,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
+class CheckMetadataSufficiencyOnActionRequestTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
@@ -78,13 +75,10 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     private CatalogService catalogService;
 
     @InjectMocks
-    private CheckCatalogVersionOnActionRequest interceptor;
+    private CheckMetadataSufficiencyOnActionRequest interceptor;
 
     @Mock
     private RpcContext rpcContext;
-
-    @Mock
-    private NodeManager nodeManager;
 
     @Mock
     private Node node;
@@ -99,9 +93,6 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void initMocks() {
-        when(rpcContext.getNodeManager()).thenReturn(nodeManager);
-        when(nodeManager.get(anyString(), any())).thenReturn(node);
-
         lenient().when(node.getRaftOptions()).thenReturn(raftOptions);
         lenient().when(node.getNodeState()).thenReturn(State.STATE_LEADER);
         lenient().when(node.getLeaderId()).thenReturn(leaderId);
@@ -116,7 +107,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .command(commandsMarshaller.marshall(commandWithoutRequiredCatalogVersion()))
                 .build();
 
-        assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
+        assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller, node), is(nullValue()));
     }
 
     private WriteCommand commandWithoutRequiredCatalogVersion() {
@@ -132,7 +123,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(3)))
                 .build();
 
-        assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller), is(nullValue()));
+        assertThat(interceptor.intercept(rpcContext, request, commandsMarshaller, node), is(nullValue()));
     }
 
     private WriteCommand commandWithRequiredCatalogVersion(int requiredVersion) {
@@ -156,7 +147,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
-        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
+        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller, node);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, instanceOf(ErrorResponse.class));
@@ -164,7 +155,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         ErrorResponse errorResponse = (ErrorResponse) result;
         assertThat(errorResponse.errorCode(), is(RaftError.EBUSY.getNumber()));
         assertThat(errorResponse.errorMsg(),
-                is("Metadata not yet available, rejecting ActionRequest with EBUSY [group=test, requiredLevel=6]."));
+                is("Metadata not yet available by catalog version, rejecting ActionRequest with EBUSY [group=test, requiredLevel=6]."));
     }
 
     @ParameterizedTest
@@ -177,7 +168,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
-        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
+        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller, node);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, instanceOf(ErrorResponse.class));
@@ -203,7 +194,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .command(commandsMarshaller.marshall(commandWithRequiredCatalogVersion(6)))
                 .build();
 
-        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller);
+        Message result = interceptor.intercept(rpcContext, request, commandsMarshaller, node);
 
         assertThat(result, is(notNullValue()));
         assertThat(result, instanceOf(ErrorResponse.class));

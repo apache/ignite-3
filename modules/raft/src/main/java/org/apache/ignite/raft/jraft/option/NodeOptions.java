@@ -314,6 +314,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
             Utils.MAX_COLLECTOR_SIZE_PER_SERVER
     );
 
+    private SafeTimeValidator safeTimeValidator = new PermissiveSafeTimeValidator();
+
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
     }
@@ -794,6 +796,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setNodeManager(this.getNodeManager());
         nodeOptions.setAppendEntriesByteBufferCollectorPool(appendEntriesByteBufferCollectorPool);
         nodeOptions.setRaftMetrics(raftMetrics);
+        nodeOptions.setSafeTimeValidator(this.getSafeTimeValidator());
 
         return nodeOptions;
     }
@@ -859,5 +862,13 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** Sets shared pool of {@link ByteBufferCollector} for sending log entries for replication. */
     public void setAppendEntriesByteBufferCollectorPool(ByteBufferCollectorPool appendEntriesByteBufferCollectorPool) {
         this.appendEntriesByteBufferCollectorPool = appendEntriesByteBufferCollectorPool;
+    }
+
+    public SafeTimeValidator getSafeTimeValidator() {
+        return safeTimeValidator;
+    }
+
+    public void setSafeTimeValidator(SafeTimeValidator safeTimeValidator) {
+        this.safeTimeValidator = safeTimeValidator;
     }
 }

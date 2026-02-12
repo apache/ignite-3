@@ -156,6 +156,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -283,6 +284,8 @@ public class ItTxTestCluster {
     protected IgniteTransactions igniteTransactions;
 
     protected String localNodeName;
+
+    private SchemaSyncService schemaSyncService;
 
     private final Map<String, Map<ZonePartitionId, ZonePartitionRaftListener>> zonePartitionRaftGroupListeners = new HashMap<>();
 
@@ -487,6 +490,8 @@ public class ItTxTestCluster {
                     new RaftGroupEventsClientListener()
             );
 
+            schemaSyncService = new AlwaysSyncedSchemaSyncService();
+
             ReplicaManager replicaMgr = new ReplicaManager(
                     nodeName,
                     clusterService,
@@ -499,6 +504,7 @@ public class ItTxTestCluster {
                     this::getSafeTimePropagationTimeout,
                     new NoOpFailureManager(),
                     commandMarshaller,
+                    new PartitionSafeTimeValidator(schemaSyncService),
                     raftClientFactory,
                     raftSrv,
                     partitionRaftConfigurer,
@@ -772,7 +778,8 @@ public class ItTxTestCluster {
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 );
 
-                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var validationSchemasSource = new DummyValidationSchemasSource(schemaManager);
 
                 RaftGroupListener raftGroupListener = getOrCreateAndPopulateRaftGroupListener(
                         assignment,
@@ -785,7 +792,9 @@ public class ItTxTestCluster {
                         safeTime,
                         storageIndexTracker,
                         catalogService,
-                        schemaManager
+                        schemaManager,
+                        validationSchemasSource,
+                        schemaSyncService
                 );
 
                 Function<RaftGroupService, ReplicaListener> replicaListenerProvider =
@@ -804,9 +813,9 @@ public class ItTxTestCluster {
                                 txStateStorage,
                                 transactionStateResolver,
                                 storageUpdateHandler,
-                                new DummyValidationSchemasSource(schemaManager),
+                                validationSchemasSource,
                                 nodeResolver.getByConsistentId(assignment),
-                                new AlwaysSyncedSchemaSyncService(),
+                                schemaSyncService,
                                 catalogService,
                                 placementDriver,
                                 nodeResolver,
@@ -881,7 +890,9 @@ public class ItTxTestCluster {
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
-            SchemaRegistry schemaRegistry
+            SchemaRegistry schemaRegistry,
+            ValidationSchemasSource validationSchemasSource,
+            SchemaSyncService schemaSyncService
     ) {
         ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
 
@@ -907,6 +918,8 @@ public class ItTxTestCluster {
                 storageUpdateHandler,
                 catalogService,
                 schemaRegistry,
+                validationSchemasSource,
+                schemaSyncService,
                 mock(IndexMetaStorage.class),
                 clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
                 mock(MinimumRequiredTimeCollectorService.class),

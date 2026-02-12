@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.io.Serializable;
 import java.util.Objects;
+import org.apache.ignite.internal.partition.replicator.schemacompat.CompatibilityValidationResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,13 +40,31 @@ public class UpdateCommandResult implements Serializable {
     /** The safe timestamp. */
     private final long safeTimestamp;
 
+    /** Result of compatibility validation. Only present if the command was full and validation failed. */
+    @Nullable
+    private final CompatibilityValidationResult compatibilityValidationResult;
+
     /**
      * Constructor.
      *
      * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
      */
     public UpdateCommandResult(boolean primaryReplicaMatch, boolean primaryInPeersAndLearners, long safeTimestamp) {
-        this(primaryReplicaMatch, null, primaryInPeersAndLearners, safeTimestamp);
+        this(primaryReplicaMatch, primaryInPeersAndLearners, safeTimestamp, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
+     */
+    public UpdateCommandResult(
+            boolean primaryReplicaMatch,
+            boolean primaryInPeersAndLearners,
+            long safeTimestamp,
+            @Nullable CompatibilityValidationResult compatibilityValidationResult
+    ) {
+        this(primaryReplicaMatch, null, primaryInPeersAndLearners, safeTimestamp, compatibilityValidationResult);
     }
 
     /**
@@ -63,12 +82,24 @@ public class UpdateCommandResult implements Serializable {
             boolean primaryInPeersAndLearners,
             long safeTimestamp
     ) {
-        assert primaryReplicaMatch || currentLeaseStartTime != null : "Incorrect UpdateCommandResult.";
+        this(primaryReplicaMatch, currentLeaseStartTime, primaryInPeersAndLearners, safeTimestamp, null);
+    }
+
+    private UpdateCommandResult(
+            boolean primaryReplicaMatch,
+            @Nullable Long currentLeaseStartTime,
+            boolean primaryInPeersAndLearners,
+            long safeTimestamp,
+            @Nullable CompatibilityValidationResult compatibilityValidationResult
+    ) {
+        assert compatibilityValidationResult != null || primaryReplicaMatch || currentLeaseStartTime != null
+                : "Incorrect UpdateCommandResult.";
 
         this.primaryReplicaMatch = primaryReplicaMatch;
         this.currentLeaseStartTime = currentLeaseStartTime;
         this.primaryInPeersAndLearners = primaryInPeersAndLearners;
         this.safeTimestamp = safeTimestamp;
+        this.compatibilityValidationResult = compatibilityValidationResult;
     }
 
     /**
@@ -109,6 +140,14 @@ public class UpdateCommandResult implements Serializable {
         return safeTimestamp;
     }
 
+    /**
+     * Returns result of compatibility validation. Only present if the command was full and validation failed.
+     */
+    @Nullable
+    public CompatibilityValidationResult compatibilityValidationResult() {
+        return compatibilityValidationResult;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -119,11 +158,12 @@ public class UpdateCommandResult implements Serializable {
         }
         UpdateCommandResult that = (UpdateCommandResult) o;
         return primaryReplicaMatch == that.primaryReplicaMatch && primaryInPeersAndLearners == that.primaryInPeersAndLearners
-                && Objects.equals(currentLeaseStartTime, that.currentLeaseStartTime);
+                && Objects.equals(currentLeaseStartTime, that.currentLeaseStartTime)
+                && Objects.equals(compatibilityValidationResult, that.compatibilityValidationResult);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(primaryReplicaMatch, currentLeaseStartTime, primaryInPeersAndLearners);
+        return Objects.hash(primaryReplicaMatch, currentLeaseStartTime, primaryInPeersAndLearners, compatibilityValidationResult);
     }
 }

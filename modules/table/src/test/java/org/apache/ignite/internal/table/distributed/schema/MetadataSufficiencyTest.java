@@ -32,7 +32,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class CatalogVersionSufficiencyTest extends BaseIgniteAbstractTest {
+class MetadataSufficiencyTest extends BaseIgniteAbstractTest {
     @Mock
     private CatalogService catalogService;
 
@@ -40,20 +40,20 @@ class CatalogVersionSufficiencyTest extends BaseIgniteAbstractTest {
     void exceedingLocalVersionIsSufficient() {
         when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
-        assertTrue(CatalogVersionSufficiency.isMetadataAvailableFor(8, catalogService));
+        assertTrue(MetadataSufficiency.isMetadataAvailableForCatalogVersion(8, catalogService));
     }
 
     @Test
     void equalLocalVersionIsSufficient() {
         when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
-        assertTrue(CatalogVersionSufficiency.isMetadataAvailableFor(10, catalogService));
+        assertTrue(MetadataSufficiency.isMetadataAvailableForCatalogVersion(10, catalogService));
     }
 
     @Test
-    void lowerLocalVersionIsSufficient() {
+    void lowerLocalVersionIsInsufficient() {
         when(catalogService.catalogReadyFuture(anyInt())).thenReturn(new CompletableFuture<>());
 
-        assertFalse(CatalogVersionSufficiency.isMetadataAvailableFor(12, catalogService));
+        assertFalse(MetadataSufficiency.isMetadataAvailableForCatalogVersion(12, catalogService));
     }
 }

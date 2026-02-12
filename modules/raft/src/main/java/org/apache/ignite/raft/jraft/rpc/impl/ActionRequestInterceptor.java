@@ -18,6 +18,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl;
 
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
@@ -35,7 +36,8 @@ public interface ActionRequestInterceptor {
      * @param rpcCtx RPC context.
      * @param request Request in question.
      * @param commandsMarshaller Marshaller that can be used to deserialize command from the request, if necessary.
+     * @param node JRaft node.
      * @return A message to return to the caller, or {@code null} if standard handling should be used.
      */
-    @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller);
+    @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request, Marshaller commandsMarshaller, Node node);
 }
