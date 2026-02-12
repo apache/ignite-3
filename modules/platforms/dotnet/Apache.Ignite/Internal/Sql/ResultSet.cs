@@ -89,25 +89,7 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
             _metadata = ReadMeta(ref reader);
-
-            if (connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness))
-            {
-                if (!reader.TryReadNil())
-                {
-                    var tableId = reader.ReadInt32();
-
-                    var tableName = connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
-                        ? QualifiedName.Of(reader.ReadStringNullable(), reader.ReadString())
-                        : null;
-
-                    var indexes = ReadIntArray(ref reader);
-                    var hash = ReadIntArray(ref reader);
-
-                    PartitionAwarenessMetadata = tableName == null
-                        ? null
-                        : new SqlPartitionAwarenessMetadata(tableId, tableName, indexes, hash);
-                }
-            }
+            PartitionAwarenessMetadata = ReadPartitionAwarenessMetadata(connectionContext, ref reader);
 
             _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
             _rowReaderArg = rowReaderArg;
@@ -359,17 +341,44 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private static int[] ReadIntArray(ref MsgPackReader reader)
+        private static SqlPartitionAwarenessMetadata? ReadPartitionAwarenessMetadata(ConnectionContext connectionContext, ref MsgPackReader reader)
         {
-            var size = reader.ReadInt32();
-            var res = new int[size];
-
-            for (var i = 0; i < size; i++)
+            if (!connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness))
             {
-                res[i] = reader.ReadInt32();
+                return null;
             }
 
-            return res;
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            var tableId = reader.ReadInt32();
+
+            var tableName = connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
+                ? QualifiedName.Of(reader.ReadStringNullable(), reader.ReadString())
+                : null;
+
+            var indexes = ReadIntArray(ref reader);
+            var hash = ReadIntArray(ref reader);
+
+            // Table name is required for caching. Return null if not available.
+            return tableName == null
+                ? null
+                : new SqlPartitionAwarenessMetadata(tableId, tableName, indexes, hash);
+
+            static int[] ReadIntArray(ref MsgPackReader reader)
+            {
+                var size = reader.ReadInt32();
+                var res = new int[size];
+
+                for (var i = 0; i < size; i++)
+                {
+                    res[i] = reader.ReadInt32();
+                }
+
+                return res;
+            }
         }
 
         private T ReadRow(ref MsgPackReader reader)
