@@ -32,22 +32,8 @@ using Table;
 /// <summary>
 /// SQL partition mapping provider.
 /// </summary>
-internal sealed class SqlPartitionMappingProvider
+internal sealed record SqlPartitionMappingProvider(SqlPartitionAwarenessMetadata Meta, Table Table)
 {
-    private readonly SqlPartitionAwarenessMetadata _meta;
-    private readonly Table _table;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SqlPartitionMappingProvider"/> class.
-    /// </summary>
-    /// <param name="table">Table used for schema and partition assignment loading.</param>
-    /// <param name="meta">Partition awareness metadata from the server.</param>
-    public SqlPartitionMappingProvider(Table table, SqlPartitionAwarenessMetadata meta)
-    {
-        _table = table;
-        _meta = meta;
-    }
-
     /// <summary>
     /// Gets the preferred node for routing based on the given query parameters.
     /// </summary>
@@ -56,50 +42,13 @@ internal sealed class SqlPartitionMappingProvider
     public async ValueTask<PreferredNode> GetPreferredNode(ICollection<object?>? args)
     {
         // Both async calls return cached results if available, no need to cache here.
-        var schema = await _table.GetSchemaAsync(Table.SchemaVersionUnknown).ConfigureAwait(false);
-        var assignments = await _table.GetPartitionAssignmentAsync().ConfigureAwait(false);
+        var schema = await Table.GetSchemaAsync(Table.SchemaVersionUnknown).ConfigureAwait(false);
+        var assignments = await Table.GetPartitionAssignmentAsync().ConfigureAwait(false);
 
-        var indexes = _meta.Indexes;
-        var hash = _meta.Hash;
-        var colocationColumns = schema.ColocationColumns;
-
-        if (colocationColumns.Length != indexes.Length)
-        {
-            return default;
-        }
-
-        IList<object?> args0 = args as IList<object?> ?? args?.ToArray() ?? [];
-
-        int colocationHash = 0;
-
-        // TODO: Reuse BinaryTupleBuilder for hash calculation
-        for (int i = 0; i < colocationColumns.Length; i++)
-        {
-            int idx = indexes.Span[i];
-
-            if (idx >= 0)
-            {
-                if (idx >= args0.Count)
-                {
-                    return default;
-                }
-
-                var column = colocationColumns[i];
-                int valueHash = HashValue(args0[idx], column.Scale, column.Precision);
-                colocationHash = HashUtils.Combine(colocationHash, valueHash);
-            }
-            else
-            {
-                colocationHash = HashUtils.Combine(colocationHash, hash.Span[-(idx + 1)]);
-            }
-        }
-
-        int partition = Math.Abs(colocationHash % assignments.Length);
-        var node = assignments[partition];
-
-        return node == null ? default : PreferredNode.FromName(node);
+        return GetPreferredNodeInternal(args, schema, assignments);
     }
 
+    // TODO: Move to HashUtils.
     private static int HashValue(object? value, int scale, int precision) => value switch
     {
         null => HashUtils.Hash32((sbyte)0),
@@ -168,5 +117,49 @@ internal sealed class SqlPartitionMappingProvider
         var (seconds, nanos) = value.ToSecondsAndNanos(precision);
 
         return HashUtils.Hash32(nanos, HashUtils.Hash32(seconds));
+    }
+
+    private PreferredNode GetPreferredNodeInternal(ICollection<object?>? args, Schema schema, string?[] assignments)
+    {
+        var indexes = Meta.Indexes.Span;
+        var hash = Meta.Hash.Span;
+        var colocationColumns = schema.ColocationColumns;
+
+        if (colocationColumns.Length != indexes.Length)
+        {
+            return default;
+        }
+
+        IList<object?> args0 = args as IList<object?> ?? args?.ToArray() ?? [];
+
+        int colocationHash = 0;
+
+        // NOTE: Can't reuse BinaryTupleBuilder for hash calculation because of constant values that are not present in args.
+        for (int i = 0; i < colocationColumns.Length; i++)
+        {
+            int idx = indexes[i];
+
+            if (idx < 0)
+            {
+                colocationHash = HashUtils.Combine(colocationHash, hash[-(idx + 1)]);
+                continue;
+            }
+
+            if (idx >= args0.Count)
+            {
+                return default;
+            }
+
+            Column column = colocationColumns[i];
+            object? arg = args0[idx];
+            int valueHash = HashValue(arg, column.Scale, column.Precision);
+
+            colocationHash = HashUtils.Combine(colocationHash, valueHash);
+        }
+
+        int partition = Math.Abs(colocationHash % assignments.Length);
+        var node = assignments[partition];
+
+        return node == null ? default : PreferredNode.FromName(node);
     }
 }
