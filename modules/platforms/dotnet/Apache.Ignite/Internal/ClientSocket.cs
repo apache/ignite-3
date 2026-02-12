@@ -52,7 +52,8 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.PlatformComputeJob |
             ProtocolBitmaskFeature.PlatformComputeExecutor |
             ProtocolBitmaskFeature.StreamerReceiverExecutionOptions |
-            ProtocolBitmaskFeature.SqlPartitionAwareness;
+            ProtocolBitmaskFeature.SqlPartitionAwareness |
+            ProtocolBitmaskFeature.SqlPartitionAwarenessTableName;
 
         /** Features as a byte array */
         private static readonly byte[] FeatureBytes = Features.ToBytes();
