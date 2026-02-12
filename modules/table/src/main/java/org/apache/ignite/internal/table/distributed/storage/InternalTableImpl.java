@@ -1651,8 +1651,6 @@ public class InternalTableImpl implements InternalTable {
 
         TxContext.ReadOnly txContext = (TxContext.ReadOnly) opCtx.txContext();
 
-        updateLabel(txContext, null);
-
         boolean rangeScan = criteria instanceof IndexScanCriteria.Range;
         boolean lookup = criteria instanceof IndexScanCriteria.Lookup;
 

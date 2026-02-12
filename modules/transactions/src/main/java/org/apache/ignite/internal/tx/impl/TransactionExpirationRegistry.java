@@ -125,8 +125,13 @@ class TransactionExpirationRegistry {
 
     private void abortTransaction(InternalTransaction tx) {
         tx.rollbackTimeoutExceededAsync().whenComplete((res, ex) -> {
-            LOG.warn("Transaction has aborted due to timeout {}.",
-                    formatTxInfo(tx.id(), volatileTxStateMetaStorage));
+            if (ex != null) {
+                LOG.error("Transaction abortion has failed {}.", ex,
+                        formatTxInfo(tx.id(), volatileTxStateMetaStorage));
+            } else {
+                LOG.warn("Transaction has aborted due to timeout.",
+                        formatTxInfo(tx.id(), volatileTxStateMetaStorage));
+            }
         });
     }
 
