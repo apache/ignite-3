@@ -158,7 +158,6 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             closeAll(
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
-                    () -> closeAll(components.stream().map(component -> component::stopAsync)),
                     () -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
             );
         }
