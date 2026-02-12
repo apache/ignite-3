@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.FOOTER_HEADING;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
@@ -54,7 +55,21 @@ import picocli.CommandLine.Unmatched;
         subcommands = {
                 SqlPlannerReplCommand.class,
         },
-        description = "SQL query engine operations."
+        description = {
+                "Executes SQL queries against the connected Ignite cluster.",
+                "Provide a query as an argument or use --file to execute SQL from a file."
+        },
+        footerHeading = FOOTER_HEADING,
+        footer = {
+                "  Execute a SQL query:",
+                "    sql \"SELECT * FROM t\"",
+                "",
+                "  Execute SQL from a file:",
+                "    sql --file=script.sql",
+                "",
+                "  Execute with plain formatting (useful for piping):",
+                "    sql --plain \"SELECT * FROM t\"",
+                ""}
 )
 public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
     // These options are documented here for --help display but are actually processed by SqlExecReplCommand.

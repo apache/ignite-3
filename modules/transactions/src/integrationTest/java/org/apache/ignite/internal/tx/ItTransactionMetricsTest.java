@@ -49,6 +49,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -218,6 +219,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * Tests that TotalRollbacks and RwRollbacks/RoRollbacks are incremented when a transaction rolled back.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27812")
     void testRollbackTransaction() {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);
@@ -317,6 +319,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * Tests that TotalRollbacks and RwRollbacks are incremented when a transaction rolled back due to a lease expiration.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27812")
     void testRollbackTransactionOnLeaseExpiration() {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);

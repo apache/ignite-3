@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
 import static org.awaitility.Awaitility.await;
@@ -4985,7 +4986,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     assertThat(igniteServiceFactory.logStorageFactory().stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 }
 
-                assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
 
                 nodeOptions.getNodeManager().shutdown();
             }

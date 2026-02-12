@@ -723,8 +723,10 @@ public class NodeImpl implements Node, RaftServerService {
     private void adjustElectionTimeout() {
         electionRound++;
 
-        if (electionRound > 1)
+        if ((electionRound > 1 && electionRound < 10) || (electionRound >= 10 && electionRound < 100 && electionRound % 10 == 0) ||
+            (electionRound >= 100 && electionRound % 100 == 0)) {
             LOG.info("Unsuccessful election round number {}, group '{}'", electionRound, groupId);
+        }
 
         if (!electionAdjusted) {
             initialElectionTimeout = options.getElectionTimeoutMs();
@@ -1089,7 +1091,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(this.conf.isValid(), "Invalid conf: %s", this.conf);
         }
         else {
-            LOG.info("Init node with empty conf [node={}].", this.getNodeId());
+            LOG.info("Init node with empty conf [node={}, lastCommittedIndex={}].", getNodeId(), getLastCommittedIndexOnInit());
         }
 
         this.replicatorGroup = new ReplicatorGroupImpl();
@@ -1131,8 +1133,9 @@ public class NodeImpl implements Node, RaftServerService {
             this.state = State.STATE_FOLLOWER;
 
             if (LOG.isInfoEnabled()) {
-                LOG.info("Node {} init, term={}, lastLogId={}, conf={}, oldConf={}.", getNodeId(), this.currTerm,
-                    this.logManager.getLastLogId(false), this.conf.getConf(), this.conf.getOldConf());
+                LOG.info("Node {} init, term={}, lastLogId={}, conf={}, oldConf={}, lastCommittedIndex={}.", getNodeId(),
+                this.currTerm, this.logManager.getLastLogId(false), this.conf.getConf(), this.conf.getOldConf(),
+                getLastCommittedIndexOnInit());
             }
 
             if (this.snapshotExecutor != null && this.options.getSnapshotIntervalSecs() > 0) {
@@ -1210,19 +1213,10 @@ public class NodeImpl implements Node, RaftServerService {
         // TODO: uncomment when backport related change https://issues.apache.org/jira/browse/IGNITE-22923
         //ballotBoxOpts.setNodeId(getNodeId());
          // Try to initialize the last committed index in BallotBox to be the last snapshot index.
-        long lastCommittedIndex = 0;
-        if (this.snapshotExecutor != null) {
-            lastCommittedIndex = this.snapshotExecutor.getLastSnapshotIndex();
-        }
-        if (this.getQuorum() == 1) {
-            // It is safe to initiate lastCommittedIndex as last log one because in case of single peer no one will discard
-            // log records on leader election.
-            // Fix https://github.com/sofastack/sofa-jraft/issues/1049
-            lastCommittedIndex = Math.max(lastCommittedIndex, this.logManager.getLastLogIndex());
-        }
+        long lastCommittedIndex = getLastCommittedIndexOnInit();
 
         ballotBoxOpts.setLastCommittedIndex(lastCommittedIndex);
-        LOG.info("Node {} init ballot box's lastCommittedIndex={}.", getNodeId(), lastCommittedIndex);
+        LOG.debug("Node {} init ballot box's lastCommittedIndex={}.", getNodeId(), lastCommittedIndex);
         return this.ballotBox.init(ballotBoxOpts);
     }
 
@@ -1652,7 +1646,7 @@ public class NodeImpl implements Node, RaftServerService {
             this.electionTimer.restart();
         }
         else {
-            LOG.info("Node {} is a learner, election timer is not started.", this.getNodeId());
+            LOG.debug("Node {} is a learner, election timer is not started.", this.getNodeId());
         }
     }
 
@@ -3283,7 +3277,7 @@ public class NodeImpl implements Node, RaftServerService {
                     "Raft node receives higher term pre_vote_response."));
                 return;
             }
-            LOG.info("Node {} received PreVoteResponse from {}, term={}, granted={}.", getNodeId(), peerId,
+            LOG.debug("Node {} received PreVoteResponse from {}, term={}, granted={}.", getNodeId(), peerId,
                 response.term(), response.granted());
             // check granted quorum?
             if (response.granted()) {
@@ -3332,7 +3326,7 @@ public class NodeImpl implements Node, RaftServerService {
     private void preVote() {
         long preVoteTerm;
         try {
-            LOG.info("Node {} term {} start preVote.", getNodeId(), this.currTerm);
+            LOG.debug("Node {} term {} start preVote.", getNodeId(), this.currTerm);
             if (this.snapshotExecutor != null && this.snapshotExecutor.isInstallingSnapshot()) {
                 LOG.warn(
                     "Node {} term {} doesn't do preVote when installing snapshot as the configuration may be out of date.",
@@ -4434,6 +4428,27 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.debug("Node {} change configuration from {} to {}.", getNodeId(), this.conf.getConf(), newConfiguration);
             }
         }
+    }
+
+    /**
+     * Returns last committed index on init. It's not guaranteed that returned value is correct if called after init, thus given method is
+     * not expected to be used after init.
+     */
+    private long getLastCommittedIndexOnInit() {
+        long lastCommittedIndex = 0;
+
+        if (this.snapshotExecutor != null) {
+            lastCommittedIndex = this.snapshotExecutor.getLastSnapshotIndex();
+        }
+
+        if (this.getQuorum() == 1) {
+            // It is safe to initiate lastCommittedIndex as last log one because in case of single peer no one will discard
+            // log records on leader election.
+            // Fix https://github.com/sofastack/sofa-jraft/issues/1049
+            lastCommittedIndex = Math.max(lastCommittedIndex, this.logManager.getLastLogIndex());
+        }
+
+        return lastCommittedIndex;
     }
 
     @TestOnly
