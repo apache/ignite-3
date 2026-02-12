@@ -65,6 +65,9 @@ namespace Apache.Ignite.Internal.Sql
         {
             _socket = socket;
             _tables = tables;
+
+            // TODO: Limit.
+            var cacheSize = socket.Configuration.Configuration.SqlPartitionAwarenessMetadataCacheSize;
         }
 
         /// <inheritdoc/>

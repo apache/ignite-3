@@ -107,6 +107,7 @@ namespace Apache.Ignite
             SslStreamFactory = other.SslStreamFactory;
             Authenticator = other.Authenticator;
             ReResolveAddressesInterval = other.ReResolveAddressesInterval;
+            SqlPartitionAwarenessMetadataCacheSize = other.SqlPartitionAwarenessMetadataCacheSize;
         }
 
         /// <summary>
