@@ -472,7 +472,7 @@ namespace Apache.Ignite.Internal.Sql
             w.WriteObjectCollectionWithCountAsBinaryTuple(args);
             w.Write(_socket.ObservableTimestamp);
 
-            // Request partition awareness metadata from the server.
+            // TODO: Only if has a flag.
             w.Write(true);
         }
     }

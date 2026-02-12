@@ -88,8 +88,7 @@ namespace Apache.Ignite.Internal.Sql
             _hasMorePages = reader.ReadBoolean();
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
-
-            _metadata = HasRowSet ? ReadMeta(ref reader) : null;
+            _metadata = ReadMeta(ref reader);
 
             if (connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness))
             {
@@ -98,7 +97,7 @@ namespace Apache.Ignite.Internal.Sql
                     var tableId = reader.ReadInt32();
 
                     var tableName = connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
-                        ? QualifiedName.Of(reader.ReadString(), reader.ReadString())
+                        ? QualifiedName.Of(reader.ReadStringNullable(), reader.ReadString())
                         : null;
 
                     var indexes = reader.ReadInt32Array();
@@ -324,9 +323,13 @@ namespace Apache.Ignite.Internal.Sql
             }
         }
 
-        private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
+        private static ResultSetMetadata? ReadMeta(ref MsgPackReader reader)
         {
             var size = reader.ReadInt32();
+            if (size == 0)
+            {
+                return null;
+            }
 
             var columns = new ColumnMetadata[size];
 

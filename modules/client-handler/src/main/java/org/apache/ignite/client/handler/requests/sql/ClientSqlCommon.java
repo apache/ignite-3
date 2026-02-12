@@ -365,7 +365,8 @@ class ClientSqlCommon {
         packMeta(out, res.metadata());
 
         if (includePartitionAwarenessMeta) {
-            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata(), sqlDirectTxMappingSupported, sqlPartitionAwarenessQualifiedNameSupported);
+            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata(), sqlDirectTxMappingSupported,
+                    sqlPartitionAwarenessQualifiedNameSupported);
         }
 
         if (sqlMultiStatementsSupported) {
