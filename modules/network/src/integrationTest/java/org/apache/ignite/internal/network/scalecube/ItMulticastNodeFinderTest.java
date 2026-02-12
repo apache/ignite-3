@@ -100,10 +100,10 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         int idx0 = 0;
         int idx2 = 2;
 
-        assertThat(services.get(idx0).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), services.get(idx0)), willCompleteSuccessfully());
         finders.get(idx0).close();
 
-        assertThat(services.get(idx2).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), services.get(idx2)), willCompleteSuccessfully());
         finders.get(idx2).close();
 
         NodeFinder nodeFinder0 = startMulticastNodeFinder(addresses.get(idx0), ttl);

@@ -142,7 +142,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         testCluster.shutdown();
         logInspectors.forEach(LogInspector::stop);
         logInspectors.clear();
@@ -304,7 +304,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        stopClusterService(member0);
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
@@ -355,7 +355,7 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        stopClusterService(member0);
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -402,7 +402,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         assertTrue(receivedTestMessages.await(10, SECONDS), "Did not receive invocations on the receiver in time");
 
-        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        stopClusterService(member0);
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -1131,7 +1131,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         CompletableFuture<Void> ackSendFuture = ackFuture(sender, msg);
 
-        assertThat(sender.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        stopClusterService(sender);
 
         assertThat(ackSendFuture, willThrow(NodeStoppingException.class));
     }
@@ -1320,7 +1320,7 @@ class ItScaleCubeNetworkMessagingTest {
         if (forceful) {
             stopForcefully(alice);
         } else {
-            assertThat(alice.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            stopClusterService(alice);
         }
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
@@ -1338,21 +1338,18 @@ class ItScaleCubeNetworkMessagingTest {
      * @throws Exception If failed to stop.
      */
     private static void stopForcefully(ClusterService cluster) throws Exception {
-        Field clusterSvcImplField = cluster.getClass().getDeclaredField("val$clusterSvc");
-        clusterSvcImplField.setAccessible(true);
-
-        ClusterService innerClusterSvc = (ClusterService) clusterSvcImplField.get(cluster);
-
-        Field clusterImplField = innerClusterSvc.getClass().getDeclaredField("cluster");
+        Field clusterImplField = ScaleCubeClusterService.class.getDeclaredField("cluster");
         clusterImplField.setAccessible(true);
 
-        ClusterImpl clusterImpl = (ClusterImpl) clusterImplField.get(innerClusterSvc);
-        Field transportField = clusterImpl.getClass().getDeclaredField("transport");
+        Field transportField = ClusterImpl.class.getDeclaredField("transport");
         transportField.setAccessible(true);
 
-        Transport transport = (Transport) transportField.get(clusterImpl);
-        Method stop = transport.getClass().getDeclaredMethod("stop");
+        Method stop = Transport.class.getDeclaredMethod("stop");
         stop.setAccessible(true);
+
+        ClusterImpl clusterImpl = (ClusterImpl) clusterImplField.get(cluster);
+
+        Transport transport = (Transport) transportField.get(clusterImpl);
 
         Mono<?> invoke = (Mono<?>) stop.invoke(transport);
         invoke.block();
@@ -1502,5 +1499,9 @@ class ItScaleCubeNetworkMessagingTest {
         public @Nullable UUID clusterId() {
             return clusterId;
         }
+    }
+
+    private static void stopClusterService(ClusterService clusterService) {
+        assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
     }
 }

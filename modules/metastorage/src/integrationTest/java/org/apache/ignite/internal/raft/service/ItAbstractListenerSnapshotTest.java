@@ -271,12 +271,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         // Shutdown that node
         toStop.stopRaftNode(nodeId);
-        toStop.beforeNodeStop();
 
         ComponentContext componentContext = new ComponentContext();
-        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(logStorageFactories.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(cluster.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
+
+        assertThat(stopAsync(componentContext, toStop, logStorageFactories.get(stopIdx), cluster.get(stopIdx)), willCompleteSuccessfully());
 
         logStorageFactories.remove(stopIdx);
         // Create a snapshot of the raft group

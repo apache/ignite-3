@@ -18,12 +18,48 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import io.scalecube.cluster.ClusterConfig;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.ChannelTypeRegistry;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.recovery.StaleIds;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
+import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 
 /**
- * Scalecube test factory. Provides fast detection time.
+ * Cluster Service with more test-friendly settings. Provides fast detection time.
  */
-public class TestScaleCubeClusterServiceFactory extends ScaleCubeClusterServiceFactory {
+public class TestScaleCubeClusterService extends ScaleCubeClusterService {
+    /** Constructor. */
+    public TestScaleCubeClusterService(
+            String consistentId,
+            NetworkConfiguration networkConfiguration,
+            NettyBootstrapFactory nettyBootstrapFactory,
+            MessageSerializationRegistry serializationRegistry,
+            StaleIds staleIds,
+            ClusterIdSupplier clusterIdSupplier,
+            CriticalWorkerRegistry criticalWorkerRegistry,
+            FailureProcessor failureProcessor,
+            ChannelTypeRegistry channelTypeRegistry,
+            IgniteProductVersionSource productVersionSource
+    ) {
+        super(
+                consistentId,
+                networkConfiguration,
+                nettyBootstrapFactory,
+                serializationRegistry,
+                staleIds,
+                clusterIdSupplier,
+                criticalWorkerRegistry,
+                failureProcessor,
+                channelTypeRegistry,
+                productVersionSource
+        );
+    }
+
     /** {@inheritDoc} */
     @Override
     protected ClusterConfig clusterConfig(ClusterMembershipView unused) {
