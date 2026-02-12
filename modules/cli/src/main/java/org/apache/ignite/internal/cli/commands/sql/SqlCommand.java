@@ -127,9 +127,6 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
         for (int i = 0; i < verbose.length; i++) {
             result.add(VERBOSE_OPTION_SHORT);
         }
-        if (resultLimit != null) {
-            result.add(RESULT_LIMIT_OPTION + "=" + resultLimit);
-        }
         return result.toArray(new String[0]);
     }
 }
