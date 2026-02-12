@@ -34,6 +34,7 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="Columns">Columns in schema order.</param>
     /// <param name="KeyColumns">Key part columns.</param>
     /// <param name="ValColumns">Val part columns.</param>
+    /// <param name="ColocationColumns">Colocation columns.</param>
     /// <param name="ColumnsByName">Column name map.</param>
     /// <param name="HashedColumnIndexProvider">Hashed column index provider.</param>
     /// <param name="KeyOnlyHashedColumnIndexProvider">Hashed column index provider for key-only mode.</param>
@@ -45,6 +46,7 @@ namespace Apache.Ignite.Internal.Table
         Column[] Columns,
         Column[] KeyColumns,
         Column[] ValColumns,
+        Column[] ColocationColumns,
         IReadOnlyDictionary<string, Column> ColumnsByName,
         IHashedColumnIndexProvider HashedColumnIndexProvider,
         IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
@@ -54,25 +56,6 @@ namespace Apache.Ignite.Internal.Table
 
         private readonly Lazy<IMapperSchema> _mapperSchemaKeyOnly =
             new(() => new MapperSchema(KeyColumns.Cast<IMapperColumn>().ToArray()));
-
-        private readonly Lazy<Column[]> _colocationColumns = new(() =>
-        {
-            var result = new Column[ColocationColumnCount];
-            foreach (var col in Columns)
-            {
-                if (col.IsColocation)
-                {
-                    result[col.ColocationIndex] = col;
-                }
-            }
-
-            return result;
-        });
-
-        /// <summary>
-        /// Gets the colocation columns ordered by colocation index.
-        /// </summary>
-        public Column[] ColocationColumns => _colocationColumns.Value;
 
         /// <summary>
         /// Gets the mapper schema.
@@ -132,6 +115,12 @@ namespace Apache.Ignite.Internal.Table
                 columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;
             }
 
+            var colocationColumns = new Column[colocationColumnCount];
+            foreach (var column in columns)
+            {
+                colocationColumns[column.ColocationIndex] = column;
+            }
+
             return new Schema(
                 version,
                 tableId,
@@ -139,6 +128,7 @@ namespace Apache.Ignite.Internal.Table
                 columns,
                 keyColumns,
                 valColumns,
+                colocationColumns,
                 columnMap,
                 new HashedColumnIndexProvider(columns, colocationColumnCount),
                 new HashedColumnIndexProvider(keyColumns, colocationColumnCount));
