@@ -19,8 +19,6 @@ package org.apache.ignite.internal.tx;
 
 import static java.util.Objects.requireNonNull;
 
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
