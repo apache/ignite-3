@@ -99,7 +99,7 @@ internal sealed class ConcurrentCache<TKey, TValue>
 
                 var current = _hand.Current;
 
-                if (current.Value.Visited && retries-- > 0)
+                if (retries-- > 0 && current.Value.Visited)
                 {
                     current.Value.Visited = false;
                     continue;
