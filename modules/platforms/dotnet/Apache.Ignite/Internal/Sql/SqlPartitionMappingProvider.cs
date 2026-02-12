@@ -30,13 +30,11 @@ using Proto.BinaryTuple;
 using Table;
 
 /// <summary>
-/// Provider that computes preferred node based on partition awareness metadata and query parameter values.
-/// Caches table schema and partition assignment for reuse across query executions.
+/// SQL partition mapping provider.
 /// </summary>
 internal sealed class SqlPartitionMappingProvider
 {
     private readonly SqlPartitionAwarenessMetadata _meta;
-    private readonly Task<Schema> _schemaTask;
     private readonly Table _table;
 
     /// <summary>
@@ -48,10 +46,6 @@ internal sealed class SqlPartitionMappingProvider
     {
         _table = table;
         _meta = meta;
-
-        // Start loading schema and partition assignments asynchronously.
-        // These will be available for subsequent query executions.
-        _schemaTask = table.GetSchemaAsync(null);
     }
 
     /// <summary>
@@ -59,26 +53,11 @@ internal sealed class SqlPartitionMappingProvider
     /// </summary>
     /// <param name="args">Query parameter values.</param>
     /// <returns>Preferred node, or default if mapping cannot be computed yet.</returns>
-    public PreferredNode GetPreferredNode(ICollection<object?>? args)
+    public async ValueTask<PreferredNode> GetPreferredNode(ICollection<object?>? args)
     {
-        if (!_schemaTask.IsCompletedSuccessfully)
-        {
-            return default;
-        }
-
-        var schema = _schemaTask.Result;
-
-        var assignmentTask = _table.GetPartitionAssignmentAsync();
-        if (!assignmentTask.IsCompleted)
-        {
-            return default;
-        }
-
-        var assignments = assignmentTask.Result;
-        if (assignments == null)
-        {
-            return default;
-        }
+        // Both async calls return cached results if available, no need to cache here.
+        var schema = await _table.GetSchemaAsync(Table.SchemaVersionUnknown).ConfigureAwait(false);
+        var assignments = await _table.GetPartitionAssignmentAsync().ConfigureAwait(false);
 
         var indexes = _meta.Indexes;
         var hash = _meta.Hash;
