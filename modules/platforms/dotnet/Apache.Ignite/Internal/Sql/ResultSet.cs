@@ -104,7 +104,7 @@ namespace Apache.Ignite.Internal.Sql
                     var indexes = reader.ReadInt32Array();
                     var hash = reader.ReadInt32Array();
 
-                    PaMetadata = tableName == null
+                    PartitionAwarenessMetadata = tableName == null
                         ? null
                         : new SqlPartitionAwarenessMetadata(tableId, tableName, indexes, hash);
                 }
@@ -160,7 +160,7 @@ namespace Apache.Ignite.Internal.Sql
         /// <summary>
         /// Gets the partition awareness metadata, if available.
         /// </summary>
-        internal SqlPartitionAwarenessMetadata? PaMetadata { get; }
+        internal SqlPartitionAwarenessMetadata? PartitionAwarenessMetadata { get; }
 
         /// <inheritdoc/>
         public async ValueTask<List<T>> ToListAsync() =>

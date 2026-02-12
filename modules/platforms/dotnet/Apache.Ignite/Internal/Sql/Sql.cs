@@ -310,7 +310,7 @@ namespace Apache.Ignite.Internal.Sql
                 var resultSet = new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken, readPaMetadata: socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName));
 
                 // Cache PA metadata for subsequent queries.
-                var paMeta = resultSet.PaMetadata;
+                var paMeta = resultSet.PartitionAwarenessMetadata;
                 if (paMeta != null)
                 {
                     // TODO: We don't have the table name here, which makes it difficult
