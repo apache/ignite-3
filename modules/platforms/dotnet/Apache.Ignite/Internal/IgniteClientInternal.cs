@@ -43,8 +43,8 @@ namespace Apache.Ignite.Internal
         {
             Socket = socket;
 
-            var sql = new Sql.Sql(socket);
-            var tables = new Tables(socket, sql);
+            var tables = new Tables(socket, sql: null!);
+            var sql = new Sql.Sql(socket, tables);
 
             Tables = tables;
             Transactions = new Transactions.Transactions(socket);

@@ -66,11 +66,11 @@ internal sealed class ConcurrentCache<TKey, TValue>
     /// </summary>
     /// <param name="key">Key.</param>
     /// <returns>Value, or default(TValue) if not exists.</returns>
-    public TValue GetValueOrDefault(TKey key)
+    public TValue? GetValueOrDefault(TKey key)
     {
         if (!_map.TryGetValue(key, out var entry))
         {
-            return default!;
+            return default;
         }
 
         entry.Visited = true;
