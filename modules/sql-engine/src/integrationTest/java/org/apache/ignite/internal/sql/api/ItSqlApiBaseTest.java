@@ -140,6 +140,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
 
         // CREATE INDEX
         checkDdl(true, sql, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
@@ -200,6 +201,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
