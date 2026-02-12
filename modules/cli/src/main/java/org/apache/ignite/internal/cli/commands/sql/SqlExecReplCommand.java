@@ -306,6 +306,19 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
         @Override
         public int runPipeline() {
+            try {
+                if (verbose.length > 0) {
+                    CliLoggers.startOutputRedirect(spec.commandLine().getErr(), verbose);
+                }
+                return runPipelineInternal();
+            } finally {
+                if (verbose.length > 0) {
+                    CliLoggers.stopOutputRedirect();
+                }
+            }
+        }
+
+        private int runPipelineInternal() {
             PrintWriter err = CommandLineContextProvider.getContext().err();
 
             PrintWriter autoFlushOut = CommandLineContextProvider.getContext().out();
@@ -382,6 +395,8 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                     autoFlushOut.print(tableOutput.toTerminalString());
                     autoFlushOut.flush();
                 }
+
+                CliLoggers.verboseLog(1, "<-- " + totalRows + " row(s) (" + pagedResult.getDurationMs() + "ms)");
 
                 if (timed) {
                     autoFlushOut.println("Query executed in " + pagedResult.getDurationMs() + " ms, " + totalRows + " rows returned");
