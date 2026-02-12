@@ -100,8 +100,8 @@ namespace Apache.Ignite.Internal.Sql
                         ? QualifiedName.Of(reader.ReadStringNullable(), reader.ReadString())
                         : null;
 
-                    var indexes = reader.ReadInt32Array();
-                    var hash = reader.ReadInt32Array();
+                    var indexes = ReadIntArray(ref reader);
+                    var hash = ReadIntArray(ref reader);
 
                     PartitionAwarenessMetadata = tableName == null
                         ? null
@@ -357,6 +357,19 @@ namespace Apache.Ignite.Internal.Sql
             }
 
             return new ResultSetMetadata(columns);
+        }
+
+        private static int[] ReadIntArray(ref MsgPackReader reader)
+        {
+            var size = reader.ReadInt32();
+            var res = new int[size];
+
+            for (var i = 0; i < size; i++)
+            {
+                res[i] = reader.ReadInt32();
+            }
+
+            return res;
         }
 
         private T ReadRow(ref MsgPackReader reader)
