@@ -18,9 +18,13 @@
 namespace Apache.Ignite.Internal.Sql;
 
 using System;
+using Ignite.Table;
 
 /// <summary>
 /// Partition awareness metadata returned by the server for SQL queries.
+/// <param name="TableId">Table id.</param>
+/// <param name="TableName">Table name.</param>
+/// <param name="Indexes">Colocation key element sources.
 /// <para/>
 /// The <see cref="Indexes"/> array describes how each element of a colocation key should be interpreted during evaluation:
 /// <list type="bullet">
@@ -29,5 +33,11 @@ using System;
 /// <item>If <c>indexes[i] &lt; 0</c>, then the value at position <c>i</c> is a constant literal whose precomputed
 /// hash is stored in the <see cref="Hash"/> array at index <c>-(indexes[i] + 1)</c>.</item>
 /// </list>
+/// </param>
+/// <param name="Hash">Precomputed hash values for constant colocation key elements.</param>
 /// </summary>
-internal sealed record SqlPartitionAwarenessMetadata(int TableId, ReadOnlyMemory<int> Indexes, ReadOnlyMemory<int> Hash);
+internal sealed record SqlPartitionAwarenessMetadata(
+    int TableId,
+    QualifiedName TableName,
+    ReadOnlyMemory<int> Indexes,
+    ReadOnlyMemory<int> Hash);

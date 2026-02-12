@@ -307,7 +307,7 @@ namespace Apache.Ignite.Internal.Sql
                     .ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
-                var resultSet = new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken, readPaMetadata: true);
+                var resultSet = new ResultSet<T>(socket, buf, rowReaderFactory, rowReaderArg, cancellationToken, readPaMetadata: socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName));
 
                 // Cache PA metadata for subsequent queries.
                 var paMeta = resultSet.PaMetadata;

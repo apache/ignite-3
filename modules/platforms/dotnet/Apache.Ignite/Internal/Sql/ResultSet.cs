@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal.Sql
     using Buffers;
     using Common;
     using Ignite.Sql;
+    using Ignite.Table;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -66,14 +67,14 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="rowReaderFactory">Row reader factory.</param>
         /// <param name="rowReaderArg">Row reader argument.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <param name="readPaMetadata">Whether to read partition awareness metadata from the response.</param>
+        /// <param name="connectionContext">Connection context.</param>
         public ResultSet(
             ClientSocket socket,
             PooledBuffer buf,
             RowReaderFactory<T> rowReaderFactory,
             object? rowReaderArg,
-            CancellationToken cancellationToken,
-            bool readPaMetadata = false)
+            ConnectionContext connectionContext,
+            CancellationToken cancellationToken)
         {
             _socket = socket;
             _cancellationToken = cancellationToken;
@@ -90,15 +91,22 @@ namespace Apache.Ignite.Internal.Sql
 
             _metadata = HasRowSet ? ReadMeta(ref reader) : null;
 
-            if (readPaMetadata)
+            if (connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness))
             {
                 if (!reader.TryReadNil())
                 {
                     var tableId = reader.ReadInt32();
+
+                    var tableName = connectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
+                        ? QualifiedName.Of(reader.ReadString(), reader.ReadString())
+                        : null;
+
                     var indexes = reader.ReadInt32Array();
                     var hash = reader.ReadInt32Array();
 
-                    PaMetadata = new SqlPartitionAwarenessMetadata(tableId, indexes, hash);
+                    PaMetadata = tableName == null
+                        ? null
+                        : new SqlPartitionAwarenessMetadata(tableId, tableName, indexes, hash);
                 }
             }
 
