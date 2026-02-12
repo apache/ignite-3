@@ -43,7 +43,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
@@ -55,7 +54,6 @@ import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
@@ -70,25 +68,24 @@ import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
 import org.apache.ignite.internal.cli.core.repl.terminal.PagerSupport;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.cli.sql.PagedSqlResult;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
+import org.apache.ignite.internal.cli.sql.table.StreamingTableRenderer;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.cli.util.TableTruncator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.jline.reader.EOFError;
-import org.jline.reader.EndOfFileException;
 import org.jline.reader.Highlighter;
 import org.jline.reader.LineReader;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.Parser;
 import org.jline.reader.SyntaxError;
-import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.DefaultHighlighter;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.completer.AggregateCompleter;
@@ -262,7 +259,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
         PagerSupport pagerSupport = new PagerSupport(terminal, configManagerProvider);
 
-        // Return a pipeline that executes paged SQL with interactive "load more" functionality
+        // Return a pipeline that fetches SQL results in pages and streams them to the terminal
         return new PagedSqlExecutionPipeline(sqlManager, line, pageSize, truncationConfig, pagerSupport);
     }
 
@@ -286,7 +283,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
     }
 
     /**
-     * A custom pipeline for paged SQL execution with interactive "load more" prompts.
+     * A custom pipeline for paged SQL execution that streams results continuously to the terminal.
      */
     private class PagedSqlExecutionPipeline implements CallExecutionPipeline<StringCallInput, Object> {
         private final SqlManager sqlManager;
@@ -320,86 +317,37 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
         private int runPipelineInternal() {
             PrintWriter err = CommandLineContextProvider.getContext().err();
-
-            PrintWriter autoFlushOut = CommandLineContextProvider.getContext().out();
+            PrintWriter out = CommandLineContextProvider.getContext().out();
 
             try (PagedSqlResult pagedResult = sqlManager.executePaged(SqlQueryCall.trimQuotes(sql), pageSize)) {
                 if (!pagedResult.hasResultSet()) {
-                    // Non-SELECT query (INSERT, UPDATE, DELETE, etc.)
                     int updateCount = pagedResult.getUpdateCount();
-                    autoFlushOut.println(updateCount >= 0 ? "Updated " + updateCount + " rows." : "OK!");
+                    out.println(updateCount >= 0 ? "Updated " + updateCount + " rows." : "OK!");
                     if (timed) {
-                        autoFlushOut.println("Query executed in " + pagedResult.getDurationMs() + " ms");
+                        out.println("Query executed in " + pagedResult.getDurationMs() + " ms");
                     }
                     return 0;
                 }
 
-                // SELECT query - fetch and display pages
-                int totalRows = 0;
-                List<String> allContent = new ArrayList<>();
-                String[] columnNames = null;
-
-                while (true) {
-                    Table<String> page = pagedResult.fetchNextPage();
-                    if (page == null) {
-                        break;
+                Table<String> firstPage = pagedResult.fetchNextPage();
+                if (firstPage == null) {
+                    if (timed) {
+                        out.println("Query executed in " + pagedResult.getDurationMs() + " ms, 0 rows returned");
                     }
-
-                    totalRows += page.getRowCount();
-
-                    if (columnNames == null) {
-                        columnNames = page.header();
-                    }
-
-                    // Accumulate row content - flatten the 2D array to list
-                    Object[][] pageContent = page.content();
-                    for (Object[] row : pageContent) {
-                        for (Object cell : row) {
-                            allContent.add(cell != null ? cell.toString() : null);
-                        }
-                    }
-
-                    if (page.hasMoreRows()) {
-                        if (!pagerSupport.isPagerEnabled()) {
-                            // Render and display what we have so far as a single table
-                            Table<String> displayTable = new Table<>(Arrays.asList(columnNames),
-                                    new ArrayList<>(allContent), false);
-                            TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(displayTable);
-                            autoFlushOut.print(tableOutput.toTerminalString());
-                            autoFlushOut.flush();
-                            allContent.clear();
-
-                            // More rows available - prompt user
-                            autoFlushOut.println("-- " + totalRows + " rows shown. Press Enter to load more, or 'q' to stop --");
-
-                            try {
-                                String input = readUserInput();
-                                if (input == null || input.equalsIgnoreCase("q")) {
-                                    autoFlushOut.println("-- Stopped at " + totalRows + " rows --");
-                                    break;
-                                }
-                            } catch (UserInterruptException | EndOfFileException e) {
-                                autoFlushOut.println("-- Stopped at " + totalRows + " rows --");
-                                break;
-                            }
-                        }
-                        // If pager is enabled, continue accumulating rows
-                    }
+                    return 0;
                 }
 
-                // Display final output as a single continuous table
-                if (!allContent.isEmpty() && columnNames != null) {
-                    Table<String> finalTable = new Table<>(Arrays.asList(columnNames), allContent, false);
-                    TerminalOutput tableOutput = new TableDecorator(plain, truncationConfig).decorate(finalTable);
-
-                    autoFlushOut.print(tableOutput.toTerminalString());
-                    autoFlushOut.flush();
+                int totalRows;
+                if (plain) {
+                    totalRows = streamPlain(out, pagedResult, firstPage);
+                } else {
+                    totalRows = streamBoxDrawing(out, pagedResult, firstPage);
                 }
 
                 CliLoggers.verboseLog(1, "<-- " + totalRows + " row(s) (" + pagedResult.getDurationMs() + "ms)");
 
                 if (timed) {
-                    autoFlushOut.println("Query executed in " + pagedResult.getDurationMs() + " ms, " + totalRows + " rows returned");
+                    out.println("Query executed in " + pagedResult.getDurationMs() + " ms, " + totalRows + " rows returned");
                 }
 
                 return 0;
@@ -409,21 +357,144 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
             }
         }
 
-        private String readUserInput() {
-            try {
-                StringBuilder sb = new StringBuilder();
-                while (true) {
-                    int c = terminal.reader().read();
-                    if (c == -1) {
-                        return "q";
-                    }
-                    if (c == '\n' || c == '\r') {
-                        return sb.toString().trim().equalsIgnoreCase("q") ? "q" : "";
-                    }
-                    sb.append((char) c);
+        private int streamPlain(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
+                throws SQLException {
+            boolean usePager = pagerSupport.isPagerEnabled();
+            StringBuilder pagerBuf = usePager ? new StringBuilder() : null;
+
+            // Header
+            appendOrPrint(out, pagerBuf, String.join("\t", firstPage.header()) + System.lineSeparator());
+
+            // First page rows
+            int totalRows = printPlainRows(out, pagerBuf, firstPage.content());
+            if (!usePager) {
+                out.flush();
+            }
+
+            // Remaining pages
+            Table<String> page;
+            while ((page = pagedResult.fetchNextPage()) != null) {
+                totalRows += printPlainRows(out, pagerBuf, page.content());
+                if (!usePager) {
+                    out.flush();
                 }
-            } catch (IOException e) {
-                return "q";
+            }
+
+            if (usePager) {
+                pagerSupport.write(pagerBuf.toString());
+            } else {
+                out.flush();
+            }
+
+            return totalRows;
+        }
+
+        private int printPlainRows(PrintWriter out, StringBuilder pagerBuf, Object[][] content) {
+            String lineSep = System.lineSeparator();
+            for (Object[] row : content) {
+                StringBuilder line = new StringBuilder();
+                for (int i = 0; i < row.length; i++) {
+                    if (i > 0) {
+                        line.append('\t');
+                    }
+                    line.append(String.valueOf(row[i]));
+                }
+                line.append(lineSep);
+                appendOrPrint(out, pagerBuf, line.toString());
+            }
+            return content.length;
+        }
+
+        private int streamBoxDrawing(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
+                throws SQLException {
+            String[] columnNames = firstPage.header();
+
+            // Collect all pages to calculate column widths across all data.
+            List<Object[][]> allPages = new ArrayList<>();
+            allPages.add(firstPage.content());
+
+            Table<String> page;
+            while ((page = pagedResult.fetchNextPage()) != null) {
+                allPages.add(page.content());
+            }
+
+            // Combine all page content for width calculation.
+            int totalRows = 0;
+            for (Object[][] p : allPages) {
+                totalRows += p.length;
+            }
+            Object[][] allContent = new Object[totalRows][];
+            int idx = 0;
+            for (Object[][] p : allPages) {
+                System.arraycopy(p, 0, allContent, idx, p.length);
+                idx += p.length;
+            }
+
+            // Calculate column widths across all data.
+            // When truncation is disabled, use uncapped widths so columns are as wide as the data needs.
+            TruncationConfig widthCalcConfig = truncationConfig.isTruncateEnabled()
+                    ? truncationConfig
+                    : new TruncationConfig(true, Integer.MAX_VALUE, 0);
+            TableTruncator truncator = new TableTruncator(widthCalcConfig);
+            int[] lockedWidths = truncator.calculateColumnWidths(columnNames, allContent);
+
+            // Truncate header to locked widths
+            String[] truncatedHeader = truncateRowCells(columnNames, lockedWidths);
+
+            StreamingTableRenderer renderer = new StreamingTableRenderer(truncatedHeader, lockedWidths);
+
+            boolean usePager = pagerSupport.isPagerEnabled();
+            StringBuilder pagerBuf = usePager ? new StringBuilder() : null;
+
+            // Header
+            appendOrPrint(out, pagerBuf, renderer.renderHeader());
+
+            // Render all pages
+            int rowOffset = 0;
+            for (Object[][] pageContent : allPages) {
+                rowOffset = renderPageRows(out, pagerBuf, renderer, pageContent, lockedWidths, rowOffset);
+                if (!usePager) {
+                    out.flush();
+                }
+            }
+
+            // Footer
+            appendOrPrint(out, pagerBuf, renderer.renderFooter());
+
+            if (usePager) {
+                pagerSupport.write(pagerBuf.toString());
+            } else {
+                out.flush();
+            }
+
+            return rowOffset;
+        }
+
+        private int renderPageRows(PrintWriter out, StringBuilder pagerBuf, StreamingTableRenderer renderer,
+                Object[][] content, int[] lockedWidths, int rowOffset) {
+            for (int r = 0; r < content.length; r++) {
+                Object[] truncatedRow = new Object[content[r].length];
+                for (int c = 0; c < content[r].length; c++) {
+                    truncatedRow[c] = TableTruncator.truncateCell(content[r][c], lockedWidths[c]);
+                }
+                appendOrPrint(out, pagerBuf, renderer.renderRow(truncatedRow, rowOffset + r == 0));
+            }
+            return rowOffset + content.length;
+        }
+
+        private String[] truncateRowCells(String[] row, int[] columnWidths) {
+            String[] result = new String[row.length];
+            for (int i = 0; i < row.length; i++) {
+                result[i] = TableTruncator.truncateCell(row[i], columnWidths[i]);
+            }
+            return result;
+        }
+
+        private void appendOrPrint(PrintWriter out, StringBuilder pagerBuf, String text) {
+            if (pagerBuf != null) {
+                pagerBuf.append(text);
+            } else {
+                out.print(text);
             }
         }
     }
