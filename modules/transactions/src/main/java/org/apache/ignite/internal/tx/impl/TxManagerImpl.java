@@ -622,12 +622,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public void finishFull(
+    public CompletableFuture<Void> finishFull(
             HybridTimestampTracker timestampTracker,
             UUID txId,
             @Nullable HybridTimestamp ts,
-            boolean commit,
-            @Nullable Throwable finishReason
+            boolean commit
     ) {
         TxState finalState;
 
@@ -641,19 +640,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             finalState = ABORTED;
         }
 
-        boolean isTimeout = isTimeout(finishReason);
-        TxStateMetaExceptionInfo finishExceptionInfo = finishReason == null ? null : fromThrowable(finishReason);
-
-        updateTxMeta(txId, old -> builder(old, finalState)
-                .commitTimestamp(ts)
-                .finishedDueToTimeout(isTimeout)
-                .exceptionInfo(finishExceptionInfo)
-                .build()
-        );
-
         txMetrics.onReadWriteTransactionFinished(txId, finalState == COMMITTED);
 
         decrementRwTxCount(txId);
+
+        return nullCompletedFuture();
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {

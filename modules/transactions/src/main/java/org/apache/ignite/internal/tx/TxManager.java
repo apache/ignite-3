@@ -179,14 +179,12 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
      * @param commit {@code true} if a commit requested.
-     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      */
-    void finishFull(
+    CompletableFuture<Void> finishFull(
             HybridTimestampTracker timestampTracker,
             UUID txId,
             @Nullable HybridTimestamp ts,
-            boolean commit,
-            @Nullable Throwable finishReason
+            boolean commit
     );
 
     /**

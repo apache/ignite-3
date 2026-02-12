@@ -308,14 +308,13 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void finishFull(
+    public CompletableFuture<Void> finishFull(
             HybridTimestampTracker timestampTracker,
             UUID txId,
             HybridTimestamp ts,
-            boolean commit,
-            @Nullable Throwable finishReason
+            boolean commit
     ) {
-        // No-op.
+        return nullCompletedFuture();
     }
 
     @Override

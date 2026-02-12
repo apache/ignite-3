@@ -244,14 +244,17 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 }
 
                 if (full) {
-                    txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit, finishReason);
+                    CompletableFuture<Void> finishFutureInternal =
+                            txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit);
 
                     if (isComplete) {
-                        finishFuture = nullCompletedFuture();
+                        finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
                         this.timeoutExceeded = finishReason instanceof TimeoutException;
                     } else {
                         killed = true;
                     }
+
+                    return finishFutureInternal;
                 } else {
                     CompletableFuture<Void> finishFutureInternal = txManager.finish(
                             observableTsTracker,
