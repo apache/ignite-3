@@ -67,7 +67,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
             @Nullable String txLabel,
-            @Nullable TxStateMetaExceptionInfo exceptionInfo
+            @Nullable Throwable exceptionInfo
     ) {
         super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
                 null, null, isFinishingDueToTimeout, txLabel, exceptionInfo);

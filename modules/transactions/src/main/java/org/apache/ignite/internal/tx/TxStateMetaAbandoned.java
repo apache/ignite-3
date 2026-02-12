@@ -69,7 +69,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable InternalTransaction tx,
             @Nullable String txLabel,
-            @Nullable TxStateMetaExceptionInfo exceptionInfo
+            @Nullable Throwable exceptionInfo
     ) {
         super(ABANDONED, txCoordinatorId, commitPartitionId, null, tx, null, null, null, txLabel, exceptionInfo);
 

@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
-import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
@@ -35,6 +34,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
 import org.jetbrains.annotations.Nullable;
 
@@ -62,7 +62,7 @@ public class TxStateMeta implements TransactionMeta {
     private final @Nullable String txLabel;
 
     /** Information about exceptional transaction abortion (primary entry with suppressed exceptions, may be {@code null}). */
-    private final transient @Nullable TxStateMetaExceptionInfo exceptionInfo;
+    private final transient @Nullable Throwable exceptionInfo;
 
     /**
      * The ignite transaction object is associated with this state. This field can be initialized only on the transaction coordinator,
@@ -155,7 +155,7 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable Long cleanupCompletionTimestamp,
             @Nullable Boolean isFinishedDueToTimeout,
             @Nullable String txLabel,
-            @Nullable TxStateMetaExceptionInfo exceptionInfo
+            @Nullable Throwable exceptionInfo
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
@@ -237,7 +237,7 @@ public class TxStateMeta implements TransactionMeta {
         return txLabel;
     }
 
-    public @Nullable TxStateMetaExceptionInfo exceptionInfo() {
+    public @Nullable Throwable exceptionInfo() {
         return exceptionInfo;
     }
 
@@ -248,25 +248,24 @@ public class TxStateMeta implements TransactionMeta {
      * @param throwable to record
      */
     public static TxStateMeta recordExceptionInfo(@Nullable TxStateMeta old, Throwable throwable) {
-        TxStateMetaExceptionInfo exceptionInfo = fromThrowable(throwable);
+        Throwable normalized = normalizeThrowable(throwable);
         return old == null
-                ? builder(old, ABORTED).exceptionInfo(exceptionInfo).build()
-                : old.mutate().exceptionInfo(exceptionInfo).build();
+                ? builder(old, ABORTED).exceptionInfo(normalized).build()
+                : old.mutate().exceptionInfo(normalized).build();
     }
 
     /**
-     * Aggregates exception infos into a single throwable, using the last exception as the primary one and attaching previous exceptions as
-     * suppressed.
+     * Returns the stored exception or {@code null} if nothing usable is present.
      *
      * @param exceptionInfo Exception info.
      * @return Throwable or {@code null} if nothing usable is present.
      */
-    public static @Nullable Throwable aggregateExceptionInfo(@Nullable TxStateMetaExceptionInfo exceptionInfo) {
-        if (exceptionInfo == null) {
-            return null;
-        }
+    public static @Nullable Throwable aggregateExceptionInfo(@Nullable Throwable exceptionInfo) {
+        return exceptionInfo;
+    }
 
-        return exceptionInfo.throwable();
+    private static @Nullable Throwable normalizeThrowable(@Nullable Throwable throwable) {
+        return throwable == null ? null : ExceptionUtils.unwrapRootCause(throwable);
     }
 
     @Override
@@ -336,7 +335,7 @@ public class TxStateMeta implements TransactionMeta {
         protected @Nullable Boolean isFinishedDueToTimeout;
         protected @Nullable String txLabel;
         protected @Nullable InternalTransaction tx;
-        protected @Nullable TxStateMetaExceptionInfo exceptionInfo;
+        protected @Nullable Throwable exceptionInfo;
 
         TxStateMetaBuilder(TxState txState) {
             this.txState = txState;
@@ -436,19 +435,18 @@ public class TxStateMeta implements TransactionMeta {
          * @param exceptionInfo Exception info to record.
          * @return Builder.
          */
-        public TxStateMetaBuilder exceptionInfo(@Nullable TxStateMetaExceptionInfo exceptionInfo) {
+        public TxStateMetaBuilder exceptionInfo(@Nullable Throwable exceptionInfo) {
             if (exceptionInfo != null) {
+                Throwable normalized = normalizeThrowable(exceptionInfo);
+                if (normalized == null) {
+                    return this;
+                }
+
                 if (this.exceptionInfo == null) {
-                    this.exceptionInfo = exceptionInfo;
+                    this.exceptionInfo = normalized;
                 } else {
-                    Throwable previousThrowable = this.exceptionInfo.throwable();
-                    Throwable newThrowable = exceptionInfo.throwable();
-
-                    if (newThrowable != null && previousThrowable != null) {
-                        newThrowable.addSuppressed(previousThrowable);
-                    }
-
-                    this.exceptionInfo = exceptionInfo;
+                    normalized.addSuppressed(this.exceptionInfo);
+                    this.exceptionInfo = normalized;
                 }
             }
             return this;

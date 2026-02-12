@@ -77,6 +77,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -653,9 +654,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        Throwable exceptionInfo = lastExceptionInfo(meta);
         assertNotNull(exceptionInfo);
-        assertEquals(RuntimeException.class.getName(), exceptionInfo.exceptionClassName());
+        assertEquals(RuntimeException.class, exceptionInfo.getClass());
     }
 
     @Test
@@ -673,9 +674,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
-        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        Throwable exceptionInfo = lastExceptionInfo(meta);
         assertNotNull(exceptionInfo);
-        assertEquals(RuntimeException.class.getName(), exceptionInfo.exceptionClassName());
+        assertEquals(RuntimeException.class, exceptionInfo.getClass());
     }
 
     @Test
@@ -688,9 +689,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
         assertEquals(TxState.PENDING, meta.txState());
-        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        Throwable exceptionInfo = lastExceptionInfo(meta);
         assertNotNull(exceptionInfo);
-        assertEquals(RuntimeException.class.getName(), exceptionInfo.exceptionClassName());
+        assertEquals(RuntimeException.class, exceptionInfo.getClass());
     }
 
     @Test
@@ -745,9 +746,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        Throwable exceptionInfo = lastExceptionInfo(meta);
         assertNotNull(exceptionInfo);
-        assertEquals(MismatchingTransactionOutcomeInternalException.class.getName(), exceptionInfo.exceptionClassName());
+        assertEquals(MismatchingTransactionOutcomeInternalException.class, exceptionInfo.getClass());
         assertRollbackSucceeds();
     }
 
@@ -945,12 +946,13 @@ public class TxManagerTest extends IgniteAbstractTest {
         TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        TxStateMetaExceptionInfo exceptionInfo = lastExceptionInfo(meta);
+        Throwable exceptionInfo = lastExceptionInfo(meta);
         assertNotNull(exceptionInfo);
-        assertEquals(PrimaryReplicaExpiredException.class.getName(), exceptionInfo.exceptionClassName());
-        assertEquals(TX_PRIMARY_REPLICA_EXPIRED_ERR, exceptionInfo.code());
-        assertNotNull(exceptionInfo.traceId());
-        assertTrue(exceptionInfo.message().contains("Primary replica has expired"));
+        assertEquals(PrimaryReplicaExpiredException.class, exceptionInfo.getClass());
+        TraceableException traceable = (TraceableException) exceptionInfo;
+        assertEquals(TX_PRIMARY_REPLICA_EXPIRED_ERR, traceable.code());
+        assertNotNull(traceable.traceId());
+        assertTrue(exceptionInfo.getMessage().contains("Primary replica has expired"));
     }
 
     private void assertRollbackSucceeds() {
@@ -975,7 +977,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         return TransactionIds.beginTimestamp(tx.id());
     }
 
-    private static TxStateMetaExceptionInfo lastExceptionInfo(TxStateMeta meta) {
+    private static Throwable lastExceptionInfo(TxStateMeta meta) {
         assertNotNull(meta);
         assertNotNull(meta.exceptionInfo());
 

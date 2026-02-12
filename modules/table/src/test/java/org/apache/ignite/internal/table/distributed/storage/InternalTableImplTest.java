@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -858,8 +857,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
             TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
                     .finishedDueToTimeout(true)
-                    .exceptionInfo(fromThrowable(firstFailure))
-                    .exceptionInfo(fromThrowable(secondFailure))
+                    .exceptionInfo(firstFailure)
+                    .exceptionInfo(secondFailure)
                     .build();
 
             when(txManager.stateMeta(txId)).thenReturn(meta);

@@ -39,7 +39,6 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
-import static org.apache.ignite.internal.tx.TxStateMetaExceptionInfo.fromThrowable;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -112,7 +111,6 @@ import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.TxStateMetaExceptionInfo;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
@@ -668,7 +666,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         assert enlistedGroups != null;
 
         boolean isTimeout = isTimeout(finishReason);
-        TxStateMetaExceptionInfo finishExceptionInfo = finishReason == null ? null : fromThrowable(finishReason);
+        Throwable finishExceptionInfo = finishReason;
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
