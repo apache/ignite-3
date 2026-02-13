@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.fileio.FileIoMetrics;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 
 /**
  * Byte-level I/O metrics for page memory operations.
@@ -68,7 +69,7 @@ public class PageMemoryIoMetrics implements FileIoMetrics {
     );
 
     /** Constructor. */
-    public PageMemoryIoMetrics(PageMemoryIoMetricSource source) {
+    public PageMemoryIoMetrics(CollectionMetricSource source) {
         source.addMetric(totalBytesRead);
         source.addMetric(totalBytesWritten);
         source.addMetric(readsTime);

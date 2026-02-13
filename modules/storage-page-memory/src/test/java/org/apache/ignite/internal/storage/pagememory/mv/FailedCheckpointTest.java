@@ -58,11 +58,11 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
@@ -298,7 +298,7 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
                     ioRegistry,
                     mock(LogSyncer.class),
                     commonExecutorService,
-                    new CheckpointMetricSource("test"),
+                    new CollectionMetricSource("test", "storage", null),
                     pageSize
             );
 

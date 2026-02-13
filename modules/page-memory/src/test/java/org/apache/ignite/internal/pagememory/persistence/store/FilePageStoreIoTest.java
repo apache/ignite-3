@@ -44,7 +44,7 @@ import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -128,7 +128,7 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     void testIoMetricsRecordedDuringActualFileOperations() throws Exception {
         Path testFilePath = workDir.resolve("test");
 
-        PageMemoryIoMetricSource ioMetricSource = new PageMemoryIoMetricSource("testPageStoreIo");
+        CollectionMetricSource ioMetricSource = new CollectionMetricSource("testPageStoreIo", "storage", "Page memory I/O metrics");
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
         MetricSet metricSet = ioMetricSource.enable();
 

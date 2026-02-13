@@ -25,9 +25,9 @@ import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Base class for metric sources that collect a set of metrics.
+ * Metric source that collects a set of metrics.
  */
-public abstract class CollectionMetricSource implements MetricSource {
+public class CollectionMetricSource implements MetricSource {
     private final String name;
     private final String group;
     private final String description;
@@ -67,7 +67,7 @@ public abstract class CollectionMetricSource implements MetricSource {
     }
 
     /** Adds metric to the source. */
-    protected synchronized <T extends Metric> T addMetric(T metric) {
+    public synchronized <T extends Metric> T addMetric(T metric) {
         assert !enabled : "Cannot add metrics when source is enabled";
 
         metrics.put(metric.name(), metric);

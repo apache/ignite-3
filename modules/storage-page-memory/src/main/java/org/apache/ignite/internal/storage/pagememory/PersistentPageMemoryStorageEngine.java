@@ -45,12 +45,11 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetricSource;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
@@ -96,9 +95,9 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
-    private PageMemoryIoMetricSource ioMetricSource;
+    private CollectionMetricSource ioMetricSource;
 
-    private CheckpointMetricSource checkpointMetricSource;
+    private CollectionMetricSource checkpointMetricSource;
 
     private PersistentPageMemoryStorageMetricSource storageMetricSource;
 
@@ -190,7 +189,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         int pageSize = engineConfig.pageSizeBytes().value();
 
-        ioMetricSource = new PageMemoryIoMetricSource("storage." + ENGINE_NAME + ".io");
+        ioMetricSource = new CollectionMetricSource("storage." + ENGINE_NAME + ".io", "storage", "Page memory I/O metrics");
         PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
 
         try {
@@ -205,7 +204,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize, StoragePartitionMeta.FACTORY);
 
-        checkpointMetricSource = new CheckpointMetricSource("storage." + ENGINE_NAME + ".checkpoint");
+        checkpointMetricSource = new CollectionMetricSource("storage." + ENGINE_NAME + ".checkpoint", "storage", null);
 
         try {
             checkpointManager = new CheckpointManager(
