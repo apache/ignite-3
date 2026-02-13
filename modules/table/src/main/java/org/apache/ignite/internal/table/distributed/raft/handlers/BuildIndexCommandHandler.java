@@ -128,7 +128,11 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
                 logCommandReordering(command);
             }
 
-            return EMPTY_APPLIED_RESULT;
+            return storage.runConsistently(locker -> {
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return EMPTY_APPLIED_RESULT;
+            });
         }
 
         Set<UUID> abortedTransactionIds = command instanceof BuildIndexCommandV3
