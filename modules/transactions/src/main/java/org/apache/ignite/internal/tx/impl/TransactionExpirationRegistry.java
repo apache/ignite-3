@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -127,7 +127,8 @@ class TransactionExpirationRegistry {
     }
 
     private void abortTransaction(InternalTransaction tx) {
-        Throwable abortionReason = new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished {}",
+        Throwable abortionReason = new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                format("Transaction is already finished {}",
                 formatTxInfo(tx.id(), volatileTxStateMetaStorage)));
         tx.rollbackWithExceptionAsync(abortionReason).whenComplete((res, ex) -> {
             if (ex != null) {
