@@ -34,9 +34,6 @@ namespace Apache.Ignite.Internal.Table
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
-        /** SQL. */
-        private readonly Sql _sql;
-
         /** Cached tables. Caching here is required to retain schema and serializer caches in <see cref="Table"/>. */
         private readonly ConcurrentDictionary<int, Table> _cachedTables = new();
 
@@ -44,12 +41,12 @@ namespace Apache.Ignite.Internal.Table
         /// Initializes a new instance of the <see cref="Tables"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
-        /// <param name="sql">Sql.</param>
-        public Tables(ClientFailoverSocket socket, Sql sql)
-        {
-            _socket = socket;
-            _sql = sql;
-        }
+        public Tables(ClientFailoverSocket socket) => _socket = socket;
+
+        /// <summary>
+        /// Gets or sets the SQL API.
+        /// </summary>
+        public Sql Sql { get; set; } = null!;
 
         /// <inheritdoc/>
         public async Task<ITable?> GetTableAsync(string name) =>
@@ -164,7 +161,7 @@ namespace Apache.Ignite.Internal.Table
             _cachedTables.GetOrAdd(
                 key: id,
                 valueFactory: static (int id0, (QualifiedName QualifiedName, Tables Tables) arg) =>
-                    new Table(arg.QualifiedName, id0, arg.Tables._socket, arg.Tables._sql),
+                    new Table(arg.QualifiedName, id0, arg.Tables._socket, arg.Tables.Sql),
                 factoryArgument: (qualifiedName, this));
 
         private static QualifiedName UnpackQualifiedName(ref MsgPackReader r, bool packedAsQualified)
