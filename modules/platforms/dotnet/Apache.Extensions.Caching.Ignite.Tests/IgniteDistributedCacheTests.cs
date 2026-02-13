@@ -26,17 +26,23 @@ using Microsoft.Extensions.Caching.Distributed;
 /// <summary>
 /// Tests for <see cref="IgniteDistributedCache"/>.
 /// </summary>
-public class IgniteDistributedCacheTests : IgniteTestsBase
+[TestFixture(null)]
+[TestFixture("myPrefix_")]
+public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
 {
     private IgniteClientGroup _clientGroup = null!;
 
     // Override the base client to avoid causality issues due to a separate client instance.
-    private new IIgnite Client { get; set; }
+    private new IIgnite Client { get; set; } = null!;
 
     [OneTimeSetUp]
     public async Task InitClientGroup()
     {
-        _clientGroup = new IgniteClientGroup(new IgniteClientGroupConfiguration { ClientConfiguration = GetConfig() });
+        _clientGroup = new IgniteClientGroup(new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = GetConfig(Logger)
+        });
+
         Client = await _clientGroup.GetIgniteAsync();
     }
 
@@ -176,7 +182,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {tableName}");
 
-        IDistributedCache cache = GetCache(new() { TableName = tableName });
+        IDistributedCache cache = GetCache(new() { TableName = tableName, CacheKeyPrefix = keyPrefix});
 
         await cache.SetAsync("x", [1]);
         Assert.AreEqual(new[] { 1 }, await cache.GetAsync("x"));
@@ -187,9 +193,10 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     {
         var cacheOptions = new IgniteDistributedCacheOptions
         {
-            TableName = nameof(TestCustomTableAndColumnNames),
+            TableName = keyPrefix + nameof(TestCustomTableAndColumnNames),
             KeyColumnName = "_K",
-            ValueColumnName = "_V"
+            ValueColumnName = "_V",
+            CacheKeyPrefix = keyPrefix
         };
 
         IDistributedCache cache = GetCache(cacheOptions);
@@ -198,14 +205,17 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         CollectionAssert.AreEqual(new[] { 1 }, await cache.GetAsync("x"));
 
         await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {cacheOptions.TableName}");
+
         var rows = await resultSet.ToListAsync();
+        Assert.AreEqual(1, rows.Count, "Expected exactly one row in the table: " + string.Join(", ", rows));
+
         var row = rows.Single();
 
         Assert.AreEqual(4, row.FieldCount);
         Assert.AreEqual("_K", row.GetName(0));
         Assert.AreEqual("_V", row.GetName(1));
 
-        Assert.AreEqual("x", row[0]);
+        Assert.AreEqual(keyPrefix + "x", row[0]);
         Assert.AreEqual(new[] { 1 }, (byte[]?)row[1]);
     }
 
@@ -225,21 +235,174 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestExpirationNotSupported()
+    public async Task TestAbsoluteExpirationRelativeToNow()
     {
-        var cache = GetCache();
+        IDistributedCache cache = GetCache();
 
-        Test(new() { AbsoluteExpiration = DateTimeOffset.Now });
-        Test(new() { SlidingExpiration = TimeSpan.FromMinutes(1) });
-        Test(new() { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1) });
-
-        void Test(DistributedCacheEntryOptions options)
+        var entryOptions = new DistributedCacheEntryOptions
         {
-            var ex = Assert.Throws<ArgumentException>(() => cache.Set("x", [1], options));
-            Assert.AreEqual("Expiration is not supported. (Parameter 'options')", ex.Message);
-        }
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(0.5)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        await TestUtils.WaitForConditionAsync(async () => await cache.GetAsync("x") == null);
     }
 
-    private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
-        new IgniteDistributedCache(options ?? new IgniteDistributedCacheOptions(), _clientGroup);
+    [Test]
+    public async Task TestAbsoluteExpiration()
+    {
+        IDistributedCache cache = GetCache();
+        await cache.SetAsync("x", [1]); // Warm up without expiration.
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpiration = DateTimeOffset.UtcNow.AddSeconds(0.5)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
+
+        Assert.IsNull(await cache.GetAsync("x"));
+    }
+
+    [Test]
+    public async Task TestSlidingExpiration()
+    {
+        IDistributedCache cache = GetCache();
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromSeconds(0.5)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        // Access before expiration to reset the timer.
+        for (int i = 0; i < 7; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(0.1));
+            Assert.IsNotNull(await cache.GetAsync("x"));
+        }
+
+        // Wait for expiration without accessing.
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
+        Assert.IsNull(await cache.GetAsync("x"));
+    }
+
+    [Test]
+    public async Task TestExpiredItemsCleanup()
+    {
+        var cacheOptions = new IgniteDistributedCacheOptions
+        {
+            ExpiredItemsCleanupInterval = TimeSpan.FromSeconds(1),
+            TableName = nameof(TestExpiredItemsCleanup),
+            CacheKeyPrefix = keyPrefix
+        };
+
+        IDistributedCache cache = GetCache(cacheOptions);
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(0.5)
+        };
+
+        // Set multiple items with expiration.
+        await cache.SetAsync("x1", [1], entryOptions);
+        await cache.SetAsync("x2", [2], entryOptions);
+
+        Assert.IsNotNull(await cache.GetAsync("x1"));
+        Assert.IsNotNull(await cache.GetAsync("x2"));
+
+        // Wait for expiration.
+        await Task.Delay(TimeSpan.FromSeconds(0.7));
+
+        // Check cache.
+        Assert.IsNull(await cache.GetAsync("x1"));
+        Assert.IsNull(await cache.GetAsync("x2"));
+
+        // Check the underlying table.
+        await TestUtils.WaitForConditionAsync(
+            async () =>
+            {
+                var sql = $"SELECT * FROM {cacheOptions.TableName}";
+                await using var resultSet = await Client.Sql.ExecuteAsync(null, sql);
+                return await resultSet.CountAsync() == 0;
+            },
+            timeoutMs: 3000,
+            messageFactory: () => "Expired items should be cleaned up from the table");
+    }
+
+    [Test]
+    public async Task TestRefreshExtendsSlidingExpiration()
+    {
+        IDistributedCache cache = GetCache();
+        await cache.RefreshAsync("x"); // Warm up (the first refresh query can take longer).
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromSeconds(1)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+
+        // Refresh multiple times to extend expiration.
+        for (int i = 0; i < 10; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(0.1));
+            await cache.RefreshAsync("x");
+        }
+
+        // Check that the item is still available.
+        Assert.IsNotNull(await cache.GetAsync("x"));
+
+        // Wait for final expiration.
+        await Task.Delay(TimeSpan.FromSeconds(1.2));
+        Assert.IsNull(await cache.GetAsync("x"));
+    }
+
+    [Test]
+    public void TestRefreshOnNonExistentKey()
+    {
+        Assert.DoesNotThrowAsync(async () => await GetCache().RefreshAsync("non-existent-key"));
+    }
+
+    [Test]
+    public async Task TestRefreshOnExpiredKey()
+    {
+        IDistributedCache cache = GetCache();
+
+        var entryOptions = new DistributedCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromSeconds(0.1)
+        };
+
+        await cache.SetAsync("x", [1], entryOptions);
+
+        // Wait for expiration.
+        await Task.Delay(TimeSpan.FromSeconds(0.3));
+        Assert.IsNull(await cache.GetAsync("x"));
+
+        // Refresh on an expired key should not resurrect it.
+        await cache.RefreshAsync("x");
+        Assert.IsNull(await cache.GetAsync("x"));
+    }
+
+    private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null)
+    {
+        var ops = options ?? new IgniteDistributedCacheOptions
+        {
+            CacheKeyPrefix = keyPrefix
+        };
+
+        var cache = new IgniteDistributedCache(ops, _clientGroup);
+
+        AddDisposable(cache);
+
+        return cache;
+    }
 }

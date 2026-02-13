@@ -23,11 +23,13 @@ import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,6 +59,13 @@ import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
+    private static final List<Integer> RETRIABLE_ERRORS = List.of(
+            ACQUIRE_LOCK_ERR,
+            REPLICA_MISS_ERR,
+            GROUP_OVERLOADED_ERR,
+            REPLICA_ABSENT_ERR
+    );
+
     /** Message service. */
     private final MessagingService messagingService;
 
@@ -170,7 +179,11 @@ public class ReplicaService {
                 if (response instanceof ErrorReplicaResponse) {
                     var errResp = (ErrorReplicaResponse) response;
 
-                    if (errResp.throwable() instanceof ReplicaUnavailableException) {
+                    // If replica is absent, it means it is not in assignments and won't appear on that node, no need to wait.
+                    boolean shouldWaitForReplica = errResp.throwable() instanceof ReplicaUnavailableException
+                            && ((ReplicaUnavailableException) errResp.throwable()).code() != REPLICA_ABSENT_ERR;
+
+                    if (shouldWaitForReplica) {
                         CompletableFuture<NetworkMessage> requestFuture = new CompletableFuture<>();
 
                         CompletableFuture<NetworkMessage> awaitReplicaFut = pendingInvokes.computeIfAbsent(
@@ -248,7 +261,7 @@ public class ReplicaService {
                     } else {
                         int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryIntervalMillis().value();
                         if (retryExecutor != null
-                                && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR, GROUP_OVERLOADED_ERR)
+                                && matchAny(unwrapCause(errResp.throwable()), RETRIABLE_ERRORS)
                                 && replicaOperationRetryInterval > 0) {
                             retryExecutor.schedule(
                                     // Need to resubmit again to pool which is valid for synchronous IO execution.

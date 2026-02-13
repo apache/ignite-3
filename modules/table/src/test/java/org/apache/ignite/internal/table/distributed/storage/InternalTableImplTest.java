@@ -110,6 +110,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
@@ -153,8 +154,12 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     private final InternalClusterNode clusterNode = new ClusterNodeImpl(new UUID(1, 1), "node1", new NetworkAddress("host", 3000));
 
+    private VolatileTxStateMetaStorage txStateVolatileStorage;
+
     @BeforeEach
     void setupMocks() {
+        txStateVolatileStorage = VolatileTxStateMetaStorage.createStarted();
+
         lenient().when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
                 .then(invocation -> {
                     ZonePartitionId groupId = invocation.getArgument(0);
@@ -164,7 +169,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
                 .thenReturn(nullCompletedFuture());
 
         // Mock for creating implicit transactions when null is passed
@@ -239,7 +244,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
-                new TransactionInflights(placementDriver, clockService),
+                new TransactionInflights(placementDriver, clockService, txStateVolatileStorage),
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
@@ -388,7 +393,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
         ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
-        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
+        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
         return enlistmentsCaptor.getValue();
     }

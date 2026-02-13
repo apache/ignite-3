@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.FOOTER_HEADING;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.MAX_COL_WIDTH_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.NO_TRUNCATE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.TIMED_OPTION_DESC;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_OPTION_SHORT;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,7 +56,21 @@ import picocli.CommandLine.Unmatched;
         subcommands = {
                 SqlPlannerReplCommand.class,
         },
-        description = "SQL query engine operations."
+        description = {
+                "Executes SQL queries against the connected Ignite cluster.",
+                "Provide a query as an argument or use --file to execute SQL from a file."
+        },
+        footerHeading = FOOTER_HEADING,
+        footer = {
+                "  Execute a SQL query:",
+                "    sql \"SELECT * FROM t\"",
+                "",
+                "  Execute SQL from a file:",
+                "    sql --file=script.sql",
+                "",
+                "  Execute with plain formatting (useful for piping):",
+                "    sql --plain \"SELECT * FROM t\"",
+                ""}
 )
 public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
     // These options are documented here for --help display but are actually processed by SqlExecReplCommand.
@@ -64,6 +84,12 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
 
     @Option(names = TIMED_OPTION, description = TIMED_OPTION_DESC)
     private boolean timed;
+
+    @Option(names = MAX_COL_WIDTH_OPTION, description = MAX_COL_WIDTH_OPTION_DESC)
+    private Integer maxColWidth;
+
+    @Option(names = NO_TRUNCATE_OPTION, description = NO_TRUNCATE_OPTION_DESC)
+    private boolean noTruncate;
 
     @Option(names = SCRIPT_FILE_OPTION, description = SCRIPT_FILE_OPTION_DESC)
     private String file;
@@ -104,8 +130,17 @@ public class SqlReplCommand extends BaseCommand implements Callable<Integer> {
         if (timed) {
             result.add(TIMED_OPTION);
         }
+        if (maxColWidth != null) {
+            result.add(MAX_COL_WIDTH_OPTION + "=" + maxColWidth);
+        }
+        if (noTruncate) {
+            result.add(NO_TRUNCATE_OPTION);
+        }
         if (file != null) {
             result.add(SCRIPT_FILE_OPTION + "=" + file);
+        }
+        for (int i = 0; i < verbose.length; i++) {
+            result.add(VERBOSE_OPTION_SHORT);
         }
         return result.toArray(new String[0]);
     }

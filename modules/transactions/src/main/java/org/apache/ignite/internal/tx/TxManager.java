@@ -29,6 +29,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -36,6 +37,11 @@ import org.jetbrains.annotations.TestOnly;
  * A transaction manager.
  */
 public interface TxManager extends IgniteComponent {
+    /**
+     * Returns transaction metrics source.
+     */
+    TransactionMetricsSource transactionMetricsSource();
+
     /**
      * Starts an implicit read-write transaction coordinated by a local node.
      *
@@ -183,6 +189,7 @@ public interface TxManager extends IgniteComponent {
      * @param commitIntent {@code true} if a commit requested.
      * @param timeoutExceeded {@code true} if a timeout exceeded.
      * @param recovery {@code true} if finished by recovery.
+     * @param noRemoteWrites {@code true} if remote(directly mapped) part of this transaction has no writes.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
      */
@@ -192,6 +199,7 @@ public interface TxManager extends IgniteComponent {
             boolean commitIntent,
             boolean timeoutExceeded,
             boolean recovery,
+            boolean noRemoteWrites,
             Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     );

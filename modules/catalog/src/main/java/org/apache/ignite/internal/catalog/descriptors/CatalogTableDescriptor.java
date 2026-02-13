@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.resolveColumnNames;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap.BasicEntry;
@@ -188,19 +187,17 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
     }
 
     /**
-     * Returns a list primary key column names.
+     * Returns a list of primary key column IDs.
      */
-    public List<String> primaryKeyColumnNames() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-26840
-        return resolveColumnNames(this, primaryKeyColumns);
+    public IntList primaryKeyColumns() {
+        return primaryKeyColumns;
     }
 
     /**
-     * Returns a list colocation key column names.
+     * Returns a list of colocation key column IDs.
      */
-    public List<String> colocationColumnNames() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-26840
-        return resolveColumnNames(this, colocationColumns);
+    public IntList colocationColumns() {
+        return colocationColumns;
     }
 
     /** {@inheritDoc} */

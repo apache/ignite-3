@@ -21,9 +21,11 @@ import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.util.Set;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.placementdriver.AssignmentsTracker;
@@ -51,7 +53,7 @@ public class PlacementDriverMetricSourceTest extends BaseIgniteAbstractTest {
 
     @Test
     void testMetricNames() {
-        var metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker);
+        var metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker, mock(ClockService.class));
 
         MetricSet set = metricSource.enable();
 

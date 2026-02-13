@@ -138,7 +138,7 @@ public class ItThinClientDdlQueriesTrackerTest extends ItAbstractThinClientTest 
     private static void addColumn(IgniteClient client, int columnNumber) {
         String ddlQuery = IgniteStringFormatter.format("ALTER TABLE t ADD COLUMN col{} int;", columnNumber);
 
-        try (ResultSet<SqlRow> rs = client.sql().execute(null, ddlQuery)) {
+        try (ResultSet<SqlRow> rs = client.sql().execute(ddlQuery)) {
             assertThat(rs.hasRowSet(), is(false));
             assertThat(rs.wasApplied(), is(true));
         }

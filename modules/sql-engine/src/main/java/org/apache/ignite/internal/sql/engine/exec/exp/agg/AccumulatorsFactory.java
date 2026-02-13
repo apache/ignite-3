@@ -127,7 +127,7 @@ public class AccumulatorsFactory<RowT> {
         RexProgram program = programBuilder.getProgram();
         BlockBuilder list = new BlockBuilder();
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, SqlConformanceEnum.DEFAULT,
-                list, null, DataContext.ROOT, getter, null);
+                list, null, null, DataContext.ROOT, getter, null);
         list.add(projects.get(0));
 
         MethodDeclaration decl = Expressions.methodDecl(

@@ -188,6 +188,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -774,10 +775,12 @@ public class PartitionReplicaLifecycleManager extends
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
+            var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
             ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(
                     zonePartitionId,
                     partitionCount,
+                    safeTimeTracker,
                     storageIndexTracker
             );
 
@@ -1351,7 +1354,17 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.RESTART,
-                () -> stopPartitionInternal(zonePartitionId, BEFORE_REPLICA_STOPPED, AFTER_REPLICA_STOPPED, revision, replica -> {})
+                () -> stopPartitionInternal(
+                        zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
+                        AFTER_REPLICA_STOPPED,
+                        revision,
+                        replicaWasStopped -> {
+                            if (replicaWasStopped) {
+                                zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
+                            }
+                        }
+                )
         );
     }
 
@@ -1809,7 +1822,11 @@ public class PartitionReplicaLifecycleManager extends
                         BEFORE_REPLICA_STOPPED,
                         AFTER_REPLICA_STOPPED,
                         -1L,
-                        replicaWasStopped -> {}
+                        replicaWasStopped -> {
+                            if (replicaWasStopped) {
+                                zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
+                            }
+                        }
                 ))
                 .toArray(CompletableFuture[]::new);
 

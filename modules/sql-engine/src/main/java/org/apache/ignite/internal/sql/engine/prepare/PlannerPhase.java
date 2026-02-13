@@ -97,6 +97,17 @@ public enum PlannerPhase {
         }
     },
 
+    HEP_PROJECT_TO_WINDOW(
+            "Heuristic phase to convert projection with window expression into Window relation",
+            CoreRules.PROJECT_TO_LOGICAL_PROJECT_AND_WINDOW
+    ) {
+        /** {@inheritDoc} */
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return hep(getRules(ctx));
+        }
+    },
+
     HEP_TO_SIMPLE_KEY_VALUE_OPERATION(
             "Heuristic phase to convert relational tree to simple Key-Value operation",
             TableScanToKeyValueGetRule.INSTANCE,

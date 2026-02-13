@@ -40,6 +40,7 @@ import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.Persistent
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.VacuumizableTx;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
@@ -47,6 +48,18 @@ import org.jetbrains.annotations.Nullable;
 public class VolatileTxStateMetaStorage {
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+
+    /**
+     * Creates and starts the storage.
+     *
+     * <p>Intended for tests/benchmarks where the storage is used directly without a full component lifecycle.
+     */
+    @TestOnly
+    public static VolatileTxStateMetaStorage createStarted() {
+        VolatileTxStateMetaStorage storage = new VolatileTxStateMetaStorage();
+        storage.start();
+        return storage;
+    }
 
     /**
      * Starts the storage.
@@ -188,6 +201,7 @@ public class VolatileTxStateMetaStorage {
                             return meta0;
                         }
                     } else {
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-27773
                         resourceVacuumMetrics.onMarkedForVacuum();
 
                         return meta0;

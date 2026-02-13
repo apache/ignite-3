@@ -1042,7 +1042,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @return Future that will be completed as soon as the storage has been destroyed.
      */
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
+        return busy(() -> {
+            RenewablePartitionStorageState state = renewableState;
+
+            return indexes.destroyIndex(indexId, state.indexStorageFactory(), state.indexMetaTree());
+        });
     }
 
     /**

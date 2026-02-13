@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.sql;
 
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
+import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 import org.apache.ignite.internal.cli.sql.table.Table;
 
 /**
@@ -33,7 +34,7 @@ class SqlQueryResultTable implements SqlQueryResultItem {
     }
 
     @Override
-    public TerminalOutput decorate(boolean plain) {
-        return new TableDecorator(plain).decorate(table);
+    public TerminalOutput decorate(boolean plain, TruncationConfig truncationConfig) {
+        return new TableDecorator(plain, truncationConfig).decorate(table);
     }
 }

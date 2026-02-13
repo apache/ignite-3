@@ -28,6 +28,7 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -74,7 +75,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
      * @param rowType  Output row type.
      */
     public IgniteProject(RelOptCluster cluster, RelTraitSet traits, RelNode input, List<? extends RexNode> projects, RelDataType rowType) {
-        super(cluster, traits, List.of(), input, projects, rowType);
+        super(cluster, traits, List.of(), input, projects, rowType, Set.of());
     }
 
     /**

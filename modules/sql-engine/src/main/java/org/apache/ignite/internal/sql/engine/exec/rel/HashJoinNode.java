@@ -251,6 +251,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         private final RowFactory<RowT> rightRowFactory;
         private final SqlJoinProjection outputProjection;
 
+        private boolean matched;
+
         /**
          * Creates HashJoinNode for LEFT OUTER JOIN operator.
          *
@@ -274,6 +276,14 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         /** {@inheritDoc} */
         @Override
+        protected void rewindInternal() {
+            matched = false;
+
+            super.rewindInternal();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
@@ -284,7 +294,22 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
                         // Proceed with next left row, if previous was fully processed.
                         if (!rightIt.hasNext()) {
+                            // If this is not the first iteration and row wasn't previously matched,
+                            // then before advancing to the next one we should emit current as non-matched.
+                            if (left != null && !matched) {
+                                --requested;
+                                RowT row = outputProjection.project(context(), left, rightRowFactory.create());
+                                downstream().push(row);
+
+                                left = null;
+                            }
+
+                            if (leftInBuf.isEmpty()) {
+                                break;
+                            }
+
                             left = leftInBuf.remove();
+                            matched = false;
 
                             Collection<RowT> rightRows = lookup(left);
 
@@ -310,9 +335,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                                 RowT right = rightIt.next();
 
                                 if (checkNonEquiCondition && !nonEquiCondition.test(left, right)) {
-                                    right = rightRowFactory.create();
+                                    continue;
                                 }
 
+                                matched = true;
                                 --requested;
 
                                 RowT row = outputProjection.project(context(), left, right);
@@ -320,7 +346,11 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                             }
                         }
 
-                        if (!rightIt.hasNext()) {
+                        // Postpone nullification of `left` row if no match was found.
+                        // Left join should emit any non matched row from left side, but 
+                        // by this point we may run out of `requested` quota. Therefore we
+                        // handle this case during next iteration.
+                        if (!rightIt.hasNext() && matched) {
                             left = null;
                         }
                     }
@@ -357,7 +387,9 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in RIGHT join";
+            if (nonEquiCondition != null) {
+                throw new IllegalStateException("Non equi condition is not supported in RIGHT join");
+            }
 
             this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
@@ -514,7 +546,9 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in FULL OUTER join";
+            if (nonEquiCondition != null) {
+                throw new IllegalStateException("Non equi condition is not supported in FULL OUTER join");
+            }
 
             this.outputProjection = outputProjection;
             this.leftRowFactory = leftRowFactory;
@@ -750,7 +784,9 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         ) {
             super(ctx, joinInfo, nonEquiCondition);
 
-            assert nonEquiCondition == null : "Non equi condition is not supported in ANTI join";
+            if (nonEquiCondition != null) {
+                throw new IllegalStateException("Non equi condition is not supported in ANTI join");
+            }
         }
 
         /** {@inheritDoc} */

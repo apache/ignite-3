@@ -146,7 +146,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private void updateTableSchemaAt(int nodeIndex) {
         cluster.doInSession(nodeIndex, session -> {
-            session.execute(null, "alter table " + TABLE_NAME + " add column added int");
+            session.execute("alter table " + TABLE_NAME + " add column added int");
         });
     }
 

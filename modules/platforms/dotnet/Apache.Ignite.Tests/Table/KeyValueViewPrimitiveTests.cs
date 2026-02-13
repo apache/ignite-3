@@ -114,6 +114,16 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestTypeMismatch()
+    {
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
+        var view = table!.GetKeyValueView<long, double?>();
+
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await view.GetAsync(null, 2));
+        Assert.AreEqual("Can't read a value of type 'Double' from column 'VAL' of type 'Int64'.", ex!.Message);
+    }
+
+    [Test]
     public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
         (string res, bool hasRes) = await KvView.GetAsync(null, -111L);
@@ -381,6 +391,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await TestKey(instant, (Instant?)instant, TableTimestampName);
 
         await TestKey(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3, 4 }, TableBytesName);
+        await TestKey(Guid.NewGuid(), Guid.NewGuid(), TableUuidName);
     }
 
     [Test]
