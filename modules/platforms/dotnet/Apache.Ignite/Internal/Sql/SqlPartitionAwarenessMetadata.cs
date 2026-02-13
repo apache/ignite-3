@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql;
 
 using System;
 using Ignite.Table;
+using Proto.BinaryTuple;
 
 /// <summary>
 /// Partition awareness metadata returned by the server for SQL queries.
@@ -40,4 +41,11 @@ internal sealed record SqlPartitionAwarenessMetadata(
     int TableId,
     QualifiedName TableName,
     ReadOnlyMemory<int> Indexes,
-    ReadOnlyMemory<int> Hash);
+    ReadOnlyMemory<int> Hash) : IHashedColumnIndexProvider
+{
+    /// <inheritdoc/>
+    public int HashedColumnCount => Indexes.Length;
+
+    /// <inheritdoc/>
+    public int HashedColumnOrder(int index) => index;
+}
