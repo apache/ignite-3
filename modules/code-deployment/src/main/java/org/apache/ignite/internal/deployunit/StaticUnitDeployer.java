@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
@@ -112,17 +113,37 @@ public class StaticUnitDeployer {
             unitsOnDisk.forEach((id, version) -> staticUnits.add(deployStaticUnit(id, version)));
 
             return allOf(List.of(
-                    allOf(recoveredUnitFutures).whenComplete((unused, throwable) -> {
-                        if (!recoveredUnitFutures.isEmpty()) {
-                            LOG.info("Finished recovered units deploy {}", throwable, recoveredUnits);
-                        }
-                    }),
-                    allOf(staticUnits).whenComplete((unused, throwable) -> {
-                        if (!staticUnits.isEmpty()) {
-                            LOG.info("Finished static units deploy {}", throwable, unitsOnDisk);
-                        }
-                    })
+                    process(
+                            recoveredUnitFutures,
+                            "Finished recovered units deploy {}",
+                            "Units recovery failed {}",
+                            recoveredUnits::toString
+                    ),
+                    process(
+                            staticUnits,
+                            "Finished static units deploy {}",
+                            "Static deployment failed {}",
+                            unitsOnDisk::toString
+                    )
             ));
+        });
+    }
+
+    private static CompletableFuture<Void> process(
+            List<CompletableFuture<Boolean>> futures,
+            String onFinishMessage,
+            String onErrorMessage,
+            Supplier<String> infoSupplier
+    ) {
+        return allOf(futures).handle((unused, throwable) -> {
+            if (!futures.isEmpty()) {
+                if (throwable == null) {
+                    LOG.info(onFinishMessage, infoSupplier);
+                } else {
+                    LOG.error(onErrorMessage, throwable, infoSupplier);
+                }
+            }
+            return null;
         });
     }
 
