@@ -186,7 +186,7 @@ public interface InternalTransaction extends Transaction {
         // No-op.
     }
 
-    default Runnable processKillClosure() {
+    default @Nullable Runnable killClosure() {
         return null;
     }
 }

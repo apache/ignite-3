@@ -947,7 +947,7 @@ public class ClientInboundMessageHandler
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker);
+                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker, notificationSender(requestId));
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,

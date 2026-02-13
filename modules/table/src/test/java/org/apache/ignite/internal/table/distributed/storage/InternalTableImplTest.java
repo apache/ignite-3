@@ -187,8 +187,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     TestTransactionIds.newTransactionId(),
                     randomUUID(),
                     true, // implicit
-                    10_000
-            );
+                    10_000,
+                    options.killClosure());
         });
 
         lenient().when(replicaService.invoke(anyString(), any())).then(invocation -> {
@@ -411,8 +411,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000
-        );
+                10_000,
+                options.killClosure());
     }
 
     private InternalTransaction newReadOnlyTransaction() {

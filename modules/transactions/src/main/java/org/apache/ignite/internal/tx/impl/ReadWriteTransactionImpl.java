@@ -79,6 +79,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout The timeout.
+     * @param killClosure Kill closure.
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
@@ -86,9 +87,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID id,
             UUID txCoordinatorId,
             boolean implicit,
-            long timeout
+            long timeout,
+            @Nullable Runnable killClosure
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout, killClosure);
     }
 
     /** {@inheritDoc} */

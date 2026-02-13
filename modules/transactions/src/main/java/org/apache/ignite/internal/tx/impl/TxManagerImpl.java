@@ -494,7 +494,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txId,
                 localNodeId,
                 implicit,
-                timeout
+                timeout,
+                options.killClosure()
         );
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
@@ -549,7 +550,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
 
             var transaction = new ReadOnlyTransactionImpl(
-                    this, timestampTracker, txId, localNodeId, timeout, readTimestamp, txFuture
+                    this, timestampTracker, txId, localNodeId, timeout, readTimestamp, txFuture, options.killClosure()
             );
 
             transactionExpirationRegistry.register(transaction);

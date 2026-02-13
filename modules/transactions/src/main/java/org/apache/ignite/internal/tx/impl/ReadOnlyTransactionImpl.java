@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-only implementation of an internal transaction.
@@ -51,6 +52,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param timeout The timeout.
      * @param readTimestamp The read timestamp.
+     * @param killClosure Kill closure.
      */
     ReadOnlyTransactionImpl(
             TxManagerImpl txManager,
@@ -59,9 +61,10 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID txCoordinatorId,
             long timeout,
             HybridTimestamp readTimestamp,
-            CompletableFuture<Void> txFuture
+            CompletableFuture<Void> txFuture,
+            @Nullable Runnable killClosure
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout);
+        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout, killClosure);
 
         this.readTimestamp = readTimestamp;
         this.txFuture = txFuture;
