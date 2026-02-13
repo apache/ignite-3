@@ -1184,7 +1184,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testRollbackDoesNotBlockOnLockConflict() {
+    public void testRollbackDoesNotBlockOnLockConflict() throws InterruptedException {
         ClientTable table = (ClientTable) table();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
@@ -1211,10 +1211,81 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         CompletableFuture<Void> fut = kvView.putAsync(olderTxProxy, key2, val);
         assertFalse(fut.isDone());
 
+        // Give some time to acquire a lock to avoid a race with rollback.
+        Thread.sleep(100);
+
         assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
 
         // Operation future should be failed.
         assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
+    }
+
+    @Test
+    public void testRollbackDoesNotBlockOnLockConflictWithDirectMapping() {
+        ClientTable table = (ClientTable) table();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        Entry<Partition, ClusterNode> p0 = null;
+        Entry<Partition, ClusterNode> p1 = null;
+        for (Entry<Partition, ClusterNode> entry : map.entrySet()) {
+            if (p0 == null) {
+                p0 = entry;
+            } else if (!p0.getValue().equals(entry.getValue())) {
+                p1 = entry;
+                break;
+            }
+        }
+
+        // Expecting at least one partition on different node.
+        assertNotNull(p0);
+        assertNotNull(p1);
+
+        List<Tuple> tuples0 = generateKeysForPartition(850, 50, map, (int) p0.getKey().id(), table);
+        List<Tuple> tuples1 = generateKeysForPartition(850, 50, map, (int) p1.getKey().id(), table);
+
+        ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
+        ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
+
+        Tuple key = tuples0.get(0);
+        Tuple val = val(key.intValue(0) + "");
+
+        Tuple key2 = tuples0.get(1);
+        Tuple val2 = val(key2.intValue(0) + "");
+
+        Tuple key3 = tuples1.get(0);
+        Tuple val3 = val(key3.intValue(0) + "");
+
+        Tuple key4 = tuples1.get(1);
+        Tuple val4 = val(key4.intValue(0) + "");
+
+        kvView.put(olderTxProxy, key, val);
+        ClientTransaction olderTx = olderTxProxy.startedTx();
+
+        kvView.put(youngerTxProxy, key2, val2);
+        ClientTransaction youngerTx = youngerTxProxy.startedTx();
+
+        assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
+
+        // Should be directly mapped
+        kvView.put(youngerTxProxy, key3, val3);
+
+        // Younger is not allowed to wait with wait-die.
+        CompletableFuture<Void> fut = kvView.putAsync(youngerTxProxy, key, val);
+        assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
+
+        olderTxProxy.commit();
+
+        assertThat(kvView.putAsync(youngerTxProxy, key4, val4), willThrowWithCauseOrSuppressed(TransactionException.class));
+
+        assertThat(youngerTxProxy.commitAsync(), willSucceedFast());
+
+        assertThat(kvView.putAsync(null, key3, val3), willSucceedFast());
+    }
+
+    @Test
+    public void testRollbackRo() {
+
     }
 
     @AfterEach
