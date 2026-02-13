@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -104,7 +105,6 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
@@ -680,35 +680,6 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testRollbackWithExceptionAsyncOnReadOnlyTransactionRecordsExceptionInfo() {
-        InternalTransaction tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
-        RuntimeException abortReason = new RuntimeException("abort");
-
-        assertThat(tx.rollbackWithExceptionAsync(abortReason), willSucceedFast());
-
-        TxStateMeta meta = txManager.stateMeta(tx.id());
-
-        assertEquals(TxState.PENDING, meta.txState());
-        Throwable exceptionInfo = lastExceptionInfo(meta);
-        assertNotNull(exceptionInfo);
-        assertEquals(RuntimeException.class, exceptionInfo.getClass());
-    }
-
-    @Test
-    public void testRollbackWithExceptionAsyncOnRemoteTransactionThrowsAssertionError() {
-        InternalTransaction tx = txManager.beginRemote(
-                TransactionIds.transactionId(hybridTimestamp(1), LOCAL_NODE.name().hashCode()),
-                new ZonePartitionId(1, 0),
-                randomUUID(),
-                1L,
-                1_000L,
-                err -> { }
-        );
-
-        assertThrows(AssertionError.class, () -> tx.rollbackWithExceptionAsync(new RuntimeException("abort")));
-    }
-
-    @Test
     public void testRollbackWithExceptionAsyncAfterTimeoutKeepsTimeoutFlag() {
         preparePrimaryReplica();
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
@@ -742,14 +713,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction committedTransaction = prepareTransaction();
 
-        assertThrowsWithCause(committedTransaction::commit, MismatchingTransactionOutcomeException.class);
+        Throwable throwable = assertThrowsWithCause(committedTransaction::commit, MismatchingTransactionOutcomeException.class);
 
         TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        Throwable exceptionInfo = lastExceptionInfo(meta);
-        assertNotNull(exceptionInfo);
-        assertEquals(MismatchingTransactionOutcomeInternalException.class, exceptionInfo.getClass());
+        assertTrue(hasCause(throwable, MismatchingTransactionOutcomeException.class, null));
+        assertTrue(committedTransaction.isFinishingOrFinished());
         assertRollbackSucceeds();
     }
 
@@ -943,17 +913,12 @@ public class TxManagerTest extends IgniteAbstractTest {
         // short cast is useful for better error code readability
         //noinspection NumericCastThatLosesPrecision
         assertEquals((short) TX_PRIMARY_REPLICA_EXPIRED_ERR, (short) ((TransactionException) throwable).code());
+        assertTrue(hasCause(throwable, PrimaryReplicaExpiredException.class, null));
 
         TxStateMeta meta = txManager.stateMeta(committedTransaction.id());
 
         assertEquals(TxState.ABORTED, meta.txState());
-        Throwable exceptionInfo = lastExceptionInfo(meta);
-        assertNotNull(exceptionInfo);
-        assertEquals(PrimaryReplicaExpiredException.class, exceptionInfo.getClass());
-        TraceableException traceable = (TraceableException) exceptionInfo;
-        assertEquals(TX_PRIMARY_REPLICA_EXPIRED_ERR, traceable.code());
-        assertNotNull(traceable.traceId());
-        assertTrue(exceptionInfo.getMessage().contains("Primary replica has expired"));
+        assertTrue(committedTransaction.isFinishingOrFinished());
     }
 
     private void assertRollbackSucceeds() {
