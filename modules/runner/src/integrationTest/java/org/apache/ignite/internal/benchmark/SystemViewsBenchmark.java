@@ -66,7 +66,7 @@ public class SystemViewsBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void getPrimaryKeys(FiveHundredTablesState state, Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT column_name\n"
+        try (var rs = sql.execute("SELECT column_name\n"
                 + "FROM SYSTEM.table_columns\n"
                 + "WHERE table_name = ?\n"
                 + "AND pk_column_ordinal IS NOT NULL;", state.tableName())) {
@@ -80,7 +80,7 @@ public class SystemViewsBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void getColumnsType(FiveHundredTablesState state, Blackhole bh) {
-        try (var rs = sql.execute(null, "SELECT column_name,column_type\n"
+        try (var rs = sql.execute("SELECT column_name,column_type\n"
                 + "FROM SYSTEM.table_columns\n"
                 + "WHERE table_name = ?;", state.tableName())) {
             while (rs.hasNext()) {

@@ -413,6 +413,9 @@ namespace Apache.Ignite
 
             /// <summary> GroupUnavailable error. </summary>
             public const int GroupUnavailable = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> ReplicaAbsent error. </summary>
+            public const int ReplicaAbsent = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>

@@ -68,7 +68,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         IgniteSql sql = igniteSql();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            sql.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            sql.execute("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         Statement statement = sql.statementBuilder()
@@ -76,7 +76,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
                 .pageSize(1)
                 .build();
 
-        AsyncResultSet<SqlRow> ars0 = await(sql.executeAsync(null, statement));
+        AsyncResultSet<SqlRow> ars0 = await(sql.executeAsync((Transaction) null, statement));
         var p0 = ars0.currentPage();
         AsyncResultSet<SqlRow> ars1 = await(ars0.fetchNextPage());
         var p1 = ars1.currentPage();
@@ -116,7 +116,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
         // no transaction
         executeAndCancel((token) -> {
-            return sql.executeAsync(null, token, query);
+            return sql.executeAsync((Transaction) null, token, query);
         });
 
         // with transaction
@@ -140,7 +140,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
                     .query(query)
                     .build();
 
-            return sql.executeAsync(null, token, statement);
+            return sql.executeAsync((Transaction) null, token, statement);
         });
 
         // with transaction

@@ -28,10 +28,12 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * CorrelatedNestedLoopJoinNode.
@@ -53,6 +55,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private final BitSet leftMatched = new BitSet();
 
     private final RowT rightEmptyRow;
+
+    private final ImmutableBitSet correlationColumns;
 
     private int requested;
 
@@ -77,9 +81,10 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     /**
      * Creates CorrelatedNestedLoopJoin node.
      *
-     * @param ctx  Execution context.
+     * @param ctx Execution context.
      * @param cond Join expression.
-     * @param correlationIds Set of collections ids.
+     * @param correlationIds Set of correlation ids.
+     * @param correlationColumns Set of columns that are used by correlation.
      * @param joinType Join rel type.
      * @param rightRowFactory Right row factory.
      * @param joinProjection Output row factory.
@@ -88,6 +93,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             ExecutionContext<RowT> ctx,
             BiPredicate<RowT, RowT> cond,
             Set<CorrelationId> correlationIds,
+            ImmutableBitSet correlationColumns,
             JoinRelType joinType,
             RowFactory<RowT> rightRowFactory,
             SqlJoinProjection joinProjection
@@ -101,6 +107,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         this.correlationIds = new ArrayList<>(correlationIds);
         this.joinType = joinType;
         this.joinProjection = joinProjection;
+        this.correlationColumns = correlationColumns;
 
         leftInBufferSize = correlationIds.size();
         rightInBufferSize = inBufSize;
@@ -485,7 +492,15 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private void prepareCorrelations() {
         for (int i = 0; i < correlationIds.size(); i++) {
             RowT row = i < leftInBuf.size() ? leftInBuf.get(i) : first(leftInBuf);
-            context().correlatedVariable(row, correlationIds.get(i).getId());
+            int corrId = correlationIds.get(i).getId();
+
+            for (int fieldIndex = correlationColumns.nextSetBit(0); fieldIndex != -1;
+                    fieldIndex = correlationColumns.nextSetBit(fieldIndex + 1)) {
+                Object value = context().rowAccessor().get(fieldIndex, row);
+                long id = Commons.packIntsToLong(corrId, fieldIndex);
+
+                context().correlatedVariable(id, value);
+            }
         }
     }
 }

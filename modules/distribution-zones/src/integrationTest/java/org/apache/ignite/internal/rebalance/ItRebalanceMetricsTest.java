@@ -19,34 +19,37 @@ package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
+import static org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil.unblockMessages;
 import static org.apache.ignite.internal.distributionzones.ZoneMetricSource.LOCAL_UNREBALANCED_PARTITIONS_COUNT;
 import static org.apache.ignite.internal.distributionzones.ZoneMetricSource.TOTAL_UNREBALANCED_PARTITIONS_COUNT;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil;
 import org.apache.ignite.internal.distributionzones.ZoneMetricSource;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metrics.IntMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.awaitility.Awaitility;
+import org.awaitility.core.ConditionEvaluationListener;
+import org.awaitility.core.EvaluatedCondition;
+import org.awaitility.core.TimeoutEvent;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -56,50 +59,13 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
     private static final String ZONE_NAME_TO_RENAME = "TEST_ZONE_TO_RENAME";
 
-    static class PendingAssignmentsWatchListener implements WatchListener {
-        private final AtomicBoolean skipEventProcessing;
-        private final CountDownLatch latch;
-        private final String pendingKey;
-
-        PendingAssignmentsWatchListener(String pendingKey, CountDownLatch latch, AtomicBoolean skipEventProcessing) {
-            this.pendingKey = pendingKey;
-            this.latch = latch;
-            this.skipEventProcessing = skipEventProcessing;
-        }
-
-        @Override
-        public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            if (skipEventProcessing.get()) {
-                return nullCompletedFuture();
-            }
-
-            Entry entry = event.entryEvent().newEntry();
-
-            if (entry.value() == null) {
-                return nullCompletedFuture();
-            }
-
-            var eventKey = new String(entry.key());
-
-            if (eventKey.startsWith(pendingKey)) {
-                try {
-                    latch.await();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-
-            return nullCompletedFuture();
-        }
-    }
-
     @Override
     protected int initialNodes() {
         return 1;
     }
 
     @Test
-    void testRebalanceMetrics() throws Exception {
+    void testRebalanceMetrics() {
         int partitionCount = 7;
         int replicaCount = 1;
         int scaleUpTimeout = Integer.MAX_VALUE;
@@ -107,7 +73,6 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
         createZone(ZONE_NAME, partitionCount, replicaCount, scaleUpTimeout);
 
         IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
-        int zoneId = getZoneIdStrict(node0.catalogManager(), ZONE_NAME, node0.clock().nowLong());
 
         // Calculate target assignments for the zone.
         List<Set<Assignment>> targetAssignments = calculateAssignments(
@@ -124,48 +89,33 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
 
         assertRebalanceMetrics(node0, ZONE_NAME, 0, 0);
 
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean skipEventProcessing = new AtomicBoolean(false);
-        String pendingAssignmentsKey = ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX + zoneId + "_part_";
-        ByteArray pendingAssignmentsBytes = new ByteArray(pendingAssignmentsKey);
-
-        WatchListener listener = new PendingAssignmentsWatchListener(pendingAssignmentsKey, latch, skipEventProcessing);
-
         // Start a new node and register a watch listener for pending assignments.
         IgniteImpl node1 = unwrapIgniteImpl(startNode(1));
 
-        node0.metaStorageManager().registerPrefixWatch(pendingAssignmentsBytes, listener);
-        node1.metaStorageManager().registerPrefixWatch(pendingAssignmentsBytes, listener);
+        // Block rebalance. In particular, we block messages that switching pending key to a stable one.
+        blockStableKeySwitch(ZONE_NAME);
 
         // Set auto scale up timer to 0 in order to trigger rebalance immediately.
         cluster.doInSession(0, session -> {
             executeUpdate(format("alter zone {} set auto scale up {}", ZONE_NAME, 0), session);
         });
 
-        boolean res = waitForCondition(() -> checkRebalanceMetrics(node0, ZONE_NAME, 0, partitionCountToRebalance)
-                && checkRebalanceMetrics(node1, ZONE_NAME, partitionCountToRebalance, partitionCountToRebalance), 100, 30_000);
-
-        if (!res) {
-            log.warn(">>>>> partitions to rebalance = " + partitionCountToRebalance);
-            MetricSet zoneMetric0 = zoneMetricSet(unwrapIgniteImpl(cluster.node(0)));
-            zoneMetric0.iterator().forEachRemaining(metric ->
-                    log.warn(">>>>> metrics 0 [name=" + metric.name() + ", value=" + metric.getValueAsString() + ']'));
-
-            MetricSet zoneMetric1 = zoneMetricSet(unwrapIgniteImpl(cluster.node(1)));
-            zoneMetric1.iterator().forEachRemaining(metric ->
-                    log.warn(">>>>> metrics 1 [name=" + metric.name() + ", value=" + metric.getValueAsString() + ']'));
-        }
+        assertRebalanceMetrics(
+                List.of(node0, node1),
+                ZONE_NAME,
+                List.of(0, partitionCountToRebalance),
+                List.of(partitionCountToRebalance, partitionCountToRebalance),
+                30);
 
         // Unblock rebalance.
-        skipEventProcessing.set(true);
-        latch.countDown();
+        unblockMessages(cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()));
 
-        assertThat(res, is(true));
-
-        res = waitForCondition(() -> checkRebalanceMetrics(node0, ZONE_NAME, 0, 0)
-                && checkRebalanceMetrics(node1, ZONE_NAME, 0, 0), 100, 30_000);
-
-        assertThat(res, is(true));
+        assertRebalanceMetrics(
+                List.of(node0, node1),
+                ZONE_NAME,
+                List.of(0, 0),
+                List.of(0, 0),
+                30);
     }
 
     @Test
@@ -251,6 +201,57 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
     }
 
     /**
+     * Checks the rebalance metrics for the given Ignite instance.
+     *
+     * @param nodes Ignite instances.
+     * @param zoneName Name of the zone.
+     * @param localUnrebalanced Expected number of local unrebalanced partitions.
+     * @param totalUnrebalanced Expected total number of unrebalanced partitions.
+     * @param timeout Timeout (in seconds) to wait for the expected values.
+     */
+    private void assertRebalanceMetrics(
+            List<IgniteImpl> nodes,
+            String zoneName,
+            List<Integer> localUnrebalanced,
+            List<Integer> totalUnrebalanced,
+            int timeout
+    ) {
+        Awaitility
+                .with()
+                .conditionEvaluationListener(new ConditionEvaluationListener<Boolean>() {
+                    @Override
+                    public void conditionEvaluated(EvaluatedCondition<Boolean> condition) {
+                    }
+
+                    @Override
+                    public void onTimeout(TimeoutEvent event) {
+                        for (int i = 0; i < nodes.size(); ++i) {
+                            log.warn(
+                                    ">>>>> partitions to rebalance [node= {}, expectedLocal={}, expectedTotal={}]",
+                                    nodes.get(i).name(),
+                                    localUnrebalanced.get(i),
+                                    totalUnrebalanced.get(i));
+
+                            zoneMetricSet(nodes.get(i)).iterator().forEachRemaining(metric ->
+                                    log.warn("  ^-- metrics [name={}, value={}]", metric.name(), metric.getValueAsString()));
+
+                            logAssignments(nodes.get(i), zoneName);
+                        }
+                    }
+                })
+                .await()
+                .atMost(Duration.ofSeconds(timeout))
+                .untilAsserted(() -> {
+                    boolean res = true;
+                    for (int i = 0; i < nodes.size(); ++i) {
+                        res = res && checkRebalanceMetrics(nodes.get(i), zoneName, localUnrebalanced.get(i), totalUnrebalanced.get(i));
+                    }
+
+                    assertThat(res, is(true));
+                });
+    }
+
+    /**
      * Returns {@code true} zone metrics are equal to the given parameters.
      *
      * @param ignite Ignite instance.
@@ -300,5 +301,36 @@ public class ItRebalanceMetricsTest extends ClusterPerTestIntegrationTest {
                 .metricSnapshot()
                 .metrics()
                 .get(ZoneMetricSource.sourceName(zone));
+    }
+
+    private void logAssignments(IgniteImpl ignite, String zoneName) {
+        CatalogZoneDescriptor desc = ignite.catalogManager().latestCatalog().zone(zoneName);
+
+        for (int i = 0; i < desc.partitions(); ++i) {
+            ZonePartitionId zonePartitionId = new ZonePartitionId(desc.id(), i);
+
+            Entry pendingEntry = ignite.metaStorageManager().getLocally(pendingPartAssignmentsQueueKey(zonePartitionId));
+            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
+            Assignments pendingAssignments = pendingAssignmentsQueue == null
+                    ? null
+                    : pendingAssignmentsQueue.peekLast();
+
+            Entry stableEntry = ignite.metaStorageManager().getLocally(stablePartAssignmentsKey(zonePartitionId));
+            Assignments stableAssignments = stableEntry.value() == null
+                    ? Assignments.EMPTY
+                    : Assignments.fromBytes(stableEntry.value());
+
+            log.warn("  ^-- [partId={}, pending={}, stable={}]", i, pendingAssignments, stableAssignments);
+        }
+    }
+
+    private void blockStableKeySwitch(String zoneName) {
+        CatalogZoneDescriptor desc = unwrapIgniteImpl(cluster.node(0)).catalogManager().latestCatalog().zone(zoneName);
+
+        RebalanceBlockingUtil.blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                desc.id(),
+                desc.partitions()
+        );
     }
 }

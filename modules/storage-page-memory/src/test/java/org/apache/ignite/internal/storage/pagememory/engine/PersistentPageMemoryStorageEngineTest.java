@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.metrics.LongMetric;
@@ -63,6 +64,9 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
     @InjectConfiguration("mock.profiles.default.engine = aipersist")
     private StorageConfiguration storageConfig;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemConfig;
+
     @InjectExecutorService
     ExecutorService executorService;
 
@@ -83,7 +87,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
                 "test",
                 mock(MetricManager.class),
                 configuration,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,

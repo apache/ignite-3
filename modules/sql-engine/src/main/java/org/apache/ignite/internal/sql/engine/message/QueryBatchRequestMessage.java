@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,7 +31,6 @@ public interface QueryBatchRequestMessage extends ExecutionContextAwareMessage {
     /** Returns amount of batches to request. */
     int amountOfBatches();
 
-    /** Returns a state that has should be propagated to the target fragment. */
-    @Marshallable
-    @Nullable SharedState sharedState();
+    /** Returns a state that should be propagated to the target fragment. */
+    @Nullable SharedStateMessage sharedStateMessage();
 }

@@ -42,6 +42,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1367,20 +1368,6 @@ public class IgniteUtils {
         return startAsync(componentContext, components.stream());
     }
 
-    private static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
-        return allOf(components
-                .filter(Objects::nonNull)
-                .map(igniteComponent -> {
-                    try {
-                        return igniteComponent.stopAsync(componentContext);
-                    } catch (Throwable e) {
-                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
-                        return failedFuture(e);
-                    }
-                })
-                .toArray(CompletableFuture[]::new));
-    }
-
     /**
      * Asynchronously exec all stop functions.
      *
@@ -1409,7 +1396,7 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
-        return stopAsync(componentContext, Stream.of(components));
+        return stopAsync(componentContext, Arrays.asList(components));
     }
 
     /**
@@ -1420,7 +1407,25 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
-        return stopAsync(componentContext, components.stream());
+        try {
+            closeAll(components.stream().filter(Objects::nonNull).map(c -> c::beforeNodeStop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        CompletableFuture<?>[] stopFutures = components.stream()
+                .filter(Objects::nonNull)
+                .map(igniteComponent -> {
+                    try {
+                        return igniteComponent.stopAsync(componentContext);
+                    } catch (Throwable e) {
+                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
+                        return failedFuture(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(stopFutures);
     }
 
     /**
@@ -1469,5 +1474,28 @@ public class IgniteUtils {
         if (tuple.hasNullValue(fieldIndex)) {
             throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, fieldName));
         }
+    }
+
+    /**
+     * Creates a comparator of lists that compares them lexicographically using the provided comparator for list elements.
+     *
+     * @param comparator Comparator for list elements.
+     * @param <T> Type of list's elements.
+     * @return Comparator of lists.
+     */
+    public static <T> Comparator<List<T>> lexicographicListComparator(Comparator<? super T> comparator) {
+        return (l, r) -> {
+            int length = Math.min(l.size(), r.size());
+
+            for (int i = 0; i < length; i++) {
+                int cmp = comparator.compare(l.get(i), r.get(i));
+
+                if (cmp != 0) {
+                    return cmp;
+                }
+            }
+
+            return Integer.compare(l.size(), r.size());
+        };
     }
 }

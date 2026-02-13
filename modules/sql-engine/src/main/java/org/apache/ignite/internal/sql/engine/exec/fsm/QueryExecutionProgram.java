@@ -125,7 +125,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 return true;
             }
 
-            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
+            return lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || replicaAbsent(th);
         }
 
         return false;
@@ -144,7 +144,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             return false;
         }
 
-        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th)
+        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th) || replicaAbsent(th)
                 || multiStepPlanOutdated(th) || incompatibleSchemaChange(th) || fastPlanSchemaVersionMismatch(th);
     }
 
@@ -162,6 +162,10 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     private static boolean groupOverloaded(Throwable th) {
         return ExceptionUtils.extractCodeFrom(th) == Replicator.GROUP_OVERLOADED_ERR;
+    }
+
+    private static boolean replicaAbsent(Throwable th) {
+        return ExceptionUtils.extractCodeFrom(th) == Replicator.REPLICA_ABSENT_ERR;
     }
 
     private static boolean multiStepPlanOutdated(Throwable th)  {

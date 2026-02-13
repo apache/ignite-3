@@ -28,9 +28,6 @@ import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.awaitility.Awaitility.await;
 
-import io.micronaut.http.client.HttpClient;
-import io.micronaut.http.client.annotation.Client;
-import jakarta.inject.Inject;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -85,8 +82,6 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             + "  }\n"
             + "}";
 
-    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
-
     // If there are no fields annotated with @Parameter, constructor injection will be used, which is incompatible with the
     // Lifecycle.PER_CLASS.
     @SuppressWarnings("unused")
@@ -102,10 +97,6 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     protected List<String> extraIgniteModuleIds() {
         return Collections.emptyList();
     }
-
-    @Inject
-    @Client(NODE_URL + "/management/v1/deployment")
-    protected HttpClient deploymentClient;
 
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
@@ -130,8 +121,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();
 
-            cluster.startEmbedded(nodesCount);
-            await().until(this::noActiveRebalance, willBe(true));
+            startEmbeddedClusterAndAwaitRebalance(nodesCount);
         }
     }
 
@@ -256,12 +246,21 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         return false;
     }
 
+    /** Starts an embedded cluster with the given number of nodes and waits for rebalance to complete. */
+    protected void startEmbeddedClusterAndAwaitRebalance(int nodesCount) {
+        cluster.startEmbedded(nodesCount);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27719 SQL queries can fail during rebalance if they try to access partition on
+        //  a wrong node during rebalance.
+        await().until(this::noActiveRebalance, willBe(true));
+    }
+
     /**
      * Checks if there is an active rebalance happening. Does this by checking for pending assignments.
      *
      * @return {@code true} if there are no pending assignments in the metastorage.
      */
-    private CompletableFuture<Boolean> noActiveRebalance() {
+    protected CompletableFuture<Boolean> noActiveRebalance() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
         ByteArray prefix = pendingAssignmentsQueuePrefix();
