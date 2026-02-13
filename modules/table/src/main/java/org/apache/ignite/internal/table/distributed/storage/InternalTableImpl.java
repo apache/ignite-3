@@ -126,9 +126,11 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublish
 import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -2323,7 +2325,14 @@ public class InternalTableImpl implements InternalTable {
             return null;
         }
 
-        return txStateMeta.lastException();
+        if (txStateMeta instanceof TxStateMetaFinishing) {
+            TransactionMeta finalMeta = ((TxStateMetaFinishing) txStateMeta).txFinishFuture().join();
+            if (finalMeta instanceof TxStateMeta) {
+                txStateMeta = (TxStateMeta) finalMeta;
+            }
+        }
+
+        return txStateMeta.exceptionInfo();
     }
 
     @FunctionalInterface
