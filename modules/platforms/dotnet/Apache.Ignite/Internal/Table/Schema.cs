@@ -119,6 +119,10 @@ namespace Apache.Ignite.Internal.Table
                 if (column.ColocationIndex >= 0)
                 {
                     Debug.Assert(
+                        column.ColocationIndex < colocationColumnCount,
+                        $"Invalid colocation index: {column}, schema={columns[column.ColocationIndex]}");
+
+                    Debug.Assert(
                         colocationColumns[column.ColocationIndex] == null!,
                         $"Duplicate colocation index: {column}, {colocationColumns[column.ColocationIndex]}");
 
