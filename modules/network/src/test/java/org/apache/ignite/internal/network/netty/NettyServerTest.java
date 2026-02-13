@@ -72,6 +72,8 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
@@ -162,6 +164,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     /**
      * Tests that bootstrap tries to bind to address specified in configuration.
      */
+    @DisabledOnOs(value = OS.MAC, disabledReason = "On MAC the target address is not a loopback address.")
     @Test
     public void testBindWithAddress() {
         String host = "127.0.0.7";

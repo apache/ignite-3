@@ -92,7 +92,7 @@ public class ConnectionManager implements ChannelCreationListener {
     private static final int MAX_RETRIES_TO_OPEN_CHANNEL = 10;
 
     /** Client bootstrap. */
-    private final Bootstrap clientBootstrap;
+    private volatile Bootstrap clientBootstrap;
 
     /** Server. */
     private final NettyServer server;
@@ -134,7 +134,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private final ChannelTypeRegistry channelTypeRegistry;
 
-    protected final IgniteProductVersionSource productVersionSource;
+    private final IgniteProductVersionSource productVersionSource;
 
     /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext clientSslContext;
@@ -182,8 +182,6 @@ public class ConnectionManager implements ChannelCreationListener {
                 ssl.enabled() ? SslContextProvider.createServerSslContext(ssl) : null
         );
 
-        this.clientBootstrap = bootstrapFactory.createOutboundBootstrap();
-
         // We don't just use Executors#newSingleThreadExecutor() here because the maintenance thread will
         // be kept alive forever, and we only need it from time to time, so it seems a waste to keep the thread alive.
         ThreadPoolExecutor maintenanceExecutor = new ThreadPoolExecutor(
@@ -215,6 +213,8 @@ public class ConnectionManager implements ChannelCreationListener {
             if (stopped.get()) {
                 throw new IgniteInternalException("Attempted to start an already stopped connection manager");
             }
+
+            clientBootstrap = bootstrapFactory.createOutboundBootstrap();
 
             server.start().get();
 

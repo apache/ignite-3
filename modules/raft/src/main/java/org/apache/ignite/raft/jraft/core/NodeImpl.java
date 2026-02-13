@@ -37,6 +37,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.function.BiConsumer;
@@ -215,6 +216,10 @@ public class NodeImpl implements Node, RaftServerService {
      */
     private StripedDisruptor<LogEntryAndClosure> applyDisruptor;
     private RingBuffer<LogEntryAndClosure> applyQueue;
+    /**
+     * Variable for tracking total byte size of tasks in apply queue for throttling.
+     */
+    private final LongAdder applyQueueByteSize = new LongAdder();
 
     /**
      * Metrics
@@ -295,6 +300,7 @@ public class NodeImpl implements Node, RaftServerService {
         public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {
             if (event.shutdownLatch != null) {
                 if (!this.tasks.isEmpty()) {
+                    decrementApplyQueueByteSize();
                     executeApplyingTasks(this.tasks);
                     reset();
                 }
@@ -304,6 +310,7 @@ public class NodeImpl implements Node, RaftServerService {
 
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
+                decrementApplyQueueByteSize();
                 executeApplyingTasks(this.tasks);
                 reset();
             }
@@ -314,6 +321,21 @@ public class NodeImpl implements Node, RaftServerService {
                 task.reset();
             }
             this.tasks.clear();
+        }
+
+        private void decrementApplyQueueByteSize() {
+            long maxQueueSize = NodeImpl.this.raftOptions.getMaxApplyQueueByteSize();
+
+            if (maxQueueSize > 0) {
+                long totalSize = 0;
+                for (LogEntryAndClosure task : tasks) {
+                    ByteBuffer data = task.entry.getData();
+                    totalSize += data.remaining();
+                }
+                if (totalSize > 0) {
+                    NodeImpl.this.applyQueueByteSize.add(-totalSize);
+                }
+            }
         }
     }
 
@@ -2121,6 +2143,27 @@ public class NodeImpl implements Node, RaftServerService {
             throw new IllegalStateException("Node is shutting down");
         }
         Requires.requireNonNull(task, "Null task");
+        Requires.requireNonNull(task.getData(), "Null data");
+
+        int taskDataSize = task.getData().remaining();
+
+        long maxQueueSize = this.raftOptions.getMaxApplyQueueByteSize();
+
+        if (maxQueueSize > 0) {
+            long currentSize = this.applyQueueByteSize.sum();
+            if (currentSize + taskDataSize > maxQueueSize) {
+                String errorMsg = String.format(
+                    "Node is busy, apply queue byte size limit exceeded: current=%d, taskSize=%d, limit=%d",
+                    currentSize, taskDataSize, maxQueueSize
+                );
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.getDone(), new Status(RaftError.EBUSY, errorMsg));
+                LOG.warn("Node {} apply queue byte size limit exceeded.", getNodeId());
+                this.metrics.recordTimes("apply-task-overload-times", 1);
+                if (task.getDone() == null) {
+                    throw new OverloadException(errorMsg);
+                }
+            }
+        }
 
         final LogEntry entry = new LogEntry();
         entry.setData(task.getData());
@@ -2136,6 +2179,10 @@ public class NodeImpl implements Node, RaftServerService {
         switch (this.options.getApplyTaskMode()) {
             case Blocking:
                 this.applyQueue.publishEvent(translator);
+
+                if (maxQueueSize > 0) {
+                    this.applyQueueByteSize.add(taskDataSize);
+                }
                 break;
             case NonBlocking:
             default:
@@ -2147,7 +2194,11 @@ public class NodeImpl implements Node, RaftServerService {
                     if (task.getDone() == null) {
                         throw new OverloadException(errorMsg);
                     }
-            }
+                } else {
+                    if (maxQueueSize > 0) {
+                        this.applyQueueByteSize.add(taskDataSize);
+                    }
+                }
             break;
         }
     }
@@ -3439,6 +3490,7 @@ public class NodeImpl implements Node, RaftServerService {
                             event.evtType = DisruptorEventType.REGULAR;
                             event.shutdownLatch = latch;
                         }));
+                    this.applyQueueByteSize.reset();
                 }
             }
         }

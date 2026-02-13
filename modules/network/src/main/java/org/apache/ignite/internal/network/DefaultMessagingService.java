@@ -104,7 +104,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final FailureProcessor failureProcessor;
 
     /** Connection manager that provides access to {@link NettySender}. */
-    private volatile ConnectionManager connectionManager;
+    private final ConnectionManager connectionManager;
 
     /** Collection that maps correlation id to the future for an invocation request. */
     private final ConcurrentMap<Long, TimeoutObjectImpl> requestsMap = new ConcurrentHashMap<>();
@@ -157,6 +157,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureProcessor failureProcessor,
+            ConnectionManager connectionManager,
             ChannelTypeRegistry channelTypeRegistry
     ) {
         this.factory = factory;
@@ -166,6 +167,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.failureProcessor = failureProcessor;
+
+        this.connectionManager = connectionManager;
+        connectionManager.addListener(this::handleMessageFromNetwork);
 
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
@@ -186,16 +190,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 requestsMap,
                 failureProcessor
         );
-    }
-
-    /**
-     * Resolves cyclic dependency and sets up the connection manager.
-     *
-     * @param connectionManager Connection manager.
-     */
-    public void setConnectionManager(ConnectionManager connectionManager) {
-        this.connectionManager = connectionManager;
-        connectionManager.addListener(this::handleMessageFromNetwork);
     }
 
     @Override
