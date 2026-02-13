@@ -75,6 +75,8 @@ compileJava {
     openapiProps.each { key, val ->
         options.forkOptions.jvmArgs += "-D$key=$val".toString()
     }
+
+    outputs.file(openapiFile)
 }
 
 configurations {
