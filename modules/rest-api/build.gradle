@@ -75,9 +75,6 @@ compileJava {
     openapiProps.each { key, val ->
         options.forkOptions.jvmArgs += "-D$key=$val".toString()
     }
-
-    // Force to rebuild each time (without caching) because we need to regenerate openapi spec.
-    outputs.upToDateWhen { false }
 }
 
 configurations {
