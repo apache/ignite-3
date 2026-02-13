@@ -120,7 +120,7 @@ namespace Apache.Ignite.Internal.Table
                 {
                     Debug.Assert(
                         column.ColocationIndex < colocationColumnCount,
-                        $"Invalid colocation index: {column}, schema={columns[column.ColocationIndex]}");
+                        $"Invalid colocation index: {column}, colocationColumnCount={colocationColumnCount}, schema={columns[column.ColocationIndex]}");
 
                     Debug.Assert(
                         colocationColumns[column.ColocationIndex] == null!,
