@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util.cache;
 
+import com.github.benmanes.caffeine.cache.RemovalListener;
 import java.time.Duration;
+import javax.annotation.Nullable;
 
 /**
  * Factory that creates a cache.
@@ -54,5 +56,6 @@ public interface CacheFactory {
      * @param <K> Type of the key object.
      * @param <V> Type of the value object.
      */
-    <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess);
+    <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess,
+            @Nullable RemovalListener<K, V> removalListener);
 }

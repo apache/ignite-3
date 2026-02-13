@@ -140,4 +140,9 @@ public class MultiStepPlan implements ExplainablePlan {
     public @Nullable QueryPlan fastPlan() {
         return fastPlan;
     }
+
+    @Override
+    public int tableId() {
+        throw new UnsupportedOperationException("Should not be called");
+    }
 }

@@ -326,7 +326,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 ddlSqlToCommandConverter,
                 clockService::currentLong,
                 commonScheduler,
-                sqlStatisticManager
+                sqlStatisticManager,
+                catalogManager
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(

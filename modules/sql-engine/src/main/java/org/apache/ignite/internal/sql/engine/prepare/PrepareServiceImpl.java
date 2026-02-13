@@ -71,6 +71,8 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -174,6 +176,10 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates;
 
+    private final QueryPlanCacheManager<PlanInfo> multistepPlansCache;
+
+    private final CatalogChangesListenerRegistrator catalogChangesListenerRegistrator;
+
     /**
      * Factory method.
      *
@@ -200,7 +206,8 @@ public class PrepareServiceImpl implements PrepareService {
             DdlSqlToCommandConverter ddlSqlToCommandConverter,
             LongSupplier currentClock,
             ScheduledExecutorService scheduler,
-            EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates
+            EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates,
+            CatalogManager catalogManager
     ) {
         return new PrepareServiceImpl(
                 nodeName,
@@ -215,7 +222,42 @@ public class PrepareServiceImpl implements PrepareService {
                 currentClock,
                 scheduler,
                 statUpdates,
-                clusterCfg.statistics().autoRefresh().staleRowsCheckIntervalSeconds()
+                clusterCfg.statistics().autoRefresh().staleRowsCheckIntervalSeconds(),
+                catalogManager
+        );
+    }
+
+    /** Blah-blah-blah. */
+    public PrepareServiceImpl(
+            String nodeName,
+            int cacheSize,
+            CacheFactory cacheFactory,
+            DdlSqlToCommandConverter ddlConverter,
+            long plannerTimeout,
+            int plannerThreadCount,
+            int planExpirySeconds,
+            MetricManager metricManager,
+            SqlSchemaManager schemaManager,
+            LongSupplier currentClock,
+            ScheduledExecutorService scheduler,
+            EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates,
+            ConfigurationValue<Integer> staleRowsCheckIntervalSeconds
+    ) {
+        this(
+                nodeName,
+                cacheSize,
+                cacheFactory,
+                ddlConverter,
+                plannerTimeout,
+                plannerThreadCount,
+                planExpirySeconds,
+                metricManager,
+                schemaManager,
+                currentClock,
+                scheduler,
+                statUpdates,
+                staleRowsCheckIntervalSeconds,
+                null
         );
     }
 
@@ -247,7 +289,8 @@ public class PrepareServiceImpl implements PrepareService {
             LongSupplier currentClock,
             ScheduledExecutorService scheduler,
             EventProducer<StatisticChangedEvent, StatisticEventParameters> statUpdates,
-            ConfigurationValue<Integer> staleRowsCheckIntervalSeconds
+            ConfigurationValue<Integer> staleRowsCheckIntervalSeconds,
+            CatalogService catalogService
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
@@ -260,7 +303,12 @@ public class PrepareServiceImpl implements PrepareService {
         this.currentClock = currentClock;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
-        cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds));
+
+        CatalogChangesTrackerImpl catalogChangesTracker = new CatalogChangesTrackerImpl();
+        catalogChangesListenerRegistrator = new CatalogChangesListenerRegistrator(catalogService, catalogChangesTracker);
+        multistepPlansCache = new QueryPlanCacheManager<>(catalogChangesTracker, cacheFactory);
+
+        cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource, Duration.ofSeconds(planExpirySeconds), null);
 
         planUpdater = new PlanUpdater(
                 scheduler, cache,
@@ -300,13 +348,15 @@ public class PrepareServiceImpl implements PrepareService {
             return falseCompletedFuture();
         });
 
-        planUpdater.start();
+        // planUpdater.start();
+
+        catalogChangesListenerRegistrator.registerListeners();
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        planUpdater.stop();
+        // planUpdater.stop();
         planningPool.shutdownNow();
         metricManager.unregisterSource(sqlPlanCacheMetricSource);
         metricManager.unregisterSource(PLANNING_EXECUTOR_SOURCE_NAME);
@@ -329,6 +379,10 @@ public class PrepareServiceImpl implements PrepareService {
         CacheKey key = createCacheKey(parsedResult.normalizedQuery(), catalogVersion, schemaName, operationContext.parameters());
 
         CompletableFuture<PlanInfo> planFuture = cache.get(key);
+
+        if (planFuture == null) {
+            planFuture = multistepPlansCache.get(key);
+        }
 
         if (planFuture != null) {
             return planFuture.thenApply((plan) -> {
@@ -416,9 +470,11 @@ public class PrepareServiceImpl implements PrepareService {
         return CompletableFuture.supplyAsync(() -> {
             if (tableNames.isEmpty()) {
                 cache.clear();
+                multistepPlansCache.clear();
             } else {
                 Set<QualifiedName> qualifiedNames = tableNames.stream().map(QualifiedName::parse).collect(Collectors.toSet());
                 cache.removeIfValue(p -> p.isDone() && planMatches(p.join().queryPlan, qualifiedNames::contains));
+                multistepPlansCache.removeIfValue(p -> p.isDone() && planMatches(p.join().queryPlan, qualifiedNames::contains));
             }
 
             return null;
@@ -562,7 +618,7 @@ public class PrepareServiceImpl implements PrepareService {
                 // Try to produce a fast plan, if successful, then return that plan w/o caching it.
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
                 if (fastPlan != null) {
-                    return CompletableFuture.completedFuture(PlanInfo.create(fastPlan));
+                    return CompletableFuture.completedFuture(PlanInfo.create(fastPlan, ((ExplainablePlan) fastPlan).tableId()));
                 }
             }
 
@@ -570,8 +626,8 @@ public class PrepareServiceImpl implements PrepareService {
             CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(),
                     ctx.schemaName(), stmt.parameterMetadata);
 
-            return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildQueryPlan(stmt, ctx,
-                    () -> cache.invalidate(cacheKey)), planningPool));
+            return multistepPlansCache.get(cacheKey, k -> CompletableFuture.supplyAsync(() ->
+                    buildQueryPlan(stmt, ctx, () -> multistepPlansCache.invalidate(cacheKey)), planningPool));
         });
     }
 
@@ -613,6 +669,8 @@ public class PrepareServiceImpl implements PrepareService {
             if (err != null) {
                 LOG.debug("Failed to re-planning query: " + parsedResult.originalQuery(), err);
             } else {
+                // TODO Support compute
+                assert false : "not implemented";
                 cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
             }
 
@@ -667,7 +725,7 @@ public class PrepareServiceImpl implements PrepareService {
                     relWithMetadata.ppMetadata
             );
 
-            return PlanInfo.create(plan);
+            return PlanInfo.create(plan, plan.tableId());
         }
 
         var plan = new MultiStepPlan(
@@ -685,15 +743,9 @@ public class PrepareServiceImpl implements PrepareService {
 
         logPlan(stmt.parsedResult().originalQuery(), plan);
 
-        int currentCatalogVersion = directCatalogVersion();
+        IntSet sources = resolveSources(plan.getRel());
 
-        if (currentCatalogVersion == catalogVersion) {
-            IntSet sources = resolveSources(plan.getRel());
-
-            return PlanInfo.createRefreshable(plan, stmt, sources);
-        }
-
-        return PlanInfo.create(plan);
+        return PlanInfo.createRefreshable(plan, stmt, sources);
     }
 
     private CompletableFuture<Void> recalculatePlan(SqlQueryType queryType, ParsedResult parsedRes, PlanningContext ctx, CacheKey key) {
@@ -803,6 +855,8 @@ public class PrepareServiceImpl implements PrepareService {
             if (err != null) {
                 LOG.debug("Failed to re-planning query: " + parsedResult.originalQuery(), err);
             } else {
+                // TODO support compute
+                assert false : "not implemented";
                 cache.compute(key, (k, v) -> v == null ? null : CompletableFuture.completedFuture(info));
             }
 
@@ -829,8 +883,8 @@ public class PrepareServiceImpl implements PrepareService {
             CacheKey cacheKey = createCacheKeyFromParameterMetadata(stmt.parsedResult.normalizedQuery(), ctx.catalogVersion(),
                     ctx.schemaName(), stmt.parameterMetadata);
 
-            return cache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
-                    () -> cache.invalidate(cacheKey)), planningPool));
+            return multistepPlansCache.get(cacheKey, k -> CompletableFuture.supplyAsync(() -> buildDmlPlan(stmt, ctx,
+                    () -> multistepPlansCache.invalidate(cacheKey)), planningPool));
         });
     }
 
@@ -874,15 +928,13 @@ public class PrepareServiceImpl implements PrepareService {
 
         logPlan(stmt.parsedResult().originalQuery(), plan);
 
-        int currentCatalogVersion = directCatalogVersion();
-
-        if (currentCatalogVersion == catalogVersion) {
-            IntSet sources = resolveSources(plan.getRel());
-
-            return PlanInfo.createRefreshable(plan, stmt, sources);
+        if (plan instanceof KeyValueModifyPlan) {
+            return PlanInfo.create(plan, plan.tableId());
         }
 
-        return PlanInfo.create(plan);
+        IntSet sources = resolveSources(plan.getRel());
+
+        return PlanInfo.createRefreshable(plan, stmt, sources);
     }
 
     private CompletableFuture<ValidStatement<ValidationResult>> validateDml(
@@ -1394,7 +1446,7 @@ public class PrepareServiceImpl implements PrepareService {
         }
     }
 
-    static class PlanInfo {
+    static class PlanInfo implements SourcesAware {
         private final QueryPlan queryPlan;
         @Nullable
         private final ValidStatement<ValidationResult> statement;
@@ -1431,6 +1483,15 @@ public class PrepareServiceImpl implements PrepareService {
 
         static PlanInfo create(QueryPlan plan) {
             return new PlanInfo(plan, null, IntSet.of());
+        }
+
+        static PlanInfo create(QueryPlan plan, int tableId) {
+            return new PlanInfo(plan, null, IntSet.of(tableId));
+        }
+
+        @Override
+        public IntSet sources() {
+            return sources;
         }
     }
 }

@@ -50,6 +50,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.github.benmanes.caffeine.cache.RemovalListener;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1697,7 +1698,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
+        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess,
+                RemovalListener<K, V> removalListener) {
             throw new UnsupportedOperationException();
         }
 

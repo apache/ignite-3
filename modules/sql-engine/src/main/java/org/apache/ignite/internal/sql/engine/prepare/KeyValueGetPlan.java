@@ -148,6 +148,15 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     }
 
     @Override
+    public int tableId() {
+        IgniteTable table = lookupNode.getTable().unwrap(IgniteTable.class);
+
+        assert table != null : lookupNode.getTable();
+
+        return table.id();
+    }
+
+    @Override
     public String explain() {
         IgniteRel clonedRoot = Cloner.clone(lookupNode, Commons.cluster());
 

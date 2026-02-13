@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import com.github.benmanes.caffeine.cache.RemovalListener;
 import java.time.Duration;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -54,7 +55,8 @@ public class EmptyCacheFactory implements CacheFactory {
     }
 
     @Override
-    public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
+    public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess,
+            RemovalListener<K, V> removalListener) {
         return create(size);
     }
 

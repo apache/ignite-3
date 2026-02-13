@@ -161,6 +161,15 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         return 1;
     }
 
+    @Override
+    public int tableId() {
+        IgniteTable table = selectCountNode.getTable().unwrap(IgniteTable.class);
+
+        assert table != null : selectCountNode.getTable();
+
+        return table.id();
+    }
+
     private <RowT> Function<Long, Iterator<InternalSqlRow>> createResultProjection(ExecutionContext<RowT> ctx) {
         RelDataType getCountType = new RelDataTypeFactory.Builder(ctx.getTypeFactory())
                 .add("ROWCOUNT", SqlTypeName.BIGINT)

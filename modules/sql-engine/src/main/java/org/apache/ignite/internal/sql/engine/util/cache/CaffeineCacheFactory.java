@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util.cache;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import java.time.Duration;
 import java.util.Map.Entry;
@@ -57,11 +58,12 @@ public class CaffeineCacheFactory implements CacheFactory {
     /** {@inheritDoc} */
     @Override
     public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
-        return create(size, statCounter, null);
+        return create(size, statCounter, null, null);
     }
 
     @Override
-    public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess) {
+    public <K, V> Cache<K, V> create(int size, StatsCounter statCounter, Duration expireAfterAccess,
+            RemovalListener<K, V> removalListener) {
         Caffeine<Object, Object> builder = Caffeine.newBuilder()
                 .maximumSize(size);
 
@@ -75,6 +77,10 @@ public class CaffeineCacheFactory implements CacheFactory {
 
         if (expireAfterAccess != null) {
             builder.expireAfterAccess(expireAfterAccess);
+        }
+
+        if (removalListener != null) {
+            builder.removalListener(removalListener);
         }
 
         return new CaffeineCacheToCacheAdapter<>(builder.build());

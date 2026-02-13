@@ -124,6 +124,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         return 1;
     }
 
+
     /** Returns a table in question. */
     private IgniteTable table() {
         IgniteTable table = modifyNode.getTable().unwrap(IgniteTable.class);
@@ -131,6 +132,15 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         assert table != null : modifyNode.getTable();
 
         return table;
+    }
+
+    @Override
+    public int tableId() {
+        IgniteTable table = modifyNode.getTable().unwrap(IgniteTable.class);
+
+        assert table != null : modifyNode.getTable();
+
+        return table.id();
     }
 
     @Override

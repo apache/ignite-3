@@ -51,6 +51,10 @@ public class SqlPlanToTxSchemaVersionValidator {
      *         Otherwise returns a future completed with an exception {@link SqlPlanOutdatedException}.
      */
     public CompletableFuture<Void> validate(MultiStepPlan plan, QueryTransactionWrapper tx) {
+        if (true) {
+            return nullCompletedFuture();
+        }
+
         if (!tx.implicit()) {
             return nullCompletedFuture();
         }

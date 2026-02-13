@@ -17,19 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-
 /**
- * Denotes a query plan that can be explained, i.e. converted to a human-readable
- * string representation.
+ * Listener for events related to catalog table dependencies.
  */
-public interface ExplainablePlan extends QueryPlan {
-    /** Returns human readable string representation of current query plan. */
-    String explain();
+public interface CatalogTableDependencyEventListener {
+    /**
+     * Invoked when a dependency of a table changes.
+     */
+    void onTableDependencyChanged(int catalogVersion, int tableId);
 
-    /** Returns rel representation. */
-    IgniteRel getRel();
-
-    // move to separate interface
-    int tableId();
+    /**
+     * Invoked when a table is dropped.
+     */
+    void onTableDrop(int catalogVersion, int tableId);
 }
