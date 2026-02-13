@@ -3,7 +3,6 @@ package build.distributions
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
-import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 
 object CppClientPackages : BuildType({
