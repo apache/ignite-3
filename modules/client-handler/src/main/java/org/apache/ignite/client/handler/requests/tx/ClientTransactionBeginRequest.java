@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -42,6 +43,7 @@ public class ClientTransactionBeginRequest {
      * @param txManager Transactions.
      * @param resources Resources.
      * @param metrics Metrics.
+     * @param notificationSender The sender.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -49,7 +51,8 @@ public class ClientTransactionBeginRequest {
             TxManager txManager,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
-            HybridTimestampTracker tsTracker
+            HybridTimestampTracker tsTracker,
+            NotificationSender notificationSender
     ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();
         long timeoutMillis = in.unpackLong();
@@ -63,6 +66,9 @@ public class ClientTransactionBeginRequest {
         InternalTxOptions txOptions = InternalTxOptions.builder()
                 .timeoutMillis(timeoutMillis)
                 .readTimestamp(observableTs)
+                .killClosure(() -> {
+                    // No-op.
+                })
                 .build();
 
         var tx = startExplicitTx(tsTracker, txManager, observableTs, readOnly, txOptions);

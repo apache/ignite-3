@@ -59,23 +59,27 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** Flag indicating that the transaction was rolled back due to timeout. */
     protected volatile boolean timeoutExceeded;
 
+    private final @Nullable Runnable killClosure;
+
     /**
      * The constructor.
      *
      * @param txManager The tx manager.
-     * @param id The id.
      * @param observableTsTracker Observation timestamp tracker.
+     * @param id The id.
      * @param coordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout Transaction timeout in milliseconds.
+     * @param killClosure Kill closure.
      */
-    public IgniteAbstractTransactionImpl(
+    IgniteAbstractTransactionImpl(
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID coordinatorId,
             boolean implicit,
-            long timeout
+            long timeout,
+            @Nullable Runnable killClosure
     ) {
         this.txManager = txManager;
         this.observableTsTracker = observableTsTracker;
@@ -83,6 +87,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
         this.coordinatorId = coordinatorId;
         this.implicit = implicit;
         this.timeout = timeout;
+        this.killClosure = killClosure;
     }
 
     /** {@inheritDoc} */
@@ -163,5 +168,10 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public boolean isRolledBackWithTimeoutExceeded() {
         return timeoutExceeded;
+    }
+
+    @Override
+    public @Nullable Runnable killClosure() {
+        return killClosure;
     }
 }

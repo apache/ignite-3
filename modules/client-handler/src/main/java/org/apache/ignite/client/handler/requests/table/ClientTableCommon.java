@@ -488,6 +488,10 @@ public class ClientTableCommon {
                     builder = builder.timeoutMillis(timeoutMillis);
                 }
 
+                builder.killClosure(() -> {
+
+                });
+
                 InternalTxOptions txOptions = builder.build();
                 var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
 
