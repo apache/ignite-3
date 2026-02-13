@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite;
 
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal;
 using Internal.Common;
