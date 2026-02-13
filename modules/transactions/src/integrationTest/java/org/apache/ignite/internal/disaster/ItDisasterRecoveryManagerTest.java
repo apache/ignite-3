@@ -23,10 +23,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.ClusterPerClassIntegrationTest.awaitPartitionsToBeHealthy;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil.blockStableKeySwitch;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -55,6 +54,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -291,11 +291,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     private static int zoneId(CatalogManager catalogManager, String zoneName) {
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
+        return catalogManager.latestCatalog().zone(zoneName).id();
     }
 
     private static int zoneId(IgniteImpl node) {
-        return node.catalogManager().catalog(node.catalogManager().latestCatalogVersion()).zone(ZONE_NAME).id();
+        return node.catalogManager().latestCatalog().zone(ZONE_NAME).id();
     }
 
     private IgniteImpl findZoneNodeConformingOptions(String testZone, boolean primaryReplica, boolean raftLeader)
@@ -536,7 +536,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(1L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(1L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         } else {
             tx.commit();
@@ -545,7 +545,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 2, 2);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(2L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(2L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         }
     }
@@ -630,9 +630,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             AtomicBoolean blocked,
             AtomicBoolean reached
     ) {
-        int catalogVersion = node.catalogManager().latestCatalogVersion();
-        CatalogZoneDescriptor zoneDescriptor = node.catalogManager().catalog(catalogVersion).zone(testZone);
-        long timestamp = node.catalogManager().catalog(catalogVersion).time();
+        Catalog latestCatalog = node.catalogManager().latestCatalog();
+        CatalogZoneDescriptor zoneDescriptor = latestCatalog.zone(testZone);
+        long timestamp = latestCatalog.time();
 
         Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
                 runningNodes.stream().map(IgniteImpl::name).collect(Collectors.toSet()),
@@ -646,8 +646,12 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(node.catalogManager(), testZone), 0);
 
-        blockMessage(cluster, (nodeName, msg) ->
-                blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentsPending, reached)
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                replicationGroupId,
+                assignmentsPending,
+                (nodeName, message) -> blocked.get(),
+                reached
         );
     }
 }

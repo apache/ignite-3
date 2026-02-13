@@ -151,6 +151,7 @@ enum class code : underlying_t {
     REPLICA_STOPPING = 0x80008,
     GROUP_OVERLOADED = 0x80009,
     GROUP_UNAVAILABLE = 0x8000a,
+    REPLICA_ABSENT = 0x8000b,
 
     // Storage group. Group code: 9
     INDEX_NOT_BUILT = 0x90001,
@@ -183,6 +184,7 @@ enum class code : underlying_t {
     UNIT_UNAVAILABLE = 0xd0004,
     UNIT_ZIP = 0xd0005,
     UNIT_WRITE = 0xd0006,
+    UNIT_NON_UNIQUE_FILENAMES = 0xd0007,
 
     // GarbageCollector group. Group code: 14
     CLOSED = 0xe0001,

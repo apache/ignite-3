@@ -941,9 +941,7 @@ public class DataNodesManager {
     public CompletableFuture<Void> recalculateDataNodes(String zoneName) {
         Objects.requireNonNull(zoneName, "Zone name is required.");
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
-
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneName);
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.latestCatalog().zone(zoneName);
 
         if (zoneDescriptor == null) {
             return failedFuture(new DistributionZoneNotFoundException(zoneName));
@@ -1543,7 +1541,7 @@ public class DataNodesManager {
     }
 
     private CatalogZoneDescriptor zoneDescriptor(int zoneId) {
-        CatalogZoneDescriptor zone = catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneId);
+        CatalogZoneDescriptor zone = catalogManager.latestCatalog().zone(zoneId);
 
         if (zone == null) {
             throw new DistributionZoneNotFoundException(zoneId);

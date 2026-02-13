@@ -34,7 +34,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -198,9 +197,10 @@ public class ItDisasterRecoveryZonePartitionsStatesSystemViewTest extends BaseSq
     }
 
     private static int getZoneId(String zoneName) {
-        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
-
-        return catalogManager.catalog(catalogManager.latestCatalogVersion()).zone(zoneName).id();
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager()
+                .latestCatalog()
+                .zone(zoneName)
+                .id();
     }
 
     static long estimatedSize(String nodeName, String tableName, int partitionId, Cluster cluster) {

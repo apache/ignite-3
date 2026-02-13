@@ -718,7 +718,7 @@ public class Cluster {
      */
     public <T> T query(int nodeIndex, String sql, Function<ResultSet<SqlRow>, T> extractor) {
         return doInSession(nodeIndex, session -> {
-            try (ResultSet<SqlRow> resultSet = session.execute(null, sql)) {
+            try (ResultSet<SqlRow> resultSet = session.execute(sql)) {
                 return extractor.apply(resultSet);
             }
         });
@@ -875,7 +875,7 @@ public class Cluster {
     public ZonePartitionId solePartitionId(String zoneName) {
         IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
-        Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
+        Catalog catalog = node.catalogManager().latestCatalog();
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
 

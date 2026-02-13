@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-common)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-common)
 
 set(PUBLIC_HEADERS
     big_decimal.h
@@ -27,6 +25,7 @@ set(PUBLIC_HEADERS
     detail/bits.h
     detail/bytes.h
     detail/config.h
+    detail/byte_traits.h
     detail/mpi.h
     end_point.h
     error_codes.h
@@ -57,12 +56,12 @@ add_library(${TARGET} STATIC ${SOURCES})
 target_link_libraries(${TARGET} PUBLIC TF-PSA-Crypto::tfpsacrypto)
 
 target_include_directories(${TARGET} INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}>
     $<INSTALL_INTERFACE:${IGNITE_INCLUDEDIR}>
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>)
 
 if (${INSTALL_IGNITE_FILES})
-    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common)
+    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/common COMPONENT client)
 endif()
 
 ignite_test(bits_test DISCOVER SOURCES detail/bits_test.cpp LIBS ${TARGET})

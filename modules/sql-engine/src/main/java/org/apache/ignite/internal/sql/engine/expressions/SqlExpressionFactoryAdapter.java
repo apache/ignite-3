@@ -18,26 +18,32 @@
 package org.apache.ignite.internal.sql.engine.expressions;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.sql.type.SqlTypeUtil.equalSansNullability;
 import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser.PARSER_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.typeFamiliesAreCompatible;
 
 import java.util.Set;
 import java.util.function.LongSupplier;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.SourceStringReader;
 import org.apache.calcite.util.Static;
 import org.apache.calcite.util.Util.FoundOne;
@@ -48,18 +54,23 @@ import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionParsingException;
 import org.apache.ignite.internal.sql.engine.api.expressions.ExpressionValidationException;
 import org.apache.ignite.internal.sql.engine.api.expressions.IgnitePredicate;
+import org.apache.ignite.internal.sql.engine.api.expressions.IgniteScalar;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlEvaluationContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,43 +99,19 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
             String expression,
             StructNativeType inputRowType
     ) throws ExpressionParsingException, ExpressionValidationException {
-        SqlNode expressionAst = parse(expression);
-
-        // Reject subqueries earlier so we can implement lightweight validation
-        // without necessity to register all the namespaces.
-        validate(expressionAst, RejectSubQueriesValidator.INSTANCE);
-
-        // Usage of system context-dependent functions can be validated here as well.
-        validate(expressionAst, RejectContextDependentFunctionValidator.INSTANCE);
+        SqlNode expressionAst = parseAndValidateContextAgnostic(expression);
 
         try (IgnitePlanner planner = createPlanner()) {
             SqlValidator validator = planner.validator();
-
             RowBasedScope scope = new RowBasedScope(validator.getEmptyScope());
 
             RelDataType relDataType = TypeUtils.native2relationalType(planner.getTypeFactory(), inputRowType);
             scope.addChild(new RowNamespace(validator, relDataType), SINGLE_INPUT_ROW_NAMESPACE_NAME, false);
 
-            try {
-                expressionAst.validateExpr(validator, scope);
-            } catch (CalciteContextException ex) {
-                String message = ex.getMessage();
-                if (message == null) {
-                    message = "Unable to validate expression.";
-                }
+            validateContextAware(expressionAst, validator, scope);
 
-                throw new ExpressionValidationException(message);
-            }
-
-            // Aggregate functions are not resolved until validation, hence we cannot reject
-            // such expressions until syntax tree is validated.
-            validate(expressionAst, RejectAggregatesValidator.INSTANCE);
-
-            RelDataType resultType = validator.deriveType(scope, expressionAst);
-
-            if (!SqlTypeUtil.isBoolean(resultType)) {
-                throw new ExpressionValidationException("Expected BOOLEAN expression but " + resultType + " was provided.");
-            }
+            RelDataType booleanType = validator.getTypeFactory().createSqlType(SqlTypeName.BOOLEAN);
+            expressionAst = tryAdjustReturnType(validator, scope, expressionAst, booleanType);
 
             RexNode rexNode = planner.sqlToRelConverter().convertExpressionExt(expressionAst, scope, relDataType);
 
@@ -135,6 +122,109 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
 
             return new PredicateAdapter(predicate);
         }
+    }
+
+    @Override
+    public IgniteScalar scalar(
+            String expression,
+            NativeType resultType
+    ) throws ExpressionParsingException, ExpressionValidationException {
+        if (resultType instanceof StructNativeType) {
+            throw new ExpressionValidationException("Structured types are not supported in given context.");
+        }
+
+        SqlNode expressionAst = parseAndValidateContextAgnostic(expression);
+
+        try (IgnitePlanner planner = createPlanner()) {
+            SqlValidator validator = planner.validator();
+            SqlValidatorScope scope = validator.getEmptyScope();
+
+            validateContextAware(expressionAst, validator, scope);
+
+            RelDataType requiredRelType = TypeUtils.native2relationalType(planner.getTypeFactory(), resultType);
+            expressionAst = tryAdjustReturnType(validator, scope, expressionAst, requiredRelType);
+
+            RexNode rexNode = planner.sqlToRelConverter().convertExpressionExt(expressionAst, scope);
+
+            SqlScalar<Object> scalar = factory.scalar(
+                    rexNode
+            );
+
+            return new ScalarAdapter(scalar, resultType);
+        }
+    }
+
+    private static SqlNode tryAdjustReturnType(
+            SqlValidator validator,
+            SqlValidatorScope scope,
+            SqlNode expressionAst,
+            RelDataType requiredRelType
+    ) throws ExpressionValidationException {
+        IgniteTypeCoercion typeCoercion = (IgniteTypeCoercion) validator.getTypeCoercion();
+
+        expressionAst = typeCoercion.addImplicitCastIfNeeded(scope, expressionAst, requiredRelType);
+
+        RelDataType actualType = validator.deriveType(scope, expressionAst);
+
+        if (!checkResultTypeSatisfiesRequired(validator.getTypeFactory(), actualType, requiredRelType)) {
+            throw new ExpressionValidationException("Expected " + requiredRelType + " expression but " + actualType + " was provided.");
+        }
+
+        return expressionAst;
+    }
+
+    private static boolean checkResultTypeSatisfiesRequired(
+            RelDataTypeFactory factory,
+            RelDataType resultType,
+            RelDataType requiredType
+    ) {
+        if (!typeFamiliesAreCompatible(factory, resultType, requiredType)) {
+            return false;
+        }
+
+        if (SqlTypeUtil.isString(resultType) && SqlTypeUtil.isString(requiredType)) {
+            return resultType.getPrecision() <= requiredType.getPrecision();
+        }
+
+        return equalSansNullability(factory, resultType, requiredType);
+    } 
+
+    private static SqlNode parseAndValidateContextAgnostic(
+            String sql
+    ) throws ExpressionParsingException, ExpressionValidationException {
+        SqlNode expressionAst = parse(sql);
+
+        // Reject subqueries earlier so we can implement lightweight validation
+        // without necessity to register all the namespaces.
+        validate(expressionAst, RejectSubQueriesValidator.INSTANCE);
+
+        // Usage of system context-dependent functions can be validated here as well.
+        validate(expressionAst, RejectContextDependentFunctionValidator.INSTANCE);
+
+        validate(expressionAst, RejectDynamicParametersValidator.INSTANCE);
+
+        return expressionAst;
+    }
+
+    private static void validateContextAware(
+            SqlNode expressionAst,
+            SqlValidator validator,
+            SqlValidatorScope scope
+    ) throws ExpressionValidationException {
+        try {
+            expressionAst.validateExpr(validator, scope);
+        } catch (CalciteContextException ex) {
+            String message = ex.getMessage();
+            if (message == null) {
+                message = "Unable to validate expression.";
+            }
+
+            throw new ExpressionValidationException(message);
+        }
+
+        // Aggregate functions are not resolved until validation, hence we cannot reject
+        // such expressions until syntax tree is validated.
+        validate(expressionAst, RejectAggregatesValidator.INSTANCE);
     }
 
     private static SqlNode parse(String sql) throws ExpressionParsingException {
@@ -213,8 +303,8 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         }
 
         @Override
-        public @Nullable RowT correlatedVariable(int id) {
-            return null;
+        public @Nullable Object correlatedVariable(long id) {
+            throw new AssertionError("Should not get here");
         }
 
         @Override
@@ -301,6 +391,17 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         }
     }
 
+    private static final class RejectDynamicParametersValidator extends SqlShuttle {
+        private static final RejectDynamicParametersValidator INSTANCE = new RejectDynamicParametersValidator();
+
+        @Override
+        public @Nullable SqlNode visit(SqlDynamicParam param) {
+            String message = getMessagePrefix(param) + ": Dynamic parameters are not supported in given context.";
+            throw new FoundOne(message);
+        }
+
+    }
+
     private static String getMessagePrefix(SqlNode n) {
         SqlParserPos pos = n.getParserPosition();
         return Static.RESOURCE.validatorContext(pos.getLineNum(), pos.getColumnNum(), pos.getEndLineNum(),
@@ -317,6 +418,27 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         @Override
         public <RowT> boolean test(EvaluationContext<RowT> context, RowT row) {
             return delegate.test(Commons.cast(context), row);
+        }
+    }
+
+    private static class ScalarAdapter implements IgniteScalar {
+        private final ColumnType resultType;
+        private final SqlScalar<Object> scalar;
+
+        ScalarAdapter(SqlScalar<Object> scalar, NativeType resultType) {
+            this.scalar = scalar;
+            this.resultType = resultType.spec();
+        }
+
+        @Override
+        public <RowT> @Nullable Object get(EvaluationContext<RowT> context) {
+            Object result = scalar.get(Commons.cast(context));
+
+            if (result == null) {
+                return null;
+            }
+
+            return TypeUtils.fromInternal(result, resultType);
         }
     }
 }

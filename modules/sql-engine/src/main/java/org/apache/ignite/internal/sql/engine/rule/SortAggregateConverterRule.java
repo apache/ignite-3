@@ -36,6 +36,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
@@ -81,16 +82,14 @@ public class SortAggregateConverterRule {
         @Override
         @Nullable
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
-            RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
-
             RelOptCluster cluster = agg.getCluster();
 
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                    .replace(collation)
+                    .replace(TraitUtils.createCollation(agg.getGroupSet().asList()))
                     .replace(IgniteDistributions.single());
 
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                    .replace(collation)
+                    .replace(TraitUtils.createCollation(ImmutableIntList.range(0, agg.getGroupSet().cardinality())))
                     .replace(IgniteDistributions.single());
 
             RelNode input = convert(agg.getInput(), inTrait);

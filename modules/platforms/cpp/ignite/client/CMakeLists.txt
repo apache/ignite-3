@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite3-client)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ${PROJECT_NAME}-client)
 
 set(SOURCES
     cancel_handle.cpp
@@ -86,14 +84,17 @@ set(PUBLIC_HEADERS
     table/tables.h
     transaction/transaction.h
     transaction/transactions.h
+    transaction/transaction_options.h
 )
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
-target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${TARGET}-obj PUBLIC ${IGNITE_CMAKE_TOP_DIR})
 
 add_library(${TARGET} SHARED ${SOURCES})
+set_target_properties(${TARGET} PROPERTIES EXPORT_NAME client)
 
 add_library(${TARGET}-static STATIC ${SOURCES})
+set_target_properties(${TARGET}-static PROPERTIES EXPORT_NAME client-static)
 
 set(LIBRARIES
     ignite-common
@@ -109,24 +110,41 @@ foreach(_target_lib IN LISTS _target_libs)
     set_target_properties(${_target_lib} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
     set_target_properties(${_target_lib} PROPERTIES POSITION_INDEPENDENT_CODE 1)
 
-    if (WIN32)
-        set_target_properties(${_target_lib} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
-    endif()
-
-    target_link_libraries(${_target_lib} ${LIBRARIES})
+    target_link_libraries(${_target_lib} PRIVATE ${LIBRARIES})
+    target_include_directories(${_target_lib}
+        PUBLIC $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}/>
+               $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/>
+    )
 endforeach()
 unset(_target_libs)
 
+add_library(ignite::client ALIAS ${TARGET})
+add_library(ignite::client-static ALIAS ${TARGET}-static)
 
-if (${INSTALL_IGNITE_FILES})
-    install(TARGETS ${TARGET}
-        RUNTIME DESTINATION bin
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-    )
+install(TARGETS ${TARGET}
+    EXPORT ignite-client-targets
+    COMPONENT client
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
-    ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
-endif()
+export(
+    EXPORT ignite-client-targets
+    NAMESPACE ignite::
+    FILE "cmake/ignite-client-targets.cmake"
+)
+
+install(
+    EXPORT ignite-client-targets
+    NAMESPACE ignite::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+    COMPONENT client
+    FILE "ignite-client-targets.cmake"
+)
+
+ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client COMPONENT client)
 
 ignite_test(utils_test DISCOVER SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(name_utils_test DISCOVER SOURCES detail/table/name_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})

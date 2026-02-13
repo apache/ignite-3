@@ -516,6 +516,11 @@ public class StoragePartitionMeta extends PartitionMeta {
             return estimatedSize;
         }
 
+        /** Returns link to the head of Write Intent list. */
+        public long wiHeadLink() {
+            return wiHeadLink;
+        }
+
         /**
          * Writes the contents of the snapshot to a page of type {@link StoragePartitionMetaIo}.
          *
@@ -524,7 +529,7 @@ public class StoragePartitionMeta extends PartitionMeta {
          */
         @Override
         public void writeTo(PartitionMetaIo metaIo, long pageAddr) {
-            StoragePartitionMetaIoV2 storageMetaIo = (StoragePartitionMetaIoV2) metaIo;
+            StoragePartitionMetaIoV3 storageMetaIo = (StoragePartitionMetaIoV3) metaIo;
 
             storageMetaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             storageMetaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);

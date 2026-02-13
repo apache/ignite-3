@@ -37,6 +37,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -274,10 +276,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public void sync() throws RocksDBException {
-        if (!dbOptions.useFsync()) {
-            db.syncWal();
-        }
+    public LogSyncer logSyncer() {
+        return fsync ? new NoOpLogSyncer() : () -> db.syncWal();
     }
 
     /**

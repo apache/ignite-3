@@ -18,15 +18,26 @@
 package org.apache.ignite.internal.cli.sql;
 
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 
 /**
  *  An object that represents a single item of the SQL query result.
  */
 interface SqlQueryResultItem {
     /**
-     * Decorates the item.
+     * Decorates the item with truncation support.
+     *
+     * @param plain Whether to use plain output.
+     * @param truncationConfig Truncation configuration.
+     */
+    TerminalOutput decorate(boolean plain, TruncationConfig truncationConfig);
+
+    /**
+     * Decorates the item with default (disabled) truncation.
      *
      * @param plain Whether to use plain output.
      */
-    TerminalOutput decorate(boolean plain);
+    default TerminalOutput decorate(boolean plain) {
+        return decorate(plain, TruncationConfig.disabled());
+    }
 }

@@ -20,9 +20,6 @@ package org.apache.ignite.internal.sql.engine.systemviews;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
@@ -67,12 +64,7 @@ public class ItTablesSystemViewTest extends AbstractSystemViewTest {
 
     @Test
     public void tables() {
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
-        CatalogManager catalogManager = ignite.catalogManager();
-        int version = catalogManager.latestCatalogVersion();
-        Catalog catalog = catalogManager.catalog(version);
-
-        catalog.tables().forEach(table ->
+        unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager().latestCatalog().tables().forEach(table ->
                 assertQuery("SELECT schema, name FROM system.tables order by schema")
                         .returns("PUBLIC", "TABLE_NAME")
                         .returns("TEST_SCHEMA", "TABLE_NAME_2")

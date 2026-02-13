@@ -91,7 +91,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
                 replicationGroupIds.add(new ZonePartitionId(table.zoneId(), partitionIndex));
             }
 
-            return allReplicas(replicationGroupIds, operationTime);
+            return allReplicas(replicationGroupIds);
         }
 
         List<CompletableFuture<TokenizedAssignments>> result = new ArrayList<>(partitions);
@@ -140,13 +140,9 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
         });
     }
 
-    private CompletableFuture<List<TokenizedAssignments>> allReplicas(
-            List<ZonePartitionId> replicationGroupIds,
-            HybridTimestamp operationTime
-    ) {
+    private CompletableFuture<List<TokenizedAssignments>> allReplicas(List<ZonePartitionId> replicationGroupIds) {
         return placementDriver.awaitNonEmptyAssignments(
                 replicationGroupIds,
-                operationTime,
                 AWAIT_NON_EMPTY_ASSIGNMENTS_TIMEOUT_MILLIS
         );
     }

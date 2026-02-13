@@ -21,6 +21,7 @@ import org.apache.calcite.DataContext;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowAccessor;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactoryFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides the contextual environment required for evaluating SQL expressions.
@@ -38,6 +39,6 @@ public interface SqlEvaluationContext<RowT> extends DataContext {
     /** Returns a factory capable of producing {@link RowFactory} instances for the {@code RowT} row representation. */
     RowFactoryFactory<RowT> rowFactoryFactory();
 
-    /** Returns row representing correlation source by given correlation id. */
-    RowT correlatedVariable(int id);
+    /** Returns the value of a correlated variable identified by the given correlation id. */
+    @Nullable Object correlatedVariable(long corrId);
 }

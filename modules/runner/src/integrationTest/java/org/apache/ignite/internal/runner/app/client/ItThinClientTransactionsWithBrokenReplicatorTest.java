@@ -37,8 +37,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -380,9 +378,9 @@ public class ItThinClientTransactionsWithBrokenReplicatorTest extends ItAbstract
     }
 
     private static List<ZonePartitionId> getPartitions(IgniteImpl server) {
-        Catalog catalog = server.catalogManager().catalog(server.catalogManager().latestCatalogVersion());
-        CatalogZoneDescriptor zoneDescriptor = catalog.zone(ZONE_NAME.toUpperCase());
-        List<ZonePartitionId> replicationGroupIds = zonePartitionIds(server, zoneDescriptor.id());
-        return replicationGroupIds;
+        return zonePartitionIds(
+                server,
+                server.catalogManager().latestCatalog().zone(ZONE_NAME.toUpperCase()).id()
+        );
     }
 }

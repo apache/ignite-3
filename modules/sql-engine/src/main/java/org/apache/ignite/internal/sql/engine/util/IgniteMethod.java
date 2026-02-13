@@ -50,8 +50,8 @@ public enum IgniteMethod {
     /** See {@link SqlEvaluationContext#rowAccessor()}. */
     CONTEXT_ROW_HANDLER(SqlEvaluationContext.class, "rowAccessor"),
 
-    /** See {@link SqlEvaluationContext#correlatedVariable(int)}. */
-    CONTEXT_GET_CORRELATED_VALUE(SqlEvaluationContext.class, "correlatedVariable", int.class),
+    /** See {@link SqlEvaluationContext#correlatedVariable(long)}. */
+    CONTEXT_GET_CORRELATED_VALUE(SqlEvaluationContext.class, "correlatedVariable", long.class),
 
     /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
@@ -124,6 +124,14 @@ public enum IgniteMethod {
     UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlDateTimeUtils.class, "unixTimestampToString", long.class, int.class),
 
     /**
+     * Conversion of timestamp to string (precision aware).
+     * See {@link IgniteSqlDateTimeUtils#timestampWithLocalTimeZoneToString(long, int, TimeZone)}}.
+     */
+    TIMESTAMP_LTZ_TO_STRING_PRECISION_AWARE(
+            IgniteSqlDateTimeUtils.class, "timestampWithLocalTimeZoneToString", long.class, int.class, TimeZone.class
+    ),
+
+    /**
      * Conversion of time to string (precision aware).
      * See {@link IgniteSqlDateTimeUtils#unixTimeToString(int, int)}.
      */
@@ -168,6 +176,10 @@ public enum IgniteMethod {
      */
     TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class,
             "toTimestampWithLocalTimeZone", String.class, String.class, TimeZone.class),
+
+    /** SQL CAST({@code timestamp} AS TIMESTAMP WITH LOCAL TIME ZONE). */
+    TIMESTAMP_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlDateTimeUtils.class,
+            "toTimestampWithLocalTimeZone", long.class, TimeZone.class),
 
     /**
      * SQL CAST({@code TIME} AS VARCHAR FORMAT {@code format}).

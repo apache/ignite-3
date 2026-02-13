@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -44,7 +43,7 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
     }
 
     @Override
-    public void saveStorageDestructionIntent(ReplicationGroupId groupId, StorageDestructionIntent storageDestructionIntent) {
+    public void saveStorageDestructionIntent(StorageDestructionIntent storageDestructionIntent) {
         vault.put(
                 buildKey(storageDestructionIntent.nodeId()),
                 VersionedSerialization.toBytes(storageDestructionIntent, StorageDestructionIntentSerializer.INSTANCE)
