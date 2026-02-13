@@ -110,15 +110,20 @@ namespace Apache.Ignite.Internal.Table
             Debug.Assert(columns.Length == 0 || colocationColumnCount > 0, "No hashed columns");
 
             var columnMap = new Dictionary<string, Column>(columns.Length);
+            var colocationColumns = colocationColumnCount > 0 ? new Column[colocationColumnCount] : keyColumns;
+
             foreach (var column in columns)
             {
                 columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;
-            }
 
-            var colocationColumns = new Column[colocationColumnCount];
-            foreach (var column in columns)
-            {
-                colocationColumns[column.ColocationIndex] = column;
+                if (column.ColocationIndex >= 0)
+                {
+                    Debug.Assert(
+                        colocationColumns[column.ColocationIndex] == null!,
+                        $"Duplicate colocation index: {column}, {colocationColumns[column.ColocationIndex]}");
+
+                    colocationColumns[column.ColocationIndex] = column;
+                }
             }
 
             return new Schema(
