@@ -31,8 +31,19 @@ public class PageMemoryIoMetrics implements FileIoMetrics {
     public static final String READS_TIME = "ReadsTime";
     public static final String WRITES_TIME = "WritesTime";
 
-    /** Histogram buckets for I/O latency in microseconds: fast (50µs), normal (200µs), slow (1ms), very slow (10ms). */
-    private static final long[] DISK_IO_MICROSECONDS = {50, 200, 1_000, 10_000};
+    /**
+     * Histogram buckets for I/O latency in microseconds.
+     *
+     * <p>All cached access operations hit the first bucket. Their estimate is within 1µs.
+     *
+     * <p>Values are estimated on possible storage types:
+     * <ul>
+     *   <li>NVMe SSD: Most operations &lt;10µs, outliers 10-100µs</li>
+     *   <li>SATA SSD: Most operations 10-100µs, outliers 100-1000µs</li>
+     *   <li>HDD: Most operations 1-10ms, outliers &gt;10ms</li>
+     * </ul>
+     */
+    private static final long[] DISK_IO_MICROSECONDS = {10, 100, 1_000, 10_000};
 
     private final LongAdderMetric totalBytesRead = new LongAdderMetric(
             TOTAL_BYTES_READ,
