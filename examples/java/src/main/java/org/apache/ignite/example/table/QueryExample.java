@@ -39,9 +39,9 @@ public class QueryExample {
                 .addresses("127.0.0.1:10800")
                 .build()) {
             System.out.println("Creating Person table");
-            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key,  city varchar,  name varchar,  age int,  company varchar, city_id int);");
-            client.sql().execute(null, "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101);");
-            client.sql().execute(null, "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102);");
+            client.sql().execute("CREATE TABLE IF NOT EXISTS Person (id int primary key,  city varchar,  name varchar,  age int,  company varchar, city_id int);");
+            client.sql().execute("INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101);");
+            client.sql().execute("INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102);");
 
             // Get a table
             IgniteTables tablesApi = client.tables();
@@ -57,7 +57,7 @@ public class QueryExample {
             performQueryAsync(myTable);
 
             System.out.println("Dropping Person table.");
-            client.sql().execute(null, "DROP TABLE IF EXISTS PERSON;");
+            client.sql().execute("DROP TABLE IF EXISTS PERSON;");
         }
     }
 

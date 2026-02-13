@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.FileIo;
@@ -103,6 +104,9 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
 
     @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
     private StorageConfiguration storageConfig;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemConfig;
 
     private FilePageStoreManager filePageStoreManager;
     private CheckpointManager checkpointManager;
@@ -206,7 +210,7 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
         dataRegion = new PersistentPageMemoryDataRegion(
                 mock(MetricManager.class),
                 (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get("default"),
-                null,
+                systemConfig,
                 ioRegistry,
                 filePageStoreManager,
                 partitionMetaManager,

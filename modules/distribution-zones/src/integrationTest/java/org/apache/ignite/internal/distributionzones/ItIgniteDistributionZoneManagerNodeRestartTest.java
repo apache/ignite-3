@@ -70,7 +70,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -79,6 +82,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -124,7 +128,7 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterService;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -223,6 +227,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
 
+        var componentContext = new ComponentContext();
+
+        // Start local configuration to be able to read all local properties.
+        try {
+            nodeCfgMgr.startAsync(componentContext).get(30, TimeUnit.SECONDS);
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
+            throw new AssertionError(e);
+        }
+
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
                 .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
@@ -230,7 +243,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var failureProcessor = mock(FailureProcessor.class);
 
-        var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
+        var clusterSvc = new TestScaleCubeClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
@@ -304,7 +317,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new UpdateLogImpl(metastore, failureProcessor),
                 clockService,
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         );
 
         LowWatermark lowWatermark = mock(LowWatermark.class);
@@ -329,7 +343,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         components.add(nodeCfgMgr);
 
         // Start.
-        ComponentContext componentContext = new ComponentContext();
         assertThat(vault.startAsync(componentContext), willCompleteSuccessfully());
         vault.putName(name);
 

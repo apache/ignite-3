@@ -131,7 +131,7 @@ class ItIndexBuildCompletenessTest extends ClusterPerTestIntegrationTest {
     }
 
     private long rowCountInTable() {
-        try (ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute(null, "SELECT COUNT(*) FROM " + TABLE_NAME)) {
+        try (ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute("SELECT COUNT(*) FROM " + TABLE_NAME)) {
             return resultSet.next().longValue(0);
         }
     }

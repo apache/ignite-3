@@ -274,7 +274,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
         sql("INSERT INTO sens VALUES (1, 1, 1, 1)");
 
-        ResultSet<SqlRow> res = igniteSql().execute(null, "select * from sens");
+        ResultSet<SqlRow> res = igniteSql().execute("select * from sens");
         SqlRow row = res.next();
         assertNotNull(row.intValue("\"Col1\""));
         assertThrows(IllegalArgumentException.class, () -> row.intValue("col1"));

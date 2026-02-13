@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionStableAssignments;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -68,6 +69,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
@@ -189,7 +191,7 @@ import org.apache.ignite.internal.network.PublicApiThreadingIgniteCluster;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
@@ -517,6 +519,8 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
 
+    private final PartitionCountProviderWrapper partitionCountProviderWrapper;
+
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
 
@@ -625,7 +629,7 @@ public class IgniteImpl implements Ignite {
                 failureManager
         );
 
-        clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
+        clusterSvc = new ScaleCubeClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
@@ -869,11 +873,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
+        partitionCountProviderWrapper = new PartitionCountProviderWrapper();
+
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                partitionCountProviderWrapper
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry
@@ -917,6 +924,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 clusterSvc,
                 cmgMgr,
+                groupId -> zonePartitionStableAssignments(metaStorageMgr, groupId),
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),

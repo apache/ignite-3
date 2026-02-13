@@ -266,6 +266,27 @@
     <Bug pattern="SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR"/>
     <Class name="org.apache.ignite.internal.partition.replicator.schema.TableDefinitionDiff"/>
   </Match>
+  <Match>
+    <!-- Timeout is handled by other means. -->
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"/>
+    <Class name="org.apache.ignite.internal.util.OffheapReadWriteLock"/>
+    <Method name="awaitCondition"/>
+  </Match>
+  <Match>
+    <!-- Loop is outside of this method. -->
+    <Bug pattern="WA_AWAIT_NOT_IN_LOOP"/>
+    <Class name="org.apache.ignite.internal.util.OffheapReadWriteLock"/>
+    <Method name="awaitCondition"/>
+  </Match>
+  <Match>
+    <!--
+    Done that way on purpose. Technically, this is a false-positive failure of the check, because this is not even a result of "compareTo",
+    but rather a result of another asymmetric "compare" method where we can't change the order of arguments.
+    -->
+    <Bug pattern="RV_NEGATING_RESULT_OF_COMPARETO"/>
+    <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo"/>
+    <Method name="compare"/>
+  </Match>
   <!-- end of false-positive exclusions -->
 
 

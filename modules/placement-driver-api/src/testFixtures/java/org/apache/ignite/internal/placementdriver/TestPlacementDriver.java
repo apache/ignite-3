@@ -107,8 +107,10 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
-    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(List<? extends ReplicationGroupId> replicationGroupIds,
-            HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
+    public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            long timeoutMillis
+    ) {
         return failedFuture(new UnsupportedOperationException("awaitNonEmptyAssignments() is not supported in TestPlacementDriver yet."));
     }
 

@@ -1,0 +1,54 @@
+---
+id: transactions
+title: Transactions
+---
+
+import RailroadDiagram from '@site/src/components/RailroadDiagram';
+
+# Transactions
+
+A transaction is a sequence of SQL operations that starts with the `START TRANSACTION` statement and ends with the `COMMIT` statement. Either the effect of all operations will be published, or no results will be published at all.
+
+:::warning
+Transaction control statements are only allowed within a [script](/3.1.0/sql/working-with-sql/execute-queries).
+:::
+
+In Apache Ignite 3, you start the transaction by using the `START TRANSACTION` statement:
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('START TRANSACTION'),
+ZeroOrMore(
+Terminal('READ ONLY'),
+Terminal('READ WRITE')))
+`}</RailroadDiagram>
+
+:::note
+DDL statements are not supported inside transactions.
+:::
+
+Parameters:
+
+- `READ WRITE` - both read and write operations are allowed in the transaction. Used by default.
+- `READ ONLY` - only read operations are allowed in the transaction.
+
+You close and commit the transaction by using the `COMMIT` statement:
+
+<RailroadDiagram>{`
+Diagram(
+Terminal('COMMIT'))
+`}</RailroadDiagram>
+
+## Example
+
+The example below inserts 3 lines into the table in a single transaction, ensuring they will all be committed together:
+
+```sql
+START TRANSACTION READ WRITE;
+
+INSERT INTO Person (id, name, surname) VALUES (1, 'John', 'Smith');
+INSERT INTO Person (id, name, surname) VALUES (2, 'Jane', 'Smith');
+INSERT INTO Person (id, name, surname) VALUES (3, 'Adam', 'Mason');
+
+COMMIT;
+```

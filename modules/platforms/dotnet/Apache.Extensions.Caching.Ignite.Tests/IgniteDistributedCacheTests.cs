@@ -283,12 +283,11 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         Assert.IsNotNull(await cache.GetAsync("x"));
 
         // Access before expiration to reset the timer.
-        await Task.Delay(TimeSpan.FromSeconds(0.3));
-        Assert.IsNotNull(await cache.GetAsync("x"));
-
-        // Wait less than the sliding window - should still be available.
-        await Task.Delay(TimeSpan.FromSeconds(0.3));
-        Assert.IsNotNull(await cache.GetAsync("x"));
+        for (int i = 0; i < 7; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(0.1));
+            Assert.IsNotNull(await cache.GetAsync("x"));
+        }
 
         // Wait for expiration without accessing.
         await Task.Delay(TimeSpan.FromSeconds(0.7));

@@ -27,7 +27,6 @@
 
 #include <atomic>
 #include <thread>
-#include <unistd.h>
 
 using namespace ignite;
 
@@ -51,10 +50,9 @@ public:
         if (m_started)
             m_client_channel->stop();
 
-        if (m_srv_fd > 0) {
-            ::close(m_srv_fd);
+        if (m_srv_sock.is_valid()) {
+            m_srv_sock.close();
         }
-
         m_io_thread->join();
     }
 
@@ -81,8 +79,9 @@ private:
 
     void handle_requests();
 
-    /** Server socket FD. */
-    int m_srv_fd = -1;
+    /** Server socket. */
+    server_socket_adapter m_srv_sock;
+
     /** Flag is up when server initialization was complete. */
     std::atomic_bool m_started{false};
 

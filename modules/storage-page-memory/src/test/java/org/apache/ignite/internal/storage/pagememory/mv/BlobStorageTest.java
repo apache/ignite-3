@@ -78,8 +78,6 @@ class BlobStorageTest extends BaseIgniteAbstractTest {
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         ));
 
-        pageMemory.start();
-
         blobStorage = new BlobStorage(reuseList, pageMemory, 1, 1);
     }
 

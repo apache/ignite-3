@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.rest.deployment;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
-import org.apache.ignite.internal.deployunit.CachedDeploymentUnit;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.ZipDeploymentUnit;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitWriteException;
@@ -69,6 +76,13 @@ public class ZipInputStreamCollector implements InputStreamCollector {
 
         if (isZip(result)) {
             future = tempStorage.store(filename, result)
+                    .thenApply(path -> {
+                        // Check for case-insensitive duplicates when filesystem is case-insensitive
+                        if (tempStorage.isCaseInsensitiveFileSystem()) {
+                            checkZipForCaseInsensitiveDuplicates(path);
+                        }
+                        return path;
+                    })
                     .whenComplete((path, throwable) -> {
                         try {
                             result.close();
@@ -100,24 +114,41 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         }
     }
 
+    private static void checkZipForCaseInsensitiveDuplicates(Path zipPath) {
+        Set<String> seenLowercase = new HashSet<>();
+        try (ZipFile zf = new ZipFile(zipPath.toFile())) {
+            Enumeration<? extends ZipEntry> entries = zf.entries();
+            while (entries.hasMoreElements()) {
+                String entryName = entries.nextElement().getName();
+                String lowerName = entryName.toLowerCase(Locale.ROOT);
+                if (!seenLowercase.add(lowerName)) {
+                    throw new DuplicateFilenamesException(
+                            "ZIP contains case-insensitive duplicate: " + entryName);
+                }
+            }
+        } catch (IOException e) {
+            throw new DeploymentUnitWriteException("Failed to scan ZIP for duplicates", e);
+        }
+    }
+
     @Override
     public void rollback() throws Exception {
         tempStorage.rollback();
     }
 
     @Override
-    public DeploymentUnit toDeploymentUnit() {
+    public CompletableFuture<DeploymentUnit> toDeploymentUnit() {
         if (igniteException != null) {
-            throw igniteException;
+            return failedFuture(igniteException);
         }
 
-        return new CachedDeploymentUnit(future.thenApply(zip -> {
+        return future.thenApply(zip -> {
             try {
                 return new ZipDeploymentUnit(new ZipInputStream(Files.newInputStream(zip)));
             } catch (IOException e) {
                 LOG.error("Error when creating zip deployment unit", e);
                 throw new DeploymentUnitWriteException("Failed to create zip deployment unit", e);
             }
-        }));
+        });
     }
 }

@@ -152,7 +152,7 @@ abstract class JdbcHandlerBase {
     JdbcQuerySingleResult createErrorResult(String logMessage, Throwable origin, @Nullable String errMessagePrefix) {
         Throwable ex = ExceptionUtils.unwrapCause(origin);
 
-        log.info(logMessage, ex);
+        log.debug(logMessage, ex);
 
         String errorMessage;
 

@@ -130,8 +130,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();
 
-            cluster.startEmbedded(nodesCount);
-            await().until(this::noActiveRebalance, willBe(true));
+            startEmbeddedClusterAndAwaitRebalance(nodesCount);
         }
     }
 
@@ -256,12 +255,21 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         return false;
     }
 
+    /** Starts an embedded cluster with the given number of nodes and waits for rebalance to complete. */
+    protected void startEmbeddedClusterAndAwaitRebalance(int nodesCount) {
+        cluster.startEmbedded(nodesCount);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27719 SQL queries can fail during rebalance if they try to access partition on
+        //  a wrong node during rebalance.
+        await().until(this::noActiveRebalance, willBe(true));
+    }
+
     /**
      * Checks if there is an active rebalance happening. Does this by checking for pending assignments.
      *
      * @return {@code true} if there are no pending assignments in the metastorage.
      */
-    private CompletableFuture<Boolean> noActiveRebalance() {
+    protected CompletableFuture<Boolean> noActiveRebalance() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
         ByteArray prefix = pendingAssignmentsQueuePrefix();
