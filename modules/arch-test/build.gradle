@@ -40,6 +40,10 @@ dependencies {
     testImplementation testFixtures(project(':ignite-raft'))
 }
 
+test {
+    maxHeapSize = '4g'
+}
+
 tasks.withType(Test).configureEach {
     parent.subprojects.forEach {
         dependsOn it.getTasksByName("testClasses", true)
