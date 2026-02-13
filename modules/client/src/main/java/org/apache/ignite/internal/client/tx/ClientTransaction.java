@@ -57,6 +57,7 @@ public class ClientTransaction implements Transaction {
 
     public static final UUID EMPTY = new UUID(0, 0);
 
+    // TODO use enum
     /** Open state. */
     private static final int STATE_OPEN = 0;
 
@@ -75,7 +76,7 @@ public class ClientTransaction implements Transaction {
 
     /** The future used on repeated commit/rollback. */
     @IgniteToStringExclude
-    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
+    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>(); // TODO use updater
 
     /** State. */
     private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
@@ -383,35 +384,34 @@ public class ClientTransaction implements Transaction {
             throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
         }
 
-        checkEnlistPossible();
+        try {
+            checkEnlistPossible();
 
-        boolean[] first = {false};
+            boolean[] first = {false};
 
-        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+            TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
 
-        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
-            if (v == null) {
-                first[0] = true;
-                return new CompletableFuture<>();
-            } else {
-                return v;
+            CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
+                if (v == null) {
+                    first[0] = true;
+                    return new CompletableFuture<>();
+                } else {
+                    return v;
+                }
+            });
+
+            if (trackOperation) {
+                ch.inflights().addInflight(txId);
             }
-        });
 
-        enlistPartitionLock.readLock().unlock();
-
-        // Re-check after unlock.
-        checkEnlistPossible();
-
-        if (trackOperation) {
-            ch.inflights().addInflight(txId);
-        }
-
-        if (first[0]) {
-            // For the first request return completed future.
-            return CompletableFuture.completedFuture(new IgniteBiTuple<>(null, null));
-        } else {
-            return fut;
+            if (first[0]) {
+                // For the first request return completed future.
+                return CompletableFuture.completedFuture(new IgniteBiTuple<>(null, null));
+            } else {
+                return fut;
+            }
+        } finally {
+            enlistPartitionLock.readLock().unlock();
         }
     }
 

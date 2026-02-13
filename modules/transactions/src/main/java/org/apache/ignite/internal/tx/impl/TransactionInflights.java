@@ -147,27 +147,17 @@ public class TransactionInflights {
         return res[0];
     }
 
-    /**
-     * Track the given RO transaction until finish.
-     * Currently RO tracking is used to prevent unclosed cursors.
-     *
-     * @param txId The transaction id.
-     * @return {@code True} if the was registered and is in active state.
-     */
-    public boolean trackReadOnly(UUID txId) {
-        boolean[] res = {true};
-
+    public void fail(UUID txId, Throwable cause) {
         txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
-                ctx = new ReadOnlyTxContext();
+                ctx = new ReadWriteTxContext(placementDriver, clockService);
+                ctx.err = cause;
+            } else if (ctx.err == null) {
+                ctx.err = cause; // Retain only first exception.
             }
-
-            res[0] = !ctx.isTxFinishing();
 
             return ctx;
         });
-
-        return res[0];
     }
 
     /**
