@@ -315,7 +315,7 @@ namespace Apache.Ignite.Internal.Sql
                         reqBuf.Reset();
 
                         var enablePartitionAwareness = arg0.requestPaMeta &&
-                                       socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName);
+                                       socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness);
 
                         arg0.Sql.WriteStatement(reqBuf, arg0.statement, arg0.args, arg0.tx, writeTx: true, enablePartitionAwareness);
 
@@ -327,7 +327,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 // ResultSet will dispose of the pooled buffer.
                 buf = response.Buffer;
-                var resultSet = new ResultSet<T>(response, rowReaderFactory, rowReaderArg, cancellationToken);
+                var resultSet = new ResultSet<T>(response, rowReaderFactory, rowReaderArg, requestPaMeta, cancellationToken);
 
                 if (resultSet.PartitionAwarenessMetadata is { } paMeta)
                 {

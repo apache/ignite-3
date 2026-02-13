@@ -65,11 +65,13 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="response">Response.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
         /// <param name="rowReaderArg">Row reader argument.</param>
+        /// <param name="partitionMetadataExpected">Whether partition metadata is expected from the server.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public ResultSet(
             ClientResponse response,
             RowReaderFactory<T> rowReaderFactory,
             object? rowReaderArg,
+            bool partitionMetadataExpected,
             CancellationToken cancellationToken)
         {
             _socket = response.Socket;
@@ -86,7 +88,8 @@ namespace Apache.Ignite.Internal.Sql
             WasApplied = reader.ReadBoolean();
             AffectedRows = reader.ReadInt64();
             _metadata = ReadMeta(ref reader);
-            PartitionAwarenessMetadata = ReadPartitionAwarenessMetadata(response.Socket.ConnectionContext, ref reader);
+            PartitionAwarenessMetadata = ReadPartitionAwarenessMetadata(
+                response.Socket.ConnectionContext, ref reader, partitionMetadataExpected);
 
             _rowReader = _metadata != null ? rowReaderFactory(_metadata) : null;
             _rowReaderArg = rowReaderArg;
@@ -338,9 +341,10 @@ namespace Apache.Ignite.Internal.Sql
             return new ResultSetMetadata(columns);
         }
 
-        private static SqlPartitionAwarenessMetadata? ReadPartitionAwarenessMetadata(ConnectionContext ctx, ref MsgPackReader reader)
+        private static SqlPartitionAwarenessMetadata? ReadPartitionAwarenessMetadata(
+            ConnectionContext ctx, ref MsgPackReader reader, bool partitionMetadataExpected)
         {
-            if (!ctx.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness))
+            if (!ctx.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwareness) || !partitionMetadataExpected)
             {
                 return null;
             }
