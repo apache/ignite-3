@@ -19,22 +19,39 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import org.apache.ignite.internal.tostring.S;
 
-class SegmentFilePointer {
-    private final FileProperties fileProperties;
+/**
+ * Represents properties common for some file types (namely Segment and Index files) used by the log storage.
+ */
+class FileProperties {
+    /** File ordinal. Incremented each time a new file is created. */
+    private final int ordinal;
 
-    private final int payloadOffset;
+    /** File generation. Incremented each time an existing file is compressed by the Raft Log Garbage Collector. */
+    private final int generation;
 
-    SegmentFilePointer(FileProperties fileProperties, int payloadOffset) {
-        this.fileProperties = fileProperties;
-        this.payloadOffset = payloadOffset;
+    FileProperties(int ordinal) {
+        this(ordinal, 0);
     }
 
-    FileProperties fileProperties() {
-        return fileProperties;
+    FileProperties(int ordinal, int generation) {
+        if (ordinal < 0) {
+            throw new IllegalArgumentException("Invalid file ordinal: " + ordinal);
+        }
+
+        if (generation < 0) {
+            throw new IllegalArgumentException("Invalid file generation: " + generation);
+        }
+
+        this.ordinal = ordinal;
+        this.generation = generation;
     }
 
-    int payloadOffset() {
-        return payloadOffset;
+    int ordinal() {
+        return ordinal;
+    }
+
+    int generation() {
+        return generation;
     }
 
     @Override
@@ -43,14 +60,14 @@ class SegmentFilePointer {
             return false;
         }
 
-        SegmentFilePointer that = (SegmentFilePointer) o;
-        return payloadOffset == that.payloadOffset && fileProperties.equals(that.fileProperties);
+        FileProperties that = (FileProperties) o;
+        return ordinal == that.ordinal && generation == that.generation;
     }
 
     @Override
     public int hashCode() {
-        int result = fileProperties.hashCode();
-        result = 31 * result + payloadOffset;
+        int result = ordinal;
+        result = 31 * result + generation;
         return result;
     }
 
