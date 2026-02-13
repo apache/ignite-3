@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import java.util.function.IntSupplier;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
-import org.apache.ignite.internal.metrics.IntGauge;
-import org.apache.ignite.internal.metrics.IntMetric;
 
 /**
  * Storage consistency operation metrics.
@@ -45,7 +42,6 @@ public class StorageConsistencyMetrics {
      * Constructor.
      *
      * @param metricSource Metric source to register metrics with.
-     * @param activeCountSupplier Supplier for the number of active runConsistently calls.
      */
     public StorageConsistencyMetrics(StorageConsistencyMetricSource metricSource) {
         runConsistentlyDuration = metricSource.addMetric(new DistributionMetric(
