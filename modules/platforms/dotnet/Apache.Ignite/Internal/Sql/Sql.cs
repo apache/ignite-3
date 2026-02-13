@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Sql
 {
     using System;
-    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
@@ -54,7 +53,7 @@ namespace Apache.Ignite.Internal.Sql
         private readonly Tables _tables;
 
         /** Partition awareness mapping cache, keyed by (schema, query). */
-        private readonly ConcurrentDictionary<(string? Schema, string Query), SqlPartitionMappingProvider> _paMappingCache = new();
+        private readonly ConcurrentCache<(string? Schema, string Query), SqlPartitionMappingProvider> _paMappingCache;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Sql"/> class.
@@ -66,8 +65,8 @@ namespace Apache.Ignite.Internal.Sql
             _socket = socket;
             _tables = tables;
 
-            // TODO: Limit.
             var cacheSize = socket.Configuration.Configuration.SqlPartitionAwarenessMetadataCacheSize;
+            _paMappingCache = new(capacity: cacheSize);
         }
 
         /// <inheritdoc/>
@@ -293,7 +292,7 @@ namespace Apache.Ignite.Internal.Sql
             PreferredNode preferredNode = default;
             bool requestPaMeta = true;
 
-            if (_paMappingCache.TryGetValue(paKey, out var mappingProvider))
+            if (_paMappingCache.GetValueOrDefault(paKey) is { } mappingProvider)
             {
                 requestPaMeta = false;
                 preferredNode = await mappingProvider.GetPreferredNode(args).ConfigureAwait(false);
@@ -333,9 +332,7 @@ namespace Apache.Ignite.Internal.Sql
                 if (resultSet.PartitionAwarenessMetadata is { } paMeta)
                 {
                     var table = _tables.GetOrCreateCachedTableInternal(paMeta.TableId, paMeta.TableName);
-
-                    // TODO: LRU cache with limit.
-                    _paMappingCache[paKey] = new SqlPartitionMappingProvider(paMeta, table);
+                    _paMappingCache.TryAdd(paKey, new SqlPartitionMappingProvider(paMeta, table));
                 }
 
                 return resultSet;
