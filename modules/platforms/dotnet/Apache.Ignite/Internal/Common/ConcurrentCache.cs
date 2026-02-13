@@ -86,7 +86,8 @@ internal sealed class ConcurrentCache<TKey, TValue>
 
         lock (_hand)
         {
-            int retries = _capacity; // Avoid infinite loop if all entries are visited.
+            // Avoid infinite loop, evict any entry after a full cycle.
+            int retries = _capacity;
 
             while (_map.Count > _capacity)
             {

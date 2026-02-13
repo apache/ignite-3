@@ -17,6 +17,10 @@
 
 namespace Apache.Ignite.Tests;
 
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Common;
 using Internal.Common;
 using NUnit.Framework;
 
@@ -86,5 +90,44 @@ public class ConcurrentCacheTest
         Assert.AreEqual("one", cache.GetValueOrDefault(1));
         Assert.AreEqual("two", cache.GetValueOrDefault(2));
         Assert.AreEqual("four", cache.GetValueOrDefault(4));
+    }
+
+    [Test]
+    public void TestEvictUnderLoad()
+    {
+        var cts = new CancellationTokenSource();
+        var keys = Enumerable.Range(1, 10).ToArray();
+        var cache = new ConcurrentCache<int, string>(keys.Length);
+        var gate = new ManualResetEventSlim();
+
+        foreach (var key in keys)
+        {
+            cache.TryAdd(key, string.Empty);
+        }
+
+        var visiterTask = Task.Run(() =>
+        {
+            while (!cts.Token.IsCancellationRequested)
+            {
+                foreach (var key in keys)
+                {
+                    cache.GetValueOrDefault(key);
+                }
+
+                gate.Set();
+            }
+        });
+
+        using var cleaner = new DisposeAction(() =>
+        {
+            cts.Cancel();
+            TestUtils.WaitForCondition(() => visiterTask.IsCompleted);
+        });
+
+        gate.Wait();
+
+        var added = cache.TryAdd(-1, "new");
+
+        Assert.IsTrue(added, "Should be able to add new entry");
     }
 }
