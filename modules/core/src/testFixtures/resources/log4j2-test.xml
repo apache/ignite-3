@@ -24,15 +24,20 @@
 
   <Appenders>
     <Console name="CONSOLE" target="SYSTEM_OUT">
-      <PatternLayout
-        pattern="[%d{ISO8601}]%highlight{[%-5p]}{INFO=green, DEBUG=green bold, TRACE=blue}%style{[%t]}{magenta}%style{[%c{1}]}{cyan}%notEmpty{[%markerSimpleName]} %m%n"
-        disableAnsi="${disableAnsi}"/>
+      <PatternLayout>
+        <MarkerPatternSelector
+          defaultPattern="[%d{ISO8601}]%highlight{[%-5p]}{INFO=green, DEBUG=green bold, TRACE=blue}%style{[%t]}{magenta}%style{[%c{1}]}{cyan}%notEmpty{[%markerSimpleName]} %m%n"
+          disableAnsi="${disableAnsi}">
+          <!-- Logs from compatibility test runner are already properly formatted -->
+          <PatternMatch key="CompatRunner" pattern="%m%n"/>
+        </MarkerPatternSelector>
+      </PatternLayout>
       <LevelRangeFilter minLevel="INFO" maxLevel="DEBUG"/>
     </Console>
 
     <Console name="CONSOLE_ERR" target="SYSTEM_ERR">
       <PatternLayout
-        pattern="%highlight{[%d{ISO8601}][%-5p][%t][%c{1}] %m%n}{FATAL=red blink, ERROR=default, WARN=yellow bold}"
+        pattern="%highlight{[%d{ISO8601}][%-5p][%t][%c{1}] %m}{FATAL=red blink, ERROR=default, WARN=yellow bold}%n"
         disableAnsi="${disableAnsi}"/>
     </Console>
 
@@ -40,7 +45,12 @@
       append="true"
       fileName="build/ignite.log"
       filePattern="build/ignite.log.%i">
-      <PatternLayout pattern="[%d{ISO8601}][%-5p][%t][%c{1}]%notEmpty{[%markerSimpleName]} %m%n"/>
+      <PatternLayout>
+        <MarkerPatternSelector defaultPattern="[%d{ISO8601}][%-5p][%t][%c{1}]%notEmpty{[%markerSimpleName]} %m%n">
+          <!-- Logs from compatibility test runner are already properly formatted and could be with ANSI codes so strip them -->
+          <PatternMatch key="CompatRunner" pattern="%replace{%m}{\x1B\[[0-9;]*[a-zA-Z]}{}%n"/>
+        </MarkerPatternSelector>
+      </PatternLayout>
       <Policies>
         <OnStartupTriggeringPolicy/>
         <SizeBasedTriggeringPolicy size="10 MB"/>
