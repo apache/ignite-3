@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
@@ -170,7 +172,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
                 finish(false, null, false, throwable),
-                TX_ROLLBACK_ERR
+                isFinishedDueToTimeout(throwable) ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ROLLBACK_ERR
         );
     }
 }

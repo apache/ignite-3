@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -62,7 +63,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.tx.TransactionTimeoutException;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -77,7 +77,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
-import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -105,6 +104,7 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
@@ -716,7 +716,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = prepareTransaction();
 
-        assertThat(tx.rollbackWithExceptionAsync(new TransactionTimeoutException()), willSucceedFast());
+        assertThat(tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                "Transaction is already finished")), willSucceedFast());
 
         assertThat(tx.rollbackWithExceptionAsync(new RuntimeException("abort")), willSucceedFast());
 

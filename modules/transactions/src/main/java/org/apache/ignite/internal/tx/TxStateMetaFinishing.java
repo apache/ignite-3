@@ -24,6 +24,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,16 +42,17 @@ public class TxStateMetaFinishing extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
-     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      * @param txLabel Transaction label.
+     * @param finishReason Exception which caused tx abortion.
      */
     public TxStateMetaFinishing(
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
-            @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable String txLabel
+            @Nullable String txLabel,
+            @Nullable Throwable finishReason
     ) {
-        this(txCoordinatorId, commitPartitionId, isFinishingDueToTimeout, txLabel, null);
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
+                null, null, ExceptionUtils.isFinishedDueToTimeout(finishReason), txLabel, finishReason);
     }
 
     /**
@@ -60,17 +62,14 @@ public class TxStateMetaFinishing extends TxStateMeta {
      * @param commitPartitionId Commit partition id.
      * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      * @param txLabel Transaction label.
-     * @param exceptionInfo Exception info for exceptional abort.
      */
     public TxStateMetaFinishing(
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable String txLabel,
-            @Nullable Throwable exceptionInfo
+            @Nullable String txLabel
     ) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
-                null, null, isFinishingDueToTimeout, txLabel, exceptionInfo);
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, null, null, isFinishingDueToTimeout, txLabel);
     }
 
     /**
@@ -137,7 +136,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel, exceptionInfo);
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, txLabel, exceptionInfo);
             } else {
                 return super.build();
             }

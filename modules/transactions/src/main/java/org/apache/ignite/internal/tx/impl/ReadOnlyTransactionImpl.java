@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.tx.TxStateMeta.recordExceptionInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -156,10 +155,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
                 commitIntent,
                 new TxIdAndTimestamp(readTimestamp, id())
         );
-
-        if (finishReason != null) {
-            txManager.updateMetaSkippingStateValidation(id(), old -> recordExceptionInfo(old, finishReason));
-        }
 
         this.timeoutExceeded = finishReason instanceof TransactionTimeoutException;
 

@@ -221,12 +221,6 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public @org.jspecify.annotations.Nullable <T extends TxStateMeta> T updateMetaSkippingStateValidation(UUID txId,
-            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
-        return null;
-    }
-
-    @Override
     public LockManager lockManager() {
         return null;
     }

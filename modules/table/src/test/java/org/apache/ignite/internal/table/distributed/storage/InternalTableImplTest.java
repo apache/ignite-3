@@ -67,7 +67,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.tx.TransactionTimeoutException;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -862,7 +861,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     .build();
 
             when(txManager.stateMeta(txId)).thenReturn(meta);
-            tx.rollbackWithExceptionAsync(new TransactionTimeoutException()).join();
+            tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                    "Transaction is already finished")).join();
 
             Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
 

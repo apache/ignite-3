@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
@@ -199,8 +198,8 @@ public class TxStateMeta implements TransactionMeta {
      *
      * @return Transaction state meta.
      */
-    public TxStateMetaFinishing finishing(boolean isFinishedDueToTimeoutFlag) {
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeoutFlag, txLabel, exceptionInfo);
+    public TxStateMetaFinishing finishing(@Nullable Throwable finishReason) {
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, txLabel, finishReason);
     }
 
     @Override
@@ -239,19 +238,6 @@ public class TxStateMeta implements TransactionMeta {
 
     public @Nullable Throwable exceptionInfo() {
         return exceptionInfo;
-    }
-
-    /**
-     * Records exceptional information by mutating tx state or by creating a new one. This method should be called after tx is finished.
-     *
-     * @param old previous TxStateMeta.
-     * @param throwable to record
-     */
-    public static TxStateMeta recordExceptionInfo(@Nullable TxStateMeta old, Throwable throwable) {
-        Throwable normalized = normalizeThrowable(throwable);
-        return old == null
-                ? builder(old, ABORTED).exceptionInfo(normalized).build()
-                : old.mutate().exceptionInfo(normalized).build();
     }
 
     /**
@@ -461,7 +447,7 @@ public class TxStateMeta implements TransactionMeta {
             requireNonNull(txState, "txState must not be null");
 
             if (txState == FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel, exceptionInfo);
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, txLabel, exceptionInfo);
             } else if (txState == ABANDONED) {
                 return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, exceptionInfo);
             } else if (txState == UNKNOWN) {

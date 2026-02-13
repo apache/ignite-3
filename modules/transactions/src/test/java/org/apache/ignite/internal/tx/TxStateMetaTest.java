@@ -108,7 +108,7 @@ public class TxStateMetaTest {
                     TxStateMetaAbandoned abandonedMeta = (TxStateMetaAbandoned) m;
                     return abandonedMeta.mutate().build();
                 }),
-                args("finishing", PENDING_META.finishing(false), PENDING_META.finishing(false), m -> {
+                args("finishing", PENDING_META.finishing(null), PENDING_META.finishing(null), m -> {
                     TxStateMetaFinishing finishing = (TxStateMetaFinishing) m;
                     return finishing.mutate().build();
                 })

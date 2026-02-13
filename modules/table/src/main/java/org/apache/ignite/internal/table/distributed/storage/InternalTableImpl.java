@@ -136,7 +136,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
-import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -761,12 +760,7 @@ public class InternalTableImpl implements InternalTable {
             }
 
             if (e != null) {
-                CompletableFuture<Void> rollbackFuture;
-                if (isFinishedDueToTimeout(e)) {
-                    rollbackFuture = tx0.rollbackWithExceptionAsync(new TransactionTimeoutException());
-                } else {
-                    rollbackFuture = tx0.rollbackWithExceptionAsync(e);
-                }
+                CompletableFuture<Void> rollbackFuture = tx0.rollbackWithExceptionAsync(e);
 
                 return rollbackFuture.handle((ignored, err) -> {
                     if (err != null) {
@@ -2083,17 +2077,6 @@ public class InternalTableImpl implements InternalTable {
         public void onRequestEnd() {
             // No-op.
         }
-    }
-
-    private static boolean isFinishedDueToTimeout(Throwable e) {
-        Throwable unwrapped = unwrapCause(e);
-        if (!(unwrapped instanceof TransactionException)) {
-            return false;
-        }
-
-        TransactionException ex = (TransactionException) unwrapped;
-
-        return ex.code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
     }
 
     private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
