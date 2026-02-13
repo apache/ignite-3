@@ -191,6 +191,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
             }
         } else {
             // Recovery is not needed.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-27494 Add UNKNOWN state handling.
             assert isFinalState(txMeta.txState()) : "Unexpected transaction state: " + txMeta;
 
             return completedFuture(txMeta);

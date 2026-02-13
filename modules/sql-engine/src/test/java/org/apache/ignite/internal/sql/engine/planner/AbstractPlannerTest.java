@@ -277,10 +277,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         SchemaPlus rootSchema = createRootSchema(schemas);
-        SchemaPlus defaultSchema = rootSchema.getSubSchema(DEFAULT_SCHEMA);
+        SchemaPlus defaultSchema = rootSchema.subSchemas().get(DEFAULT_SCHEMA);
 
         if (defaultSchema == null && !schemas.isEmpty()) {
-            defaultSchema = rootSchema.getSubSchema(schemas.iterator().next().getName());
+            defaultSchema = rootSchema.subSchemas().get(schemas.iterator().next().getName());
         }
 
         assertNotNull(defaultSchema);

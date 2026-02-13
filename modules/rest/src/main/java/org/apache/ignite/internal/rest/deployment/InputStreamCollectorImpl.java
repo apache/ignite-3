@@ -23,11 +23,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.deployunit.CachedDeploymentUnit;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.FilesDeploymentUnit;
 import org.apache.ignite.internal.deployunit.tempstorage.TempStorage;
@@ -54,26 +54,32 @@ public class InputStreamCollectorImpl implements InputStreamCollector {
 
     @Override
     public void addInputStream(String filename, InputStream is) {
-        collect.put(filename, tempStorage.store(filename, is).whenComplete((path, throwable) -> {
-            try {
-                is.close();
-            } catch (IOException e) {
-                LOG.error("Error when closing input stream.", e);
-            }
-        }));
+        String filenameKey = tempStorage.isCaseInsensitiveFileSystem() ? filename.toLowerCase(Locale.ROOT) : filename;
+        if (collect.containsKey(filenameKey)) {
+            closeStream(is);
+            throw new DuplicateFilenamesException("Duplicate filename: " + filename);
+        }
+
+        collect.put(filenameKey, tempStorage.store(filename, is).whenComplete((path, throwable) -> closeStream(is)));
+    }
+
+    private static void closeStream(InputStream is) {
+        try {
+            is.close();
+        } catch (IOException e) {
+            LOG.error("Error when closing input stream.", e);
+        }
     }
 
     @Override
-    public DeploymentUnit toDeploymentUnit() {
+    public CompletableFuture<DeploymentUnit> toDeploymentUnit() {
         Map<String, Path> map = new ConcurrentHashMap<>();
         for (Entry<String, CompletableFuture<Path>> e : collect.entrySet()) {
             e.getValue().thenAccept(path -> map.put(e.getKey(), path));
         }
 
-        return new CachedDeploymentUnit(
-                allOf(collect.values().toArray(new CompletableFuture<?>[0]))
-                        .thenApply(unused -> new FilesDeploymentUnit(map))
-        );
+        return allOf(collect.values().toArray(new CompletableFuture<?>[0]))
+                .thenApply(unused -> new FilesDeploymentUnit(map));
     }
 
     @Override

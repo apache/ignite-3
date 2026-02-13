@@ -26,16 +26,14 @@ import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMe
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_MISSES;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_REPLACEMENTS;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.DistributionMetric;
-import org.apache.ignite.internal.metrics.HitRateMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 
 /** Persistent page memory metrics. */
-class PersistentPageMemoryMetrics implements PageCacheMetrics {
+public class PersistentPageMemoryMetrics implements PageCacheMetrics {
     private static final long[] PAGE_ACQUISITIONS_BOUNDS_NANOS = {
             1_000,         // 1µs   - cache hit
             100_000,       // 100µs - page cache miss, fast SSD
@@ -52,8 +50,6 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
     private final LongAdderMetric pageCacheMisses;
 
     private final DistributionMetric pageAcquireTime;
-
-    private final HitRateMetric pageCacheHitRate;
 
     private final LongAdderMetric pageReplacements;
 
@@ -107,12 +103,6 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
                 PAGE_ACQUISITIONS_BOUNDS_NANOS
         ));
 
-        pageCacheHitRate = source.addMetric(new HitRateMetric(
-                "PageCacheHitRate",
-                "Page cache hit rate over the last 5 minutes.",
-                TimeUnit.MINUTES.toMillis(5)
-        ));
-
         pageReplacements = source.addMetric(new LongAdderMetric(
                 PAGE_REPLACEMENTS,
                 "Number of times a page was replaced (evicted) from the page cache."
@@ -145,7 +135,6 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
     @Override
     public void incrementPageCacheHit() {
         pageCacheHitsTotal.increment();
-        pageCacheHitRate.increment();
     }
 
     /** Increases the page cache miss metric by one. */
@@ -163,5 +152,50 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
     @Override
     public void incrementPageReplacement() {
         pageReplacements.increment();
+    }
+
+    /**
+     * Returns the total number of page cache hits since the last restart.
+     *
+     * @return Number of page cache hits.
+     */
+    public long cacheHits() {
+        return pageCacheHitsTotal.value();
+    }
+
+    /**
+     * Returns the total number of page cache misses since the last restart.
+     *
+     * @return Number of page cache misses.
+     */
+    public long cacheMisses() {
+        return pageCacheMisses.value();
+    }
+
+    /**
+     * Returns the total number of page replacements since the last restart.
+     *
+     * @return Number of page replacements.
+     */
+    public long replacements() {
+        return pageReplacements.value();
+    }
+
+    /**
+     * Returns the total number of pages read from disk since the last restart.
+     *
+     * @return Number of pages read from disk.
+     */
+    public long pagesRead() {
+        return readPagesFromDisk.value();
+    }
+
+    /**
+     * Returns the total number of pages written to disk since the last restart.
+     *
+     * @return Number of pages written to disk.
+     */
+    public long pagesWritten() {
+        return writePagesToDisk.value();
     }
 }

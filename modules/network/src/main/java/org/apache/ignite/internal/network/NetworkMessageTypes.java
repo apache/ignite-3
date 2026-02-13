@@ -25,6 +25,17 @@ import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
+import org.apache.ignite.internal.network.message.value.BooleanValueMessage;
+import org.apache.ignite.internal.network.message.value.ByteArrayValueMessage;
+import org.apache.ignite.internal.network.message.value.ByteValueMessage;
+import org.apache.ignite.internal.network.message.value.DoubleValueMessage;
+import org.apache.ignite.internal.network.message.value.FloatValueMessage;
+import org.apache.ignite.internal.network.message.value.IntValueMessage;
+import org.apache.ignite.internal.network.message.value.LongValueMessage;
+import org.apache.ignite.internal.network.message.value.NullValueMessage;
+import org.apache.ignite.internal.network.message.value.ShortValueMessage;
+import org.apache.ignite.internal.network.message.value.StringValueMessage;
+import org.apache.ignite.internal.network.message.value.UuidValueMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
@@ -101,4 +112,64 @@ public class NetworkMessageTypes {
      * Type for {@link ProbeMessage}.
      */
     public static final short PROBE_MESSAGE = 12;
+
+    /**
+     * Message types that contain a single value of a certain type.
+     */
+    public interface SingleValueMessages {
+        /**
+         * Type for {@link BooleanValueMessage}.
+         */
+        short BOOLEAN_VALUE_MESSAGE = 101;
+
+        /**
+         * Type for {@link ByteValueMessage}.
+         */
+        short BYTE_VALUE_MESSAGE = 102;
+
+        /**
+         * Type for {@link ShortValueMessage}.
+         */
+        short SHORT_VALUE_MESSAGE = 103;
+
+        /**
+         * Type for {@link IntValueMessage}.
+         */
+        short INT_VALUE_MESSAGE = 104;
+
+        /**
+         * Type for {@link LongValueMessage}.
+         */
+        short LONG_VALUE_MESSAGE = 105;
+
+        /**
+         * Type for {@link FloatValueMessage}.
+         */
+        short FLOAT_VALUE_MESSAGE = 106;
+
+        /**
+         * Type for {@link DoubleValueMessage}.
+         */
+        short DOUBLE_VALUE_MESSAGE = 107;
+
+        /**
+         * Type for {@link UuidValueMessage}.
+         */
+        short UUID_VALUE_MESSAGE = 108;
+
+        /**
+         * Type for {@link StringValueMessage}.
+         */
+        short STRING_VALUE_MESSAGE = 109;
+
+        /**
+         * Type for {@link ByteArrayValueMessage}.
+         */
+        short BYTE_ARRAY_VALUE_MESSAGE = 110;
+
+        /**
+         * Type for {@link NullValueMessage}.
+         */
+        short NULL_VALUE_MESSAGE = 111;
+    }
 }

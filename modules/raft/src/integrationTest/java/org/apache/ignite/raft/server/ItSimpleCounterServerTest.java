@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.thrott
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
 import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
@@ -188,9 +189,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                () -> assertThat(server.stopAsync(componentContext), willCompleteSuccessfully()),
-                () -> assertThat(service.stopAsync(componentContext), willCompleteSuccessfully()),
-                () -> assertThat(partitionsLogStorageFactory.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(stopAsync(componentContext, server, service, partitionsLogStorageFactory), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

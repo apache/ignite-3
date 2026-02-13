@@ -1,87 +1,80 @@
 Sort
     collation: [CNTRYCODE ASC]
-    est: (rows=187295496)
+    est: (rows=7499)
   ColocatedHashAggregate
       fieldNames: [CNTRYCODE, NUMCUST, TOTACCTBAL]
       group: [CNTRYCODE]
       aggregation: [COUNT(), SUM(C_ACCTBAL)]
-      est: (rows=187295496)
+      est: (rows=7499)
     Project
         fieldNames: [CNTRYCODE, C_ACCTBAL]
         projection: [SUBSTR(C_PHONE, 1, 2), C_ACCTBAL]
-        est: (rows=1873125000)
+        est: (rows=75000)
       Filter
-          predicate: IS NULL(i)
-          est: (rows=1873125000)
-        CorrelatedNestedLoopJoin
-            predicate: true
-            type: left
-            correlates: [$cor1]
-            est: (rows=7492500000)
+          predicate: IS NULL($f1)
+          est: (rows=75000)
+        HashJoin
+            predicate: =(C_CUSTKEY, O_CUSTKEY)
+            type: right
+            est: (rows=300000)
           Project
-              fieldNames: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
-              projection: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
-              est: (rows=75000)
-            NestedLoopJoin
-                predicate: >(CAST(C_ACCTBAL):DECIMAL(29, 16) NOT NULL, EXPR$0)
-                type: inner
-                est: (rows=75000)
+              fieldNames: [O_CUSTKEY, $f1]
+              projection: [O_CUSTKEY, true]
+              est: (rows=300000)
+            ReduceHashAggregate
+                fieldNames: [O_CUSTKEY]
+                group: [O_CUSTKEY]
+                aggregation: []
+                est: (rows=300000)
               Exchange
                   distribution: single
-                  est: (rows=150000)
-                TableScan
-                    table: PUBLIC.CUSTOMER
-                    predicate: SEARCH(SUBSTR(C_PHONE, 1, 2), Sarg[_UTF-8'13':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'17':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'18':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'23':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'29':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'30':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'31':VARCHAR(15) CHARACTER SET "UTF-8"]:VARCHAR(15) CHARACTER SET "UTF-8")
-                    fieldNames: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
-                    est: (rows=150000)
-              Project
-                  fieldNames: [EXPR$0]
-                  projection: [CASE(=(CAST(f0_0):DECIMAL(30, 2), 0:DECIMAL(38, 0)), null:DECIMAL(29, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(30, 2), f1_1, 29, 16))]
-                  est: (rows=1)
-                ReduceSortAggregate
-                    fieldNames: [f0_0, f1_1]
-                    collation: []
-                    group: []
-                    aggregation: [SUM(0), $SUM0(1)]
-                    est: (rows=1)
-                  Project
-                      fieldNames: [0, 1]
-                      projection: [CAST(_ACC0):DECIMAL(60, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
-                      est: (rows=1)
-                    Exchange
-                        distribution: single
-                        est: (rows=1)
-                      MapSortAggregate
-                          fieldNames: [_ACC0, _ACC1]
-                          collation: []
-                          group: []
-                          aggregation: [SUM(C_ACCTBAL), COUNT(C_ACCTBAL)]
-                          est: (rows=1)
-                        TableScan
-                            table: PUBLIC.CUSTOMER
-                            predicate: AND(>(C_ACCTBAL, 0.00), SEARCH(SUBSTR(C_PHONE, 1, 2), Sarg[_UTF-8'13':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'17':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'18':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'23':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'29':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'30':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'31':VARCHAR(15) CHARACTER SET "UTF-8"]:VARCHAR(15) CHARACTER SET "UTF-8"))
-                            fieldNames: [C_ACCTBAL]
-                            est: (rows=75000)
-          ReduceHashAggregate
-              fieldNames: [i]
-              group: [i]
-              aggregation: []
-              est: (rows=99900)
+                  est: (rows=300000)
+                MapHashAggregate
+                    fieldNames: [O_CUSTKEY, _GROUP_ID]
+                    group: [O_CUSTKEY]
+                    aggregation: []
+                    est: (rows=300000)
+                  TableScan
+                      table: PUBLIC.ORDERS
+                      fieldNames: [O_CUSTKEY]
+                      est: (rows=1500000)
+          NestedLoopJoin
+              predicate: >(CAST(C_ACCTBAL):DECIMAL(29, 16) NOT NULL, EXPR$0)
+              type: inner
+              est: (rows=75000)
             Exchange
                 distribution: single
-                est: (rows=99900)
-              MapHashAggregate
-                  fieldNames: [i, _GROUP_ID]
-                  group: [i]
-                  aggregation: []
-                  est: (rows=99900)
-                IndexScan
-                    table: PUBLIC.ORDERS
-                    index: O_CK
-                    type: SORTED
-                    predicate: =(O_CUSTKEY, $cor1.C_CUSTKEY)
-                    searchBounds: <$cor1.C_CUSTKEY>
-                    fieldNames: [i]
-                    projection: [true]
-                    collation: []
-                    est: (rows=499500)
+                est: (rows=150000)
+              TableScan
+                  table: PUBLIC.CUSTOMER
+                  predicate: SEARCH(SUBSTR(C_PHONE, 1, 2), Sarg[_UTF-8'13':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'17':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'18':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'23':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'29':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'30':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'31':VARCHAR(15) CHARACTER SET "UTF-8"]:VARCHAR(15) CHARACTER SET "UTF-8")
+                  fieldNames: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
+                  est: (rows=150000)
+            Project
+                fieldNames: [EXPR$0]
+                projection: [CASE(=(CAST(f0_0):DECIMAL(30, 2), 0:DECIMAL(38, 0)), null:DECIMAL(29, 16), DECIMAL_DIVIDE(CAST(f0_0):DECIMAL(30, 2), f1_1, 29, 16))]
+                est: (rows=1)
+              ReduceSortAggregate
+                  fieldNames: [f0_0, f1_1]
+                  collation: []
+                  group: []
+                  aggregation: [SUM(0), $SUM0(1)]
+                  est: (rows=1)
+                Project
+                    fieldNames: [0, 1]
+                    projection: [CAST(_ACC0):DECIMAL(60, 2), CAST(_ACC1):DECIMAL(38, 0) NOT NULL]
+                    est: (rows=1)
+                  Exchange
+                      distribution: single
+                      est: (rows=1)
+                    MapSortAggregate
+                        fieldNames: [_ACC0, _ACC1]
+                        collation: []
+                        group: []
+                        aggregation: [SUM(C_ACCTBAL), COUNT(C_ACCTBAL)]
+                        est: (rows=1)
+                      TableScan
+                          table: PUBLIC.CUSTOMER
+                          predicate: AND(>(C_ACCTBAL, 0.00), SEARCH(SUBSTR(C_PHONE, 1, 2), Sarg[_UTF-8'13':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'17':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'18':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'23':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'29':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'30':VARCHAR(15) CHARACTER SET "UTF-8", _UTF-8'31':VARCHAR(15) CHARACTER SET "UTF-8"]:VARCHAR(15) CHARACTER SET "UTF-8"))
+                          fieldNames: [C_ACCTBAL]
+                          est: (rows=75000)

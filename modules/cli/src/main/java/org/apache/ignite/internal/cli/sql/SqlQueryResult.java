@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
+import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 import org.apache.ignite.internal.cli.sql.table.Table;
 
 /**
@@ -43,15 +44,7 @@ public class SqlQueryResult {
      * @return terminal output all items in query result.
      */
     public TerminalOutput getResult(boolean plain, boolean timed) {
-        return () -> {
-            String result = sqlQueryResultItems.stream()
-                    .map(x -> x.decorate(plain).toTerminalString())
-                    .collect(Collectors.joining(""));
-            if (timed) {
-                result += "Query executed in " + durationMs + "ms (client-side).\n";
-            }
-            return result;
-        };
+        return getResult(plain, timed, TruncationConfig.disabled());
     }
 
     /**
@@ -61,6 +54,26 @@ public class SqlQueryResult {
      */
     public TerminalOutput getResult(boolean plain) {
         return getResult(plain, false);
+    }
+
+    /**
+     * SQL query result provider with truncation support.
+     *
+     * @param plain Whether to use plain formatting.
+     * @param timed Whether to include execution time in output.
+     * @param truncationConfig Truncation configuration.
+     * @return terminal output all items in query result.
+     */
+    public TerminalOutput getResult(boolean plain, boolean timed, TruncationConfig truncationConfig) {
+        return () -> {
+            String result = sqlQueryResultItems.stream()
+                    .map(x -> x.decorate(plain, truncationConfig).toTerminalString())
+                    .collect(Collectors.joining(""));
+            if (timed) {
+                result += "Query executed in " + durationMs + "ms (client-side).\n";
+            }
+            return result;
+        };
     }
 
     /**

@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMe
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.LOADED_PAGES;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_READ;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGES_WRITTEN;
-import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_HITS;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_CACHE_MISSES;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.PAGE_REPLACEMENTS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
@@ -183,7 +182,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
         filePageStoreManager.start();
         checkpointManager.start();
-        pageMemory.start();
         metricSet = metricSource.enable();
 
         createPartitionFilePageStoresIfMissing();
@@ -371,7 +369,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
         assertMetricValue(PAGES_WRITTEN, is(1L));
         assertMetricValue(PAGE_REPLACEMENTS, is(1L));
         assertMetricValue(PAGE_CACHE_MISSES, is(greaterThan(1L)));
-        assertMetricValue(PAGE_CACHE_HITS, is(greaterThan(1L)));
         assertMetricValue(DIRTY_PAGES, is(greaterThan(1L)));
         assertMetricValue(LOADED_PAGES, is(greaterThan(1L)));
     }

@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
 import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
@@ -831,14 +832,17 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         toStop.stopRaftNode(raftNodeId0);
         toStop.stopRaftNode(raftNodeId1);
 
-        toStop.beforeNodeStop();
+        assertThat(
+                stopAsync(
+                        new ComponentContext(),
+                        toStop,
+                        serverServices.get(stopIdx),
+                        logStorageFactories.get(stopIdx),
+                        vaultManagers.get(stopIdx)
+                ),
+                willCompleteSuccessfully()
+        );
 
-        ComponentContext componentContext = new ComponentContext();
-
-        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(serverServices.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(logStorageFactories.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(vaultManagers.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
         servers.remove(stopIdx);
         serverServices.remove(stopIdx);
         logStorageFactories.remove(stopIdx);
@@ -887,13 +891,19 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         svc2.stopRaftNodes(COUNTER_GROUP_0);
         svc2.stopRaftNodes(COUNTER_GROUP_1);
 
-        svc2.beforeNodeStop();
-
         int sv2Idx = servers.size() - 1;
-        assertThat(svc2.stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(serverServices.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(logStorageFactories.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(vaultManagers.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
+
+        assertThat(
+                stopAsync(
+                        new ComponentContext(),
+                        svc2,
+                        serverServices.get(sv2Idx),
+                        logStorageFactories.get(sv2Idx),
+                        vaultManagers.get(sv2Idx)
+                ),
+                willCompleteSuccessfully()
+        );
+
         servers.remove(sv2Idx);
         serverServices.remove(sv2Idx);
         logStorageFactories.remove(sv2Idx);

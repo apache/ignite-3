@@ -34,10 +34,10 @@ public class ExceptionUtils {
      * @return {@code True} if this is a recoverable exception.
      */
     public static boolean recoverable(Throwable t) {
-        if (hasCause(t, NodeStoppingException.class, ComponentStoppingException.class, RaftStaleUpdateException.class)) {
-            return false;
-        }
-
-        return true;
+        return !hasCause(t,
+                NodeStoppingException.class,
+                ComponentStoppingException.class,
+                RaftStaleUpdateException.class,
+                RaftPeerConfigurationException.class);
     }
 }

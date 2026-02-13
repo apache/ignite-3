@@ -177,8 +177,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         checkpointManager.start();
 
-        pageMemory.start();
-
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
 
@@ -243,8 +241,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         filePageStoreManager.start();
 
         checkpointManager.start();
-
-        pageMemory.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
@@ -327,8 +323,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         checkpointManager.start();
 
-        pageMemory.start();
-
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
 
@@ -390,8 +384,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         filePageStoreManager.start();
 
         checkpointManager.start();
-
-        pageMemory.start();
 
         CompletableFuture<?> startWriteMetaToBufferFuture = new CompletableFuture<>();
         CompletableFuture<?> finishWaitWriteMetaToBufferFuture = new CompletableFuture<>();
@@ -490,7 +482,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         filePageStoreManager.start();
         checkpointManager.start();
-        pageMemory.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory);
@@ -530,7 +521,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         filePageStoreManager.start();
         checkpointManager.start();
-        pageMemory2.start();
 
         try {
             initGroupFilePageStores(filePageStoreManager, partitionMetaManager, checkpointManager, pageMemory2);
@@ -697,8 +687,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     public void testLoadedPagesCount() {
         PageMemory mem = memory();
 
-        mem.start();
-
         int expPages = MAX_MEMORY_SIZE / mem.systemPageSize();
 
         try {
@@ -764,8 +752,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     private void runWithStartedPersistentPageMemory(ConsumerX<PersistentPageMemory> c) throws Exception {
         PersistentPageMemory mem = (PersistentPageMemory) memory();
-
-        mem.start();
 
         try {
             c.accept(mem);
