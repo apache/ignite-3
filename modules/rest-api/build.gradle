@@ -76,6 +76,7 @@ compileJava {
         options.forkOptions.jvmArgs += "-D$key=$val".toString()
     }
 
+    // Add the OpenAPI spec file to outputs so that it is saved to cache (if enabled) and can be found by other tasks.
     outputs.file(openapiFile)
 }
 
