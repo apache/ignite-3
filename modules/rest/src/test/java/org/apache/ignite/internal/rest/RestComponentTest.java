@@ -56,6 +56,7 @@ import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
+import org.apache.ignite.internal.rest.events.RestEventsFactory;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -112,11 +113,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 mock(ConfigurationManager.class)
         );
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
+        Supplier<RestFactory> restEventsFactory = () -> new RestEventsFactory(EventLog.NOOP, "NOOP");
 
         restComponent = new RestComponent(
                 List.of(restPresentationFactory,
                         authProviderFactory,
-                        restManagerFactory),
+                        restManagerFactory,
+                        restEventsFactory
+                ),
                 restManager,
                 restConfiguration
         );
