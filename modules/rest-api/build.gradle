@@ -76,8 +76,8 @@ compileJava {
         options.forkOptions.jvmArgs += "-D$key=$val".toString()
     }
 
-    // Force to rebuild each time (without caching) because we need to regenerate openapi spec.
-    outputs.upToDateWhen { false }
+    // Add the OpenAPI spec file to outputs so that it is saved to cache (if enabled) and can be found by other tasks.
+    outputs.file(openapiFile)
 }
 
 configurations {
