@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_GROUP_NAME;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
@@ -184,7 +185,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
-        outboundExecutor.initMetricSource(metricManager, "network.messaging.executor.outbound",
+        outboundExecutor.initMetricSource(metricManager, THREAD_POOLS_GROUP_NAME + ".messaging.outbound",
                 "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
@@ -194,7 +195,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 channelTypeRegistry,
                 LOG,
                 metricManager,
-                "network.messaging.executor.inbound",
+                THREAD_POOLS_GROUP_NAME + ".striped.messaging.inbound",
                 "Inbound message executor metrics"
         );
 

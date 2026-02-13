@@ -23,6 +23,7 @@ import static io.micronaut.http.HttpRequest.POST;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.MediaType.TEXT_PLAIN_TYPE;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_GROUP_NAME;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
@@ -72,11 +73,11 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("clock.service", true),
             new MetricSource("index.builder", true),
             new MetricSource("raft.snapshots", true),
-            new MetricSource("network.messaging", true),
-            new MetricSource("network.messaging.executor.inbound.default", true),
-            new MetricSource("network.messaging.executor.inbound.deploymentunits", true),
-            new MetricSource("network.messaging.executor.inbound.scalecube", true),
-            new MetricSource("network.messaging.executor.outbound", true),
+            new MetricSource("messaging", true),
+            new MetricSource(THREAD_POOLS_GROUP_NAME + ".striped.messaging.inbound.default", true),
+            new MetricSource(THREAD_POOLS_GROUP_NAME + ".striped.messaging.inbound.deploymentunits", true),
+            new MetricSource(THREAD_POOLS_GROUP_NAME + ".striped.messaging.inbound.scalecube", true),
+            new MetricSource(THREAD_POOLS_GROUP_NAME + ".messaging.outbound", true),
     };
 
     @Inject

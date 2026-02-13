@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli;
 
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_GROUP_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
@@ -84,11 +85,11 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("clock.service").enabled(true),
             new MetricSource().name("index.builder").enabled(true),
             new MetricSource().name("raft.snapshots").enabled(true),
-            new MetricSource().name("network.messaging").enabled(true),
-            new MetricSource().name("network.messaging.executor.inbound.default").enabled(true),
-            new MetricSource().name("network.messaging.executor.inbound.deploymentunits").enabled(true),
-            new MetricSource().name("network.messaging.executor.inbound.scalecube").enabled(true),
-            new MetricSource().name("network.messaging.executor.outbound").enabled(true),
+            new MetricSource().name("messaging").enabled(true),
+            new MetricSource().name(THREAD_POOLS_GROUP_NAME + ".striped.messaging.inbound.default").enabled(true),
+            new MetricSource().name(THREAD_POOLS_GROUP_NAME + ".striped.messaging.inbound.deploymentunits").enabled(true),
+            new MetricSource().name(THREAD_POOLS_GROUP_NAME + ".striped.messaging.inbound.scalecube").enabled(true),
+            new MetricSource().name(THREAD_POOLS_GROUP_NAME + ".messaging.outbound").enabled(true),
     };
 
     /** Correct ignite jdbc url. */

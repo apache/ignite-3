@@ -36,7 +36,7 @@ class MessagingServiceMetricSource implements MetricSource {
 
     @Override
     public String name() {
-        return "network.messaging";
+        return "messaging";
     }
 
     @Override
