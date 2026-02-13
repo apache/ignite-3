@@ -36,13 +36,6 @@ object CppClientPackages : BuildType({
             name = "Setup Docker Proxy"
         }
 
-        script {
-            name = "Check env"
-            scriptContent = """
-                gcc --version || exit 0
-                g++ --version || exit 0
-            """.trimIndent()
-        }
         customGradle {
             name = "Build ODBC and Client packages. RPM, DEB, TGZ. (Under Rocky Linux 8 container)"
             tasks = ":platforms:cmakeCpack"
