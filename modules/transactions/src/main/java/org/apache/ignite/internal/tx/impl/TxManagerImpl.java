@@ -123,7 +123,6 @@ import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.tx.TransactionException;
-import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -982,7 +981,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             @Override
             public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
-                if (throwable instanceof TransactionTimeoutException) {
+                if (isFinishedDueToTimeout(throwable)) {
                     isTimeout = true;
 
                     // Directly mapped entries become abandoned on local tx timeout.

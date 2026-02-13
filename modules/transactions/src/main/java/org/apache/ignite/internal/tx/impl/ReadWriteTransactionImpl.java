@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
-import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -244,7 +244,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
-                        this.timeoutExceeded = finishReason instanceof TransactionTimeoutException;
+                        this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
                         killed = true;
                     }
@@ -264,7 +264,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
-                        this.timeoutExceeded = finishReason instanceof TransactionTimeoutException;
+                        this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
                         killed = true;
                     }

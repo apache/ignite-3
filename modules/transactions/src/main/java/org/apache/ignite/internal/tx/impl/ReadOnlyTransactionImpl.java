@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
@@ -28,7 +29,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.apache.ignite.tx.TransactionTimeoutException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -156,7 +156,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
                 new TxIdAndTimestamp(readTimestamp, id())
         );
 
-        this.timeoutExceeded = finishReason instanceof TransactionTimeoutException;
+        this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
 
         return txFuture;
     }
