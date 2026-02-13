@@ -129,7 +129,7 @@ class TransactionExpirationRegistry {
                 LOG.error("Transaction abortion has failed {}.", ex,
                         formatTxInfo(tx.id(), volatileTxStateMetaStorage));
             } else {
-                LOG.warn("Transaction has aborted due to timeout.",
+                LOG.warn("Transaction has aborted due to timeout {}.",
                         formatTxInfo(tx.id(), volatileTxStateMetaStorage));
             }
         });
