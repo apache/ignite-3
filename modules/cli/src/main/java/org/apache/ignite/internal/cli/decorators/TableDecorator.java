@@ -22,29 +22,54 @@ import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.internal.cli.util.PlainTableRenderer;
+import org.apache.ignite.internal.cli.util.TableTruncator;
 
 /**
  * Implementation of {@link Decorator} for {@link Table}.
+ *
+ * <p>Uses raw {@code Table} type to match the CLI decorator registry infrastructure.
+ * The cast to {@code Table<String>} is safe because all Table instances in the CLI are String-typed.
  */
 public class TableDecorator implements Decorator<Table, TerminalOutput> {
     private final boolean plain;
+    private final TableTruncator truncator;
 
+    /**
+     * Creates a new TableDecorator with truncation disabled.
+     *
+     * @param plain whether to use plain formatting
+     */
     public TableDecorator(boolean plain) {
-        this.plain = plain;
+        this(plain, TruncationConfig.disabled());
     }
 
     /**
-     * Transform {@link Table} to {@link TerminalOutput}.
+     * Creates a new TableDecorator with truncation support.
      *
-     * @param table incoming {@link Table}.
-     * @return User-friendly interpretation of {@link Table} in {@link TerminalOutput}.
+     * @param plain whether to use plain formatting
+     * @param truncationConfig truncation configuration
+     */
+    public TableDecorator(boolean plain, TruncationConfig truncationConfig) {
+        this.plain = plain;
+        this.truncator = new TableTruncator(truncationConfig);
+    }
+
+    /**
+     * Decorates a table for terminal output.
+     *
+     * <p>Applies truncation based on configuration and renders the table
+     * in either plain or formatted style.
+     *
+     * @param table the table to decorate
+     * @return terminal output containing the rendered table
      */
     @Override
     public TerminalOutput decorate(Table table) {
+        Table<String> truncatedTable = truncator.truncate((Table<String>) table);
         if (plain) {
-            return () -> PlainTableRenderer.render(table.header(), table.content());
+            return () -> PlainTableRenderer.render(truncatedTable.header(), truncatedTable.content());
         } else {
-            return () -> FlipTableConverters.fromObjects(table.header(), table.content());
+            return () -> FlipTableConverters.fromObjects(truncatedTable.header(), truncatedTable.content());
         }
     }
 }

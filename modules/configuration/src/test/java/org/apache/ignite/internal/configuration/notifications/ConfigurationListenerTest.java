@@ -77,7 +77,6 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -628,7 +627,6 @@ public class ConfigurationListenerTest {
      * Tests notifications validity when a named list element is renamed and then updated a sub-element of the renamed element.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21101")
     public void namedListNodeOnRenameAndThenUpdateSubElement() throws Exception {
         config.change(parent ->
                 parent.changeChildren(elements -> elements.create("name", element -> {
@@ -712,7 +710,7 @@ public class ConfigurationListenerTest {
                 .update("foo")
                 .get(1, SECONDS);
 
-        assertEquals(List.of("parent", "elements", "rename"), log);
+        assertEquals(List.of("parent", "children", "rename", "parent", "children", "update"), log);
     }
 
 

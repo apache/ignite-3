@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2Builder;
-import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
@@ -203,14 +203,16 @@ public class TxFinishReplicaRequestHandler {
 
             // Let the client know a transaction has finished with a different outcome.
             if (commit != (txMeta.txState() == COMMITTED)) {
-                LOG.error("Failed to finish a transaction that is already finished [txId={}, expectedState={}, actualState={}].",
-                        txId,
+                LOG.error("Failed to finish a transaction that is already finished [{}, expectedState={}, actualState={}].",
+                        formatTxInfo(txId, txManager, false),
                         commit ? COMMITTED : ABORTED,
                         txMeta.txState()
                 );
 
                 throw new MismatchingTransactionOutcomeInternalException(
-                        "Failed to change the outcome of a finished transaction [txId=" + txId + ", txState=" + txMeta.txState() + "].",
+                        format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                                formatTxInfo(txId, txManager, false),
+                                txMeta.txState()),
                         new TransactionResult(txMeta.txState(), txMeta.commitTimestamp())
                 );
             }
@@ -280,23 +282,22 @@ public class TxFinishReplicaRequestHandler {
                 ))
                 .handle((txOutcome, ex) -> {
                     if (ex != null) {
-                        // RAFT 'finish' command failed because the state has already been written by someone else.
-                        // In that case we throw a corresponding exception.
-                        if (ex instanceof UnexpectedTransactionStateException) {
-                            UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
-                            TransactionResult result = utse.transactionResult();
-
-                            replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
-
-                            throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
-                        }
-                        // Otherwise we convert from the internal exception to the client one.
+                        // Convert from the internal exception to the client one.
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
                     TransactionResult result = (TransactionResult) txOutcome;
 
                     replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
+
+                    if (commit != (result.transactionState() == COMMITTED)) {
+                        throw new MismatchingTransactionOutcomeInternalException(
+                                format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                                        formatTxInfo(txId, txManager, false),
+                                        result.transactionState()),
+                                result
+                        );
+                    }
 
                     return result;
                 });

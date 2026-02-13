@@ -147,9 +147,4 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
 
         return factory.create(logStorageBudgetConfig);
     }
-
-    @Override
-    public void sync() {
-        // No-op.
-    }
 }

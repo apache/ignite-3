@@ -201,7 +201,7 @@ SystemViewScan
 # Complex query where column of source table is renamed, and this renamed column is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
 explain plan
-SELECT
+SELECT /*+ disable_decorrelation */
   (SELECT COUNT(*)
      FROM test_table inner_t
     WHERE inner_t.c1 = renamed_c1
@@ -216,6 +216,7 @@ Project
       predicate: true
       type: left
       correlates: [$cor0]
+      correlationFieldNames: [RENAMED_C1]
       est: (rows=1)
     Exchange
         distribution: single
@@ -241,7 +242,7 @@ Project
 # Complex query where expression involving a column of source table is renamed, and this renamed expression is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
 explain plan
-SELECT
+SELECT /*+ disable_decorrelation */
   (SELECT COUNT(*)
      FROM test_table inner_t
     WHERE inner_t.c1 = doubled_c1
@@ -256,6 +257,7 @@ Project
       predicate: true
       type: left
       correlates: [$cor0]
+      correlationFieldNames: [DOUBLED_C1]
       est: (rows=1)
     Exchange
         distribution: single

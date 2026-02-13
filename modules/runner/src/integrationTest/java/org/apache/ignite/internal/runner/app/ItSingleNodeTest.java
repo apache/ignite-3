@@ -84,7 +84,7 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
                 + "    field1   int\n"
                 + ")";
 
-        ignite.sql().execute(null, sqlCreate);
+        ignite.sql().execute(sqlCreate);
 
         node.shutdown();
 

@@ -303,8 +303,8 @@ public class SqlExpressionFactoryAdapter implements ExpressionFactory {
         }
 
         @Override
-        public @Nullable RowT correlatedVariable(int id) {
-            return null;
+        public @Nullable Object correlatedVariable(long id) {
+            throw new AssertionError("Should not get here");
         }
 
         @Override

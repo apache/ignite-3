@@ -62,13 +62,13 @@ class RelOptSchemaImpl implements RelOptSchema {
             throw new SqlException(Common.INTERNAL_ERR, "Expected name of exactly two parts, but was " + names);
         }
 
-        SchemaPlus schema = root.getSubSchema(names.get(0));
+        SchemaPlus schema = root.subSchemas().get(names.get(0));
 
         if (schema == null) {
             throw new SqlException(Common.INTERNAL_ERR, "Schema with name \"" + names.get(0) + "\" not found");
         }
 
-        Table table = schema.getTable(names.get(1));
+        Table table = schema.tables().get(names.get(1));
 
         if (table == null) {
             throw new SqlException(Common.INTERNAL_ERR, "Table with name " + names + " not found");

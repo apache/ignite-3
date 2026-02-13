@@ -22,6 +22,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -114,5 +115,23 @@ public class ExecutionContext {
     @Nullable
     public ComputeJobDataHolder arg() {
         return arg;
+    }
+
+    /**
+     * Gets the observable timestamp from the job initiator client.
+     * This ensures that the job sees the changes made by the client up to the point of job submission.
+     *
+     * @return Observable timestamp or {@link HybridTimestamp#NULL_HYBRID_TIMESTAMP} if not set.
+     */
+    public long observableTimestamp() {
+        if (arg == null) {
+            return HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+        }
+
+        Long ts = arg.observableTimestamp();
+
+        return ts == null
+                ? HybridTimestamp.NULL_HYBRID_TIMESTAMP
+                : ts;
     }
 }

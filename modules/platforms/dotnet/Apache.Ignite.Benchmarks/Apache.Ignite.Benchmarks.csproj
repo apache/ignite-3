@@ -33,6 +33,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Apache.Ignite\Apache.Ignite.csproj" />
+        <ProjectReference Include="..\Apache.Extensions.Caching.Ignite\Apache.Extensions.Caching.Ignite.csproj" />
         <ProjectReference Include="..\Apache.Ignite.Tests\Apache.Ignite.Tests.csproj" />
     </ItemGroup>
 

@@ -220,7 +220,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
             for (IgniteTable tbl : tables) {
                 CompletableFuture<List<TokenizedAssignments>> assignments = distributionProvider
-                        .forTable(clock.now(), tbl, mapOnBackups);
+                        .forTable(clock.current(), tbl, mapOnBackups);
 
                 tablesAssignments.put(tbl.id(), assignments);
             }

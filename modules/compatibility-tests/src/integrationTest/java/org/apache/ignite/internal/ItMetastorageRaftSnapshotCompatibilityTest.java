@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -63,9 +62,8 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     @Test
     void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
         cluster.stop();
-        cluster.startEmbedded(2);
 
-        awaitAssignmentsStabilization(node(0), TABLE_NAME_TEST);
+        startEmbeddedClusterAndAwaitRebalance(2);
 
         checkMetastorage();
 

@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -41,6 +42,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -1183,50 +1185,45 @@ public class IgniteUtils {
     }
 
     /**
-     * Retries operation until it succeeds or fails with exception that is different than the given.
+     * Retries operation until it succeeds or timeout occurs.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
-     *         stopped.
+     * @param timeout Timeout in milliseconds.
      * @param executor Executor to make retry in.
      * @return Future that is completed when operation is successful or failed with other exception than the given.
      */
-    public static <T> CompletableFuture<T> retryOperationUntilSuccess(
+    public static <T> CompletableFuture<T> retryOperationUntilSuccessOrTimeout(
             Supplier<CompletableFuture<T>> operation,
-            Function<Throwable, Boolean> stopRetryCondition,
+            long timeout,
             Executor executor
     ) {
-        CompletableFuture<T> fut = new CompletableFuture<>();
+        CompletableFuture<T> futureWithTimeout = new CompletableFuture<T>().orTimeout(timeout, TimeUnit.MILLISECONDS);
 
-        retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor);
+        retryOperationUntilSuccessOrFutureDone(operation, futureWithTimeout, executor);
 
-        return fut;
+        return futureWithTimeout;
     }
 
     /**
-     * Retries operation until it succeeds or fails with exception that is different than the given.
+     * Retries operation until it succeeds or provided future is done.
      *
      * @param operation Operation.
-     * @param stopRetryCondition Condition that accepts the exception if one has been thrown, and defines whether retries should be
-     *         stopped.
+     * @param future Future to track.
      * @param executor Executor to make retry in.
-     * @param fut Future that is completed when operation is successful or failed with other exception than the given.
      */
-    public static <T> void retryOperationUntilSuccess(
+    private static <T> void retryOperationUntilSuccessOrFutureDone(
             Supplier<CompletableFuture<T>> operation,
-            Function<Throwable, Boolean> stopRetryCondition,
-            CompletableFuture<T> fut,
+            CompletableFuture<T> future,
             Executor executor
     ) {
+
         operation.get()
                 .whenComplete((res, e) -> {
-                    if (e == null) {
-                        fut.complete(res);
-                    } else {
-                        if (stopRetryCondition.apply(e)) {
-                            fut.completeExceptionally(e);
+                    if (!future.isDone()) {
+                        if (e == null) {
+                            future.complete(res);
                         } else {
-                            executor.execute(() -> retryOperationUntilSuccess(operation, stopRetryCondition, fut, executor));
+                            executor.execute(() -> retryOperationUntilSuccessOrFutureDone(operation, future, executor));
                         }
                     }
                 });
@@ -1319,6 +1316,29 @@ public class IgniteUtils {
         }
     }
 
+    /**
+     * Makes array from the given arguments, if any argument is an array itself, its elements are added into result instead of it.
+     *
+     * @param arguments Arguments.
+     * @return Flat array.
+     */
+    public static Object[] flatArray(Object... arguments) {
+        List<Object> list = new ArrayList<>();
+
+        for (Object arg : arguments) {
+            if (arg != null && arg.getClass().isArray()) {
+                int length = Array.getLength(arg);
+                for (int i = 0; i < length; i++) {
+                    list.add(Array.get(arg, i));
+                }
+            } else {
+                list.add(arg);
+            }
+        }
+
+        return list.toArray();
+    }
+
     private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
@@ -1346,20 +1366,6 @@ public class IgniteUtils {
      */
     public static CompletableFuture<Void> startAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
         return startAsync(componentContext, components.stream());
-    }
-
-    private static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
-        return allOf(components
-                .filter(Objects::nonNull)
-                .map(igniteComponent -> {
-                    try {
-                        return igniteComponent.stopAsync(componentContext);
-                    } catch (Throwable e) {
-                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
-                        return failedFuture(e);
-                    }
-                })
-                .toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -1390,7 +1396,7 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
-        return stopAsync(componentContext, Stream.of(components));
+        return stopAsync(componentContext, Arrays.asList(components));
     }
 
     /**
@@ -1401,7 +1407,25 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
-        return stopAsync(componentContext, components.stream());
+        try {
+            closeAll(components.stream().filter(Objects::nonNull).map(c -> c::beforeNodeStop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        CompletableFuture<?>[] stopFutures = components.stream()
+                .filter(Objects::nonNull)
+                .map(igniteComponent -> {
+                    try {
+                        return igniteComponent.stopAsync(componentContext);
+                    } catch (Throwable e) {
+                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
+                        return failedFuture(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(stopFutures);
     }
 
     /**
@@ -1450,5 +1474,28 @@ public class IgniteUtils {
         if (tuple.hasNullValue(fieldIndex)) {
             throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, fieldName));
         }
+    }
+
+    /**
+     * Creates a comparator of lists that compares them lexicographically using the provided comparator for list elements.
+     *
+     * @param comparator Comparator for list elements.
+     * @param <T> Type of list's elements.
+     * @return Comparator of lists.
+     */
+    public static <T> Comparator<List<T>> lexicographicListComparator(Comparator<? super T> comparator) {
+        return (l, r) -> {
+            int length = Math.min(l.size(), r.size());
+
+            for (int i = 0; i < length; i++) {
+                int cmp = comparator.compare(l.get(i), r.get(i));
+
+                if (cmp != 0) {
+                    return cmp;
+                }
+            }
+
+            return Integer.compare(l.size(), r.size());
+        };
     }
 }

@@ -173,6 +173,7 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
+                                    .hintStrategy(IgniteHint.DISABLE_DECORRELATION.name(), (hint, rel) -> true)
                                     .build()
                     )
             )
@@ -181,7 +182,7 @@ public final class Commons {
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
-                    .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withConformance(IgniteSqlConformance.INSTANCE)
                     .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
@@ -855,5 +856,16 @@ public final class Commons {
                 Mappings.createIdentity(sourceCount),
                 offset
         );
+    }
+
+    /**
+     * Packs two integers into a single long value.
+     *
+     * @param high The first integer to pack.
+     * @param low The second integer to pack.
+     * @return A long value containing both integers.
+     */
+    public static long packIntsToLong(int high, int low) {
+        return (((long) high) << 32) | (low & 0xffffffffL);
     }
 }

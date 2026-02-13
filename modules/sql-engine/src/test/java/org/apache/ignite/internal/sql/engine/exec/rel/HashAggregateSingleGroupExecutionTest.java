@@ -295,16 +295,11 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
             List<Integer> args,
             RelDataType resultType
     ) {
-        return AggregateCall.create(
-                func,
-                false,
-                false,
-                false,
-                args,
-                -1,
-                RelCollations.EMPTY,
-                resultType,
-                null
+        return AggregateCall.create(func,
+                false, false, false,
+                List.of(), args, -1,
+                null, RelCollations.EMPTY,
+                resultType, null
         );
     }
 

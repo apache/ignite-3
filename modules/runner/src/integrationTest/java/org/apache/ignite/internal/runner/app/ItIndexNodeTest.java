@@ -100,12 +100,12 @@ public class ItIndexNodeTest extends ClusterPerClassIntegrationTest {
         String createSortIndexSql = "CREATE INDEX IF NOT EXISTS " + SORT_IDX + " ON " + TABLE_NAME + " USING SORTED (field2)";
         String insertWithParams = "INSERT INTO " + TABLE_NAME + " (key, field1, field2) VALUES (?, ?, ?)";
 
-        ignite.sql().execute(null, createZoneSql);
-        ignite.sql().execute(null, createTableSql);
-        ignite.sql().execute(null, createHashIndexSql);
-        ignite.sql().execute(null, createSortIndexSql);
+        ignite.sql().execute(createZoneSql);
+        ignite.sql().execute(createTableSql);
+        ignite.sql().execute(createHashIndexSql);
+        ignite.sql().execute(createSortIndexSql);
         for (int i = LOWER_BOUND; i <= UPPER_BOUND; i++) {
-            ignite.sql().execute(null, insertWithParams, i, i, i);
+            ignite.sql().execute(insertWithParams, i, i, i);
         }
 
         IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);

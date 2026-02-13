@@ -168,8 +168,8 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     }
 
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return executeSyncOp(() -> view.remove(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return executeSyncOp(() -> view.removeExact(tx, key, val));
     }
 
     @Override
@@ -178,8 +178,8 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     }
 
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
-        return executeAsyncOp(() -> view.removeAsync(tx, key, val));
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
+        return executeAsyncOp(() -> view.removeExactAsync(tx, key, val));
     }
 
     @Override
@@ -228,8 +228,8 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     }
 
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, V oldValue, @Nullable V newValue) {
-        return executeSyncOp(() -> view.replace(tx, key, oldValue, newValue));
+    public boolean replaceExact(@Nullable Transaction tx, K key, V oldValue, @Nullable V newValue) {
+        return executeSyncOp(() -> view.replaceExact(tx, key, oldValue, newValue));
     }
 
     @Override
@@ -238,8 +238,8 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     }
 
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        return executeAsyncOp(() -> view.replaceAsync(tx, key, oldVal, newVal));
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
+        return executeAsyncOp(() -> view.replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     @Override

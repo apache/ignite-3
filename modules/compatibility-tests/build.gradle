@@ -57,6 +57,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-table')
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     integrationTestImplementation libs.awaitility
@@ -65,6 +66,7 @@ dependencies {
 
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility
+    testFixturesImplementation platform(libs.jackson.bom)
     testFixturesImplementation libs.jackson.databind
     testFixturesImplementation libs.swagger.parser
     testFixturesImplementation(libs.jsonpath.assert) {

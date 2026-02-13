@@ -88,4 +88,15 @@ public class PendingRows {
         return pendingRows == null ? EMPTY_SET : pendingRows;
     }
 
+    /**
+     * Returns the total number of unresolved write intents across all transactions.
+     *
+     * @return Total number of pending row IDs.
+     */
+    public long getPendingRowCount() {
+        return txsPendingRowIds.values().stream()
+                .mapToLong(Set::size)
+                .sum();
+    }
+
 }

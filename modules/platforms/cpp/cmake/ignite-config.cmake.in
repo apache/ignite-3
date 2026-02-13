@@ -1,0 +1,66 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements. See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License. You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+@PACKAGE_INIT@
+
+set(ignite_VERSION @PROJECT_VERSION@)
+
+# Available components
+set(ignite_AVAILABLE_COMPONENTS @IGNITE_AVAILABLE_COMPONENTS@)
+
+# Set default component if none specified
+if(NOT ignite_FIND_COMPONENTS)
+    set(ignite_FIND_COMPONENTS client)
+endif()
+
+# Validate requested components
+foreach(_comp ${ignite_FIND_COMPONENTS})
+    if(NOT _comp IN_LIST ignite_AVAILABLE_COMPONENTS)
+        set(ignite_FOUND FALSE)
+        set(ignite_NOT_FOUND_MESSAGE "Requested component '${_comp}' not available. Available components: ${ignite_AVAILABLE_COMPONENTS}")
+    endif()
+endforeach()
+
+# Include component-specific target files
+foreach(_comp ${ignite_FIND_COMPONENTS})
+    set(_target_file "${CMAKE_CURRENT_LIST_DIR}/ignite-${_comp}-targets.cmake")
+    set(_target_file_no_install "${CMAKE_CURRENT_LIST_DIR}/../ignite/${_comp}/cmake/ignite-${_comp}-targets.cmake")
+    if(EXISTS "${_target_file}")
+        include("${_target_file}")
+        set(ignite_${_comp}_FOUND TRUE)
+    elseif(EXISTS "${_target_file_no_install}")
+        include("${_target_file_no_install}")
+        set(ignite_${_comp}_FOUND TRUE)
+    else()
+        set(ignite_${_comp}_FOUND FALSE)
+        if(ignite_FIND_REQUIRED_${_comp})
+            set(ignite_FOUND FALSE)
+            set(ignite_NOT_FOUND_MESSAGE "Component '${_comp}' not found")
+        endif()
+    endif()
+endforeach()
+
+check_required_components(ignite)
+
+# Set legacy variables for compatibility
+if(ignite_client_FOUND)
+    set(ignite_client_LIBRARIES ignite::client)
+endif()
+
+if(ignite_odbc_FOUND)
+    set(ignite_odbc_LIBRARIES ignite::odbc)
+endif()
