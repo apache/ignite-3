@@ -99,6 +99,7 @@ import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.jetbrains.annotations.Nullable;
 import org.locationtech.jts.geom.Geometry;
 
@@ -146,7 +147,8 @@ import org.locationtech.jts.geom.Geometry;
  * 9. Added parameter 'Format' to translateCastToTimestampWithLocalTimeZone.
  * 10. getConvertExpression Variant related code and if (targetType.getSqlTypeName() == SqlTypeName.ROW) are commented out.
  *     case DECIMAL: { and other numeric branches are commented aut (Some of them handle overflow checks, AI-3 has its own checks).
- * 11. scaleValue: code conversion from a non INTERVAL to INTERVAL is commented out (because it is buggy).      
+ * 11. scaleValue: code conversion from a non INTERVAL to INTERVAL is commented out (because it is buggy).
+ * 12. RexUtils.expandSearch amended to RexUtils.expandSearchNullable to reduce compiled bytecode.
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
   public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
@@ -1573,7 +1575,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       return implementCaseWhen(call);
     }
     if (operator == SEARCH) {
-      return RexUtil.expandSearch(builder, program, call).accept(this);
+      return RexUtils.expandSearchNullable(builder, program, call).accept(this);
     }
     final RexImpTable.RexCallImplementor implementor =
         RexImpTable.INSTANCE.get(operator);
