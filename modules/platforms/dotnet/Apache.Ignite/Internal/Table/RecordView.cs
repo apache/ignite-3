@@ -123,6 +123,21 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
+        public async Task<bool> ContainsAllKeysAsync(ITransaction? transaction, IEnumerable<T> keys)
+        {
+            IgniteArgumentCheck.NotNull(keys);
+
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleContainsAllKeys, transaction, keys, true)
+                .ConfigureAwait(false);
+            if (resBuf == null)
+            {
+                return false;
+            }
+
+            return ReadSchemaAndBoolean(resBuf);
+        }
+
+        /// <inheritdoc/>
         public async Task<IList<Option<T>>> GetAllAsync(ITransaction? transaction, IEnumerable<T> keys) =>
             await GetAllAsync(
                 transaction: transaction,
