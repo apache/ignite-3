@@ -286,6 +286,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => kvView.PutAllAsync(tx, pairs), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
         await AssertOpOnNode(_ => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
     }
 
@@ -326,6 +327,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => kvView.PutAllAsync(tx, pairs), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
     }
 
     [Test]
