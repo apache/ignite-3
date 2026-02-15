@@ -213,6 +213,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => recordView.UpsertAllAsync(tx, keys), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllExactAsync(tx, keys), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
     }
 
     [Test]
@@ -247,6 +248,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => recordView.UpsertAllAsync(tx, keys), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(tx => recordView.DeleteAllExactAsync(tx, keys), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.ContainsAllKeysAsync(tx, keys), ClientOp.TupleContainsAllKeys, expectedNode);
     }
 
     [Test]

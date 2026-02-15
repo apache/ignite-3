@@ -871,6 +871,49 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
+        {
+            var records = Enumerable
+                .Range(1, 10)
+                .Select(x => GetPoco(x, x.ToString(CultureInfo.InvariantCulture)));
+            await PocoView.UpsertAllAsync(null, records);
+
+            var result = await PocoView.ContainsAllKeysAsync(null, Enumerable.Range(1, 10).Select(x => GetPoco(x)));
+
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWithAllNonExistingKeysReturnsFalse()
+        {
+            var result = await PocoView.ContainsAllKeysAsync(null, [GetPoco(1), GetPoco(2)]);
+
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public async Task TestContainsAllKeysWithNonExistingKeysReturnsFalse()
+        {
+            var records = Enumerable
+                .Range(1, 10)
+                .Select(x => GetPoco(x, x.ToString(CultureInfo.InvariantCulture)));
+            await PocoView.UpsertAllAsync(null, records);
+
+            var result = await PocoView.ContainsAllKeysAsync(null, Enumerable.Range(5, 10).Select(x => GetPoco(x)));
+
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void TestContainsAllKeysThrowsArgumentExceptionOnNullCollectionElement()
+        {
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await PocoView.ContainsAllKeysAsync(null, [GetPoco(1), null!]));
+
+            Assert.AreEqual("Record collection can't contain null elements.", ex!.Message);
+        }
+
+        [Test]
         public void TestToString()
         {
             StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = PUBLIC.TBL1, Id =", PocoView.ToString());
