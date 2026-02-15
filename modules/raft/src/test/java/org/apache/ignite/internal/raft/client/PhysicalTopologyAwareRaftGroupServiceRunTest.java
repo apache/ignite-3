@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -29,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -47,6 +47,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -207,7 +208,6 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                 eventsClientListener,
                 commandsMarshaller,
                 StoppingExceptionFactories.indicateNodeStop(),
-                throttlingContextHolder(),
                 NOOP_FAILURE_PROCESSOR
         );
 
@@ -1019,6 +1019,41 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // Verify that at least one peer was called twice (first with "no leader", then success).
         long totalCalls = calledPeers.size();
         assertTrue(totalCalls > 3, "Should have more than 3 calls (some peers retried after leader election), got " + totalCalls);
+    }
+
+    /**
+     * Tests that after leader election notification, the next request goes directly to the notified leader.
+     *
+     * <p>This verifies that the leader field is updated when leader election notification is received,
+     * so subsequent requests don't waste time trying random peers.
+     */
+    @Test
+    void testLeaderElectionNotificationUpdatesLeaderField() {
+        Peer expectedLeader = NODES.get(1); // Use node 1 as the leader (not node 0)
+        AtomicReference<String> firstCalledPeer = new AtomicReference<>();
+
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            InternalClusterNode target = invocation.getArgument(0);
+            firstCalledPeer.compareAndSet(null, target.name());
+            return completedFuture(FACTORY.actionResponse().result(new TestResponse()).build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Simulate leader election notification for node 1.
+        simulateLeaderElectionAndWait(expectedLeader, CURRENT_TERM);
+
+        // Now run a command - it should go directly to the notified leader.
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
+        assertThat(result, willCompleteSuccessfully());
+
+        // Verify the first (and only) call went to the notified leader.
+        assertEquals(expectedLeader.consistentId(), firstCalledPeer.get(),
+                "After leader election notification, request should go directly to the notified leader");
     }
 
     /**

@@ -49,21 +49,22 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
+ * A wrapper around a {@link TimeAwareRaftGroupService} providing helpful methods for working with the CMG.
  */
 public class CmgRaftService implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
-    private final RaftGroupService raftService;
+    private final TimeAwareRaftGroupService raftService;
 
     private final TopologyService topologyService;
 
@@ -72,7 +73,7 @@ public class CmgRaftService implements ManuallyCloseable {
     /**
      * Creates a new instance.
      */
-    public CmgRaftService(RaftGroupService raftService, TopologyService topologyService, LogicalTopology logicalTopology) {
+    public CmgRaftService(TimeAwareRaftGroupService raftService, TopologyService topologyService, LogicalTopology logicalTopology) {
         this.raftService = raftService;
         this.topologyService = topologyService;
         this.logicalTopology = logicalTopology;
@@ -87,7 +88,7 @@ public class CmgRaftService implements ManuallyCloseable {
         Peer leader = raftService.leader();
 
         if (leader == null) {
-            return raftService.refreshLeader().thenCompose(v -> isCurrentNodeLeader());
+            return raftService.refreshLeader(RaftCommandRunner.NO_TIMEOUT).thenCompose(v -> isCurrentNodeLeader());
         } else {
             String nodeName = topologyService.localMember().name();
 
@@ -101,7 +102,7 @@ public class CmgRaftService implements ManuallyCloseable {
      * @return Future that resolves into the current cluster state or {@code null} if it does not exist.
      */
     public CompletableFuture<ClusterState> readClusterState() {
-        return raftService.run(msgFactory.readStateCommand().build())
+        return run(msgFactory.readStateCommand().build())
                 .thenApply(ClusterState.class::cast);
     }
 
@@ -114,7 +115,7 @@ public class CmgRaftService implements ManuallyCloseable {
     public CompletableFuture<ClusterState> initClusterState(ClusterState clusterState) {
         ClusterNodeMessage localNodeMessage = nodeMessage(topologyService.localMember());
 
-        return raftService.run(msgFactory.initCmgStateCommand().node(localNodeMessage).clusterState(clusterState).build())
+        return run(msgFactory.initCmgStateCommand().node(localNodeMessage).clusterState(clusterState).build())
                 .thenApply(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new IllegalInitArgumentException("Init CMG request denied, reason: "
@@ -146,7 +147,7 @@ public class CmgRaftService implements ManuallyCloseable {
 
         // Using NO_TIMEOUT because we want a node that doesn't see CMG majority at start to hang out until someone else starts; otherwise,
         // if we employ a timeout here, node-by-node starts might cause inability to form a cluster.
-        return raftService.run(command, RaftCommandRunner.NO_TIMEOUT)
+        return run(command)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         var validationErrorResponse = (ValidationErrorResponse) response;
@@ -177,7 +178,7 @@ public class CmgRaftService implements ManuallyCloseable {
         ClusterNodeMessage localNodeMessage = nodeMessage(topologyService.localMember(), attributes);
 
         JoinReadyCommand joinReadyCommand = msgFactory.joinReadyCommand().node(localNodeMessage).build();
-        return raftService.run(joinReadyCommand, RaftCommandRunner.NO_TIMEOUT)
+        return run(joinReadyCommand)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new JoinDeniedException("JoinReady request denied, reason: "
@@ -200,16 +201,17 @@ public class CmgRaftService implements ManuallyCloseable {
                 .nodes(nodes.stream().map(this::nodeMessage).collect(toSet()))
                 .build();
 
-        return raftService.run(command);
+        return run(command);
     }
 
     /**
      * Retrieves the logical topology snapshot.
      *
+     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
      * @return Logical topology snapshot.
      */
-    public CompletableFuture<LogicalTopologySnapshot> logicalTopology() {
-        return raftService.run(msgFactory.readLogicalTopologyCommand().build())
+    public CompletableFuture<LogicalTopologySnapshot> logicalTopology(long timeout) {
+        return run(msgFactory.readLogicalTopologyCommand().build(), timeout)
                 .thenApply(LogicalTopologyResponse.class::cast)
                 .thenApply(LogicalTopologyResponse::logicalTopology);
     }
@@ -217,9 +219,19 @@ public class CmgRaftService implements ManuallyCloseable {
     /**
      * Returns a future that, when complete, resolves into a list of validated nodes. This list includes all nodes currently present in the
      * Logical Topology as well as nodes that only have passed the validation step.
+     *
+     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
      */
-    public CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
-        return raftService.run(msgFactory.readValidatedNodesCommand().build());
+    public CompletableFuture<Set<InternalClusterNode>> validatedNodes(long timeout) {
+        return run(msgFactory.readValidatedNodesCommand().build(), timeout);
+    }
+
+    private <R> CompletableFuture<R> run(Command cmd, long timeout) {
+        return raftService.run(cmd, timeout);
+    }
+
+    private <R> CompletableFuture<R> run(Command cmd) {
+        return run(cmd, RaftCommandRunner.NO_TIMEOUT);
     }
 
     /**
@@ -246,7 +258,7 @@ public class CmgRaftService implements ManuallyCloseable {
         Peer leader = raftService.leader();
 
         if (leader == null) {
-            return raftService.refreshLeader().thenCompose(v -> majority());
+            return raftService.refreshLeader(RaftCommandRunner.NO_TIMEOUT).thenCompose(v -> majority());
         }
 
         List<Peer> peers = raftService.peers();
@@ -297,7 +309,7 @@ public class CmgRaftService implements ManuallyCloseable {
         List<Peer> currentLearners = raftService.learners();
 
         if (currentLearners == null) {
-            return raftService.refreshMembers(true).thenCompose(v -> learners());
+            return raftService.refreshMembers(true, RaftCommandRunner.NO_TIMEOUT).thenCompose(v -> learners());
         }
 
         return completedFuture(currentLearners.stream()
@@ -316,7 +328,7 @@ public class CmgRaftService implements ManuallyCloseable {
         List<Peer> currentLearners = raftService.learners();
 
         if (currentLearners == null) {
-            return raftService.refreshMembers(true).thenCompose(v -> updateLearners(term));
+            return raftService.refreshMembers(true, RaftCommandRunner.NO_TIMEOUT).thenCompose(v -> updateLearners(term));
         }
 
         Set<String> currentLearnerNames = currentLearners.stream()
@@ -339,34 +351,42 @@ public class CmgRaftService implements ManuallyCloseable {
         if (newLearners.isEmpty()) {
             // Methods for working with learners do not support empty peer lists for some reason.
             // TODO: https://issues.apache.org/jira/browse/IGNITE-26855.
-            return raftService.changePeersAndLearnersAsync(newConfiguration, term,  0)
+            return raftService.changePeersAndLearnersAsync(newConfiguration, term,  0, RaftCommandRunner.NO_TIMEOUT)
                     .thenRun(() -> raftService.updateConfiguration(newConfiguration));
         } else {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-26855.
-            return raftService.resetLearners(newConfiguration.learners(), 0);
+            return raftService.resetLearners(newConfiguration.learners(), 0, RaftCommandRunner.NO_TIMEOUT);
         }
     }
 
     /**
      * Changes Metastorage nodes.
      *
+     * @param newMetastorageNodes New metastorage node names.
+     * @param metastorageRepairingConfigIndex Metastorage repairing config index (for forceful reconfiguration).
+     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
      * @return Future that completes when the change is finished.
      */
-    public CompletableFuture<Void> changeMetastorageNodes(Set<String> newMetastorageNodes, @Nullable Long metastorageRepairingConfigIndex) {
+    public CompletableFuture<Void> changeMetastorageNodes(
+            Set<String> newMetastorageNodes,
+            @Nullable Long metastorageRepairingConfigIndex,
+            long timeout
+    ) {
         ChangeMetaStorageInfoCommand command = msgFactory.changeMetaStorageInfoCommand()
                 .metaStorageNodes(Set.copyOf(newMetastorageNodes))
                 .metastorageRepairingConfigIndex(metastorageRepairingConfigIndex)
                 .build();
-        return raftService.run(command);
+        return run(command, timeout);
     }
 
     /**
      * Retrieves the Metastorage info.
      *
-     * @return Future that resolves into the metastorage info or {@code null} if even cluster state does not exist.
+     * @param timeout Timeout in milliseconds. Use {@link RaftCommandRunner#NO_TIMEOUT} for infinite wait.
+     * @return Future that resolves into the metastorage info or {@code null} if cluster state does not exist.
      */
-    public CompletableFuture<MetaStorageInfo> readMetaStorageInfo() {
-        return raftService.run(msgFactory.readMetaStorageInfoCommand().build())
+    public CompletableFuture<MetaStorageInfo> readMetaStorageInfo(long timeout) {
+        return run(msgFactory.readMetaStorageInfoCommand().build(), timeout)
                 .thenApply(MetaStorageInfo.class::cast);
     }
 

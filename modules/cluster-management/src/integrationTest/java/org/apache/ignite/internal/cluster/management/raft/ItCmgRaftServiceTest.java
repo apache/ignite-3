@@ -71,9 +71,11 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.service.TimeAwareRaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -81,6 +83,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -116,6 +119,10 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         private final ComponentWorkingDir workingDir;
 
+        private final RaftGroupEventsClientListener eventsClientListener;
+
+        private final NoOpFailureManager failureManager;
+
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
             workingDir = new ComponentWorkingDir(workDir);
@@ -124,8 +131,16 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
-            this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
+            this.eventsClientListener = new RaftGroupEventsClientListener();
+            this.failureManager = new NoOpFailureManager();
+            this.raftManager = TestLozaFactory.create(
+                    clusterService,
+                    raftConfiguration,
+                    systemLocalConfiguration,
+                    new HybridClockImpl(),
+                    eventsClientListener
+            );
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
         }
 
         void start() {
@@ -147,14 +162,26 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
                 Peer serverPeer = configuration.peer(localMember().name());
 
-                RaftGroupService raftService;
+                var raftServiceFactory = new PhysicalTopologyAwareRaftGroupServiceFactory(
+                        clusterService,
+                        eventsClientListener,
+                        failureManager
+                );
+
+                TimeAwareRaftGroupService raftService;
 
                 if (serverPeer == null) {
-                    raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration, true);
+                    raftService = raftManager.startTimeAwareRaftGroupService(
+                            CmgGroupId.INSTANCE,
+                            configuration,
+                            raftServiceFactory,
+                            StoppingExceptionFactories.indicateComponentStop(),
+                            true
+                    );
                 } else {
                     var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
-                    raftService = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
+                    raftService = raftManager.startSystemRaftGroupNodeAndWaitNodeReadyTimeAware(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
@@ -163,11 +190,11 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {},
                                     new ClusterIdHolder(),
-                                    new NoOpFailureManager(),
+                                    failureManager,
                                     config -> {}
                             ),
                             RaftGroupEventsListener.noopLsnr,
-                            null,
+                            raftServiceFactory,
                             RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
                     );
                 }
@@ -197,11 +224,11 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         private CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
-            return raftService.logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
+            return raftService.logicalTopology(RaftCommandRunner.NO_TIMEOUT).thenApply(LogicalTopologySnapshot::nodes);
         }
 
         private CompletableFuture<Set<InternalClusterNode>> validatedNodes() {
-            return raftService.validatedNodes();
+            return raftService.validatedNodes(RaftCommandRunner.NO_TIMEOUT);
         }
     }
 
