@@ -22,6 +22,7 @@ set(SOURCES
     fake_server.cpp
     tcp_client_channel.cpp
     connection_test.cpp
+    proxy/kgb_proxy.cpp
 )
 
 ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client msgpack-c ignite-protocol ignite-tuple)
