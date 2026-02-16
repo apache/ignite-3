@@ -78,7 +78,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
         checkpointer.onRollover(segmentFile, memTable);
 
         verify(segmentFile, timeout(500)).sync();
-        verify(indexFileManager, timeout(500)).saveIndexMemtable(memTable);
+        verify(indexFileManager, timeout(500)).saveNewIndexMemtable(memTable);
     }
 
     @Test
