@@ -19,7 +19,9 @@ package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -276,5 +278,80 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         assertThat(groupMeta.indexMeta(0), is(nullValue()));
         assertThat(groupMeta.indexMeta(19), is(nullValue()));
         assertThat(groupMeta.firstLogIndexInclusive(), is(-1L));
+    }
+
+    @Test
+    void testOnIndexCompacted() {
+        var meta1 = new IndexFileMeta(1, 50, 0, new FileProperties(0));
+        var meta2 = new IndexFileMeta(50, 100, 42, new FileProperties(1));
+        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(2));
+
+        var groupMeta = new GroupIndexMeta(meta1);
+        groupMeta.addIndexMeta(meta2);
+        groupMeta.addIndexMeta(meta3);
+
+        var compactedMeta2 = new IndexFileMeta(50, 100, 42, new FileProperties(1, 1));
+        groupMeta.onIndexCompacted(new FileProperties(1), compactedMeta2);
+
+        assertThat(groupMeta.indexMeta(1), is(meta1));
+        assertThat(groupMeta.indexMeta(50), is(compactedMeta2));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+    }
+
+    @Test
+    void testOnIndexCompactedWithMultipleBlocks() {
+        // meta1 is in block 0.
+        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(0));
+        var groupMeta = new GroupIndexMeta(meta1);
+
+        // meta2 overlaps meta1, creating a second block in the deque.
+        var meta2 = new IndexFileMeta(42, 100, 42, new FileProperties(1));
+        groupMeta.addIndexMeta(meta2);
+
+        // meta3 is added to the second block (consecutive to meta2).
+        var meta3 = new IndexFileMeta(100, 200, 84, new FileProperties(2));
+        groupMeta.addIndexMeta(meta3);
+
+        // Compact meta1 from the older block.
+        var compactedMeta1 = new IndexFileMeta(1, 100, 0, new FileProperties(0, 1));
+        groupMeta.onIndexCompacted(new FileProperties(0), compactedMeta1);
+
+        assertThat(groupMeta.indexMeta(1), is(compactedMeta1));
+        assertThat(groupMeta.indexMeta(42), is(meta2));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+
+        // Compact meta3 from the newer block.
+        var compactedMeta3 = new IndexFileMeta(100, 200, 84, new FileProperties(2, 1));
+        groupMeta.onIndexCompacted(new FileProperties(2), compactedMeta3);
+
+        assertThat(groupMeta.indexMeta(1), is(compactedMeta1));
+        assertThat(groupMeta.indexMeta(42), is(meta2));
+        assertThat(groupMeta.indexMeta(100), is(compactedMeta3));
+    }
+
+    @RepeatedTest(100)
+    void multithreadCompactionWithTruncatePrefix() {
+        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(0));
+        var meta2 = new IndexFileMeta(42, 100, 42, new FileProperties(1));
+        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(2));
+
+        var compactedMeta2 = new IndexFileMeta(42, 100, 42, new FileProperties(1, 1));
+
+        var groupMeta = new GroupIndexMeta(meta1);
+        groupMeta.addIndexMeta(meta2);
+        groupMeta.addIndexMeta(meta3);
+
+        RunnableX compactionTask = () -> {
+            groupMeta.onIndexCompacted(new FileProperties(1), compactedMeta2);
+        };
+
+        RunnableX truncateTask = () -> groupMeta.truncatePrefix(43);
+
+        RunnableX readTask = () -> assertThat(
+                groupMeta.indexMeta(42),
+                is(anyOf(equalTo(meta2), equalTo(compactedMeta2), nullValue()))
+        );
+
+        runRace(compactionTask, truncateTask, readTask);
     }
 }

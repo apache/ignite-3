@@ -20,7 +20,6 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.lang.Math.toIntExact;
 import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.UNSPECIFIED_MAX_LOG_ENTRY_SIZE;
 import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.computeDefaultMaxLogEntrySizeBytes;
-import static org.apache.ignite.internal.raft.storage.segstore.SegmentFile.fileName;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.RESET_RECORD_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE;
@@ -28,6 +27,7 @@ import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TR
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -96,6 +96,12 @@ class SegmentFileManager implements ManuallyCloseable {
 
     private static final int ROLLOVER_WAIT_TIMEOUT_MS = 30_000;
 
+    /**
+     * Maximum number of times we try to read data from a segment file returned based the index before giving up and throwing an
+     * exception. See {@link #readFromOtherSegmentFiles} for more information.
+     */
+    private static final int MAX_NUM_INDEX_FILE_READ_RETRIES = 5;
+
     static final int MAGIC_NUMBER = 0x56E0B526;
 
     static final int FORMAT_VERSION = 1;
@@ -129,6 +135,8 @@ class SegmentFileManager implements ManuallyCloseable {
 
     private final IndexFileManager indexFileManager;
 
+    private final RaftLogGarbageCollector garbageCollector;
+
     /** Configured size of a segment file. */
     private final int segmentFileSize;
 
@@ -157,6 +165,7 @@ class SegmentFileManager implements ManuallyCloseable {
             Path baseDir,
             int stripes,
             FailureProcessor failureProcessor,
+            GroupInfoProvider groupInfoProvider,
             RaftConfiguration raftConfiguration,
             LogStorageConfiguration storageConfiguration
     ) throws IOException {
@@ -180,14 +189,15 @@ class SegmentFileManager implements ManuallyCloseable {
                 failureProcessor,
                 logStorageView.maxCheckpointQueueSize()
         );
+
+        garbageCollector = new RaftLogGarbageCollector(segmentFilesDir, indexFileManager, groupInfoProvider);
     }
 
     void start() throws IOException {
         LOG.info("Starting segment file manager [segmentFilesDir={}, fileSize={}].", segmentFilesDir, segmentFileSize);
 
-        indexFileManager.cleanupTmpFiles();
-
-        var payloadParser = new SegmentPayloadParser();
+        indexFileManager.cleanupLeftoverFiles();
+        garbageCollector.cleanupLeftoverFiles();
 
         Path lastSegmentFilePath = null;
 
@@ -204,10 +214,10 @@ class SegmentFileManager implements ManuallyCloseable {
                     // Create missing index files.
                     FileProperties segmentFileProperties = SegmentFile.fileProperties(segmentFilePath);
 
-                    if (!indexFileManager.indexFileExists(segmentFileProperties)) {
+                    if (!Files.exists(indexFileManager.indexFilePath(segmentFileProperties))) {
                         LOG.info("Creating missing index file for segment file {}.", segmentFilePath);
 
-                        SegmentFileWithMemtable segmentFileWithMemtable = recoverSegmentFile(segmentFilePath, payloadParser);
+                        SegmentFileWithMemtable segmentFileWithMemtable = recoverSegmentFile(segmentFilePath);
 
                         indexFileManager.recoverIndexFile(segmentFileWithMemtable.memtable().transitionToReadMode(), segmentFileProperties);
                     }
@@ -220,7 +230,7 @@ class SegmentFileManager implements ManuallyCloseable {
         } else {
             curSegmentFileOrdinal = SegmentFile.fileProperties(lastSegmentFilePath).ordinal();
 
-            currentSegmentFile.set(recoverLatestSegmentFile(lastSegmentFilePath, payloadParser));
+            currentSegmentFile.set(recoverLatestSegmentFile(lastSegmentFilePath));
         }
 
         LOG.info("Segment file manager recovery completed. Current segment file: {}.", lastSegmentFilePath);
@@ -244,8 +254,13 @@ class SegmentFileManager implements ManuallyCloseable {
         return indexFileManager;
     }
 
+    @TestOnly
+    RaftLogGarbageCollector garbageCollector() {
+        return garbageCollector;
+    }
+
     private SegmentFileWithMemtable allocateNewSegmentFile(int fileOrdinal) throws IOException {
-        Path path = segmentFilesDir.resolve(fileName(new FileProperties(fileOrdinal)));
+        Path path = segmentFilesDir.resolve(SegmentFile.fileName(new FileProperties(fileOrdinal)));
 
         SegmentFile segmentFile = SegmentFile.createNew(path, segmentFileSize, isSync);
 
@@ -259,12 +274,12 @@ class SegmentFileManager implements ManuallyCloseable {
      * "complete" segment files (i.e. those that have experienced a rollover) this method is expected to be called on the most recent,
      * possibly incomplete segment file.
      */
-    private SegmentFileWithMemtable recoverLatestSegmentFile(Path segmentFilePath, SegmentPayloadParser payloadParser) throws IOException {
+    private SegmentFileWithMemtable recoverLatestSegmentFile(Path segmentFilePath) throws IOException {
         SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
 
         var memTable = new StripedMemTable(stripes);
 
-        payloadParser.recoverMemtable(segmentFile, memTable, true);
+        SegmentPayloadParser.recoverMemtable(segmentFile, memTable, true);
 
         return new SegmentFileWithMemtable(segmentFile, memTable, false);
     }
@@ -276,12 +291,12 @@ class SegmentFileManager implements ManuallyCloseable {
      * <p>This method skips CRC validation, because it is used to identify the end of incomplete segment files (and, by definition, this can
      * never happen during this method's invocation), not to validate storage integrity.
      */
-    private SegmentFileWithMemtable recoverSegmentFile(Path segmentFilePath, SegmentPayloadParser payloadParser) throws IOException {
+    private SegmentFileWithMemtable recoverSegmentFile(Path segmentFilePath) throws IOException {
         SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
 
         var memTable = new SingleThreadMemTable();
 
-        payloadParser.recoverMemtable(segmentFile, memTable, false);
+        SegmentPayloadParser.recoverMemtable(segmentFile, memTable, false);
 
         return new SegmentFileWithMemtable(segmentFile, memTable, false);
     }
@@ -325,7 +340,7 @@ class SegmentFileManager implements ManuallyCloseable {
             searchResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
 
             if (searchResult.searchOutcome() == SearchOutcome.CONTINUE_SEARCH) {
-                searchResult = readFromOtherSegmentFiles(groupId, logIndex);
+                searchResult = readFromOtherSegmentFiles(groupId, logIndex, 1);
             }
         }
 
@@ -540,21 +555,34 @@ class SegmentFileManager implements ManuallyCloseable {
         }
     }
 
-    private EntrySearchResult readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
+    private EntrySearchResult readFromOtherSegmentFiles(long groupId, long logIndex, int attemptNum) throws IOException {
         SegmentFilePointer segmentFilePointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
 
         if (segmentFilePointer == null) {
             return EntrySearchResult.notFound();
         }
 
-        Path path = segmentFilesDir.resolve(fileName(segmentFilePointer.fileProperties()));
+        Path path = segmentFilesDir.resolve(SegmentFile.fileName(segmentFilePointer.fileProperties()));
 
         // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
-        SegmentFile segmentFile = SegmentFile.openExisting(path, isSync);
+        try {
+            SegmentFile segmentFile = SegmentFile.openExisting(path, isSync);
 
-        ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
+            ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
 
-        return EntrySearchResult.success(buffer);
+            return EntrySearchResult.success(buffer);
+        } catch (FileNotFoundException e) {
+            // When reading from a segment file based on information from the index manager, there exists a race with the Garbage Collector:
+            // index manager can return a pointer to a segment file that may have been compacted. In this case, we should just retry and
+            // get the more recent information.
+            if (attemptNum == MAX_NUM_INDEX_FILE_READ_RETRIES) {
+                throw e;
+            }
+
+            LOG.info("Segment file {} not found, retrying (attempt {}/{}).", path, attemptNum, MAX_NUM_INDEX_FILE_READ_RETRIES - 1);
+
+            return readFromOtherSegmentFiles(groupId, logIndex, attemptNum + 1);
+        }
     }
 
     private static int maxLogEntrySize(LogStorageView storageConfiguration) {
