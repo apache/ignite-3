@@ -56,13 +56,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         for (long key = 0; key < 50; key++)
         {
             var keyTuple = new IgniteTuple { ["KEY"] = key };
-
-            var primaryNodeNameExec = await client.Compute.SubmitAsync(
-                JobTarget.Colocated(TableName, keyTuple),
-                JavaJobs.NodeNameJob,
-                null);
-
-            var primaryNodeName = await primaryNodeNameExec.GetResultAsync();
+            var primaryNodeName = await GetPrimaryNodeNameWithJavaJob(client, keyTuple);
 
             if (primaryNodeName.EndsWith("_3", StringComparison.Ordinal) || primaryNodeName.EndsWith("_4", StringComparison.Ordinal))
             {
@@ -70,22 +64,22 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
                 continue;
             }
 
-            var tx = withTx ? await client.Transactions.BeginAsync() : null;
+            await using var tx = withTx ? await client.Transactions.BeginAsync() : null;
 
-            try
-            {
-                await recordView.UpsertAsync(tx, keyTuple);
-                var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
+            await recordView.UpsertAsync(tx, keyTuple);
+            var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
 
-                Assert.AreEqual(primaryNodeName, requestTargetNodeName);
-            }
-            finally
-            {
-                if (tx != null)
-                {
-                    await tx.RollbackAsync();
-                }
-            }
+            Assert.AreEqual(primaryNodeName, requestTargetNodeName);
         }
+    }
+
+    private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, IgniteTuple keyTuple)
+    {
+        var primaryNodeNameExec = await client.Compute.SubmitAsync(
+            JobTarget.Colocated(TableName, keyTuple),
+            JavaJobs.NodeNameJob,
+            null);
+
+        return await primaryNodeNameExec.GetResultAsync();
     }
 }
