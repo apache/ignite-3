@@ -28,6 +28,7 @@ object CppClientPackages : BuildType({
 
     params {
         param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
+        hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=true")
     }
 
     steps {
