@@ -33,6 +33,8 @@ using static Common.Table.TestTables;
 /// </summary>
 public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 {
+    private const int Iterations = 50;
+
     /// <summary>
     /// Uses <see cref="JavaJobs.NodeNameJob"/> to get the name of the node that should be the primary for the given key,
     /// and compares to the actual node that received the request (using IgniteProxy).
@@ -80,7 +82,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         await recordView.GetAsync(null, new IgniteTuple { ["KEY"] = 1L });
 
         // Check.
-        for (long key = 0; key < 50; key++)
+        for (long key = 0; key < Iterations; key++)
         {
             var tuple = tupleFactory(key);
             var primaryNodeName = await GetPrimaryNodeNameWithJavaJob(client, tableName, tuple);
