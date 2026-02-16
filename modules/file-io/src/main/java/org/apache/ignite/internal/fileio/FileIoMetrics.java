@@ -24,7 +24,7 @@ public interface FileIoMetrics {
     /**
      * Records a read operation.
      *
-     * @param bytesRead Number of bytes read (positive on success, 0 for EOF, -1 on error).
+     * @param bytesRead Number of bytes read: positive on success, 0 when no bytes were read, -1 for EOF.
      * @param durationNanos Operation duration in nanoseconds.
      */
     void recordRead(int bytesRead, long durationNanos);
@@ -32,7 +32,7 @@ public interface FileIoMetrics {
     /**
      * Records a write operation.
      *
-     * @param bytesWritten Number of bytes written (positive on success, 0 or -1 on error).
+     * @param bytesWritten Number of bytes written: positive on success, 0 when no bytes were written.
      * @param durationNanos Operation duration in nanoseconds.
      */
     void recordWrite(int bytesWritten, long durationNanos);
