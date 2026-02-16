@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -170,7 +171,7 @@ public class PartitionAwarenessMetadataExtractor {
         List<String> nameParts = optTable.getQualifiedName();
         assert nameParts.size() >= 2 : "Invalid qualified name: " + nameParts;
 
-        return QualifiedName.of(nameParts.get(0), nameParts.get(1));
+        return QualifiedNameHelper.fromNormalized(nameParts.get(0), nameParts.get(1));
     }
 
     private static @Nullable PartitionAwarenessMetadata tryConvertPartitionPruningMetadata(
