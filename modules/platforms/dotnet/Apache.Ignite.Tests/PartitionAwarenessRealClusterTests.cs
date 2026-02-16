@@ -179,6 +179,106 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             ClientOp.SqlExec);
     }
 
+    [Test]
+    public async Task TestSqlColocateByAllConstants()
+    {
+        await CreateTable(
+            "(KEY1 INT, KEY2 VARCHAR, VAL INT, " +
+            "PRIMARY KEY (KEY1, KEY2)) " +
+            "COLOCATE BY (KEY1, KEY2)");
+
+        await TestRequestRouting(
+            _tableName,
+            id => new IgniteTuple
+            {
+                ["KEY1"] = 42,
+                ["KEY2"] = "constant_key",
+                ["VAL"] = (int)id
+            },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {_tableName} WHERE KEY1 = 42 AND KEY2 = 'constant_key'");
+            },
+            ClientOp.SqlExec);
+    }
+
+    [Test]
+    public async Task TestSqlColocateByMixedConstantsMiddle()
+    {
+        await CreateTable(
+            "(KEY1 INT, KEY2 VARCHAR, KEY3 INT, VAL VARCHAR, " +
+            "PRIMARY KEY (KEY1, KEY2, KEY3)) " +
+            "COLOCATE BY (KEY1, KEY2, KEY3)");
+
+        await TestRequestRouting(
+            _tableName,
+            id => new IgniteTuple
+            {
+                ["KEY1"] = (int)id,
+                ["KEY2"] = "fixed",
+                ["KEY3"] = (int)(id * 2),
+                ["VAL"] = $"val_{id}"
+            },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {_tableName} WHERE KEY1 = ? AND KEY2 = 'fixed' AND KEY3 = ?",
+                    tuple["KEY1"],
+                    tuple["KEY3"]);
+            },
+            ClientOp.SqlExec);
+    }
+
+    [Test]
+    public async Task TestSqlSimpleKeyWithTransaction()
+    {
+        await TestRequestRouting(
+            TableName,
+            id => new IgniteTuple { ["KEY"] = id },
+            async (client, _, tuple) =>
+            {
+                await using var tx = await client.Transactions.BeginAsync();
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: tx,
+                    statement: "SELECT * FROM TBL1 WHERE KEY = ?",
+                    tuple[KeyCol]);
+                await tx.CommitAsync();
+            },
+            ClientOp.SqlExec);
+    }
+
+    [Test]
+    public async Task TestSqlColocateByDifferentOrder()
+    {
+        await CreateTable(
+            "(KEY1 INT, KEY2 INT, KEY3 INT, VAL VARCHAR, " +
+            "PRIMARY KEY (KEY1, KEY2, KEY3)) " +
+            "COLOCATE BY (KEY1, KEY2)");
+
+        await TestRequestRouting(
+            _tableName,
+            id => new IgniteTuple
+            {
+                ["KEY1"] = (int)id,
+                ["KEY2"] = (int)(id * 2),
+                ["KEY3"] = (int)(id * 3),
+                ["VAL"] = $"val_{id}"
+            },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {_tableName} WHERE KEY2 = ? AND KEY1 = ? AND KEY3 = ?",
+                    tuple["KEY2"],
+                    tuple["KEY1"],
+                    tuple["KEY3"]);
+            },
+            ClientOp.SqlExec);
+    }
+
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
     {
         var primaryNodeNameExec = await client.Compute.SubmitAsync(
