@@ -128,6 +128,9 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
                 logCommandReordering(command);
             }
 
+            // It is safe to ignore such commands, because it is a duplicate of already applied command in both cases (duplication and
+            // out-of-order replication). We guarantee that because new command is only created when the previous one has been replicated
+            // at least once.
             return storage.runConsistently(locker -> {
                 storage.lastApplied(commandIndex, commandTerm);
 
