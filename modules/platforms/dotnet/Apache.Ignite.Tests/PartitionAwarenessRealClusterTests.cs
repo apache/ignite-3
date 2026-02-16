@@ -195,7 +195,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
                 ["KEY2"] = "constant_key",
                 ["VAL"] = (int)id
             },
-            async (client, _, tuple) =>
+            async (client, _, _) =>
             {
                 await using var resultSet = await client.Sql.ExecuteAsync(
                     transaction: null,
