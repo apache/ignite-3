@@ -23,8 +23,10 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -90,6 +92,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
@@ -108,6 +111,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownExcepti
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -140,6 +144,7 @@ import org.apache.ignite.raft.jraft.error.LogIndexOutOfBoundsException;
 import org.apache.ignite.raft.jraft.error.LogNotFoundException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
+import org.apache.ignite.raft.jraft.option.ApplyTaskMode;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -176,6 +181,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherever possible IGNITE-14832
@@ -4729,6 +4736,118 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         );
     }
 
+    /**
+     * Test that closure finished with error when byte size limit is exceeded.
+     */
+    @ParameterizedTest
+    @EnumSource(ApplyTaskMode.class)
+    public void testApplyQueueByteSizeThrottlingExceedsLimit(ApplyTaskMode mode) throws Exception {
+        RaftOptions raftOptions = new RaftOptions();
+        // Set limit to 2 KB
+        raftOptions.setMaxApplyQueueByteSize(2 * 1024);
+
+        Node node = setupSingleNodeClusterWithRaftOptions(raftOptions, mode);
+
+        int numTasks = 10000;
+        AtomicInteger overloadCount = new AtomicInteger(0);
+
+        List<Task> tasks = new ArrayList<>(numTasks);
+        for (int i = 0; i < numTasks; i++) {
+            byte[] bytes = new byte[1024]; // 1 KB each
+            ByteBuffer data = ByteBuffer.wrap(bytes);
+            Task task;
+            task = new Task(data, new JoinableClosure(status -> {
+                if (!status.isOk()) {
+                    assertEquals(RaftError.EBUSY, status.getRaftError());
+                    assertTrue(status.getErrorMsg().contains("Node is busy, apply queue byte size limit exceeded"));
+                    overloadCount.incrementAndGet();
+                }
+            }));
+
+            tasks.add(task);
+            node.apply(task);
+        }
+
+        Task.joinAll(tasks, TimeUnit.SECONDS.toMillis(30));
+
+        assertTrue(overloadCount.get() > 0, "Expected some tasks to be rejected due to byte size limit");
+
+        assertEquals(0, getApplyQueueByteSize(node), "Apply queue byte size should be 0 after all tasks are processed");
+    }
+
+    /**
+     * Test that tasks succeed when under the byte size limit.
+     */
+    @ParameterizedTest
+    @EnumSource(ApplyTaskMode.class)
+    public void testApplyQueueByteSizeThrottlingUnderLimit(ApplyTaskMode mode) throws Exception {
+        RaftOptions raftOptions = new RaftOptions();
+        // Set limit to 10 MB
+        raftOptions.setMaxApplyQueueByteSize(10 * 1024 * 1024);
+
+        Node node = setupSingleNodeClusterWithRaftOptions(raftOptions, mode);
+
+        CountDownLatch latch = new CountDownLatch(50);
+        AtomicInteger successCount = new AtomicInteger(0);
+
+        for (int i = 0; i < 50; i++) {
+            byte[] bytes = new byte[10 * 1024]; // 10 KB
+            ByteBuffer data = ByteBuffer.wrap(bytes);
+            Task task = new Task(data, new JoinableClosure(status -> {
+                assertTrue(status.isOk(), "Task should succeed when under limit: " + status);
+                successCount.incrementAndGet();
+                latch.countDown();
+            }));
+            node.apply(task);
+        }
+
+        waitLatch(latch);
+
+        assertEquals(50, successCount.get());
+
+        assertEquals(0, getApplyQueueByteSize(node), "Apply queue byte size should be 0 after all tasks are processed");
+    }
+
+    /**
+     * Test that byte size counter is properly decremented when tasks are processed.
+     */
+    @ParameterizedTest
+    @EnumSource(ApplyTaskMode.class)
+    public void testApplyQueueByteSizeCounterDecrements(ApplyTaskMode mode) throws Exception {
+        int batchSize = 10;
+        RaftOptions raftOptions = new RaftOptions();
+        // Set limit to 2 MB, but apply overall ~3 MB of tasks
+        raftOptions.setMaxApplyQueueByteSize(2 * 1024 * 1024);
+        raftOptions.setApplyBatch(batchSize);
+
+        Node node = setupSingleNodeClusterWithRaftOptions(raftOptions, mode);
+
+        // Apply tasks in batches, allowing time for processing between batch
+        for (int batch = 0; batch < 3; batch++) {
+            CountDownLatch latch = new CountDownLatch(batchSize);
+            AtomicInteger successCount = new AtomicInteger(0);
+
+            for (int i = 0; i < batchSize; i++) {
+                byte[] bytes = new byte[100 * 1024]; // 100 KB each
+                ByteBuffer data = ByteBuffer.wrap(bytes);
+                Task task = new Task(data, new JoinableClosure(status -> {
+                    if (status.isOk()) {
+                        successCount.incrementAndGet();
+                    }
+                    latch.countDown();
+                }));
+                node.apply(task);
+            }
+
+            waitLatch(latch);
+
+            // All tasks in each batch should succeed because counter is decremented
+            assertEquals(batchSize, successCount.get(), "All tasks in batch should succeed");
+        }
+
+        assertEquals(0, getApplyQueueByteSize(node), "Apply queue byte size should be 0 after all tasks are processed");
+    }
+
     private NodeOptions createNodeOptions(int nodeIdx) {
         NodeOptions options = new NodeOptions();
 
@@ -4867,7 +4986,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     assertThat(igniteServiceFactory.logStorageFactory().stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 }
 
-                assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
 
                 nodeOptions.getNodeManager().shutdown();
             }
@@ -4955,6 +5074,46 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     private void triggerLeaderSnapshot(TestCluster cluster, Node leader) throws InterruptedException {
         triggerLeaderSnapshot(cluster, leader, 1);
+    }
+
+    /**
+     * Helper method to set up a single-node cluster with custom RaftOptions for testing.
+     *
+     * @param raftOptions The RaftOptions to use for the node
+     * @return The started node (already elected as leader)
+     */
+    private Node setupSingleNodeClusterWithRaftOptions(RaftOptions raftOptions, ApplyTaskMode mode) {
+        TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT);
+
+        NodeOptions nodeOptions = createNodeOptions(0);
+        nodeOptions.setApplyTaskMode(mode);
+        nodeOptions.setRaftOptions(raftOptions);
+        MockStateMachine fsm = new MockStateMachine(peer.getPeerId());
+        nodeOptions.setFsm(fsm);
+        nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
+        nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
+        nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer.getPeerId())));
+
+        RaftGroupService service = createService("unittest", peer, nodeOptions, List.of());
+        Node node = service.start();
+
+        assertEquals(1, node.listPeers().size());
+        assertTrue(node.listPeers().contains(peer.getPeerId()));
+
+        await().timeout(10, TimeUnit.SECONDS).until(node::isLeader);
+
+        return node;
+    }
+
+    /**
+     * Helper method to get the current apply queue byte size for assertions.
+     *
+     * @param node The node to check
+     * @return The current applyQueueByteSize value
+     */
+    private static long getApplyQueueByteSize(Node node) {
+        LongAdder counter = IgniteTestUtils.getFieldValue(node, NodeImpl.class, "applyQueueByteSize");
+        return counter.sum();
     }
 
     private void triggerLeaderSnapshot(TestCluster cluster, Node leader, int times)

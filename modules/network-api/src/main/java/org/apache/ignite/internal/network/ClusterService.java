@@ -61,13 +61,6 @@ public interface ClusterService extends IgniteComponent {
     }
 
     /**
-     * Checks whether cluster service has been stopped.
-     *
-     * @return {@code true} if cluster service is stopped, {@code false} otherwise.
-     */
-    boolean isStopped();
-
-    /**
      * Updates metadata of this cluster node and sends update events to other members.
      *
      * @param metadata new metadata.

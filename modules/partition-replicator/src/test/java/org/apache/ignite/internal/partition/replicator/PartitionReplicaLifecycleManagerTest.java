@@ -21,6 +21,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
@@ -66,7 +67,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.PartitionCountProvider;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -154,6 +154,10 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
     private ZonePartitionResources commonZonePartitionResources;
 
+    private SafeTimeValuesTracker commonSafeTimeTracker;
+
+    private PendingComparableValuesTracker<Long, Void> commonStorageIndexTracker;
+
     @Mock
     private Loza raftManager;
 
@@ -201,12 +205,16 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(nodeName)));
 
+        // Create spy trackers for testing resource closure
+        commonSafeTimeTracker = spy(new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE));
+        commonStorageIndexTracker = spy(new PendingComparableValuesTracker<>(0L));
+
         commonZonePartitionResources = spy(new ZonePartitionResources(
                 txStatePartitionStorage,
                 raftGroupListener,
                 partitionSnapshotStorage,
-                new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE),
-                new PendingComparableValuesTracker<>(0L)
+                commonSafeTimeTracker,
+                commonStorageIndexTracker
         ));
 
         when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class), any()))
@@ -413,7 +421,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(partitionReplicaLifecycleManager.stopAsync(), willCompleteSuccessfully());
 
-        verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT)).stopReplica(any());
+        verify(replicaManager, times(DEFAULT_PARTITION_COUNT)).stopReplica(any());
     }
 
     @Test
@@ -424,7 +432,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(partitionReplicaLifecycleManager.stopAsync(), willCompleteSuccessfully());
 
-        verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT)).stopReplica(any());
+        verify(replicaManager, times(DEFAULT_PARTITION_COUNT)).stopReplica(any());
 
         // Do reset for correct replica manager stop on tear down.
         reset(replicaManager);
@@ -436,7 +444,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         doReturn(commonZonePartitionResources).when(zoneResourcesManager).getZonePartitionResources(any());
 
         int defaultZoneId = catalogManager.latestCatalog().defaultZone().id();
-        List<ZonePartitionResources> defaultZoneResources = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT)
+        List<ZonePartitionResources> defaultZoneResources = IntStream.range(0, DEFAULT_PARTITION_COUNT)
                 .mapToObj(partId -> new ZonePartitionId(defaultZoneId, partId))
                 .map(partitionReplicaLifecycleManager::zonePartitionResources)
                 .collect(Collectors.toList());
@@ -451,9 +459,44 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(partitionReplicaLifecycleManager.stopAsync(), willThrow(RuntimeException.class));
 
-        verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT)).stopReplica(any());
+        verify(replicaManager, times(DEFAULT_PARTITION_COUNT)).stopReplica(any());
 
         defaultZoneResources.forEach(resources -> verify(resources.txStatePartitionStorage(), atLeastOnce()).close());
+    }
+
+    @Test
+    void testResourcesClosedOnPartitionRestart() {
+        int zoneId = catalogManager.latestCatalog().defaultZone().id();
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        doReturn(commonZonePartitionResources).when(zoneResourcesManager).getZonePartitionResources(zonePartitionId);
+
+        assertThat(
+                partitionReplicaLifecycleManager.restartPartition(zonePartitionId, Long.MAX_VALUE, clock.nowLong()),
+                willCompleteSuccessfully()
+        );
+
+        verify(commonSafeTimeTracker, timeout(1_000).times(1)).close();
+        verify(commonStorageIndexTracker, timeout(1_000).times(1)).close();
+
+        // We do not close tx state partition storage on restart.
+        verify(commonZonePartitionResources.txStatePartitionStorage(), times(0)).close();
+    }
+
+    @Test
+    @ManagerIsStoppedByTest
+    void testResourcesClosedOnManagerStop() {
+        doReturn(commonZonePartitionResources).when(zoneResourcesManager).getZonePartitionResources(any());
+
+        assertDoesNotThrow(() -> partitionReplicaLifecycleManager.beforeNodeStop());
+        assertThat(partitionReplicaLifecycleManager.stopAsync(), willCompleteSuccessfully());
+
+        verify(commonSafeTimeTracker, times(DEFAULT_PARTITION_COUNT)).close();
+        verify(commonStorageIndexTracker, times(DEFAULT_PARTITION_COUNT)).close();
+        verify(commonZonePartitionResources.txStatePartitionStorage(), times(DEFAULT_PARTITION_COUNT)).close();
+
+        // Verify raftListener.onShutdown() is NOT called during resource cleanup, as it should be called by the Raft node shutdown process.
+        verify(commonZonePartitionResources.raftListener(), times(0)).onShutdown();
     }
 
     @Retention(RUNTIME)

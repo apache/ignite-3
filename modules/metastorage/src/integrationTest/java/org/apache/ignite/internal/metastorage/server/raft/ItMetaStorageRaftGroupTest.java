@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -220,23 +221,11 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
             metaStorageRaftGrpSvc1.shutdown();
         }
 
-        if (logStorageFactory3 != null) {
-            assertThat(logStorageFactory3.stopAsync(componentContext), willCompleteSuccessfully());
-        }
-
-        if (logStorageFactory2 != null) {
-            assertThat(logStorageFactory2.stopAsync(componentContext), willCompleteSuccessfully());
-        }
-
-        if (logStorageFactory1 != null) {
-            assertThat(logStorageFactory1.stopAsync(componentContext), willCompleteSuccessfully());
-        }
+        assertThat(stopAsync(componentContext, logStorageFactory3, logStorageFactory2, logStorageFactory1), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        for (ClusterService node : cluster) {
-            assertThat(node.stopAsync(componentContext), willCompleteSuccessfully());
-        }
+        assertThat(stopAsync(componentContext, cluster), willCompleteSuccessfully());
     }
 
 
@@ -312,49 +301,42 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                     @Override
                     public void onNext(Entry item) {
-                        try {
-                            if (state == 0) {
-                                assertEquals(EXPECTED_RESULT_ENTRY1, item);
+                        if (state == 0) {
+                            assertEquals(EXPECTED_RESULT_ENTRY1, item);
 
-                                // Stop leader.
-                                oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
-                                ComponentContext componentContext = new ComponentContext();
+                            // Stop leader.
+                            oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
 
-                                assertThat(oldLeaderServer.stopAsync(componentContext), willCompleteSuccessfully());
-                                CompletableFuture<Void> stopFuture = cluster.stream()
-                                        .filter(c -> localMemberName(c).equals(oldLeaderId))
-                                        .findFirst()
-                                        .orElseThrow()
-                                        .stopAsync(componentContext);
-                                assertThat(stopFuture, willCompleteSuccessfully());
+                            ComponentContext componentContext = new ComponentContext();
 
-                                CompletableFuture<LeaderWithTerm> newLeaderWithTermFut = raftGroupServiceOfLiveServer
-                                        .refreshAndGetLeaderWithTerm();
-                                assertThat(newLeaderWithTermFut, willCompleteSuccessfully());
-                                LeaderWithTerm newLeaderWithTerm = newLeaderWithTermFut.join();
+                            ClusterService oldLeaderClusterService = oldLeaderServer.clusterService();
 
-                                assertNotNull(newLeaderWithTerm.leader());
-                                assertNotSame(oldLeaderId, newLeaderWithTerm.leader().consistentId());
+                            assertThat(stopAsync(componentContext, oldLeaderServer, oldLeaderClusterService), willCompleteSuccessfully());
 
-                                // Check that the leader changed only once.
-                                assertEquals(oldLeaderTerm + 1, newLeaderWithTerm.term());
+                            CompletableFuture<LeaderWithTerm> newLeaderWithTermFut = raftGroupServiceOfLiveServer
+                                    .refreshAndGetLeaderWithTerm();
+                            assertThat(newLeaderWithTermFut, willCompleteSuccessfully());
+                            LeaderWithTerm newLeaderWithTerm = newLeaderWithTermFut.join();
 
-                                log.info("Test: new leader: " + raftGroupServiceOfLiveServer.leader().consistentId());
+                            assertNotNull(newLeaderWithTerm.leader());
+                            assertNotSame(oldLeaderId, newLeaderWithTerm.leader().consistentId());
 
-                                log.info("Test: Entry 1 processed.");
+                            // Check that the leader changed only once.
+                            assertEquals(oldLeaderTerm + 1, newLeaderWithTerm.term());
 
-                            } else if (state == 1) {
-                                assertEquals(EXPECTED_RESULT_ENTRY2, item);
+                            log.info("Test: new leader: " + raftGroupServiceOfLiveServer.leader().consistentId());
 
-                                log.info("Test: Entry 2 processed.");
-                            }
+                            log.info("Test: Entry 1 processed.");
 
-                            state++;
+                        } else if (state == 1) {
+                            assertEquals(EXPECTED_RESULT_ENTRY2, item);
 
-                            subscription.request(1);
-                        } catch (Exception e) {
-                            resultFuture.completeExceptionally(e);
+                            log.info("Test: Entry 2 processed.");
                         }
+
+                        state++;
+
+                        subscription.request(1);
                     }
 
                     @Override

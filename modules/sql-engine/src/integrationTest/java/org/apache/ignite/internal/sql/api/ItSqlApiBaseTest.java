@@ -127,6 +127,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // ADD COLUMN
         checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN (VAL2 VARCHAR, VAL3 VARCHAR)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
@@ -140,6 +141,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS (VAL1 INT, VAL4 INT)");
 
         // CREATE INDEX
         checkDdl(true, sql, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
@@ -200,6 +203,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");

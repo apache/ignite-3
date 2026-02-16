@@ -26,7 +26,6 @@ object PlatformCppTestsLinux : BuildType({
         param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
         param("PATH__CMAKE_BUILD_DIRECTORY", "%PATH__WORKING_DIR%/cmake-build-debug")
         param("PATH__CLIENT_TEST_RESULTS", "%PATH__WORKING_DIR%/cpp_client_tests_results.xml")
-        param("PATH__ODBC_TEST_RESULTS", "%PATH__WORKING_DIR%/odbc_tests_results.xml")
         param("PATH__UNIT_TESTS_RESULT", "%PATH__WORKING_DIR%/cpp_unit_test_results.xml")
         text("PATH__WORKING_DIR", "%teamcity.build.checkoutDir%/%VCSROOT__IGNITE3%/modules/platforms/cpp", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.CPP_STAGING", "/tmp/cpp_staging")
@@ -39,9 +38,6 @@ object PlatformCppTestsLinux : BuildType({
             scriptContent = """
                 gcc --version || exit 0
                 g++ --version || exit 0
-
-                odbcinst -j || exit 0
-                cat /etc/odbcinst.ini || exit 0
             """.trimIndent()
         }
         script {
@@ -50,7 +46,7 @@ object PlatformCppTestsLinux : BuildType({
                 mkdir %PATH__CMAKE_BUILD_DIRECTORY%  || exit 2
                 cd %PATH__CMAKE_BUILD_DIRECTORY%  || exit 3
 
-                cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
+                cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=OFF -DWARNINGS_AS_ERRORS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=%env.CPP_STAGING% || (echo 'CMake configuration failed' && exit 5)
                 cmake --build . -j8  || (echo 'CMake build failed' && exit 6)
                 cmake --install . || (echo 'CMake install failed' && exit 7)
             """.trimIndent()
@@ -78,19 +74,6 @@ object PlatformCppTestsLinux : BuildType({
             name = "C++ Client integration tests"
             workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
             scriptContent = "./bin/ignite-client-test --gtest_output=xml:%PATH__CLIENT_TEST_RESULTS%"
-            formatStderrAsError = true
-        }
-        customScript(type = "bash") {
-            name = "Clean Up Remaining Processes"
-        }
-        script {
-            name = "ODBC integration tests"
-            workingDir = "%PATH__CMAKE_BUILD_DIRECTORY%"
-            scriptContent = """
-                if [ -f "./bin/ignite-odbc-test" ]; then
-                  ./bin/ignite-odbc-test --gtest_output=xml:%PATH__ODBC_TEST_RESULTS%
-                fi
-            """.trimIndent()
             formatStderrAsError = true
         }
         customScript(type = "bash") {
@@ -131,7 +114,6 @@ object PlatformCppTestsLinux : BuildType({
             reportType = XmlReport.XmlReportType.GOOGLE_TEST
             rules = """
                 +:%PATH__CLIENT_TEST_RESULTS%
-                +:%PATH__ODBC_TEST_RESULTS%
                 +:%PATH__CMAKE_BUILD_DIRECTORY%/Testing/Result/*.xml
             """.trimIndent()
             verbose = true
@@ -141,13 +123,5 @@ object PlatformCppTestsLinux : BuildType({
             rules = "+:%PATH__UNIT_TESTS_RESULT%"
             verbose = true
         }
-    }
-
-    /**
-     *  Temporary lock Platform Linux jobs on old-type agents
-     *  until execution of these tests is fixed on DIND agents
-     */
-    requirements {
-        doesNotExist("env.DIND_ENABLED")
     }
 })

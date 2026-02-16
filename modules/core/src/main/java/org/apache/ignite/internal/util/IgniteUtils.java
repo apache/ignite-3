@@ -1368,20 +1368,6 @@ public class IgniteUtils {
         return startAsync(componentContext, components.stream());
     }
 
-    private static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
-        return allOf(components
-                .filter(Objects::nonNull)
-                .map(igniteComponent -> {
-                    try {
-                        return igniteComponent.stopAsync(componentContext);
-                    } catch (Throwable e) {
-                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
-                        return failedFuture(e);
-                    }
-                })
-                .toArray(CompletableFuture[]::new));
-    }
-
     /**
      * Asynchronously exec all stop functions.
      *
@@ -1410,7 +1396,7 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
-        return stopAsync(componentContext, Stream.of(components));
+        return stopAsync(componentContext, Arrays.asList(components));
     }
 
     /**
@@ -1421,7 +1407,25 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
-        return stopAsync(componentContext, components.stream());
+        try {
+            closeAll(components.stream().filter(Objects::nonNull).map(c -> c::beforeNodeStop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        CompletableFuture<?>[] stopFutures = components.stream()
+                .filter(Objects::nonNull)
+                .map(igniteComponent -> {
+                    try {
+                        return igniteComponent.stopAsync(componentContext);
+                    } catch (Throwable e) {
+                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
+                        return failedFuture(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(stopFutures);
     }
 
     /**

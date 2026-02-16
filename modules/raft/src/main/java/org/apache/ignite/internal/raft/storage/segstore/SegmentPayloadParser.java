@@ -38,10 +38,10 @@ class SegmentPayloadParser {
         this.stripes = stripes;
     }
 
-    WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath, boolean validateCrc) {
+    WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, boolean validateCrc) {
         ByteBuffer buffer = segmentFile.buffer();
 
-        validateSegmentFileHeader(buffer, segmentFilePath);
+        validateSegmentFileHeader(buffer, segmentFile.path());
 
         var memtable = new IndexMemTable(stripes);
 
