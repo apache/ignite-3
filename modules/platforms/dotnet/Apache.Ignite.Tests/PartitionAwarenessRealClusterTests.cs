@@ -279,6 +279,26 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             ClientOp.SqlExec);
     }
 
+    [Test]
+    public async Task TestSqlTableNameWithSpaces()
+    {
+        _tableName = "\"Table With Spaces\"";
+
+        await Client.Sql.ExecuteScriptAsync($"CREATE TABLE {_tableName} (KEY BIGINT PRIMARY KEY, VAL VARCHAR)");
+
+        await TestRequestRouting(
+            _tableName,
+            id => new IgniteTuple { ["KEY"] = id, ["VAL"] = $"val_{id}" },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {_tableName} WHERE KEY = ?",
+                    tuple["KEY"]);
+            },
+            ClientOp.SqlExec);
+    }
+
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
     {
         var primaryNodeNameExec = await client.Compute.SubmitAsync(

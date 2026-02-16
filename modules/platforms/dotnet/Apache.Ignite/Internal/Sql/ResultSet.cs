@@ -357,7 +357,7 @@ namespace Apache.Ignite.Internal.Sql
             var tableId = reader.ReadInt32();
 
             var tableName = ctx.ServerHasFeature(ProtocolBitmaskFeature.SqlPartitionAwarenessTableName)
-                ? QualifiedName.Of(reader.ReadStringNullable(), reader.ReadString())
+                ? QualifiedName.FromNormalizedInternal(reader.ReadStringNullable(), reader.ReadString())
                 : null;
 
             var indexes = ReadIntArray(ref reader);
