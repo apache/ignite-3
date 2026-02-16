@@ -147,19 +147,6 @@ public class TransactionInflights {
         return res[0];
     }
 
-    public void fail(UUID txId, Throwable cause) {
-        txCtxMap.compute(txId, (uuid, ctx) -> {
-            if (ctx == null) {
-                ctx = new ReadWriteTxContext(placementDriver, clockService);
-                ctx.err = cause;
-            } else if (ctx.err == null) {
-                ctx.err = cause; // Retain only first exception.
-            }
-
-            return ctx;
-        });
-    }
-
     /**
      * Unregisters the inflight for a transaction.
      *

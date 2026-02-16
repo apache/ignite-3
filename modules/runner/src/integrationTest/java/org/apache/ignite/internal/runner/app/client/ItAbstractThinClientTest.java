@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -209,6 +210,10 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
     protected Ignite server(int idx) {
         return startedNodes.get(idx);
+    }
+
+    protected Ignite server(ClusterNode node) {
+        return IntStream.range(0, nodes()).mapToObj(this::server).filter(n -> n.name().equals(node.name())).findFirst().orElseThrow();
     }
 
     protected ClusterNode node(int idx) {

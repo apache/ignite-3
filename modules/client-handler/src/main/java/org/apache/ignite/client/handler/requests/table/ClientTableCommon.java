@@ -57,6 +57,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
@@ -488,8 +489,13 @@ public class ClientTableCommon {
                     builder = builder.timeoutMillis(timeoutMillis);
                 }
 
-                builder.killClosure(() -> {
+                builder.killClosure((tx) -> {
+                    if (notificationSender != null) {
+                        // Exception will be ignored if a client doesn't support it.
+                        TransactionKilledException err = new TransactionKilledException(tx.id(), txManager);
 
+                        notificationSender.sendNotification(w -> {}, err, NULL_HYBRID_TIMESTAMP);
+                    }
                 });
 
                 InternalTxOptions txOptions = builder.build();

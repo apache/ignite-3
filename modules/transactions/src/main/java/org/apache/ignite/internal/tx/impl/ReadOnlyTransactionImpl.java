@@ -24,9 +24,11 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.jetbrains.annotations.Nullable;
 
@@ -62,7 +64,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             long timeout,
             HybridTimestamp readTimestamp,
             CompletableFuture<Void> txFuture,
-            @Nullable Runnable killClosure
+            @Nullable Consumer<InternalTransaction> killClosure
     ) {
         super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout, killClosure);
 
