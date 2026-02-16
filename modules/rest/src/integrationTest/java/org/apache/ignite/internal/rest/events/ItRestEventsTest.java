@@ -61,14 +61,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Integration test for REST events.
  */
-@MicronautTest(rebuildContext = true)
+@MicronautTest
 @Property(name = "ignite.endpoints.rest-events", value = "true")
 class ItRestEventsTest extends ClusterPerTestIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
-    private static final @Nullable String username = "admin";
-    private static final @Nullable String password = "password";
+    private static final String USERNAME = "admin";
+    private static final String PASSWORD = "password";
 
-    private EventLogInspector logInspector = new EventLogInspector();
+    private final EventLogInspector logInspector = new EventLogInspector();
+
     private boolean securityEnabled = true;
 
     @Inject
@@ -105,7 +106,7 @@ class ItRestEventsTest extends ClusterPerTestIntegrationTest {
         String confSecurity = "ignite.security.enabled=" + securityEnabled + ",\n"
                 + " ignite.security.authentication.providers.default={"
                 + " type=basic,"
-                + " users=[{username=" + username + ",password=" + password + "}]"
+                + " users=[{username=" + USERNAME + ",password=" + PASSWORD + "}]"
                 + "}";
 
         builder.clusterConfiguration(confEvents + "," + confSecurity);
@@ -117,7 +118,7 @@ class ItRestEventsTest extends ClusterPerTestIntegrationTest {
         this.securityEnabled = securityEnabled;
 
         EventUser user = securityEnabled
-                ? EventUser.of(username, "basic")
+                ? EventUser.of(USERNAME, "basic")
                 : EventUser.of("anonymous", "anonymous");
 
         super.startCluster(testInfo);
@@ -129,7 +130,7 @@ class ItRestEventsTest extends ClusterPerTestIntegrationTest {
         )) {
             MutableHttpRequest<Object> request = HttpRequest.GET(uri);
             if (securityEnabled) {
-                request.header("Authorization", basicAuthenticationHeader(username, password));
+                request.header("Authorization", basicAuthenticationHeader(USERNAME, PASSWORD));
             }
             assertDoesNotThrow(() -> client.toBlocking().retrieve(request));
         }
