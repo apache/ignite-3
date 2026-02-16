@@ -153,7 +153,7 @@ public class TxStateMetaAbandoned extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == ABANDONED) {
-                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, exceptionInfo);
+                return new TxStateMetaAbandoned(txCoordinatorId, commitPartitionId, tx, txLabel, lastException);
             } else {
                 return super.build();
             }

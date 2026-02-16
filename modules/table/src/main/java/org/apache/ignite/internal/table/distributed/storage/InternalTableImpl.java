@@ -667,7 +667,7 @@ public class InternalTableImpl implements InternalTable {
                         code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
                     }
 
-                    Throwable cause = lastExceptionCause(tx.id());
+                    Throwable cause = lastException(tx.id());
 
                     return failedFuture(
                             new TransactionException(code, format(
@@ -2304,7 +2304,7 @@ public class InternalTableImpl implements InternalTable {
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
-            Throwable cause = lastExceptionCause(transaction.id());
+            Throwable cause = lastException(transaction.id());
             throw new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
                     format("Transaction is already finished [{}, readOnly={}].",
@@ -2317,13 +2317,13 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Nullable
-    private Throwable lastExceptionCause(UUID txId) {
+    private Throwable lastException(UUID txId) {
         TxStateMeta txStateMeta = txManager.stateMeta(txId);
         if (txStateMeta == null) {
             return null;
         }
 
-        return TxStateMeta.aggregateExceptionInfo(txStateMeta.exceptionInfo());
+        return txStateMeta.lastException();
     }
 
     @FunctionalInterface

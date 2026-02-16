@@ -221,6 +221,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public @Nullable <T extends TxStateMeta> T enrichTxMeta(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return null;
+    }
+
+    @Override
     public LockManager lockManager() {
         return null;
     }

@@ -41,7 +41,6 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
-import static org.apache.ignite.internal.tx.TxStateMeta.aggregateExceptionInfo;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -1623,7 +1622,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             Throwable cause = null;
             if (txStateMeta != null) {
-                cause = aggregateExceptionInfo(txStateMeta.exceptionInfo());
+                cause = txStateMeta.lastException();
             }
 
             return failedFuture(new TransactionException(

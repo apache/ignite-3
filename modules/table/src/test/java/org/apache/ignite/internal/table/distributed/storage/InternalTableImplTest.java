@@ -856,8 +856,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
             TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
                     .finishedDueToTimeout(true)
-                    .exceptionInfo(firstFailure)
-                    .exceptionInfo(secondFailure)
+                    .lastException(firstFailure)
+                    .lastException(secondFailure)
                     .build();
 
             when(txManager.stateMeta(txId)).thenReturn(meta);

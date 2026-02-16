@@ -165,11 +165,19 @@ public class TxCleanupRequestSender {
             commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
         }
 
-        commitTimestampFuture.thenAccept(commitTimestamp -> txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
-                .commitPartitionId(commitPartitionId)
-                .commitTimestamp(commitTimestamp)
-                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
-                .build())
+        commitTimestampFuture.thenAccept(commitTimestamp -> {
+                    /* We are updating tx meta in the 2 phases, because the state transition might be rejected and all changes won't be apply
+                     * 1) Update only state, it might be rejected
+                     * 2) Apply changes to commit timestamp, these changes will be applied no matter what.
+                     */
+                    txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
+                            .build());
+                    txStateVolatileStorage.enrichMeta(txId, oldMeta -> builder(oldMeta, state)
+                            .commitPartitionId(commitPartitionId)
+                            .commitTimestamp(commitTimestamp)
+                            .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                            .build());
+                }
         );
     }
 

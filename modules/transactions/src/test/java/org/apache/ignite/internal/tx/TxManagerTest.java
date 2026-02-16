@@ -945,9 +945,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private static Throwable lastExceptionInfo(TxStateMeta meta) {
         assertNotNull(meta);
-        assertNotNull(meta.exceptionInfo());
+        assertNotNull(meta.lastException());
 
-        return meta.exceptionInfo();
+        return meta.lastException();
     }
 
     private void preparePrimaryReplica() {

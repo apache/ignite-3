@@ -123,7 +123,7 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    public @Nullable <T extends TxStateMeta> T updateMetaSkippingStateValidation(UUID txId,
+    public @Nullable <T extends TxStateMeta> T enrichMeta(UUID txId,
             Function<@Nullable TxStateMeta, TxStateMeta> updater) {
         return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);

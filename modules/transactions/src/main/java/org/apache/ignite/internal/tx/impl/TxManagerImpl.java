@@ -50,6 +50,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -614,6 +615,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
+    public @Nullable <T extends TxStateMeta> T enrichTxMeta(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return txStateVolatileStorage.enrichMeta(txId, updater);
+    }
+
+    @Override
     public CompletableFuture<Void> finishFull(
             HybridTimestampTracker timestampTracker,
             UUID txId,
@@ -668,7 +675,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     .commitPartitionId(commitPartition)
                     .commitTimestamp(commitTimestamp(commitIntent))
                     .finishedDueToTimeout(isTimeout)
-                    .exceptionInfo(finishReason)
+                    .lastException(finishReason)
                     .build()
             );
 
@@ -779,6 +786,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                                     .commitTimestamp(commitTimestamp)
                                                     .cleanupCompletionTimestamp(System.currentTimeMillis())
                                                     .txLabel(previous == null ? null : previous.txLabel())
+                                                    .lastException(previous == null ? null : previous.lastException())
                                                     .build();
 
                                             txFinishFuture.complete(meta);
@@ -792,7 +800,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     groups,
                                     txId,
                                     commitTimestamp,
-                                    txFinishFuture);
+                                    txFinishFuture,
+                                    null);
                         })
                 .thenCompose(identity())
                 // Verification future is added in order to share the proper verification exception with the client.
@@ -822,7 +831,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
             HybridTimestamp commitTimestamp,
-            CompletableFuture<TransactionMeta> txFinishFuture
+            CompletableFuture<TransactionMeta> txFinishFuture,
+            @Nullable Throwable finishException
     ) {
         return trackFuture(placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
                 .thenCompose(meta ->
@@ -861,7 +871,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
                             LOG.debug("Failed to finish Tx. The operation will be retried {}.", ex,
                                     formatTxInfo(txId, txStateVolatileStorage));
+                            Throwable updatedException = getExceptionToStore(finishException, cause);
 
+                            enrichTxMeta(txId, old -> {
+                                if (old == null) {
+                                    return null;
+                                }
+
+                                return old.mutate()
+                                        .lastException(updatedException)
+                                        .build();
+                            });
                             return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
@@ -869,11 +889,24 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     enlistedPartitions,
                                     txId,
                                     commitTimestamp,
-                                    txFinishFuture
+                                    txFinishFuture,
+                                    cause
                             ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx {}.", ex,
                                     formatTxInfo(txId, txStateVolatileStorage));
+                            enrichTxMeta(
+                                    txId,
+                                    old -> {
+                                        if (old == null) {
+                                            return null;
+                                        }
+
+                                        return old.mutate()
+                                                .lastException(cause)
+                                                .build();
+                                    }
+                            );
 
                             return CompletableFuture.<Void>failedFuture(cause);
                         }
@@ -942,6 +975,27 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     txResult
             );
         }
+    }
+
+    private @Nullable Throwable getExceptionToStore(@Nullable Throwable finishException, Throwable cause) {
+        if (finishException == null) {
+            return cause;
+        }
+
+        if (cause == null) {
+            return null;
+        }
+
+        if (sameClassAndMessage(finishException, cause)) {
+            return null;
+        }
+
+        return cause;
+    }
+
+    private static boolean sameClassAndMessage(Throwable left, Throwable right) {
+        return left.getClass().equals(right.getClass())
+                && Objects.equals(left.getMessage(), right.getMessage());
     }
 
     @Override

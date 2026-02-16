@@ -136,7 +136,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, txLabel, exceptionInfo);
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, txLabel, lastException);
             } else {
                 return super.build();
             }

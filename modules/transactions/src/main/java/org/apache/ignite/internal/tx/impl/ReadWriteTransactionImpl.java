@@ -143,7 +143,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * Fails the operation.
      */
     private void failEnlist() {
-        Throwable cause = aggregateExceptionInfos();
+        Throwable cause = lastException();
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
                 format("Transaction is already finished [{}, txState={}].",
@@ -152,13 +152,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Nullable
-    private Throwable aggregateExceptionInfos() {
+    private Throwable lastException() {
         TxStateMeta meta = txManager.stateMeta(id());
-        if (meta == null || meta.exceptionInfo() == null) {
+        if (meta == null || meta.lastException() == null) {
             return null;
         }
 
-        return TxStateMeta.aggregateExceptionInfo(meta.exceptionInfo());
+        return meta.lastException();
     }
 
     /**
