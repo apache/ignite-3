@@ -1777,7 +1777,7 @@ public class InternalTableImpl implements InternalTable {
 
         TxContext.ReadWrite txContext = (TxContext.ReadWrite) opCtx.txContext();
 
-        // Update transaction state meta with label if present
+        // Update transaction state meta with label if present.
         updateLabel(txContext, txContext.commitPartition());
 
         boolean rangeScan = criteria instanceof IndexScanCriteria.Range;

@@ -455,7 +455,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
         if (readOnly && txOptions.txLabel() != null) {
-            throw new TransactionException(Common.ILLEGAL_ARGUMENT_ERR, "labels are not supported for read only transactions");
+            throw new TransactionException(Common.ILLEGAL_ARGUMENT_ERR, "Labels are not supported for read only transactions");
         }
 
         InternalTransaction tx;

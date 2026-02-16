@@ -88,7 +88,7 @@ public class TransactionOptions {
     }
 
     /**
-     * Returns transaction label. The label is used for identification in logs and system views.
+     * Returns transaction label. The label is included in diagnostic and observability outputs, such as logs, system views, etc.
      *
      * @return Transaction label, or {@code null} if not set.
      */
@@ -99,7 +99,7 @@ public class TransactionOptions {
 
     /**
      * Sets the transaction label. The label is included in diagnostic and observability outputs,
-     * such as logs and system views.
+     * such as logs, system views, etc.
      *
      * <p>Use labels to help identify and track transactions for debugging and monitoring.
      * Once set, the label remains unchanged for the lifetime of the transaction.
