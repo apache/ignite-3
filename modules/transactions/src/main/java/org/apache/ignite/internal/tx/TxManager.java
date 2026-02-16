@@ -184,7 +184,8 @@ public interface TxManager extends IgniteComponent {
             HybridTimestampTracker timestampTracker,
             UUID txId,
             @Nullable HybridTimestamp ts,
-            boolean commit
+            boolean commit,
+            Throwable finishReason
     );
 
     /**

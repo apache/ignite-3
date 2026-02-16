@@ -307,7 +307,8 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker,
             UUID txId,
             HybridTimestamp ts,
-            boolean commit
+            boolean commit,
+            Throwable finishReason
     ) {
         return nullCompletedFuture();
     }

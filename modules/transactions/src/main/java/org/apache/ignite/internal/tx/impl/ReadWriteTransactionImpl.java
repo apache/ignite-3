@@ -240,7 +240,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                 if (full) {
                     CompletableFuture<Void> finishFutureInternal =
-                            txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit);
+                            txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit, finishReason);
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);

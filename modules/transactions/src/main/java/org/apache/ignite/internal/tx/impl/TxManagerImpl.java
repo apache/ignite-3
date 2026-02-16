@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
@@ -625,7 +626,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestampTracker timestampTracker,
             UUID txId,
             @Nullable HybridTimestamp ts,
-            boolean commit
+            boolean commit,
+            Throwable finishReason
     ) {
         TxState finalState;
 
@@ -638,6 +640,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         } else {
             finalState = ABORTED;
         }
+        //TODO https://issues.apache.org/jira/browse/IGNITE-27867
+        updateTxMeta(txId, old -> builder(old, finalState)
+                .commitTimestamp(ts)
+                .finishedDueToTimeout(isFinishedDueToTimeout(finishReason))
+                .cleanupCompletionTimestamp(coarseCurrentTimeMillis())
+                .build()
+        );
 
         txMetrics.onReadWriteTransactionFinished(txId, finalState == COMMITTED);
 
