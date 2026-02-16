@@ -302,6 +302,8 @@ public class TxStateMeta implements TransactionMeta {
      * Builder for TxStateMeta.
      */
     public static class TxStateMetaBuilder {
+        private static final int MAX_SUPPRESSED_CHAIN = 10;
+
         protected TxState txState;
         protected @Nullable UUID txCoordinatorId;
         protected @Nullable ZonePartitionId commitPartitionId;
@@ -421,11 +423,30 @@ public class TxStateMeta implements TransactionMeta {
                 if (this.lastException == null) {
                     this.lastException = normalized;
                 } else {
-                    normalized.addSuppressed(this.lastException); //TODO limit supression chain by 10 exceptions.
+                    if (suppressedChainLength(this.lastException) < MAX_SUPPRESSED_CHAIN) {
+                        normalized.addSuppressed(this.lastException);
+                    }
                     this.lastException = normalized;
                 }
             }
             return this;
+        }
+
+        private static int suppressedChainLength(Throwable root) {
+            int length = 1;
+            Throwable current = root;
+
+            while (length < MAX_SUPPRESSED_CHAIN) {
+                Throwable[] suppressed = current.getSuppressed();
+                if (suppressed.length == 0) {
+                    break;
+                }
+
+                current = suppressed[0];
+                length++;
+            }
+
+            return length;
         }
 
         /**
