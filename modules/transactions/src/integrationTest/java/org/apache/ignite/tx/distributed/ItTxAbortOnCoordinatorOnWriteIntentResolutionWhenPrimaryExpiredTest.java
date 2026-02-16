@@ -186,7 +186,7 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
     }
 
     @Test
-    public void testWIResolutionUsesCorrectStateAndCommitTimestamp() throws Exception {
+    public void testWriteIntentResolutionUsesCorrectStateAndCommitTimestamp() throws Exception {
         // Coordinator node will also be the commit partition primary node.
         IgniteImpl coordinatorNode = anyNode();
         IgniteImpl firstPrimaryNode = findNode(n -> !n.name().equals(coordinatorNode.name()));

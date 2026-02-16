@@ -3524,6 +3524,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 : format("Unexpected state defined by write intent resolution [{}, txMeta={}].",
                 formatTxInfo(txId, txManager, false), txMeta);
 
+        // TODO IGNITE-27494 double check UNKNOWN state works correctly here.
         if (txMeta.txState() == COMMITTED) {
             boolean readLatest = timestamp == null;
 
