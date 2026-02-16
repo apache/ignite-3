@@ -69,6 +69,23 @@
       </Policies>
       <DefaultRolloverStrategy max="10"/>
     </RollingFile>
+
+    <RollingFile name="LOGPUSH_FILE"
+      append="true"
+      fileName="build/logpush.log"
+      filePattern="build/logpush.log.%i">
+      <PatternLayout>
+        <MarkerPatternSelector defaultPattern="[%d{ISO8601}][%-5p][%t][%c{1}]%notEmpty{[%markerSimpleName]} %m%n">
+          <!-- Logs from compatibility test runner are already properly formatted and could be with ANSI codes so strip them -->
+          <PatternMatch key="CompatRunner" pattern="%replace{%m}{\x1B\[[0-9;]*[a-zA-Z]}{}%n"/>
+        </MarkerPatternSelector>
+      </PatternLayout>
+      <Policies>
+        <OnStartupTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="10 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10"/>
+    </RollingFile>
   </Appenders>
 
   <Loggers>
@@ -79,6 +96,9 @@
     </Root>
     <Logger name="EventLog" level="INFO">
       <AppenderRef ref="EVENTLOG_FILE"/>
+    </Logger>
+    <Logger name="org.apache.ignite.internal.metrics.exporters.log.LogPushExporter" level="INFO" additivity="false">
+      <AppenderRef ref="LOGPUSH_FILE"/>
     </Logger>
     <!-- This is used to make it possible to wait for 'reconfiguration complete' before doing programmatic configuration so that
          the standard reconfiguration made by log4j in background does not rewrite configuration changes made by our code programmatically.
