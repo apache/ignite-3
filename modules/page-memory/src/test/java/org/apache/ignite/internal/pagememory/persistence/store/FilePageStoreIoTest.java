@@ -22,19 +22,30 @@ import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.MeteredFileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -113,6 +124,40 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
         }
     }
 
+    @Test
+    void testIoMetricsRecordedDuringActualFileOperations() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        CollectionMetricSource ioMetricSource = new CollectionMetricSource("testPageStoreIo", "storage", "Page memory I/O metrics");
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+        MetricSet metricSet = ioMetricSource.enable();
+
+        long pageId = pageId(0, FLAG_DATA, 0);
+
+        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, ioMetrics)) {
+            // Verify metrics start at zero
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_READ,  0L);
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_WRITTEN,  0L);
+
+            // Perform write operation
+            ByteBuffer writeBuffer = createPageByteBuffer(pageId, PAGE_SIZE);
+            filePageStoreIo.write(pageId, writeBuffer);
+
+            // Verify write metrics were recorded - 1 write of header + 1 write of page
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_WRITTEN,  PAGE_SIZE * 2);
+            assertDistributionMetricRecordsCount(metricSet, PageMemoryIoMetrics.WRITES_TIME, 2L);
+
+            // Perform read operation
+            long pageOff = filePageStoreIo.pageOffset(pageId);
+            ByteBuffer readBuffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(java.nio.ByteOrder.nativeOrder());
+            filePageStoreIo.read(pageId, pageOff, readBuffer, false);
+
+            // Verify read metrics were recorded
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_READ,  PAGE_SIZE);
+            assertDistributionMetricRecordsCount(metricSet, PageMemoryIoMetrics.READS_TIME, 1L);
+        }
+    }
+
     @Override
     protected FilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
         return new FilePageStoreIo(ioFactory, filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
@@ -120,5 +165,39 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
     private static FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
         return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
+    }
+
+    private static FilePageStoreIo createFilePageStoreIo(Path filePath, PageMemoryIoMetrics ioMetrics) {
+        return new FilePageStoreIo(
+                new MeteredFileIoFactory(new RandomAccessFileIoFactory(), ioMetrics),
+                filePath,
+                new FilePageStoreHeader(VERSION_1, PAGE_SIZE)
+        );
+    }
+
+    private static void assertMetricValue(MetricSet metrics, String metricName, long value) {
+        LongMetric metric = metrics.get(metricName);
+
+        assertNotNull(metric, "Metric not found: " + metricName);
+        assertEquals(value, metric.value(), metricName);
+    }
+
+    /**
+     * Verifies that the specified distribution metric has recorded the expected total number of measurements.
+     *
+     * <p>
+     * Rather than checking individual histogram buckets, this method aggregates all recorded measurements across every bucket
+     * and confirms that the expected interaction was captured in at least one of them.
+     */
+    private static void assertDistributionMetricRecordsCount(MetricSet metrics, String metricName, long expectedMeasuresCount) {
+        DistributionMetric metric = metrics.get(metricName);
+        assertNotNull(metric, metricName);
+
+        long totalMeasuresCount = Arrays.stream(metric.value()).sum();
+        assertThat(
+                "Unexpected total measures count in distribution metric " + metric.name(),
+                totalMeasuresCount,
+                is(expectedMeasuresCount)
+        );
     }
 }

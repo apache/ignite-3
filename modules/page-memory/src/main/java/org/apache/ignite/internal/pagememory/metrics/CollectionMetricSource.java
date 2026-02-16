@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.pagememory.metrics;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,9 +24,13 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
-/** Metric source for checkpoint of persistent page memory. */
-public class CheckpointMetricSource implements MetricSource {
+/**
+ * Metric source that collects a set of metrics.
+ */
+public class CollectionMetricSource implements MetricSource {
     private final String name;
+    private final String group;
+    private final String description;
 
     /** Metrics map. Only modified in {@code synchronized} context. */
     private final Map<String, Metric> metrics = new HashMap<>();
@@ -38,9 +42,13 @@ public class CheckpointMetricSource implements MetricSource {
      * Constructor.
      *
      * @param name Metric set name.
+     * @param group Metric set group name.
+     * @param description Metric set description.
      */
-    public CheckpointMetricSource(String name) {
+    public CollectionMetricSource(String name, String group, @Nullable String description) {
         this.name = name;
+        this.group = group;
+        this.description = description;
     }
 
     @Override
@@ -50,11 +58,16 @@ public class CheckpointMetricSource implements MetricSource {
 
     @Override
     public @Nullable String group() {
-        return "storage";
+        return group;
+    }
+
+    @Override
+    public @Nullable String description() {
+        return description;
     }
 
     /** Adds metric to the source. */
-    synchronized <T extends Metric> T addMetric(T metric) {
+    public synchronized <T extends Metric> T addMetric(T metric) {
         assert !enabled : "Cannot add metrics when source is enabled";
 
         metrics.put(metric.name(), metric);
