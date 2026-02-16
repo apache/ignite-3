@@ -1040,8 +1040,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 replicaService,
                 topologyService.localMember(),
                 clockService,
-                placementDriver,
-                failureProcessor
+                placementDriver
         );
 
         txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());

@@ -1151,10 +1151,7 @@ public class ItTxTestCluster {
      */
     public void shutdownCluster() {
         assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
-
-        if (client != null) {
-            assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-        }
+        assertThat(stopAsync(new ComponentContext(), client), willCompleteSuccessfully());
 
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();

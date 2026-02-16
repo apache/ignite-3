@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.segstore;
 import static java.lang.Math.toIntExact;
 import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.UNSPECIFIED_MAX_LOG_ENTRY_SIZE;
 import static org.apache.ignite.internal.raft.configuration.LogStorageConfigurationSchema.computeDefaultMaxLogEntrySizeBytes;
+import static org.apache.ignite.internal.raft.storage.segstore.SegmentFile.fileName;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.RESET_RECORD_SIZE;
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TRUNCATE_PREFIX_RECORD_SIZE;
@@ -33,8 +34,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -100,10 +99,6 @@ class SegmentFileManager implements ManuallyCloseable {
     static final int MAGIC_NUMBER = 0x56E0B526;
 
     static final int FORMAT_VERSION = 1;
-
-    private static final String SEGMENT_FILE_NAME_FORMAT = "segment-%010d-%010d.bin";
-
-    private static final Pattern SEGMENT_FILE_NAME_PATTERN = Pattern.compile("segment-(?<ordinal>\\d{10})-(?<generation>\\d{10})\\.bin");
 
     /**
      * Byte sequence that is written at the beginning of every segment file.
@@ -207,14 +202,14 @@ class SegmentFileManager implements ManuallyCloseable {
                     lastSegmentFilePath = segmentFilePath;
                 } else {
                     // Create missing index files.
-                    int segmentFileOrdinal = segmentFileOrdinal(segmentFilePath);
+                    FileProperties segmentFileProperties = SegmentFile.fileProperties(segmentFilePath);
 
-                    if (!indexFileManager.indexFileExists(segmentFileOrdinal)) {
+                    if (!indexFileManager.indexFileExists(segmentFileProperties)) {
                         LOG.info("Creating missing index file for segment file {}.", segmentFilePath);
 
                         SegmentFileWithMemtable segmentFileWithMemtable = recoverSegmentFile(segmentFilePath, payloadParser);
 
-                        indexFileManager.recoverIndexFile(segmentFileWithMemtable.memtable().transitionToReadMode(), segmentFileOrdinal);
+                        indexFileManager.recoverIndexFile(segmentFileWithMemtable.memtable().transitionToReadMode(), segmentFileProperties);
                     }
                 }
             }
@@ -223,7 +218,7 @@ class SegmentFileManager implements ManuallyCloseable {
         if (lastSegmentFilePath == null) {
             currentSegmentFile.set(allocateNewSegmentFile(0));
         } else {
-            curSegmentFileOrdinal = segmentFileOrdinal(lastSegmentFilePath);
+            curSegmentFileOrdinal = SegmentFile.fileProperties(lastSegmentFilePath).ordinal();
 
             currentSegmentFile.set(recoverLatestSegmentFile(lastSegmentFilePath, payloadParser));
         }
@@ -250,7 +245,7 @@ class SegmentFileManager implements ManuallyCloseable {
     }
 
     private SegmentFileWithMemtable allocateNewSegmentFile(int fileOrdinal) throws IOException {
-        Path path = segmentFilesDir.resolve(segmentFileName(fileOrdinal, 0));
+        Path path = segmentFilesDir.resolve(fileName(new FileProperties(fileOrdinal)));
 
         SegmentFile segmentFile = SegmentFile.createNew(path, segmentFileSize, isSync);
 
@@ -264,14 +259,8 @@ class SegmentFileManager implements ManuallyCloseable {
      * "complete" segment files (i.e. those that have experienced a rollover) this method is expected to be called on the most recent,
      * possibly incomplete segment file.
      */
-    private SegmentFileWithMemtable recoverLatestSegmentFile(
-            Path segmentFilePath, SegmentPayloadParser payloadParser
-    ) throws IOException {
-        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
-
-        WriteModeIndexMemTable memTable = payloadParser.recoverMemtable(segmentFile, segmentFilePath, true);
-
-        return new SegmentFileWithMemtable(segmentFile, memTable, false);
+    private SegmentFileWithMemtable recoverLatestSegmentFile(Path segmentFilePath, SegmentPayloadParser payloadParser) throws IOException {
+        return recoverSegmentFile(segmentFilePath, payloadParser, true);
     }
 
     /**
@@ -281,18 +270,20 @@ class SegmentFileManager implements ManuallyCloseable {
      * <p>This method skips CRC validation, because it is used to identify the end of incomplete segment files (and, by definition, this can
      * never happen during this method's invocation), not to validate storage integrity.
      */
+    private SegmentFileWithMemtable recoverSegmentFile(Path segmentFilePath, SegmentPayloadParser payloadParser) throws IOException {
+        return recoverSegmentFile(segmentFilePath, payloadParser, false);
+    }
+
     private SegmentFileWithMemtable recoverSegmentFile(
-            Path segmentFilePath, SegmentPayloadParser payloadParser
+            Path segmentFilePath,
+            SegmentPayloadParser payloadParser,
+            boolean validateCrc
     ) throws IOException {
         SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
 
-        WriteModeIndexMemTable memTable = payloadParser.recoverMemtable(segmentFile, segmentFilePath, false);
+        WriteModeIndexMemTable memTable = payloadParser.recoverMemtable(segmentFile, validateCrc);
 
         return new SegmentFileWithMemtable(segmentFile, memTable, false);
-    }
-
-    private static String segmentFileName(int fileOrdinal, int generation) {
-        return String.format(SEGMENT_FILE_NAME_FORMAT, fileOrdinal, generation);
     }
 
     private static SegmentFileWithMemtable convertToReadOnly(SegmentFileWithMemtable segmentFile) {
@@ -556,7 +547,7 @@ class SegmentFileManager implements ManuallyCloseable {
             return EntrySearchResult.notFound();
         }
 
-        Path path = segmentFilesDir.resolve(segmentFileName(segmentFilePointer.fileOrdinal(), 0));
+        Path path = segmentFilesDir.resolve(fileName(segmentFilePointer.fileProperties()));
 
         // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
         SegmentFile segmentFile = SegmentFile.openExisting(path, isSync);
@@ -564,18 +555,6 @@ class SegmentFileManager implements ManuallyCloseable {
         ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
 
         return EntrySearchResult.success(buffer);
-    }
-
-    private static int segmentFileOrdinal(Path segmentFile) {
-        String fileName = segmentFile.getFileName().toString();
-
-        Matcher matcher = SEGMENT_FILE_NAME_PATTERN.matcher(fileName);
-
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException(String.format("Invalid segment file name format: %s.", segmentFile));
-        }
-
-        return Integer.parseInt(matcher.group("ordinal"));
     }
 
     private static int maxLogEntrySize(LogStorageView storageConfiguration) {

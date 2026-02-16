@@ -117,6 +117,25 @@ def cmakeBuildOdbc = tasks.register('cmakeBuildOdbc', CMakeBuildTask) {
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
+def cmakeConfigurePackage = tasks.register('cmakeConfigurePackage', CMakeConfigureTask) {
+    dependsOn copyPlatformsHeaders
+    configureFromProject() // uses everything in the cmake { ... } section.
+    getDef().ENABLE_CLIENT = 'ON'
+    getDef().ENABLE_ODBC = 'ON'
+}
+
+def cmakeBuildPackage = tasks.register('cmakeBuildPackage', CMakeBuildTask) {
+    dependsOn cmakeConfigurePackage
+    configureFromProject() // uses everything in the cmake { ... } section.
+}
+
+def cmakeCpack = tasks.register('cmakeCpack', Exec) {
+    dependsOn cmakeBuildPackage
+    workingDir "$buildDir/cpp"
+
+    commandLine "cpack", "-G", "DEB;RPM;TGZ", "-C", "Release"
+}
+
 def buildNuGet = tasks.register('buildNuGet', Exec) {
     dependsOn copyPlatformsHeaders
     workingDir "$projectDir/dotnet"

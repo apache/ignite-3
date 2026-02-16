@@ -491,20 +491,14 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
 
         when(mockMemTable.iterator()).thenThrow(new RuntimeException("Test exception"));
 
-        // Create two tmp index files: one for the complete segment file and one the incomplete segment file.
+        // Create a tmp file for the incomplete segment file.
         try {
-            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 0);
+            fileManager.indexFileManager().recoverIndexFile(mockMemTable, new FileProperties(1));
         } catch (RuntimeException ignored) {
             // Ignore.
         }
 
-        try {
-            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 1);
-        } catch (RuntimeException ignored) {
-            // Ignore.
-        }
-
-        assertThat(tmpIndexFiles(), hasSize(2));
+        assertThat(tmpIndexFiles(), hasSize(1));
 
         fileManager.close();
 
