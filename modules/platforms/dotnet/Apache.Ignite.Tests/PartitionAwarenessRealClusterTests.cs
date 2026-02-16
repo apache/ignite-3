@@ -148,8 +148,35 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     [Test]
     public async Task TestSqlColocateBy()
     {
-        // TODO
-        await Task.Delay(100);
+        await CreateTable(
+            "(KEY1 INT, KEY2 VARCHAR, COL_STRING VARCHAR, COL_GUID UUID, COL_BYTES VARBINARY, " +
+            "EXTRA1 VARCHAR, EXTRA2 VARCHAR, " +
+            "PRIMARY KEY (KEY1, KEY2, COL_STRING, COL_GUID, COL_BYTES)) " +
+            "COLOCATE BY (KEY1, COL_STRING, COL_GUID, COL_BYTES)");
+
+        await TestRequestRouting(
+            _tableName,
+            id => new IgniteTuple
+            {
+                ["KEY1"] = (int)id,
+                ["KEY2"] = $"key2_{id}",
+                ["COL_STRING"] = $"str_{id}",
+                ["COL_GUID"] = Guid.NewGuid(),
+                ["COL_BYTES"] = new[] { (byte)id, (byte)(id >> 8) },
+                ["EXTRA1"] = $"extra1_{id}",
+                ["EXTRA2"] = $"extra2_{id}"
+            },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {_tableName} WHERE KEY1 = ? AND COL_STRING = ? AND COL_GUID = ? AND COL_BYTES = ?",
+                    tuple["KEY1"],
+                    tuple["COL_STRING"],
+                    tuple["COL_GUID"],
+                    tuple["COL_BYTES"]);
+            },
+            ClientOp.SqlExec);
     }
 
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
