@@ -74,6 +74,26 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             ClientOp.SqlExec);
     }
 
+    [Test]
+    [TestCase("SELECT * FROM TBL1 WHERE KEY >= ? AND KEY = ? AND KEY <= ?")]
+    [TestCase("SELECT * FROM TBL1 WHERE 1 = ? AND KEY = ? AND 2 = ?")]
+    public async Task TestSqlSimpleKeyWithExtraArgs(string query)
+    {
+        await TestRequestRouting(
+            TableName,
+            id => new IgniteTuple { ["KEY"] = id },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: query,
+                    tuple[KeyCol],
+                    tuple[KeyCol],
+                    tuple[KeyCol]);
+            },
+            ClientOp.SqlExec);
+    }
+
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
     {
         var primaryNodeNameExec = await client.Compute.SubmitAsync(
