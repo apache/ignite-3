@@ -1095,6 +1095,21 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Sleep for a while.
+     *
+     * @param millis Time to sleep in milliseconds.
+     */
+    public static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Non-concurrent executor service for test purposes.
      *
      * @return Executor service.

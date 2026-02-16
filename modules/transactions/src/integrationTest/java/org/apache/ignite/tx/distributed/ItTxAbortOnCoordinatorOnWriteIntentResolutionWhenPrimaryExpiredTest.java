@@ -17,9 +17,15 @@
 
 package org.apache.ignite.tx.distributed;
 
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
+import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runInExecutor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.sleep;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.partitionIdForTuple;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.table;
@@ -39,6 +45,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -52,6 +59,11 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.message.TxCleanupMessage;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -104,7 +116,7 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
     }
 
     @Test
-    public void test() throws Exception {
+    public void testCoordinatorAbortsTransaction() throws Exception {
         IgniteImpl firstPrimaryNode = anyNode();
         IgniteImpl coordinatorNode = findNode(n -> !n.name().equals(firstPrimaryNode.name()));
 
@@ -154,8 +166,103 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
 
         Tuple newTuple = Tuple.create().set("key", tuple.longValue("key")).set("val", "v");
 
+        HybridTimestamp now = coordinatorNode.clock().current();
+
+        UUID tx0Id = txId(tx0);
+        coordinatorNode.txManager()
+                .updateTxMeta(
+                        tx0Id,
+                        old -> old.mutate().txState(TxState.COMMITTED).commitTimestamp(now).build()
+                );
+
         // If coordinator of tx0 doesn't abort it, tx will stumble into write intent and fail with TxIdMismatchException.
         view.upsert(tx, newTuple);
+
+        tx.commit();
+
+        // Check that new value is written successfully.
+        Tuple actual = view.get(null, keyTuple);
+        assertEquals(newTuple, actual);
+    }
+
+    @Test
+    public void testWIResolutionUsesCorrectStateAndCommitTimestamp() throws Exception {
+        // Coordinator node will also be the commit partition primary node.
+        IgniteImpl coordinatorNode = anyNode();
+        IgniteImpl firstPrimaryNode = findNode(n -> !n.name().equals(coordinatorNode.name()));
+        IgniteImpl secondPrimaryNode = findNode(n -> !n.name().equals(coordinatorNode.name()) && !n.name().equals(firstPrimaryNode.name()));
+
+        log.info("Test: coordinatorNode: {}, coordinatorNode id: {}", coordinatorNode.name(), coordinatorNode.id());
+        log.info("Test: firstPrimaryNode: {}, firstPrimaryNode id: {}", firstPrimaryNode.name(), firstPrimaryNode.id());
+        log.info("Test: secondPrimaryNode: {}, secondPrimaryNode id: {}", secondPrimaryNode.name(), secondPrimaryNode.id());
+
+        RecordView<Tuple> view = coordinatorNode.tables().table(TABLE_NAME).recordView();
+
+        Transaction txx = coordinatorNode.transactions().begin();
+        Tuple tuple1 = findTupleToBeHostedOnNode(coordinatorNode, TABLE_NAME, txx, INITIAL_TUPLE, NEXT_TUPLE, true);
+        Tuple tuple2 = findTupleToBeHostedOnNode(firstPrimaryNode, TABLE_NAME, txx, INITIAL_TUPLE, NEXT_TUPLE, true);
+        int partId1 = partitionIdForTuple(coordinatorNode, TABLE_NAME, tuple1, txx);
+        var groupId1 = new ZonePartitionId(zoneId(firstPrimaryNode, TABLE_NAME), partId1);
+        int partId2 = partitionIdForTuple(coordinatorNode, TABLE_NAME, tuple2, txx);
+        var groupId2 = new ZonePartitionId(zoneId(firstPrimaryNode, TABLE_NAME), partId2);
+        log.info("Test: groupId1: " + groupId1);
+        log.info("Test: groupId2: " + groupId2);
+        view.upsert(txx, tuple1);
+        view.upsert(txx, tuple2);
+
+        txx.commit();
+
+        cluster.runningNodes().forEach(node -> {
+            unwrapIgniteImpl(node).dropMessages((dest, msg) -> {
+                boolean wiSwitch = msg instanceof TxCleanupMessage || msg instanceof WriteIntentSwitchReplicaRequestBase;
+                return wiSwitch && secondPrimaryNode.name().equals(dest);
+            });
+        });
+
+        coordinatorNode.dropMessages((dest, msg) -> msg instanceof TxCleanupMessage || msg instanceof WriteIntentSwitchReplicaRequest);
+        firstPrimaryNode.dropMessages((dest, msg) -> msg instanceof TxCleanupMessage || msg instanceof WriteIntentSwitchReplicaRequest);
+
+        Transaction tx0 = coordinatorNode.transactions().begin();
+        UUID tx0Id = txId(tx0);
+        log.info("Test: cleanup unfinished tx id: " + txId(tx0));
+        view.upsert(tx0, tuple1);
+        view.upsert(tx0, tuple2);
+
+        tx0.commitAsync();
+
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(() -> txFinishedStateOnNode(coordinatorNode, tx0Id));
+
+        // Wait for replication of write intent.
+        Tuple keyTuple = Tuple.create().set("key", tuple2.longValue("key"));
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(() -> checkWriteIntentInStorageOnAllNodes(partId2, keyTuple));
+
+        transferPrimary(runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()), groupId2, secondPrimaryNode.name());
+
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(() -> txFinishedStateOnNode(secondPrimaryNode, tx0Id));
+
+        Transaction tx = coordinatorNode.transactions().begin();
+        log.info("Test: new tx: " + txId(tx));
+        log.info("Test: upsert");
+
+        Tuple newTuple = Tuple.create().set("key", tuple2.longValue("key")).set("val", "v");
+
+        // Tx cleanup is blocked but tx state could be propagated if second tuple's primary node is commit partition's backup.
+        // Transfer it back to pending, imitating obsolete transaction state on secondPrimaryNode.
+        secondPrimaryNode.txManager().updateTxMeta(tx0Id, old -> null);
+        secondPrimaryNode.txManager().updateTxMeta(tx0Id, old -> TxStateMeta.builder(PENDING).build());
+
+        for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
+            secondPrimaryNode.txManager().executeWriteIntentSwitchAsync(() -> sleep(5000));
+        }
+
+        // If coordinator of tx0 doesn't abort it, tx will stumble into write intent and fail with TxIdMismatchException.
+        view.upsert(tx, newTuple);
+
+        coordinatorNode.stopDroppingMessages();
+        firstPrimaryNode.stopDroppingMessages();
 
         tx.commit();
 
@@ -194,5 +301,11 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
 
             return false;
         });
+    }
+
+    private static boolean txFinishedStateOnNode(IgniteImpl node, UUID txId) {
+        TxStateMeta meta = node.txManager().stateMeta(txId);
+
+        return meta != null && isFinalState(meta.txState());
     }
 }

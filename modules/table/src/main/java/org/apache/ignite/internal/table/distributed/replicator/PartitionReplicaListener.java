@@ -1703,9 +1703,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                 return inBusyLockAsync(busyLock, () ->
                         resolveWriteIntentReadability(writeIntent, ts)
-                                .thenApply(writeIntentReadable ->
+                                .thenApply(txMeta ->
                                         inBusyLock(busyLock, () -> {
                                             metrics.onRead(true, true);
+
+                                            boolean writeIntentReadable = canReadFromWriteIntent(
+                                                    writeIntent.transactionId(),
+                                                    txManager,
+                                                    txMeta,
+                                                    ts
+                                            );
 
                                             if (writeIntentReadable) {
                                                 return findAny(writeIntents, wi -> !wi.isEmpty()).map(ReadResult::binaryRow).orElse(null);
@@ -2474,7 +2481,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             true,
                             null,
                             null,
-                            null,
+                            lastCommitTimestamp,
                             indexIdsAtRwTxBeginTs(txId)
                     );
                 }
@@ -2491,7 +2498,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             true,
                             null,
                             null,
-                            null,
+                            lastCommitTimestamp,
                             indexIdsAtRwTxBeginTs(txId)
                     );
                 }
@@ -2535,7 +2542,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                 false,
                                 null,
                                 safeTs,
-                                null,
+                                lastCommitTimestamp,
                                 indexIdsAtRwTxBeginTs(txId)
                         );
                     }
@@ -3394,16 +3401,22 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     ) {
         return inBusyLockAsync(busyLock, () ->
                 resolveWriteIntentReadability(readResult, timestamp)
-                        .thenApply(writeIntentReadable ->
+                        .thenApply(txMeta ->
                                 inBusyLock(busyLock, () -> {
+                                            boolean writeIntentReadable = canReadFromWriteIntent(
+                                                    readResult.transactionId(),
+                                                    txManager,
+                                                    txMeta,
+                                                    timestamp
+                                            );
+
                                             if (writeIntentReadable) {
                                                 // Even though this readResult is still a write intent entry in the storage
                                                 // (therefore it contains txId), we already know it relates to a committed transaction
                                                 // and will be cleaned up by an asynchronous task
                                                 // started in scheduleTransactionRowAsyncCleanup().
                                                 // So it's safe to assume that that this is the latest committed entry.
-                                                HybridTimestamp commitTimestamp =
-                                                        txManager.stateMeta(readResult.transactionId()).commitTimestamp();
+                                                HybridTimestamp commitTimestamp = txMeta.commitTimestamp();
 
                                                 return new TimedBinaryRow(readResult.binaryRow(), commitTimestamp);
                                             }
@@ -3471,7 +3484,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return The future completes with {@code true} when the transaction is committed and commit time <= read time, {@code false}
      *         otherwise (whe the transaction is either in progress, or aborted, or committed and commit time > read time).
      */
-    private CompletableFuture<Boolean> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
+    private CompletableFuture<TransactionMeta> resolveWriteIntentReadability(ReadResult writeIntent, @Nullable HybridTimestamp timestamp) {
         UUID txId = writeIntent.transactionId();
 
         HybridTimestamp now = clockService.current();
@@ -3492,7 +3505,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
                     }
 
-                    return canReadFromWriteIntent(txId, txManager, transactionMeta, timestamp);
+                    return transactionMeta;
                 });
     }
 
