@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest;
 
 import static io.micronaut.http.HttpStatus.CONFLICT;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.HttpStatus.OK;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.rest.RestState.INITIALIZATION;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
+import org.apache.ignite.internal.rest.events.RestEventsFactory;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -62,6 +64,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
 
 /**
@@ -109,11 +113,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 mock(ConfigurationManager.class)
         );
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
+        Supplier<RestFactory> restEventsFactory = () -> new RestEventsFactory(EventLog.NOOP, "NOOP");
 
         restComponent = new RestComponent(
                 List.of(restPresentationFactory,
                         authProviderFactory,
-                        restManagerFactory),
+                        restManagerFactory,
+                        restEventsFactory
+                ),
                 restManager,
                 restConfiguration
         );
@@ -126,6 +133,20 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void cleanup() {
         assertThat(restComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+    }
+
+    @ParameterizedTest
+    @EnumSource(RestState.class)
+    public void nonExistentEndpoint(RestState state) {
+        restManager.setState(state);
+
+        assertThrowsProblem(
+                () -> client.toBlocking().retrieve("nonExistentEndpoint"),
+                isProblem()
+                        .withStatus(NOT_FOUND)
+                        .withTitle("Not Found")
+                        .withDetail("Requested resource not found: /management/v1/nonExistentEndpoint")
+        );
     }
 
     @Test
