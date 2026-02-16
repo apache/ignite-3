@@ -22,7 +22,6 @@ import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -30,6 +29,7 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLoc
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
 /**
@@ -90,6 +90,7 @@ public class CheckpointPagesWriterFactory {
      * @param dirtyPartitionQueue Checkpoint dirty partition ID queue to write.
      * @param pageMemoryList List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
      * @param updatedPartitions Updated partitions.
+     * @param filePageStoreManager File page store manager for accessing checkpointed page counts.
      * @param doneWriteFut Write done future.
      * @param updateHeartbeat Update heartbeat callback.
      * @param checkpointProgress Current checkpoint data.
@@ -99,7 +100,8 @@ public class CheckpointPagesWriterFactory {
             CheckpointMetricsTracker tracker,
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue,
             List<PersistentPageMemory> pageMemoryList,
-            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
+            ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions,
+            FilePageStoreManager filePageStoreManager,
             CompletableFuture<?> doneWriteFut,
             Runnable updateHeartbeat,
             CheckpointProgressImpl checkpointProgress,
@@ -111,6 +113,7 @@ public class CheckpointPagesWriterFactory {
                 dirtyPartitionQueue,
                 pageMemoryList,
                 updatedPartitions,
+                filePageStoreManager,
                 doneWriteFut,
                 updateHeartbeat,
                 threadBuf,

@@ -33,8 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -53,6 +53,8 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.jetbrains.annotations.Nullable;
@@ -93,8 +95,14 @@ public class CheckpointPagesWriter implements Runnable {
      */
     private final List<PersistentPageMemory> pageMemoryList;
 
-    /** Updated partitions -> count of written pages. */
-    private final ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions;
+    /** Updated partitions -> write statistics. */
+    private final ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions;
+
+    /** File page store manager for accessing checkpointed page counts. */
+    private final FilePageStoreManager filePageStoreManager;
+
+    /** Cached checkpointed page counts for partitions (populated lazily). */
+    private final ConcurrentMap<GroupPartitionId, Integer> checkpointedPageCounts = new ConcurrentHashMap<>();
 
     /** Future which should be finished when all pages would be written. */
     private final CompletableFuture<?> doneFut;
@@ -129,6 +137,7 @@ public class CheckpointPagesWriter implements Runnable {
      * @param dirtyPartitionQueue Queue of dirty partition IDs to write.
      * @param pageMemoryList List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
      * @param updatedPartitions Updated partitions.
+     * @param filePageStoreManager File page store manager for accessing checkpointed page counts.
      * @param doneFut Done future.
      * @param updateHeartbeat Update heartbeat callback.
      * @param threadBuf Thread local byte buffer.
@@ -143,7 +152,8 @@ public class CheckpointPagesWriter implements Runnable {
             CheckpointMetricsTracker tracker,
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue,
             List<PersistentPageMemory> pageMemoryList,
-            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
+            ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions,
+            FilePageStoreManager filePageStoreManager,
             CompletableFuture<?> doneFut,
             Runnable updateHeartbeat,
             ThreadLocal<ByteBuffer> threadBuf,
@@ -158,6 +168,7 @@ public class CheckpointPagesWriter implements Runnable {
         this.dirtyPartitionQueue = dirtyPartitionQueue;
         this.pageMemoryList = pageMemoryList;
         this.updatedPartitions = updatedPartitions;
+        this.filePageStoreManager = filePageStoreManager;
         this.doneFut = doneFut;
         this.updateHeartbeat = updateHeartbeat;
         this.threadBuf = threadBuf;
@@ -366,7 +377,7 @@ public class CheckpointPagesWriter implements Runnable {
         // We deliberately avoid "computeIfAbsent" here for the sake of performance.
         // For the overwhelming amount of calls "partitionId" should already be in the set.
         if (!updatedPartitions.containsKey(partitionId)) {
-            updatedPartitions.putIfAbsent(partitionId, new LongAdder());
+            updatedPartitions.putIfAbsent(partitionId, new PartitionWriteStats());
         }
     }
 
@@ -410,7 +421,33 @@ public class CheckpointPagesWriter implements Runnable {
 
             pageWriter.write(pageMemory, fullPageId, buf);
 
-            updatedPartitions.get(GroupPartitionId.convert(fullPageId)).increment();
+            // Determine which file type received the write.
+            GroupPartitionId partitionId = GroupPartitionId.convert(fullPageId);
+            PartitionWriteStats writeStats = updatedPartitions.get(partitionId);
+
+            // TODO: this is the same logic that is implemented inside of pageWriter.write, but it doesn't belong here!
+            //       instead, what if pageWriter.write would return some hint about whenever it was writing into main/delta file?
+            Integer checkpointedPageCount = checkpointedPageCounts.computeIfAbsent(partitionId, id -> {
+                if (filePageStoreManager != null) {
+                    FilePageStore filePageStore = filePageStoreManager.getStore(id);
+                    if (filePageStore != null) {
+                        return filePageStore.checkpointedPageCount();
+                    }
+                }
+                return null;
+            });
+
+            if (checkpointedPageCount != null) {
+                if (fullPageId.pageIdx() >= checkpointedPageCount) {
+                    writeStats.recordMainFileWrite();
+                } else {
+                    writeStats.recordDeltaFileWrite();
+                }
+            } else {
+                // Fallback: if boundary information is not available, conservatively record as main file write.
+                // This ensures write counts are tracked even when boundary information is missing (e.g., in tests).
+                writeStats.recordBothFilesWrite();
+            }
         };
     }
 
@@ -440,7 +477,7 @@ public class CheckpointPagesWriter implements Runnable {
 
         checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-        updatedPartitions.get(partitionId).increment();
+        updatedPartitions.get(partitionId).recordMainFileWrite();
 
         updateHeartbeat.run();
     }

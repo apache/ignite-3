@@ -56,7 +56,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -121,7 +120,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         WriteDirtyPage pageWriter = createDirtyPageWriter(writtenFullPageIds);
 
-        ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
+        ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions = new ConcurrentHashMap<>();
 
         CompletableFuture<?> doneFuture = new CompletableFuture<>();
 
@@ -146,6 +145,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 dirtyPartitionQueue,
                 singletonList(pageMemory),
                 updatedPartitions,
+                null, // filePageStoreManager - not needed for this test
                 doneFuture,
                 beforePageWrite,
                 threadBuf,
@@ -167,8 +167,8 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         assertThat(updatedPartitions.keySet(), containsInAnyOrder(groupPartId0, groupPartId1));
 
-        assertThat(updatedPartitions.get(groupPartId0).sum(), equalTo(6L));
-        assertThat(updatedPartitions.get(groupPartId1).sum(), equalTo(2L));
+        assertThat(updatedPartitions.get(groupPartId0).getTotalWrites(), equalTo(6));
+        assertThat(updatedPartitions.get(groupPartId1).getTotalWrites(), equalTo(2));
 
         assertThat(tracker.dataPagesWritten(), equalTo(4));
         assertThat(progressImpl.writtenPagesCounter().get(), equalTo(8));
@@ -226,6 +226,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new GroupPartitionId(0, 0)))),
                 singletonList(pageMemory),
                 new ConcurrentHashMap<>(),
+                null, // filePageStoreManager - not needed for this test
                 doneFuture,
                 () -> {},
                 createThreadLocalBuffer(),
@@ -272,7 +273,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
-        ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
+        ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions = new ConcurrentHashMap<>();
 
         CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
         checkpointProgress.pagesToWrite(checkpointDirtyPages);
@@ -288,6 +289,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 dirtyPartitionQueue,
                 singletonList(pageMemory),
                 updatedPartitions,
+                null, // filePageStoreManager - not needed for this test
                 doneFuture,
                 () -> {},
                 createThreadLocalBuffer(),
