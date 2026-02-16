@@ -640,7 +640,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         } else {
             finalState = ABORTED;
         }
-        //TODO https://issues.apache.org/jira/browse/IGNITE-27867
+        // TODO https://issues.apache.org/jira/browse/IGNITE-27867
         updateTxMeta(txId, old -> builder(old, finalState)
                 .commitTimestamp(ts)
                 .finishedDueToTimeout(isFinishedDueToTimeout(finishReason))
