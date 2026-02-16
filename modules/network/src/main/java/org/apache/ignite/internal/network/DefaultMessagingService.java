@@ -678,10 +678,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
         if (responseFuture != null) {
             var fut = responseFuture.future();
 
+            // See discussion at https://github.com/apache/ignite-3/pull/7488#discussion_r2746752510
+            // for an explanation.
+            fut.complete(response);
             if (fut.isCompletedExceptionally()) {
                 metrics.incrementInvokeTimeouts();
-            } else {
-                fut.complete(response);
             }
         }
     }
