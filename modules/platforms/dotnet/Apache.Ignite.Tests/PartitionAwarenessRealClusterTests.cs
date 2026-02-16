@@ -35,6 +35,17 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 {
     private const int Iterations = 50;
 
+    private string _tableName = string.Empty;
+
+    [TearDown]
+    public async Task DropTables()
+    {
+        if (!string.IsNullOrWhiteSpace(_tableName))
+        {
+            await Client.Sql.ExecuteScriptAsync($"DROP TABLE IF EXISTS {_tableName}");
+        }
+    }
+
     /// <summary>
     /// Uses <see cref="JavaJobs.NodeNameJob"/> to get the name of the node that should be the primary for the given key,
     /// and compares to the actual node that received the request (using IgniteProxy).
@@ -94,6 +105,32 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             ClientOp.SqlExec);
     }
 
+    [Test]
+    public async Task TestSqlCompositeKey()
+    {
+        await CreateTable("(KEY BIGINT, VAL1 VARCHAR, VAL2 VARCHAR, PRIMARY KEY (KEY, VAL2))");
+
+        await TestRequestRouting(
+            _tableName,
+            id => new IgniteTuple { ["KEY"] = id, ["VAL1"] = $"v1_{id}", ["VAL2"] = $"v2_{id}" },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {_tableName} WHERE KEY = ? AND VAL2 = ?",
+                    tuple["KEY"],
+                    tuple["VAL2"]);
+            },
+            ClientOp.SqlExec);
+    }
+
+    [Test]
+    public async Task TestSqlColocateBy()
+    {
+        // TODO
+        await Task.Delay(100);
+    }
+
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
     {
         var primaryNodeNameExec = await client.Compute.SubmitAsync(
@@ -118,7 +155,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         client.WaitForConnections(proxies.Count);
 
         // Warm up.
-        await operation(client, recordView, new IgniteTuple { [KeyCol] = 1L });
+        await operation(client, recordView, tupleFactory(-1));
         GetRequestTargetNodeName(proxies, expectedOp);
 
         // Check.
@@ -139,5 +176,12 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 
             Assert.AreEqual(primaryNodeName, requestTargetNodeName);
         }
+    }
+
+    private async Task CreateTable(string columns)
+    {
+        _tableName = $"{nameof(PartitionAwarenessRealClusterTests)}_{TestContext.CurrentContext.Test.Name}";
+
+        await Client.Sql.ExecuteScriptAsync($"CREATE TABLE {_tableName} {columns}");
     }
 }
