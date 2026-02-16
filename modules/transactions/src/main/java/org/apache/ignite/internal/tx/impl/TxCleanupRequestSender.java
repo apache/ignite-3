@@ -166,7 +166,8 @@ public class TxCleanupRequestSender {
         }
 
         commitTimestampFuture.thenAccept(commitTimestamp -> {
-                    /* We are updating tx meta in the 2 phases, because the state transition might be rejected and all changes won't be apply
+                    /* We are updating tx meta in the 2 phases,
+                     because the state transition might be rejected and all changes won't be apply
                      * 1) Update only state, it might be rejected
                      * 2) Apply changes to commit timestamp, these changes will be applied no matter what.
                      */
