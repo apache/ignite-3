@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -169,6 +170,27 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 CatalogValidationException.class,
                 "Column with name 'TEST' already exists"
         );
+    }
+
+    @Test
+    void exceptionNotThrownIfColumnWithGivenNameAlreadyExistsWithIfColumnNotExists() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+        ColumnParams columnParams = ColumnParams.builder().name(columnName).type(INT32).build();
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams))
+                .primaryKey(primaryKey(columnName))
+        );
+
+        AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams))
+                .ifColumnNotExists(true);
+
+        assertDoesNotThrow(() -> builder.build().get(new UpdateContext(catalog)));
     }
 
     @Test

@@ -1,7 +1,7 @@
 prefix=@CMAKE_INSTALL_PREFIX@
 exec_prefix=${prefix}
-libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+libdir=${exec_prefix}/@IGNITE_INSTALL_LIBRARY_DIR@
+includedir=${prefix}/@IGNITE_INSTALL_INCLUDE_DIR@
 
 Name: ignite-client
 Description: Apache Ignite C++ Client Library
