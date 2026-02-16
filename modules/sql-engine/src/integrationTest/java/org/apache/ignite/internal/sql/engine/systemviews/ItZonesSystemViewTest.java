@@ -28,10 +28,13 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
+import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
@@ -49,16 +52,32 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     @Test
     public void systemViewDefaultZone() {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        // Check that there is no default zone yet before test table is created.
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
+        // Table for lazy default zone creation.
+        createTableOnly("test_table");
+        // Check that the default zone was created and is presented on zone view.
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
+
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = Objects.requireNonNull(
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
         );
 
+        PartitionCountProvider partitionCountProvider = node.partitionCountProvider();
+        PartitionCountCalculationParameters partitionCountCalculationParameters = PartitionCountCalculationParameters.builder()
+                .replicaFactor(DEFAULT_REPLICA_COUNT)
+                .dataNodesFilter(DEFAULT_FILTER)
+                .storageProfiles(List.of(DEFAULT_STORAGE_PROFILE))
+                .build();
+        int defaultZoneExpectedPartitionCount = partitionCountProvider.calculate(partitionCountCalculationParameters);
+
         assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, ZONE_QUORUM_SIZE, DATA_NODES_AUTO_ADJUST_SCALE_UP,"
                 + " DATA_NODES_AUTO_ADJUST_SCALE_DOWN, DATA_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES")
                 .returns(
                 catalog.defaultZone().name(),
-                DEFAULT_PARTITION_COUNT,
+                defaultZoneExpectedPartitionCount,
                 DEFAULT_REPLICA_COUNT,
                 DEFAULT_ZONE_QUORUM_SIZE,
                 IMMEDIATE_TIMER_VALUE,
@@ -165,22 +184,22 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 DEFAULT_CONSISTENCY_MODE.name()
         ).check();
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
 
         sql("DROP ZONE " + ALTER_ZONE_NAME);
     }
 
     @Test
     public void systemViewDropCustomZone() {
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
 
         sql(createZoneSql(ZONE_NAME, 1, 5, 2, 3, 4, DEFAULT_FILTER));
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(2L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
 
         sql("DROP ZONE " + ZONE_NAME);
 
-        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(1L).check();
+        assertQuery("SELECT COUNT(*) FROM SYSTEM.ZONES").returns(0L).check();
     }
 
     @Test

@@ -70,6 +70,7 @@ import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountProvider;
+import org.apache.ignite.internal.catalog.PartitionCountProvider;
 import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
@@ -2250,6 +2251,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker() {
         return schemaSafeTimeTracker;
+    }
+
+    @TestOnly
+    public PartitionCountProvider partitionCountProvider() {
+        return partitionCountProviderWrapper;
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

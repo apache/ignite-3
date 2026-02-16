@@ -52,10 +52,12 @@ public class DataNodesAwarePartitionCountProvider implements PartitionCountProvi
 
     @Override
     public int calculate(PartitionCountCalculationParameters params) {
-        int dataNodeCount = estimatedDataNodeCountProvider.estimatedDataNodeCount(
+        int estimatedDataNodeCount = estimatedDataNodeCountProvider.estimatedDataNodeCount(
                 params.dataNodesFilter(),
                 params.storageProfiles()
         );
+        // Estimated count may be 0 if the filter sorts out all cluster nodes.
+        int dataNodeCount = max(1, estimatedDataNodeCount);
         int cores = max(cpuInfoProvider.availableProcessors(), MINIMUM_CPU_COUNT);
         int replicas = params.replicaFactor();
 

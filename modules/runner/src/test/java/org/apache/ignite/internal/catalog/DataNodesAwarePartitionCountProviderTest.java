@@ -84,9 +84,41 @@ public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstract
                 .replicaFactor(minReplicaCount)
                 .build();
 
-        assertThat(provider.calculate(params), is(greaterThan(0)));
+        int partitionCount = provider.calculate(params);
+
+        assertThat(partitionCount, is(greaterThan(0)));
         // We check only overflow case, but the value may be more than CatalogUtils.MAX_PARTITION_COUNT, but it's ok and proper validators
         // will catch this case during catalog command processing. But we must not get overflow exception during the calculation.
-        assertThat(provider.calculate(params), is(lessThan(Integer.MAX_VALUE)));
+        assertThat(partitionCount, is(lessThan(Integer.MAX_VALUE)));
+    }
+
+    @Test
+    void testEstimatedDataNodeCountIsZeroButPartitionCountIsPositiveValue() {
+        EstimatedDataNodeCountProvider zeroEstimatedNodesProvider = (f, sp) -> 0;
+        int cpuCount = 1;
+
+        CpuInformationProvider cpuInfoProvider = new CpuInformationProvider() {
+            @Override
+            public int availableProcessors() {
+                return cpuCount;
+            }
+        };
+
+        // Replica factor is the divider in the formula.
+        int minReplicaCount = 1;
+
+        DataNodesAwarePartitionCountProvider provider = new DataNodesAwarePartitionCountProvider(
+                zeroEstimatedNodesProvider,
+                cpuInfoProvider
+        );
+
+        PartitionCountCalculationParameters params = PartitionCountCalculationParameters.builder()
+                .replicaFactor(minReplicaCount)
+                .build();
+
+        int partitionCount = provider.calculate(params);
+
+        assertThat(partitionCount, is(greaterThan(0)));
+        assertThat(partitionCount, is(MINIMUM_CPU_COUNT * SCALE_FACTOR));
     }
 }
