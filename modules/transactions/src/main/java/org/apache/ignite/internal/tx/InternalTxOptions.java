@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageBuilder;
 import org.apache.ignite.internal.tx.configuration.TransactionConfigurationSchema;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,11 +48,11 @@ public class InternalTxOptions {
     @Nullable
     private final HybridTimestamp readTimestamp;
 
-    @Nullable
-    private final Runnable killClosure;
+    /** Transaction kill closure. Defines context specific action on tx kill. */
+    private final @Nullable Consumer<InternalTransaction> killClosure;
 
     private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, @Nullable String txLabel,
-            @Nullable Runnable killClosure) {
+            Consumer<InternalTransaction> killClosure) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
         this.readTimestamp = readTimestamp;
@@ -88,7 +88,7 @@ public class InternalTxOptions {
         return txLabel;
     }
 
-    public @Nullable Runnable killClosure() {
+    public Consumer<InternalTransaction> killClosure() {
         return killClosure;
     }
 
@@ -108,8 +108,7 @@ public class InternalTxOptions {
         @Nullable
         private String txLabel = null;
 
-        @Nullable
-        private Runnable killClosure;
+        private Consumer<InternalTransaction> killClosure;
 
         public Builder priority(TxPriority priority) {
             this.priority = priority;
@@ -131,7 +130,7 @@ public class InternalTxOptions {
             return this;
         }
 
-        public Builder killClosure(Runnable r) {
+        public Builder killClosure(Consumer<InternalTransaction> r) {
             this.killClosure = r;
             return this;
         }

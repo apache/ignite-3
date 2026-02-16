@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -59,7 +60,8 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** Flag indicating that the transaction was rolled back due to timeout. */
     protected volatile boolean timeoutExceeded;
 
-    private final @Nullable Runnable killClosure;
+    /** Transaction kill closure. Defines context specific action on tx kill. */
+    protected final @Nullable Consumer<InternalTransaction> killClosure;
 
     /**
      * The constructor.
@@ -79,7 +81,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
             UUID coordinatorId,
             boolean implicit,
             long timeout,
-            @Nullable Runnable killClosure
+            @Nullable Consumer<InternalTransaction> killClosure
     ) {
         this.txManager = txManager;
         this.observableTsTracker = observableTsTracker;
@@ -171,7 +173,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     }
 
     @Override
-    public @Nullable Runnable killClosure() {
+    public @Nullable Consumer<InternalTransaction> killClosure() {
         return killClosure;
     }
 }

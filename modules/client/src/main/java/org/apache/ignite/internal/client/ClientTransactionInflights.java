@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -36,6 +37,23 @@ public class ClientTransactionInflights {
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
+
+    /**
+     * Register a transaction.
+     *
+     * @param tx The transaction id.
+     */
+    public void register(ClientTransaction tx) {
+        txCtxMap.compute(tx.txId(), (uuid, ctx) -> {
+            if (ctx == null) {
+                ctx = new TxContext();
+            }
+
+            ctx.tx = tx;
+
+            return ctx;
+        });
+    }
 
     /**
      * Registers the inflight update for a transaction.
@@ -126,6 +144,23 @@ public class ClientTransactionInflights {
     }
 
     /**
+     * Kill the transaction.
+     *
+     * @param id The id.
+     *
+     * @return Kill future.
+     */
+    public CompletableFuture<Void> kill(UUID id) {
+        TxContext txContext = txCtxMap.get(id);
+
+        if (txContext != null) {
+            return txContext.tx.rollbackAsync();
+        }
+
+        return nullCompletedFuture();
+    }
+
+    /**
      * Check if the inflights map contains a given transaction.
      *
      * @param txId Tx id.
@@ -142,6 +177,7 @@ public class ClientTransactionInflights {
         public CompletableFuture<Void> finishFut;
         public long inflights = 0;
         public Throwable err;
+        public ClientTransaction tx;
 
         void addInflight() {
             inflights++;

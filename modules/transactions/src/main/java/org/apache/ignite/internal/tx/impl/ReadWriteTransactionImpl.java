@@ -31,9 +31,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
@@ -88,7 +90,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID txCoordinatorId,
             boolean implicit,
             long timeout,
-            @Nullable Runnable killClosure
+            @Nullable Consumer<InternalTransaction> killClosure
     ) {
         super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout, killClosure);
     }
@@ -297,6 +299,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
+        if (killClosure != null) {
+            // Use context specific kill action.
+            killClosure.accept(this);
+            return nullCompletedFuture();
+        }
         return finishInternal(false, null, false, false, false);
     }
 

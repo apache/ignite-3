@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.tx;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.startExplicitTx;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 
 /**
@@ -66,8 +68,13 @@ public class ClientTransactionBeginRequest {
         InternalTxOptions txOptions = InternalTxOptions.builder()
                 .timeoutMillis(timeoutMillis)
                 .readTimestamp(observableTs)
-                .killClosure(() -> {
-                    // No-op.
+                .killClosure(tx -> {
+                    if (notificationSender != null) {
+                        // Exception will be ignored if a client doesn't support it.
+                        TransactionKilledException err = new TransactionKilledException(tx.id(), txManager);
+
+                        notificationSender.sendNotification(w -> {}, err, NULL_HYBRID_TIMESTAMP);
+                    }
                 })
                 .build();
 

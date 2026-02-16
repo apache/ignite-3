@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.tx.Transaction;
@@ -186,7 +187,7 @@ public interface InternalTransaction extends Transaction {
         // No-op.
     }
 
-    default @Nullable Runnable killClosure() {
+    default @Nullable Consumer<InternalTransaction> killClosure() {
         return null;
     }
 }
