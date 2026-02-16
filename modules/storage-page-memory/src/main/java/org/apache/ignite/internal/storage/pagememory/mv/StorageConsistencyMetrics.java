@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 
 /**
  * Storage consistency operation metrics.
@@ -59,7 +60,7 @@ public class StorageConsistencyMetrics {
      *
      * @param metricSource Metric source to register metrics with.
      */
-    public StorageConsistencyMetrics(StorageConsistencyMetricSource metricSource) {
+    public StorageConsistencyMetrics(CollectionMetricSource metricSource) {
         runConsistentlyDuration = metricSource.addMetric(new DistributionMetric(
                 "RunConsistentlyDuration",
                 "Time spent in runConsistently closures in nanoseconds.",
