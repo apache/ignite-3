@@ -180,6 +180,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
@@ -260,6 +261,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -1469,6 +1471,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metricManager
             );
 
+            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
+            metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+            LongSupplier delayDurationMsSupplier = () -> 10L;
+
+            schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+
             replicaManager = spy(new ReplicaManager(
                     name,
                     clusterService,
@@ -1481,6 +1490,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new NoOpFailureManager(),
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
+                    new PermissiveSafeTimeValidator(),
                     topologyAwareRaftGroupServiceFactory,
                     raftManager,
                     partitionRaftConfigurer,
@@ -1490,8 +1500,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
                     threadPoolsManager.commonScheduler()
             ));
-
-            LongSupplier delayDurationMsSupplier = () -> 10L;
 
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager, failureManager),
@@ -1504,11 +1512,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
             schemaManager = new SchemaManager(registry, catalogManager);
-
-            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
-            metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
-
-            schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
             SystemDistributedConfiguration systemDistributedConfiguration =
                     clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
@@ -1581,6 +1584,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     sharedTxStateStorage,
                     metaStorageManager,
                     schemaManager,
+                    new CatalogValidationSchemasSource(catalogManager, schemaManager),
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     threadPoolsManager.commonScheduler(),

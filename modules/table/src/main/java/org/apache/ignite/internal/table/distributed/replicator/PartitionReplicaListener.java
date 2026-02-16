@@ -199,6 +199,7 @@ import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -206,6 +207,8 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -2436,6 +2439,19 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         return raftCommandApplicator.applyCommandWithExceptionHandling(cmd);
     }
 
+    private static CommandApplicationResult throwIfFullTxCommitSchemaValidationFailedInRaft(CommandApplicationResult res, Throwable ex) {
+        if (ex != null) {
+            Throwable rootCause = ExceptionUtils.unwrapRootCause(ex);
+            if (rootCause instanceof RaftException && ((RaftException) rootCause).raftError() == RaftError.EREJECTED_BY_USER_LOGIC) {
+                throw new IncompatibleSchemaVersionException(rootCause.getMessage());
+            }
+
+            sneakyThrow(ex);
+        }
+
+        return res;
+    }
+
     /**
      * Executes an Update command.
      *
@@ -2555,7 +2571,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            });
+            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedInRaft);
         }
     }
 
@@ -2693,7 +2709,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            });
+            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedInRaft);
         }
     }
 
@@ -3572,7 +3588,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             UUID txId,
             boolean full,
             UUID txCoordinatorId,
-            @Nullable HybridTimestamp initiatorTime,
+            HybridTimestamp initiatorTime,
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {

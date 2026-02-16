@@ -508,6 +508,9 @@ public class JraftServerImpl implements RaftServer {
             if (groupOptions.commandsMarshaller() != null) {
                 nodeOptions.setCommandsMarshaller(groupOptions.commandsMarshaller());
             }
+            if (groupOptions.safeTimeValidator() != null) {
+                nodeOptions.setSafeTimeValidator(groupOptions.safeTimeValidator());
+            }
 
             nodeOptions.setFsm(
                     new DelegatingStateMachine(nodeId, lsnr, nodeOptions, failureManager));

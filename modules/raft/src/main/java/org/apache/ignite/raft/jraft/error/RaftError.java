@@ -240,7 +240,13 @@ public enum RaftError {
     /**
      * Permission denied
      */
-    EACCES(1016);
+    EACCES(1016),
+
+    /**
+     * Rejected by user logic. If ActionRequest gets such a response, the corresponding command has not been either saved to log or applied
+     * on any node; also, the Raft client should not retry the same ActionRequest attempt as it will never succeed.
+     */
+    EREJECTED_BY_USER_LOGIC(20000);
 
     private static final Map<Integer, RaftError> RAFT_ERROR_MAP = new HashMap<>();
 

@@ -156,6 +156,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -283,6 +284,10 @@ public class ItTxTestCluster {
     protected IgniteTransactions igniteTransactions;
 
     protected String localNodeName;
+
+    private SchemaSyncService schemaSyncService;
+
+    private final CompoundValidationSchemasSource validationSchemasSource = new CompoundValidationSchemasSource();
 
     private final Map<String, Map<ZonePartitionId, ZonePartitionRaftListener>> zonePartitionRaftGroupListeners = new HashMap<>();
 
@@ -487,6 +492,8 @@ public class ItTxTestCluster {
                     new RaftGroupEventsClientListener()
             );
 
+            schemaSyncService = new AlwaysSyncedSchemaSyncService();
+
             ReplicaManager replicaMgr = new ReplicaManager(
                     nodeName,
                     clusterService,
@@ -499,6 +506,7 @@ public class ItTxTestCluster {
                     this::getSafeTimePropagationTimeout,
                     new NoOpFailureManager(),
                     commandMarshaller,
+                    new PartitionSafeTimeValidator(validationSchemasSource, catalogService, schemaSyncService),
                     raftClientFactory,
                     raftSrv,
                     partitionRaftConfigurer,
@@ -772,7 +780,10 @@ public class ItTxTestCluster {
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 );
 
-                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var tableValidationSchemasSource = new DummyValidationSchemasSource(schemaManager);
+
+                validationSchemasSource.registerSource(tableId, tableValidationSchemasSource);
 
                 RaftGroupListener raftGroupListener = getOrCreateAndPopulateRaftGroupListener(
                         assignment,
@@ -804,9 +815,9 @@ public class ItTxTestCluster {
                                 txStateStorage,
                                 transactionStateResolver,
                                 storageUpdateHandler,
-                                new DummyValidationSchemasSource(schemaManager),
+                                validationSchemasSource,
                                 nodeResolver.getByConsistentId(assignment),
-                                new AlwaysSyncedSchemaSyncService(),
+                                schemaSyncService,
                                 catalogService,
                                 placementDriver,
                                 nodeResolver,

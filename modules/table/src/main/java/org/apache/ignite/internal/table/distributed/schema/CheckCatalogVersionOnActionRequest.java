@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+import static org.apache.ignite.internal.table.distributed.schema.MetadataSufficiency.isMetadataAvailableForCatalogVersion;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -83,10 +83,10 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
                 OptimizedMarshaller.ORDER));
 
         if (requiredCatalogVersion >= 0) {
-            if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
+            if (!isMetadataAvailableForCatalogVersion(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
-                        "Metadata not yet available, rejecting ActionRequest with EBUSY [group={}, requiredLevel={}].",
+                        "Metadata not yet available by catalog version, rejecting ActionRequest with EBUSY [group={}, requiredLevel={}].",
                         request.groupId(), requiredCatalogVersion
                 );
 
@@ -94,7 +94,8 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
                     .newResponse(
                             node.getRaftOptions().getRaftMessagesFactory(),
                             RaftError.EBUSY,
-                            "Metadata not yet available, rejecting ActionRequest with EBUSY [group=%s, requiredLevel=%d].",
+                            "Metadata not yet available by catalog version, rejecting ActionRequest with EBUSY "
+                                    + "[group=%s, requiredLevel=%d].",
                             request.groupId(), requiredCatalogVersion
                     );
             }

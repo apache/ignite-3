@@ -101,6 +101,8 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyOption;
 import org.apache.ignite.raft.jraft.option.ReadOnlyServiceOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorGroupOptions;
+import org.apache.ignite.raft.jraft.option.SafeTimeValidationResult;
+import org.apache.ignite.raft.jraft.option.SafeTimeValidator;
 import org.apache.ignite.raft.jraft.option.SnapshotExecutorOptions;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesResponseBuilder;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.GetLeaderRequest;
@@ -1743,15 +1745,20 @@ public class NodeImpl implements Node, RaftServerService {
                     }
                     continue;
                 }
+
+                // To prevent safe timestamp values from becoming stale, we must assign them under a valid leader lock.
+                safeTs = tryAssignSafeTimestamp(task, safeTs);
+
+                if (rejectCommandIfSafeTimeIsNotAcceptable(safeTs, task)) {
+                    continue;
+                }
+
                 if (!this.ballotBox.appendPendingTask(this.conf.getConf(),
                     this.conf.isStable() ? null : this.conf.getOldConf(), task.done)) {
                     Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.done, new Status(RaftError.EINTERNAL, "Fail to append task."));
                     task.reset();
                     continue;
                 }
-
-                // To prevent safe timestamp values from becoming stale, we must assign them under a valid leader lock.
-                safeTs = tryAssignSafeTimestamp(task, safeTs);
 
                 // set task entry info before adding to list.
                 task.entry.getId().setTerm(this.currTerm);
@@ -1786,6 +1793,31 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         return safeTs;
+    }
+
+    private boolean rejectCommandIfSafeTimeIsNotAcceptable(@Nullable HybridTimestamp safeTs, LogEntryAndClosure task) {
+        if (safeTs != null && task.done instanceof SafeTimeAwareCommandClosure) {
+            SafeTimeAwareCommandClosure closure = (SafeTimeAwareCommandClosure) task.done;
+
+            SafeTimeValidator safeTimeValidator = this.getOptions().getSafeTimeValidator();
+            if (safeTimeValidator.shouldValidateFor(closure.command())) {
+                SafeTimeValidationResult validationResult = safeTimeValidator.validate(groupId, closure.command(), safeTs);
+
+                if (!validationResult.valid()) {
+                    RaftError raftError = validationResult.shouldRetry() ? RaftError.EBUSY : RaftError.EREJECTED_BY_USER_LOGIC;
+                    Utils.runClosureInThread(
+                            this.getOptions().getCommonExecutor(),
+                            task.done,
+                            new Status(raftError, validationResult.errorMessage())
+                    );
+                    task.reset();
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
