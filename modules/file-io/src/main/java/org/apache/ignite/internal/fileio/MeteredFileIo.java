@@ -24,12 +24,11 @@ import java.nio.MappedByteBuffer;
 /**
  * FileIo decorator that records metrics for read and write operations.
  */
-public class MeteredFileIo implements FileIo {
-    private final FileIo delegate;
+public class MeteredFileIo extends FileIoDecorator {
     private final FileIoMetrics metrics;
 
     public MeteredFileIo(FileIo delegate, FileIoMetrics metrics) {
-        this.delegate = delegate;
+        super(delegate);
         this.metrics = metrics;
     }
 
@@ -63,102 +62,37 @@ public class MeteredFileIo implements FileIo {
     }
 
     @Override
-    public long position() throws IOException {
-        return delegate.position();
-    }
-
-    @Override
-    public void position(long newPosition) throws IOException {
-        delegate.position(newPosition);
-    }
-
-    @Override
     public int read(ByteBuffer destBuf) throws IOException {
-        return measureRead(() -> delegate.read(destBuf));
+        return measureRead(() -> super.read(destBuf));
     }
 
     @Override
     public int read(ByteBuffer destBuf, long position) throws IOException {
-        return measureRead(() -> delegate.read(destBuf, position));
+        return measureRead(() -> super.read(destBuf, position));
     }
 
     @Override
     public int read(byte[] buf, int off, int len) throws IOException {
-        return measureRead(() -> delegate.read(buf, off, len));
-    }
-
-    @Override
-    public int readFully(ByteBuffer destBuf) throws IOException {
-        return measureRead(() -> delegate.readFully(destBuf));
-    }
-
-    @Override
-    public int readFully(ByteBuffer destBuf, long position) throws IOException {
-        return measureRead(() -> delegate.readFully(destBuf, position));
-    }
-
-    @Override
-    public int readFully(byte[] buf, int off, int len) throws IOException {
-        return measureRead(() -> delegate.readFully(buf, off, len));
+        return measureRead(() -> super.read(buf, off, len));
     }
 
     @Override
     public int write(ByteBuffer srcBuf) throws IOException {
-        return measureWrite(() -> delegate.write(srcBuf));
+        return measureWrite(() -> super.write(srcBuf));
     }
 
     @Override
     public int write(ByteBuffer srcBuf, long position) throws IOException {
-        return measureWrite(() -> delegate.write(srcBuf, position));
+        return measureWrite(() -> super.write(srcBuf, position));
     }
 
     @Override
     public int write(byte[] buf, int off, int len) throws IOException {
-        return measureWrite(() -> delegate.write(buf, off, len));
-    }
-
-    @Override
-    public int writeFully(ByteBuffer srcBuf) throws IOException {
-        return measureWrite(() -> delegate.writeFully(srcBuf));
-    }
-
-    @Override
-    public int writeFully(ByteBuffer srcBuf, long position) throws IOException {
-        return measureWrite(() -> delegate.writeFully(srcBuf, position));
-    }
-
-    @Override
-    public int writeFully(byte[] buf, int off, int len) throws IOException {
-        return measureWrite(() -> delegate.writeFully(buf, off, len));
+        return measureWrite(() -> super.write(buf, off, len));
     }
 
     @Override
     public MappedByteBuffer map(int sizeBytes) throws IOException {
-        return delegate.map(sizeBytes);
-    }
-
-    @Override
-    public void force() throws IOException {
-        delegate.force();
-    }
-
-    @Override
-    public void force(boolean withMetadata) throws IOException {
-        delegate.force(withMetadata);
-    }
-
-    @Override
-    public long size() throws IOException {
-        return delegate.size();
-    }
-
-    @Override
-    public void clear() throws IOException {
-        delegate.clear();
-    }
-
-    @Override
-    public void close() throws IOException {
-        delegate.close();
+        return super.map(sizeBytes);
     }
 }
