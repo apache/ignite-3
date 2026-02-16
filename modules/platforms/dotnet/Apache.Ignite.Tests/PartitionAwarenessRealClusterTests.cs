@@ -21,7 +21,6 @@ using System;
 using System.Threading.Tasks;
 using Common;
 using Common.Compute;
-using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
@@ -30,12 +29,12 @@ using NUnit.Framework;
 using static Common.Table.TestTables;
 
 /// <summary>
-/// Tests partition awareness in real cluster.
+/// Tests partition awareness in a real cluster.
 /// </summary>
 public class PartitionAwarenessRealClusterTests : IgniteTestsBase
 {
     /// <summary>
-    /// Uses <see cref="ComputeTests.NodeNameJob"/> to get the name of the node that should be the primary for the given key,
+    /// Uses <see cref="JavaJobs.NodeNameJob"/> to get the name of the node that should be the primary for the given key,
     /// and compares to the actual node that received the request (using IgniteProxy).
     /// </summary>
     /// <param name="withTx">Whether to use transactions.</param>
