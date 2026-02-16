@@ -33,8 +33,6 @@
 
 namespace ignite::proxy {
 
-
-
 void set_socket_non_blocking(int fd) {
     using network::detail::set_non_blocking_mode;
 
