@@ -42,10 +42,37 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     [Test]
     public async Task TestPutRoutesRequestToPrimaryNode([Values(true, false)] bool withTx)
     {
+        await TestRequestRouting(
+            TableName,
+            id => new IgniteTuple { ["KEY"] = id },
+            async (client, view, tuple) =>
+            {
+                await using var tx = withTx ? await client.Transactions.BeginAsync() : null;
+                await view.UpsertAsync(tx, tuple);
+            },
+            ClientOp.TupleUpsert);
+    }
+
+    private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
+    {
+        var primaryNodeNameExec = await client.Compute.SubmitAsync(
+            JobTarget.Colocated(tableName, tuple),
+            JavaJobs.NodeNameJob,
+            null);
+
+        return await primaryNodeNameExec.GetResultAsync();
+    }
+
+    private async Task TestRequestRouting(
+        string tableName,
+        Func<long, IIgniteTuple> tupleFactory,
+        Func<IIgniteClient, IRecordView<IIgniteTuple>, IIgniteTuple, Task> operation,
+        ClientOp expectedOp)
+    {
         using var loggerFactory = new ConsoleLogger(LogLevel.Trace);
         var proxies = GetProxies();
         using var client = await IgniteClient.StartAsync(GetConfig(proxies, loggerFactory));
-        var recordView = (await client.Tables.GetTableAsync(TableName))!.RecordBinaryView;
+        var recordView = (await client.Tables.GetTableAsync(tableName))!.RecordBinaryView;
 
         client.WaitForConnections(proxies.Count);
 
@@ -55,8 +82,8 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         // Check.
         for (long key = 0; key < 50; key++)
         {
-            var keyTuple = new IgniteTuple { ["KEY"] = key };
-            var primaryNodeName = await GetPrimaryNodeNameWithJavaJob(client, keyTuple);
+            var tuple = tupleFactory(key);
+            var primaryNodeName = await GetPrimaryNodeNameWithJavaJob(client, tableName, tuple);
 
             if (primaryNodeName.EndsWith("_3", StringComparison.Ordinal) || primaryNodeName.EndsWith("_4", StringComparison.Ordinal))
             {
@@ -64,22 +91,11 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
                 continue;
             }
 
-            await using var tx = withTx ? await client.Transactions.BeginAsync() : null;
+            await operation(client, recordView, tuple);
 
-            await recordView.UpsertAsync(tx, keyTuple);
-            var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
+            var requestTargetNodeName = GetRequestTargetNodeName(proxies, expectedOp);
 
             Assert.AreEqual(primaryNodeName, requestTargetNodeName);
         }
-    }
-
-    private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, IgniteTuple keyTuple)
-    {
-        var primaryNodeNameExec = await client.Compute.SubmitAsync(
-            JobTarget.Colocated(TableName, keyTuple),
-            JavaJobs.NodeNameJob,
-            null);
-
-        return await primaryNodeNameExec.GetResultAsync();
     }
 }
