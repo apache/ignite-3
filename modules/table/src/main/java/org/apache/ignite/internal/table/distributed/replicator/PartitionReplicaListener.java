@@ -3622,15 +3622,29 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     /**
      * Class that stores a counter of inflight operations for a transaction. There is a map of failed operations (lazy init)
-     * but it doesn't store exceptions for operations there were retried successfully.
+     * but it doesn't store exceptions for operations that were retried successfully.
+     *
+     * <p>Synchronization model:
+     * <ul>
+     *     <li>{@code hadAnyOperations}, {@code hadWrites} — plain fields, only accessed inside {@code compute()} critical section.</li>
+     *     <li>{@code inflightOperationsCount} — {@link AtomicInteger}, cross-thread safe.</li>
+     *     <li>{@code completionFuture} — volatile, written from {@code compute()}, read cross-thread.
+     *         Non-null value also serves as the "locked" indicator (no new inflights accepted).</li>
+     *     <li>{@code failedOperations} — guarded by {@code synchronized(this)}.</li>
+     * </ul>
      */
     private static class TxCleanupReadyState {
+        // Only accessed inside compute() critical section.
         boolean hadAnyOperations = false;
         boolean hadWrites = false;
+
         final AtomicInteger inflightOperationsCount = new AtomicInteger(0);
-        volatile boolean locked = false;
-        volatile Map<OperationId, Throwable> failedOperations = null;
+
+        // Non-null means locked (no new inflights accepted). Written from compute(), read cross-thread.
         volatile CompletableFuture<Void> completionFuture = null;
+
+        // Guarded by synchronized(this).
+        private Map<OperationId, Throwable> failedOperations = null;
 
         // Should be called inside critical section on transaction.
         boolean hadAnyOperations() {
@@ -3644,52 +3658,34 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         // Should be called inside critical section on transaction.
         CompletableFuture<Void> lockAndAwaitInflights() {
-            if (locked) {
-                return completionFuture == null ? nullCompletedFuture() : completionFuture;
+            CompletableFuture<Void> f = completionFuture;
+
+            if (f != null) {
+                return f; // Already locked.
             }
 
             if (inflightOperationsCount.get() == 0) {
-                locked = true;
                 Throwable t = anyThrowableIfPresent();
-                return t == null ? nullCompletedFuture() : failedFuture(t);
+                f = (t == null) ? nullCompletedFuture() : failedFuture(t);
+                completionFuture = f;
+                return f;
             }
 
-            CompletableFuture<Void> fut = completionFuture;
+            f = new CompletableFuture<>();
+            completionFuture = f;
 
-            if (fut == null) {
-                fut = new CompletableFuture<>();
-                // Order is important because #completeInflight checks locked and then gets completionFuture.
-                completionFuture = fut;
-                locked = true;
-
-                // Recheck inflight count, because "complete" methods are cross-thread.
-                if (inflightOperationsCount.get() == 0) {
-                    completeFutureIfAny();
-                }
+            // Recheck: a cross-thread completeInflight() may have decremented to 0
+            // before seeing completionFuture != null.
+            if (inflightOperationsCount.get() == 0) {
+                completeWithStoredExceptionIfAny(f);
             }
 
-            return fut;
-        }
-
-        @Nullable
-        private Throwable anyThrowableIfPresent() {
-            Map<OperationId, Throwable> map = failedOperations;
-            Throwable res = null;
-
-            if (map != null) {
-                synchronized (this) {
-                    if (!map.isEmpty()) {
-                        res = map.values().iterator().next();
-                    }
-                }
-            }
-
-            return res;
+            return f;
         }
 
         // Should be called inside critical section on transaction.
         boolean startInflight(OperationId operationId) {
-            if (locked) {
+            if (completionFuture != null) {
                 return false;
             }
 
@@ -3724,43 +3720,45 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         private void completeFutureIfAny() {
+            CompletableFuture<Void> f = completionFuture;
+
+            if (f == null || f.isDone()) {
+                return;
+            }
+
             // Double check inflightOperationsCount after locked, because we are outside of critical section.
-            if (locked && inflightOperationsCount.get() == 0) {
-                CompletableFuture<Void> f = completionFuture;
-
-                if (f == null || f.isDone()) {
-                    return;
-                }
-
-                Throwable t = anyThrowableIfPresent();
-                if (t == null) {
-                    f.complete(null);
-                } else {
-                    f.completeExceptionally(t);
-                }
+            if (inflightOperationsCount.get() == 0) {
+                completeWithStoredExceptionIfAny(f);
             }
         }
 
-        private void storeThrowable(OperationId operationId, Throwable e) {
-            synchronized (this) {
-                Map<OperationId, Throwable> map = failedOperations;
-
-                if (map == null) {
-                    map = new HashMap<>();
-                    failedOperations = map;
-                }
-
-                map.put(operationId, e);
+        private void completeWithStoredExceptionIfAny(CompletableFuture<Void> f) {
+            Throwable t = anyThrowableIfPresent();
+            if (t == null) {
+                f.complete(null);
+            } else {
+                f.completeExceptionally(t);
             }
         }
 
-        private void removeThrowable(OperationId operationId) {
-            Map<OperationId, Throwable> map = failedOperations;
+        @Nullable
+        private synchronized Throwable anyThrowableIfPresent() {
+            if (failedOperations != null && !failedOperations.isEmpty()) {
+                return failedOperations.values().iterator().next();
+            }
+            return null;
+        }
 
-            if (map != null) {
-                synchronized (this) {
-                    map.remove(operationId);
-                }
+        private synchronized void storeThrowable(OperationId operationId, Throwable e) {
+            if (failedOperations == null) {
+                failedOperations = new HashMap<>();
+            }
+            failedOperations.put(operationId, e);
+        }
+
+        private synchronized void removeThrowable(OperationId operationId) {
+            if (failedOperations != null) {
+                failedOperations.remove(operationId);
             }
         }
     }
