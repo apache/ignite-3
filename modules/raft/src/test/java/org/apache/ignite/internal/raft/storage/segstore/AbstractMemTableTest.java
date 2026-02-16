@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.storage.segstore;
 
 import static org.apache.ignite.internal.raft.storage.segstore.SegmentInfo.MISSING_SEGMENT_FILE_OFFSET;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
@@ -27,18 +26,16 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map.Entry;
-import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
-class IndexMemTableTest extends BaseIgniteAbstractTest {
-    private static final int STRIPES = 10;
+abstract class AbstractMemTableTest<T extends WriteModeIndexMemTable & ReadModeIndexMemTable> extends BaseIgniteAbstractTest {
+    @SuppressWarnings({"AbstractMethodCallInConstructor", "OverriddenMethodCallDuringObjectConstruction"})
+    final T memTable = memTable();
 
-    private final IndexMemTable memTable = new IndexMemTable(STRIPES);
+    abstract T memTable();
 
     @Test
     void testPutGet() {
@@ -101,76 +98,6 @@ class IndexMemTableTest extends BaseIgniteAbstractTest {
                 assertThat(segmentInfo.getOffset(2), is(MISSING_SEGMENT_FILE_OFFSET));
             }
         });
-    }
-
-    @RepeatedTest(10)
-    void testOneWriterMultipleReaders() {
-        int numItems = 1000;
-
-        // One thread writes and two threads read from the same group ID.
-        RunnableX writer = () -> {
-            for (int i = 0; i < numItems; i++) {
-                memTable.appendSegmentFileOffset(0, i, i + 1);
-            }
-        };
-
-        RunnableX reader = () -> {
-            for (int i = 0; i < numItems; i++) {
-                SegmentInfo segmentInfo = memTable.segmentInfo(0);
-
-                if (segmentInfo != null) {
-                    assertThat(segmentInfo.getOffset(i), either(is(i + 1)).or(is(MISSING_SEGMENT_FILE_OFFSET)));
-                }
-            }
-        };
-
-        runRace(writer, reader, reader);
-    }
-
-    @RepeatedTest(10)
-    void testMultithreadedPutGet() {
-        int itemsPerGroup = 1000;
-
-        var actions = new ArrayList<RunnableX>(STRIPES * 2);
-
-        for (int i = 0; i < STRIPES; i++) {
-            long groupId = i;
-
-            actions.add(() -> {
-                for (int j = 0; j < itemsPerGroup; j++) {
-                    memTable.appendSegmentFileOffset(groupId, j, j + 1);
-                }
-            });
-        }
-
-        for (int i = 0; i < STRIPES; i++) {
-            long groupId = i;
-
-            actions.add(() -> {
-                for (int j = 0; j < itemsPerGroup; j++) {
-                    SegmentInfo segmentInfo = memTable.segmentInfo(groupId);
-
-                    if (segmentInfo != null) {
-                        assertThat(segmentInfo.getOffset(j), either(is(j + 1)).or(is(MISSING_SEGMENT_FILE_OFFSET)));
-                    }
-                }
-            });
-        }
-
-        runRace(actions.toArray(RunnableX[]::new));
-
-        // Check that all values are present after all writes completed.
-        assertThat(memTable.numGroups(), is(STRIPES));
-
-        for (int groupId = 0; groupId < STRIPES; groupId++) {
-            SegmentInfo segmentInfo = memTable.segmentInfo(groupId);
-
-            assertThat(segmentInfo, is(notNullValue()));
-
-            for (int j = 0; j < itemsPerGroup; j++) {
-                assertThat(segmentInfo.getOffset(j), is(j + 1));
-            }
-        }
     }
 
     @Test
