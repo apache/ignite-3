@@ -113,6 +113,12 @@ internal sealed class ConcurrentCache<TKey, TValue>
 
     private sealed record Entry(TValue Value)
     {
-        public bool Visited { get; set; }
+        private volatile bool _visited;
+
+        public bool Visited
+        {
+            get => _visited;
+            set => _visited = value;
+        }
     }
 }
