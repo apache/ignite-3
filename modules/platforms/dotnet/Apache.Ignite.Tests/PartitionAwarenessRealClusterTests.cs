@@ -151,8 +151,8 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         await CreateTable(
             "(KEY1 INT, KEY2 VARCHAR, COL_STRING VARCHAR, COL_GUID UUID, COL_BYTES VARBINARY, " +
             "EXTRA1 VARCHAR, EXTRA2 VARCHAR, " +
-            "PRIMARY KEY (KEY1, KEY2, COL_STRING, COL_GUID, COL_BYTES)) " +
-            "COLOCATE BY (KEY1, COL_STRING, COL_GUID, COL_BYTES)");
+            "PRIMARY KEY (KEY2, KEY1, COL_STRING, COL_GUID, COL_BYTES)) " +
+            "COLOCATE BY (KEY1, COL_GUID, COL_STRING, COL_BYTES)");
 
         await TestRequestRouting(
             _tableName,
