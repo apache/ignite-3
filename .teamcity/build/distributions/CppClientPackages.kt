@@ -2,8 +2,10 @@ package build.distributions
 
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
+import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
+import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
 object CppClientPackages : BuildType({
     name = "[11] ODBC and C++ Client packages"
@@ -28,7 +30,6 @@ object CppClientPackages : BuildType({
 
     params {
         param("CONTAINER_JAVA_HOME", "/usr/lib/jvm/java-17-openjdk/")
-        hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=true")
     }
 
     steps {
@@ -36,7 +37,7 @@ object CppClientPackages : BuildType({
             name = "Setup Docker Proxy"
         }
 
-        customGradle {
+        gradle {
             name = "Build ODBC and Client packages. RPM, DEB, TGZ. (Under Rocky Linux 8 container)"
             tasks = ":platforms:cmakeCpack"
             workingDir = "%VCSROOT__IGNITE3%"
@@ -44,7 +45,7 @@ object CppClientPackages : BuildType({
             dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             dockerPull = true
             dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
-            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
+            dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME% -e GRADLE_OPTS=\"-Dorg.gradle.caching=true\""
         }
     }
 })
