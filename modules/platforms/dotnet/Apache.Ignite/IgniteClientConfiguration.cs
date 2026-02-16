@@ -222,6 +222,8 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets or sets the size of cache to store partition awareness metadata of SQL queries, in number of entries.
         /// Default is <see cref="DefaultSqlPartitionAwarenessMetadataCacheSize"/>.
+        /// <para />
+        /// Set to zero to disable SQL partition awareness.
         /// </summary>
         /// <remarks>
         /// SQL partition awareness feature improves query performance by directing queries to the specific server nodes that hold the
