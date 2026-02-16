@@ -53,7 +53,7 @@ namespace Apache.Ignite.Internal.Sql
         private readonly Tables _tables;
 
         /** Partition awareness mapping cache, keyed by (schema, query). */
-        private readonly ConcurrentCache<(string? Schema, string Query), SqlPartitionMappingProvider> _paMappingCache;
+        private readonly ConcurrentCache<(string? Schema, string Query), SqlPartitionMappingProvider>? _paMappingCache;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Sql"/> class.
@@ -66,7 +66,7 @@ namespace Apache.Ignite.Internal.Sql
             _tables = tables;
 
             var cacheSize = socket.Configuration.Configuration.SqlPartitionAwarenessMetadataCacheSize;
-            _paMappingCache = new(capacity: cacheSize);
+            _paMappingCache = cacheSize > 0 ? new(capacity: cacheSize) : null;
         }
 
         /// <inheritdoc/>
@@ -290,9 +290,9 @@ namespace Apache.Ignite.Internal.Sql
             // Look up cached PA mapping to route the query to the preferred node.
             var paKey = (statement.Schema, statement.Query);
             PreferredNode preferredNode = default;
-            bool requestPaMeta = true;
+            bool requestPaMeta = _paMappingCache != null;
 
-            if (_paMappingCache.GetValueOrDefault(paKey) is { } mappingProvider)
+            if (_paMappingCache?.GetValueOrDefault(paKey) is { } mappingProvider)
             {
                 requestPaMeta = false;
                 preferredNode = await mappingProvider.GetPreferredNode(args).ConfigureAwait(false);
@@ -332,7 +332,7 @@ namespace Apache.Ignite.Internal.Sql
                 if (resultSet.PartitionAwarenessMetadata is { } paMeta)
                 {
                     var table = _tables.GetOrCreateCachedTableInternal(paMeta.TableId, paMeta.TableName);
-                    _paMappingCache.TryAdd(paKey, new SqlPartitionMappingProvider(paMeta, table));
+                    _paMappingCache?.TryAdd(paKey, new SqlPartitionMappingProvider(paMeta, table));
                 }
 
                 return resultSet;
