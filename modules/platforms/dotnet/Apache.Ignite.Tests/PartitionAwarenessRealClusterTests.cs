@@ -62,8 +62,13 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             TableName,
             id => new IgniteTuple { ["KEY"] = id },
             async (client, _, tuple) =>
-                await client.Sql.ExecuteAsync(null, $"SELECT * FROM {TableName} WHERE KEY = ?", tuple[KeyCol]),
-            ClientOp.TupleUpsert);
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {TableName} WHERE KEY = ?",
+                    tuple[KeyCol]);
+            },
+            ClientOp.SqlExec);
     }
 
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
