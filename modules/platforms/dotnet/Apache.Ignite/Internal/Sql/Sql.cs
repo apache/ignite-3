@@ -285,7 +285,6 @@ namespace Apache.Ignite.Internal.Sql
             IgniteArgumentCheck.NotNull(statement);
 
             cancellationToken.ThrowIfCancellationRequested();
-            Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, default).ConfigureAwait(false);
 
             // Look up cached PA mapping to route the query to the preferred node.
             var paKey = (statement.Schema, statement.Query);
@@ -297,6 +296,8 @@ namespace Apache.Ignite.Internal.Sql
                 requestPaMeta = false;
                 preferredNode = await mappingProvider.GetPreferredNode(args).ConfigureAwait(false);
             }
+
+            Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, preferredNode).ConfigureAwait(false);
 
             using var bufferWriter = ProtoCommon.GetMessageWriter();
             var writerArg = (Sql: this, bufferWriter, statement, args, tx, requestPaMeta);
