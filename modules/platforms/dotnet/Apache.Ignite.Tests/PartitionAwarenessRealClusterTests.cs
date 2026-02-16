@@ -55,6 +55,17 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             ClientOp.TupleUpsert);
     }
 
+    [Test]
+    public async Task TestSqlSimpleKey()
+    {
+        await TestRequestRouting(
+            TableName,
+            id => new IgniteTuple { ["KEY"] = id },
+            async (client, _, tuple) =>
+                await client.Sql.ExecuteAsync(null, $"SELECT * FROM {TableName} WHERE KEY = ?", tuple[KeyCol]),
+            ClientOp.TupleUpsert);
+    }
+
     private static async Task<string> GetPrimaryNodeNameWithJavaJob(IIgniteClient client, string tableName, IIgniteTuple tuple)
     {
         var primaryNodeNameExec = await client.Compute.SubmitAsync(
@@ -79,7 +90,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         client.WaitForConnections(proxies.Count);
 
         // Warm up.
-        await recordView.GetAsync(null, new IgniteTuple { ["KEY"] = 1L });
+        await recordView.GetAsync(null, new IgniteTuple { [KeyCol] = 1L });
 
         // Check.
         for (long key = 0; key < Iterations; key++)
