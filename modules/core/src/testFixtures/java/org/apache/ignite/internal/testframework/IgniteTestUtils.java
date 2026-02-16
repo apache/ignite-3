@@ -270,12 +270,12 @@ public final class IgniteTestUtils {
      * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
      * @return Thrown throwable.
      */
-    public static Throwable assertThrows(
-            Class<? extends Throwable> cls,
+    public static <T extends Throwable> T assertThrows(
+            Class<T> cls,
             Executable run,
             @Nullable String errorMessageFragment
     ) {
-        Throwable throwable = Assertions.assertThrows(cls, run);
+        T throwable = Assertions.assertThrows(cls, run);
 
         if (errorMessageFragment != null) {
             assertThat(throwable.getMessage(), containsString(errorMessageFragment));

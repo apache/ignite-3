@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
@@ -617,10 +618,56 @@ public class IgniteServerImpl implements IgniteServer {
         try {
             future.get();
         } catch (ExecutionException e) {
+            throwIfError(e);
+
             throw sneakyThrow(tryToCopyExceptionWithCause(e));
         } catch (InterruptedException e) {
             throw sneakyThrow(e);
         }
+    }
+
+    private static void throwIfError(ExecutionException exception) {
+        Error error;
+
+        try {
+            error = unwrapCause(exception, Error.class);
+        } catch (Throwable originalException) {
+            return;
+        }
+
+        throwIfExceptionInInitializerError(error);
+
+        throw new NodeStartException("Error occurred during node start, check .jar libraries and JVM execution arguments.", error);
+    }
+
+    private static void throwIfExceptionInInitializerError(Error error) {
+        ExceptionInInitializerError initializerError;
+        try {
+            initializerError = unwrapCause(error, ExceptionInInitializerError.class);
+        } catch (Error otherError) {
+            return;
+        }
+
+        Throwable initializerErrorCause = initializerError.getCause();
+
+        if (initializerErrorCause == null) {
+            throw new NodeStartException(
+                    "Error during static components initialization with unknown cause, check .jar libraries and JVM execution arguments.",
+                    initializerError
+            );
+        }
+
+        if (initializerErrorCause instanceof IllegalAccessException) {
+            throw new NodeStartException(
+                    "Error during static components initialization due to illegal code access, check --add-opens JVM execution arguments.",
+                    initializerErrorCause
+            );
+        }
+
+        throw new NodeStartException(
+                "Error during static components initialization, check .jar libraries and JVM execution arguments.",
+                initializerErrorCause
+        );
     }
 
     // TODO: remove after IGNITE-22721 gets resolved.
