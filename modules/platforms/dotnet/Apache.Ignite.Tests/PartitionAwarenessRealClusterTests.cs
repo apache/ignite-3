@@ -125,6 +125,27 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestSqlCompositeKeyConstants()
+    {
+        await CreateTable("(KEY BIGINT, VAL1 VARCHAR, VAL2 VARCHAR, PRIMARY KEY (KEY, VAL2))");
+
+        await TestRequestRouting(
+            _tableName,
+            id => new IgniteTuple { ["KEY"] = 42L, ["VAL1"] = $"v1_{id}", ["VAL2"] = $"v2_{id}" },
+            async (client, _, tuple) =>
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(
+                    transaction: null,
+                    statement: $"SELECT * FROM {_tableName} WHERE 1 = ? AND 2 = ? AND KEY = 42 AND VAL2 = ? AND 3 = ?",
+                    1,
+                    2,
+                    tuple["VAL2"],
+                    3);
+            },
+            ClientOp.SqlExec);
+    }
+
+    [Test]
     public async Task TestSqlColocateBy()
     {
         // TODO
