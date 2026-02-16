@@ -64,6 +64,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -674,9 +676,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TxStateMeta meta = txManager.stateMeta(tx.id());
 
-        Throwable exceptionInfo = lastExceptionInfo(meta);
-        assertNotNull(exceptionInfo);
-        assertEquals(RuntimeException.class, exceptionInfo.getClass());
+        Throwable lastException = lastExceptionInfo(meta);
+        assertNotNull(lastException);
+        assertEquals(IgniteInternalException.class, lastException.getClass());
+        assertEquals(RuntimeException.class, lastException.getSuppressed()[0].getClass());
     }
 
     @Test
@@ -721,6 +724,72 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(hasCause(throwable, MismatchingTransactionOutcomeException.class, null));
         assertTrue(committedTransaction.isFinishingOrFinished());
         assertRollbackSucceeds();
+    }
+
+    @Test
+    public void testDurableFinishRecordsRecoverableException() {
+        preparePrimaryReplica();
+
+        AtomicInteger calls = new AtomicInteger();
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenAnswer(invocation -> {
+                    if (calls.getAndIncrement() == 0) {
+                        return failedFuture(new ReplicationTimeoutException(new ZonePartitionId(1, 0)));
+                    }
+
+                    return completedFuture(new TransactionResult(TxState.COMMITTED, hybridTimestamp(1)));
+                });
+
+        InternalTransaction tx = prepareTransaction();
+
+        tx.commit();
+
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+        assertNotNull(meta.lastException());
+        assertEquals(ReplicationTimeoutException.class, meta.lastException().getClass());
+    }
+
+    @Test
+    public void testDurableFinishRecordsUnrecoverableException() {
+        preparePrimaryReplica();
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenReturn(failedFuture(new RuntimeException("boom")));
+
+        InternalTransaction tx = prepareTransaction();
+
+        assertThrowsWithCause(tx::commit, RuntimeException.class);
+
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+        assertNotNull(meta.lastException());
+        assertEquals(RuntimeException.class, meta.lastException().getClass());
+        assertEquals("boom", meta.lastException().getMessage());
+    }
+
+    @Test
+    public void testDurableFinishDoesNotDuplicateRecoverableException() {
+        preparePrimaryReplica();
+
+        AtomicInteger calls = new AtomicInteger();
+
+        when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
+                .thenAnswer(invocation -> {
+                    if (calls.getAndIncrement() < 2) {
+                        return failedFuture(new ReplicationTimeoutException(new ZonePartitionId(1, 0)));
+                    }
+
+                    return completedFuture(new TransactionResult(TxState.COMMITTED, hybridTimestamp(1)));
+                });
+
+        InternalTransaction tx = prepareTransaction();
+
+        tx.commit();
+
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+        assertNotNull(meta.lastException());
+        assertEquals(ReplicationTimeoutException.class, meta.lastException().getClass());
+        assertEquals(0, meta.lastException().getSuppressed().length);
     }
 
     @Test
