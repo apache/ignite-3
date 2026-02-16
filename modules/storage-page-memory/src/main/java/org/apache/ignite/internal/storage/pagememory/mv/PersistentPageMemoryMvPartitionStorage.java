@@ -30,7 +30,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -99,9 +98,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * Lock for updating lease info in the storage.
      */
     private final Object leaseInfoLock = new Object();
-
-    /** Count of currently active runConsistently calls. */
-    private final AtomicInteger activeRunConsistentlyCount = new AtomicInteger(0);
 
     /** Storage consistency metrics. */
     final StorageConsistencyMetrics consistencyMetrics;

@@ -47,7 +47,6 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
-import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetricSource;
 import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetrics;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
@@ -76,8 +75,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param indexDescriptorSupplier Index descriptor supplier.
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
+     * @param destructionExecutor Executor service for destruction tasks.
      * @param failureProcessor Failure processor.
-     * @param consistencyMetricSource Metric source for storage consistency operations.
+     * @param consistencyMetrics Storage consistency metrics.
      */
     public PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
