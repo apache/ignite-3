@@ -98,7 +98,8 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         client.WaitForConnections(proxies.Count);
 
         // Warm up.
-        await recordView.GetAsync(null, new IgniteTuple { [KeyCol] = 1L });
+        await operation(client, recordView, new IgniteTuple { [KeyCol] = 1L });
+        GetRequestTargetNodeName(proxies, expectedOp);
 
         // Check.
         for (long key = 0; key < Iterations; key++)
