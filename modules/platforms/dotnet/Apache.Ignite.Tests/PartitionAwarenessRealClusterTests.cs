@@ -56,7 +56,10 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestSqlSimpleKey()
+    [TestCase("SELECT * FROM TBL1 WHERE KEY = ?")]
+    [TestCase("SELECT * FROM TBL1 WHERE 1 = 1 AND KEY = ?")]
+    [TestCase("SELECT * FROM TBL1 WHERE VAL IS NOT NULL AND KEY = ? AND 2 = 2")]
+    public async Task TestSqlSimpleKey(string query)
     {
         await TestRequestRouting(
             TableName,
@@ -65,7 +68,7 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
             {
                 await using var resultSet = await client.Sql.ExecuteAsync(
                     transaction: null,
-                    statement: $"SELECT * FROM {TableName} WHERE KEY = ?",
+                    statement: query,
                     tuple[KeyCol]);
             },
             ClientOp.SqlExec);
