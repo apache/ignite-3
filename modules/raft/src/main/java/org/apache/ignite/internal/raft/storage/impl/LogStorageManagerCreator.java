@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 
 /**
- * Creates {@link LogStorageFactory} instances.
+ * Creates {@link LogStorageManager} instances.
  */
-public interface LogStorageFactoryCreator {
+public interface LogStorageManagerCreator {
     /**
-     * Creates a {@link LogStorageFactory} instance with the given configuration.
+     * Creates a {@link LogStorageManager} instance with the given configuration.
      *
      * @param budgetView Configuration.
-     * @return LogStorageFactory instance.
+     * @return LogStorageManager instance.
      */
-    LogStorageFactory factory(LogStorageBudgetView budgetView);
+    LogStorageManager manager(LogStorageBudgetView budgetView);
 }

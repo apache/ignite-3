@@ -128,7 +128,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -451,7 +451,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 rm,
                 RaftGroupOptionsConfigurer.EMPTY,
-                new VolatileLogStorageFactoryCreator(NODE_NAME, workDir.resolve("volatile-log-spillout")),
+                new VolatileLogStorageManagerCreator(NODE_NAME, workDir.resolve("volatile-log-spillout")),
                 Executors.newScheduledThreadPool(4),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()

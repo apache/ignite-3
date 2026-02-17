@@ -78,7 +78,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
@@ -129,7 +129,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock TopologyService topologyService,
             @Mock Marshaller marshaller,
             @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
-            @Mock VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator
+            @Mock VolatileLogStorageManagerCreator volatileLogStorageManagerCreator
     ) {
         messagingResponses.clear();
 
@@ -166,7 +166,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 raftGroupServiceFactory,
                 raftManager,
                 partitionsConfigurer,
-                volatileLogStorageFactoryCreator,
+                volatileLogStorageManagerCreator,
                 Executors.newSingleThreadScheduledExecutor(),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()

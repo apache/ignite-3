@@ -52,9 +52,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -112,12 +112,12 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         try {
             ZonePartitionId replicationGroup = cluster.solePartitionId(ZONE_NAME);
 
-            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, replicationGroup);
+            TestLogStorageManager testLogStorageManagerNode0 = createTestLogStorageManager(0, replicationGroup);
 
-            closableResources.add(testLogStorageFactoryNode0);
+            closableResources.add(testLogStorageManagerNode0);
 
-            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1, replicationGroup);
-            closableResources.add(testLogStorageFactoryNode1);
+            TestLogStorageManager testLogStorageManagerNode1 = createTestLogStorageManager(1, replicationGroup);
+            closableResources.add(testLogStorageManagerNode1);
 
             long lastLogIndexBeforeInsertNode0 = raftNodeImpl(0, replicationGroup).lastLogIndex();
             long lastLogIndexBeforeInsertNode1 = raftNodeImpl(1, replicationGroup).lastLogIndex();
@@ -130,10 +130,10 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
             stopNodes(0, 1, 2);
 
-            LogStorage logStorageNode0 = testLogStorageFactoryNode0.createLogStorage();
+            LogStorage logStorageNode0 = testLogStorageManagerNode0.createLogStorage();
             closableResources.add(logStorageNode0::shutdown);
 
-            LogStorage logStorageNode1 = testLogStorageFactoryNode1.createLogStorage();
+            LogStorage logStorageNode1 = testLogStorageManagerNode1.createLogStorage();
             closableResources.add(logStorageNode1::shutdown);
 
             truncateRaftLogSuffixHalfOfChanges(logStorageNode0, lastLogIndexBeforeInsertNode0);
@@ -198,20 +198,20 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
     }
 
     /**
-     * Creates and prepares {@link TestLogStorageFactory} for {@link TestLogStorageFactory#createLogStorage} creation after the
+     * Creates and prepares {@link TestLogStorageManager} for {@link TestLogStorageManager#createLogStorage} creation after the
      * corresponding node is stopped, so that there are no errors.
      */
-    private TestLogStorageFactory createTestLogStorageFactory(int nodeIndex, ReplicationGroupId replicationGroupId) {
+    private TestLogStorageManager createTestLogStorageManager(int nodeIndex, ReplicationGroupId replicationGroupId) {
         IgniteImpl ignite = igniteImpl(nodeIndex);
 
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 ignite.name(),
                 ignite.partitionsWorkDir().raftLogPath()
         );
 
         NodeImpl nodeImpl = raftNodeImpl(nodeIndex, replicationGroupId);
 
-        return new TestLogStorageFactory(logStorageFactory, nodeImpl.getOptions(), nodeImpl.getRaftOptions());
+        return new TestLogStorageManager(logStorageManager, nodeImpl.getOptions(), nodeImpl.getRaftOptions());
     }
 
     private void awaitMajority(ReplicationGroupId replicationGroupId) {
@@ -394,8 +394,8 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         IgniteUtils.closeAllManually(manuallyCloseables);
     }
 
-    private static class TestLogStorageFactory implements ManuallyCloseable {
-        private final LogStorageFactory logStorageFactory;
+    private static class TestLogStorageManager implements ManuallyCloseable {
+        private final LogStorageManager logStorageManager;
 
         private final NodeOptions nodeOptions;
 
@@ -403,26 +403,26 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-        private TestLogStorageFactory(
-                LogStorageFactory logStorageFactory,
+        private TestLogStorageManager(
+                LogStorageManager logStorageManager,
                 NodeOptions nodeOptions,
                 RaftOptions raftOptions
         ) {
-            this.logStorageFactory = logStorageFactory;
+            this.logStorageManager = logStorageManager;
             this.nodeOptions = nodeOptions;
             this.raftOptions = raftOptions;
         }
 
         /**
          * Creates and initializes {@link LogStorage}. Should be created only after the corresponding node is stopped to avoid errors.
-         * Currently can only create one instance before it and {@link TestLogStorageFactory} are closed.
+         * Currently can only create one instance before it and {@link TestLogStorageManager} are closed.
          */
         LogStorage createLogStorage() {
-            assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(logStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            LogStorage storage = logStorageFactory.createLogStorage(nodeOptions.getLogUri(), raftOptions);
+            LogStorage storage = logStorageManager.createLogStorage(nodeOptions.getLogUri(), raftOptions);
 
-            var igniteJraftServiceFactory = new IgniteJraftServiceFactory(logStorageFactory);
+            var igniteJraftServiceFactory = new IgniteJraftServiceFactory(logStorageManager);
 
             var logStorageOptions = new LogStorageOptions();
             logStorageOptions.setConfigurationManager(new ConfigurationManager());
@@ -444,7 +444,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
                 return;
             }
 
-            assertThat(logStorageFactory.stopAsync(), willCompleteSuccessfully());
+            assertThat(logStorageManager.stopAsync(), willCompleteSuccessfully());
         }
     }
 

@@ -111,8 +111,8 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -194,7 +194,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private MetaStorageService metaStorageService;
 
-        private final LogStorageFactory partitionsLogStorageFactory;
+        private final LogStorageManager partitionsLogStorageManager;
 
         private final RaftGroupOptionsConfigurer partitionsRaftConfigurer;
 
@@ -210,13 +210,13 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(dataPath.resolve(name()));
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
 
             partitionsRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, workingDir.metaPath());
 
             this.raftManager = TestLozaFactory.create(
                     clusterService,
@@ -233,7 +233,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             CompletableFuture<Void> startFuture = startAsync(
                     new ComponentContext(),
                     clusterService,
-                    partitionsLogStorageFactory,
+                    partitionsLogStorageManager,
                     raftManager
             );
 
@@ -291,7 +291,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             Stream<AutoCloseable> nodeStop = Stream.of(
                     () -> assertThat(
-                            stopAsync(new ComponentContext(), raftManager, partitionsLogStorageFactory, clusterService),
+                            stopAsync(new ComponentContext(), raftManager, partitionsLogStorageManager, clusterService),
                             willCompleteSuccessfully()
                     )
             );
