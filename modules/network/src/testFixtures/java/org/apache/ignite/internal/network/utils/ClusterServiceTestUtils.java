@@ -35,6 +35,7 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
@@ -249,7 +250,8 @@ public class ClusterServiceTestUtils {
                 new NoOpCriticalWorkerRegistry(),
                 new FailureManager(new NoOpFailureHandler()),
                 defaultChannelTypeRegistry(),
-                productVersionSource
+                productVersionSource,
+                new NoOpMetricManager()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {

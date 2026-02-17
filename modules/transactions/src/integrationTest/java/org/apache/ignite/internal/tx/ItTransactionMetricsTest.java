@@ -17,20 +17,24 @@
 
 package org.apache.ignite.internal.tx;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
@@ -47,9 +51,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -59,6 +61,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     public static final String TABLE_NAME = "test_table_name";
+
+    private static final Random rnd = new Random(12345);
 
     @Override
     protected int initialNodes() {
@@ -114,10 +118,21 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         return values;
     }
 
+    /**
+     * Compares the actual metric values with the expected ones, except the provided {@code ignored} metrics.
+     * Also, this method ignores {@link TransactionMetricsSource#METRIC_PENDING_WRITE_INTENTS} values,
+     * due to the fact that this metric can be changed asynchronously.
+     *
+     * @param initial Expected metrics values.
+     * @param actual Actual metric values.
+     * @param ignored Metric names that are ignored.
+     */
     private static void testMetricValues(Map<String, Long> initial, Map<String, Long> actual, String... ignored) {
         assertThat("Number of metrics should be the same.", initial.size(), is(actual.size()));
 
-        var exclude = Set.of(ignored);
+        Set<String> exclude = Stream
+                .concat(Arrays.stream(ignored), Stream.of(METRIC_PENDING_WRITE_INTENTS))
+                .collect(toSet());
 
         for (Map.Entry<String, Long> e : initial.entrySet()) {
             if (!exclude.contains(e.getKey())) {
@@ -138,7 +153,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         Map<String, Long> metrics1 = metricValues(1);
 
         Transaction tx = implicit ? null : node(0).transactions().begin(new TransactionOptions().readOnly(true));
-        keyValueView(0).get(tx, 12);
+        keyValueView(0).get(tx, rnd.nextInt());
         if (!implicit) {
             tx.commit();
         }
@@ -168,7 +183,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         Map<String, Long> metrics1 = metricValues(1);
 
         Transaction tx = implicit ? null : node(0).transactions().begin();
-        keyValueView(0).put(tx, 12, "value");
+        keyValueView(0).put(tx, rnd.nextInt(), "value");
         if (!implicit) {
             tx.commit();
         }
@@ -219,17 +234,16 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * Tests that TotalRollbacks and RwRollbacks/RoRollbacks are incremented when a transaction rolled back.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27812")
     void testRollbackTransaction() {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);
 
         Transaction rwTx = node(0).transactions().begin();
-        keyValueView(0).put(rwTx, 12, "value");
+        keyValueView(0).put(rwTx, rnd.nextInt(), "value");
         rwTx.rollback();
 
         Transaction roTx = node(0).transactions().begin(new TransactionOptions().readOnly(true));
-        keyValueView(0).get(roTx, 12);
+        keyValueView(0).get(roTx, rnd.nextInt());
         roTx.rollback();
 
         Map<String, Long> actualMetrics0 = metricValues(0);
@@ -250,26 +264,26 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * Tests that TotalRollbacks and RwRollbacks/RoRollbacks are incremented when a transaction rolled back due to timeout.
      */
     @Test
-    void testTimeoutRollbackTransaction() throws Exception {
+    void testTimeoutRollbackTransaction() {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);
 
         Transaction rwTx = node(0).transactions().begin(new TransactionOptions().timeoutMillis(1000));
-        keyValueView(0).put(rwTx, 12, "value");
+        keyValueView(0).put(rwTx, rnd.nextInt(), "value");
 
         Transaction roTx = node(0).transactions().begin(new TransactionOptions().readOnly(true).timeoutMillis(1000));
-        keyValueView(0).get(roTx, 12);
+        keyValueView(0).get(roTx, rnd.nextInt());
 
         // wait for completion of the transactions due to timeout.
-        assertThat(waitForCondition(() -> {
+        await().atMost(5, SECONDS).untilAsserted(() -> {
             Map<String, Long> m = metricValues(0);
 
             boolean total = m.get("TotalRollbacks") == metrics0.get("TotalRollbacks") + 2;
             boolean rw = m.get("RwRollbacks") == metrics0.get("RwRollbacks") + 1;
             boolean ro = m.get("RoRollbacks") == metrics0.get("RoRollbacks") + 1;
 
-            return total && rw && ro;
-        }, 5_000), is(true));
+            assertThat(total && rw && ro, is(true));
+        });
 
         // Check that there are no updates on the node 1.
         testMetricValues(metrics1, metricValues(1));
@@ -279,7 +293,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * Tests that TotalRollbacks and RwRollbacks are incremented when a transaction rolled back due to a deadlock.
      */
     @Test
-    void testDeadlockTransaction() throws Exception {
+    void testDeadlockTransaction() {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);
 
@@ -288,13 +302,16 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         Transaction rwTx1 = node(0).transactions().begin();
         Transaction rwTx2 = node(0).transactions().begin();
 
-        kv.put(rwTx1, 12, "value");
-        kv.put(rwTx2, 24, "value");
+        int key1 = rnd.nextInt(1000);
+        int key2 = key1 + 1;
 
-        CompletableFuture<?> asyncOp1 = kv.getAsync(rwTx1, 24);
-        CompletableFuture<?> asyncOp2 = kv.getAsync(rwTx2, 12);
+        kv.put(rwTx1, key1, "value");
+        kv.put(rwTx2, key2, "value");
 
-        assertThat(waitForCondition(() -> asyncOp1.isDone() && asyncOp2.isDone(), 5_000), is(true));
+        CompletableFuture<?> asyncOp1 = kv.getAsync(rwTx1, key2);
+        CompletableFuture<?> asyncOp2 = kv.getAsync(rwTx2, key1);
+
+        await().atMost(5, SECONDS).untilAsserted(() -> assertThat(asyncOp1.isDone() && asyncOp2.isDone(), is(true)));
 
         rwTx1.commit();
         // rwTx2 should be rolled back due to a deadlock
@@ -319,12 +336,11 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * Tests that TotalRollbacks and RwRollbacks are incremented when a transaction rolled back due to a lease expiration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27812")
     void testRollbackTransactionOnLeaseExpiration() {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);
 
-        int key = 12;
+        int key = rnd.nextInt();
 
         TableImpl table = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
@@ -356,7 +372,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         unwrapIgniteImpl(node(0))
                 .clockService()
                 .waitFor(leaseholder.getExpirationTime().tick())
-                .orTimeout(10, TimeUnit.SECONDS)
+                .orTimeout(10, SECONDS)
                 .join();
 
         assertThrows(TransactionException.class, tx::commit, null);
@@ -414,7 +430,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void globalPendingWriteIntentsMetric() throws Exception {
+    void globalPendingWriteIntentsMetric() {
         String zoneName = "zone_single_partition_no_replicas_tx_metrics";
 
         String table1 = "test_table_pending_wi_1";
@@ -439,14 +455,14 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
                 sql(tx, "INSERT INTO " + table2 + " VALUES(?, ?)", i, i);
             }
 
-            Awaitility.await()
+            await()
                     .atMost(Duration.ofSeconds(10))
                     .untilAsserted(() -> assertThat(totalPendingWriteIntents(), is((long) table1Inserts + table2Inserts)));
         } finally {
             tx.commit();
         }
 
-        Awaitility.await()
+        await()
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(totalPendingWriteIntents(), is(0L)));
     }
@@ -470,10 +486,10 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
         assertThat("Transaction metrics must be present on node " + nodeIdx, metrics != null, is(true));
 
-        LongMetric metric = metrics.get(TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS);
+        LongMetric metric = metrics.get(METRIC_PENDING_WRITE_INTENTS);
 
         assertThat("Metric must be present: "
-                + TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS, metric != null, is(true));
+                + METRIC_PENDING_WRITE_INTENTS, metric != null, is(true));
 
         return metric.value();
     }

@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -43,7 +44,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
  */
 public class CheckpointTestUtils {
     private static final CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(
-            new CheckpointMetricSource("test")
+            new CollectionMetricSource("test", "storage", null)
     );
 
     /**

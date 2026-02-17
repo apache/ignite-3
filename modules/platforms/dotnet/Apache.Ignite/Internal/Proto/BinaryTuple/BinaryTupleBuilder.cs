@@ -125,6 +125,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Gets all hash codes in the order defined by <see cref="IHashedColumnIndexProvider"/>.
+        /// The number of hash codes is defined by <see cref="IHashedColumnIndexProvider.HashedColumnCount"/>.
+        /// </summary>
+        /// <returns>Span with hash codes.</returns>
+        public ReadOnlySpan<int> GetHashes() => _hashedColumnsPredicate == null
+            ? throw new InvalidOperationException("No hash codes were reserved in the buffer.")
+            : GetHashSpan();
+
+        /// <summary>
         /// Appends a null value.
         /// </summary>
         public void AppendNull()
