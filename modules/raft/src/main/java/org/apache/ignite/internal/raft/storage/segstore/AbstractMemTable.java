@@ -17,36 +17,15 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
-import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
+import java.util.Map;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
-class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
-    private static class Stripe {
-        /** Map from group ID to SegmentInfo. */
-        private final ConcurrentMap<Long, SegmentInfo> memTable = new ConcurrentHashMap<>();
-    }
-
-    private final Stripe[] stripes;
-
-    IndexMemTable(int stripes) {
-        this.stripes = new Stripe[stripes];
-
-        for (int i = 0; i < stripes; i++) {
-            this.stripes[i] = new Stripe();
-        }
-    }
-
+abstract class AbstractMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
     @Override
     public void appendSegmentFileOffset(long groupId, long logIndex, int segmentFileOffset) {
         // File offset can be less than 0 (it's treated as an unsigned integer) but never 0, because of the file header.
         assert segmentFileOffset != 0 : String.format("Segment file offset must not be 0 [groupId=%d]", groupId);
 
-        ConcurrentMap<Long, SegmentInfo> memTable = memtable(groupId);
+        Map<Long, SegmentInfo> memTable = memtable(groupId);
 
         SegmentInfo segmentInfo = memTable.get(groupId);
 
@@ -74,7 +53,7 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
 
     @Override
     public void truncateSuffix(long groupId, long lastLogIndexKept) {
-        ConcurrentMap<Long, SegmentInfo> memtable = memtable(groupId);
+        Map<Long, SegmentInfo> memtable = memtable(groupId);
 
         memtable.compute(groupId, (id, segmentInfo) -> {
             if (segmentInfo == null || lastLogIndexKept < segmentInfo.firstLogIndexInclusive()) {
@@ -93,7 +72,7 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
 
     @Override
     public void truncatePrefix(long groupId, long firstIndexKept) {
-        ConcurrentMap<Long, SegmentInfo> memtable = memtable(groupId);
+        Map<Long, SegmentInfo> memtable = memtable(groupId);
 
         memtable.compute(groupId, (id, segmentInfo) -> {
             if (segmentInfo == null) {
@@ -107,7 +86,7 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
 
     @Override
     public void reset(long groupId, long nextLogIndex) {
-        ConcurrentMap<Long, SegmentInfo> memtable = memtable(groupId);
+        Map<Long, SegmentInfo> memtable = memtable(groupId);
 
         memtable.compute(groupId, (id, segmentInfo) -> {
             if (segmentInfo == null || segmentInfo.isPrefixTombstone() || nextLogIndex < segmentInfo.firstLogIndexInclusive()) {
@@ -124,77 +103,5 @@ class IndexMemTable implements WriteModeIndexMemTable, ReadModeIndexMemTable {
         return this;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This method is not thread-safe wrt concurrent writes, because it is expected to be used when no writes are happening anymore.
-     */
-    @Override
-    public int numGroups() {
-        int result = 0;
-
-        for (Stripe stripe : stripes) {
-            result += stripe.memTable.size();
-        }
-
-        return result;
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This method is not thread-safe wrt concurrent writes, because it is expected to be used when no writes are happening anymore.
-     */
-    @Override
-    public Iterator<Entry<Long, SegmentInfo>> iterator() {
-        return new SegmentInfoIterator();
-    }
-
-    private Stripe stripe(long groupId) {
-        // FIXME: We should calculate stripes the same way it is done in StripedDisruptor,
-        //  see https://issues.apache.org/jira/browse/IGNITE-26907
-        int stripeIndex = safeAbs(Long.hashCode(groupId) % stripes.length);
-
-        return stripes[stripeIndex];
-    }
-
-    private ConcurrentMap<Long, SegmentInfo> memtable(long groupId) {
-        return stripe(groupId).memTable;
-    }
-
-    private class SegmentInfoIterator implements Iterator<Entry<Long, SegmentInfo>> {
-        private int stripeIndex = 0;
-
-        private Iterator<Entry<Long, SegmentInfo>> mapIterator = refreshIterator();
-
-        @Override
-        public boolean hasNext() {
-            if (mapIterator.hasNext()) {
-                return true;
-            }
-
-            if (stripeIndex < stripes.length) {
-                mapIterator = refreshIterator();
-
-                return hasNext();
-            }
-
-            return false;
-        }
-
-        @Override
-        public Entry<Long, SegmentInfo> next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-
-            return mapIterator.next();
-        }
-
-        private Iterator<Entry<Long, SegmentInfo>> refreshIterator() {
-            Stripe nextStripe = stripes[stripeIndex++];
-
-            return nextStripe.memTable.entrySet().iterator();
-        }
-    }
+    protected abstract Map<Long, SegmentInfo> memtable(long groupId);
 }
