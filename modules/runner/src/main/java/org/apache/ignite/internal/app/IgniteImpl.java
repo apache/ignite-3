@@ -191,7 +191,7 @@ import org.apache.ignite.internal.network.PublicApiThreadingIgniteCluster;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
@@ -231,6 +231,7 @@ import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
+import org.apache.ignite.internal.rest.events.RestEventsFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.rest.node.NodePropertiesFactory;
@@ -629,7 +630,7 @@ public class IgniteImpl implements Ignite {
                 failureManager
         );
 
-        clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
+        clusterSvc = new ScaleCubeClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
@@ -639,7 +640,8 @@ public class IgniteImpl implements Ignite {
                 criticalWorkerRegistry,
                 failureManager,
                 ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader),
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                metricManager
         );
 
         clock = new HybridClockImpl(failureManager);
@@ -1441,6 +1443,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql, killCommandHandler);
         Supplier<RestFactory> nodePropertiesRestFactory = () -> new NodePropertiesFactory(nodeProperties);
         Supplier<RestFactory> dataNodesRestFactory = () -> new DataNodesRestFactory(distributionZoneManager);
+        Supplier<RestFactory> restEventsFactory = () -> new RestEventsFactory(eventLog, name);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 
@@ -1457,7 +1460,8 @@ public class IgniteImpl implements Ignite {
                         systemDisasterRecoveryFactory,
                         sqlQueryRestFactory,
                         nodePropertiesRestFactory,
-                        dataNodesRestFactory
+                        dataNodesRestFactory,
+                        restEventsFactory
                 ),
                 restManager,
                 restConfiguration

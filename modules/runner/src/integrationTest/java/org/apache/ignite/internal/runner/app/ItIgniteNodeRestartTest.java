@@ -162,7 +162,7 @@ import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterService;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -397,7 +397,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 failureProcessor
         );
 
-        var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
+        var clusterSvc = new TestScaleCubeClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
@@ -407,7 +407,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 workerRegistry,
                 failureProcessor,
                 defaultChannelTypeRegistry(),
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                new NoOpMetricManager()
         );
 
         var hybridClock = new HybridClockImpl();

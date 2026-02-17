@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -72,7 +73,6 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -119,9 +119,9 @@ public class ItLozaTest extends IgniteAbstractTest {
             allComponents.add(loza);
         }
 
-        new ReverseIterator<>(allComponents).forEachRemaining(c -> {
-            assertThat(c.stopAsync(componentContext), willCompleteSuccessfully());
-        });
+        Collections.reverse(allComponents);
+
+        IgniteUtils.stopAsync(componentContext, allComponents);
     }
 
     /**

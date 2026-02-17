@@ -54,6 +54,7 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -75,7 +76,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     private ExecutorService executorService;
 
     private final CheckpointReadWriteLockMetrics dummyMetrics = new CheckpointReadWriteLockMetrics(
-            new CheckpointMetricSource("test")
+            new CollectionMetricSource("test", "storage", null)
     );
 
     @AfterEach
@@ -421,7 +422,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCheckpointReadLockMetrics() {
-        CheckpointMetricSource metricSource = new CheckpointMetricSource("test");
+        CollectionMetricSource metricSource = new CollectionMetricSource("test", "storage", null);
         CheckpointReadWriteLockMetrics metrics = new CheckpointReadWriteLockMetrics(metricSource);
         CheckpointReadWriteLock readWriteLock = newReadWriteLock(metrics);
 

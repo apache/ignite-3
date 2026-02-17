@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS_TABLE_NAME;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS;
@@ -996,10 +997,24 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
-                        partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
-                        clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
-                        igniteTables, clockService, notificationSender(requestId), resolveCurrentUsername(),
-                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT), queryTypeListener
+                        partitionOperationsExecutor,
+                        in,
+                        requestId,
+                        cancelHandles,
+                        queryProcessor,
+                        resources,
+                        metrics,
+                        tsTracker,
+                        clientContext.hasFeature(SQL_PARTITION_AWARENESS),
+                        clientContext.hasFeature(SQL_DIRECT_TX_MAPPING),
+                        txManager,
+                        igniteTables,
+                        clockService,
+                        notificationSender(requestId),
+                        resolveCurrentUsername(),
+                        clientContext.hasFeature(SQL_MULTISTATEMENT_SUPPORT),
+                        clientContext.hasFeature(SQL_PARTITION_AWARENESS_TABLE_NAME),
+                        queryTypeListener
                 );
 
             case ClientOp.SQL_CURSOR_NEXT_RESULT_SET:

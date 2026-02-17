@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
@@ -103,8 +105,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private final FailureProcessor failureProcessor;
 
+    private final MetricManager metricManager;
+
+    private final MessagingServiceMetricSource metricSource = new MessagingServiceMetricSource();
+
+    private final MessagingServiceMetrics metrics = new MessagingServiceMetrics(metricSource);
+
     /** Connection manager that provides access to {@link NettySender}. */
-    private volatile ConnectionManager connectionManager;
+    private final ConnectionManager connectionManager;
 
     /** Collection that maps correlation id to the future for an invocation request. */
     private final ConcurrentMap<Long, TimeoutObjectImpl> requestsMap = new ConcurrentHashMap<>();
@@ -146,6 +154,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureProcessor Failure processor.
+     * @param metricManager The metrics manager.
      * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public DefaultMessagingService(
@@ -157,6 +166,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureProcessor failureProcessor,
+            ConnectionManager connectionManager,
+            MetricManager metricManager,
             ChannelTypeRegistry channelTypeRegistry
     ) {
         this.factory = factory;
@@ -166,17 +177,26 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.failureProcessor = failureProcessor;
+        this.metricManager = metricManager;
+
+        this.connectionManager = connectionManager;
+        connectionManager.addListener(this::handleMessageFromNetwork);
 
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
+        outboundExecutor.initMetricSource(metricManager, THREAD_POOLS_METRICS_SOURCE_NAME + ".messaging.outbound",
+                "Outbound message executor metrics");
 
         inboundExecutors = new CriticalStripedExecutors(
                 nodeName,
                 "MessagingService-inbound",
                 criticalWorkerRegistry,
                 channelTypeRegistry,
-                LOG
+                LOG,
+                metricManager,
+                THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound",
+                "Inbound message executor metrics"
         );
 
         timeoutWorker = new TimeoutWorker(
@@ -186,16 +206,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 requestsMap,
                 failureProcessor
         );
-    }
-
-    /**
-     * Resolves cyclic dependency and sets up the connection manager.
-     *
-     * @param connectionManager Connection manager.
-     */
-    public void setConnectionManager(ConnectionManager connectionManager) {
-        this.connectionManager = connectionManager;
-        connectionManager.addListener(this::handleMessageFromNetwork);
     }
 
     @Override
@@ -213,6 +223,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementMessageRecipientNotFound();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -243,6 +255,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementMessageRecipientNotFound();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -262,6 +276,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InternalClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
 
         if (recipient == null) {
+            metrics.incrementMessageRecipientNotFound();
+
             return failedFuture(
                     new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
             );
@@ -404,6 +420,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 .thenComposeToCompletable(sender -> {
                     if (strictIdCheck && nodeId != null && !sender.launchId().equals(nodeId)) {
                         // The destination node has been rebooted, so it's a different node instance.
+                        metrics.incrementMessageRecipientNotFound();
+
                         throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
                     }
 
@@ -453,6 +471,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         List<HandlerContext> handlerContexts = getHandlerContexts(message.groupType());
 
         // Specially made by a classic loop for optimization.
+        //noinspection ForLoopReplaceableByForEach
         for (int i = 0; i < handlerContexts.size(); i++) {
             HandlerContext handlerContext = handlerContexts.get(i);
 
@@ -503,17 +522,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
-            long startedNanos = longHandlingLoggingEnabled ? System.nanoTime() : 0;
+            long startedNanos = System.nanoTime();
 
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
+                metrics.incrementMessageHandlingFailures();
+
                 handleAndRethrowIfError(inNetworkObject, e);
             } finally {
-                if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
-                    long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+                long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-                    if (tookMillis > 100) {
+                if (tookMillis > 100) {
+                    metrics.incrementSlowResponses();
+
+                    if (longHandlingLoggingEnabled && LOG.isWarnEnabled()) {
                         LOG.warn(
                                 "Processing of {} from {} took {} ms",
                                 LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
@@ -653,7 +676,14 @@ public class DefaultMessagingService extends AbstractMessagingService {
         TimeoutObjectImpl responseFuture = requestsMap.remove(correlationId);
 
         if (responseFuture != null) {
-            responseFuture.future().complete(response);
+            var fut = responseFuture.future();
+
+            fut.complete(response);
+
+            // Check if it was already completed exceptionally by the timeout worker.
+            if (fut.isCompletedExceptionally()) {
+                metrics.incrementInvokeTimeouts();
+            }
         }
     }
 
@@ -704,12 +734,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 recipientInetAddrByNodeId.remove(member.id());
             }
         });
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
     }
 
     /**
      * Stops the messaging service.
      */
     public void stop() throws Exception {
+        metricManager.unregisterSource(metricSource);
+
         var exception = new NodeStoppingException();
 
         requestsMap.values().forEach(fut -> fut.future().completeExceptionally(exception));
@@ -728,6 +763,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     // TODO: IGNITE-18493 - remove/move this
+
     /**
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
      * message will be dropped (it will not be sent; the corresponding future will time out soon for {@code invoke()} methods
