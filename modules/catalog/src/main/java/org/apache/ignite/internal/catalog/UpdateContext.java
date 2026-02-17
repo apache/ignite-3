@@ -34,18 +34,18 @@ public class UpdateContext {
     /** The updatable catalog descriptor. */
     private Catalog updatableCatalog;
 
-    private final PartitionCountProvider partitionCountProvider;
+    private final PartitionCountCalculator partitionCountCalculator;
 
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
-        this(catalog, PartitionCountProvider.defaultPartitionCountProvider());
+        this(catalog, PartitionCountCalculator.fixedPartitionCountCalculator());
     }
 
     /** Constructor. */
-    public UpdateContext(Catalog catalog, PartitionCountProvider partitionCountProvider) {
+    public UpdateContext(Catalog catalog, PartitionCountCalculator partitionCountCalculator) {
         this.baseCatalog = catalog;
         this.updatableCatalog = catalog;
-        this.partitionCountProvider = partitionCountProvider;
+        this.partitionCountCalculator = partitionCountCalculator;
     }
 
     /**
@@ -70,8 +70,8 @@ public class UpdateContext {
         updatableCatalog = updater.apply(updatableCatalog);
     }
 
-    /** Returns partition count provider. */
-    public PartitionCountProvider partitionCountProvider() {
-        return partitionCountProvider;
+    /** Returns partition count calculator. */
+    public PartitionCountCalculator partitionCountCalculator() {
+        return partitionCountCalculator;
     }
 }

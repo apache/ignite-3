@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountProvider.MINIMUM_CPU_COUNT;
-import static org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountProvider.SCALE_FACTOR;
+import static org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator.MINIMUM_CPU_COUNT;
+import static org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator.SCALE_FACTOR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -29,9 +29,9 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link DataNodesAwarePartitionCountProvider}.
+ * Unit tests for {@link DataNodesAwarePartitionCountCalculator}.
  */
-public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstractTest {
+public class DataNodesAwarePartitionCountCalculatorTest extends BaseIgniteAbstractTest {
     @Test
     void cpuCountLessThatMinimumTest() {
         EstimatedDataNodeCountProvider minPossibleDataNodeCountProvider = (f, sp) -> 1;
@@ -45,7 +45,7 @@ public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstract
 
         int minReplicaCount = 1;
 
-        DataNodesAwarePartitionCountProvider provider = new DataNodesAwarePartitionCountProvider(
+        DataNodesAwarePartitionCountCalculator partitionCalculator = new DataNodesAwarePartitionCountCalculator(
                 minPossibleDataNodeCountProvider,
                 minPossibleCpuInfoProvider
         );
@@ -54,7 +54,7 @@ public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstract
                 .replicaFactor(minReplicaCount)
                 .build();
 
-        assertThat(provider.calculate(params), is(SCALE_FACTOR * MINIMUM_CPU_COUNT));
+        assertThat(partitionCalculator.calculate(params), is(SCALE_FACTOR * MINIMUM_CPU_COUNT));
     }
 
     @Test
@@ -75,7 +75,7 @@ public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstract
         // Replica factor is the divider in the formula.
         int minReplicaCount = 1;
 
-        DataNodesAwarePartitionCountProvider provider = new DataNodesAwarePartitionCountProvider(
+        DataNodesAwarePartitionCountCalculator partitionCalculator = new DataNodesAwarePartitionCountCalculator(
                 maxPossibleDataNodeCountProvider,
                 maxPossibleCpuInfoProvider
         );
@@ -84,7 +84,7 @@ public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstract
                 .replicaFactor(minReplicaCount)
                 .build();
 
-        int partitionCount = provider.calculate(params);
+        int partitionCount = partitionCalculator.calculate(params);
 
         assertThat(partitionCount, is(greaterThan(0)));
         // We check only overflow case, but the value may be more than CatalogUtils.MAX_PARTITION_COUNT, but it's ok and proper validators
@@ -107,7 +107,7 @@ public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstract
         // Replica factor is the divider in the formula.
         int minReplicaCount = 1;
 
-        DataNodesAwarePartitionCountProvider provider = new DataNodesAwarePartitionCountProvider(
+        DataNodesAwarePartitionCountCalculator partitionCalculator = new DataNodesAwarePartitionCountCalculator(
                 zeroEstimatedNodesProvider,
                 cpuInfoProvider
         );
@@ -116,7 +116,7 @@ public class DataNodesAwarePartitionCountProviderTest extends BaseIgniteAbstract
                 .replicaFactor(minReplicaCount)
                 .build();
 
-        int partitionCount = provider.calculate(params);
+        int partitionCount = partitionCalculator.calculate(params);
 
         assertThat(partitionCount, is(greaterThan(0)));
         assertThat(partitionCount, is(MINIMUM_CPU_COUNT * SCALE_FACTOR));

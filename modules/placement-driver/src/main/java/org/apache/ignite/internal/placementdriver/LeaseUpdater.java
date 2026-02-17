@@ -394,7 +394,6 @@ public class LeaseUpdater {
                     failureProcessor.process(new FailureContext(e, "Error occurred when updating the leases."));
 
                     if (e instanceof Error) {
-                        // TODO IGNITE-20368 The node should be halted in case of an error here.
                         throw (Error) e;
                     }
                 } finally {

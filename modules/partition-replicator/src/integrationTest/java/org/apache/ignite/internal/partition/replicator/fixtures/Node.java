@@ -55,7 +55,7 @@ import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.PartitionCountCalculator;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -668,7 +668,7 @@ public class Node {
                 clockService,
                 failureManager,
                 delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         );
 
         raftManager.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));

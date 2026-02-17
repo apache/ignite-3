@@ -69,9 +69,9 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountProvider;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
-import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
+import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
+import org.apache.ignite.internal.catalog.PartitionCountCalculator;
+import org.apache.ignite.internal.catalog.PartitionCountCalculatorWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
@@ -524,7 +524,7 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
 
-    private final PartitionCountProviderWrapper partitionCountProviderWrapper;
+    private final PartitionCountCalculatorWrapper partitionCountCalculatorWrapper;
 
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
@@ -880,14 +880,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
-        partitionCountProviderWrapper = new PartitionCountProviderWrapper();
+        partitionCountCalculatorWrapper = new PartitionCountCalculatorWrapper();
 
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
                 delayDurationMsSupplier,
-                partitionCountProviderWrapper
+                partitionCountCalculatorWrapper
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry
@@ -1024,12 +1024,12 @@ public class IgniteImpl implements Ignite {
                 lowWatermark
         );
 
-        var dataNodesAwarePartitionCountProvider = new DataNodesAwarePartitionCountProvider(
+        var dataNodesAwarePartitionCountCalculator = new DataNodesAwarePartitionCountCalculator(
                 distributionZoneManager::estimatedDataNodesCount,
                 cpuInformationProvider
         );
 
-        partitionCountProviderWrapper.setPartitionCountProvider(dataNodesAwarePartitionCountProvider);
+        partitionCountCalculatorWrapper.setPartitionCountCalculator(dataNodesAwarePartitionCountCalculator);
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
@@ -2254,8 +2254,8 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
-    public PartitionCountProvider partitionCountProvider() {
-        return partitionCountProviderWrapper;
+    public PartitionCountCalculator partitionCountCalculator() {
+        return partitionCountCalculatorWrapper;
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

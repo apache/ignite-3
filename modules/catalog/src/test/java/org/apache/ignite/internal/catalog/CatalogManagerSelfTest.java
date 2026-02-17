@@ -186,7 +186,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 clockService,
                 new NoOpFailureManager(),
                 delayDuration::get,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
@@ -331,7 +331,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 clockService,
                 new NoOpFailureManager(),
                 delayDuration::get,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         );
 
         assertThat(manager.startAsync(startComponentContext), willCompleteSuccessfully());

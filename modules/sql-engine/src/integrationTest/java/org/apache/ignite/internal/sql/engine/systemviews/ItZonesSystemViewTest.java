@@ -34,7 +34,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.PartitionCountCalculator;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
@@ -65,13 +65,13 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
         );
 
-        PartitionCountProvider partitionCountProvider = node.partitionCountProvider();
+        PartitionCountCalculator partitionCountCalculator = node.partitionCountCalculator();
         PartitionCountCalculationParameters partitionCountCalculationParameters = PartitionCountCalculationParameters.builder()
                 .replicaFactor(DEFAULT_REPLICA_COUNT)
                 .dataNodesFilter(DEFAULT_FILTER)
                 .storageProfiles(List.of(DEFAULT_STORAGE_PROFILE))
                 .build();
-        int defaultZoneExpectedPartitionCount = partitionCountProvider.calculate(partitionCountCalculationParameters);
+        int defaultZoneExpectedPartitionCount = partitionCountCalculator.calculate(partitionCountCalculationParameters);
 
         assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, ZONE_QUORUM_SIZE, DATA_NODES_AUTO_ADJUST_SCALE_UP,"
                 + " DATA_NODES_AUTO_ADJUST_SCALE_DOWN, DATA_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES")

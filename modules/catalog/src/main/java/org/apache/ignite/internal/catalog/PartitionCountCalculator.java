@@ -20,13 +20,19 @@ package org.apache.ignite.internal.catalog;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 
 /**
- * Default partition count provider.
+ * Function that calculates how much partitions a zone should use in case partition count parameter wasn't specified by a user.
  */
 @FunctionalInterface
-public interface PartitionCountProvider {
+public interface PartitionCountCalculator {
+    /**
+     * Calculates partition count depends on the given parameters set.
+     *
+     * @param params Container of parameters that may be used to calculate partition count.
+     * @return Partition count for a zone.
+     */
     int calculate(PartitionCountCalculationParameters params);
 
-    static PartitionCountProvider defaultPartitionCountProvider() {
+    static PartitionCountCalculator fixedPartitionCountCalculator() {
         return params -> DEFAULT_PARTITION_COUNT;
     }
 }

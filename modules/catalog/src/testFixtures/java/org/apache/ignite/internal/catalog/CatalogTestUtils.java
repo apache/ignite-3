@@ -112,7 +112,7 @@ public class CatalogTestUtils {
                 clockService,
                 failureProcessor,
                 delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -164,7 +164,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -210,7 +210,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         );
     }
 
@@ -248,7 +248,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -320,7 +320,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -368,7 +368,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 new NoOpFailureManager(),
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                PartitionCountCalculator.fixedPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {

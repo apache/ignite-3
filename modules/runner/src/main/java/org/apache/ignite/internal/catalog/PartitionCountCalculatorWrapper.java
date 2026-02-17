@@ -20,18 +20,18 @@ package org.apache.ignite.internal.catalog;
 /**
  * Wrapper that allows to apply and use different partition count computing approaches.
  */
-public final class PartitionCountProviderWrapper implements PartitionCountProvider {
+public final class PartitionCountCalculatorWrapper implements PartitionCountCalculator {
     /** Wrapped delegate to compute partition count. */
-    private volatile PartitionCountProvider delegate;
+    private volatile PartitionCountCalculator delegate;
 
     /** Constructor. */
-    public PartitionCountProviderWrapper(PartitionCountProvider delegate) {
+    public PartitionCountCalculatorWrapper(PartitionCountCalculator delegate) {
         this.delegate = delegate;
     }
 
-    /** Constructor that uses {@link PartitionCountProvider#defaultPartitionCountProvider}. */
-    public PartitionCountProviderWrapper() {
-        this(PartitionCountProvider.defaultPartitionCountProvider());
+    /** Constructor that uses {@link PartitionCountCalculator#fixedPartitionCountCalculator}. */
+    public PartitionCountCalculatorWrapper() {
+        this(PartitionCountCalculator.fixedPartitionCountCalculator());
     }
 
     @Override
@@ -39,7 +39,7 @@ public final class PartitionCountProviderWrapper implements PartitionCountProvid
         return delegate.calculate(parameters);
     }
 
-    public void setPartitionCountProvider(PartitionCountProvider newProvider) {
-        this.delegate = newProvider;
+    public void setPartitionCountCalculator(PartitionCountCalculator newCalculator) {
+        this.delegate = newCalculator;
     }
 }

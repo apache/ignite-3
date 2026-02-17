@@ -29,7 +29,7 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Parameters container for {@link PartitionCountProvider#calculate}.
+ * Parameters container for {@link PartitionCountCalculator#calculate}.
  */
 public final class PartitionCountCalculationParameters {
     private final String dataNodesFilter;

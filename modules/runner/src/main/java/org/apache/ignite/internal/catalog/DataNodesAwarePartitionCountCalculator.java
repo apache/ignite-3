@@ -22,12 +22,12 @@ import static java.lang.Math.max;
 import org.apache.ignite.internal.system.CpuInformationProvider;
 
 /**
- * Primary to use partition count provider. It calculates the number of partitions using the formula:
+ * Primary to use partition count calculator. It calculates the number of partitions using the formula:
  * dataNodesCount * max(cores, 8) * scaleFactor / replicas. Data nodes count is the estimated number of data nodes for the given
  * distribution zone. It is assumed that each node has the same number of CPU cores. Also, there is doubling multiplier to allow the cluster
  * scale up.
  */
-public class DataNodesAwarePartitionCountProvider implements PartitionCountProvider {
+public class DataNodesAwarePartitionCountCalculator implements PartitionCountCalculator {
     static final int SCALE_FACTOR = 3;
 
     static final int MINIMUM_CPU_COUNT = 8;
@@ -42,7 +42,7 @@ public class DataNodesAwarePartitionCountProvider implements PartitionCountProvi
      * @param estimatedDataNodeCountProvider Provides estimated data nodes count based on given zone filter and storage profile list.
      * @param cpuInfoProvider Provides CPU information for local node hardware cores calculation.
      */
-    public DataNodesAwarePartitionCountProvider(
+    public DataNodesAwarePartitionCountCalculator(
             EstimatedDataNodeCountProvider estimatedDataNodeCountProvider,
             CpuInformationProvider cpuInfoProvider
     ) {
