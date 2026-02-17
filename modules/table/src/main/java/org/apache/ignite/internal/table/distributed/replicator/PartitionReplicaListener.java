@@ -2439,7 +2439,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         return raftCommandApplicator.applyCommandWithExceptionHandling(cmd);
     }
 
-    private static CommandApplicationResult throwIfFullTxCommitSchemaValidationFailedInRaft(CommandApplicationResult res, Throwable ex) {
+    private static CommandApplicationResult throwIfFullTxCommitSchemaValidationFailedDuringReplication(
+            CommandApplicationResult res,
+            Throwable ex
+    ) {
         if (ex != null) {
             Throwable rootCause = ExceptionUtils.unwrapRootCause(ex);
             if (rootCause instanceof RaftException && ((RaftException) rootCause).raftError() == RaftError.EREJECTED_BY_USER_LOGIC) {
@@ -2571,7 +2574,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedInRaft);
+            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 
@@ -2709,7 +2712,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
-            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedInRaft);
+            }).handle(PartitionReplicaListener::throwIfFullTxCommitSchemaValidationFailedDuringReplication);
         }
     }
 
