@@ -47,8 +47,8 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
-import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.RowId;
@@ -547,7 +547,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         PersistentPageMemoryMvPartitionStorage persistentStorage = (PersistentPageMemoryMvPartitionStorage) storage;
 
         DistributionMetric durationMetric = persistentStorage.consistencyMetrics.runConsistentlyDuration();
-        IntGauge activeCountMetric = persistentStorage.consistencyMetrics.runConsistentlyActiveCount();
+        AtomicIntMetric activeCountMetric = persistentStorage.consistencyMetrics.runConsistentlyActiveCount();
 
         assertThat(durationMetric, is(notNullValue()));
         assertThat(activeCountMetric, is(notNullValue()));
@@ -589,7 +589,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         PersistentPageMemoryMvPartitionStorage persistentStorage = (PersistentPageMemoryMvPartitionStorage) storage;
 
         DistributionMetric durationMetric = persistentStorage.consistencyMetrics.runConsistentlyDuration();
-        IntGauge activeCountMetric = persistentStorage.consistencyMetrics.runConsistentlyActiveCount();
+        AtomicIntMetric activeCountMetric = persistentStorage.consistencyMetrics.runConsistentlyActiveCount();
 
         storage.runConsistently(outerLocker -> {
             assertThat(activeCountMetric.value(), is(1));
