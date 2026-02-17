@@ -111,4 +111,8 @@ object PlatformCppOdbcTestsDebLinux : BuildType({
             verbose = true
         }
     }
+
+    failureConditions {
+        executionTimeoutMin = 30
+    }
 })

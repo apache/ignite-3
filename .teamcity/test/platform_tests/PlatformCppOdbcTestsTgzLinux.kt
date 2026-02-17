@@ -112,4 +112,8 @@ object PlatformCppOdbcTestsTgzLinux : BuildType({
             verbose = true
         }
     }
+
+    failureConditions {
+        executionTimeoutMin = 30
+    }
 })
