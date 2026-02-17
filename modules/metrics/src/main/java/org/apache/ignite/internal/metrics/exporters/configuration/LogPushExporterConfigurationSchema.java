@@ -53,9 +53,9 @@ public class LogPushExporterConfigurationSchema extends ExporterConfigurationSch
             "raft*",
             "resource.vacuum",
             "sql.plan.cache",
+            "storage.aipersist.*",
             "thread.pools.*",
             "topology.*",
-            "transactions",
-            "storage.aipersist.*"
+            "transactions"
     };
 }
