@@ -228,7 +228,6 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         // Stop the last node (G)
         stopNode(1);
 
-        // Start nodes G, E, A in reverse order they were stopped
         startNodes(4, 1, 2);
 
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node0, HA_TABLE_NAME, PARTITION_IDS,  nodeNames(1, 2, 4));

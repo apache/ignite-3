@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -347,7 +346,7 @@ class GroupUpdateRequestHandler {
                                 ? ByteUtils.bytesToLongKeepingOrder(recoveryTriggerRevisionEntry.value())
                                 : -1L;
                         if (entry.revision() > reductionRevision
-                                && allAssignmentsRelyOnAliveNodes(pendingQueue, aliveNodesConsistentIds)) {
+                                && pendingQueueIsViableForRecovery(pendingQueue, aliveNodesConsistentIds, replicas)) {
                             return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
                         }
                         AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
@@ -368,13 +367,21 @@ class GroupUpdateRequestHandler {
         });
     }
 
-    private static boolean allAssignmentsRelyOnAliveNodes(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds) {
-        for (Iterator<Assignments> it = queue.iterator(); it.hasNext();) {
-            Assignments assignments = it.next();
+    private static boolean pendingQueueIsViableForRecovery(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds, int replicas) {
+        // Lets assume we have nodes A, B, C, D, E.
+        // C, D, E restart.
+        // Reset timeout triggers.
+        // Node C, D, E get back online to logical topology and create pending=[A, B, C, D, E].
+        // Reset proceeds and sees A, B, C, D, E online at its revision.
+        // Then it overwrites existing pending from above with pending=[A]. planned=[A,B].
+        // To prevent this scenario we should skip such reset.
+
+        for (Assignments assignments : queue) {
             if (assignments
                     .nodes()
                     .stream()
-                    .map(Assignment::consistentId).anyMatch(name -> !aliveNodesConsistentIds.contains(name))) {
+                    .map(Assignment::consistentId).anyMatch(name -> !aliveNodesConsistentIds.contains(name))
+            ) {
                 return false;
             }
         }
