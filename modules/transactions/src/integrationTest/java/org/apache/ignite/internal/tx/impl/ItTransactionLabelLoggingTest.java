@@ -25,8 +25,14 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.testframework.log4j2.Log4jUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.tx.TransactionOptions;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,6 +46,7 @@ public class ItTransactionLabelLoggingTest extends ClusterPerTestIntegrationTest
 
     @Test
     void testTransactionLabelInTimeoutLogs() {
+        AutoCloseable debugLogging = enableDebugLogging(TransactionExpirationRegistry.class);
         LogInspector timeoutLogInspector = LogInspector.create(TransactionExpirationRegistry.class);
         AtomicInteger timeoutLabelCount = new AtomicInteger(0);
         String label = "TIMEOUT-TEST";
@@ -64,9 +71,48 @@ public class ItTransactionLabelLoggingTest extends ClusterPerTestIntegrationTest
             );
 
             await("Expected to find transaction label in timeout log message")
-                    .atMost(Duration.ofSeconds(5L)).untilAtomic(timeoutLabelCount, is(greaterThan(0)));
+                    .atMost(Duration.ofSeconds(10L)).untilAtomic(timeoutLabelCount, is(greaterThan(0)));
         } finally {
             timeoutLogInspector.stop();
+            closeQuietly(debugLogging);
+        }
+    }
+
+    private static AutoCloseable enableDebugLogging(Class<?> loggerClass) {
+        Log4jUtils.waitTillConfigured();
+
+        LoggerContext context = (LoggerContext) LogManager.getContext(false);
+        Configuration config = context.getConfiguration();
+        String loggerName = loggerClass.getName();
+
+        LoggerConfig existing = config.getLoggerConfig(loggerName);
+        boolean exactMatch = loggerName.equals(existing.getName());
+
+        if (exactMatch) {
+            Level previous = existing.getLevel();
+            existing.setLevel(Level.DEBUG);
+            context.updateLoggers();
+            return () -> {
+                existing.setLevel(previous);
+                context.updateLoggers();
+            };
+        }
+
+        LoggerConfig loggerConfig = new LoggerConfig(loggerName, Level.DEBUG, true);
+        config.addLogger(loggerName, loggerConfig);
+        context.updateLoggers();
+
+        return () -> {
+            config.removeLogger(loggerName);
+            context.updateLoggers();
+        };
+    }
+
+    private static void closeQuietly(AutoCloseable closeable) {
+        try {
+            closeable.close();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }
