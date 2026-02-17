@@ -140,7 +140,7 @@ abstract class FieldAccessor {
      */
     private static Field getField(Class<?> clazz, String fieldName) throws NoSuchFieldException {
         var current = clazz;
-        while (current != null) {
+        while (current != Object.class) {
             try {
                 return current.getDeclaredField(fieldName);
             } catch (NoSuchFieldException ignored) {
@@ -149,7 +149,7 @@ abstract class FieldAccessor {
 
             current = current.getSuperclass();
         }
-        throw new NoSuchFieldException(fieldName);
+        throw new NoSuchFieldException("Field '" + fieldName + "' not found in class hierarchy " + clazz);
     }
 
     /**
