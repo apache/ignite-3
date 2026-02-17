@@ -68,7 +68,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ExecutorServiceExtension.class)
 class SegmentFileTest extends IgniteAbstractTest {
-    private static final String FILE_NAME = "test.bin";
+    private static final String FILE_NAME = SegmentFile.fileName(new FileProperties(0));
 
     private Path path;
 

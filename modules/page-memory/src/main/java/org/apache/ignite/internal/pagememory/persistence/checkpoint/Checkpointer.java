@@ -59,6 +59,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -223,7 +224,7 @@ public class Checkpointer extends IgniteWorker {
             CheckpointConfiguration checkpointConfig,
             LogSyncer logSyncer,
             PartitionDestructionLockManager partitionDestructionLockManager,
-            CheckpointMetricSource checkpointMetricSource
+            CollectionMetricSource checkpointMetricSource
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread");
 

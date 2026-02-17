@@ -74,17 +74,17 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testOnRollover(@Mock SegmentFile segmentFile, @Mock IndexMemTable memTable) throws IOException {
+    void testOnRollover(@Mock SegmentFile segmentFile, @Mock StripedMemTable memTable) throws IOException {
         checkpointer.onRollover(segmentFile, memTable);
 
         verify(segmentFile, timeout(500)).sync();
-        verify(indexFileManager, timeout(500)).saveIndexMemtable(memTable);
+        verify(indexFileManager, timeout(500)).saveNewIndexMemtable(memTable);
     }
 
     @Test
     void testBlockOnRollover(
             @Mock SegmentFile segmentFile,
-            @Mock IndexMemTable memTable,
+            @Mock StripedMemTable memTable,
             @InjectExecutorService(threadCount = 1) ExecutorService executor
     ) {
         var blockFuture = new CompletableFuture<Void>();
@@ -125,7 +125,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
 
                 when(mockFile.buffer()).thenReturn(buffer);
 
-                IndexMemTable mockMemTable = mock(IndexMemTable.class);
+                StripedMemTable mockMemTable = mock(StripedMemTable.class);
 
                 var segmentInfo = new SegmentInfo(i);
 
@@ -161,7 +161,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testFindSegmentPayloadReturnsBufferWhenOffsetPresent(@Mock SegmentFile mockFile, @Mock IndexMemTable mockMemTable) {
+    void testFindSegmentPayloadReturnsBufferWhenOffsetPresent(@Mock SegmentFile mockFile, @Mock StripedMemTable mockMemTable) {
         var blockFuture = new CompletableFuture<Void>();
 
         try {
@@ -194,7 +194,7 @@ class RaftLogCheckpointerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testFindSegmentPayloadReturnsEmptyWhenPrefixTombstoneCutsOff(@Mock SegmentFile mockFile, @Mock IndexMemTable mockMemTable) {
+    void testFindSegmentPayloadReturnsEmptyWhenPrefixTombstoneCutsOff(@Mock SegmentFile mockFile, @Mock StripedMemTable mockMemTable) {
         var blockFuture = new CompletableFuture<Void>();
 
         try {

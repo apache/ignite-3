@@ -39,7 +39,7 @@ object OdbcDeb : BuildType({
             tasks = ":packaging-odbc:buildDeb"
             workingDir = "%VCSROOT__IGNITE3%"
             gradleParams = "-i -Pplatforms.enable"
-            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.0"
+            dockerImage = "docker.gridgain.com/ci/tc-rockylinux8-odbc:v1.1"
             dockerPull = true
             dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
             dockerRunParameters = "-e JAVA_HOME=%CONTAINER_JAVA_HOME%"
