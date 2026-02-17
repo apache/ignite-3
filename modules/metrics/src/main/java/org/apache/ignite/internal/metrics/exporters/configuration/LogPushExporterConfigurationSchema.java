@@ -50,7 +50,7 @@ public class LogPushExporterConfigurationSchema extends ExporterConfigurationSch
             "metastorage",
             "os",
             "placement-driver",
-            "raft.* ",
+            "raft*",
             "resource.vacuum",
             "sql.plan.cache",
             "thread.pools.*",
