@@ -43,14 +43,20 @@ public class LogPushExporterConfigurationSchema extends ExporterConfigurationSch
      */
     @Value(hasDefault = true)
     public String[] enabledMetrics = {
-            "metastorage",
-            "placement-driver",
-            "resource.vacuum",
+            "client.handler",
+            "clock.service",
+            "index.builder",
             "jvm",
+            "metastorage",
             "os",
-            "topology.local",
-            "topology.cluster",
-            "thread.pools.partitions-executor",
-            "thread.pools.sql-executor"
+            "placement-driver",
+            "raft*",
+            "resource.vacuum",
+            "sql.plan.cache",
+            "storage.aipersist",
+            "storage.aipersist.checkpoint",
+            "thread.pools*",
+            "topology*",
+            "transactions"
     };
 }
