@@ -156,7 +156,7 @@ void set_error(const ignite::ignite_error &error) {
         }
 
         case ignite::error::code::UNRESOLVABLE_CONSISTENT_ID:
-        case ignite::error::code::PORT_IN_USE:
+        case ignite::error::code::BIND:
         case ignite::error::code::FILE_TRANSFER:
         case ignite::error::code::FILE_VALIDATION:
         case ignite::error::code::RECIPIENT_LEFT:
@@ -210,6 +210,7 @@ void set_error(const ignite::ignite_error &error) {
         case ignite::error::code::NODE_NOT_FOUND:
         case ignite::error::code::MARSHALLING_TYPE_MISMATCH:
         case ignite::error::code::COMPUTE_JOB_CANCELLED:
+        case ignite::error::code::RESOURCE_NOT_FOUND:
         case ignite::error::code::COMPUTE_PLATFORM_EXECUTOR: {
             error_class = py_get_module_database_error_class();
             break;
@@ -259,6 +260,25 @@ void set_error(const ignite::ignite_error &error) {
             error_class = py_get_module_database_error_class();
             break;
         }
+
+        case ignite::error::code::UNSUPPORTED_TABLE_BASED_REPLICATION:
+        case ignite::error::code::OPERATION_TIMEOUT:
+        case ignite::error::code::TX_DELAYED_ACK:
+        case ignite::error::code::GROUP_OVERLOADED:
+        case ignite::error::code::GROUP_UNAVAILABLE:
+        case ignite::error::code::EMPTY_DATA_NODES:
+        case ignite::error::code::JOIN_DENIED:
+        case ignite::error::code::EMPTY_ASSIGNMENTS:
+        case ignite::error::code::NOT_ENOUGH_ALIVE_NODES:
+        case ignite::error::code::ILLEGAL_NODES_SET:
+        case ignite::error::code::REQUEST_FORWARD:
+        case ignite::error::code::REMOTE_NODE:
+        case ignite::error::code::CONFIGURATION_APPLY:
+        case ignite::error::code::CONFIGURATION_PARSE:
+        case ignite::error::code::CONFIGURATION_VALIDATION: {
+            error_class = py_get_module_not_supported_error_class();
+            break;
+        }
     }
     std::string error_str{error.what_str()};
     if (error.get_java_stack_trace()) {
@@ -281,7 +301,7 @@ std::string get_current_exception_as_string() {
     return {data, std::size_t(len)};
 }
 
-const char* py_object_get_typename(PyObject* obj) {
+const char* py_object_get_typename(const PyObject* obj) {
     if (!obj || !obj->ob_type || !obj->ob_type->tp_name) {
         return "Unknown";
     }
