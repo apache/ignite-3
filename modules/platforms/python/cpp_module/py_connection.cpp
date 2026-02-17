@@ -200,6 +200,9 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
         return nullptr;
     }
 
+    if (heartbeat_interval < 0.0)
+        heartbeat_interval = 0.0;
+
     auto heartbeat_interval_chrono = std::chrono::milliseconds(static_cast<int>(std::ceilf(heartbeat_interval * 1000)));
     node_connection::configuration cfg{addresses, autocommit, ssl_cfg, heartbeat_interval_chrono};
 
@@ -211,7 +214,6 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
 
     if (secret)
         cfg.m_auth_configuration.m_secret = secret;
-
 
     if (page_size)
         cfg.m_page_size = page_size;

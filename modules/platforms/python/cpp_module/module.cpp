@@ -99,7 +99,7 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
     const char *schema = nullptr;
     const char *timezone = nullptr;
     int timeout = 0;
-    double heartbeat_interval = .0;
+    double heartbeat_interval = 30.0;
     int page_size = 0;
     int autocommit = 1;
     int use_ssl = 0;

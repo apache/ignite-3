@@ -532,6 +532,8 @@ private:
         static constexpr std::int8_t CLIENT_CODE = 4;
         m_protocol_version = ignite::protocol::protocol_version::get_current();
 
+        std::lock_guard lock(m_socket_mutex);
+
         std::map<std::string, std::string> extensions;
         if (!m_configuration.m_auth_configuration.m_identity.empty()) {
             static const std::string AUTH_TYPE{"basic"};

@@ -694,7 +694,7 @@ def connect(address: [str], **kwargs) -> Connection:
     timeout: int, optional
         A timeout for network operations, in seconds. Default value: 30.
     heartbeat_interval: float, optional
-        An interval between heartbeat probes, in seconds. Default value: 30.
+        An interval between heartbeat probes, in seconds. Zero or negative means heartbeats disabled. Default value: 30.
     autocommit: bool, optional
         Connection autocommit mode. Default value: True (enabled).
     use_ssl: bool, optional
