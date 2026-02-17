@@ -604,6 +604,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     ClientDelayedAckException err0 = (ClientDelayedAckException) err;
 
                     inflights.removeInflight(err0.txId(), new TransactionException(err0.code(), err0.getMessage(), err0.getCause()));
+                } else if (err instanceof ClientTransactionKilledException) {
+                    ClientTransactionKilledException err0 = (ClientTransactionKilledException) err;
+
+                    inflights.kill(err0.txId());
                 }
 
                 // Can't do anything to remove stuck inflight.

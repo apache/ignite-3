@@ -550,7 +550,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
 
             var transaction = new ReadOnlyTransactionImpl(
-                    this, timestampTracker, txId, localNodeId, timeout, readTimestamp, txFuture, options.killClosure()
+                    this, timestampTracker, txId, localNodeId, timeout, readTimestamp, txFuture
             );
 
             transactionExpirationRegistry.register(transaction);

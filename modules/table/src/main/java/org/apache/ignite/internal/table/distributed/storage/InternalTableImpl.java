@@ -761,12 +761,6 @@ public class InternalTableImpl implements InternalTable {
             }
 
             if (e != null) {
-                if (tx0.killClosure() != null) {
-                    // Rolling back a transaction here is incorrect in case of direct mapping.
-                    // Rollback will be initiated on a client.
-                    return failedFuture(e);
-                }
-
                 CompletableFuture<Void> rollbackFuture;
                 if (isFinishedDueToTimeout(e)) {
                     rollbackFuture = tx0.rollbackTimeoutExceededAsync();
