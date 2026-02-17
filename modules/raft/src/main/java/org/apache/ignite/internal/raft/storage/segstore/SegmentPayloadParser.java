@@ -32,18 +32,10 @@ import org.apache.ignite.internal.raft.util.VarlenEncoder;
 import org.apache.ignite.internal.util.FastCrc;
 
 class SegmentPayloadParser {
-    private final int stripes;
-
-    SegmentPayloadParser(int stripes) {
-        this.stripes = stripes;
-    }
-
-    WriteModeIndexMemTable recoverMemtable(SegmentFile segmentFile, Path segmentFilePath, boolean validateCrc) {
+    void recoverMemtable(SegmentFile segmentFile, WriteModeIndexMemTable memtable, boolean validateCrc) {
         ByteBuffer buffer = segmentFile.buffer();
 
-        validateSegmentFileHeader(buffer, segmentFilePath);
-
-        var memtable = new IndexMemTable(stripes);
+        validateSegmentFileHeader(buffer, segmentFile.path());
 
         while (!endOfSegmentReached(buffer)) {
             int segmentFilePayloadOffset = buffer.position();
@@ -110,8 +102,6 @@ class SegmentPayloadParser {
 
             buffer.position(crcPosition + CRC_SIZE_BYTES);
         }
-
-        return memtable;
     }
 
     private static void validateSegmentFileHeader(ByteBuffer buffer, Path segmentFilePath) {

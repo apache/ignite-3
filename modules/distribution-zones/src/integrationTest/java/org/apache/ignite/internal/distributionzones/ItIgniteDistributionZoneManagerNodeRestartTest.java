@@ -253,7 +253,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new NoOpCriticalWorkerRegistry(),
                 failureProcessor,
                 defaultChannelTypeRegistry(),
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                new NoOpMetricManager()
         );
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureProcessor);

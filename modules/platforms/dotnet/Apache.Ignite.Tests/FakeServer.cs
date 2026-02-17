@@ -210,8 +210,8 @@ namespace Apache.Ignite.Tests
             else
             {
                 // Test that client skips those correctly.
-                handshakeWriter.WriteBinaryHeader(3); // Features.
-                handshakeWriter.Write([1, 2, 3]); // Random feature bits
+                handshakeWriter.WriteBinaryHeader(4); // Features.
+                handshakeWriter.Write([0, 0, 255, 255]); // Unknown feature bits
 
                 handshakeWriter.Write(5); // Extensions.
                 for (int i = 0; i < 5; i++)

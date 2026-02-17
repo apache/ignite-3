@@ -22,7 +22,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
 import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
-import static org.apache.ignite.internal.Dependencies.constructArgFile;
+import static org.apache.ignite.internal.Dependencies.argFileBuilder;
 import static org.apache.ignite.internal.Dependencies.getProjectRoot;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -88,6 +88,11 @@ public class IgniteCluster {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteCluster.class);
 
     private static final String IGNITE_RUNNER_DEPENDENCY_ID = "org.apache.ignite:ignite-runner";
+
+    // Libraries will be taken from the libs.versions.toml
+    private static final String LOG4J_CORE_LIBRARY_NAME = "log4j-core";
+    private static final String LOG4J_JPL_LIBRARY_NAME = "log4j-bridge";
+    private static final String LOG4J_SLF4J2_LIBRARY_NAME = "slf4j-log4j";
 
     // Embedded nodes
     private final List<IgniteServer> igniteServers = new CopyOnWriteArrayList<>();
@@ -558,7 +563,17 @@ public class IgniteCluster {
                 .map(dependency -> dependency + ":" + igniteVersion)
                 .collect(joining(","));
 
-        return constructArgFile(connection, dependenciesListNotation, false);
+        String libraryDependencies = String.join(",",
+                LOG4J_CORE_LIBRARY_NAME,
+                LOG4J_JPL_LIBRARY_NAME,
+                LOG4J_SLF4J2_LIBRARY_NAME
+        );
+
+        return argFileBuilder(connection, dependenciesListNotation)
+                .libraryDependencies(libraryDependencies)
+                .classPathOnly(false)
+                .transitive(true)
+                .build();
     }
 
     private static String basicAuthenticationHeader(BasicAuthenticator authenticator) {

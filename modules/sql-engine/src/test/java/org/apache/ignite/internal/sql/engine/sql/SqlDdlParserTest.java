@@ -1115,11 +1115,28 @@ public class SqlDdlParserTest extends AbstractParserTest {
         SqlColumnDeclaration declaration = (SqlColumnDeclaration) addColumn.columns().get(0);
 
         assertThat(addColumn.name.names, is(List.of("T")));
+        assertThat(addColumn.ifColumnNotExists(), is(false));
 
         expectColumnBasic(declaration, "C", ColumnStrategy.NULLABLE, "INTEGER", true);
         assertThat(declaration.expression, is(nullValue()));
 
         expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER");
+    }
+
+    @Test
+    public void alterTableAddColumnIfNotExists() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN IF NOT EXISTS c INT");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+        SqlColumnDeclaration declaration = (SqlColumnDeclaration) addColumn.columns().get(0);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+        assertThat(addColumn.ifColumnNotExists(), is(true));
+
+        expectColumnBasic(declaration, "C", ColumnStrategy.NULLABLE, "INTEGER", true);
+        assertThat(declaration.expression, is(nullValue()));
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN IF NOT EXISTS \"C\" INTEGER");
     }
 
     @Test
@@ -1150,6 +1167,30 @@ public class SqlDdlParserTest extends AbstractParserTest {
         assertThat(column.expression, is(nullValue()));
 
         expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER NOT NULL");
+    }
+
+    @Test
+    public void alterTableDropColumn() {
+        SqlNode sqlNode = parse("ALTER TABLE t DROP COLUMN c");
+
+        IgniteSqlAlterTableDropColumn dropColumn = assertInstanceOf(IgniteSqlAlterTableDropColumn.class, sqlNode);
+
+        assertThat(dropColumn.name.names, is(List.of("T")));
+        assertThat(dropColumn.ifColumnExists(), is(false));
+
+        expectUnparsed(dropColumn, "ALTER TABLE \"T\" DROP COLUMN \"C\"");
+    }
+
+    @Test
+    public void alterTableDropColumnIfExists() {
+        SqlNode sqlNode = parse("ALTER TABLE t DROP COLUMN IF EXISTS c");
+
+        IgniteSqlAlterTableDropColumn dropColumn = assertInstanceOf(IgniteSqlAlterTableDropColumn.class, sqlNode);
+
+        assertThat(dropColumn.name.names, is(List.of("T")));
+        assertThat(dropColumn.ifColumnExists(), is(true));
+
+        expectUnparsed(dropColumn, "ALTER TABLE \"T\" DROP COLUMN IF EXISTS \"C\"");
     }
 
     /**
