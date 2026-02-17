@@ -637,11 +637,13 @@ private:
     }
 
     void send_heartbeat() {
-        auto res = sync_request_nothrow(ignite::protocol::client_operation::HEARTBEAT, [](auto&){});
-        plan_heartbeat(m_heartbeat_interval);
+        auto [data, err] = sync_request_nothrow(ignite::protocol::client_operation::HEARTBEAT, [](auto&){});
+        if (!err) {
+            plan_heartbeat(m_heartbeat_interval);
+        }
 
-        // We don't care here if we were not able to send a heartbeat due to the connection is dead already.
-        UNUSED_VALUE(res);
+        // There is no useful payload for us in the heartbeat response.
+        UNUSED_VALUE(data);
     }
 
     void on_heartbeat_timeout() {
