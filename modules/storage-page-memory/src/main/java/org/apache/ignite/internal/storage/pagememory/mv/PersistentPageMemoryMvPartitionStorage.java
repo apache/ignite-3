@@ -201,7 +201,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
                 long startTime = System.nanoTime();
-                consistencyMetrics.runConsistentlyActiveCount().increment();
+                consistencyMetrics.incrementActiveCount();
 
                 LocalLocker locker0 = new PersistentPageMemoryLocker();
 
@@ -221,7 +221,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
                     long duration = System.nanoTime() - startTime;
                     consistencyMetrics.recordRunConsistentlyDuration(duration);
-                    consistencyMetrics.runConsistentlyActiveCount().decrement();
+                    consistencyMetrics.decrementActiveCount();
                 }
             });
         }

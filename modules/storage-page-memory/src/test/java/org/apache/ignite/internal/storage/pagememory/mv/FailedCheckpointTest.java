@@ -232,6 +232,12 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
     }
 
     private MvTableStorage createMvTableStorage() {
+        CollectionMetricSource metricSource = new CollectionMetricSource(
+                "storage.test.consistency",
+                "storage",
+                null
+        );
+
         var tableStorage = new PersistentPageMemoryTableStorage(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
                 mock(StorageIndexDescriptorSupplier.class),
@@ -239,7 +245,7 @@ public class FailedCheckpointTest extends BaseMvStoragesTest {
                 dataRegion,
                 destructionExecutor,
                 mock(FailureManager.class),
-                mock(StorageConsistencyMetrics.class)
+                new StorageConsistencyMetrics(metricSource)
         );
 
         dataRegion.addTableStorage(tableStorage);

@@ -302,6 +302,9 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             if (storageMetricSource != null) {
                 metricManager.unregisterSource(storageMetricSource);
             }
+            if (storageConsistencyMetricSource != null) {
+                metricManager.unregisterSource(storageConsistencyMetricSource);
+            }
 
             Stream<AutoCloseable> closeRegions = regions.values().stream().map(region -> region::stop);
 

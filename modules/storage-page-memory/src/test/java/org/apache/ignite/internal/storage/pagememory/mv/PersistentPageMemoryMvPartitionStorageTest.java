@@ -30,7 +30,6 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -544,22 +543,16 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
     @Test
     void verifyStorageConsistencyMetrics() {
-        PersistentPageMemoryMvPartitionStorage persistentStorage = (PersistentPageMemoryMvPartitionStorage) storage;
-
-        DistributionMetric durationMetric = persistentStorage.consistencyMetrics.runConsistentlyDuration();
-        AtomicIntMetric activeCountMetric = persistentStorage.consistencyMetrics.runConsistentlyActiveCount();
-
-        assertThat(durationMetric, is(notNullValue()));
-        assertThat(activeCountMetric, is(notNullValue()));
+        StorageConsistencyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
 
         // Verify metrics start at zero
-        assertDistributionMetricRecordsCount(durationMetric, 0L);
-        assertThat(activeCountMetric.value(), is(0));
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 0L);
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
 
         // Execute a simple operation within runConsistently
         storage.runConsistently(locker -> {
             // Verify active count is incremented
-            assertThat(activeCountMetric.value(), is(1));
+            assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
 
             insert(binaryRow, txId);
 
@@ -567,37 +560,34 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         });
 
         // Verify duration was recorded
-        assertDistributionMetricRecordsCount(durationMetric, 1L);
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 1L);
 
         // Verify active count is decremented back to zero
-        assertThat(activeCountMetric.value(), is(0));
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
 
         // Execute another operation
         storage.runConsistently(locker -> {
-            assertThat(activeCountMetric.value(), is(1));
+            assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
 
             return null;
         });
 
         // Verify another duration was recorded
-        assertDistributionMetricRecordsCount(durationMetric, 2L);
-        assertThat(activeCountMetric.value(), is(0));
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 2L);
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
     }
 
     @Test
     void verifyNestedRunConsistentlyDoesNotDoubleCountMetrics() {
-        PersistentPageMemoryMvPartitionStorage persistentStorage = (PersistentPageMemoryMvPartitionStorage) storage;
-
-        DistributionMetric durationMetric = persistentStorage.consistencyMetrics.runConsistentlyDuration();
-        AtomicIntMetric activeCountMetric = persistentStorage.consistencyMetrics.runConsistentlyActiveCount();
+        StorageConsistencyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
 
         storage.runConsistently(outerLocker -> {
-            assertThat(activeCountMetric.value(), is(1));
+            assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
 
             // Nested call
             storage.runConsistently(innerLocker -> {
                 // Active count should not increase for nested calls
-                assertThat(activeCountMetric.value(), is(1));
+                assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
 
                 return null;
             });
@@ -606,8 +596,12 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         });
 
         // Only one duration should be recorded for the outer call
-        assertDistributionMetricRecordsCount(durationMetric, 1L);
-        assertThat(activeCountMetric.value(), is(0));
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 1L);
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+    }
+
+    private static void assertMetricValue(AtomicIntMetric metric, int value) {
+        assertThat(metric.value(), is(value));
     }
 
     /**

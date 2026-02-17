@@ -80,12 +80,26 @@ public class StorageConsistencyMetrics {
         runConsistentlyDuration.add(durationNanos);
     }
 
-    /** Returns the runConsistently duration metric. */
+    /**
+     * Increments the active count of runConsistently calls.
+     */
+    public void incrementActiveCount() {
+        runConsistentlyActiveCount.increment();
+    }
+
+    /**
+     * Decrements the active count of runConsistently calls.
+     */
+    public void decrementActiveCount() {
+        runConsistentlyActiveCount.decrement();
+    }
+
+    /** Returns the runConsistently duration metric for testing. */
     DistributionMetric runConsistentlyDuration() {
         return runConsistentlyDuration;
     }
 
-    /** Returns the runConsistently active count metric. */
+    /** Returns the runConsistently active count metric for testing. */
     AtomicIntMetric runConsistentlyActiveCount() {
         return runConsistentlyActiveCount;
     }
