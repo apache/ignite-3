@@ -640,7 +640,8 @@ public class IgniteImpl implements Ignite {
                 criticalWorkerRegistry,
                 failureManager,
                 ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader),
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                metricManager
         );
 
         clock = new HybridClockImpl(failureManager);
