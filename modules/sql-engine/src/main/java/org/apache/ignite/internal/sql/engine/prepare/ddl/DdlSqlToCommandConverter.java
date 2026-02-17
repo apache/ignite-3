@@ -565,6 +565,7 @@ public class DdlSqlToCommandConverter {
         builder.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         builder.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
         builder.ifTableExists(alterTblNode.ifExists());
+        builder.ifColumnNotExists(alterTblNode.ifColumnNotExists());
 
         List<ColumnParams> columns = new ArrayList<>(alterTblNode.columns().size());
 
@@ -672,6 +673,7 @@ public class DdlSqlToCommandConverter {
         builder.schemaName(deriveSchemaName(alterTblNode.name(), ctx));
         builder.tableName(deriveObjectName(alterTblNode.name(), ctx, "table name"));
         builder.ifTableExists(alterTblNode.ifExists());
+        builder.ifColumnExists(alterTblNode.ifColumnExists());
 
         Set<String> cols = new HashSet<>(alterTblNode.columns().size());
         alterTblNode.columns().forEach(c -> cols.add(((SqlIdentifier) c).getSimple()));
