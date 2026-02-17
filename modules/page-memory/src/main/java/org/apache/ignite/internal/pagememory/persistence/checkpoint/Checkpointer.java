@@ -513,7 +513,6 @@ public class Checkpointer extends IgniteWorker {
                     dirtyPartitionQueue,
                     pageMemoryList,
                     updatedPartitions,
-                    filePageStoreManager,
                     futures[i] = new CompletableFuture<>(),
                     workProgressDispatcher::updateHeartbeat,
                     currentCheckpointProgress,

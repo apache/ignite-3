@@ -29,7 +29,6 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLoc
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 
 /**
@@ -90,7 +89,6 @@ public class CheckpointPagesWriterFactory {
      * @param dirtyPartitionQueue Checkpoint dirty partition ID queue to write.
      * @param pageMemoryList List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
      * @param updatedPartitions Updated partitions.
-     * @param filePageStoreManager File page store manager for accessing checkpointed page counts.
      * @param doneWriteFut Write done future.
      * @param updateHeartbeat Update heartbeat callback.
      * @param checkpointProgress Current checkpoint data.
@@ -101,7 +99,6 @@ public class CheckpointPagesWriterFactory {
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue,
             List<PersistentPageMemory> pageMemoryList,
             ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions,
-            FilePageStoreManager filePageStoreManager,
             CompletableFuture<?> doneWriteFut,
             Runnable updateHeartbeat,
             CheckpointProgressImpl checkpointProgress,
@@ -113,7 +110,6 @@ public class CheckpointPagesWriterFactory {
                 dirtyPartitionQueue,
                 pageMemoryList,
                 updatedPartitions,
-                filePageStoreManager,
                 doneWriteFut,
                 updateHeartbeat,
                 threadBuf,

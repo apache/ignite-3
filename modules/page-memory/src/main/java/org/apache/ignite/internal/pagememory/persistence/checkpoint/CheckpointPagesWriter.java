@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.function.BooleanSupplier;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
@@ -53,8 +53,6 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
 import org.jetbrains.annotations.Nullable;
@@ -98,12 +96,6 @@ public class CheckpointPagesWriter implements Runnable {
     /** Updated partitions -> write statistics. */
     private final ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions;
 
-    /** File page store manager for accessing checkpointed page counts. */
-    private final FilePageStoreManager filePageStoreManager;
-
-    /** Cached checkpointed page counts for partitions (populated lazily). */
-    private final ConcurrentMap<GroupPartitionId, Integer> checkpointedPageCounts = new ConcurrentHashMap<>();
-
     /** Future which should be finished when all pages would be written. */
     private final CompletableFuture<?> doneFut;
 
@@ -137,7 +129,6 @@ public class CheckpointPagesWriter implements Runnable {
      * @param dirtyPartitionQueue Queue of dirty partition IDs to write.
      * @param pageMemoryList List of {@link PersistentPageMemory} instances that have dirty partitions in current checkpoint.
      * @param updatedPartitions Updated partitions.
-     * @param filePageStoreManager File page store manager for accessing checkpointed page counts.
      * @param doneFut Done future.
      * @param updateHeartbeat Update heartbeat callback.
      * @param threadBuf Thread local byte buffer.
@@ -153,7 +144,6 @@ public class CheckpointPagesWriter implements Runnable {
             IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue,
             List<PersistentPageMemory> pageMemoryList,
             ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions,
-            FilePageStoreManager filePageStoreManager,
             CompletableFuture<?> doneFut,
             Runnable updateHeartbeat,
             ThreadLocal<ByteBuffer> threadBuf,
@@ -168,7 +158,6 @@ public class CheckpointPagesWriter implements Runnable {
         this.dirtyPartitionQueue = dirtyPartitionQueue;
         this.pageMemoryList = pageMemoryList;
         this.updatedPartitions = updatedPartitions;
-        this.filePageStoreManager = filePageStoreManager;
         this.doneFut = doneFut;
         this.updateHeartbeat = updateHeartbeat;
         this.threadBuf = threadBuf;
@@ -419,34 +408,24 @@ public class CheckpointPagesWriter implements Runnable {
 
             checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-            pageWriter.write(pageMemory, fullPageId, buf);
+            PageWriteTarget target = pageWriter.write(pageMemory, fullPageId, buf);
 
-            // Determine which file type received the write.
+            // Record which file type received the write.
             GroupPartitionId partitionId = GroupPartitionId.convert(fullPageId);
             PartitionWriteStats writeStats = updatedPartitions.get(partitionId);
 
-            // TODO: this is the same logic that is implemented inside of pageWriter.write, but it doesn't belong here!
-            //       instead, what if pageWriter.write would return some hint about whenever it was writing into main/delta file?
-            Integer checkpointedPageCount = checkpointedPageCounts.computeIfAbsent(partitionId, id -> {
-                if (filePageStoreManager != null) {
-                    FilePageStore filePageStore = filePageStoreManager.getStore(id);
-                    if (filePageStore != null) {
-                        return filePageStore.checkpointedPageCount();
-                    }
-                }
-                return null;
-            });
-
-            if (checkpointedPageCount != null) {
-                if (fullPageId.pageIdx() >= checkpointedPageCount) {
+            switch (target) {
+                case MAIN_FILE:
                     writeStats.recordMainFileWrite();
-                } else {
+                    break;
+                case DELTA_FILE:
                     writeStats.recordDeltaFileWrite();
-                }
-            } else {
-                // Fallback: if boundary information is not available, conservatively record as main file write.
-                // This ensures write counts are tracked even when boundary information is missing (e.g., in tests).
-                writeStats.recordBothFilesWrite();
+                    break;
+                case NONE:
+                    // Page write was skipped (e.g., partition being destroyed), don't record.
+                    break;
+                default:
+                    throw new AssertionError("Unexpected PageWriteTarget: " + target);
             }
         };
     }
@@ -473,11 +452,26 @@ public class CheckpointPagesWriter implements Runnable {
                 partitionMeta.partitionGeneration()
         );
 
-        pageWriter.write(pageMemory, fullPageId, buffer.rewind());
+        PageWriteTarget target = pageWriter.write(pageMemory, fullPageId, buffer.rewind());
 
         checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-        updatedPartitions.get(partitionId).recordMainFileWrite();
+        // Record which file type received the write.
+        PartitionWriteStats writeStats = updatedPartitions.get(partitionId);
+
+        switch (target) {
+            case MAIN_FILE:
+                writeStats.recordMainFileWrite();
+                break;
+            case DELTA_FILE:
+                writeStats.recordDeltaFileWrite();
+                break;
+            case NONE:
+                // Page write was skipped (e.g., partition being destroyed), don't record.
+                break;
+            default:
+                throw new AssertionError("Unexpected PageWriteTarget: " + target);
+        }
 
         updateHeartbeat.run();
     }

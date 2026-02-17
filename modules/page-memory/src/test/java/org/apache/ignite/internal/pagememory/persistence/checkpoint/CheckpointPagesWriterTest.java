@@ -39,7 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -62,6 +62,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -145,7 +146,6 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 dirtyPartitionQueue,
                 singletonList(pageMemory),
                 updatedPartitions,
-                null, // filePageStoreManager - not needed for this test
                 doneFuture,
                 beforePageWrite,
                 threadBuf,
@@ -226,7 +226,6 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new GroupPartitionId(0, 0)))),
                 singletonList(pageMemory),
                 new ConcurrentHashMap<>(),
-                null, // filePageStoreManager - not needed for this test
                 doneFuture,
                 () -> {},
                 createThreadLocalBuffer(),
@@ -289,7 +288,6 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 dirtyPartitionQueue,
                 singletonList(pageMemory),
                 updatedPartitions,
-                null, // filePageStoreManager - not needed for this test
                 doneFuture,
                 () -> {},
                 createThreadLocalBuffer(),
@@ -368,7 +366,17 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         WriteDirtyPage writer = mock(WriteDirtyPage.class);
 
         if (fullPageIdArgumentCaptor != null) {
-            doNothing().when(writer).write(any(PersistentPageMemory.class), fullPageIdArgumentCaptor.capture(), any(ByteBuffer.class));
+            doReturn(PageWriteTarget.MAIN_FILE).when(writer).write(
+                    any(PersistentPageMemory.class),
+                    fullPageIdArgumentCaptor.capture(),
+                    any(ByteBuffer.class)
+            );
+        } else {
+            doReturn(PageWriteTarget.MAIN_FILE).when(writer).write(
+                    any(PersistentPageMemory.class),
+                    any(DirtyFullPageId.class),
+                    any(ByteBuffer.class)
+            );
         }
 
         return writer;
