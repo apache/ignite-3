@@ -51,6 +51,16 @@ public class LogPushExporterConfigurationSchema extends ExporterConfigurationSch
             "topology.local",
             "topology.cluster",
             "thread.pools.partitions-executor",
-            "thread.pools.sql-executor"
+            "thread.pools.sql-executor",
+            "client.handler",
+            "index.builder",
+            "clock.service",
+            "raft.snapshots",
+            "raft",
+            "sql.plan.cache",
+            "resource.vacuum",
+            "transactions",
+            "storage.aipersist",
+            "storage.aipersist.checkpoint"
     };
 }
