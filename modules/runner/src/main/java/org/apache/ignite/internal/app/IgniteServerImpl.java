@@ -22,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -459,25 +460,39 @@ public class IgniteServerImpl implements IgniteServer {
 
                             return null;
                         } else {
-                            throw handleStartException(e);
+                            throw handleClusterStartException(e);
                         }
                     });
         } catch (Exception e) {
-            throw handleStartException(e);
+            throw handleClusterStartException(e);
         }
     }
 
-    @Override
-    public void start() {
-        sync(startAsync());
-    }
-
-    private static IgniteException handleStartException(Throwable e) {
+    private static IgniteException handleClusterStartException(Throwable e) {
         if (e instanceof IgniteException) {
             return (IgniteException) e;
         } else {
             return new NodeStartException("Error during node start.", e);
         }
+    }
+
+    @Override
+    public void start() {
+        CompletableFuture<Void> startFuture = startAsync().handle(IgniteServerImpl::handleNodeStartException);
+
+        sync(startFuture);
+    }
+
+    private static Void handleNodeStartException(Void v, Throwable e) {
+        if (e == null) {
+            return v;
+        }
+
+        throwIfError(e);
+
+        sneakyThrow(e);
+
+        return v;
     }
 
     private static void ackSuccessStart() {
@@ -618,7 +633,9 @@ public class IgniteServerImpl implements IgniteServer {
         try {
             future.get();
         } catch (ExecutionException e) {
-            throwIfError(e);
+            if (hasCause(e, NodeStartException.class)) {
+                sneakyThrow(e.getCause());
+            }
 
             throw sneakyThrow(tryToCopyExceptionWithCause(e));
         } catch (InterruptedException e) {
@@ -626,7 +643,7 @@ public class IgniteServerImpl implements IgniteServer {
         }
     }
 
-    private static void throwIfError(ExecutionException exception) {
+    private static void throwIfError(Throwable exception) {
         Error error;
 
         try {
