@@ -66,7 +66,7 @@ PyObject* py_connection_close(py_connection* self, PyObject*)
 PyObject* py_connection_cursor(py_connection* self, PyObject*)
 {
     if (self->m_connection) {
-        std::unique_ptr<statement> stmt = std::make_unique<statement>(**self->m_connection);
+        std::unique_ptr<statement> stmt = std::make_unique<statement>(*self->m_connection);
 
         auto py_cursor = make_py_cursor(std::move(stmt));
         if (!py_cursor)
