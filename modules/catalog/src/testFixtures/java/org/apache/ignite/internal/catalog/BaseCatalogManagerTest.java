@@ -132,7 +132,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 clockService,
                 failureProcessor,
                 delayDuration::get,
-                PartitionCountCalculator.fixedPartitionCountCalculator()
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         ComponentContext context = new ComponentContext();

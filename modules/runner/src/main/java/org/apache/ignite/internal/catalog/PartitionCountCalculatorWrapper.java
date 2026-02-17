@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+
 /**
  * Wrapper that allows to apply and use different partition count computing approaches.
  */
@@ -29,9 +31,12 @@ public final class PartitionCountCalculatorWrapper implements PartitionCountCalc
         this.delegate = delegate;
     }
 
-    /** Constructor that uses {@link PartitionCountCalculator#fixedPartitionCountCalculator}. */
+    /**
+     * Constructor that uses {@link PartitionCountCalculator#staticPartitionCountCalculator} with
+     * {@link CatalogUtils#DEFAULT_PARTITION_COUNT} as static calculation result.
+     * */
     public PartitionCountCalculatorWrapper() {
-        this(PartitionCountCalculator.fixedPartitionCountCalculator());
+        this(PartitionCountCalculator.staticPartitionCountCalculator(CatalogUtils.DEFAULT_PARTITION_COUNT));
     }
 
     @Override

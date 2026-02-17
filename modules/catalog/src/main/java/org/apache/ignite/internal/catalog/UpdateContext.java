@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
 /**
  * Context contains two instances of the catalog: the base one and the updated one.
@@ -28,6 +29,11 @@ import java.util.function.Function;
  * processing of the current batch of commands.
  */
 public class UpdateContext {
+    /** Static calculator to use in case if the calculation function wasn't specified on construction. */
+    private static final PartitionCountCalculator STATIC_PARTITION_CALCULATOR = PartitionCountCalculator.staticPartitionCountCalculator(
+            CatalogUtils.DEFAULT_PARTITION_COUNT
+    );
+
     /** The base catalog descriptor. */
     private final Catalog baseCatalog;
 
@@ -38,7 +44,7 @@ public class UpdateContext {
 
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
-        this(catalog, PartitionCountCalculator.fixedPartitionCountCalculator());
+        this(catalog, STATIC_PARTITION_CALCULATOR);
     }
 
     /** Constructor. */

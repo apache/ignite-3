@@ -82,7 +82,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountCalculator;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -318,7 +318,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 clockService,
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountCalculator.fixedPartitionCountCalculator()
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         LowWatermark lowWatermark = mock(LowWatermark.class);

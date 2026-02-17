@@ -89,7 +89,7 @@ import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountCalculator;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -702,7 +702,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService,
                 failureProcessor,
                 delayDurationMsSupplier,
-                PartitionCountCalculator.fixedPartitionCountCalculator()
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);

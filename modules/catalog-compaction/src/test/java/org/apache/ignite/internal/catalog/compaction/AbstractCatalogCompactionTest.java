@@ -26,7 +26,7 @@ import static org.mockito.Mockito.spy;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountCalculator;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -86,7 +86,7 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
                 clockService,
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountCalculator.fixedPartitionCountCalculator()
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         assertThat(startAsync(new ComponentContext(), metastore), willCompleteSuccessfully());
