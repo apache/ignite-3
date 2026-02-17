@@ -410,24 +410,28 @@ public class CheckpointPagesWriter implements Runnable {
 
             PageWriteTarget target = pageWriter.write(pageMemory, fullPageId, buf);
 
-            // Record which file type received the write.
-            GroupPartitionId partitionId = GroupPartitionId.convert(fullPageId);
-            PartitionWriteStats writeStats = updatedPartitions.get(partitionId);
-
-            switch (target) {
-                case MAIN_FILE:
-                    writeStats.recordMainFileWrite();
-                    break;
-                case DELTA_FILE:
-                    writeStats.recordDeltaFileWrite();
-                    break;
-                case NONE:
-                    // Page write was skipped (e.g., partition being destroyed), don't record.
-                    break;
-                default:
-                    throw new AssertionError("Unexpected PageWriteTarget: " + target);
-            }
+            recordPageWrite(target, GroupPartitionId.convert(fullPageId));
         };
+    }
+
+    /**
+     * Records a page write to the appropriate file based on the write target.
+     *
+     * @param target The target file where the page was written.
+     * @param partitionId Partition ID.
+     */
+    private void recordPageWrite(PageWriteTarget target, GroupPartitionId partitionId) {
+        if (target == PageWriteTarget.NONE) {
+            return;
+        }
+
+        PartitionWriteStats writeStats = updatedPartitions.get(partitionId);
+
+        writeStats.recordWrite();
+
+        if (target == PageWriteTarget.MAIN_FILE) {
+            writeStats.recordMainFileWrite();
+        }
     }
 
     private void writePartitionMeta(
@@ -456,22 +460,7 @@ public class CheckpointPagesWriter implements Runnable {
 
         checkpointProgress.writtenPagesCounter().incrementAndGet();
 
-        // Record which file type received the write.
-        PartitionWriteStats writeStats = updatedPartitions.get(partitionId);
-
-        switch (target) {
-            case MAIN_FILE:
-                writeStats.recordMainFileWrite();
-                break;
-            case DELTA_FILE:
-                writeStats.recordDeltaFileWrite();
-                break;
-            case NONE:
-                // Page write was skipped (e.g., partition being destroyed), don't record.
-                break;
-            default:
-                throw new AssertionError("Unexpected PageWriteTarget: " + target);
-        }
+        recordPageWrite(target, partitionId);
 
         updateHeartbeat.run();
     }

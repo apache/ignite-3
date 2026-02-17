@@ -365,19 +365,11 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
     ) throws Exception {
         WriteDirtyPage writer = mock(WriteDirtyPage.class);
 
-        if (fullPageIdArgumentCaptor != null) {
-            doReturn(PageWriteTarget.MAIN_FILE).when(writer).write(
-                    any(PersistentPageMemory.class),
-                    fullPageIdArgumentCaptor.capture(),
-                    any(ByteBuffer.class)
-            );
-        } else {
-            doReturn(PageWriteTarget.MAIN_FILE).when(writer).write(
-                    any(PersistentPageMemory.class),
-                    any(DirtyFullPageId.class),
-                    any(ByteBuffer.class)
-            );
-        }
+        doReturn(PageWriteTarget.MAIN_FILE).when(writer).write(
+                any(),
+                fullPageIdArgumentCaptor != null ? fullPageIdArgumentCaptor.capture() : any(),
+                any()
+        );
 
         return writer;
     }

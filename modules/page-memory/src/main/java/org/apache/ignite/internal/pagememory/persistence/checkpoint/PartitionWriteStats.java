@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Tracks write statistics for a partition during checkpoint, including total writes
- * and which file types (main vs delta) received writes.
+ * and whether the main file received writes. Delta file writes are always assumed
+ * to occur in the current system.
  *
  * <p>This class is thread-safe for use by multiple checkpoint writer threads.
  */
@@ -33,32 +34,18 @@ class PartitionWriteStats {
     /** Whether the main file received any writes. */
     private final AtomicBoolean hasMainFileWrites = new AtomicBoolean(false);
 
-    /** Whether the delta file received any writes. */
-    private final AtomicBoolean hasDeltaFileWrites = new AtomicBoolean(false);
+    /**
+     * Records a page write.
+     */
+    void recordWrite() {
+        totalWrites.increment();
+    }
 
     /**
-     * Records a write to the main file.
+     * Records that the main file received a write.
      */
     void recordMainFileWrite() {
-        totalWrites.increment();
         hasMainFileWrites.set(true);
-    }
-
-    /**
-     * Records a write to the delta file.
-     */
-    void recordDeltaFileWrite() {
-        totalWrites.increment();
-        hasDeltaFileWrites.set(true);
-    }
-
-    /**
-     * This is a fallback when FilePageStore is not available.
-     */
-    void recordBothFilesWrite() {
-        totalWrites.increment();
-        hasMainFileWrites.set(true);
-        hasDeltaFileWrites.set(true);
     }
 
     /**
@@ -73,12 +60,5 @@ class PartitionWriteStats {
      */
     boolean hasMainFileWrites() {
         return hasMainFileWrites.get();
-    }
-
-    /**
-     * Returns whether the delta file received any writes.
-     */
-    boolean hasDeltaFileWrites() {
-        return hasDeltaFileWrites.get();
     }
 }

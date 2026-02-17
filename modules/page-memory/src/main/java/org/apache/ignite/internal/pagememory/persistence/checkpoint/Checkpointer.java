@@ -657,10 +657,8 @@ public class Checkpointer extends IgniteWorker {
                 return;
             }
 
-            // Conditionally sync delta file only if it received writes.
-            if (writeStats.hasDeltaFileWrites()) {
-                fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, currentCheckpointProgress);
-            }
+            // Always sync delta file (delta file always receives writes in the current system).
+            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, currentCheckpointProgress);
 
             // Conditionally sync main file only if it received writes.
             if (writeStats.hasMainFileWrites()) {
@@ -993,5 +991,4 @@ public class Checkpointer extends IgniteWorker {
             throw new IgniteInternalCheckedException(e);
         }
     }
-
 }
