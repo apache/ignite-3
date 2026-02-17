@@ -88,7 +88,7 @@ public class InternalTxOptions {
         return txLabel;
     }
 
-    public Consumer<InternalTransaction> killClosure() {
+    public @Nullable Consumer<InternalTransaction> killClosure() {
         return killClosure;
     }
 

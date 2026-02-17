@@ -26,7 +26,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -60,9 +59,6 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** Flag indicating that the transaction was rolled back due to timeout. */
     protected volatile boolean timeoutExceeded;
 
-    /** Transaction kill closure. Defines context specific action on tx kill. */
-    protected final @Nullable Consumer<InternalTransaction> killClosure;
-
     /**
      * The constructor.
      *
@@ -72,7 +68,6 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @param coordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout Transaction timeout in milliseconds.
-     * @param killClosure Kill closure.
      */
     IgniteAbstractTransactionImpl(
             TxManager txManager,
@@ -80,8 +75,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
             UUID id,
             UUID coordinatorId,
             boolean implicit,
-            long timeout,
-            @Nullable Consumer<InternalTransaction> killClosure
+            long timeout
     ) {
         this.txManager = txManager;
         this.observableTsTracker = observableTsTracker;
@@ -89,7 +83,6 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
         this.coordinatorId = coordinatorId;
         this.implicit = implicit;
         this.timeout = timeout;
-        this.killClosure = killClosure;
     }
 
     /** {@inheritDoc} */
@@ -170,10 +163,5 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public boolean isRolledBackWithTimeoutExceeded() {
         return timeoutExceeded;
-    }
-
-    @Override
-    public @Nullable Consumer<InternalTransaction> killClosure() {
-        return killClosure;
     }
 }

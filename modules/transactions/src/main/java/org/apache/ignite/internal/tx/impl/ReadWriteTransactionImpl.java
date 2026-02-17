@@ -65,12 +65,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /**
      * {@code True} if a transaction is externally killed.
      */
-    private boolean killed;
+    private volatile boolean killed;
 
     /**
      * {@code True} if a remote(directly mapped) part of this transaction has no writes.
      */
     private boolean noRemoteWrites = true;
+
+    private final @Nullable Consumer<InternalTransaction> killClosure;
 
     /**
      * Constructs an explicit read-write transaction.
@@ -92,7 +94,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             long timeout,
             @Nullable Consumer<InternalTransaction> killClosure
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout, killClosure);
+        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+        this.killClosure = killClosure;
     }
 
     /** {@inheritDoc} */
@@ -224,6 +227,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             if (finishFuture == null) {
                 if (killed) {
                     if (isComplete) {
+                        // A user finishes a killed transaction.
                         finishFuture = nullCompletedFuture();
 
                         return failedFuture(new TransactionException(
@@ -232,6 +236,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         formatTxInfo(id(), txManager, false), state())
                         ));
                     } else {
+                        // Kill is called twice.
                         return nullCompletedFuture();
                     }
                 }
@@ -262,6 +267,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         this.timeoutExceeded = timeoutExceeded;
                     } else {
                         killed = true;
+
+                        if (killClosure != null) {
+                            return finishFutureInternal.handle((unused, throwable) -> {
+                                // Invoke kill closure after finish.
+                                // It will notify a client about the kill.
+                                killClosure.accept(this);
+                                return null;
+                            });
+                        }
                     }
 
                     // Return the real future first time.
@@ -299,11 +313,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
-        if (killClosure != null) {
-            // Use context specific kill action.
-            killClosure.accept(this);
-            return nullCompletedFuture();
-        }
         return finishInternal(false, null, false, false, false);
     }
 

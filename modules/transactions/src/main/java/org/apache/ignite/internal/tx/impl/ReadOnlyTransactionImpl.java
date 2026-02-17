@@ -24,13 +24,10 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-only implementation of an internal transaction.
@@ -54,7 +51,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param timeout The timeout.
      * @param readTimestamp The read timestamp.
-     * @param killClosure Kill closure.
      */
     ReadOnlyTransactionImpl(
             TxManagerImpl txManager,
@@ -63,10 +59,9 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID txCoordinatorId,
             long timeout,
             HybridTimestamp readTimestamp,
-            CompletableFuture<Void> txFuture,
-            @Nullable Consumer<InternalTransaction> killClosure
+            CompletableFuture<Void> txFuture
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout, killClosure);
+        super(txManager, observableTsTracker, id, txCoordinatorId, false, timeout);
 
         this.readTimestamp = readTimestamp;
         this.txFuture = txFuture;

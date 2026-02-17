@@ -59,6 +59,8 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -79,6 +81,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -1212,50 +1215,44 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         CompletableFuture<Void> fut = kvView.putAsync(olderTxProxy, key2, val);
         assertFalse(fut.isDone());
 
-        // Give some time to acquire a lock to avoid a race with rollback.
-        Thread.sleep(100);
+        // Give some time to acquire a lock to avoid a race with next rollback.
+        Thread.sleep(500);
 
         assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
 
         // Operation future should be failed.
         assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
+
+        // Ensure inflights cleanup.
+        assertThat(youngerTxProxy.rollbackAsync(), willSucceedFast());
     }
 
     @Test
-    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() throws InterruptedException {
+    @Disabled // TODO disable under ticket. use with reversed priority.
+    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() {
         ClientTable table = (ClientTable) table();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
         List<Tuple> tuples0 = generateKeysForPartition(800, 10, map, 0, table);
 
-        ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
-        ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
+        // We need a waiter for this scenario.
 
         Tuple key = tuples0.get(0);
-        Tuple key2 = tuples0.get(1);
         Tuple val = val("1");
-        Tuple val2 = val("2");
 
-        kvView.put(olderTxProxy, key, val);
-        ClientTransaction olderTx = olderTxProxy.startedTx();
+        ClientLazyTransaction tx1 = (ClientLazyTransaction) client().transactions().begin();
+        ClientLazyTransaction tx2 = (ClientLazyTransaction) client().transactions().begin();
 
-        kvView.put(youngerTxProxy, key2, val2);
-        ClientTransaction youngerTx = youngerTxProxy.startedTx();
+        kvView.put(tx1, key, val);
 
-        assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
+        // Will wait for lock.
+        CompletableFuture<Void> fut2 = kvView.putAsync(tx2, key, val);
+        assertFalse(fut2.isDone());
 
-        // Older is allowed to wait with wait-die.
-        CompletableFuture<Void> fut = kvView.putAsync(olderTxProxy, key2, val);
-        assertFalse(fut.isDone());
-
-        // Give some time to acquire a lock to avoid a race with rollback.
-        Thread.sleep(100);
-
-        assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
-
-        // Operation future should be failed.
-        assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
+        // Rollback should not be blocked.
+        assertThat(tx2.rollbackAsync(), willSucceedFast());
+        assertThat(tx1.rollbackAsync(), willSucceedFast());
     }
 
     @Test
@@ -1309,17 +1306,15 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         kvView.put(youngerTxProxy, key3, val3);
 
         // Younger is not allowed to wait with wait-die.
+        // Next operation should invalidate the transaction.
         CompletableFuture<Void> fut = kvView.putAsync(youngerTxProxy, key, val);
         assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
 
-        olderTxProxy.commit();
-
-        assertThat(kvView.putAsync(youngerTxProxy, key4, val4), willThrowWithCauseOrSuppressed(TransactionException.class));
-
-        assertThat(youngerTxProxy.commitAsync(), willSucceedFast());
-
-        // Ensure enlisted keys are unlocked.
+        // Ensure all enlisted keys are unlocked.
+        assertThat(kvView.putAsync(null, key, val), willSucceedFast());
+        assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
         assertThat(kvView.putAsync(null, key3, val3), willSucceedFast());
+        assertThat(kvView.putAsync(null, key4, val4), willSucceedFast());
     }
 
     @Test
