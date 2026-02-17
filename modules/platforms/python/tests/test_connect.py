@@ -98,4 +98,4 @@ def test_heartbeat_disabled(table_name, drop_table_cleanup):
                     if len(data_out) == 5:
                         time.sleep(7)
 
-                assert err.match("Connection closed by the server")
+            assert err.match("(Connection closed by the server|Can not send a message to the server due to connection error)")
