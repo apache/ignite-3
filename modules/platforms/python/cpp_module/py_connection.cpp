@@ -203,7 +203,7 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
     if (heartbeat_interval < 0.0)
         heartbeat_interval = 0.0;
 
-    auto heartbeat_interval_chrono = std::chrono::milliseconds(static_cast<int>(std::ceilf(heartbeat_interval * 1000)));
+    std::chrono::milliseconds heartbeat_interval_chrono = std::chrono::milliseconds(static_cast<int>(std::ceil(heartbeat_interval * 1000)));
     node_connection::configuration cfg{addresses, autocommit, ssl_cfg, heartbeat_interval_chrono};
 
     if (schema)
