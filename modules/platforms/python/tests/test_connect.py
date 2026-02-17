@@ -83,7 +83,7 @@ def test_heartbeat_enabled(table_name, drop_table_cleanup, interval):
 
 def test_heartbeat_disabled(table_name, drop_table_cleanup):
     row_count = 10
-    with pyignite_dbapi.connect(address=server_addresses_basic[0], heartbeat_interval=None) as conn:
+    with pyignite_dbapi.connect(address=server_addresses_basic[0], heartbeat_interval=0) as conn:
         with conn.cursor() as cursor:
             cursor.execute(f"create table {table_name}(id int primary key, data varchar)")
             for key in range(row_count):

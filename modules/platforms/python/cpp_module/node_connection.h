@@ -53,7 +53,7 @@ public:
     static constexpr std::int32_t DEFAULT_TIMEOUT_SECONDS = 30;
     static constexpr std::chrono::milliseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
     static constexpr std::int32_t DEFAULT_PAGE_SIZE = 1024;
-    static constexpr std::int32_t DEFAULT_AUTO_COMMIT = true;
+    static constexpr bool DEFAULT_AUTO_COMMIT = true;
     static constexpr std::string_view DEFAULT_SCHEMA = "PUBLIC";
 
     struct auth_configuration final {
@@ -62,10 +62,11 @@ public:
     };
 
     struct configuration final {
-        configuration(std::vector<ignite::end_point> addresses, bool autocommit, ssl_config ssl_config)
+        configuration(std::vector<ignite::end_point> addresses, bool autocommit, ssl_config ssl_config, std::chrono::milliseconds heartbeat_interval)
             : m_addresses(std::move(addresses))
             , m_auto_commit(autocommit)
-            , m_ssl_configuration(std::move(ssl_config)) {}
+            , m_ssl_configuration(std::move(ssl_config))
+            , m_heartbeat_interval(heartbeat_interval) {}
 
         std::vector<ignite::end_point> m_addresses;
         std::string m_schema{DEFAULT_SCHEMA};
@@ -73,7 +74,7 @@ public:
         std::int32_t m_page_size{DEFAULT_PAGE_SIZE};
         std::int32_t m_timeout{DEFAULT_TIMEOUT_SECONDS};
         std::chrono::milliseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
-        bool m_auto_commit{true};
+        bool m_auto_commit{DEFAULT_AUTO_COMMIT};
         ssl_config m_ssl_configuration;
     };
 
@@ -112,12 +113,14 @@ public:
      */
     node_connection(configuration cfg)
         : m_configuration(std::move(cfg))
-        , m_auto_commit(cfg.m_auto_commit)
+        , m_auto_commit(m_configuration.m_auto_commit)
         , m_timer_thread(ignite::detail::thread_timer::start([] (auto&&) { /* Ignore */ }))
     {
+        assert(!m_configuration.m_addresses.empty());
+
         std::random_device device;
         std::mt19937 generator(device());
-        std::uniform_int_distribution<std::uint32_t> distribution(0, m_configuration.m_addresses.size());
+        std::uniform_int_distribution<std::uint32_t> distribution(0, m_configuration.m_addresses.size() - 1);
         m_current_address_idx = distribution(generator);
     }
 
@@ -133,13 +136,6 @@ public:
             m_transaction_empty = true;
         }
     }
-
-    /**
-     * Get autocommit flag.
-     *
-     * @return Autocommit flag.
-     */
-    bool is_autocommit() const noexcept { return m_auto_commit; }
 
     /**
      * Set autocommit flag.
@@ -225,7 +221,7 @@ public:
      *
      * @return @c true if the auto commit is enabled.
      */
-    [[nodiscard]] bool is_auto_commit() const { return m_auto_commit; }
+    [[nodiscard]] bool is_auto_commit() const noexcept { return m_auto_commit; }
 
     /**
      * Get transaction ID.
@@ -273,6 +269,8 @@ private:
 
             sent += res;
         }
+
+        m_last_message_ts = std::chrono::steady_clock::now();
 
         assert(static_cast<std::size_t>(sent) == size);
     }
@@ -342,8 +340,6 @@ private:
         ensure_connected();
 
         send_all(req.data(), req.size(), timeout);
-
-        m_last_message_ts = std::chrono::steady_clock::now();
     }
 
     /**
@@ -639,13 +635,8 @@ private:
     }
 
     void send_heartbeat() {
-        auto res = sync_request_nothrow(ignite::protocol::client_operation::HEARTBEAT,
-            [self_weak = weak_from_this()](const auto&) {
-                if (auto self = self_weak.lock()) {
-                    self->plan_heartbeat(self->m_heartbeat_interval);
-                }
-            }
-        );
+        auto res = sync_request_nothrow(ignite::protocol::client_operation::HEARTBEAT, [](auto&){});
+        plan_heartbeat(m_heartbeat_interval);
 
         // We don't care here if we were not able to send a heartbeat due to the connection is dead already.
         UNUSED_VALUE(res);
@@ -664,13 +655,11 @@ private:
     }
 
     void plan_heartbeat(std::chrono::milliseconds timeout) {
-        if (auto timer_thread = m_timer_thread.lock()) {
-            timer_thread->add(timeout, [self_weak = weak_from_this()] {
-                if (auto self = self_weak.lock()) {
-                    self->on_heartbeat_timeout();
-                }
-            });
-        }
+        m_timer_thread->add(timeout, [self_weak = weak_from_this()] {
+            if (auto self = self_weak.lock()) {
+                self->on_heartbeat_timeout();
+            }
+        });
     }
 
     /** Configuration. */
@@ -700,9 +689,6 @@ private:
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
 
-    /** Heartbeat interval configured by a user. */
-    std::chrono::milliseconds m_config_heartbeat_interval{0};
-
     /** Heartbeat interval. */
     std::chrono::milliseconds m_heartbeat_interval{0};
 
@@ -710,7 +696,7 @@ private:
     std::chrono::steady_clock::time_point m_last_message_ts{};
 
     /** Timer thread. */
-    std::weak_ptr<ignite::detail::thread_timer> m_timer_thread;
+    std::shared_ptr<ignite::detail::thread_timer> m_timer_thread;
 
     /** Socket mutex. */
     std::recursive_mutex m_socket_mutex;

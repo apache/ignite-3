@@ -58,7 +58,7 @@ PyObject* make_connection()
 }
 
 PyObject* make_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, float heartbeat_interval, bool autocommit, ssl_config &&ssl_cfg) {
+    int page_size, int timeout, double heartbeat_interval, bool autocommit, ssl_config &&ssl_cfg) {
     auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, heartbeat_interval,
         autocommit, std::move(ssl_cfg));
 
@@ -83,9 +83,9 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
         const_cast<char*>("schema"),
         const_cast<char*>("timezone"),
         const_cast<char*>("timeout"),
+        const_cast<char*>("heartbeat_interval"),
         const_cast<char*>("page_size"),
         const_cast<char*>("autocommit"),
-        const_cast<char*>("heartbeat_interval"),
         const_cast<char*>("use_ssl"),
         const_cast<char*>("ssl_keyfile"),
         const_cast<char*>("ssl_certfile"),
@@ -99,7 +99,7 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
     const char *schema = nullptr;
     const char *timezone = nullptr;
     int timeout = 0;
-    float heartbeat_interval = .0;
+    double heartbeat_interval = .0;
     int page_size = 0;
     int autocommit = 1;
     int use_ssl = 0;

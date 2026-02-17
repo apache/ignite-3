@@ -34,7 +34,7 @@ namespace {
 struct py_connection {
     PyObject_HEAD
 
-    node_connection *m_connection;
+    std::shared_ptr<node_connection> *m_connection;
 };
 
 /**
@@ -54,7 +54,7 @@ bool py_connection_expect_open(const py_connection* self) {
 PyObject* py_connection_close(py_connection* self, PyObject*)
 {
     if (self->m_connection) {
-        self->m_connection->close();
+        (*self->m_connection)->close();
 
         delete self->m_connection;
         self->m_connection = nullptr;
@@ -66,7 +66,7 @@ PyObject* py_connection_close(py_connection* self, PyObject*)
 PyObject* py_connection_cursor(py_connection* self, PyObject*)
 {
     if (self->m_connection) {
-        std::unique_ptr<statement> stmt = std::make_unique<statement>(*self->m_connection);
+        std::unique_ptr<statement> stmt = std::make_unique<statement>(**self->m_connection);
 
         auto py_cursor = make_py_cursor(std::move(stmt));
         if (!py_cursor)
@@ -85,7 +85,7 @@ PyObject* py_connection_autocommit(py_connection* self, PyObject*)
     if (!py_connection_expect_open(self))
         return nullptr;
 
-    if (self->m_connection->is_autocommit()) {
+    if ((*self->m_connection)->is_auto_commit()) {
         Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;
@@ -101,7 +101,7 @@ PyObject* py_connection_set_autocommit(py_connection* self, PyObject* value)
         return nullptr;
     }
 
-    self->m_connection->set_autocommit(value == Py_True);
+    (*self->m_connection)->set_autocommit(value == Py_True);
 
     Py_RETURN_NONE;
 }
@@ -112,7 +112,7 @@ PyObject* py_connection_commit(py_connection* self, PyObject*)
         return nullptr;
 
     try {
-        self->m_connection->transaction_commit();
+        (*self->m_connection)->transaction_commit();
     } catch (const ignite::ignite_error& err) {
         set_error(err);
         return nullptr;
@@ -126,7 +126,7 @@ PyObject* py_connection_rollback(py_connection* self, PyObject*)
         return nullptr;
 
     try {
-        self->m_connection->transaction_rollback();
+        (*self->m_connection)->transaction_rollback();
     } catch (const ignite::ignite_error& err) {
         set_error(err);
         return nullptr;
@@ -194,13 +194,14 @@ int register_py_connection_type(PyObject* mod) {
 }
 
 PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity,
-    const char* secret, int page_size, int timeout, float heartbeat_interval, bool autocommit, ssl_config &&ssl_cfg) {
+    const char* secret, int page_size, int timeout, double heartbeat_interval, bool autocommit, ssl_config &&ssl_cfg) {
     if (addresses.empty()) {
         PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
         return nullptr;
     }
 
-    node_connection::configuration cfg{addresses, autocommit, ssl_cfg};
+    auto heartbeat_interval_chrono = std::chrono::milliseconds(static_cast<int>(std::ceilf(heartbeat_interval * 1000)));
+    node_connection::configuration cfg{addresses, autocommit, ssl_cfg, heartbeat_interval_chrono};
 
     if (schema)
         cfg.m_schema = schema;
@@ -218,10 +219,7 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
     if (timeout)
         cfg.m_timeout = timeout;
 
-    if (heartbeat_interval)
-        cfg.m_heartbeat_interval = std::chrono::milliseconds(static_cast<int>(std::round(heartbeat_interval * 1000)));
-
-    auto node_connection = std::make_unique<class node_connection>(cfg);
+    auto node_connection = std::make_shared<class node_connection>(cfg);
 
     try {
         node_connection->establish();
@@ -234,7 +232,7 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
     if (!py_conn_obj)
         return nullptr;
 
-    py_conn_obj->m_connection = node_connection.release();
+    py_conn_obj->m_connection = new std::shared_ptr<class node_connection>(std::move(node_connection));
 
     return reinterpret_cast<PyObject *>(py_conn_obj);
 }
