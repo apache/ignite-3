@@ -236,10 +236,8 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
      */
     private static List<Field> getAllFields(Class<?> clazz) {
         var result = new ArrayList<Field>();
-        var current = clazz;
-        while (current != null) {
+        for (Class<?> current = clazz; current != Object.class; current = current.getSuperclass()) {
             Collections.addAll(result, current.getDeclaredFields());
-            current = current.getSuperclass();
         }
         return result;
     }
