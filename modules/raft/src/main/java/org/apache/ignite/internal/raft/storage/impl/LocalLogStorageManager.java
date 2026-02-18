@@ -22,15 +22,15 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 
 /**
- * LogStorageFactory that creates instances of {@link LocalLogStorage}.
+ * LogStorageManager for instances of {@link LocalLogStorage}.
  */
-public class LocalLogStorageFactory implements LogStorageFactory {
+public class LocalLogStorageManager implements LogStorageManager {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();

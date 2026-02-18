@@ -37,7 +37,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
@@ -55,10 +55,10 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.util.SizeUnit;
 
 /**
- * {@link LogStorageFactoryCreator} for volatile log storage.
+ * {@link LogStorageManagerCreator} for volatile log storage.
  */
-public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreator, IgniteComponent {
-    private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorageFactoryCreator.class);
+public class VolatileLogStorageManagerCreator implements LogStorageManagerCreator, IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorageManagerCreator.class);
 
     /** Database path. */
     private final Path spillOutPath;
@@ -80,7 +80,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
      *
      * @param spillOutPath Path at which to put spill-out data.
      */
-    public VolatileLogStorageFactoryCreator(String nodeName, Path spillOutPath) {
+    public VolatileLogStorageManagerCreator(String nodeName, Path spillOutPath) {
         this.spillOutPath = Objects.requireNonNull(spillOutPath);
 
         executorService = Executors.newFixedThreadPool(
@@ -192,7 +192,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public LogStorageFactory factory(LogStorageBudgetView budgetView) {
-        return new VolatileLogStorageFactory(budgetView, db, columnFamily, executorService);
+    public LogStorageManager manager(LogStorageBudgetView budgetView) {
+        return new VolatileLogStorageManager(budgetView, db, columnFamily, executorService);
     }
 }

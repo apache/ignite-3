@@ -96,8 +96,8 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -151,7 +151,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
     private OutgoingSnapshotsManager outgoingSnapshotsManager;
 
-    private LogStorageFactory logStorageFactory;
+    private LogStorageManager logStorageManager;
 
     private PartitionSnapshotStorage partitionSnapshotStorage;
 
@@ -291,14 +291,14 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         components.add(outgoingSnapshotsManager);
 
-        logStorageFactory = SharedLogStorageFactoryUtils.create(
+        logStorageManager = SharedLogStorageManagerUtils.create(
                 "table data log",
                 clusterService.nodeName(),
                 componentWorkingDir.raftLogPath(),
                 true
         );
 
-        components.add(logStorageFactory);
+        components.add(logStorageManager);
 
         assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
 
@@ -356,7 +356,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         options.snapshotStorageFactory(new PartitionSnapshotStorageFactory(partitionSnapshotStorage));
 
         RaftGroupOptionsConfigurer raftGroupOptionsConfigurer = configureProperties(
-                logStorageFactory,
+                logStorageManager,
                 componentWorkingDir.metaPath()
         );
 

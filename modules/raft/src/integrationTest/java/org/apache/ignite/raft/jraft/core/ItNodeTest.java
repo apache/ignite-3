@@ -108,7 +108,7 @@ import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
-import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -3321,7 +3321,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         ComponentContext startComponentContext = new ComponentContext();
 
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
+        DefaultLogStorageManager logStorageProvider = new DefaultLogStorageManager(path);
         assertThat(logStorageProvider.startAsync(startComponentContext), willCompleteSuccessfully());
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(fsm.getLogs().size());
@@ -3338,7 +3338,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
+        DefaultLogStorageManager log2 = new DefaultLogStorageManager(path);
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
@@ -3368,7 +3368,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         ComponentContext startComponentContext = new ComponentContext();
 
         BootstrapOptions opts = new BootstrapOptions();
-        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
+        DefaultLogStorageManager logStorageProvider = new DefaultLogStorageManager(path);
         assertThat(logStorageProvider.startAsync(startComponentContext), willCompleteSuccessfully());
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(0);
@@ -3386,7 +3386,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
         nodeOpts.setFsm(fsm);
-        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
+        DefaultLogStorageManager log2 = new DefaultLogStorageManager(path);
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
 
@@ -4543,12 +4543,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(cluster.getNode(forcedLeaderPeer.getPeerId()).isLeader(), "Forced leader must remain a leader");
     }
 
-    private DefaultLogStorageFactory startPersistentLogStorageFactory() {
-        DefaultLogStorageFactory persistentLogStorageFactory = new DefaultLogStorageFactory(Path.of(dataPath).resolve("logs"));
+    private DefaultLogStorageManager startPersistentLogStorageManager() {
+        DefaultLogStorageManager persistentLogStorageManager = new DefaultLogStorageManager(Path.of(dataPath).resolve("logs"));
 
-        assertThat(persistentLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(persistentLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        return persistentLogStorageFactory;
+        return persistentLogStorageManager;
     }
 
     private void waitTillFirstConfigLogEntryIsReplicated(TestPeer forcedLeaderPeer) {
@@ -4851,7 +4851,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     private NodeOptions createNodeOptions(int nodeIdx) {
         NodeOptions options = new NodeOptions();
 
-        DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
+        DefaultLogStorageManager log = new DefaultLogStorageManager(Path.of(dataPath, "node" + nodeIdx, "log"));
         assertThat(log.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         options.setServiceFactory(new IgniteJraftServiceFactory(log));
@@ -4983,7 +4983,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 JRaftServiceFactory serviceFactory = nodeOptions.getServiceFactory();
                 if (serviceFactory instanceof IgniteJraftServiceFactory) {
                     IgniteJraftServiceFactory igniteServiceFactory = (IgniteJraftServiceFactory) serviceFactory;
-                    assertThat(igniteServiceFactory.logStorageFactory().stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                    assertThat(igniteServiceFactory.logStorageManager().stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 }
 
                 assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());

@@ -50,8 +50,8 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -99,7 +99,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Cluster service. */
     private ClusterService service;
 
-    private LogStorageFactory partitionsLogStorageFactory;
+    private LogStorageManager partitionsLogStorageManager;
 
     /**
      * Before each.
@@ -112,12 +112,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
 
-        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 service.nodeName(),
                 workingDir.raftLogPath()
         );
 
-        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         server = TestJraftServerFactory.create(service);
 
@@ -134,7 +134,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         RaftGroupOptions grpOptions = defaults().commandsMarshaller(cmdMarshaller);
 
-        grpOptions.setLogStorageFactory(partitionsLogStorageFactory);
+        grpOptions.setLogStorageManager(partitionsLogStorageManager);
         grpOptions.serverDataPath(workingDir.metaPath());
 
         assertTrue(
@@ -189,7 +189,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                () -> assertThat(stopAsync(componentContext, server, service, partitionsLogStorageFactory), willCompleteSuccessfully()),
+                () -> assertThat(stopAsync(componentContext, server, service, partitionsLogStorageManager), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

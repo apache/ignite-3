@@ -69,7 +69,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
 import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorage;
@@ -162,7 +162,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
     private class SimpleIgniteNode {
         final LogStorage logStorage = new VolatileLogStorage(new UnlimitedBudget(), new ReusableOnHeapLogs(), new OnHeapLogs());
 
-        final LogStorageFactory logStorageFactory = new TestLogStorageFactory(logStorage);
+        final LogStorageManager logStorageManager = new TestLogStorageManager(logStorage);
 
         final String nodeName;
 
@@ -227,7 +227,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                         raftGroupListener,
                         RaftGroupEventsListener.noopLsnr,
                         RaftGroupOptions.defaults()
-                                .setLogStorageFactory(logStorageFactory)
+                                .setLogStorageManager(logStorageManager)
                                 .serverDataPath(partitionsWorkDir.metaPath())
                 );
             } catch (NodeStoppingException e) {
@@ -392,10 +392,10 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static class TestLogStorageFactory implements LogStorageFactory {
+    private static class TestLogStorageManager implements LogStorageManager {
         private final LogStorage logStorage;
 
-        TestLogStorageFactory(LogStorage logStorage) {
+        TestLogStorageManager(LogStorage logStorage) {
             this.logStorage = logStorage;
         }
 

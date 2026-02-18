@@ -106,8 +106,9 @@ import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageManagerCreator;
 import org.apache.ignite.internal.raft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
@@ -191,8 +192,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Raft clients factory for raft server endpoints starting. */
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
-    /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
-    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
+    /** Creator for {@link LogStorageManager} for volatile tables. */
+    private final LogStorageManagerCreator volatileLogStorageManagerCreator;
 
     private final ScheduledExecutorService replicaLifecycleExecutor;
 
@@ -253,7 +254,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
-     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
+     * @param volatileLogStorageManagerCreator Creator for {@link LogStorageManager} for
      *      volatile tables.
      * @param replicaLifecycleExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
@@ -274,7 +275,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
-            LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            LogStorageManagerCreator volatileLogStorageManagerCreator,
             ScheduledExecutorService replicaLifecycleExecutor,
             Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             Executor throttledLogExecutor
@@ -284,7 +285,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.stableAssignmentsSupplier = stableAssignmentsSupplier;
         this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
-        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
+        this.volatileLogStorageManagerCreator = volatileLogStorageManagerCreator;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
@@ -863,7 +864,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         if (isVolatileStorage) {
             LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorageBudget().value();
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(view))
+                    .setLogStorageManager(volatileLogStorageManagerCreator.manager(view))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
