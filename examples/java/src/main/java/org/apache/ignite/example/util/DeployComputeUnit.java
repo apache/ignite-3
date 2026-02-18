@@ -29,8 +29,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Utility class for deploying Ignite compute units.
@@ -40,6 +38,43 @@ import java.util.Map;
  * </p>
  */
 public class DeployComputeUnit {
+
+    /**
+     * Class containing deployment arguments parsed from command line.
+     */
+    public static final class DeploymentArgs {
+        private final boolean runFromIDE;
+        private final String jarPath;
+
+        /**
+         * Creates deployment arguments.
+         *
+         * @param runFromIDE Whether the example runs from an IDE.
+         * @param jarPath Path to external JAR when run outside IDE (may be null).
+         */
+        public DeploymentArgs(boolean runFromIDE, String jarPath) {
+            this.runFromIDE = runFromIDE;
+            this.jarPath = jarPath;
+        }
+
+        /**
+         * Returns whether the example runs from an IDE.
+         *
+         * @return True if running from IDE.
+         */
+        public boolean runFromIDE() {
+            return runFromIDE;
+        }
+
+        /**
+         * Returns the path to external JAR when run outside IDE.
+         *
+         * @return JAR path or null.
+         */
+        public String jarPath() {
+            return jarPath;
+        }
+    }
 
     private static final String BASE_URL = "http://localhost:10300";
     private static final HttpClient HTTP = HttpClient.newHttpClient();
@@ -63,13 +98,8 @@ public class DeployComputeUnit {
 
         HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
 
-        System.out.println("[DEBUG] Checking deployment status for " + unitId + " version " + version);
-        System.out.println("[DEBUG] HTTP Status: " + resp.statusCode());
-        System.out.println("[DEBUG] Response body: " + resp.body());
-
         if (resp.statusCode() == 404) {
             // Unit doesn't exist yet
-            System.out.println("[DEBUG] Unit not found (404)");
             return false;
         }
 
@@ -80,12 +110,8 @@ public class DeployComputeUnit {
         // Parse JSON response - the API returns a Collection<UnitStatus>
         JsonNode root = OBJECT_MAPPER.readTree(resp.body());
 
-        System.out.println("[DEBUG] Parsed JSON root: " + root);
-        System.out.println("[DEBUG] Is array: " + root.isArray() + ", Is object: " + root.isObject());
-
         // Handle empty response (unit exists but no matching status)
         if (root.isArray() && root.isEmpty()) {
-            System.out.println("[DEBUG] Empty array response");
             return false;
         }
 
@@ -96,26 +122,20 @@ public class DeployComputeUnit {
 
         // Check if any node has this version deployed
         for (JsonNode unitStatus : root) {
-            System.out.println("[DEBUG] Processing UnitStatus: " + unitStatus);
             JsonNode versionToStatus = unitStatus.path("versionToStatus");
-            System.out.println("[DEBUG] versionToStatus: " + versionToStatus);
 
             if (versionToStatus.isArray()) {
                 for (JsonNode versionStatus : versionToStatus) {
                     String versionValue = versionStatus.path("version").asText();
                     String statusValue = versionStatus.path("status").asText();
 
-                    System.out.println("[DEBUG] Found version: " + versionValue + ", status: " + statusValue);
-
                     if (version.equals(versionValue) && "DEPLOYED".equals(statusValue)) {
-                        System.out.println("[DEBUG] MATCH FOUND - Deployment is ready!");
                         return true;
                     }
                 }
             }
         }
 
-        System.out.println("[DEBUG] No matching DEPLOYED status found");
         return false;
     }
 
@@ -221,23 +241,21 @@ public class DeployComputeUnit {
      * </ul>
      *
      * @param args Command-line arguments (may be null).
-     * @return Map with keys "runFromIDE" and "jarPath".
+     * @return DeploymentArgs record with runFromIDE and jarPath fields.
      */
-    public static Map<String, Object> processArguments(String[] args) {
-        Map<String, Object> response = new HashMap<>();
-
-        if (args == null) {
-            return response;
-        }
-
+    public static DeploymentArgs processArguments(String[] args) {
         boolean runFromIDE = true;
         String jarPath = null;
+
+        if (args == null) {
+            return new DeploymentArgs(runFromIDE, jarPath);
+        }
 
         for (String arg : args) {
 
             if (arg.contains("runFromIDE")) {
                 String[] splitArgArr = arg.split("=");
-                if (splitArgArr != null && splitArgArr.length == 2) {
+                if (splitArgArr.length == 2) {
                     runFromIDE = Boolean.parseBoolean(splitArgArr[1]);
                 } else {
                     throw new RuntimeException(" 'runFromIDE' argument not specified in the required format ");
@@ -246,7 +264,7 @@ public class DeployComputeUnit {
 
             if (arg.contains("jarPath")) {
                 String[] splitArgArr = arg.split("=");
-                if (splitArgArr != null && splitArgArr.length == 2) {
+                if (splitArgArr.length == 2) {
                     jarPath = splitArgArr[1];
                 } else {
                     throw new RuntimeException(" 'jarPath' argument not specified in the required format ");
@@ -254,10 +272,7 @@ public class DeployComputeUnit {
             }
         }
 
-        response.put("runFromIDE", runFromIDE);
-        response.put("jarPath", jarPath);
-
-        return response;
+        return new DeploymentArgs(runFromIDE, jarPath);
     }
 
     /**

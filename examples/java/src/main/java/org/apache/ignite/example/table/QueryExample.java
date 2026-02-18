@@ -62,7 +62,7 @@ public class QueryExample {
     }
 
     /**
-     * Demonstrates querying with an explicit transaction.
+     * Demonstrates querying with an implicit transaction.
      *
      * @param table  Table instance to query.
      */

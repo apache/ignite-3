@@ -36,66 +36,9 @@ import org.apache.ignite.table.QualifiedName;
 /**
  * This example demonstrates the usage of the {@link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
  *
- *
- * <p>Find instructions on how to run the example in the {@code README.md}
- * file located in the {@code examples} directory root.</p>
- *
- * <h2>Execution Modes</h2>
- *
- * <p>There are two modes of execution:</p>
- *
- * <h3>1. Automated : The JAR Deployment for  deployment unit is automated </h3>
- *
- * <h4>1.1 With IDE</h4>
- * <ul>
- *   <li>
- *     <b>Run from an IDE</b><br>
- *     Launch the example directly from the IDE. If the required deployment
- *     unit is not present, the example automatically builds and deploys the
- *     necessary JAR.
- *   </li>
- * </ul>
- *
- * <h3>1.2 Without IDE</h3>
- * <ul>
- *   <li>
- *     <b>Run from the command line</b><br>
- *     Start the example using a Java command where the classpath includes
- *     all required dependencies:
- *
- *     <pre>{@code
- * java -cp "{user.home}\\.m2\\repository\\org\\apache\\ignite\\ignite-core\\3.1.0-SNAPSHOT\\
- * ignite-core-3.1.0-SNAPSHOT.jar{other required jars}"
- * <example-main-class> runFromIDE=false jarPath="{path-to-examples-jar}"
- *     }</pre>
- * <p>
- *     In this mode, {@code runFromIDE=false} indicates command-line execution,
- *     and {@code jarPath} must reference the examples JAR used as the
- *     deployment unit.
- *   </li>
- * </ul>
- *
- * <h2>2. Manual (with IDE): The JAR deployment for the deployment unit is manual</h2>
- *
- * <p>Before running this example, complete the following steps related to
- * code deployment:</p>
- *
- * <ol>
- *   <li>
- *     Build the {@code ignite-examples-x.y.z.jar} file:<br>
- *     {@code ./gradlew :ignite-examples:jar}
- *   </li>
- *   <li>
- *     Deploy the generated JAR as a deployment unit using the CLI:<br>
- *     <pre>{@code
- * cluster unit deploy computeExampleUnit \
- *     --version 1.0.0 \
- *     --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar
- *     }</pre>
- *   </li>
- * </ol>
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
-public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
+public class ComputeBroadcastExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
 
@@ -110,7 +53,7 @@ public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
      */
     public static void main(String[] args) throws Exception {
 
-        processDeploymentUnit(args);
+        AbstractDeploymentUnitExample.processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -127,27 +70,24 @@ public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
 
             try {
 
-                client.sql().executeScript("DROP SCHEMA IF EXISTS CUSTOM_SCHEMA CASCADE;");
-                client.sql().executeScript("CREATE SCHEMA CUSTOM_SCHEMA");
-                client.sql().executeScript("CREATE TABLE CUSTOM_SCHEMA.MY_QUALIFIED_TABLE (" +
-                        "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
+                //--------------------------------------------------------------------------------------
+                //
+                // Prerequisites for the example:
+                // 1. Create table and schema for the example.
+                // 2. Create a new deployment unit for the compute job.
+                //
+                //--------------------------------------------------------------------------------------
 
-                client.sql().executeScript("CREATE SCHEMA IF NOT EXISTS PUBLIC");
-                client.sql().executeScript("CREATE TABLE IF NOT EXISTS PUBLIC.MY_TABLE (" +
-                        "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
+                setupTablesAndSchema(client);
+                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, AbstractDeploymentUnitExample.getJarPath());
 
-                client.sql().executeScript("CREATE TABLE PERSON (" +
-                        "ID INT PRIMARY KEY, FIRST_NAME VARCHAR(100)," +
-                        "LAST_NAME VARCHAR(100), AGE INT)");
-
-                client.sql().executeScript("INSERT INTO PERSON VALUES " +
-                        "(1, 'John', 'Doe', 36)," +
-                        "(2, 'Jane', 'Smith', 35)," +
-                        "(3, 'Robert', 'Johnson', 25)");
+                //--------------------------------------------------------------------------------------
+                //
+                // Configuring compute job.
+                //
+                //--------------------------------------------------------------------------------------
 
                 System.out.println("\nConfiguring compute job...");
-
-                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, jarPath);
 
                 JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
                         .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -186,19 +126,47 @@ public class ComputeBroadcastExample extends AbstractDeploymentUnitExample {
                                 .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                                 .build(), null
                 );
-            } catch (Exception e) {
-                throw new RuntimeException(e);
             } finally {
 
                 System.out.println("Cleaning up resources");
                 undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
 
-                /* Drop table */
-                System.out.println("\nDropping the table...");
+                // Drop tables
+                System.out.println("\nDropping the tables...");
 
-                client.sql().executeScript("DROP TABLE Person");
+                client.sql().executeScript("DROP TABLE IF EXISTS Person");
+                client.sql().executeScript("DROP TABLE IF EXISTS PUBLIC.MY_TABLE");
+                client.sql().executeScript("DROP SCHEMA IF EXISTS CUSTOM_SCHEMA CASCADE");
             }
         }
+    }
+
+    /**
+     * Sets up the tables and schema required for the broadcast example.
+     *
+     * <p>This setup ensures the example is self-contained and can run
+     * without external dependencies, enabling automated execution.</p>
+     *
+     * @param client The Ignite client to use for executing SQL statements.
+     */
+    private static void setupTablesAndSchema(IgniteClient client) {
+        client.sql().executeScript("DROP SCHEMA IF EXISTS CUSTOM_SCHEMA CASCADE");
+        client.sql().executeScript("CREATE SCHEMA CUSTOM_SCHEMA");
+        client.sql().executeScript("CREATE TABLE CUSTOM_SCHEMA.MY_QUALIFIED_TABLE ("
+                + "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
+
+        client.sql().executeScript("CREATE SCHEMA IF NOT EXISTS PUBLIC");
+        client.sql().executeScript("CREATE TABLE IF NOT EXISTS PUBLIC.MY_TABLE ("
+                + "ID INT PRIMARY KEY, MESSAGE VARCHAR(255))");
+
+        client.sql().executeScript("CREATE TABLE PERSON ("
+                + "ID INT PRIMARY KEY, FIRST_NAME VARCHAR(100),"
+                + "LAST_NAME VARCHAR(100), AGE INT)");
+
+        client.sql().executeScript("INSERT INTO PERSON VALUES "
+                + "(1, 'John', 'Doe', 36),"
+                + "(2, 'Jane', 'Smith', 35),"
+                + "(3, 'Robert', 'Johnson', 25)");
     }
 
     /**
