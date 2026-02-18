@@ -209,8 +209,6 @@ public class DirectTxUtils {
                     new ClientTransaction(payloadChannel.clientChannel(), id, ctx.readOnly, txId, ctx.pm, coordId, observableTimestamp,
                             timeout);
 
-            payloadChannel.clientChannel().inflights().register(startedTx);
-            
             ctx.firstReqFut.complete(startedTx);
         } else if (ctx.enlistmentToken != null) { // Use enlistment meta only for remote transactions.
             assert tx != null;

@@ -32,6 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -39,6 +40,9 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,15 +67,19 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private volatile CompletableFuture<Void> finishFuture;
 
     /**
-     * {@code True} if a transaction is externally killed.
+     * {@code True} if a transaction is externally killed. Protected by enlistment read/write lock.
      */
-    private volatile boolean killed;
+    private CompletableFuture<Void> killFuture;
 
     /**
      * {@code True} if a remote(directly mapped) part of this transaction has no writes.
      */
     private boolean noRemoteWrites = true;
 
+    /**
+     * A closure which is called then a transaction is externally killed (not by direct user call).
+     * Not-null only for a client's transaction.
+     */
     private final @Nullable Consumer<InternalTransaction> killClosure;
 
     /**
@@ -144,6 +152,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         }
     }
 
+    @Override
+    public void enlistForCleanup(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
+        PendingTxPartitionEnlistment enlistment = enlisted.computeIfAbsent(
+                replicationGroupId,
+                k -> new PendingTxPartitionEnlistment(primaryNodeConsistentId, consistencyToken)
+        );
+
+        enlistment.addTableId(tableId);
+    }
+
     /**
      * Fails the operation.
      */
@@ -198,6 +216,19 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
         if (finishFuture != null) {
+            if (killClosure != null && !commit) {
+                return finishFuture.handle((r, e) -> {
+                    // Attempt to unlock merged enlistments. We don't bother for cleanup on rollback path.
+                    TxStateMeta txStateMeta = txManager.stateMeta(id());
+
+                    if (txStateMeta == null || txStateMeta.txState() == TxState.ABORTED) {
+                        return txManager.cleanup(null, enlisted, false, null, id());
+                    }
+
+                    return CompletableFutures.<Void>nullCompletedFuture();
+                }).thenCompose(Function.identity());
+            }
+
             return finishFuture;
         }
 
@@ -225,10 +256,19 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
         try {
             if (finishFuture == null) {
-                if (killed) {
+                if (killFuture != null) {
                     if (isComplete) {
-                        // A user finishes a killed transaction.
+                        // An attempt to finish a killed transaction.
                         finishFuture = nullCompletedFuture();
+
+                        if (killClosure != null) {
+                            killFuture.handle((r, e) -> {
+                                // Attempt to unlock merged enlistments. We don't bother for cleanup on rollback path.
+                                txManager.cleanup(null, enlisted, false, null, id());
+
+                                return null;
+                            });
+                        }
 
                         return failedFuture(new TransactionException(
                                 TX_ALREADY_FINISHED_ERR,
@@ -248,7 +288,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         finishFuture = nullCompletedFuture();
                         this.timeoutExceeded = timeoutExceeded;
                     } else {
-                        killed = true;
+                        killFuture = nullCompletedFuture();
                     }
                 } else {
                     CompletableFuture<Void> finishFutureInternal = txManager.finish(
@@ -266,12 +306,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
                         this.timeoutExceeded = timeoutExceeded;
                     } else {
-                        killed = true;
+                        killFuture = finishFutureInternal;
 
                         if (killClosure != null) {
                             return finishFutureInternal.handle((unused, throwable) -> {
                                 // Invoke kill closure after finish.
-                                // It will notify a client about the kill.
+                                // It will notify a client about the kill to perform the direct mapping cleanup.
                                 killClosure.accept(this);
                                 return null;
                             });

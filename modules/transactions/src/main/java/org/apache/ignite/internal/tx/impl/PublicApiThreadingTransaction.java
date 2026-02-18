@@ -115,6 +115,11 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
+    public void enlistForCleanup(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
+        transaction.enlistForCleanup(replicationGroupId, tableId, primaryNodeConsistentId, consistencyToken);
+    }
+
+    @Override
     public @Nullable HybridTimestamp readTimestamp() {
         return transaction.readTimestamp();
     }

@@ -170,7 +170,11 @@ public class ClientTransactionCommitRequest {
         ZonePartitionId replicationGroupId = table.targetReplicationGroupId(partId);
         PendingTxPartitionEnlistment existing = tx.enlistedPartition(replicationGroupId);
         if (existing == null) {
-            tx.enlist(replicationGroupId, table.tableId(), consistentId, token);
+            if (commit) {
+                tx.enlist(replicationGroupId, table.tableId(), consistentId, token);
+            } else {
+                tx.enlistForCleanup(replicationGroupId, table.tableId(), consistentId, token);
+            }
         } else {
             // Enlistment tokens should be equal on commit.
             return !commit || existing.consistencyToken() == token;

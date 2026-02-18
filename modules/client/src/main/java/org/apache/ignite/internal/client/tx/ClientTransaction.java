@@ -403,7 +403,7 @@ public class ClientTransaction implements Transaction {
             });
 
             if (trackOperation) {
-                ch.inflights().addInflight(txId);
+                ch.inflights().addInflight(this);
             }
 
             if (first[0]) {
