@@ -77,9 +77,7 @@ class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestInteg
 
     @AfterEach
     void cleanup() {
-        if (inspector != null) {
-            inspector.stop();
-        }
+        inspector.stop();
     }
 
     @Test
