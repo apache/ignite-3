@@ -1471,13 +1471,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metricManager
             );
 
-            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
-            metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
-
-            LongSupplier delayDurationMsSupplier = () -> 10L;
-
-            schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
-
             replicaManager = spy(new ReplicaManager(
                     name,
                     clusterService,
@@ -1501,6 +1494,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.commonScheduler()
             ));
 
+            LongSupplier delayDurationMsSupplier = () -> 10L;
+
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager, failureManager),
                     clockService,
@@ -1512,6 +1507,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
             schemaManager = new SchemaManager(registry, catalogManager);
+
+            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
+            metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+            schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
             SystemDistributedConfiguration systemDistributedConfiguration =
                     clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
