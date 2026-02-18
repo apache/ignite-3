@@ -230,7 +230,7 @@ class ClientComputeJobPackerUnpackerTest {
             assertThrows(
                     ComputeException.class,
                     () -> unpackJobResult(messageUnpacker, new TestStringMarshaller(), null),
-                    "Marshaller is defined on the server, but the argument was not marshalled on the client"
+                    "JobDescriptor.resultMarshaller is defined, but the ComputeJob.resultMarshaller is not defined."
             );
         }
     }

@@ -53,7 +53,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinClientTest {
     @Test
     void argumentMarshallerDefinedOnlyInJob() {
-        // When submit job with custom marshaller that is defined in job but
+        // When submit job with custom argument marshaller that is defined in job but
         // client JobDescriptor does not declare the argument marshaller.
         JobExecution<String> result = submit(
                 JobTarget.node(node(1)),
@@ -64,7 +64,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         await().until(result::stateAsync, willBe(jobStateWithStatus(FAILED)));
         assertResultFailsWithErr(
                 result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
-                "Marshaller is defined on the server, but the argument was not marshalled on the client"
+                "ComputeJob.inputMarshaller is defined, but the JobDescriptor.argumentMarshaller is not defined."
         );
     }
 
@@ -99,6 +99,26 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         assertResultFailsWithErr(
                 result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
                 "JobDescriptor.argumentMarshaller is defined, but the ComputeJob.inputMarshaller is not defined."
+        );
+    }
+
+    @Test
+    void resultMarshallerDefinedOnlyInDescriptor() {
+        // When submit job with custom result marshaller that is defined in client JobDescriptor but
+        // job class does not declare the result marshaller.
+        JobExecution<String> result = submit(
+                JobTarget.node(node(1)),
+                JobDescriptor.builder(ArgMarshallingJob.class)
+                        .argumentMarshaller(ByteArrayMarshaller.create())
+                        .resultMarshaller(ByteArrayMarshaller.create())
+                        .build(),
+                "Input"
+        );
+
+        await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
+        assertResultFailsWithErr(
+                result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "JobDescriptor.resultMarshaller is defined, but the ComputeJob.resultMarshaller is not defined."
         );
     }
 

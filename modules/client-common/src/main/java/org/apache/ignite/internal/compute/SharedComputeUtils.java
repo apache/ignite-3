@@ -175,7 +175,8 @@ public class SharedComputeUtils {
                 marshaller,
                 pojoType,
                 classLoader,
-                "JobDescriptor.argumentMarshaller is defined, but the ComputeJob.inputMarshaller is not defined."
+                "JobDescriptor.argumentMarshaller is defined, but the ComputeJob.inputMarshaller is not defined.",
+                "ComputeJob.inputMarshaller is defined, but the JobDescriptor.argumentMarshaller is not defined."
         );
     }
 
@@ -199,7 +200,8 @@ public class SharedComputeUtils {
                 marshaller,
                 pojoType,
                 Thread.currentThread().getContextClassLoader(),
-                "ComputeJob.resultMarshaller is defined, but the JobDescriptor.resultMarshaller is not defined."
+                "ComputeJob.resultMarshaller is defined, but the JobDescriptor.resultMarshaller is not defined.",
+                "JobDescriptor.resultMarshaller is defined, but the ComputeJob.resultMarshaller is not defined."
         );
     }
 
@@ -219,7 +221,8 @@ public class SharedComputeUtils {
             @Nullable Marshaller<?, byte[]> marshaller,
             @Nullable Class<?> pojoType,
             ClassLoader classLoader,
-            String missingMarshallerErrorMessage
+            String missingMarshallerErrorMessage,
+            String unexpectedMarshallerErrorMessage
     ) {
         if (holder == null || holder.data() == null) {
             return null;
@@ -229,9 +232,9 @@ public class SharedComputeUtils {
         if (type != MARSHALLED_CUSTOM && marshaller != null) {
             throw new ComputeException(
                     MARSHALLING_TYPE_MISMATCH_ERR,
-                    "Marshaller is defined on the server, but the argument was not marshalled on the client. "
+                    unexpectedMarshallerErrorMessage + " "
                             + "If you want to use default marshalling strategy, "
-                            + "then you should not define your marshaller in the job. "
+                            + "then you should not define your marshaller only in one place. "
                             + "If you would like to use your own marshaller, then double-check "
                             + "that both of them are defined in the client and in the server."
             );
