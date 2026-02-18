@@ -292,6 +292,9 @@ public class IgniteExceptionTest {
         assertEquals(traceId, ex.traceId());
         assertEquals(message, ex.getMessage());
         assertEquals(cause, ex.getCause());
+        assertEquals("IGN-UNKNOWN888-42", ex.codeAsString());
+        assertEquals("UNKNOWN888", ex.groupName());
+        assertEquals(888, ex.groupCode());
     }
 
     /**

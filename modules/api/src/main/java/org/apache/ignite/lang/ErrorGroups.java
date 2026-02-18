@@ -35,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
 public class ErrorGroups {
     /** Additional prefix that is used in a human-readable format of ignite errors. */
     public static final String IGNITE_ERR_PREFIX = "IGN";
+
+    public static final String ERROR_GROUP_UNKNOWN = "UNKNOWN";
+
     private static final String PLACEHOLDER = "${ERROR_PREFIX}";
     private static final String EXCEPTION_MESSAGE_STRING_PATTERN =
             "(.*)(" + PLACEHOLDER + ")-([A-Z]+)-(\\d+)(\\s?)(.*)( TraceId:)([a-f0-9]{8})";
@@ -161,9 +164,13 @@ public class ErrorGroups {
      * @return Error Group.
      */
     public static ErrorGroup errorGroupByCode(int code) {
-        ErrorGroup grp = registeredGroups.get(extractGroupCode(code));
-        assert grp != null : "group not found, code=" + code;
-        return grp;
+        short groupCode = extractGroupCode(code);
+        ErrorGroup grp = registeredGroups.get(groupCode);
+
+        // Newer versions of Ignite may contain error codes that are not known to the older versions.
+        return grp == null
+                ? new ErrorGroup(IGNITE_ERR_PREFIX, ERROR_GROUP_UNKNOWN + groupCode, groupCode)
+                : grp;
     }
 
     /** Common error group. */
