@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.systemviews;
-
-import org.apache.ignite.internal.sql.engine.BaseSqlMultiStatementTest;
+package org.apache.ignite.internal.system;
 
 /**
- * Base class for SQL system views integration tests.
+ * Provides CPU information based on JVM {@link Runtime} instance.
  */
-public class AbstractSystemViewTest extends BaseSqlMultiStatementTest {
+public class JvmCpuInformationProvider implements CpuInformationProvider {
     @Override
-    protected boolean shouldCreateDefaultZone() {
-        return false;
+    public int availableProcessors() {
+        return Runtime.getRuntime().availableProcessors();
     }
 }

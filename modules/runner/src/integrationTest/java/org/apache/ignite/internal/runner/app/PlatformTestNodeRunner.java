@@ -87,6 +87,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -324,6 +325,8 @@ public class PlatformTestNodeRunner {
 
         IgniteImpl ignite = unwrapIgniteImpl(node);
 
+        createDefaultZone(ignite);
+
         createZone(ignite.catalogManager(), ZONE_NAME, 10, 1);
 
         createTable(
@@ -529,6 +532,10 @@ public class PlatformTestNodeRunner {
                 List.of(keyColumnParams, valueColumnParams),
                 List.of(keyColumnParams.name())
         );
+    }
+
+    private static void createDefaultZone(IgniteImpl ignite) {
+        DistributionZonesTestUtil.createDefaultZone(ignite.catalogManager());
     }
 
     /**

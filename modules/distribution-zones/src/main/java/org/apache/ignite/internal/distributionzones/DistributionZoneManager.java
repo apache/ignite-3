@@ -345,6 +345,10 @@ public class DistributionZoneManager extends
         return nullCompletedFuture();
     }
 
+    public int estimatedDataNodesCount(String dataNodeFilter, List<String> storageProfiles) {
+        return filterDataNodes(dataNodesManager.topologyNodes(), dataNodeFilter, storageProfiles).size();
+    }
+
     /**
      * Returns data nodes at the current time.
      *

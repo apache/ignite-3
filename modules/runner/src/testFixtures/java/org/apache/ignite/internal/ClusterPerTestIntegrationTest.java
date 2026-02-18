@@ -19,6 +19,11 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -29,6 +34,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -78,8 +84,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
         cluster = new Cluster(clusterConfiguration.build());
 
-        if (initialNodes() > 0) {
-            cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+        if (!shouldStartAndInitializeCluster()) {
+            return;
+        }
+
+        cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+
+        if (shouldCreateDefaultZone()) {
+            createDefaultZone();
         }
     }
 
@@ -112,6 +124,21 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     protected void customizeInitParameters(InitParametersBuilder builder) {
         // No-op.
+    }
+
+    private boolean shouldStartAndInitializeCluster() {
+        return initialNodes() > 0;
+    }
+
+    protected boolean shouldCreateDefaultZone() {
+        return true;
+    }
+
+    private void createDefaultZone() {
+        assertThat(cluster, is(notNullValue()));
+        assertThat(cluster.nodes(), is(not(empty())));
+
+        DistributionZonesTestUtil.createDefaultZone(igniteImpl(0).catalogManager());
     }
 
     /**

@@ -234,6 +234,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-catalog'))
     testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
+    testFixturesImplementation testFixtures(project(':ignite-distribution-zones'))
     testFixturesImplementation libs.typesafe.config
     testFixturesImplementation libs.awaitility
 }
