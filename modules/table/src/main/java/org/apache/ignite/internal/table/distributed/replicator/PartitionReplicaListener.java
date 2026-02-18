@@ -1466,7 +1466,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             CompletableFuture<Void> fut = txCleanupState.lockAndAwaitInflights();
             cleanupReadyFutureRef.set(fut);
 
-            return null;
+            return txCleanupState;
         });
 
         return cleanupReadyFutureRef.get()
@@ -1478,7 +1478,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     return null;
                 })
-                .thenApply(v -> new FuturesCleanupResult(hadWrites.get(), forceCleanup.get()));
+                .thenApply(v -> new FuturesCleanupResult(hadWrites.get(), forceCleanup.get()))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-27904 proper cleanup.
+                .whenComplete((v, e) -> txCleanupReadyFutures.remove(txId));
     }
 
     private void applyWriteIntentSwitchCommandLocally(WriteIntentSwitchReplicaRequestBase request) {
