@@ -131,7 +131,7 @@ namespace Apache.Ignite.Internal.Table
                 .ConfigureAwait(false);
             if (resBuf == null)
             {
-                return false;
+                return true;
             }
 
             return ReadSchemaAndBoolean(resBuf);
