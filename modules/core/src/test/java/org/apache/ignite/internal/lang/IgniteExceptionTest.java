@@ -262,6 +262,38 @@ public class IgniteExceptionTest {
         assertTrue(ex.toString().contains("IGN-CMN-65535"), ex.toString());
     }
 
+    @Test
+    public void testUnknownErrorCode() {
+        int unknownCode = (999 << 16) | 1;
+        UUID traceId = UUID.randomUUID();
+        String message = "Error from unknown group";
+
+        IgniteException ex = new IgniteException(traceId, unknownCode, message);
+
+        assertEquals(unknownCode, ex.code());
+        assertEquals((short) 999, ex.groupCode());
+        assertEquals((short) 1, ex.errorCode());
+        assertEquals(traceId, ex.traceId());
+        assertEquals(message, ex.getMessage());
+
+        assertTrue(ex.toString().contains(message));
+    }
+
+    @Test
+    public void testUnknownErrorCodeWithCause() {
+        int unknownCode = (888 << 16) | 42;
+        UUID traceId = UUID.randomUUID();
+        String message = "Another error from unknown group";
+        Throwable cause = new RuntimeException("Root cause");
+
+        IgniteException ex = new IgniteException(traceId, unknownCode, message, cause);
+
+        assertEquals(unknownCode, ex.code());
+        assertEquals(traceId, ex.traceId());
+        assertEquals(message, ex.getMessage());
+        assertEquals(cause, ex.getCause());
+    }
+
     /**
      * Custom exception for tests.
      */
