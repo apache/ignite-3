@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.network;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,33 +24,24 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
-/** Metric source for checkpoint of persistent page memory. */
-public class CheckpointMetricSource implements MetricSource {
-    private final String name;
-
+/**
+ * Metric source for the {@link MessagingService}.
+ */
+class MessagingServiceMetricSource implements MetricSource {
     /** Metrics map. Only modified in {@code synchronized} context. */
     private final Map<String, Metric> metrics = new HashMap<>();
 
     /** Enabled flag. Only modified in {@code synchronized} context. */
     private boolean enabled;
 
-    /**
-     * Constructor.
-     *
-     * @param name Metric set name.
-     */
-    public CheckpointMetricSource(String name) {
-        this.name = name;
-    }
-
     @Override
     public String name() {
-        return name;
+        return "messaging";
     }
 
     @Override
-    public @Nullable String group() {
-        return "storage";
+    public @Nullable String description() {
+        return "Metrics for the messaging service.";
     }
 
     /** Adds metric to the source. */
@@ -70,7 +61,7 @@ public class CheckpointMetricSource implements MetricSource {
 
         enabled = true;
 
-        return new MetricSet(name, description(), group(), Map.copyOf(metrics));
+        return new MetricSet(name(), description(), group(), Map.copyOf(metrics));
     }
 
     @Override

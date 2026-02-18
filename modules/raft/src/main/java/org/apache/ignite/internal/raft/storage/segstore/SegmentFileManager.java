@@ -187,7 +187,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         indexFileManager.cleanupTmpFiles();
 
-        var payloadParser = new SegmentPayloadParser(stripes);
+        var payloadParser = new SegmentPayloadParser();
 
         Path lastSegmentFilePath = null;
 
@@ -251,7 +251,7 @@ class SegmentFileManager implements ManuallyCloseable {
 
         writeHeader(segmentFile);
 
-        return new SegmentFileWithMemtable(segmentFile, new IndexMemTable(stripes), false);
+        return new SegmentFileWithMemtable(segmentFile, new StripedMemTable(stripes), false);
     }
 
     /**
@@ -260,7 +260,13 @@ class SegmentFileManager implements ManuallyCloseable {
      * possibly incomplete segment file.
      */
     private SegmentFileWithMemtable recoverLatestSegmentFile(Path segmentFilePath, SegmentPayloadParser payloadParser) throws IOException {
-        return recoverSegmentFile(segmentFilePath, payloadParser, true);
+        SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
+
+        var memTable = new StripedMemTable(stripes);
+
+        payloadParser.recoverMemtable(segmentFile, memTable, true);
+
+        return new SegmentFileWithMemtable(segmentFile, memTable, false);
     }
 
     /**
@@ -271,17 +277,11 @@ class SegmentFileManager implements ManuallyCloseable {
      * never happen during this method's invocation), not to validate storage integrity.
      */
     private SegmentFileWithMemtable recoverSegmentFile(Path segmentFilePath, SegmentPayloadParser payloadParser) throws IOException {
-        return recoverSegmentFile(segmentFilePath, payloadParser, false);
-    }
-
-    private SegmentFileWithMemtable recoverSegmentFile(
-            Path segmentFilePath,
-            SegmentPayloadParser payloadParser,
-            boolean validateCrc
-    ) throws IOException {
         SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, isSync);
 
-        WriteModeIndexMemTable memTable = payloadParser.recoverMemtable(segmentFile, validateCrc);
+        var memTable = new SingleThreadMemTable();
+
+        payloadParser.recoverMemtable(segmentFile, memTable, false);
 
         return new SegmentFileWithMemtable(segmentFile, memTable, false);
     }

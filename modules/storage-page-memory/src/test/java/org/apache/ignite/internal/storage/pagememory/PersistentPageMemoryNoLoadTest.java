@@ -70,6 +70,7 @@ import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
@@ -80,7 +81,6 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMet
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgressImpl;
@@ -614,7 +614,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 ioRegistry,
                 mock(LogSyncer.class),
                 executorService,
-                new CheckpointMetricSource("test"),
+                new CollectionMetricSource("test", "storage", null),
                 PAGE_SIZE
         );
     }
