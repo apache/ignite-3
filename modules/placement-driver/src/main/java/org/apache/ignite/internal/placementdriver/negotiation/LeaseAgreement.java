@@ -191,9 +191,7 @@ public class LeaseAgreement {
 
             responseFut.complete(null);
         } else if (currentTopologySnapshot != null) {
-            Set<UUID> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
-
-            if (!nodeIds.contains(lease.getLeaseholderId())) {
+            if (lease.getLeaseholderId() == null || !currentTopologySnapshot.hasNode(lease.getLeaseholderId())) {
                 LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
                         lease.getLeaseholder(), lease.getLeaseholderId(), groupId);
 

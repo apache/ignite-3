@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import static java.util.stream.Collectors.toUnmodifiableSet;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -30,14 +31,10 @@ import org.apache.ignite.internal.network.InternalClusterNode;
  * Nodes for initial deploy.
  */
 public class NodesToDeploy {
-    /**
-     * Direct nodes list.
-     */
+    /** Direct nodes list. */
     private final List<String> nodesList;
 
-    /**
-     * Deploy nodes mode.
-     */
+    /** Deploy nodes mode. */
     private final InitialDeployMode deployMode;
 
     public NodesToDeploy(List<String> nodesList) {
@@ -69,7 +66,7 @@ public class NodesToDeploy {
                 return cmgManager.logicalTopology()
                         .thenApply(snapshot -> snapshot.nodes().stream()
                                 .map(InternalClusterNode::name)
-                                .collect(Collectors.toUnmodifiableSet()));
+                                .collect(toUnmodifiableSet()));
             case MAJORITY:
             default:
                 return cmgManager.majority();
@@ -86,11 +83,10 @@ public class NodesToDeploy {
     private CompletableFuture<Set<String>> extractNodesFromList(ClusterManagementGroupManager cmgManager) {
         return cmgManager.majority()
                 .thenCompose(majority -> cmgManager.logicalTopology()
-                        .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(InternalClusterNode::name)
-                                .collect(Collectors.toUnmodifiableSet()))
-                        .thenApply(allNodes -> {
+                        .thenApply(snapshot -> {
+                            Set<String> allNodes = snapshot.nodes().stream().map(InternalClusterNode::name).collect(toUnmodifiableSet());
                             Set<String> result = new HashSet<>(majority);
+
                             for (String node : nodesList) {
                                 if (!allNodes.contains(node)) {
                                     throw new InvalidNodesArgumentException(

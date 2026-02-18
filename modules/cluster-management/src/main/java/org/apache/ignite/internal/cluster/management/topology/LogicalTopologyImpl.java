@@ -201,8 +201,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
     @Override
     public boolean isNodeInLogicalTopology(LogicalNode needle) {
-        return readLogicalTopology().nodes().stream()
-                .anyMatch(node -> node.id().equals(needle.id()));
+        return readLogicalTopology().hasNode(needle.id());
     }
 
     private void fireNodeJoined(LogicalNode appearedNode, LogicalTopologySnapshot snapshot) {

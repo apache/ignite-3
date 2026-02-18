@@ -106,7 +106,6 @@ import org.apache.ignite.internal.cluster.management.configuration.NodeAttribute
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -1118,17 +1117,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         List<IgniteImpl> nodes = startNodes(3);
 
         // Here we check that node sees itself in local logical topology.
-        nodes.forEach(node -> assertTrue(node.logicalTopologyService().localLogicalTopology().nodes().stream().map(LogicalNode::id)
-                .collect(toSet()).contains(node.id())));
+        nodes.forEach(node -> assertTrue(node.logicalTopologyService().localLogicalTopology().hasNode(node.id())));
 
         // Actually we have stronger guarantees because of awaiting all nodes to start inside startNodes.
         // On one node (cmg leader) we will see all three nodes in local logical topology.
         // On the node that started second we will see at least two nodes.
         // On the third node we will see all three nodes.
         // All in all that means that in total we will see at least (3 + 2 + 3) nodes.
-        Integer sumOfLogicalTopologyProjectionSizes =
-                nodes.stream().map(node -> node.logicalTopologyService().localLogicalTopology().nodes().size())
-                        .reduce(0, Integer::sum);
+        Integer sumOfLogicalTopologyProjectionSizes = nodes.stream()
+                .map(node -> node.logicalTopologyService().localLogicalTopology().nodes().size())
+                .reduce(0, Integer::sum);
 
         assertTrue(sumOfLogicalTopologyProjectionSizes >= 3 + 2 + 3);
     }

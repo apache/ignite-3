@@ -97,13 +97,7 @@ public class TopologyTracker {
             return null;
         }
 
-        for (LogicalNode node : logicalTopologySnap0.nodes()) {
-            if (node.name().equals(consistentId)) {
-                return node;
-            }
-        }
-
-        return null;
+        return logicalTopologySnap0.node(consistentId).orElse(null);
     }
 
     LogicalTopologySnapshot currentTopologySnapshot() {
