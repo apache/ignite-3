@@ -78,7 +78,7 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
         TxStateMeta metaWithDetails = finalMeta instanceof TxStateMeta ? (TxStateMeta) finalMeta : txStateMeta;
         boolean isFinishedDueToTimeout = metaWithDetails != null
                 && Boolean.TRUE.equals(metaWithDetails.isFinishedDueToTimeout());
-        Throwable cause = metaWithDetails == null ? null : metaWithDetails.exceptionInfo();
+        Throwable cause = metaWithDetails == null ? null : metaWithDetails.lastException();
 
         return new TransactionException(
                 isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
