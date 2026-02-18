@@ -25,10 +25,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -441,17 +442,34 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27779")
     void testAggregations() {
-        for (Ignite node : List.of(node(0), node(1))) {
-            assertQuery(node, "SELECT MIN(f), MIN(d) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();
-            assertQuery(node, "SELECT MAX(f), MAX(d) FROM test").returns(Float.NaN, Double.NaN).check();
-            assertQuery(node, "SELECT AVG(f), AVG(d) FROM test").returns(Double.NaN, Double.NaN).check();
+        // Using an explicit RO transaction to read actual state of data on both nodes.
+        // Otherwise, the implicit transaction on node 1 might step back a bit in past and read the previous state.
+        node(0).transactions().runInTransaction(tx -> {
+            InternalTransaction tx0 = (InternalTransaction) tx;
 
-            assertQuery(node, "SELECT MIN(fn), MIN(dn) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();
-            assertQuery(node, "SELECT MAX(fn), MAX(dn) FROM test").returns(Float.NaN, Double.NaN).check();
-            assertQuery(node, "SELECT AVG(fn), AVG(dn) FROM test").returns(Double.NaN, Double.NaN).check();
-        }
+            for (Ignite node : List.of(node(0), node(1))) {
+                assertQuery(node, tx0, "SELECT MIN(f), MIN(d) FROM test")
+                        .returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY)
+                        .check();
+                assertQuery(node, tx0, "SELECT MAX(f), MAX(d) FROM test")
+                        .returns(Float.NaN, Double.NaN)
+                        .check();
+                assertQuery(node, tx0, "SELECT AVG(f), AVG(d) FROM test")
+                        .returns(Double.NaN, Double.NaN)
+                        .check();
+
+                assertQuery(node, tx0, "SELECT MIN(fn), MIN(dn) FROM test")
+                        .returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY)
+                        .check();
+                assertQuery(node, tx0, "SELECT MAX(fn), MAX(dn) FROM test")
+                        .returns(Float.NaN, Double.NaN)
+                        .check();
+                assertQuery(node, tx0, "SELECT AVG(fn), AVG(dn) FROM test")
+                        .returns(Double.NaN, Double.NaN)
+                        .check();
+            }
+        }, new TransactionOptions().readOnly(true));
     }
 
     @Test
