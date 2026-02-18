@@ -81,7 +81,7 @@ public class CsharpGenerator extends GenericGenerator {
             line("            " + descriptor.className + ".GroupCode => " + descriptor.className + ".ErrorPrefix,");
         }
         line();
-        line("            _ => UnknownGroupName + groupCode");
+        line("            _ => UnknownGroupName");
         line("        };");
         for (var descriptor : descriptors) {
             generateErrorGroupClass(descriptor);

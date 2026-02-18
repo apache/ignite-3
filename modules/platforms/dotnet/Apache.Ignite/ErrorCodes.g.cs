@@ -89,7 +89,7 @@ namespace Apache.Ignite
             Rest.GroupCode => Rest.ErrorPrefix,
             CommonConfiguration.GroupCode => CommonConfiguration.ErrorPrefix,
 
-            _ => UnknownGroupName + groupCode
+            _ => UnknownGroupName
         };
 
         /// <summary> Common errors. </summary>
