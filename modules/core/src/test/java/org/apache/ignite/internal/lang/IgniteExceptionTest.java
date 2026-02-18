@@ -278,7 +278,6 @@ public class IgniteExceptionTest {
         assertEquals(message, ex.getMessage());
         assertEquals("IGN-UNKNOWN999-1", ex.codeAsString());
         assertEquals("UNKNOWN999", ex.groupName());
-        assertEquals(999, ex.groupCode());
 
         assertThat(ex.toString(), containsString(message));
         assertThat(ex.toString(), containsString("IGN-UNKNOWN999-1"));

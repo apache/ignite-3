@@ -36,9 +36,11 @@ public class ErrorGroups {
     /** Additional prefix that is used in a human-readable format of ignite errors. */
     public static final String IGNITE_ERR_PREFIX = "IGN";
 
-    public static final String ERROR_GROUP_UNKNOWN = "UNKNOWN";
+    /** Prefix for unknown error groups (e.g., old client gets an unknown code from a new server). */
+    private static final String ERR_GROUP_PREFIX_UNKNOWN = "UNKNOWN";
 
     private static final String PLACEHOLDER = "${ERROR_PREFIX}";
+
     private static final String EXCEPTION_MESSAGE_STRING_PATTERN =
             "(.*)(" + PLACEHOLDER + ")-([A-Z]+)-(\\d+)(\\s?)(.*)( TraceId:)([a-f0-9]{8})";
 
@@ -169,7 +171,7 @@ public class ErrorGroups {
 
         // Newer versions of Ignite may contain error codes that are not known to the older versions.
         return grp == null
-                ? new ErrorGroup(IGNITE_ERR_PREFIX, ERROR_GROUP_UNKNOWN + groupCode, groupCode)
+                ? new ErrorGroup(IGNITE_ERR_PREFIX, ERR_GROUP_PREFIX_UNKNOWN + groupCode, groupCode)
                 : grp;
     }
 
