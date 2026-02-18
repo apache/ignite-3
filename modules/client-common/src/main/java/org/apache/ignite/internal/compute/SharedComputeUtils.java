@@ -213,6 +213,7 @@ public class SharedComputeUtils {
      * @param pojoType Optional pojo type. Required if holder contains POJO.
      * @param classLoader Class loader to set before unmarshalling.
      * @param missingMarshallerErrorMessage Message to throw if marshaller is not defined and holder contains marshalled data.
+     * @param unexpectedMarshallerErrorMessage Message to throw if marshaller is defined but the holder doesn't contain marshalled data.
      * @param <T> Type of the object.
      * @return Unmarshalled object.
      */
