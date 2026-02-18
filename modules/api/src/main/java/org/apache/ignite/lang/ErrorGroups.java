@@ -171,7 +171,7 @@ public class ErrorGroups {
 
         // Newer versions of Ignite may contain error codes that are not known to the older versions.
         return grp == null
-                ? new ErrorGroup(IGNITE_ERR_PREFIX, ERR_GROUP_PREFIX_UNKNOWN + groupCode, groupCode)
+                ? new ErrorGroup(ERR_GROUP_PREFIX_UNKNOWN, ERR_GROUP_PREFIX_UNKNOWN + groupCode, groupCode)
                 : grp;
     }
 

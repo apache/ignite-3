@@ -276,11 +276,11 @@ public class IgniteExceptionTest {
         assertEquals((short) 1, ex.errorCode());
         assertEquals(traceId, ex.traceId());
         assertEquals(message, ex.getMessage());
-        assertEquals("IGN-UNKNOWN999-1", ex.codeAsString());
+        assertEquals("UNKNOWN-UNKNOWN999-1", ex.codeAsString());
         assertEquals("UNKNOWN999", ex.groupName());
 
         assertThat(ex.toString(), containsString(message));
-        assertThat(ex.toString(), containsString("IGN-UNKNOWN999-1"));
+        assertThat(ex.toString(), containsString("UNKNOWN-UNKNOWN999-1"));
     }
 
     @Test
@@ -296,7 +296,7 @@ public class IgniteExceptionTest {
         assertEquals(traceId, ex.traceId());
         assertEquals(message, ex.getMessage());
         assertEquals(cause, ex.getCause());
-        assertEquals("IGN-UNKNOWN888-42", ex.codeAsString());
+        assertEquals("UNKNOWN-UNKNOWN888-42", ex.codeAsString());
         assertEquals("UNKNOWN888", ex.groupName());
         assertEquals(888, ex.groupCode());
     }

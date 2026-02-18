@@ -365,10 +365,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             IgniteException ex = assertThrows(IgniteException.class, () -> client.compute().execute(jobTarget, jobDescriptor, null));
             assertThat(
                     ex.toString(),
-                    startsWith("org.apache.ignite.lang.IgniteException: IGN-UNKNOWN9999-123 Hello from a future version"));
+                    startsWith("org.apache.ignite.lang.IgniteException: UNKNOWN-UNKNOWN9999-123 Hello from a future version"));
 
             assertEquals(customCode, ex.code());
-            assertEquals("IGN-UNKNOWN9999-123", ex.codeAsString());
+            assertEquals("UNKNOWN-UNKNOWN9999-123", ex.codeAsString());
         }
     }
 
