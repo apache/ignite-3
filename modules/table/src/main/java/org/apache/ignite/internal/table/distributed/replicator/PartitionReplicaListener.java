@@ -504,11 +504,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -516,11 +514,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
             var req = (ReadWriteSingleRowPkReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -528,11 +524,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -540,11 +534,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
             var req = (ReadWriteMultiRowPkReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processMultiEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -552,11 +544,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), req.requestType());
-
             return appendTxCommand(
                     req.transactionId(),
-                    opId,
+                    req.requestType(),
                     req.full(),
                     () -> processTwoEntriesAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
                             (r, e) -> setDelayedAckProcessor(r, req.delayedAckProcessor()))
@@ -575,10 +565,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                     .txLabel(req.txLabel())
                     .build());
 
-            var opId = new OperationId(senderId, req.timestamp().longValue(), RW_SCAN);
-
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), opId, false, () -> processScanRetrieveBatchAction(req))
+            return appendTxCommand(req.transactionId(), RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
@@ -1559,14 +1547,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * Appends an operation to prevent the race between commit/rollback and the operation execution.
      *
      * @param txId Transaction id.
-     * @param opId Operation id.
+     * @param requestType Request type.
      * @param full {@code True} if a full transaction and can be immediately committed.
      * @param op Operation closure.
      * @return A future object representing the result of the given operation.
      */
     private <T> CompletableFuture<T> appendTxCommand(
             UUID txId,
-            OperationId opId,
+            RequestType requestType,
             boolean full,
             Supplier<CompletableFuture<T>> op
     ) {
@@ -1594,7 +1582,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 txCleanupState = new TxCleanupReadyState();
             }
 
-            boolean started = txCleanupState.startInflight(opId);
+            boolean started = txCleanupState.startInflight(requestType);
             inflightStarted.set(started);
 
             return txCleanupState;
@@ -3680,14 +3668,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         // Should be called inside critical section on transaction.
-        boolean startInflight(OperationId operationId) {
+        boolean startInflight(RequestType requestType) {
             if (completionFuture != null) {
                 return false;
             }
 
             hadAnyOperations = true;
 
-            if (operationId.requestType.isWrite()) {
+            if (requestType.isWrite()) {
                 hadWrites = true;
             }
 
@@ -3926,59 +3914,5 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     @TestOnly
     public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
-    }
-
-    /**
-     * Operation unique identifier.
-     */
-    private static class OperationId {
-        /** Operation node initiator id. */
-        private final UUID initiatorId;
-
-        /** Timestamp. */
-        private final long ts;
-
-        /** Request typ. */
-        private final RequestType requestType;
-
-        /**
-         * The constructor.
-         *
-         * @param initiatorId Sender node id.
-         * @param ts Timestamp.
-         */
-        public OperationId(UUID initiatorId, long ts, RequestType requestType) {
-            this.initiatorId = initiatorId;
-            this.ts = ts;
-            this.requestType = requestType;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            OperationId that = (OperationId) o;
-
-            if (ts != that.ts) {
-                return false;
-            }
-            if (requestType != that.requestType) {
-                return false;
-            }
-            return initiatorId.equals(that.initiatorId);
-        }
-
-        @Override
-        public int hashCode() {
-            int result = initiatorId.hashCode();
-            result = 31 * result + Long.hashCode(ts);
-            result = 31 * result + requestType.hashCode();
-            return result;
-        }
     }
 }
