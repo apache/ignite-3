@@ -329,7 +329,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return busyLock;
     }
 
-    private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(ReplicationGroupId partitionId, long revision) {
+    private Set<Assignment> stableAssignmentsWithOnlyAliveAndVotingNodes(ReplicationGroupId partitionId, long revision) {
         Set<Assignment> stableAssignments;
 
         stableAssignments = ZoneRebalanceUtil.zoneStableAssignmentsGetLocally(
@@ -342,7 +342,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .stream().map(NodeWithAttributes::nodeName).collect(Collectors.toUnmodifiableSet());
 
         return stableAssignments
-                .stream().filter(a -> logicalTopology.contains(a.consistentId())).collect(Collectors.toUnmodifiableSet());
+                .stream().filter(a -> logicalTopology.contains(a.consistentId()) && a.isPeer()).collect(Collectors.toUnmodifiableSet());
     }
 
     private CompletableFuture<Boolean> onHaZonePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
@@ -359,7 +359,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
                 ZonePartitionId partitionId = new ZonePartitionId(zoneId, partId);
 
-                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < calculateQuorum(zoneDescriptor.replicas())) {
+                if (stableAssignmentsWithOnlyAliveAndVotingNodes(partitionId, revision).size() < zoneDescriptor.quorumSize()) {
                     partitionsToReset.add(partId);
                 }
             }
@@ -1298,7 +1298,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
         int replicas = zoneDescriptor.replicas();
-        int quorum = calculateQuorum(replicas);
+        int quorum = zoneDescriptor.quorumSize();
 
         Map<LocalPartitionStateEnum, List<LocalPartitionState>> groupedStates = map.values().stream()
                 .collect(groupingBy(localPartitionState -> localPartitionState.state));
@@ -1325,10 +1325,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         } else {
             return GlobalPartitionStateEnum.UNAVAILABLE;
         }
-    }
-
-    private static int calculateQuorum(int replicas) {
-        return replicas / 2 + 1;
     }
 
     private Catalog catalogLatestVersion() {
