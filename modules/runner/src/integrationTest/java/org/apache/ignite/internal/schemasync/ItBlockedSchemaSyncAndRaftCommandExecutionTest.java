@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schemasync;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
@@ -31,10 +32,8 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
@@ -84,10 +83,7 @@ class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestInteg
     void operationBlockedOnSchemaSyncDoesNotPreventNodeStop() throws Exception {
         InhibitorAndFuture inhibitorAndFuture = producePutHangingDueToSchemaSyncInLeaderStateMachine();
 
-        assertTimeoutPreemptively(
-                Duration.of(10, ChronoUnit.SECONDS),
-                () -> cluster.stopNode(0)
-        );
+        assertTimeoutPreemptively(Duration.ofSeconds(10), () -> cluster.stopNode(0));
 
         //noinspection ThrowableNotThrown
         assertWillThrowCausedBy(inhibitorAndFuture.future, NodeStoppingException.class);
@@ -162,7 +158,7 @@ class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestInteg
                 .zonePartitionResources(cluster.solePartitionId(ZONE_NAME));
 
         try {
-            zonePartitionResources.safeTimeTracker().waitFor(current).get(10, TimeUnit.SECONDS);
+            zonePartitionResources.safeTimeTracker().waitFor(current).get(10, SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -182,7 +178,7 @@ class ItBlockedSchemaSyncAndRaftCommandExecutionTest extends ClusterPerTestInteg
     void operationBlockedBySchemaHangOnLeaderSucceedsOnSchemaCaughtUp() throws Exception {
         InhibitorAndFuture inhibitorAndFuture = producePutHangingDueToSchemaSyncInLeaderStateMachine();
 
-        assertThat(inhibitorAndFuture.future, willTimeoutIn(1, TimeUnit.SECONDS));
+        assertThat(inhibitorAndFuture.future, willTimeoutIn(1, SECONDS));
 
         inhibitorAndFuture.inhibitor.stopInhibit();
 
