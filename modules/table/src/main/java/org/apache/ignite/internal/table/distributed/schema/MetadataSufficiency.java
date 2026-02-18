@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
  * Logic that allows to determine whether the local schema metadata is sufficient.
@@ -38,17 +36,5 @@ public class MetadataSufficiency {
      */
     public static boolean isMetadataAvailableForCatalogVersion(int requiredCatalogVersion, CatalogService catalogService) {
         return catalogService.catalogReadyFuture(requiredCatalogVersion).isDone();
-    }
-
-    /**
-     * Determines whether the local schema information is sufficient up to the given timestamp
-     * (that is that schema sync on the timestamp will complete immediately without any waits).
-     *
-     * @param timestamp Minimal timestamp at which the metadata is required to present.
-     * @param schemaSyncService Schema synchronization service.
-     * @return {@code true} iff the local schema information is sufficient.
-     */
-    public static boolean isMetadataAvailableForTimestamp(HybridTimestamp timestamp, SchemaSyncService schemaSyncService) {
-        return schemaSyncService.waitForMetadataCompleteness(timestamp).isDone();
     }
 }
