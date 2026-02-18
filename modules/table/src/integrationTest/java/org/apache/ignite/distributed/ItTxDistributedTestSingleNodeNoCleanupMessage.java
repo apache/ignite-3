@@ -231,7 +231,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                                     txManager.lockManager()
                             );
 
-                            FuturesCleanupResult cleanupResult = new FuturesCleanupResult(false, false);
+                            FuturesCleanupResult cleanupResult = new FuturesCleanupResult(false);
                             return completedFuture(new ReplicaResult(cleanupResult, null));
                         }
 

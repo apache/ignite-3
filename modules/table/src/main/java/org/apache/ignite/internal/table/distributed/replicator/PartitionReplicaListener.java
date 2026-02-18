@@ -1443,8 +1443,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
-        AtomicBoolean forceCleanup = new AtomicBoolean(true);
-        AtomicBoolean hadWrites = new AtomicBoolean(false);
+        AtomicBoolean cleanupNeeded = new AtomicBoolean(true);
         AtomicReference<CompletableFuture<Void>> cleanupReadyFutureRef = new AtomicReference<>(nullCompletedFuture());
 
         txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
@@ -1455,13 +1454,13 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
             // FuturesCleanupResult.hadWrites() returns false).
-            forceCleanup.set(txCleanupState == null || !txCleanupState.hadAnyOperations());
+            boolean forceCleanup = txCleanupState == null || !txCleanupState.hadAnyOperations();
 
             if (txCleanupState == null) {
                 return null;
             }
 
-            hadWrites.set(txCleanupState.hadWrites());
+            cleanupNeeded.set(txCleanupState.hadWrites() || forceCleanup);
 
             CompletableFuture<Void> fut = txCleanupState.lockAndAwaitInflights();
             cleanupReadyFutureRef.set(fut);
@@ -1470,15 +1469,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         });
 
         return cleanupReadyFutureRef.get()
-                .exceptionally(e -> {
-                    if (commit) {
-                        throw new AssertionError("Transaction is committing, but an operation has completed with exception [txId=" + txId
-                                + ", err=" + e.getMessage() + ']', e);
-                    }
-
-                    return null;
-                })
-                .thenApply(v -> new FuturesCleanupResult(hadWrites.get(), forceCleanup.get()))
+                .thenApply(v -> new FuturesCleanupResult(cleanupNeeded.get()))
                 // TODO https://issues.apache.org/jira/browse/IGNITE-27904 proper cleanup.
                 .whenComplete((v, e) -> txCleanupReadyFutures.remove(txId));
     }
@@ -1630,18 +1621,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         fut.whenComplete((v, th) -> {
             if (th != null) {
-                txCleanupReadyState.completeInflightExceptionally(opId, th);
+                txCleanupReadyState.completeInflight();
             } else {
                 if (v instanceof ReplicaResult) {
                     ReplicaResult res = (ReplicaResult) v;
 
                     if (res.applyResult().replicationFuture() != null) {
                         res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
-                            if (th0 != null) {
-                                txCleanupReadyState.completeInflightExceptionally(opId, th0);
-                            } else {
-                                txCleanupReadyState.completeInflight();
-                            }
+                            txCleanupReadyState.completeInflight();
                         });
                     } else {
                         txCleanupReadyState.completeInflight();
@@ -3636,8 +3623,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     /**
-     * Class that stores a counter of inflight operations for a transaction. There is a map of failed operations (lazy init)
-     * but it doesn't store exceptions for operations that were retried successfully.
+     * Class that stores a counter of inflight operations for a transaction.
      *
      * <p>Synchronization model:
      * <ul>
@@ -3645,7 +3631,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      *     <li>{@code inflightOperationsCount} — {@link AtomicInteger}, cross-thread safe.</li>
      *     <li>{@code completionFuture} — volatile, written from {@code compute()}, read cross-thread.
      *         Non-null value also serves as the "locked" indicator (no new inflights accepted).</li>
-     *     <li>{@code failedOperations} — guarded by {@code synchronized(this)}.</li>
      * </ul>
      */
     private static class TxCleanupReadyState {
@@ -3657,9 +3642,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         // Non-null means locked (no new inflights accepted). Written from compute(), read cross-thread.
         volatile CompletableFuture<Void> completionFuture = null;
-
-        // Guarded by synchronized(this).
-        private Map<OperationId, Throwable> failedOperations = null;
 
         // Should be called inside critical section on transaction.
         boolean hadAnyOperations() {
@@ -3680,8 +3662,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             }
 
             if (inflightOperationsCount.get() == 0) {
-                Throwable t = anyThrowableIfPresent();
-                f = (t == null) ? nullCompletedFuture() : failedFuture(t);
+                f = nullCompletedFuture();
                 completionFuture = f;
                 return f;
             }
@@ -3692,7 +3673,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // Recheck: a cross-thread completeInflight() may have decremented to 0
             // before seeing completionFuture != null.
             if (inflightOperationsCount.get() == 0) {
-                completeWithStoredExceptionIfAny(f);
+                f.complete(null);
             }
 
             return f;
@@ -3710,9 +3691,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 hadWrites = true;
             }
 
-            // Possibly retrying operation, so don't need information about previous failure.
-            removeThrowable(operationId);
-
             inflightOperationsCount.incrementAndGet();
 
             return true;
@@ -3727,13 +3705,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             }
         }
 
-        // Cross-thread.
-        void completeInflightExceptionally(OperationId operationId, Throwable t) {
-            storeThrowable(operationId, t);
-
-            completeInflight();
-        }
-
         private void completeFutureIfAny() {
             CompletableFuture<Void> f = completionFuture;
 
@@ -3743,37 +3714,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             // Double check inflightOperationsCount after locked, because we are outside of critical section.
             if (inflightOperationsCount.get() == 0) {
-                completeWithStoredExceptionIfAny(f);
-            }
-        }
-
-        private void completeWithStoredExceptionIfAny(CompletableFuture<Void> f) {
-            Throwable t = anyThrowableIfPresent();
-            if (t == null) {
                 f.complete(null);
-            } else {
-                f.completeExceptionally(t);
-            }
-        }
-
-        @Nullable
-        private synchronized Throwable anyThrowableIfPresent() {
-            if (failedOperations != null && !failedOperations.isEmpty()) {
-                return failedOperations.values().iterator().next();
-            }
-            return null;
-        }
-
-        private synchronized void storeThrowable(OperationId operationId, Throwable e) {
-            if (failedOperations == null) {
-                failedOperations = new HashMap<>();
-            }
-            failedOperations.put(operationId, e);
-        }
-
-        private synchronized void removeThrowable(OperationId operationId) {
-            if (failedOperations != null) {
-                failedOperations.remove(operationId);
             }
         }
     }
