@@ -209,7 +209,7 @@ class ClientComputeJobPackerUnpackerTest {
             assertThrows(
                     ComputeException.class,
                     () -> unpackJobResult(messageUnpacker, null, null),
-                    "Marshaller should be defined on the client"
+                    "ComputeJob.resultMarshaller is defined, but the JobDescriptor.resultMarshaller is not defined."
             );
         }
     }
