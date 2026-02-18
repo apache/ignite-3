@@ -39,31 +39,15 @@ public class ClientTransactionInflights {
     private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
 
     /**
-     * Register a transaction.
+     * Registers the inflight update for a transaction.
      *
-     * @param tx The transaction id.
+     * @param tx The transaction.
      */
-    public void register(ClientTransaction tx) {
+    public void addInflight(ClientTransaction tx) {
         txCtxMap.compute(tx.txId(), (uuid, ctx) -> {
             if (ctx == null) {
                 ctx = new TxContext();
-            }
-
-            ctx.tx = tx;
-
-            return ctx;
-        });
-    }
-
-    /**
-     * Registers the inflight update for a transaction.
-     *
-     * @param txId The transaction id.
-     */
-    public void addInflight(UUID txId) {
-        txCtxMap.compute(txId, (uuid, ctx) -> {
-            if (ctx == null) {
-                ctx = new TxContext();
+                ctx.tx = tx;
             }
 
             ctx.addInflight();
@@ -154,6 +138,7 @@ public class ClientTransactionInflights {
         TxContext txContext = txCtxMap.get(id);
 
         if (txContext != null) {
+            // Context will not be null only if a transaction has direct mappings.
             return txContext.tx.rollbackAsync();
         }
 

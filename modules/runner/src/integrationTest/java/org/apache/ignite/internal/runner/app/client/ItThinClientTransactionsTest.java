@@ -59,8 +59,6 @@ import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -429,7 +427,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         assertEquals(PARTITIONS, map.size());
 
-        int k = 111; // Avoid intersection with previous tests.
+        int k = 1111; // Avoid intersection with previous tests.
 
         Map<Tuple, Tuple> txMap = new HashMap<>();
 
@@ -839,7 +837,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         // Expecting each write operation to trigger add/remove events.
         int exp = 20 + partitions;
-        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx().txId());
+        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx());
         Mockito.verify(spyed, Mockito.times(exp)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
         // Check if all locks are released.
@@ -1309,6 +1307,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Next operation should invalidate the transaction.
         CompletableFuture<Void> fut = kvView.putAsync(youngerTxProxy, key, val);
         assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
+
+        olderTxProxy.commit();
 
         // Ensure all enlisted keys are unlocked.
         assertThat(kvView.putAsync(null, key, val), willSucceedFast());

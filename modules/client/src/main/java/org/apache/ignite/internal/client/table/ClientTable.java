@@ -548,6 +548,8 @@ public class ClientTable implements Table {
                                         }
 
                                         if (tx0 != null) {
+                                            // Rollback the transaction on a client side to make behavior consistent with embedded case.
+                                            // This ensures a transaction resource is cleaned up on the coordinator.
                                             tx0.rollbackAsync().handle((ignored, err0) -> {
                                                 if (err0 != null) {
                                                     ex.addSuppressed(err0);
