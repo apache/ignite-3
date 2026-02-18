@@ -25,6 +25,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
@@ -35,7 +36,7 @@ public class CompletableFutureAssert {
      * Asserts that the given future completes with an exception being an instance of the given class and returns
      * that exception for further examination.
      *
-     * <p>Unlike {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrowFast(Class)},
+     * <p>Unlike {@link CompletableFutureExceptionMatcher#willThrowFast(Class)},
      * this method allows to examine the actual exception thrown further in the test.
      *
      * @param future Future to work on.
@@ -55,7 +56,7 @@ public class CompletableFutureAssert {
      * that exception for further examination.
      *
      * <p>Unlike
-     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * {@link CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
      * this method allows to examine the actual exception thrown further in the test.
      *
      * @param future Future to work on.
@@ -72,7 +73,7 @@ public class CompletableFutureAssert {
      * that exception for further examination.
      *
      * <p>Unlike
-     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * {@link CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
      * this method allows to examine the actual exception thrown further in the test.
      *
      * @param future Future to work on.
@@ -123,7 +124,7 @@ public class CompletableFutureAssert {
      * (in time) and returns that exception for further examination.
      *
      * <p>Unlike
-     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * {@link CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
      * this method allows to examine the actual exception thrown further in the test.
      *
      * @param future Future to work on.
@@ -142,7 +143,7 @@ public class CompletableFutureAssert {
      * (in time) and returns that exception for further examination.
      *
      * <p>Unlike
-     * {@link org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
+     * {@link CompletableFutureExceptionMatcher#willThrow(Class, int, TimeUnit)},
      * this method allows to examine the actual exception thrown further in the test.
      *
      * @param future Future to work on.
