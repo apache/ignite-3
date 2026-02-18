@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.table.distributed.schema.MetadataSuffic
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshaller;
@@ -69,18 +70,19 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
             if (requiredCatalogVersion != NO_VERSION_REQUIRED
                     && !isMetadataAvailableForCatalogVersion(requiredCatalogVersion, catalogService)) {
-                // TODO: IGNITE-20298 - throttle logging.
-                LOG.warn(
+                String message = IgniteStringFormatter.format(
                         "Metadata not yet available, rejecting AppendEntriesRequest with EBUSY [group={}, requiredLevel={}].",
                         request.groupId(), requiredCatalogVersion
                 );
+
+                // TODO: IGNITE-20298 - throttle logging.
+                LOG.warn(message);
 
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(
                             node.getRaftOptions().getRaftMessagesFactory(),
                             RaftError.EBUSY,
-                            "Metadata not yet available, rejecting AppendEntriesRequest with EBUSY [group=%s, requiredLevel=%d].",
-                            request.groupId(), requiredCatalogVersion
+                            message
                     );
             }
 

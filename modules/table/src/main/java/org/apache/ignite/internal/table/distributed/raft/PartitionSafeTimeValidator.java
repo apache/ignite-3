@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.TableAwareCommand;
@@ -75,18 +76,11 @@ public class PartitionSafeTimeValidator implements SafeTimeValidator {
 
         if (!future.isDone()) {
             // TODO: IGNITE-20298 - throttle logging.
-            LOG.warn(
-                    "Metadata not yet available by safe time, rejecting ActionRequest with EBUSY [group={}, requiredLevel={}].",
-                    groupId, safeTime
-            );
+            String format = "Metadata not yet available by safe time, rejecting ActionRequest with EBUSY [group={}, safeTs={}].";
 
-            return SafeTimeValidationResult.forRetry(
-                    String.format(
-                            "Metadata not yet available by safe time, rejecting ActionRequest with EBUSY [group=%s, safeTs=%s].",
-                            groupId,
-                            safeTime
-                    )
-            );
+            LOG.warn(format, groupId, safeTime);
+
+            return SafeTimeValidationResult.forRetry(IgniteStringFormatter.format(format, groupId, safeTime));
         }
 
         CompatValidationResult compatibilityValidationResult = future.join();
