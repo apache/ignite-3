@@ -616,6 +616,14 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestContainsAllKeysWhenKeysAreEmptyReturnsTrue()
+        {
+            var result = await TupleView.ContainsAllKeysAsync(null, []);
+
+            Assert.IsTrue(result);
+        }
+
+        [Test]
         public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
         {
             var records = Enumerable

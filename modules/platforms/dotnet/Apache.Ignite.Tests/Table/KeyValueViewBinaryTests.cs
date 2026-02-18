@@ -94,6 +94,14 @@ public class KeyValueViewBinaryTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestContainsAllKeysWhenKeysAreEmptyReturnsTrue()
+    {
+        var result = await KvView.ContainsAllKeysAsync(null, []);
+
+        Assert.IsTrue(result);
+    }
+
+    [Test]
     public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
     {
         await KvView.PutAsync(null, GetTuple(1L), GetTuple("val1"));

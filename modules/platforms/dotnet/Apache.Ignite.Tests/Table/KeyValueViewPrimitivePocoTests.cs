@@ -82,6 +82,14 @@ public class KeyValueViewPrimitivePocoTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestContainsAllKeysWhenKeysAreEmptyReturnsTrue()
+    {
+        var result = await KvView.ContainsAllKeysAsync(null, []);
+
+        Assert.IsTrue(result);
+    }
+
+    [Test]
     public async Task TestContainsAllKeysWhenAllKeysExistReturnsTrue()
     {
         await KvView.PutAsync(null, 1L, GetValPoco("val1"));
