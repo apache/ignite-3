@@ -137,6 +137,7 @@ namespace Apache.Ignite.Internal.Compute
                 arg: (writer, taskDescriptor, arg, _socket, cancellationToken),
                 requestWriter: static (socket, args) =>
                 {
+                    args.writer.Reset();
                     var w = args.writer.MessageWriter;
 
                     WriteUnits(args.taskDescriptor.DeploymentUnits, args.writer);
@@ -465,11 +466,11 @@ namespace Apache.Ignite.Internal.Compute
                 requestWriter: static (socket, args) =>
                 {
                     args.writer.Reset();
+                    var w = args.writer.MessageWriter;
 
                     WriteNodeNames(args.writer, args.nodes);
                     WriteJob(args.writer, args.jobDescriptor, CanWriteJobExecType(socket));
 
-                    var w = args.writer.MessageWriter;
                     ComputePacker.PackArgOrResult(
                         ref w, args.arg, args.jobDescriptor.ArgMarshaller, GetObservableTimestamp(socket, args._socket));
 
@@ -531,22 +532,22 @@ namespace Apache.Ignite.Internal.Compute
                         ClientOp.ComputeExecuteColocated,
                         tx: null,
                         arg: (writer, table, schema, key, serializerHandler, descriptor, arg, _socket, cancellationToken),
-                        requestWriter: static (socket, arg) =>
+                        requestWriter: static (socket, args) =>
                         {
-                            arg.writer.Reset();
-                            var w = arg.writer.MessageWriter;
+                            args.writer.Reset();
+                            var w = args.writer.MessageWriter;
 
-                            w.Write(arg.table.Id);
-                            w.Write(arg.schema.Version);
+                            w.Write(args.table.Id);
+                            w.Write(args.schema.Version);
 
-                            arg.serializerHandler.Write(ref w, arg.schema, arg.key, keyOnly: true, computeHash: false);
+                            args.serializerHandler.Write(ref w, args.schema, args.key, keyOnly: true, computeHash: false);
 
-                            WriteJob(arg.writer, arg.descriptor, CanWriteJobExecType(socket));
+                            WriteJob(args.writer, args.descriptor, CanWriteJobExecType(socket));
 
                             ComputePacker.PackArgOrResult(
-                                ref w, arg.arg, arg.descriptor.ArgMarshaller, GetObservableTimestamp(socket, arg._socket));
+                                ref w, args.arg, args.descriptor.ArgMarshaller, GetObservableTimestamp(socket, args._socket));
 
-                            return arg.writer;
+                            return args.writer;
                         },
                         preferredNode: preferredNode,
                         expectNotifications: true,
