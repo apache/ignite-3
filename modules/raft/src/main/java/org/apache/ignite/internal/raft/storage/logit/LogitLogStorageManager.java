@@ -18,12 +18,16 @@
 package org.apache.ignite.internal.raft.storage.logit;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -125,6 +129,19 @@ public class LogitLogStorageManager implements LogStorageManager {
     public LogSyncer logSyncer() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21955
         return new NoOpLogSyncer();
+    }
+
+    @Override
+    public long totalBytesOnDisk() {
+        // The implementation is ineffeicient, but it's here just for completeness. Logit is not production ready and will never become
+        // production ready.
+        try (Stream<Path> paths = Files.walk(logPath)) {
+            return paths.filter(Files::isRegularFile)
+                    .mapToLong(path -> path.toFile().length())
+                    .sum();
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
     }
 
     /** Returns path to log storage by group ID. */

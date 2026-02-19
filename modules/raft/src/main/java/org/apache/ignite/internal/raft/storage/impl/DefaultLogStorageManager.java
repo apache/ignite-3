@@ -68,6 +68,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
+import org.rocksdb.SstFileManager;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 import org.rocksdb.util.SizeUnit;
@@ -98,6 +99,10 @@ public class DefaultLogStorageManager implements LogStorageManager {
     /** Database options. */
     private DBOptions dbOptions;
 
+    private Env env;
+
+    private SstFileManager sstFileManager;
+
     /** Write options to use in writes to database. */
     private WriteOptions writeOptions;
 
@@ -114,6 +119,8 @@ public class DefaultLogStorageManager implements LogStorageManager {
     private AbstractEventListener flushListener;
 
     private final boolean fsync;
+
+    private RocksDbSizeCalculator sizeCalculator;
 
     /**
      * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
@@ -174,6 +181,8 @@ public class DefaultLogStorageManager implements LogStorageManager {
 
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
 
+        this.env = createEnv();
+        this.sstFileManager = new SstFileManager(env);
         this.dbOptions = createDbOptions();
 
         this.writeOptions = new WriteOptions().setSync(dbOptions.useFsync());
@@ -192,6 +201,9 @@ public class DefaultLogStorageManager implements LogStorageManager {
         );
 
         try {
+            dbOptions.setEnv(env);
+            dbOptions.setSstFileManager(sstFileManager);
+
             dbOptions.setListeners(List.of(flushListener));
 
             this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
@@ -216,6 +228,8 @@ public class DefaultLogStorageManager implements LogStorageManager {
 
             throw e;
         }
+
+        sizeCalculator = new RocksDbSizeCalculator(db, sstFileManager);
     }
 
     MetadataMigration metadataMigration() {
@@ -245,6 +259,10 @@ public class DefaultLogStorageManager implements LogStorageManager {
         closables.add(cfOption);
         closables.add(flushListener);
         closables.add(writeOptions);
+        closables.add(sstFileManager);
+        // This class obtains a default env which is not necessary to be closed, but the closure call is tolerated.
+        // But subclasses might override how they create env, so we still close it explicitly.
+        closables.add(env);
 
         RocksUtils.closeAll(closables);
     }
@@ -278,6 +296,11 @@ public class DefaultLogStorageManager implements LogStorageManager {
     @Override
     public LogSyncer logSyncer() {
         return fsync ? new NoOpLogSyncer() : () -> db.syncWal();
+    }
+
+    @Override
+    public long totalBytesOnDisk() {
+        return sizeCalculator.totalBytesOnDisk();
     }
 
     /**
@@ -314,6 +337,10 @@ public class DefaultLogStorageManager implements LogStorageManager {
         writeBatch.close();
 
         threadLocalWriteBatch.remove();
+    }
+
+    protected Env createEnv() {
+        return Env.getDefault();
     }
 
     /**

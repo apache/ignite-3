@@ -416,6 +416,11 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         @Override
+        public long totalBytesOnDisk() {
+            return 0;
+        }
+
+        @Override
         public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
             return nullCompletedFuture();
         }
