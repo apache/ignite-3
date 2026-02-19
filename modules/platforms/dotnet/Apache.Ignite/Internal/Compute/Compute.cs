@@ -129,34 +129,27 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(taskDescriptor);
             IgniteArgumentCheck.NotNull(taskDescriptor.TaskClassName);
 
-            using var buf = await _socket.DoWithRetryAsync(
-                    (taskDescriptor, arg, _socket, cancellationToken),
-                    static (_, _) => ClientOp.ComputeExecuteMapReduce,
-                    async static (socket, args) =>
-                    {
-                        using var writer = ProtoCommon.GetMessageWriter();
-                        Write(writer, args, GetObservableTimestamp(socket, args._socket));
+            using var writer = ProtoCommon.GetMessageWriter();
 
-                        return await socket.DoOutInOpAsync(
-                            ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true, cancellationToken: args.cancellationToken)
-                            .ConfigureAwait(false);
-                    })
-                .ConfigureAwait(false);
+            using var res = await _socket.DoOutInOpAndGetSocketAsync(
+                ClientOp.ComputeExecuteMapReduce,
+                tx: null,
+                arg: (writer, taskDescriptor, arg, _socket, cancellationToken),
+                requestWriter: static (socket, args) =>
+                {
+                    var w = args.writer.MessageWriter;
 
-            return GetTaskExecution<TResult>(buf, cancellationToken);
+                    WriteUnits(args.taskDescriptor.DeploymentUnits, args.writer);
+                    w.Write(args.taskDescriptor.TaskClassName);
 
-            static void Write(
-                PooledArrayBuffer writer,
-                (TaskDescriptor<TArg, TResult> TaskDescriptor, TArg Arg, ClientFailoverSocket Socket, CancellationToken Ct) args,
-                long? observableTimestamp)
-            {
-                var w = writer.MessageWriter;
+                    ComputePacker.PackArgOrResult(ref w, args.arg, null, GetObservableTimestamp(socket, args._socket));
 
-                WriteUnits(args.TaskDescriptor.DeploymentUnits, writer);
-                w.Write(args.TaskDescriptor.TaskClassName);
+                    return args.writer;
+                },
+                expectNotifications: true,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                ComputePacker.PackArgOrResult(ref w, args.Arg, null, observableTimestamp);
-            }
+            return GetTaskExecution<TResult>(res.Buffer, cancellationToken);
         }
 
         /// <inheritdoc/>
