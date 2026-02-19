@@ -399,7 +399,24 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Get the channel.
+     * Gets the channel without falling back to default, if a connection is not possible to establish.
+     *
+     * @param nodeName Node name.
+     *
+     * @return The future.
+     */
+    public CompletableFuture<ClientChannel> getNodeChannelAsync(String nodeName) {
+        ClientChannelHolder holder = nodeChannelsByName.get(nodeName);
+
+        if (holder != null && !holder.close) {
+            return holder.getOrCreateChannelAsync();
+        }
+
+        return nullCompletedFuture();
+    }
+
+    /**
+     * Gets the channel.
      *
      * @param preferredNodeName Preferred node name.
      *

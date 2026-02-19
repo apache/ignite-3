@@ -120,6 +120,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.partition.ClientTablePartitionPrimaryReplicasNodesGetRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
+import org.apache.ignite.client.handler.requests.tx.ClientTransactionDiscardRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
@@ -1083,6 +1084,9 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TABLE_GET_QUALIFIED:
                 return ClientTableGetQualifiedRequest.process(in, igniteTables);
+
+            case ClientOp.TX_DISCARD:
+                return ClientTransactionDiscardRequest.process(in, txManager, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);

@@ -404,7 +404,7 @@ public class ClientSql implements IgniteSql {
             boolean sqlDirectMappingSupported = r.clientChannel().protocolContext().isFeatureSupported(SQL_DIRECT_TX_MAPPING);
             boolean sqlMultistatementsSupported = r.clientChannel().protocolContext().allFeaturesSupported(SQL_MULTISTATEMENT_SUPPORT);
 
-            DirectTxUtils.readTx(r, ctx, tx, ch.observableTimestamp());
+            DirectTxUtils.readTx(r, ch, ctx, tx, ch.observableTimestamp());
             ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(
                     r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported, sqlMultistatementsSupported
             );

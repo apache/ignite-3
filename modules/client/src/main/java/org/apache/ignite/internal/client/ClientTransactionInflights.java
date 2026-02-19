@@ -128,21 +128,20 @@ public class ClientTransactionInflights {
     }
 
     /**
-     * Kill the transaction.
+     * Returns tracked directly mapped transaction.
      *
      * @param id The id.
      *
-     * @return Kill future.
+     * @return The transaction or {@code null}.
      */
-    public CompletableFuture<Void> kill(UUID id) {
+    public @Nullable ClientTransaction trackedTransaction(UUID id) {
         TxContext txContext = txCtxMap.get(id);
 
         if (txContext != null) {
-            // Context will not be null only if a transaction has direct mappings.
-            return txContext.tx.rollbackAsync();
+            return txContext.tx;
         }
 
-        return nullCompletedFuture();
+        return null;
     }
 
     /**

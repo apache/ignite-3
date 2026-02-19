@@ -84,18 +84,6 @@ public interface InternalTransaction extends Transaction {
     );
 
     /**
-     * Enlists a partition group into a transaction without finish state check.
-     *
-     * @param replicationGroupId Replication group id to enlist.
-     * @param tableId Table ID for enlistment.
-     * @param primaryNodeConsistentId Consistent node id of primary replica.
-     * @param consistencyToken Consistency token to enlist for given replication group.
-     */
-    default void enlistForCleanup(ZonePartitionId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
-        // No-op.
-    }
-
-    /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
      *
      * @return Read timestamp for the given transaction if it is a read-only one or {code null} otherwise.

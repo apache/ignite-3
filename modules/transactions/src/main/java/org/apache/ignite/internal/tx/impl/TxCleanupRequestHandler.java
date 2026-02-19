@@ -291,6 +291,36 @@ public class TxCleanupRequestHandler {
         messagingService.send(sender, ChannelType.DEFAULT, prepareResponse(new CleanupReplicatedInfo(txId, partitions)));
     }
 
+    /**
+     * Discards local write intents.
+     *
+     * @param partitions Partitions.
+     * @param txId The transaction id.
+     *
+     * @return The future.
+     */
+    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> partitions, UUID txId) {
+        Map<EnlistedPartitionGroup, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
+
+        for (EnlistedPartitionGroup partition : partitions) {
+            CompletableFuture<Void> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
+                    partition,
+                    txId,
+                    false,
+                    null
+            ).thenAccept(this::processWriteIntentSwitchResponse);
+
+            writeIntentSwitches.put(partition, future);
+        }
+
+        releaseTxLocks(txId);
+
+        remotelyTriggeredResourceRegistry.close(txId);
+
+        // We don't bother about replicating discarded write intents state, because it will be lazily resolved if needed.
+        return allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]));
+    }
+
     private static class CleanupContext {
         private final InternalClusterNode sender;
 

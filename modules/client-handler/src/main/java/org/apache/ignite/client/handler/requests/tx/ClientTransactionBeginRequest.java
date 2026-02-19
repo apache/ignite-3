@@ -89,9 +89,7 @@ public class ClientTransactionBeginRequest {
             long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
             metrics.transactionsActiveIncrement();
 
-            return CompletableFuture.completedFuture(out -> {
-                out.packLong(resourceId);
-            });
+            return CompletableFuture.completedFuture(out -> out.packLong(resourceId));
         } catch (IgniteInternalCheckedException e) {
             tx.rollback();
             throw e;

@@ -1367,11 +1367,6 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
     }
 
-    @Test
-    public void testRollbackRo() {
-        // TODO doesn't use direct mapping ???
-    }
-
     @AfterEach
     protected void validateInflights() throws NoSuchFieldException {
         System.out.println("DBG: validateInflights");

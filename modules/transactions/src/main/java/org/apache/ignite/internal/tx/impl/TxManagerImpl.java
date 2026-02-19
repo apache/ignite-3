@@ -1204,6 +1204,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
+        return txCleanupRequestHandler.discardLocalWriteIntents(groups, txId);
+    }
+
+    @Override
     public int lockRetryCount() {
         return lockRetryCount;
     }

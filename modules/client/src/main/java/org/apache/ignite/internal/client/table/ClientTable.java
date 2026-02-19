@@ -62,7 +62,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
@@ -506,12 +505,12 @@ public class ClientTable implements Table {
                                 .thenCompose(t -> loadSchemaAndReadData(t, reader))
                                 .handle((ret, ex) -> {
                                     if (ex != null) {
-                                        // Retry schema errors, if any.
                                         Throwable cause = ex;
 
                                         if (ctx.firstReqFut != null) {
                                             // Create failed transaction.
-                                            ClientTransaction failed = new ClientTransaction(ctx.channel, id, ctx.readOnly, null, ctx.pm,
+                                            // TODO move under enlistment token condition.
+                                            ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null, ctx.pm,
                                                     null, ch.observableTimestamp(), 0);
                                             failed.fail();
                                             ctx.firstReqFut.complete(failed);
@@ -520,36 +519,49 @@ public class ClientTable implements Table {
                                             return null;
                                         }
 
-                                        while (cause != null) {
-                                            if (cause instanceof ClientSchemaVersionMismatchException) {
-                                                // Retry with specific schema version.
-                                                int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
+                                        // if (ctx.enlistmentToken == null || ctx.enlistmentToken == 0L) {
+                                        if (ctx.enlistmentToken == null) {
+                                            // Retry schema errors, if any, in proxy mode.
+                                            while (cause != null) {
+                                                if (cause instanceof ClientSchemaVersionMismatchException) {
+                                                    // Retry with specific schema version.
+                                                    int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
 
-                                                doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired,
-                                                        provider,
-                                                        retryPolicyOverride, expectedVersion, expectNotifications, tx)
-                                                        .whenComplete(copyStateTo(fut));
+                                                    doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired,
+                                                            provider,
+                                                            retryPolicyOverride, expectedVersion, expectNotifications, tx)
+                                                            .whenComplete(copyStateTo(fut));
 
-                                                return null;
-                                            } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
-                                                // Force load latest schema and revalidate user data against it.
-                                                // When schemaVersionOverride is not null, we already tried to load the schema.
-                                                schemas.remove(UNKNOWN_SCHEMA_VERSION);
+                                                    return null;
+                                                } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
+                                                    // Force load latest schema and revalidate user data against it.
+                                                    // When schemaVersionOverride is not null, we already tried to load the schema.
+                                                    schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
-                                                doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired,
-                                                        provider,
-                                                        retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, expectNotifications, tx)
-                                                        .whenComplete(copyStateTo(fut));
+                                                    doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired,
+                                                            provider,
+                                                            retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, expectNotifications, tx)
+                                                            .whenComplete(copyStateTo(fut));
 
-                                                return null;
+                                                    return null;
+                                                }
+
+                                                cause = cause.getCause();
                                             }
 
-                                            cause = cause.getCause();
-                                        }
+                                            // In case of unrecoverable error the tx is already rolled back on coordinator.
+                                            // We need to additionally cleanup directly mapped part.
+                                            tx0.discardDirectMappings().handle((ignored, err0) -> {
+                                                if (err0 != null) {
+                                                    ex.addSuppressed(err0);
+                                                }
 
-                                        if (tx0 != null) {
-                                            // Rollback the transaction on a client side to make behavior consistent with embedded case.
-                                            // This ensures a transaction resource is cleaned up on the coordinator.
+                                                fut.completeExceptionally(ex);
+
+                                                return (T) null;
+                                            });
+                                        } else {
+                                            // In case of direct mapping error we need to rollback the tx on coordinator.
                                             tx0.rollbackAsync().handle((ignored, err0) -> {
                                                 if (err0 != null) {
                                                     ex.addSuppressed(err0);
@@ -586,7 +598,7 @@ public class ClientTable implements Table {
             @Nullable ClientTransaction tx0
     ) {
         ClientMessageUnpacker in1 = in.in();
-        DirectTxUtils.readTx(in, ctx, tx0, ch.observableTimestamp());
+        DirectTxUtils.readTx(in, ch, ctx, tx0, ch.observableTimestamp());
 
         int schemaVer = in1.unpackInt();
 

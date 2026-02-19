@@ -65,6 +65,7 @@ import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransactionKilledException;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -607,7 +608,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 } else if (err instanceof ClientTransactionKilledException) {
                     ClientTransactionKilledException err0 = (ClientTransactionKilledException) err;
 
-                    inflights.kill(err0.txId());
+                    ClientTransaction tx = inflights.trackedTransaction(err0.txId());
+                    if (tx != null) {
+                        tx.discardDirectMappings();
+                    }
                 }
 
                 // Can't do anything to remove stuck inflight.
