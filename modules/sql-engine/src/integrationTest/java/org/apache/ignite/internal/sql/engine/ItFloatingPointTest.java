@@ -61,7 +61,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
         );
 
         // Forcing an update of the observable time on node 1 to ensure that
-        // the tx on node 1 does not start in past and sees updates made by node 1.
+        // the tx on node 1 does not start in past and sees updates made by node 0.
         IgniteImpl node1 = unwrapIgniteImpl(node(1));
         node1.observableTimeTracker().update(node1.clockService().current());
     }
