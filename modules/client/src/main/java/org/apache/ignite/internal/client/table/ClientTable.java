@@ -549,17 +549,21 @@ public class ClientTable implements Table {
                                                 cause = cause.getCause();
                                             }
 
-                                            // In case of unrecoverable error the tx is already rolled back on coordinator.
-                                            // We need to additionally cleanup directly mapped part.
-                                            tx0.discardDirectMappings().handle((ignored, err0) -> {
-                                                if (err0 != null) {
-                                                    ex.addSuppressed(err0);
-                                                }
-
+                                            if (tx0 == null) {
                                                 fut.completeExceptionally(ex);
+                                            } else {
+                                                // In case of unrecoverable error the tx is already rolled back on coordinator.
+                                                // We need to additionally cleanup directly mapped part.
+                                                tx0.discardDirectMappings().handle((ignored, err0) -> {
+                                                    if (err0 != null) {
+                                                        ex.addSuppressed(err0);
+                                                    }
 
-                                                return (T) null;
-                                            });
+                                                    fut.completeExceptionally(ex);
+
+                                                    return (T) null;
+                                                });
+                                            }
                                         } else {
                                             // In case of direct mapping error we need to rollback the tx on coordinator.
                                             tx0.rollbackAsync().handle((ignored, err0) -> {

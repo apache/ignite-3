@@ -1191,7 +1191,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
-        List<Tuple> tuples0 = generateKeysForPartition(800, 10, map, 0, table);
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
 
         ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
         ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
@@ -1226,16 +1226,16 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled // TODO disable under ticket. use with reversed priority.
+    @Disabled // TODO disable under ticket.
     public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() {
+        // Note: reversed tx priority is required for this test.
         ClientTable table = (ClientTable) table();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
-        List<Tuple> tuples0 = generateKeysForPartition(800, 10, map, 0, table);
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
 
         // We need a waiter for this scenario.
-
         Tuple key = tuples0.get(0);
         Tuple val = val("1");
 
@@ -1318,7 +1318,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKillWithDirectMapping() {
+    public void testKillDirectlyMappedTransaction() {
         ClientTable table = (ClientTable) table();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
