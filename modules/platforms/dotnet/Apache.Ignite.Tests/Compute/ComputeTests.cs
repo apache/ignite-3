@@ -224,6 +224,8 @@ namespace Apache.Ignite.Tests.Compute
             await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
             await Test(Guid.NewGuid());
 
+            await Test(new IgniteTuple { ["foo"] = "bar", ["baz"] = 42 }, "TupleImpl [FOO=bar, BAZ=42]");
+
             async Task Test(object val, string? expectedStr = null)
             {
                 if (colocated)
