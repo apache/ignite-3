@@ -23,12 +23,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Tests inflight tracker.
@@ -38,9 +41,16 @@ public class ClientTransactionInflightTest {
 
     private final ClientTransactionInflights inflights = new ClientTransactionInflights();
 
+    private final ClientTransaction transaction;
+
+    {
+        transaction = mock(ClientTransaction.class);
+        Mockito.when(transaction.txId()).thenReturn(txId);
+    }
+
     @Test
     public void testState1() {
-        inflights.addInflight(txId);
+        inflights.addInflight(transaction);
 
         assertEquals(1, inflights.map().get(txId).inflights);
     }
@@ -52,7 +62,7 @@ public class ClientTransactionInflightTest {
 
     @Test
     public void testState3() {
-        inflights.addInflight(txId);
+        inflights.addInflight(transaction);
         inflights.removeInflight(txId, null);
 
         CompletableFuture<Void> fut = inflights.finishFuture(txId);
@@ -61,7 +71,7 @@ public class ClientTransactionInflightTest {
 
     @Test
     public void testState4() {
-        inflights.addInflight(txId);
+        inflights.addInflight(transaction);
 
         CompletableFuture<Void> fut = inflights.finishFuture(txId);
         assertFalse(fut.isDone());
@@ -73,7 +83,7 @@ public class ClientTransactionInflightTest {
 
     @Test
     public void testState5() {
-        inflights.addInflight(txId);
+        inflights.addInflight(transaction);
 
         CompletableFuture<Void> fut = inflights.finishFuture(txId);
         assertFalse(fut.isDone());
@@ -85,7 +95,7 @@ public class ClientTransactionInflightTest {
 
     @Test
     public void testState6() {
-        inflights.addInflight(txId);
+        inflights.addInflight(transaction);
         inflights.removeInflight(txId, new TestException());
 
         CompletableFuture<Void> fut = inflights.finishFuture(txId);

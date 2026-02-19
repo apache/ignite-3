@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -33,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -40,11 +46,10 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -108,10 +113,13 @@ public class ClientTransaction implements Transaction {
     @IgniteToStringExclude
     private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
 
+    private final ReliableChannel reliableChannel;
+
     /**
      * Constructor.
      *
-     * @param ch Channel that the transaction belongs to.
+     * @param ch Channel that the transaction belongs to (coordinator connection).
+     * @param reliableChannel Channels repository.
      * @param id Transaction id.
      * @param isReadOnly Read-only flag.
      * @param txId Transaction id.
@@ -122,6 +130,7 @@ public class ClientTransaction implements Transaction {
      */
     public ClientTransaction(
             ClientChannel ch,
+            ReliableChannel reliableChannel,
             long id,
             boolean isReadOnly,
             UUID txId,
@@ -131,6 +140,7 @@ public class ClientTransaction implements Transaction {
             long timeout
     ) {
         this.ch = ch;
+        this.reliableChannel = reliableChannel;
         this.id = id;
         this.isReadOnly = isReadOnly;
         this.txId = txId;
@@ -207,6 +217,66 @@ public class ClientTransaction implements Transaction {
     @Override
     public void commit() throws TransactionException {
         sync(commitAsync());
+    }
+
+    /**
+     * Discards the directly mapped transaction fragments in case of coordinator side transaction invalidation
+     * (either kill or implicit rollback due to mapping failure, see postEnlist).
+     *
+     * @return The future.
+     */
+    public CompletableFuture<Void> discardDirectMappings() {
+        enlistPartitionLock.writeLock().lock();
+
+        try {
+            if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
+                return finishFut.get();
+            }
+        } finally {
+            enlistPartitionLock.writeLock().unlock();
+        }
+
+        Map<String, List<TablePartitionId>> enlistments = new HashMap<>();
+
+        for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
+            IgniteBiTuple<String, Long> info = entry.getValue().getNow(null);
+
+            if (info == null) {
+                continue; // Ignore incomplete enlistments.
+            }
+
+            enlistments.computeIfAbsent(info.get1(), k -> new ArrayList<>()).add(entry.getKey());
+        }
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>(enlistments.size());
+
+        for (Entry<String, List<TablePartitionId>> entry : enlistments.entrySet()) {
+            CompletableFuture<Void> discardFut = reliableChannel.getNodeChannelAsync(entry.getKey()).thenCompose(ch -> {
+                if (ch == null) {
+                    return failedFuture(
+                            new IgniteClientConnectionException(CONNECTION_ERR, "Failed to connect to node " + entry.getKey(), null));
+                }
+
+                return ch.serviceAsync(ClientOp.TX_DISCARD, w -> {
+                    int cnt = entry.getValue().size();
+                    w.out().packUuid(txId);
+                    w.out().packInt(cnt);
+
+                    for (int i = 0; i < cnt; i++) {
+                        w.out().packInt(entry.getValue().get(i).tableId());
+                        w.out().packInt(entry.getValue().get(i).partitionId());
+                    }
+                }, null);
+            });
+            futures.add(discardFut);
+        }
+
+        return CompletableFutures.allOf(futures).handle((r, e) -> {
+            setState(STATE_ROLLED_BACK);
+            ch.inflights().erase(txId());
+            this.finishFut.get().complete(null);
+            return null;
+        });
     }
 
     /** {@inheritDoc} */
