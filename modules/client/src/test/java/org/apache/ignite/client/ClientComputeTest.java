@@ -351,6 +351,27 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    void testServerReturnsUnknownErrorCode() {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            int customCode = (9999 << 16) | 123;
+            FakeCompute.future = CompletableFuture.failedFuture(new IgniteException(customCode, "Hello from a future version"));
+
+            var jobTarget = getClusterNodes("s1");
+            JobDescriptor<Object, String> jobDescriptor = JobDescriptor.<Object, String>builder("job").build();
+
+            IgniteException ex = assertThrows(IgniteException.class, () -> client.compute().execute(jobTarget, jobDescriptor, null));
+            assertThat(
+                    ex.toString(),
+                    startsWith("org.apache.ignite.lang.IgniteException: UNKNOWN-UNKNOWN9999-123 Hello from a future version"));
+
+            assertEquals(customCode, ex.code());
+            assertEquals("UNKNOWN-UNKNOWN9999-123", ex.codeAsString());
+        }
+    }
+
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
         ignite1 = new FakeIgnite("s1");
         ignite2 = new FakeIgnite("s2");
