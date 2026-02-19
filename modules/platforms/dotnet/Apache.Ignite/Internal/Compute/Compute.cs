@@ -535,33 +535,37 @@ namespace Apache.Ignite.Internal.Compute
 
                 try
                 {
-                    int colocationHash = WriteForHash(table, schema, key, serializerHandlerFunc);
+                    var serializerHandler = serializerHandlerFunc(table);
+                    int colocationHash = ComputeKeyHash(serializerHandler, schema, key);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+                    using var writer = ProtoCommon.GetMessageWriter();
 
-                    using var resBuf = await _socket.DoWithRetryAsync(
-                            (table, schema, key, serializerHandlerFunc, descriptor, arg, _socket, cancellationToken),
-                            static (_, _) => ClientOp.ComputeExecuteColocated,
-                            async static (socket, args) =>
-                            {
-                                using var writer = ProtoCommon.GetMessageWriter();
-                                Write(
-                                    writer,
-                                    args.table,
-                                    args.schema,
-                                    args.key,
-                                    args.serializerHandlerFunc,
-                                    args.descriptor,
-                                    args.arg,
-                                    CanWriteJobExecType(socket),
-                                    GetObservableTimestamp(socket, args._socket));
+                    using var res = await _socket.DoOutInOpAndGetSocketAsync(
+                        ClientOp.ComputeExecuteColocated,
+                        tx: null,
+                        arg: (writer, table, schema, key, serializerHandler, descriptor, arg, _socket, cancellationToken),
+                        requestWriter: static (socket, arg) =>
+                        {
+                            arg.writer.Reset();
+                            var w = arg.writer.MessageWriter;
 
-                                return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, writer, expectNotifications: true, cancellationToken: args.cancellationToken)
-                                    .ConfigureAwait(false);
-                            },
-                            preferredNode)
-                        .ConfigureAwait(false);
+                            w.Write(arg.table.Id);
+                            w.Write(arg.schema.Version);
 
-                    return GetJobExecution(resBuf, readSchema: true, marshaller: descriptor.ResultMarshaller, cancellationToken);
+                            arg.serializerHandler.Write(ref w, arg.schema, arg.key, keyOnly: true, computeHash: false);
+
+                            WriteJob(arg.writer, arg.descriptor, CanWriteJobExecType(socket));
+
+                            ComputePacker.PackArgOrResult(
+                                ref w, arg.arg, arg.descriptor.ArgMarshaller, GetObservableTimestamp(socket, arg._socket));
+
+                            return arg.writer;
+                        },
+                        preferredNode: preferredNode,
+                        expectNotifications: true,
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                    return GetJobExecution(res.Buffer, readSchema: true, marshaller: descriptor.ResultMarshaller, cancellationToken);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -582,40 +586,11 @@ namespace Apache.Ignite.Internal.Compute
                 }
             }
 
-            static int WriteForHash(
-                Table table,
-                Schema schema,
-                TKey key,
-                Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc)
+            static int ComputeKeyHash(IRecordSerializerHandler<TKey> serializerHandler, Schema schema, TKey key)
             {
                 using var bufferWriter = ProtoCommon.GetMessageWriter();
                 var w = bufferWriter.MessageWriter;
-                var serializerHandler = serializerHandlerFunc(table);
                 return serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
-            }
-
-            static void Write(
-                PooledArrayBuffer bufferWriter,
-                Table table,
-                Schema schema,
-                TKey key,
-                Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
-                JobDescriptor<TArg, TResult> descriptor,
-                TArg arg,
-                bool canWriteJobExecType,
-                long? observableTimestamp)
-            {
-                var w = bufferWriter.MessageWriter;
-
-                w.Write(table.Id);
-                w.Write(schema.Version);
-
-                var serializerHandler = serializerHandlerFunc(table);
-                serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: false);
-
-                WriteJob(bufferWriter, descriptor, canWriteJobExecType);
-
-                ComputePacker.PackArgOrResult(ref w, arg, descriptor.ArgMarshaller, observableTimestamp);
             }
         }
 
