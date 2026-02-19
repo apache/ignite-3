@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.testframework;
 
-import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.function.Function.identity;
