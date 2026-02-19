@@ -149,7 +149,8 @@ class ByteArrayMarshallerTest {
         assertThrows(
                 UnsupportedObjectTypeMarshallingException.class,
                 () -> notSerializableMarshaller.marshal(notSerializable),
-                "org.apache.ignite.marshalling.ByteArrayMarshallerTest$NotSerializable is not serializable."
+                "org.apache.ignite.marshalling.ByteArrayMarshallerTest$NotSerializable"
+                        + " must be Serializable to be used with ByteArrayMarshaller."
         );
     }
 
