@@ -191,7 +191,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestAllSupportedArgTypes()
+        public async Task TestAllSupportedArgTypes([Values(true, false)] bool colocated)
         {
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);
@@ -225,6 +225,19 @@ namespace Apache.Ignite.Tests.Compute
             await Test(Guid.NewGuid());
 
             async Task Test(object val, string? expectedStr = null)
+            {
+                if (colocated)
+                {
+                    await Test0(val, expectedStr, JobTarget.Colocated(TableName, 1L));
+                }
+                else
+                {
+                    await Test0(val, expectedStr, JobTarget.AnyNode(await Client.GetClusterNodesAsync()));
+                }
+            }
+
+            async Task Test0<TTarget>(object val, string? expectedStr, IJobTarget<TTarget> target)
+                where TTarget : notnull
             {
                 var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
