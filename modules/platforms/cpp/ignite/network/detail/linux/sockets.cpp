@@ -87,6 +87,12 @@ void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out
     setsockopt(socket_fd, SOL_SOCKET, SO_SNDBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
     setsockopt(socket_fd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&buf_size), sizeof(buf_size));
 
+    // Set an option to not raise SIGPIPE. This should be done before we may return from this function if we cannot
+    // configure keepalive options
+#ifdef __APPLE__
+    setsockopt(socket_fd, SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<char *>(&idle_opt), sizeof(idle_opt));
+#endif
+
     int iNoDelay = no_delay ? 1 : 0;
     setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&iNoDelay), sizeof(iNoDelay));
 
