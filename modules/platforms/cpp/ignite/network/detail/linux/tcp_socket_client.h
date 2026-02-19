@@ -164,7 +164,7 @@ public:
                 return res;
         }
 
-        return int(::send(m_socket_handle, reinterpret_cast<const char *>(data), static_cast<int>(size), 0));
+        return int(::send(m_socket_handle, reinterpret_cast<const char *>(data), static_cast<int>(size), MSG_NOSIGNAL));
     }
 
     /**

@@ -55,6 +55,11 @@ void set_process_abort_handler(std::function<void(int)> handler) {
     signal(SIGABRT, signal_handler);
     signal(SIGINT, signal_handler);
     signal(SIGSEGV, signal_handler);
+
+#ifndef _WIN32
+    // Ignore SIGPIPE to prevent process termination when writing to a closed socket.
+    signal(SIGPIPE, SIG_IGN);
+#endif
 }
 
 int main(int argc, char **argv) {
