@@ -456,37 +456,31 @@ namespace Apache.Ignite.Internal.Compute
             TArg arg,
             CancellationToken cancellationToken)
         {
-            IClusterNode node = GetRandomNode(nodes);
+            using var writer = ProtoCommon.GetMessageWriter();
 
-            using var buf = await _socket.DoWithRetryAsync(
-                    (nodes, jobDescriptor, arg, _socket, cancellationToken),
-                    static (_, _) => ClientOp.ComputeExecute,
-                    async static (socket, args) =>
-                    {
-                        using var writer = ProtoCommon.GetMessageWriter();
-                        Write(writer, args, CanWriteJobExecType(socket), GetObservableTimestamp(socket, args._socket));
+            using var res = await _socket.DoOutInOpAndGetSocketAsync(
+                ClientOp.ComputeExecute,
+                tx: null,
+                arg: (writer, nodes, jobDescriptor, arg, _socket, cancellationToken),
+                requestWriter: static (socket, args) =>
+                {
+                    args.writer.Reset();
 
-                        return await socket.DoOutInOpAsync(
-                            ClientOp.ComputeExecute, writer, expectNotifications: true, cancellationToken: args.cancellationToken)
-                            .ConfigureAwait(false);
-                    },
-                    PreferredNode.FromName(node.Name))
+                    WriteNodeNames(args.writer, args.nodes);
+                    WriteJob(args.writer, args.jobDescriptor, CanWriteJobExecType(socket));
+
+                    var w = args.writer.MessageWriter;
+                    ComputePacker.PackArgOrResult(
+                        ref w, args.arg, args.jobDescriptor.ArgMarshaller, GetObservableTimestamp(socket, args._socket));
+
+                    return args.writer;
+                },
+                PreferredNode.FromName(GetRandomNode(nodes).Name),
+                expectNotifications: true,
+                cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
-            return GetJobExecution(buf, readSchema: false, jobDescriptor.ResultMarshaller, cancellationToken);
-
-            static void Write(
-                PooledArrayBuffer writer,
-                (ICollection<IClusterNode> Nodes, JobDescriptor<TArg, TResult> Desc, TArg Arg, ClientFailoverSocket Socket, CancellationToken Ct) args,
-                bool canWriteJobExecType,
-                long? observableTimestamp)
-            {
-                WriteNodeNames(writer, args.Nodes);
-                WriteJob(writer, args.Desc, canWriteJobExecType);
-
-                var w = writer.MessageWriter;
-                ComputePacker.PackArgOrResult(ref w, args.Arg, args.Desc.ArgMarshaller, observableTimestamp);
-            }
+            return GetJobExecution(res.Buffer, readSchema: false, jobDescriptor.ResultMarshaller, cancellationToken);
         }
 
         private async Task<Table> GetTableAsync(QualifiedName tableName)
