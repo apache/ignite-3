@@ -17,10 +17,10 @@
 
 package org.apache.ignite.marshalling;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -148,7 +148,8 @@ class ByteArrayMarshallerTest {
 
         assertThrows(
                 UnsupportedObjectTypeMarshallingException.class,
-                () -> notSerializableMarshaller.marshal(notSerializable)
+                () -> notSerializableMarshaller.marshal(notSerializable),
+                "org.apache.ignite.marshalling.ByteArrayMarshallerTest$NotSerializable is not serializable."
         );
     }
 

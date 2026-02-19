@@ -139,9 +139,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         assertResultFailsWithErr(
                 result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
                 "Exception in user-defined marshaller",
-                hasMessage(containsString(
-                        "org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException: IGN-MARSHALLING-2 "
-                                + "Unsupported object type: java.lang.Integer. Please, define a marshaller that can handle this type."))
+                hasMessage(containsString("java.lang.RuntimeException: User defined error."))
         );
     }
 
@@ -188,7 +186,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                         return (String) obj;
                     }
 
-                    throw new UnsupportedObjectTypeMarshallingException(obj.getClass());
+                    throw new RuntimeException("User defined error.");
                 }
             };
         }
