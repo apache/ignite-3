@@ -32,7 +32,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 
 /**
- * This example demonstrates the usage of the {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with a result return.
+ * This example demonstrates the usage of the { @link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with a result return.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

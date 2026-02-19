@@ -23,7 +23,7 @@ import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 /**
- * This example demonstrates the usage of the {@link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
+ * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

@@ -34,7 +34,7 @@ import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
 import org.apache.ignite.table.QualifiedName;
 
 /**
- * This example demonstrates the usage of the {@link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
+ * This example demonstrates the usage of the { @link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

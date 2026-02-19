@@ -35,7 +35,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with colocated JobTarget.
+ * This example demonstrates the usage of the { @link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with colocated JobTarget.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

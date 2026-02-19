@@ -36,7 +36,7 @@ import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 
 /**
- * This example demonstrates the usage of the {@link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object, CancellationToken)} API.
+ * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object, CancellationToken)} API.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
