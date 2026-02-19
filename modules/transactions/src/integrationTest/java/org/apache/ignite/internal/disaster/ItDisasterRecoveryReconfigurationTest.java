@@ -196,9 +196,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
         executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
-                        + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
+                        + "auto scale down %d, auto scale up %d, consistency mode '%s', quorum size %d) storage profiles ['%s']",
                 zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1,
-                zoneParams.consistencyMode().name(), DEFAULT_STORAGE_PROFILE
+                zoneParams.consistencyMode().name(),
+                zoneParams.quorumSize() == -1 ? zoneParams.replicas() / 2 + 1 : zoneParams.quorumSize(),
+                DEFAULT_STORAGE_PROFILE
         ));
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
@@ -2137,6 +2139,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partitions();
 
         int nodes() default INITIAL_NODES;
+
+        int quorumSize() default -1;
 
         ConsistencyMode consistencyMode() default ConsistencyMode.STRONG_CONSISTENCY;
     }
