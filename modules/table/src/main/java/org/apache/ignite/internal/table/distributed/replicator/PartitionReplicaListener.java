@@ -2487,7 +2487,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             true,
                             null,
                             null,
-                            lastCommitTimestamp,
+                            null,
                             indexIdsAtRwTxBeginTs(txId)
                     );
                 }
@@ -2504,7 +2504,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             true,
                             null,
                             null,
-                            lastCommitTimestamp,
+                            null,
                             indexIdsAtRwTxBeginTs(txId)
                     );
                 }
@@ -2548,7 +2548,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                                 false,
                                 null,
                                 safeTs,
-                                lastCommitTimestamp,
+                                null,
                                 indexIdsAtRwTxBeginTs(txId)
                         );
                     }
@@ -3494,22 +3494,35 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 ? null
                 : replicaMeta.getStartTime().longValue();
 
+        ZonePartitionId commitPartitionId = new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId());
+
         return transactionStateResolver.resolveTxState(
                         txId,
-                        new ZonePartitionId(writeIntent.commitZoneId(), writeIntent.commitPartitionId()),
+                        commitPartitionId,
                         timestamp,
                         currentConsistencyToken,
                         replicationGroupId
                 )
                 .thenApply(transactionMeta -> {
+                    boolean writeIntentReadable = canReadFromWriteIntent(txId, txManager, transactionMeta, timestamp);
+
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
+                    } else {
+                        LOG.info(
+                                "Received non-final transaction state after tx state resolution [txId={}, groupId={}, txMeta={}, "
+                                    + "timestamp={}, commitPartId={}, currentConsistencyToken={}, writeIntentReadable={}].",
+                                txId,
+                                replicationGroupId,
+                                transactionMeta,
+                                timestamp,
+                                commitPartitionId,
+                                currentConsistencyToken,
+                                writeIntentReadable
+                        );
                     }
 
-                    return new WriteIntentResolutionResult(
-                            canReadFromWriteIntent(txId, txManager, transactionMeta, timestamp),
-                            transactionMeta
-                    );
+                    return new WriteIntentResolutionResult(writeIntentReadable, transactionMeta);
                 });
     }
 

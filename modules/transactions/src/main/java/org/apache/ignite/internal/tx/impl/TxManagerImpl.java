@@ -603,6 +603,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     });
         }
 
+        LOG.info("Skipped aborting on coordinator a transaction that lost its primary replica's volatile state "
+                        + "[txId={}, internalTx={}, enlistment={}, senderCurrentConsistencyToken={}, txMeta={}].",
+                tx.id(),
+                tx,
+                enlistment,
+                currentEnlistmentConsistencyToken,
+                txMeta
+        );
+
         return completedFuture(txMeta);
     }
 
