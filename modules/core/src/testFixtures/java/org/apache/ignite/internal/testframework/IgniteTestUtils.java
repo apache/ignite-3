@@ -934,6 +934,15 @@ public final class IgniteTestUtils {
                 thread.interrupt();
             }
 
+            // Wait for all internal threads to complete before failing the execution.
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
             throw createAssertionError("Race operations took too long.", e, throwables);
         }
 
