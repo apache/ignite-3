@@ -85,6 +85,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -964,7 +965,9 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
             return null;
         }).when(txManager).updateTxMeta(any(), any());
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
+        Executor noOp = r -> { };
+
+        doAnswer(invocation -> noOp).when(txManager).writeIntentSwitchExecutor();
 
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());

@@ -18,6 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -159,12 +160,11 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         new TestMetricManager()
                 ) {
                     @Override
-                    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
-                        CompletableFuture<Void> cleanupFuture = super.executeWriteIntentSwitchAsync(runnable);
-
-                        cleanupFutures.add(cleanupFuture);
-
-                        return cleanupFuture;
+                    public Executor writeIntentSwitchExecutor() {
+                        return r -> {
+                            CompletableFuture<Void> cleanupFuture = runAsync(r, super.writeIntentSwitchExecutor());
+                            cleanupFutures.add(cleanupFuture);
+                        };
                     }
                 };
             }

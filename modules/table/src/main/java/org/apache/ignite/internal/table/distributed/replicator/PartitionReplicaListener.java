@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -1457,7 +1458,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         });
 
         return cleanupReadyFutureRef.get()
-                .thenApply(v -> new FuturesCleanupResult(cleanupNeeded.get()))
+                .thenApplyAsync(v -> new FuturesCleanupResult(cleanupNeeded.get()), txManager.writeIntentSwitchExecutor())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-27904 proper cleanup.
                 .whenComplete((v, e) -> txCleanupReadyFutures.remove(txId));
     }
@@ -3422,19 +3423,24 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-            return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                    () -> storageUpdateHandler.switchWriteIntents(
-                            txId,
-                            txState == COMMITTED,
-                            commitTimestamp,
-                            indexIdsAtRwTxBeginTsOrNull(txId)
+            return runAsync(
+                            () -> inBusyLock(
+                                    busyLock,
+                                    () -> storageUpdateHandler.switchWriteIntents(
+                                            txId,
+                                            txState == COMMITTED,
+                                            commitTimestamp,
+                                            indexIdsAtRwTxBeginTsOrNull(txId)
+                                    )
+                            ),
+                            txManager.writeIntentSwitchExecutor()
                     )
-            )).whenComplete((unused, e) -> {
-                if (e != null && !ReplicatorRecoverableExceptions.isRecoverable(e)) {
-                    LOG.warn("Failed to complete transaction cleanup command {}", e,
-                            formatTxInfo(txId, txManager));
-                }
-            });
+                    .whenComplete((unused, e) -> {
+                        if (e != null && !ReplicatorRecoverableExceptions.isRecoverable(e)) {
+                            LOG.warn("Failed to complete transaction cleanup command {}", e,
+                                    formatTxInfo(txId, txManager));
+                        }
+                    });
         });
 
         future.handle((v, e) -> rowCleanupMap.remove(rowId, future));
