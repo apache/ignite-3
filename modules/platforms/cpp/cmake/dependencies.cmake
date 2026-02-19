@@ -43,6 +43,29 @@ function(fetch_dependency NAME URL MD5)
     endif()
 endfunction()
 
+function(add_asio_dependency)
+    message(STATUS "Download dependency: asio")
+#    FetchContent_Declare(
+#            asio
+#            GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+#            GIT_TAG asio-1-36-0
+#    )
+
+    FetchContent_Declare(
+            asio
+            URL https://github.com/chriskohlhoff/asio/archive/refs/tags/asio-1-36-0.tar.gz
+            URL_HASH MD5=6699ac1dea111c20d024f25e06e573db
+    )
+
+    FetchContent_Populate(asio)
+
+    add_library(asio INTERFACE)
+
+    target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
+
+    target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
+endfunction()
+
 if (${USE_LOCAL_DEPS})
     find_package(msgpack REQUIRED)
     if (${msgpack_FOUND})
@@ -76,6 +99,7 @@ else()
     fetch_dependency(uni-algo https://github.com/uni-algo/uni-algo/archive/v1.2.0.tar.gz 6e0cce94a6b45ebee7b904316df9f87f)
     if (${ENABLE_TESTS})
         fetch_dependency(googletest https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz c8340a482851ef6a3fe618a082304cfc)
+        add_asio_dependency(https://github.com/chriskohlhoff/asio/archive/refs/tags/asio-1-36-0.tar.gz 6699ac1dea111c20d024f25e06e573db)
     endif()
 endif()
 

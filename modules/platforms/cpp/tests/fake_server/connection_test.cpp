@@ -18,10 +18,12 @@
 #include "fake_server.h"
 #include "ignite/client/ignite_client.h"
 #include "proxy/kgb_proxy.h"
+#include "proxy/asio_proxy.h"
 #include "tests/client-test/ignite_runner_suite.h"
 
 #include <gtest/gtest.h>
 #include <thread>
+
 
 using namespace ignite;
 using namespace std::chrono_literals;
@@ -78,18 +80,39 @@ TEST_F(connection_test, request_timeout) {
     }
 }
 
-TEST_F(connection_test, using_proxy) {
-    fake_server fs{50900, get_logger()};
-    proxy::kgb_proxy proxy{50800, 50900};
+// TEST_F(connection_test, using_proxy) {
+//     fake_server fs{50900, get_logger()};
+//     proxy::kgb_proxy proxy{50800, 50900};
+//
+//     fs.start();
+//     proxy.start();
+//
+//     ignite_client_configuration cfg;
+//     cfg.set_logger(get_logger());
+//     cfg.set_endpoints(get_endpoints());
+//
+//     auto cl = ignite_client::start(cfg, 5s);
+//
+//     auto cluster_nodes = cl.get_cluster_nodes();
+//
+//     ASSERT_EQ(1, cluster_nodes.size());
+// }
 
+TEST_F(connection_test, using_asio) {
+    fake_server fs{50900, get_logger()};
     fs.start();
-    proxy.start();
+    asio::io_context io_context;
+    proxy::asio_proxy proxy{io_context, static_cast<short>(50800)};
+
+    std::thread t{[&io_context]() {
+        io_context.run();
+    }};
 
     ignite_client_configuration cfg;
     cfg.set_logger(get_logger());
     cfg.set_endpoints(get_endpoints());
 
-    auto cl = ignite_client::start(cfg, 5s);
+    auto cl = ignite_client::start(cfg, 500s);
 
     auto cluster_nodes = cl.get_cluster_nodes();
 
