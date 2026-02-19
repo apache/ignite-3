@@ -254,10 +254,6 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         secondPrimaryNode.txManager().updateTxMeta(tx0Id, old -> null);
         secondPrimaryNode.txManager().updateTxMeta(tx0Id, old -> TxStateMeta.builder(PENDING).build());
 
-        for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
-            secondPrimaryNode.txManager().executeWriteIntentSwitchAsync(() -> sleep(5000));
-        }
-
         // If coordinator of tx0 doesn't abort it, tx will stumble into write intent and fail with TxIdMismatchException.
         view.upsert(tx, newTuple);
 
