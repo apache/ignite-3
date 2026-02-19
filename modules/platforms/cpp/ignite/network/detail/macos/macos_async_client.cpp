@@ -27,10 +27,6 @@
 // We don't want to use epoll-shim macro here, because we have other close() functions.
 #undef close
 
-#ifndef MSG_NOSIGNAL
-# define MSG_NOSIGNAL 0
-#endif
-
 namespace ignite::network::detail {
 
 linux_async_client::linux_async_client(int fd, end_point addr, tcp_range range)
@@ -93,7 +89,7 @@ bool linux_async_client::send_next_packet_locked() {
     auto &packet = m_send_packets.front();
     auto dataView = packet.get_bytes_view();
 
-    ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), MSG_NOSIGNAL);
+    ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), 0);
     if (ret < 0)
         return false;
 

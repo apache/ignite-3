@@ -108,6 +108,12 @@ void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out
     // The time in seconds between individual keepalive probes.
     enum { KEEP_ALIVE_PROBES_PERIOD = 1 };
 
+    // Suppress SIGPIPE on macOS. On Linux, MSG_NOSIGNAL flag is used in send() calls instead.
+#ifdef __APPLE__
+    int no_sigpipe = 1;
+    setsockopt(socket_fd, SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<char *>(&no_sigpipe), sizeof(no_sigpipe));
+#endif
+
     int idle_opt = KEEP_ALIVE_IDLE_TIME;
     int idle_retry_opt = KEEP_ALIVE_PROBES_PERIOD;
 #ifdef __APPLE__

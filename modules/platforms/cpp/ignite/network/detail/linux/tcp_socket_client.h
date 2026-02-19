@@ -30,10 +30,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#ifndef MSG_NOSIGNAL
-# define MSG_NOSIGNAL 0
-#endif
-
 namespace ignite::network {
 
 /**
@@ -168,7 +164,11 @@ public:
                 return res;
         }
 
-        return int(::send(m_socket_handle, reinterpret_cast<const char *>(data), static_cast<int>(size), MSG_NOSIGNAL));
+        int flags = 0;
+#ifdef MSG_NOSIGNAL
+        flags = MSG_NOSIGNAL;
+#endif
+        return int(::send(m_socket_handle, reinterpret_cast<const char *>(data), static_cast<int>(size), flags));
     }
 
     /**
