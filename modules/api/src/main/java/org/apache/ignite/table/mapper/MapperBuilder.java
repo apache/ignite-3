@@ -22,9 +22,11 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.catalog.annotations.Column;
@@ -283,7 +285,7 @@ public final class MapperBuilder<T> {
         }
 
         if (automapFlag) {
-            Arrays.stream(targetType.getDeclaredFields())
+            getAllFields(targetType).stream()
                     .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
                     .map(MapperBuilder::getColumnToFieldMapping)
                     .filter(entry -> !fields.contains(entry.getValue()))
@@ -299,5 +301,16 @@ public final class MapperBuilder<T> {
         var column = fld.getAnnotation(Column.class);
         var columnName = column != null && !column.value().isEmpty() ? column.value() : fldName;
         return new SimpleEntry<>(parseIdentifier(columnName), fldName);
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any).
+     */
+    private static List<Field> getAllFields(Class<?> clazz) {
+        var result = new ArrayList<Field>();
+        for (Class<?> current = clazz; current != Object.class; current = current.getSuperclass()) {
+            Collections.addAll(result, current.getDeclaredFields());
+        }
+        return result;
     }
 }

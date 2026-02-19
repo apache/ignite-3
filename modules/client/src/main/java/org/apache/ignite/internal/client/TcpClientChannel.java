@@ -449,8 +449,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 throw sneakyThrow(t);
             }
 
-            log.warn("Failed to send request sync [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
-                    + t.getMessage(), t);
+            //noinspection InstanceofCatchParameter
+            if (t instanceof IgniteClientConnectionException) {
+                // Only log connection errors - consistent with async path.
+                log.warn("Failed to send request sync [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+                        + t.getMessage(), t);
+            }
 
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
