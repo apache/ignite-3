@@ -101,12 +101,8 @@ TEST_F(connection_test, request_timeout) {
 TEST_F(connection_test, using_asio) {
     fake_server fs{50900, get_logger()};
     fs.start();
-    asio::io_context io_context;
-    proxy::asio_proxy proxy{io_context, static_cast<short>(50800)};
 
-    std::thread t{[&io_context]() {
-        io_context.run();
-    }};
+    proxy::asio_proxy proxy{static_cast<short>(50800)};
 
     ignite_client_configuration cfg;
     cfg.set_logger(get_logger());
@@ -117,4 +113,6 @@ TEST_F(connection_test, using_asio) {
     auto cluster_nodes = cl.get_cluster_nodes();
 
     ASSERT_EQ(1, cluster_nodes.size());
+
+    // t.join();
 }
