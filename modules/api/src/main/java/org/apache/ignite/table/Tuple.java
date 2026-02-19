@@ -280,13 +280,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code byte} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Byte} - returned directly;</li>
-     *   <li>{@link Short}, {@link Integer}, {@link Long} - accepted only if the numeric value fits into
-     *       {@code byte} range (otherwise {@link ArithmeticException} is thrown);</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Short}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code byte} type, if the value fits {@code byte} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -299,13 +294,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets {@code byte} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Byte} - returned directly;</li>
-     *   <li>{@link Short}, {@link Integer}, {@link Long} - accepted only if the numeric value fits into
-     *       {@code byte} range (otherwise {@link ArithmeticException} is thrown);</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Short}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code byte} type, if the value fits {@code byte} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnIndex Column index.
      * @return Column value.
@@ -316,13 +306,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code short} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Short} - returned directly;</li>
-     *   <li>{@link Byte}, {@link Integer}, {@link Long} - accepted only if the numeric value fits into
-     *       {@code short} range (otherwise {@link ArithmeticException} is thrown);</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code short} type, if the value fits {@code short} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -335,13 +320,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code short} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Short} - returned directly;</li>
-     *   <li>{@link Byte}, {@link Integer}, {@link Long} - accepted only if the numeric value fits into
-     *       {@code short} range (otherwise {@link ArithmeticException} is thrown);</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Integer} or {@link Long} type are converted to
+     * value of {@code short} type, if the value fits {@code short} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnIndex Column index.
      * @return Column value.
@@ -352,13 +332,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code int} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Integer} - returned directly;</li>
-     *   <li>{@link Byte}, {@link Short}, {@link Long} - accepted only if the numeric value fits into
-     *       {@code int} range (otherwise {@link ArithmeticException} is thrown);</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Long} type are converted to
+     * value of {@code int} type, if the value fits {@code int} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -371,13 +346,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code int} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Integer} - returned directly;</li>
-     *   <li>{@link Byte}, {@link Short}, {@link Long} - accepted only if the numeric value fits into
-     *       {@code int} range (otherwise {@link ArithmeticException} is thrown);</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Long} type are converted to
+     * value of {@code int} type, if the value fits {@code int} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnIndex Column index.
      * @return Column value.
@@ -388,11 +358,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code long} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Long}, {@link Integer}, {@link Short}, {@link Byte} - are accepted and widened to {@code long};</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Integer} type are converted to
+     * value of {@code long} type.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -405,11 +372,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code long} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Long}, {@link Integer}, {@link Short}, {@link Byte} - are accepted and widened to {@code long};</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Byte}, {@link Short} or {@link Integer} type are converted to
+     * value of {@code long} type.
      *
      * @param columnIndex Column index.
      * @return Column value.
@@ -420,13 +384,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code float} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Float} - returned directly;</li>
-     *   <li>{@link Double} - accepted only if the {@code double} value is representable as {@code float}
-     *       (or is {@code NaN}); otherwise an {@link ArithmeticException} is thrown;</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Double} type are converted to value
+     * of {@code float} type, if the value fits {@code float} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -439,13 +398,8 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code float} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Float} - returned directly;</li>
-     *   <li>{@link Double} - accepted only if the {@code double} value is representable as {@code float}
-     *       (or is {@code NaN}); otherwise an {@link ArithmeticException} is thrown;</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Double} type are converted to value
+     * of {@code float} type, if the value fits {@code float} range, otherwise {@link ArithmeticException} is thrown.
      *
      * @param columnIndex Column index.
      * @return Column value.
@@ -456,12 +410,7 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code double} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Double} - returned directly;</li>
-     *   <li>{@link Float} - accepted and widened to {@code double};</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Float} type are converted to value of {@code double} type.
      *
      * @param columnName Column name in SQL-parser style notation; e.g., <br>
      *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
@@ -474,12 +423,7 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code double} column value.
      *
-     * <p>Implicit conversions:
-     * <ul>
-     *   <li>{@link Double} - returned directly;</li>
-     *   <li>{@link Float} - accepted and widened to {@code double};</li>
-     *   <li>other types cause {@link ClassCastException}.</li>
-     * </ul>
+     * <p>Implicit conversions: column values of {@link Float} type are converted to value of {@code double} type.
      *
      * @param columnIndex Column index.
      * @return Column value.
