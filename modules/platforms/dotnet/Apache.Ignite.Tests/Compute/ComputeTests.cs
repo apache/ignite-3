@@ -1009,7 +1009,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestCustomMarshaller()
+        public async Task TestCustomMarshaller([Values(true, false)] bool colocated)
         {
             var job = new JobDescriptor<Nested, Nested>(PlatformTestNodeRunner + "$ToStringMarshallerJob")
             {
@@ -1019,16 +1019,22 @@ namespace Apache.Ignite.Tests.Compute
 
             var arg = new Nested(Guid.NewGuid(), 1.234m);
 
-            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
-            Nested res = await exec.GetResultAsync();
-
-            var nullExec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null!);
-            Nested nullRes = await nullExec.GetResultAsync();
+            Nested res = await ExecJob(arg);
+            Nested nullRes = await ExecJob(null);
 
             Assert.AreEqual(arg.Id, res.Id);
             Assert.AreEqual(arg.Price + 1, res.Price);
 
             Assert.IsNull(nullRes);
+
+            async Task<Nested> ExecJob(Nested? arg0)
+            {
+                var jobExec = colocated
+                    ? await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, 1L), job, arg0!)
+                    : await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg0!);
+
+                return await jobExec.GetResultAsync();
+            }
         }
 
         [Test]
