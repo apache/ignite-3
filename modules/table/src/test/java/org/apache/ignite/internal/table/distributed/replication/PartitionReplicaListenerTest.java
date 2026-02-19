@@ -2028,9 +2028,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return null;
         }).when(txManager).updateTxMeta(any(), any());
 
-        Executor noOp = r -> { };
+        Executor wise = Runnable::run;
 
-        doAnswer(invocation -> noOp).when(txManager).writeIntentSwitchExecutor();
+        doAnswer(invocation -> wise).when(txManager).writeIntentSwitchExecutor();
 
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
