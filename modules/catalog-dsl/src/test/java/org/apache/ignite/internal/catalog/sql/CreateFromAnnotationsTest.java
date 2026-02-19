@@ -219,6 +219,61 @@ class CreateFromAnnotationsTest {
         );
     }
 
+    @Test
+    void inheritance() {
+        // Record class
+        CreateFromAnnotationsImpl fromAnnotations = createTable().processRecordClass(PojoValueExtended.class);
+        String sqlFromAnnotations = fromAnnotations.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_EXTENDED_TEST ("
+                        + "F_NAME_EXTENDED VARCHAR, F_NAME VARCHAR, L_NAME VARCHAR, STR VARCHAR);"
+                        + System.lineSeparator()
+                        + "CREATE INDEX IF NOT EXISTS IX_POJO ON PUBLIC.POJO_VALUE_EXTENDED_TEST (F_NAME, L_NAME DESC, F_NAME_EXTENDED);")
+        );
+
+        TableDefinition definition = TableDefinition.builder("pojo_value_extended_test")
+                .ifNotExists()
+                .record(PojoValueExtended.class)
+                .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc(), column("f_name_extended"))
+                .build();
+        CreateFromDefinitionImpl fromDefinition = new CreateFromDefinitionImpl(null).from(definition);
+        String sqlFromDefinition = fromDefinition.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is(sqlFromDefinition)
+        );
+
+        // Key Value class
+        fromAnnotations = createTable().processKeyValueClasses(PojoKeyExtended.class, PojoValueExtended.class);
+        sqlFromAnnotations = fromAnnotations.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.POJO_VALUE_EXTENDED_TEST ("
+                        + "ID_STR_EXTENDED VARCHAR(20), ID INT, ID_STR VARCHAR(20), F_NAME_EXTENDED VARCHAR, F_NAME VARCHAR, "
+                        + "L_NAME VARCHAR, STR VARCHAR, PRIMARY KEY (ID_STR_EXTENDED, ID, ID_STR));"
+                        + System.lineSeparator()
+                        + "CREATE INDEX IF NOT EXISTS IX_POJO ON PUBLIC.POJO_VALUE_EXTENDED_TEST (F_NAME, L_NAME DESC, F_NAME_EXTENDED);")
+        );
+
+        definition = TableDefinition.builder("pojo_value_extended_test")
+                .ifNotExists()
+                .key(PojoKeyExtended.class)
+                .value(PojoValueExtended.class)
+                .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc(), column("f_name_extended"))
+                .build();
+        fromDefinition = new CreateFromDefinitionImpl(null).from(definition);
+        sqlFromDefinition = fromDefinition.toString();
+
+        assertThat(
+                sqlFromAnnotations,
+                is(sqlFromDefinition)
+        );
+    }
+
     @SuppressWarnings("unused")
     private static class PojoKey {
         @Id
@@ -400,6 +455,25 @@ class CreateFromAnnotationsTest {
         String lastName;
 
         String str;
+    }
+
+    static class PojoKeyExtended extends PojoKey {
+        @Id
+        @Column(value = "id_str_extended", length = 20)
+        String idStrExtended;
+    }
+
+    @Table(
+            value = "pojo_value_extended_test",
+            indexes = @Index(value = "ix_pojo", columns = {
+                    @ColumnRef("f_name"),
+                    @ColumnRef(value = "l_name", sort = SortOrder.DESC),
+                    @ColumnRef("f_name_extended"),
+            })
+    )
+    static class PojoValueExtended extends PojoValue {
+        @Column("f_name_extended")
+        String firstNameExtended;
     }
 
     private static CreateFromAnnotationsImpl createTable() {

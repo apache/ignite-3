@@ -20,6 +20,8 @@ package org.apache.ignite.internal.schema.marshaller;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertMarshaller;
 import static org.apache.ignite.internal.schema.marshaller.AssertMarshaller.assertMarshallerThrows;
 
+import org.apache.ignite.internal.schema.marshaller.Inheritance.Kv;
+import org.apache.ignite.internal.schema.marshaller.Inheritance.Kv.ChildV;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsEmpty;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsExact;
 import org.apache.ignite.internal.schema.marshaller.Records.ComponentsNarrow;
@@ -171,4 +173,20 @@ class MarshallerTest extends BaseIgniteAbstractTest {
                 new C()
         );
     }
+
+    @Test
+    void inheritance() {
+        // recordView
+        assertMarshaller(new Inheritance.AbstractParent.Child(1, "a", "b"));
+        assertMarshaller(new Inheritance.RegularParent.Child(1, "a", "b"));
+        assertMarshaller(new Inheritance.MultipleParent.Child(1, "a", "b"));
+        assertMarshaller(new Inheritance.ParentWithPrivateField.Child(1, "a", "b"));
+
+        // kvView
+        assertMarshaller(new Kv.Key(1), new ChildV("a", "b"));
+
+        String msgSubstring = "Unsupported class. Only top-level or nested static classes are supported";
+        assertMarshallerThrows(IllegalArgumentException.class, msgSubstring, new Inheritance.LocalClass().newChild(1, "a", "b"));
+    }
+
 }
