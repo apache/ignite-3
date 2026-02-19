@@ -140,8 +140,7 @@ namespace Apache.Ignite.Internal.Compute
                         return await socket.DoOutInOpAsync(
                             ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true, cancellationToken: args.cancellationToken)
                             .ConfigureAwait(false);
-                    },
-                    default)
+                    })
                 .ConfigureAwait(false);
 
             return GetTaskExecution<TResult>(buf, cancellationToken);
@@ -536,13 +535,7 @@ namespace Apache.Ignite.Internal.Compute
 
                 try
                 {
-                    // Compute hash without sending the request yet.
-                    int colocationHash;
-                    {
-                        using var bufferWriter = ProtoCommon.GetMessageWriter();
-                        colocationHash = WriteForHash(bufferWriter, table, schema, key, serializerHandlerFunc);
-                    }
-
+                    int colocationHash = WriteForHash(table, schema, key, serializerHandlerFunc);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
                     using var resBuf = await _socket.DoWithRetryAsync(
@@ -590,12 +583,12 @@ namespace Apache.Ignite.Internal.Compute
             }
 
             static int WriteForHash(
-                PooledArrayBuffer bufferWriter,
                 Table table,
                 Schema schema,
                 TKey key,
                 Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc)
             {
+                using var bufferWriter = ProtoCommon.GetMessageWriter();
                 var w = bufferWriter.MessageWriter;
                 var serializerHandler = serializerHandlerFunc(table);
                 return serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
