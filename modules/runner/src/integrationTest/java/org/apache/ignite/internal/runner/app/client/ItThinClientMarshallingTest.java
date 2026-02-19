@@ -33,7 +33,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -353,7 +352,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22965")
     public void testDecimalColumnOverflow() {
         var tableName = "testDecimalColumnOverflow";
 
