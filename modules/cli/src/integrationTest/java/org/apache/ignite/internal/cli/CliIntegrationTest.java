@@ -73,7 +73,6 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("storage.aipersist.default").enabled(true),
             new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
             new MetricSource().name("storage.aipersist.checkpoint").enabled(true),
-            new MetricSource().name("storage.aipersist.consistency").enabled(true),
             new MetricSource().name("storage.aipersist.io").enabled(true),
             new MetricSource().name("topology.cluster").enabled(true),
             new MetricSource().name("topology.local").enabled(true),

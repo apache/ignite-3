@@ -100,7 +100,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private CollectionMetricSource checkpointMetricSource;
 
-    private PersistentPageMemoryStorageMetricSource storageMetricSource;
+    private CollectionMetricSource storageMetricSource;
 
     private final StorageConfiguration storageConfig;
 
@@ -131,13 +131,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     /** For unspecified tasks, i.e. throttling log. */
     private final ExecutorService commonExecutorService;
 
-    private final CollectionMetricSource storageConsistencyMetricSource = new CollectionMetricSource(
-            "storage." + ENGINE_NAME + ".consistency",
-            "storage",
-            null
-    );
-
-    private final StorageConsistencyMetrics consistencyMetrics = new StorageConsistencyMetrics(storageConsistencyMetricSource);
+    private StorageConsistencyMetrics consistencyMetrics;
 
     /**
      * Constructor.
@@ -262,19 +256,19 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         destructionExecutor = executor;
 
-        storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
+        storageMetricSource = new CollectionMetricSource("storage." + ENGINE_NAME, "storage", null);
 
         PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
+
+        consistencyMetrics = new StorageConsistencyMetrics(storageMetricSource);
 
         metricManager.registerSource(checkpointMetricSource);
         metricManager.registerSource(storageMetricSource);
         metricManager.registerSource(ioMetricSource);
-        metricManager.registerSource(storageConsistencyMetricSource);
 
         metricManager.enable(checkpointMetricSource);
         metricManager.enable(storageMetricSource);
         metricManager.enable(ioMetricSource);
-        metricManager.enable(storageConsistencyMetricSource);
     }
 
     /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
@@ -301,9 +295,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             }
             if (storageMetricSource != null) {
                 metricManager.unregisterSource(storageMetricSource);
-            }
-            if (storageConsistencyMetricSource != null) {
-                metricManager.unregisterSource(storageConsistencyMetricSource);
             }
 
             Stream<AutoCloseable> closeRegions = regions.values().stream().map(region -> region::stop);

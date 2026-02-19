@@ -60,7 +60,6 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("storage.aipersist.default", true),
             new MetricSource("storage.aipersist.default_aipersist", true),
             new MetricSource("storage.aipersist.checkpoint", true),
-            new MetricSource("storage.aipersist.consistency", true),
             new MetricSource("storage.aipersist.io", true),
             new MetricSource("storage.aipersist", true),
             new MetricSource("topology.cluster", true),
