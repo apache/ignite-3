@@ -65,6 +65,9 @@ class ApiCompatibilityTest {
             "3.1.0", List.of(
                     // Erroneous error code remove between versions
                     "org.apache.ignite.lang.ErrorGroups$DisasterRecovery#RESTART_WITH_CLEAN_UP_ERR",
+                    // Removed along with the file-transfer module
+                    "org.apache.ignite.lang.ErrorGroups$Network#FILE_TRANSFER_ERR",
+                    "org.apache.ignite.lang.ErrorGroups$Network#FILE_VALIDATION_ERR",
                     "org.apache.ignite.table.KeyValueView" // METHOD_ABSTRACT_NOW_DEFAULT
                             + "#remove(org.apache.ignite.tx.Transaction, java.lang.Object, java.lang.Object)",
                     "org.apache.ignite.table.KeyValueView" // METHOD_ABSTRACT_NOW_DEFAULT
