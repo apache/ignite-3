@@ -53,6 +53,13 @@ public class ClusterStateHttpServerFilter implements HttpServerFilter, ResourceH
 
     @Override
     public Publisher<MutableHttpResponse<?>> doFilter(HttpRequest<?> request, ServerFilterChain chain) {
+        // Guard against a possible race with cleanResources() during shutdown: the filter may still be invoked while
+        // RestManager is being cleared.
+        RestManager restManager = this.restManager;
+        if (restManager == null) {
+            return chain.proceed(request);
+        }
+        
         // If no route matches this path, skip state filtering and let the chain return 404. findAllClosest is the method used in the
         // RoutingInBoundHandler to find the route.
         if (router.findAllClosest(request).isEmpty()) {
