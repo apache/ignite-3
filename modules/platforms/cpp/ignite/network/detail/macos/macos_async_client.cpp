@@ -27,6 +27,10 @@
 // We don't want to use epoll-shim macro here, because we have other close() functions.
 #undef close
 
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL 0
+#endif
+
 namespace ignite::network::detail {
 
 linux_async_client::linux_async_client(int fd, end_point addr, tcp_range range)

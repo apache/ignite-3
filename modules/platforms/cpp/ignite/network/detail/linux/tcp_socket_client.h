@@ -30,6 +30,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL 0
+#endif
+
 namespace ignite::network {
 
 /**

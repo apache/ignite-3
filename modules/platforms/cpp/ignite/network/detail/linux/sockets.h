@@ -24,10 +24,6 @@
 # define SOCKET_ERROR (-1)
 #endif // SOCKET_ERROR
 
-#ifndef MSG_NOSIGNAL
-# define MSG_NOSIGNAL 0
-#endif // MSG_NOSIGNAL
-
 namespace ignite::network::detail {
 
 /**

@@ -28,6 +28,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL 0
+#endif
+
 namespace ignite::network::detail {
 
 linux_async_client::linux_async_client(int fd, end_point addr, tcp_range range)
