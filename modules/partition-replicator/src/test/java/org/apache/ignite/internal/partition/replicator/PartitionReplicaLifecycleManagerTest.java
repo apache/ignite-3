@@ -101,7 +101,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -180,7 +180,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock ClusterManagementGroupManager cmgManager,
             @Mock FailureManager failureManager,
             @Mock TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            @Mock LogStorageFactoryCreator logStorageFactoryCreator,
+            @Mock LogStorageManagerCreator logStorageManagerCreator,
             @Mock PartitionSnapshotStorage partitionSnapshotStorage,
             @Mock TxStateRocksDbSharedStorage sharedTxStateStorage,
             @Mock ZonePartitionRaftListener raftGroupListener,
@@ -247,7 +247,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
-                logStorageFactoryCreator,
+                logStorageManagerCreator,
                 executorService,
                 groupId -> nullCompletedFuture(),
                 executorService

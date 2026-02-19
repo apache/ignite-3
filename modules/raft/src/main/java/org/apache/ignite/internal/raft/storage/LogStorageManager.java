@@ -24,8 +24,11 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
-/** Log storage factory interface. */
-public interface LogStorageFactory extends IgniteComponent {
+/**
+ * Log storage manager that manages log storages which are physically colocated (they live in the same Rocks database,
+ * in the same directory, etc).
+ */
+public interface LogStorageManager extends IgniteComponent {
     /**
      * Creates a log storage.
      *

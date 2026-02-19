@@ -56,8 +56,8 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
@@ -140,7 +140,7 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
-        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.nodeName(),
                 this.workDir.resolve("partitions/log")
         );
@@ -152,14 +152,14 @@ public class MockNode {
 
         FailureManager failureManager = new NoOpFailureManager();
 
-        LogStorageFactory cmgLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(
+        LogStorageManager cmgLogStorageManager =
+                SharedLogStorageManagerUtils.create(
                         clusterService.nodeName(),
                         this.workDir.resolve("cmg/log")
                 );
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
+                RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, this.workDir.resolve("cmg/meta"));
 
         var collector = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
 
@@ -188,8 +188,8 @@ public class MockNode {
         components = List.of(
                 vaultManager,
                 clusterService,
-                partitionsLogStorageFactory,
-                cmgLogStorageFactory,
+                partitionsLogStorageManager,
+                cmgLogStorageManager,
                 raftManager,
                 clusterStateStorage,
                 failureManager,

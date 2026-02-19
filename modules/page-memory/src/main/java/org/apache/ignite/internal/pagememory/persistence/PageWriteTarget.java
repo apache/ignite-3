@@ -17,22 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import java.nio.ByteBuffer;
-import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.FullPageId;
-
 /**
- * Interface which allows writing dirty page.
+ * Indicates which file a page write operation targeted.
  */
-public interface WriteDirtyPage {
-    /**
-     * Writes the page to the page store.
-     *
-     * @param pageMemory Page memory.
-     * @param fullPageId Full page id.
-     * @param buffer Byte buffer to write from.
-     * @return Target file where the page was written.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    PageWriteTarget write(PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer buffer) throws IgniteInternalCheckedException;
+public enum PageWriteTarget {
+    /** Page was written to the delta file. */
+    DELTA_FILE,
+
+    /** Page was written to the main file. */
+    MAIN_FILE,
+
+    /** Page write was skipped (e.g., partition being destroyed). */
+    NONE
 }

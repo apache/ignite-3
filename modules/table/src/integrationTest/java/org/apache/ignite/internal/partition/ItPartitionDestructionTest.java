@@ -518,7 +518,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     private static LogStorage partitionLogStorage(IgniteImpl ignite, ZonePartitionId replicationGroupId) {
-        return ignite.partitionsLogStorageFactory().createLogStorage(
+        return ignite.partitionsLogStorageManager().createLogStorage(
                 partitionRaftNodeIdStringForStorage(ignite, replicationGroupId),
                 new RaftOptions()
         );
@@ -822,7 +822,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
     private static LogStorage createAndInitCustomLogStorage(IgniteImpl ignite, String groupId) {
         RaftOptions raftOptions = ignite.raftManager().server().options().getRaftOptions();
-        LogStorage logStorage = ignite.partitionsLogStorageFactory().createLogStorage(groupId, raftOptions);
+        LogStorage logStorage = ignite.partitionsLogStorageManager().createLogStorage(groupId, raftOptions);
 
         LogStorageOptions logStorageOptions = new LogStorageOptions();
         logStorageOptions.setConfigurationManager(new ConfigurationManager());

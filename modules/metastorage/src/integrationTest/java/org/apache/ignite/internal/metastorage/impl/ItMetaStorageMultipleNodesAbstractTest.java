@@ -67,8 +67,8 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -128,11 +128,11 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
         private final Loza raftManager;
 
-        private final LogStorageFactory partitionsLogStorageFactory;
+        private final LogStorageManager partitionsLogStorageManager;
 
-        private final LogStorageFactory msLogStorageFactory;
+        private final LogStorageManager msLogStorageManager;
 
-        private final LogStorageFactory cmgLogStorageFactory;
+        private final LogStorageManager cmgLogStorageManager;
 
         private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
 
@@ -156,7 +156,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(basePath.resolve("raft"));
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
@@ -181,11 +181,11 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
 
-            cmgLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+            cmgLogStorageManager =
+                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer cmgRaftConfigurator =
-                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
 
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
@@ -213,11 +213,11 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
 
             ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(basePath.resolve("metastorage"));
 
-            msLogStorageFactory =
-                    SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+            msLogStorageManager =
+                    SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
             RaftGroupOptionsConfigurer msRaftConfigurator =
-                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                    RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
             var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -242,9 +242,9 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             List<IgniteComponent> components = List.of(
                     vaultManager,
                     clusterService,
-                    partitionsLogStorageFactory,
-                    msLogStorageFactory,
-                    cmgLogStorageFactory,
+                    partitionsLogStorageManager,
+                    msLogStorageManager,
+                    cmgLogStorageManager,
                     raftManager,
                     clusterStateStorage,
                     failureManager,
@@ -272,9 +272,9 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     failureManager,
                     raftManager,
                     clusterStateStorage,
-                    partitionsLogStorageFactory,
-                    msLogStorageFactory,
-                    cmgLogStorageFactory,
+                    partitionsLogStorageManager,
+                    msLogStorageManager,
+                    cmgLogStorageManager,
                     clusterService,
                     vaultManager
             );

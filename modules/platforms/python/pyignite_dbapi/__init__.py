@@ -693,6 +693,8 @@ def connect(address: [str], **kwargs) -> Connection:
         Maximum number of rows that can be received or sent in a single request. Default value: 1024.
     timeout: int, optional
         A timeout for network operations, in seconds. Default value: 30.
+    heartbeat_interval: float, optional
+        An interval between heartbeat probes, in seconds. Zero or negative means heartbeats disabled. Default value: 30.
     autocommit: bool, optional
         Connection autocommit mode. Default value: True (enabled).
     use_ssl: bool, optional
