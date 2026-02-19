@@ -566,7 +566,11 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected static void sqlScript(String query, Object... args) {
-        IgniteSql sql = CLUSTER.aliveNode().sql();
+        sqlScript(CLUSTER.aliveNode(), query, args);
+    }
+
+    protected static void sqlScript(Ignite node, String query, Object... args) {
+        IgniteSql sql = node.sql();
 
         sql.executeScript(query, args);
     }
