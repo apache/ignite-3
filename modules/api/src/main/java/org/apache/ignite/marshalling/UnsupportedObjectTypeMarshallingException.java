@@ -28,6 +28,15 @@ public class UnsupportedObjectTypeMarshallingException extends IgniteException {
     private static final long serialVersionUID = -8131613381875542450L;
 
     /**
+     * Creates an exception with the given unsupported type.
+     *
+     * @param unsupportedType Unsupported type.
+     */
+    public UnsupportedObjectTypeMarshallingException(Class<?> unsupportedType) {
+        this("Unsupported object type: " + unsupportedType.getName() + ". Please, define a marshaller that can handle this type.");
+    }
+
+    /**
      * Creates an exception with the given message.
      */
     public UnsupportedObjectTypeMarshallingException(String msg) {
