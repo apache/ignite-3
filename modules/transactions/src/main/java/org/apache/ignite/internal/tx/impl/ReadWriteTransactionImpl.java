@@ -32,17 +32,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -238,11 +235,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         // An attempt to finish a killed transaction.
                         finishFuture = nullCompletedFuture();
 
-                        return failedFuture(new TransactionException(
-                                TX_ALREADY_FINISHED_ERR,
-                                format("Transaction is killed [{}, txState={}].",
-                                        formatTxInfo(id(), txManager, false), state())
-                        ));
+                        return failedFuture(new TransactionKilledException(id(), txManager));
                     } else {
                         // Kill is called twice.
                         return nullCompletedFuture();

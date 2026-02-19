@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.client.tx;
 
 import java.util.UUID;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Reports a killed transaction.
  */
-public class ClientTransactionKilledException extends IgniteInternalException {
+public class ClientTransactionKilledException extends TransactionException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -36,12 +37,13 @@ public class ClientTransactionKilledException extends IgniteInternalException {
      *
      * @param traceId Trace ID.
      * @param code Error code.
-     *
      * @param message String message.
      * @param txId Related transaction id.
+     * @param causeWithStackTrace The cause.
      */
-    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, UUID txId) {
-        super(traceId, code, message);
+    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, UUID txId,
+            IgniteException causeWithStackTrace) {
+        super(traceId, code, message, causeWithStackTrace);
 
         this.txId = txId;
     }

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,6 +74,9 @@ public class ClientTransaction implements Transaction {
 
     /** Rolled back state. */
     private static final int STATE_ROLLED_BACK = 2;
+
+    /** Kill state. */
+    private static final int STATE_KILLED = 3;
 
     /** Channel that the transaction belongs to. */
     @IgniteToStringExclude
@@ -223,9 +227,11 @@ public class ClientTransaction implements Transaction {
      * Discards the directly mapped transaction fragments in case of coordinator side transaction invalidation
      * (either kill or implicit rollback due to mapping failure, see postEnlist).
      *
+     * @param killed Killed flag.
+     *
      * @return The future.
      */
-    public CompletableFuture<Void> discardDirectMappings() {
+    public CompletableFuture<Void> discardDirectMappings(boolean killed) {
         enlistPartitionLock.writeLock().lock();
 
         try {
@@ -272,7 +278,7 @@ public class ClientTransaction implements Transaction {
         }
 
         return CompletableFutures.allOf(futures).handle((r, e) -> {
-            setState(STATE_ROLLED_BACK);
+            setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
             ch.inflights().erase(txId());
             this.finishFut.get().complete(null);
             return null;
@@ -419,9 +425,19 @@ public class ClientTransaction implements Transaction {
             return clientTx;
         }
 
-        throw new TransactionException(
-                TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [tx={}].", clientTx));
+        throw exceptionForState(state, clientTx);
+    }
+
+    private static TransactionException exceptionForState(int state, ClientTransaction clientTx) {
+        if (state == STATE_KILLED) {
+            return new TransactionException(
+                    TX_KILLED_ERR,
+                    format("Transaction is killed [tx={}].", clientTx));
+        } else {
+            return new TransactionException(
+                    TX_ALREADY_FINISHED_ERR,
+                    format("Transaction is already finished [tx={}].", clientTx));
+        }
     }
 
     static IgniteException unsupportedTxTypeException(Transaction tx) {
@@ -436,7 +452,7 @@ public class ClientTransaction implements Transaction {
 
     private void checkEnlistPossible() {
         if (finishFut.get() != null) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
+            throw exceptionForState(state.get(), this);
         }
     }
 

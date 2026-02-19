@@ -610,7 +610,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
                     ClientTransaction tx = inflights.trackedTransaction(err0.txId());
                     if (tx != null) {
-                        tx.discardDirectMappings();
+                        tx.discardDirectMappings(true);
                     }
                 }
 
@@ -656,7 +656,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.TX_KILL)) {
-                return new ClientTransactionKilledException(traceId, code, errMsg, unpacker.unpackUuid());
+                return new ClientTransactionKilledException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
             } else {
                 // Unknown extension - ignore.
                 unpacker.skipValues(1);

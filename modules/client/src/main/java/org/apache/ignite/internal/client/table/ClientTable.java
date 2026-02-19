@@ -554,7 +554,7 @@ public class ClientTable implements Table {
                                             } else {
                                                 // In case of unrecoverable error the tx is already rolled back on coordinator.
                                                 // We need to additionally cleanup directly mapped part.
-                                                tx0.discardDirectMappings().handle((ignored, err0) -> {
+                                                tx0.discardDirectMappings(false).handle((ignored, err0) -> {
                                                     if (err0 != null) {
                                                         ex.addSuppressed(err0);
                                                     }

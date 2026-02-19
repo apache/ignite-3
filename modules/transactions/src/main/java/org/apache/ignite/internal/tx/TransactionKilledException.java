@@ -39,7 +39,7 @@ public class TransactionKilledException extends TransactionInternalException {
     public TransactionKilledException(UUID txId, TxManager txManager) {
         super(
                 TX_KILLED_ERR,
-                "Transaction was killed " + formatTxInfo(txId, txManager)
+                "Transaction is killed " + formatTxInfo(txId, txManager)
         );
         this.txId = txId;
     }
