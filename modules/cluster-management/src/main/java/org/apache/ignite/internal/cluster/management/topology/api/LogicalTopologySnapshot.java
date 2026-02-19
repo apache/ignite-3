@@ -127,6 +127,15 @@ public class LogicalTopologySnapshot {
         return clusterId;
     }
 
+    /**
+     * Returns the number of nodes in this snapshot.
+     *
+     * @return Number of nodes in this snapshot.
+     */
+    public int size() {
+        return nodes.size();
+    }
+
     @Override
     public String toString() {
         return S.toString(LogicalTopologySnapshot.class, this);

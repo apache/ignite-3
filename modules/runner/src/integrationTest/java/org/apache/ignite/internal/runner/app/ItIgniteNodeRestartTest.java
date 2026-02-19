@@ -1124,9 +1124,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // On the node that started second we will see at least two nodes.
         // On the third node we will see all three nodes.
         // All in all that means that in total we will see at least (3 + 2 + 3) nodes.
-        Integer sumOfLogicalTopologyProjectionSizes = nodes.stream()
-                .map(node -> node.logicalTopologyService().localLogicalTopology().nodes().size())
-                .reduce(0, Integer::sum);
+        int sumOfLogicalTopologyProjectionSizes = nodes.stream()
+                .mapToInt(node -> node.logicalTopologyService().localLogicalTopology().size())
+                .sum();
 
         assertTrue(sumOfLogicalTopologyProjectionSizes >= 3 + 2 + 3);
     }

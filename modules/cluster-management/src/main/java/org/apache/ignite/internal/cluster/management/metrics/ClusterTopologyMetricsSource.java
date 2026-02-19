@@ -110,7 +110,7 @@ public class ClusterTopologyMetricsSource extends AbstractMetricSource<ClusterTo
         private final IntGauge clusterSize = new IntGauge(
                 "TotalNodes",
                 "Number of nodes in the logical topology",
-                () -> logicalTopology.getLogicalTopology().nodes().size());
+                () -> logicalTopology.getLogicalTopology().size());
 
         private final UuidGauge clusterId = new UuidGauge(
                 "ClusterId",

@@ -63,7 +63,7 @@ class ItDataNodesManagerTest extends ClusterPerTestIntegrationTest {
         LogicalTopologyService logicalTopologyService = node.logicalTopologyService();
 
         Awaitility.waitAtMost(2, TimeUnit.SECONDS)
-                .untilAsserted(() -> assertEquals(2, logicalTopologyService.localLogicalTopology().nodes().size()));
+                .untilAsserted(() -> assertEquals(2, logicalTopologyService.localLogicalTopology().size()));
 
         waitForDataNodes(node, ZONE_NAME, Set.of(node.name()));
 

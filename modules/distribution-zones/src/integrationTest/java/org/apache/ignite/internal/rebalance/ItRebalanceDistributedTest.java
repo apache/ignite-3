@@ -384,7 +384,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
                     assertThat(logicalTopologyFuture, willCompleteSuccessfully());
 
-                    return logicalTopologyFuture.join().nodes().size() == NODE_COUNT;
+                    return logicalTopologyFuture.join().size() == NODE_COUNT;
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));

@@ -187,7 +187,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
                     assertThat(logicalTopologyFuture, willCompleteSuccessfully());
 
-                    return logicalTopologyFuture.join().nodes().size() == cluster.size();
+                    return logicalTopologyFuture.join().size() == cluster.size();
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
