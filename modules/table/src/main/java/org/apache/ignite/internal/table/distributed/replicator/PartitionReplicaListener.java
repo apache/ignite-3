@@ -1421,7 +1421,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ));
         }
 
-        return awaitCleanupReadyFutures(request.txId(), request.commit())
+        return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
                     if (res.shouldApplyWriteIntent()) {
                         applyWriteIntentSwitchCommandLocally(request);
@@ -1431,7 +1431,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 });
     }
 
-    private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId, boolean commit) {
+    private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId) {
         AtomicBoolean cleanupNeeded = new AtomicBoolean(true);
         AtomicReference<CompletableFuture<Void>> cleanupReadyFutureRef = new AtomicReference<>(nullCompletedFuture());
 
