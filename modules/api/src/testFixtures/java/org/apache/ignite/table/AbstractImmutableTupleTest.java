@@ -699,15 +699,26 @@ public abstract class AbstractImmutableTupleTest {
 
         {
             ClassCastException ex = assertThrows(ClassCastException.class, () -> readValue(tuple, to, columnName, null));
-            String template = "Column with name '%s' has type %s but %s was requested";
-            assertThat(ex.getMessage(), containsString(String.format(template, columnName, from.name(), to.name())));
+
+            if (enableClassCastMessageVerification()) {
+                String template = "Column with name '%s' has type %s but %s was requested";
+                assertThat(ex.getMessage(), containsString(String.format(template, columnName, from.name(), to.name())));
+            }
         }
 
         {
             ClassCastException ex = assertThrows(ClassCastException.class, () -> readValue(tuple, to, null, 0));
-            String template = "Column with index %d has type %s but %s was requested";
-            assertThat(ex.getMessage(), containsString(String.format(template, 0, from.name(), to.name())));
+
+            if (enableClassCastMessageVerification()) {
+                String template = "Column with index %d has type %s but %s was requested";
+                assertThat(ex.getMessage(), containsString(String.format(template, 0, from.name(), to.name())));
+            }
         }
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27577 Remove this method
+    protected boolean enableClassCastMessageVerification() {
+        return true;
     }
 
     @ParameterizedTest(name = "{0} -> {1}")

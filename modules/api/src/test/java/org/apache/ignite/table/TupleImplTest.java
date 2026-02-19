@@ -22,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * Tests server tuple builder implementation.
@@ -94,11 +92,9 @@ public class TupleImplTest extends AbstractMutableTupleTest {
         assertEquals("non-normalized", tuple.valueOrDefault("\"Name\"", "default"));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27577")
-    @ParameterizedTest
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27577 Remove this method
     @Override
-    @SuppressWarnings("JUnitMalformedDeclaration")
-    public void allTypesUnsupportedConversion(ColumnType from, ColumnType to) {
-        super.allTypesUnsupportedConversion(from, to);
+    protected boolean enableClassCastMessageVerification() {
+        return false;
     }
 }
