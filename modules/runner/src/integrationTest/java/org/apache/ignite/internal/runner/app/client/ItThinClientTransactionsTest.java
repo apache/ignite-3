@@ -413,7 +413,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         TransactionException ex = assertThrows(TransactionException.class, tx::commit);
 
         assertThat(ex.getMessage(), startsWith("Transaction is killed"));
-        assertEquals("IGN-TX-13", ex.codeAsString());
+        assertEquals("IGN-TX-18", ex.codeAsString());
     }
 
     @Test
