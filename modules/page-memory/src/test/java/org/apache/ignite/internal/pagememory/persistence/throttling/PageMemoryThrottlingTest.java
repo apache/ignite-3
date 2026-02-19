@@ -61,6 +61,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FakePartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -170,13 +171,15 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 CHECKPOINT_BUFFER_SIZE,
                 pageStoreManager,
                 (pageMem, pageId, pageBuf) -> {
-                    checkpointManager.writePageToFilePageStore(pageMem, pageId, pageBuf);
+                    PageWriteTarget target = checkpointManager.writePageToFilePageStore(pageMem, pageId, pageBuf);
 
                     // Almost the same code that happens in data region, but here the region is mocked.
                     CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
 
                     assertNotNull(checkpointProgress);
                     checkpointProgress.evictedPagesCounter().incrementAndGet();
+
+                    return target;
                 },
                 checkpointManager.checkpointTimeoutLock(),
                 new OffheapReadWriteLock(2),

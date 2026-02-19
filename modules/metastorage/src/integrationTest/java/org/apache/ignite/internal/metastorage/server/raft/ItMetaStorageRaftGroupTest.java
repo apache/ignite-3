@@ -74,8 +74,8 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -133,11 +133,11 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     /** Cluster. */
     private final ArrayList<ClusterService> cluster = new ArrayList<>();
 
-    private LogStorageFactory logStorageFactory1;
+    private LogStorageManager logStorageManager1;
 
-    private LogStorageFactory logStorageFactory2;
+    private LogStorageManager logStorageManager2;
 
-    private LogStorageFactory logStorageFactory3;
+    private LogStorageManager logStorageManager3;
 
     /** First meta storage raft server. */
     private RaftServer metaStorageRaftSrv1;
@@ -221,7 +221,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
             metaStorageRaftGrpSvc1.shutdown();
         }
 
-        assertThat(stopAsync(componentContext, logStorageFactory3, logStorageFactory2, logStorageFactory1), willCompleteSuccessfully());
+        assertThat(stopAsync(componentContext, logStorageManager3, logStorageManager2, logStorageManager1), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
@@ -375,7 +375,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir1 = new ComponentWorkingDir(workDir.resolve("node1"));
 
-        logStorageFactory1 = SharedLogStorageFactoryUtils.create(
+        logStorageManager1 = SharedLogStorageManagerUtils.create(
                 cluster.get(0).nodeName(),
                 workingDir1.raftLogPath()
         );
@@ -388,7 +388,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir2 = new ComponentWorkingDir(workDir.resolve("node2"));
 
-        logStorageFactory2 = SharedLogStorageFactoryUtils.create(
+        logStorageManager2 = SharedLogStorageManagerUtils.create(
                 cluster.get(1).nodeName(),
                 workingDir2.raftLogPath()
         );
@@ -401,7 +401,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir3 = new ComponentWorkingDir(workDir.resolve("node3"));
 
-        logStorageFactory3 = SharedLogStorageFactoryUtils.create(
+        logStorageManager3 = SharedLogStorageManagerUtils.create(
                 cluster.get(2).nodeName(),
                 workingDir3.raftLogPath()
         );
@@ -415,9 +415,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         assertThat(
                 startAsync(
                         new ComponentContext(),
-                        logStorageFactory1,
-                        logStorageFactory2,
-                        logStorageFactory3,
+                        logStorageManager1,
+                        logStorageManager2,
+                        logStorageManager3,
                         metaStorageRaftSrv1,
                         metaStorageRaftSrv2,
                         metaStorageRaftSrv3
@@ -429,7 +429,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         RaftGroupOptions groupOptions1 = defaults();
         groupOptions1.serverDataPath(workingDir1.metaPath());
-        groupOptions1.setLogStorageFactory(logStorageFactory1);
+        groupOptions1.setLogStorageManager(logStorageManager1);
 
         HybridClock clock = new HybridClockImpl();
 
@@ -444,7 +444,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         RaftGroupOptions groupOptions2 = defaults();
         groupOptions2.serverDataPath(workingDir2.metaPath());
-        groupOptions2.setLogStorageFactory(logStorageFactory2);
+        groupOptions2.setLogStorageManager(logStorageManager2);
 
         metaStorageRaftSrv2.startRaftNode(
                 raftNodeId2,
@@ -457,7 +457,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         RaftGroupOptions groupOptions3 = defaults();
         groupOptions3.serverDataPath(workingDir3.metaPath());
-        groupOptions3.setLogStorageFactory(logStorageFactory3);
+        groupOptions3.setLogStorageManager(logStorageManager3);
 
         metaStorageRaftSrv3.startRaftNode(
                 raftNodeId3,

@@ -30,7 +30,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
@@ -45,10 +45,10 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import sun.nio.ch.DirectBuffer;
 
 /**
- * Log storage factory for {@link LogitLogStorage} instances.
+ * Log storage manager for {@link LogitLogStorage} instances.
  */
-public class LogitLogStorageFactory implements LogStorageFactory {
-    private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorageFactory.class);
+public class LogitLogStorageManager implements LogStorageManager {
+    private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorageManager.class);
 
     private static final String LOG_DIR_PREFIX = "log-";
 
@@ -66,7 +66,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
      * @param logPath Function to get base path of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Path logPath) {
+    public LogitLogStorageManager(String nodeName, StoreOptions storeOptions, Path logPath) {
         this.logPath = logPath;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(

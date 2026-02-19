@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionC
 import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
@@ -338,16 +339,18 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         }
     }
 
-    private void flushDirtyPageOnReplacement(
+    private PageWriteTarget flushDirtyPageOnReplacement(
             PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuffer
     ) throws IgniteInternalCheckedException {
-        checkpointManager.writePageToFilePageStore(pageMemory, fullPageId, byteBuffer);
+        PageWriteTarget target = checkpointManager.writePageToFilePageStore(pageMemory, fullPageId, byteBuffer);
 
         CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
 
         if (checkpointProgress != null) {
             checkpointProgress.evictedPagesCounter().incrementAndGet();
         }
+
+        return target;
     }
 
     /** {@inheritDoc} */

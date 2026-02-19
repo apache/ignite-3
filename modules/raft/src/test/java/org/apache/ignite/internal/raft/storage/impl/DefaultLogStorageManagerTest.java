@@ -51,11 +51,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-class DefaultLogStorageFactoryTest {
+class DefaultLogStorageManagerTest {
     @WorkDirectory
     private Path workDir;
 
-    private DefaultLogStorageFactory logStorageFactory;
+    private DefaultLogStorageManager logStorageManager;
 
     private final LogStorageOptions logStorageOptions = new LogStorageOptions();
 
@@ -66,24 +66,24 @@ class DefaultLogStorageFactoryTest {
         logStorageOptions.setConfigurationManager(new ConfigurationManager());
         logStorageOptions.setLogEntryCodecFactory(DefaultLogEntryCodecFactory.getInstance());
 
-        logStorageFactory = new DefaultLogStorageFactory(workDir);
+        logStorageManager = new DefaultLogStorageManager(workDir);
 
         startFactory();
     }
 
     private void startFactory() {
-        assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(logStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        if (logStorageFactory != null) {
+        if (logStorageManager != null) {
             stopFactory();
         }
     }
 
     private void stopFactory() {
-        assertThat(logStorageFactory.stopAsync(), willCompleteSuccessfully());
+        assertThat(logStorageManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test
@@ -96,7 +96,7 @@ class DefaultLogStorageFactoryTest {
         logStorage1.appendEntry(configLogEntry(1));
         logStorage3.appendEntry(configLogEntry(10));
 
-        Set<String> ids = logStorageFactory.metadataMigration().raftNodeStorageIdsOnDisk();
+        Set<String> ids = logStorageManager.metadataMigration().raftNodeStorageIdsOnDisk();
 
         assertThat(
                 ids,
@@ -108,7 +108,7 @@ class DefaultLogStorageFactoryTest {
     }
 
     private LogStorage createAndInitLogStorage(ZonePartitionId groupId) {
-        LogStorage logStorage = logStorageFactory.createLogStorage(nodeIdStringForStorage(groupId), new RaftOptions());
+        LogStorage logStorage = logStorageManager.createLogStorage(nodeIdStringForStorage(groupId), new RaftOptions());
         logStorage.init(logStorageOptions);
         return logStorage;
     }
@@ -137,7 +137,7 @@ class DefaultLogStorageFactoryTest {
         logStorage1.appendEntry(dataLogEntry(1));
         logStorage3.appendEntry(dataLogEntry(10));
 
-        Set<String> ids = logStorageFactory.metadataMigration().raftNodeStorageIdsOnDisk();
+        Set<String> ids = logStorageManager.metadataMigration().raftNodeStorageIdsOnDisk();
 
         assertThat(
                 ids,
@@ -170,7 +170,7 @@ class DefaultLogStorageFactoryTest {
         logStorage3.appendEntry(configLogEntry(10));
         logStorage3.appendEntry(dataLogEntry(11));
 
-        Set<String> ids = logStorageFactory.metadataMigration().raftNodeStorageIdsOnDisk();
+        Set<String> ids = logStorageManager.metadataMigration().raftNodeStorageIdsOnDisk();
 
         assertThat(
                 ids,
@@ -193,19 +193,19 @@ class DefaultLogStorageFactoryTest {
         logStorage3.appendEntry(configLogEntry(100));
         logStorage3.appendEntry(dataLogEntry(101));
 
-        logStorageFactory.db().dropColumnFamily(logStorageFactory.metaColumnFamilyHandle());
-        logStorageFactory.db().destroyColumnFamilyHandle(logStorageFactory.metaColumnFamilyHandle());
+        logStorageManager.db().dropColumnFamily(logStorageManager.metaColumnFamilyHandle());
+        logStorageManager.db().destroyColumnFamilyHandle(logStorageManager.metaColumnFamilyHandle());
 
         // Restart causes a migration.
         stopFactory();
         startFactory();
 
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.metaColumnFamilyHandle(), storageCreatedKey(groupId1)),
+                logStorageManager.db().get(logStorageManager.metaColumnFamilyHandle(), storageCreatedKey(groupId1)),
                 is(new byte[0])
         );
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.metaColumnFamilyHandle(), storageCreatedKey(groupId3)),
+                logStorageManager.db().get(logStorageManager.metaColumnFamilyHandle(), storageCreatedKey(groupId3)),
                 is(new byte[0])
         );
     }
@@ -229,11 +229,11 @@ class DefaultLogStorageFactoryTest {
         createAndInitLogStorage(groupId3);
 
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.metaColumnFamilyHandle(), storageCreatedKey(groupId1)),
+                logStorageManager.db().get(logStorageManager.metaColumnFamilyHandle(), storageCreatedKey(groupId1)),
                 is(new byte[0])
         );
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.metaColumnFamilyHandle(), storageCreatedKey(groupId3)),
+                logStorageManager.db().get(logStorageManager.metaColumnFamilyHandle(), storageCreatedKey(groupId3)),
                 is(new byte[0])
         );
     }
@@ -246,30 +246,30 @@ class DefaultLogStorageFactoryTest {
         logStorage.appendEntry(configLogEntry(100));
 
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.metaColumnFamilyHandle(), storageCreatedKey(groupId)),
+                logStorageManager.db().get(logStorageManager.metaColumnFamilyHandle(), storageCreatedKey(groupId)),
                 is(new byte[0])
         );
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.confColumnFamilyHandle(), entryKey(groupId, 100)),
+                logStorageManager.db().get(logStorageManager.confColumnFamilyHandle(), entryKey(groupId, 100)),
                 is(notNullValue())
         );
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.dataColumnFamilyHandle(), entryKey(groupId, 100)),
+                logStorageManager.db().get(logStorageManager.dataColumnFamilyHandle(), entryKey(groupId, 100)),
                 is(notNullValue())
         );
 
-        logStorageFactory.destroyLogStorage(nodeIdStringForStorage(groupId));
+        logStorageManager.destroyLogStorage(nodeIdStringForStorage(groupId));
 
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.metaColumnFamilyHandle(), storageCreatedKey(groupId)),
+                logStorageManager.db().get(logStorageManager.metaColumnFamilyHandle(), storageCreatedKey(groupId)),
                 is(nullValue())
         );
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.confColumnFamilyHandle(), entryKey(groupId, 100)),
+                logStorageManager.db().get(logStorageManager.confColumnFamilyHandle(), entryKey(groupId, 100)),
                 is(nullValue())
         );
         assertThat(
-                logStorageFactory.db().get(logStorageFactory.dataColumnFamilyHandle(), entryKey(groupId, 100)),
+                logStorageManager.db().get(logStorageManager.dataColumnFamilyHandle(), entryKey(groupId, 100)),
                 is(nullValue())
         );
     }
@@ -281,7 +281,7 @@ class DefaultLogStorageFactoryTest {
         createAndInitLogStorage(groupId1);
         createAndInitLogStorage(groupId3);
 
-        Set<String> ids = logStorageFactory.raftNodeStorageIdsOnDisk();
+        Set<String> ids = logStorageManager.raftNodeStorageIdsOnDisk();
 
         assertThat(
                 ids,

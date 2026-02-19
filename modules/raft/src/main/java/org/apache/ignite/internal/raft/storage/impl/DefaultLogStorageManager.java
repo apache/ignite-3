@@ -43,7 +43,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -72,9 +72,9 @@ import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 import org.rocksdb.util.SizeUnit;
 
-/** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
-public class DefaultLogStorageFactory implements LogStorageFactory {
-    private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
+/** Implementation of the {@link LogStorageManager} that creates {@link RocksDbSharedLogStorage}s. */
+public class DefaultLogStorageManager implements LogStorageManager {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageManager.class);
 
     static final byte[] FINISHED_META_MIGRATION_META_KEY = {0};
 
@@ -130,7 +130,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      * @param path Path to the storage.
      */
     @TestOnly
-    public DefaultLogStorageFactory(Path path) {
+    public DefaultLogStorageManager(Path path) {
         this("test", "test", path, true);
     }
 
@@ -142,7 +142,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      * @param logPath Function to get path to the log storage.
      * @param fsync If should fsync after each write to database.
      */
-    public DefaultLogStorageFactory(String factoryName, String nodeName, Path logPath, boolean fsync) {
+    public DefaultLogStorageManager(String factoryName, String nodeName, Path logPath, boolean fsync) {
         this.factoryName = factoryName;
         this.logPath = logPath;
         this.fsync = fsync;

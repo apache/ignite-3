@@ -74,8 +74,8 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -108,7 +108,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         private final RaftManager raftManager;
 
-        private final LogStorageFactory partitionsLogStorageFactory;
+        private final LogStorageManager partitionsLogStorageManager;
 
         private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
 
@@ -120,7 +120,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
             workingDir = new ComponentWorkingDir(workDir);
 
-            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     workingDir.raftLogPath()
             );
@@ -130,7 +130,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         void start() {
             assertThat(
-                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager),
+                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageManager, raftManager),
                     willCompleteSuccessfully()
             );
         }
@@ -168,7 +168,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             null,
-                            RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
+                            RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, workingDir.metaPath())
                     );
                 }
 
@@ -187,7 +187,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         void stop() {
             assertThat(
-                    stopAsync(new ComponentContext(), raftManager, partitionsLogStorageFactory, clusterStateStorage, clusterService),
+                    stopAsync(new ComponentContext(), raftManager, partitionsLogStorageManager, clusterStateStorage, clusterService),
                     willCompleteSuccessfully()
             );
         }

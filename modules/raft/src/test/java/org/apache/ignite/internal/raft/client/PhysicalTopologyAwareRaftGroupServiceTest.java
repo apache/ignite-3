@@ -61,8 +61,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -107,7 +107,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
     private final Map<NetworkAddress, JraftServerImpl> raftServers = new HashMap<>();
 
-    private final Map<NetworkAddress, LogStorageFactory> logStorageFactories = new HashMap<>();
+    private final Map<NetworkAddress, LogStorageManager> logStorageFactories = new HashMap<>();
 
     private final List<PhysicalTopologyAwareRaftGroupService> raftClients = new ArrayList<>();
 
@@ -423,14 +423,14 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
                 Path workingDir = dataPath.resolve("partitions");
 
-                LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                         cluster.nodeName(),
                         workingDir.resolve("log")
                 );
 
-                logStorageFactories.put(addr, partitionsLogStorageFactory);
+                logStorageFactories.put(addr, partitionsLogStorageManager);
 
-                assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 var raftServer = TestJraftServerFactory.create(
                         cluster,
@@ -445,7 +445,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
                         new TestRaftGroupListener(),
                         RaftGroupOptions.defaults()
                                 .commandsMarshaller(commandsMarshaller)
-                                .setLogStorageFactory(partitionsLogStorageFactory)
+                                .setLogStorageManager(partitionsLogStorageManager)
                                 .serverDataPath(workingDir.resolve("meta"))
                 );
 
