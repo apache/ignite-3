@@ -134,7 +134,7 @@ class TransactionExpirationRegistry {
                 format(TX_ALREADY_FINISHED_DUE_TO_TIMEOUT + " {}",
                 formatTxInfo(tx.id(), volatileTxStateMetaStorage)));
         tx.rollbackWithExceptionAsync(abortionReason).whenComplete((res, ex) -> {
-            if (ex != null  && !hasCause(ex, NodeStoppingException.class)) {
+            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                 LOG.error("Transaction has aborted due to timeout {}.", ex,
                         formatTxInfo(tx.id(), volatileTxStateMetaStorage));
             }
