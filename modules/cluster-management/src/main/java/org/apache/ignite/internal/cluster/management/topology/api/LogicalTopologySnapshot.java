@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 import static java.util.Collections.emptySet;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -76,10 +77,63 @@ public class LogicalTopologySnapshot {
     }
 
     /**
+     * Returns {@code true} if this topology snapshot contains a node with the given {@code id}, and {@code false} otherwise.
+     * Take into account that this method has O(n) complexity.
+     *
+     * @param nodeId Node id.
+     * @return {@code true} if this topology snapshot contains a node with the given {@code id}, and {@code false} otherwise.
+     */
+    public boolean hasNode(UUID nodeId) {
+        return nodes.stream().anyMatch(node -> nodeId.equals(node.id()));
+    }
+
+    /**
+     * Returns {@code true} if this topology snapshot contains a node with the given {@code nodeName}, and {@code false} otherwise.
+     * Take into account that this method has O(n) complexity.
+     *
+     * @param nodeName Node name, aka consistent id.
+     * @return {@code true} if this topology snapshot contains a node with the given {@code nodeName}, and {@code false} otherwise.
+     */
+    public boolean hasNode(String nodeName) {
+        return nodes.stream().anyMatch(node -> nodeName.equals(node.name()));
+    }
+
+    /**
+     * Returns a node with the given {@code nodeId} in this topology snapshot.
+     * Take into account that this method has O(n) complexity.
+     *
+     * @param nodeId Node id to find.
+     * @return Node with the given {@code nodeId} in this topology snapshot.
+     */
+    public Optional<LogicalNode> node(UUID nodeId) {
+        return nodes.stream().filter(node -> nodeId.equals(node.id())).findAny();
+    }
+
+    /**
+     * Returns a node with the given {@code nodeId} in this topology snapshot.
+     * Take into account that this method has O(n) complexity.
+     *
+     * @param nodeName Node name to find.
+     * @return Node with the given {@code nodeName} in this topology snapshot.
+     */
+    public Optional<LogicalNode> node(String nodeName) {
+        return nodes.stream().filter(node -> nodeName.equals(node.name())).findAny();
+    }
+
+    /**
      * Returns ID of the cluster in which this topology snapshot was created.
      */
     public UUID clusterId() {
         return clusterId;
+    }
+
+    /**
+     * Returns the number of nodes in this snapshot.
+     *
+     * @return Number of nodes in this snapshot.
+     */
+    public int size() {
+        return nodes.size();
     }
 
     @Override

@@ -256,10 +256,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private ValidationResult validateNode(JoinRequestCommand command) {
-        Optional<LogicalNode> previousVersion = logicalTopology.getLogicalTopology().nodes()
-                .stream()
-                .filter(n -> n.name().equals(command.node().name()))
-                .findAny();
+        Optional<LogicalNode> previousVersion = logicalTopology.getLogicalTopology().node(command.node().name());
 
         if (previousVersion.isPresent()) {
             LogicalNode previousNode = previousVersion.get();

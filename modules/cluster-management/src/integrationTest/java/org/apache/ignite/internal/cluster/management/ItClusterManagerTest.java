@@ -638,7 +638,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         MockNode nonCmgNode = cluster.get(1);
         LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
 
-        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().size() == 2, 10_000));
     }
 
     @Test
@@ -655,7 +655,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
 
-        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().size() == 2, 10_000));
     }
 
     @Test

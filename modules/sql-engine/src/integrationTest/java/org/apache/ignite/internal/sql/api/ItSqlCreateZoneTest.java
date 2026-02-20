@@ -93,7 +93,7 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node1 = unwrapIgniteImpl(cluster.startNode(1));
 
         assertTrue(waitForCondition(
-                () -> node1.logicalTopologyService().localLogicalTopology().nodes().size() == 2,
+                () -> node1.logicalTopologyService().localLogicalTopology().size() == 2,
                 10_000
         ));
 
@@ -115,17 +115,17 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
 
         // Check that Node 0 and 2 will see all three nodes in local logical topologies.
         assertTrue(waitForCondition(
-                () -> unwrapIgniteImpl(node(0)).logicalTopologyService().localLogicalTopology().nodes().size() == 3,
+                () -> unwrapIgniteImpl(node(0)).logicalTopologyService().localLogicalTopology().size() == 3,
                 10_000
         ));
 
         assertTrue(waitForCondition(
-                () -> unwrapIgniteImpl(node(2)).logicalTopologyService().localLogicalTopology().nodes().size() == 3,
+                () -> unwrapIgniteImpl(node(2)).logicalTopologyService().localLogicalTopology().size() == 3,
                 10_000
         ));
 
         // And we expect that node 1 won't see node 2 in its local logical topology.
-        assertEquals(2, node1.logicalTopologyService().localLogicalTopology().nodes().size());
+        assertEquals(2, node1.logicalTopologyService().localLogicalTopology().size());
 
         // But still we're able to create zone with extra profile on node 2 because node 1 will try to ask CMG leader (node 0) directly over
         // the network for its up-to-date leader's local logical topology and check this snapshot's storage profiles that should
