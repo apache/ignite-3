@@ -102,6 +102,7 @@ dependencies {
     testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
     testImplementation libs.awaitility
+    testImplementation testFixtures(project(':ignite-api'))
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-schema'))
