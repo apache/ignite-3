@@ -219,6 +219,36 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         );
     }
 
+    @Test
+    void cannotAddNonNullableColumnWithoutDefault() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name("ID").type(INT32).build()))
+                .primaryKey(primaryKey("ID"))
+        );
+
+        ColumnParams columnParams = ColumnParams.builder()
+                .name(columnName)
+                .type(STRING)
+                .length(10)
+                .nullable(false)
+                .build();
+
+        AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams));
+
+        assertThrowsWithCause(
+                () -> builder.build().get(new UpdateContext(catalog)),
+                CatalogValidationException.class,
+                "Non-nullable column 'TEST' must have the default value"
+        );
+    }
+
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
     void exceptionIsThrownIfSchemaIsReserved(String schema) {
