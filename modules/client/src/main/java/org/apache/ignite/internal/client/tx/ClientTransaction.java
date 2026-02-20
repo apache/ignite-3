@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
@@ -50,7 +51,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -242,6 +243,17 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
+        return sendDiscardRequests().handle((r, e) -> {
+            setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
+            ch.inflights().erase(txId());
+            this.finishFut.get().complete(null);
+            return null;
+        });
+    }
+
+    private CompletableFuture<Void> sendDiscardRequests() {
+        assert finishFut != null;
+
         Map<String, List<TablePartitionId>> enlistments = new HashMap<>();
 
         for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
@@ -274,15 +286,11 @@ public class ClientTransaction implements Transaction {
                     }
                 }, null);
             });
+
             futures.add(discardFut);
         }
 
-        return CompletableFutures.allOf(futures).handle((r, e) -> {
-            setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
-            ch.inflights().erase(txId());
-            this.finishFut.get().complete(null);
-            return null;
-        });
+        return allOf(futures);
     }
 
     /** {@inheritDoc} */
@@ -324,6 +332,20 @@ public class ClientTransaction implements Transaction {
         }).thenCompose(identity());
 
         mainFinishFut.handle((res, e) -> {
+            if (e != null) {
+                // Failed to commit for some reason, need to discard direct mappings.
+                Throwable cause = ExceptionUtils.unwrapCause(e);
+
+                sendDiscardRequests().handle((r, e0) -> {
+                    setState(cause instanceof ClientTransactionKilledException ? STATE_KILLED : STATE_ROLLED_BACK);
+                    ch.inflights().erase(txId());
+                    this.finishFut.get().complete(null);
+                    return null;
+                });
+
+                return null;
+            }
+
             setState(STATE_COMMITTED);
             ch.inflights().erase(txId());
             this.finishFut.get().complete(null);
