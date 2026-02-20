@@ -2162,7 +2162,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID targetTxId = newTxId();
 
         when(mockRaftClient.run(any(UpdateCommandBase.class)))
-                .thenReturn(failedFuture(new CompletionException(new RaftException(RaftError.EREJECTED_BY_USER_LOGIC))));
+                .thenReturn(failedFuture(new CompletionException(new RaftException(RaftError.EREJECTED_BY_VALIDATOR))));
 
         CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
 

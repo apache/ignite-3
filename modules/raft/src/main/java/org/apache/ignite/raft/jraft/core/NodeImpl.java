@@ -1804,7 +1804,7 @@ public class NodeImpl implements Node, RaftServerService {
                 SafeTimeValidationResult validationResult = safeTimeValidator.validate(groupId, closure.command(), safeTs);
 
                 if (!validationResult.valid()) {
-                    RaftError raftError = validationResult.shouldRetry() ? RaftError.EBUSY : RaftError.EREJECTED_BY_USER_LOGIC;
+                    RaftError raftError = validationResult.shouldRetry() ? RaftError.EBUSY : RaftError.EREJECTED_BY_VALIDATOR;
                     Utils.runClosureInThread(
                             this.getOptions().getCommonExecutor(),
                             task.done,
