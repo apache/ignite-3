@@ -3,7 +3,6 @@
   <component name="CheckStyle-IDEA" serialisationVersion="2">
     <checkstyleVersion>10.26.1</checkstyleVersion>
     <scanScope>JavaOnlyWithTests</scanScope>
-    <copyLibs>true</copyLibs>
     <option name="thirdPartyClasspath" />
     <option name="activeLocationIds">
       <option value="610eb513-51a7-4863-aaf8-feef91fd2055" />
