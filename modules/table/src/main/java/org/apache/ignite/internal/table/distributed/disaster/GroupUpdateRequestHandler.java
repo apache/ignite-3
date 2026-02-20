@@ -56,6 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
@@ -255,7 +256,9 @@ class GroupUpdateRequestHandler {
                         aliveNodesConsistentIds,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.quorumSize(),
                         zoneDescriptor.consensusGroupSize(),
+                        zoneDescriptor.consistencyMode(),
                         revision,
                         timestamp,
                         metaStorageManager,
@@ -281,7 +284,9 @@ class GroupUpdateRequestHandler {
             Set<String> aliveNodesConsistentIds,
             int partitions,
             int replicas,
+            int quorumSize,
             int consensusGroupSize,
+            ConsistencyMode consistencyMode,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
@@ -294,8 +299,9 @@ class GroupUpdateRequestHandler {
         return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
             Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
             Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
+            long aliveStableVotingNodes = aliveStableNodes.stream().filter(Assignment::isPeer).count();
 
-            if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
+            if (aliveStableVotingNodes >= quorumSize) {
                 return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
             }
 
