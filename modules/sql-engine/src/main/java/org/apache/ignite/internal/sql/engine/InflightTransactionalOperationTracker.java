@@ -69,16 +69,9 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
 
     private TransactionException alreadyFinishedException(InternalTransaction tx) {
         TxStateMeta txStateMeta = txManager.stateMeta(tx.id());
-        TransactionMeta finalMeta = txStateMeta;
-
-        if (txStateMeta instanceof TxStateMetaFinishing) {
-            finalMeta = ((TxStateMetaFinishing) txStateMeta).txFinishFuture().join();
-        }
-
-        TxStateMeta metaWithDetails = finalMeta instanceof TxStateMeta ? (TxStateMeta) finalMeta : txStateMeta;
-        boolean isFinishedDueToTimeout = metaWithDetails != null
-                && Boolean.TRUE.equals(metaWithDetails.isFinishedDueToTimeout());
-        Throwable cause = metaWithDetails == null ? null : metaWithDetails.lastException();
+        boolean isFinishedDueToTimeout = txStateMeta != null
+                && Boolean.TRUE.equals(txStateMeta.isFinishedDueToTimeout());
+        Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
 
         return new TransactionException(
                 isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
