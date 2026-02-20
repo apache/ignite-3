@@ -27,9 +27,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Collection of {@link StripedExecutor executors} for the network based on {@link ChannelType#id()}.
@@ -51,11 +53,15 @@ class CriticalStripedExecutors implements ManuallyCloseable {
             String poolNamePrefix,
             CriticalWorkerRegistry workerRegistry,
             ChannelTypeRegistry channelTypeRegistry,
-            IgniteLogger log
+            IgniteLogger log,
+            @Nullable MetricManager metricManager,
+            @Nullable String metricNamePrefix,
+            @Nullable String metricDescription
     ) {
         this.workerRegistry = workerRegistry;
 
-        var factory = new CriticalStripedThreadPoolExecutorFactory(nodeName, poolNamePrefix, log, workerRegistry, registeredWorkers);
+        var factory = new CriticalStripedThreadPoolExecutorFactory(nodeName, poolNamePrefix, log, workerRegistry, registeredWorkers,
+                metricManager, metricNamePrefix, metricDescription);
 
         executorByChannelTypeId = StripedExecutorByChannelTypeId.of(channelTypeRegistry, factory);
     }

@@ -142,7 +142,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         DataRegion<PersistentPageMemory> dataRegion = tableStorage.dataRegion();
 
-        this.meta = meta;
+        setNewMeta(meta);
 
         checkpointManager.addCheckpointListener(checkpointListener = new CheckpointListener() {
             @Override
@@ -168,13 +168,14 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         leaseInfo = leaseInfoFromMeta();
     }
 
-    @Override
-    public void start() {
-        super.start();
-
-        busy(() -> {
-            wiHeadLink = meta.wiHeadLink();
-        });
+    /**
+     * Updates the {@link #meta} field and all other values associated with it.
+     *
+     * @param meta New instance for partition's meta.
+     */
+    private void setNewMeta(StoragePartitionMeta meta) {
+        this.meta = meta;
+        this.wiHeadLink = meta.wiHeadLink();
     }
 
     @Override
@@ -436,10 +437,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return wiHeadLock.isHeldByCurrentThread();
     }
 
-    long writeIntentListHead() {
-        return wiHeadLink;
-    }
-
     @Override
     public @Nullable LeaseInfo leaseInfo() {
         return busy(() -> {
@@ -569,7 +566,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
-        this.meta = meta;
+        setNewMeta(meta);
 
         this.blobStorage = new BlobStorage(
                 freeList,

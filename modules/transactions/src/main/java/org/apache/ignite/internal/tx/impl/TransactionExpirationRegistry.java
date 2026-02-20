@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -131,7 +133,7 @@ class TransactionExpirationRegistry {
                 format("Transaction is already finished or finishing {}",
                 formatTxInfo(tx.id(), volatileTxStateMetaStorage)));
         tx.rollbackWithExceptionAsync(abortionReason).whenComplete((res, ex) -> {
-            if (ex != null) {
+            if (ex != null  && !hasCause(ex, NodeStoppingException.class)) {
                 LOG.error("Transaction has aborted due to timeout {}.", ex,
                         formatTxInfo(tx.id(), volatileTxStateMetaStorage));
             }

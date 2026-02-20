@@ -222,6 +222,7 @@ public class VolatileTxStateMetaStorage {
                             return meta0;
                         }
                     } else {
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-27773
                         resourceVacuumMetrics.onMarkedForVacuum();
 
                         return meta0;

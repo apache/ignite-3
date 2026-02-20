@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionStableAssignments;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -68,6 +69,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
@@ -189,7 +191,7 @@ import org.apache.ignite.internal.network.PublicApiThreadingIgniteCluster;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterServiceFactory;
+import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
@@ -206,10 +208,10 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -229,6 +231,7 @@ import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
+import org.apache.ignite.internal.rest.events.RestEventsFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.rest.node.NodePropertiesFactory;
@@ -442,8 +445,8 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
-    /** Creator for volatile {@link LogStorageFactory} instances. */
-    private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
+    /** Creator for volatile {@link LogStorageManager} instances. */
+    private final VolatileLogStorageManagerCreator volatileLogStorageManagerCreator;
 
     private final SystemPropertiesComponent systemPropertiesComponent;
 
@@ -491,12 +494,12 @@ public class IgniteImpl implements Ignite {
     private final IgniteCatalog publicCatalog;
     private final IgniteCluster publicCluster;
 
-    /** Partitions log storage factory for raft. */
-    private final LogStorageFactory partitionsLogStorageFactory;
+    /** Partitions log storage manager for raft. */
+    private final LogStorageManager partitionsLogStorageManager;
 
-    private final LogStorageFactory msLogStorageFactory;
+    private final LogStorageManager msLogStorageManager;
 
-    private final LogStorageFactory cmgLogStorageFactory;
+    private final LogStorageManager cmgLogStorageManager;
 
     private final RaftGroupOptionsConfigurer partitionRaftConfigurer;
 
@@ -516,6 +519,8 @@ public class IgniteImpl implements Ignite {
     private final ClockServiceMetricSource clockServiceMetricSource;
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
+
+    private final PartitionCountProviderWrapper partitionCountProviderWrapper;
 
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
@@ -625,7 +630,7 @@ public class IgniteImpl implements Ignite {
                 failureManager
         );
 
-        clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
+        clusterSvc = new ScaleCubeClusterService(
                 name,
                 networkConfiguration,
                 nettyBootstrapFactory,
@@ -635,7 +640,8 @@ public class IgniteImpl implements Ignite {
                 criticalWorkerRegistry,
                 failureManager,
                 ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader),
-                new DefaultIgniteProductVersionSource()
+                new DefaultIgniteProductVersionSource(),
+                metricManager
         );
 
         clock = new HybridClockImpl(failureManager);
@@ -649,18 +655,18 @@ public class IgniteImpl implements Ignite {
 
         partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
-        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 "table data log",
                 clusterSvc.nodeName(),
                 partitionsWorkDir.raftLogPath(),
                 raftConfiguration.fsync().value()
         );
 
-        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+        LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
 
         metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
-        msLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        msLogStorageManager = SharedLogStorageManagerUtils.create(
                 "meta-storage log",
                 clusterSvc.nodeName(),
                 metastorageWorkDir.raftLogPath(),
@@ -668,7 +674,7 @@ public class IgniteImpl implements Ignite {
                 true
         );
 
-        cmgLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        cmgLogStorageManager = SharedLogStorageManagerUtils.create(
                 "cluster-management-group log",
                 clusterSvc.nodeName(),
                 cmgWorkDir.raftLogPath(),
@@ -676,13 +682,13 @@ public class IgniteImpl implements Ignite {
         );
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
         partitionRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, partitionsWorkDir.metaPath());
 
         GroupStoragesContextResolver groupStoragesContextResolver = createGroupStoragesContextResolver();
 
@@ -869,11 +875,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
+        partitionCountProviderWrapper = new PartitionCountProviderWrapper();
+
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                partitionCountProviderWrapper
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry
@@ -911,12 +920,13 @@ public class IgniteImpl implements Ignite {
         // TODO: IGNITE-22222 this instantiation should be moved inside ReplicaManager's constructor
         Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
 
-        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
+        volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(name, workDir.resolve("volatile-log-spillout"));
 
         replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
                 cmgMgr,
+                groupId -> zonePartitionStableAssignments(metaStorageMgr, groupId),
                 clockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
@@ -927,7 +937,7 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory,
                 raftMgr,
                 partitionRaftConfigurer,
-                volatileLogStorageFactoryCreator,
+                volatileLogStorageManagerCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
@@ -1337,10 +1347,10 @@ public class IgniteImpl implements Ignite {
     }
 
     private GroupStoragesContextResolver createGroupStoragesContextResolver() {
-        Map<String, LogStorageFactory> logStorageFactoryByGroupName = Map.of(
-                PARTITION_GROUP_NAME, partitionsLogStorageFactory,
-                MetastorageGroupId.INSTANCE.toString(), msLogStorageFactory,
-                CmgGroupId.INSTANCE.toString(), cmgLogStorageFactory
+        Map<String, LogStorageManager> logStorageManagerByGroupName = Map.of(
+                PARTITION_GROUP_NAME, partitionsLogStorageManager,
+                MetastorageGroupId.INSTANCE.toString(), msLogStorageManager,
+                CmgGroupId.INSTANCE.toString(), cmgLogStorageManager
         );
 
         Map<String, Path> serverDataPathByGroupName = Map.of(
@@ -1352,7 +1362,7 @@ public class IgniteImpl implements Ignite {
         return new GroupStoragesContextResolver(
                 replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString(),
                 serverDataPathByGroupName,
-                logStorageFactoryByGroupName
+                logStorageManagerByGroupName
         );
     }
 
@@ -1433,6 +1443,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql, killCommandHandler);
         Supplier<RestFactory> nodePropertiesRestFactory = () -> new NodePropertiesFactory(nodeProperties);
         Supplier<RestFactory> dataNodesRestFactory = () -> new DataNodesRestFactory(distributionZoneManager);
+        Supplier<RestFactory> restEventsFactory = () -> new RestEventsFactory(eventLog, name);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 
@@ -1449,7 +1460,8 @@ public class IgniteImpl implements Ignite {
                         systemDisasterRecoveryFactory,
                         sqlQueryRestFactory,
                         nodePropertiesRestFactory,
-                        dataNodesRestFactory
+                        dataNodesRestFactory,
+                        restEventsFactory
                 ),
                 restManager,
                 restConfiguration
@@ -1524,9 +1536,9 @@ public class IgniteImpl implements Ignite {
                     nettyWorkersRegistrar,
                     clusterSvc,
                     restComponent,
-                    partitionsLogStorageFactory,
-                    msLogStorageFactory,
-                    cmgLogStorageFactory,
+                    partitionsLogStorageManager,
+                    msLogStorageManager,
+                    cmgLogStorageManager,
                     raftMgr,
                     cmgMgr,
                     lowWatermark
@@ -1610,7 +1622,7 @@ public class IgniteImpl implements Ignite {
                                 metricMessaging,
                                 distributionZoneManager,
                                 computeComponent,
-                                volatileLogStorageFactoryCreator,
+                                volatileLogStorageManagerCreator,
                                 replicaMgr,
                                 indexNodeFinishedRwTransactionsChecker,
                                 txManager,
@@ -2135,8 +2147,8 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
-    public LogStorageFactory partitionsLogStorageFactory() {
-        return partitionsLogStorageFactory;
+    public LogStorageManager partitionsLogStorageManager() {
+        return partitionsLogStorageManager;
     }
 
     /** Returns the node's transaction manager. */

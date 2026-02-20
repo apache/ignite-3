@@ -73,6 +73,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.StreamerBatchSend => ClientOperationType.StreamerBatchSend,
                 ClientOp.PrimaryReplicasGet => ClientOperationType.PrimaryReplicasGet,
                 ClientOp.StreamerWithReceiverBatchSend => ClientOperationType.StreamerBatchSend,
+                ClientOp.TupleContainsAllKeys => ClientOperationType.TupleContainsAllKeys,
                 ClientOp.ServerOpResponse => null,
                 ClientOp.OperationCancel => null,
 

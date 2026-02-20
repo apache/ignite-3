@@ -315,7 +315,7 @@ public class ItSqlQueryEventLogTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.EXECUTION_CANCELLED_ERR,
                 QueryCancelledException.TIMEOUT_MSG,
-                () -> igniteSql().execute(null, stmt)
+                () -> igniteSql().execute((Transaction) null, stmt)
         );
 
         List<String> events = readEvents(2);

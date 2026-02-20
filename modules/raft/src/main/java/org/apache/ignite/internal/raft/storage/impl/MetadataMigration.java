@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory.FINISHED_META_MIGRATION_META_KEY;
+import static org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageManager.FINISHED_META_MIGRATION_META_KEY;
 import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
 
 import java.util.Arrays;

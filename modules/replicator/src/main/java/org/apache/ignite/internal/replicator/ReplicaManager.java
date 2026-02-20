@@ -36,11 +36,13 @@ import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_ABSENT_ERR;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -104,8 +106,9 @@ import org.apache.ignite.internal.raft.rebalance.RaftStaleUpdateException;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageManagerCreator;
 import org.apache.ignite.internal.raft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
@@ -176,6 +179,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Cluster group manager. */
     private final ClusterManagementGroupManager cmgMgr;
 
+    /** Supplier of stable assingments, used for replica absence handling. */
+    private final Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier;
+
     /** Replica message handler. */
     private final NetworkMessageHandler handler;
 
@@ -186,8 +192,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Raft clients factory for raft server endpoints starting. */
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
-    /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
-    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
+    /** Creator for {@link LogStorageManager} for volatile tables. */
+    private final LogStorageManagerCreator volatileLogStorageManagerCreator;
 
     private final ScheduledExecutorService replicaLifecycleExecutor;
 
@@ -237,6 +243,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
+     * @param stableAssignmentsSupplier Supplier of stable assignments.
      * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
@@ -247,7 +254,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
-     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
+     * @param volatileLogStorageManagerCreator Creator for {@link LogStorageManager} for
      *      volatile tables.
      * @param replicaLifecycleExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
@@ -257,6 +264,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
+            Function<ZonePartitionId, CompletableFuture<Assignments>> stableAssignmentsSupplier,
             ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
@@ -267,16 +275,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
-            LogStorageFactoryCreator volatileLogStorageFactoryCreator,
+            LogStorageManagerCreator volatileLogStorageManagerCreator,
             ScheduledExecutorService replicaLifecycleExecutor,
             Function<ReplicationGroupId, CompletableFuture<VersionedAssignments>> getPendingAssignmentsSupplier,
             Executor throttledLogExecutor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
+        this.stableAssignmentsSupplier = stableAssignmentsSupplier;
         this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
-        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
+        this.volatileLogStorageManagerCreator = volatileLogStorageManagerCreator;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
@@ -374,7 +383,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
             if (replicaFut == null || !replicaFut.isDone()) {
-                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp);
+                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp, replicaFut == null);
 
                 return;
             }
@@ -855,7 +864,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         if (isVolatileStorage) {
             LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorageBudget().value();
             raftGroupOptions = RaftGroupOptions.forVolatileStores()
-                    .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(view))
+                    .setLogStorageManager(volatileLogStorageManagerCreator.manager(view))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
             raftGroupOptions = RaftGroupOptions.forPersistentStores();
@@ -1048,34 +1057,49 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String senderConsistentId,
             long correlationId,
             ReplicationGroupId groupId,
-            @Nullable HybridTimestamp requestTimestamp
+            @Nullable HybridTimestamp requestTimestamp,
+            boolean replicaIsAbsent
     ) {
-        if (requestTimestamp != null) {
-            clusterNetSvc.messagingService().respond(
-                    senderConsistentId,
-                    REPLICA_MESSAGES_FACTORY
-                            .errorTimestampAwareReplicaResponse()
-                            .throwable(
-                                    new ReplicaUnavailableException(
-                                            groupId,
-                                            clusterNetSvc.topologyService().localMember())
-                            )
-                            .timestamp(clockService.updateClock(requestTimestamp))
-                            .build(),
-                    correlationId);
+        CompletableFuture<Boolean> replicaInAssignmentsFuture;
+
+        if (replicaIsAbsent && (groupId instanceof ZonePartitionId)) {
+            replicaInAssignmentsFuture = stableAssignmentsSupplier.apply((ZonePartitionId) groupId)
+                    .thenApply(assignments -> assignments.contains(localNodeConsistentId));
         } else {
-            clusterNetSvc.messagingService().respond(
-                    senderConsistentId,
-                    REPLICA_MESSAGES_FACTORY
-                            .errorReplicaResponse()
-                            .throwable(
-                                    new ReplicaUnavailableException(
-                                            groupId,
-                                            clusterNetSvc.topologyService().localMember())
-                            )
-                            .build(),
-                    correlationId);
+            replicaInAssignmentsFuture = trueCompletedFuture();
         }
+
+        replicaInAssignmentsFuture.thenAccept(isInAssignments -> {
+            ReplicaUnavailableException e;
+
+            if (replicaIsAbsent && !isInAssignments) {
+                e = new ReplicaUnavailableException(
+                        REPLICA_ABSENT_ERR,
+                        format("Replica is absent on this node and not in assignments, the request should be retried on another node "
+                                        + "[groupId={}, nodeName={}]", groupId, localNodeConsistentId
+                        )
+                );
+            } else {
+                e = new ReplicaUnavailableException(groupId, clusterNetSvc.topologyService().localMember());
+            }
+
+            NetworkMessage msg;
+
+            if (requestTimestamp != null) {
+                msg = REPLICA_MESSAGES_FACTORY
+                        .errorTimestampAwareReplicaResponse()
+                        .throwable(e)
+                        .timestamp(clockService.updateClock(requestTimestamp))
+                        .build();
+            } else {
+                msg = REPLICA_MESSAGES_FACTORY
+                        .errorReplicaResponse()
+                        .throwable(e)
+                        .build();
+            }
+
+            clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
+        });
     }
 
     /**
@@ -1193,7 +1217,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         ComponentStoppingException.class,
                         // Not a problem, there will be a retry.
                         TimeoutException.class,
-                        GroupOverloadedException.class
+                        GroupOverloadedException.class,
+                        ReplicaUnavailableException.class
                 )) {
                     failureProcessor.process(
                             new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));

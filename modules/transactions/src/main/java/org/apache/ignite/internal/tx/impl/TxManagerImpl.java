@@ -415,6 +415,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         txMetrics = new TransactionMetricsSource(clockService);
     }
 
+    @Override
+    public TransactionMetricsSource transactionMetricsSource() {
+        return txMetrics;
+    }
+
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
             Consumer<ZonePartitionId> action
@@ -1102,8 +1107,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 replicaService,
                 topologyService.localMember(),
                 clockService,
-                placementDriver,
-                failureProcessor
+                placementDriver
         );
 
         txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());

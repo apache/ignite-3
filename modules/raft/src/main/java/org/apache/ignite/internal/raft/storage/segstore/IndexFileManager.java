@@ -172,17 +172,26 @@ class IndexFileManager {
      *
      * <p>Must only be called by the checkpoint thread.
      */
-    Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
-        return saveIndexMemtable(indexMemTable, ++curFileOrdinal, false);
+    Path saveNewIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
+        var newFileProperties = new FileProperties(++curFileOrdinal);
+
+        return saveIndexMemtable(indexMemTable, newFileProperties, false);
     }
 
-    private Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) throws IOException {
-        String fileName = indexFileName(fileOrdinal, 0);
+    private Path saveIndexMemtable(
+            ReadModeIndexMemTable indexMemTable,
+            FileProperties fileProperties,
+            boolean onRecovery
+    ) throws IOException {
+        String fileName = indexFileName(fileProperties);
 
         Path tmpFilePath = indexFilesDir.resolve(fileName + TMP_FILE_SUFFIX);
 
+        assert !Files.exists(indexFilesDir.resolve(fileName)) : "Index file already exists: " + fileName;
+        assert !Files.exists(tmpFilePath) : "Temporary index file already exists: " + tmpFilePath;
+
         try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
-            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal, onRecovery);
+            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileProperties, onRecovery);
 
             os.write(headerBytes);
 
@@ -205,8 +214,8 @@ class IndexFileManager {
      * This method is intended to be called during {@link SegmentFileManager} recovery in order to create index files that may have been
      * lost due to a component stop before a checkpoint was able to complete.
      */
-    void recoverIndexFile(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
-        saveIndexMemtable(indexMemTable, fileOrdinal, true);
+    void recoverIndexFile(ReadModeIndexMemTable indexMemTable, FileProperties fileProperties) throws IOException {
+        saveIndexMemtable(indexMemTable, fileProperties, true);
     }
 
     /**
@@ -227,7 +236,7 @@ class IndexFileManager {
             return null;
         }
 
-        Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
+        Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileProperties()));
 
         // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex) range.
         long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
@@ -251,7 +260,7 @@ class IndexFileManager {
 
             int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
 
-            return new SegmentFilePointer(indexFileMeta.indexFileOrdinal(), segmentPayloadOffset);
+            return new SegmentFilePointer(indexFileMeta.indexFileProperties(), segmentPayloadOffset);
         }
     }
 
@@ -273,11 +282,15 @@ class IndexFileManager {
         return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndexExclusive();
     }
 
-    boolean indexFileExists(int fileOrdinal) {
-        return Files.exists(indexFilesDir.resolve(indexFileName(fileOrdinal, 0)));
+    boolean indexFileExists(FileProperties fileProperties) {
+        return Files.exists(indexFilePath(fileProperties));
     }
 
-    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) {
+    Path indexFilePath(FileProperties fileProperties) {
+        return indexFilesDir.resolve(indexFileName(fileProperties));
+    }
+
+    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, FileProperties fileProperties, boolean onRecovery) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);
@@ -310,7 +323,7 @@ class IndexFileManager {
             // (see recoverIndexFileMetas).
             if (!onRecovery) {
                 IndexFileMeta indexFileMeta = createIndexFileMeta(
-                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileOrdinal
+                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileProperties
                 );
 
                 putIndexFileMeta(groupId, indexFileMeta, firstIndexKept);
@@ -335,7 +348,7 @@ class IndexFileManager {
             long lastLogIndexExclusive,
             long firstIndexKept,
             int payloadOffset,
-            int fileOrdinal
+            FileProperties fileProperties
     ) {
         if (firstLogIndexInclusive == -1) {
             assert firstIndexKept != -1 : "Expected a prefix tombstone, but firstIndexKept is not set.";
@@ -346,7 +359,7 @@ class IndexFileManager {
 
         if (firstIndexKept == -1 || firstIndexKept <= firstLogIndexInclusive) {
             // No prefix truncation required, simply create a new meta.
-            return new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileOrdinal);
+            return new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileProperties);
         }
 
         // Create a meta with a truncated prefix.
@@ -354,7 +367,7 @@ class IndexFileManager {
 
         int adjustedPayloadOffset = payloadOffset + numEntriesToSkip * SEGMENT_FILE_OFFSET_SIZE;
 
-        return new IndexFileMeta(firstIndexKept, lastLogIndexExclusive, adjustedPayloadOffset, fileOrdinal);
+        return new IndexFileMeta(firstIndexKept, lastLogIndexExclusive, adjustedPayloadOffset, fileProperties);
     }
 
     private void putIndexFileMeta(Long groupId, @Nullable IndexFileMeta indexFileMeta, long firstIndexKept) {
@@ -400,47 +413,50 @@ class IndexFileManager {
         return segmentInfo.size() * Integer.BYTES;
     }
 
-    private static String indexFileName(int fileOrdinal, int generation) {
-        return String.format(INDEX_FILE_NAME_FORMAT, fileOrdinal, generation);
+    private static String indexFileName(FileProperties fileProperties) {
+        return String.format(INDEX_FILE_NAME_FORMAT, fileProperties.ordinal(), fileProperties.generation());
     }
 
-    private void recoverIndexFileMetas(Path indexFile) throws IOException {
-        int fileOrdinal = indexFileOrdinal(indexFile);
+    private void recoverIndexFileMetas(Path indexFilePath) throws IOException {
+        FileProperties fileProperties = indexFileProperties(indexFilePath);
 
-        if (curFileOrdinal >= 0 && fileOrdinal != curFileOrdinal + 1) {
+        if (curFileOrdinal >= 0 && fileProperties.ordinal() != curFileOrdinal + 1) {
             throw new IllegalStateException(String.format(
                     "Unexpected index file ordinal. Expected %d, actual %d (%s).",
-                    curFileOrdinal + 1, fileOrdinal, indexFile
+                    curFileOrdinal + 1, fileProperties.ordinal(), indexFilePath
             ));
         }
 
-        curFileOrdinal = fileOrdinal;
+        curFileOrdinal = fileProperties.ordinal();
 
-        try (InputStream is = new BufferedInputStream(Files.newInputStream(indexFile, StandardOpenOption.READ))) {
-            ByteBuffer commonMetaBuffer = readBytes(is, COMMON_META_SIZE, indexFile);
+        try (InputStream is = new BufferedInputStream(Files.newInputStream(indexFilePath, StandardOpenOption.READ))) {
+            ByteBuffer commonMetaBuffer = readBytes(is, COMMON_META_SIZE, indexFilePath);
 
             int magicNumber = commonMetaBuffer.getInt();
 
             if (magicNumber != MAGIC_NUMBER) {
-                throw new IllegalStateException(String.format("Invalid magic number in index file %s: %d.", indexFile, magicNumber));
+                throw new IllegalStateException(String.format("Invalid magic number in index file %s: %d.", indexFilePath, magicNumber));
             }
 
             int formatVersion = commonMetaBuffer.getInt();
 
             if (formatVersion > FORMAT_VERSION) {
                 throw new IllegalStateException(String.format(
-                        "Unsupported format version in index file %s: %d.", indexFile, formatVersion
+                        "Unsupported format version in index file %s: %d.", indexFilePath, formatVersion
                 ));
             }
 
             int numGroups = commonMetaBuffer.getInt();
 
             if (numGroups <= 0) {
-                throw new IllegalStateException(String.format("Unexpected number of groups in index file %s: %d.", indexFile, numGroups));
+                throw new IllegalStateException(String.format(
+                        "Unexpected number of groups in index file %s: %d.",
+                        indexFilePath, numGroups
+                ));
             }
 
             for (int i = 0; i < numGroups; i++) {
-                ByteBuffer groupMetaBuffer = readBytes(is, GROUP_META_SIZE, indexFile);
+                ByteBuffer groupMetaBuffer = readBytes(is, GROUP_META_SIZE, indexFilePath);
 
                 long groupId = groupMetaBuffer.getLong();
                 groupMetaBuffer.getInt(); // Skip flags.
@@ -450,7 +466,7 @@ class IndexFileManager {
                 long firstIndexKept = groupMetaBuffer.getLong();
 
                 IndexFileMeta indexFileMeta = createIndexFileMeta(
-                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileOrdinal
+                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileProperties
                 );
 
                 putIndexFileMeta(groupId, indexFileMeta, firstIndexKept);
@@ -458,7 +474,7 @@ class IndexFileManager {
         }
     }
 
-    private static int indexFileOrdinal(Path indexFile) {
+    private static FileProperties indexFileProperties(Path indexFile) {
         String fileName = indexFile.getFileName().toString();
 
         Matcher matcher = INDEX_FILE_NAME_PATTERN.matcher(fileName);
@@ -467,7 +483,10 @@ class IndexFileManager {
             throw new IllegalArgumentException(String.format("Invalid index file name format: %s.", indexFile));
         }
 
-        return Integer.parseInt(matcher.group("ordinal"));
+        return new FileProperties(
+                Integer.parseInt(matcher.group("ordinal")),
+                Integer.parseInt(matcher.group("generation"))
+        );
     }
 
     private static ByteBuffer readBytes(InputStream is, int size, Path indexFile) throws IOException {

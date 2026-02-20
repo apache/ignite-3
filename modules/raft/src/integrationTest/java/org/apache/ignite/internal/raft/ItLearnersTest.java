@@ -65,8 +65,8 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -119,7 +119,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         final Loza loza;
 
-        final LogStorageFactory logStorageFactory;
+        final LogStorageManager logStorageManager;
 
         ComponentWorkingDir partitionsWorkDir;
 
@@ -130,7 +130,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             partitionsWorkDir = new ComponentWorkingDir(raftDir);
 
-            logStorageFactory = SharedLogStorageFactoryUtils.create(
+            logStorageManager = SharedLogStorageManagerUtils.create(
                     clusterService.nodeName(),
                     partitionsWorkDir.raftLogPath()
             );
@@ -147,18 +147,17 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(new ComponentContext(), clusterService, logStorageFactory, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, logStorageManager, loza), willCompleteSuccessfully());
         }
 
         @Override
         public void close() throws Exception {
-            List<IgniteComponent> components = Stream.of(loza, logStorageFactory, clusterService)
+            List<IgniteComponent> components = Stream.of(loza, logStorageManager, clusterService)
                     .filter(Objects::nonNull)
                     .collect(toList());
 
             closeAll(
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
-                    () -> closeAll(components.stream().map(component -> component::stopAsync)),
                     () -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
             );
         }
@@ -451,7 +450,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
             RaftGroupOptions ops = RaftGroupOptions.defaults();
 
             RaftGroupOptionsConfigHelper.configureProperties(
-                    node.logStorageFactory,
+                    node.logStorageManager,
                     node.partitionsWorkDir.metaPath()
             ).configure(ops);
 

@@ -93,8 +93,8 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -127,9 +127,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     private Loza raftManager;
 
-    private LogStorageFactory partitionsLogStorageFactory;
+    private LogStorageManager partitionsLogStorageManager;
 
-    private LogStorageFactory msLogStorageFactory;
+    private LogStorageManager msLogStorageManager;
 
     private KeyValueStorage storage;
 
@@ -163,7 +163,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir.resolve("loza"));
 
-        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 clusterService.nodeName(),
                 workingDir.raftLogPath()
         );
@@ -196,11 +196,11 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
-        msLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+        msLogStorageManager =
+                SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
         storage = new RocksDbKeyValueStorage(
                 clusterService.nodeName(),
@@ -226,7 +226,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         assertThat(
                 startAsync(new ComponentContext(),
-                        clusterService, partitionsLogStorageFactory, msLogStorageFactory, raftManager, metaStorageManager)
+                        clusterService, partitionsLogStorageManager, msLogStorageManager, raftManager, metaStorageManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
@@ -235,7 +235,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         List<IgniteComponent> components =
-                List.of(metaStorageManager, raftManager, partitionsLogStorageFactory, msLogStorageFactory, clusterService);
+                List.of(metaStorageManager, raftManager, partitionsLogStorageManager, msLogStorageManager, clusterService);
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
