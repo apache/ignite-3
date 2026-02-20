@@ -163,4 +163,57 @@ class IndexFileMetaArray {
 
         return new IndexFileMetaArray(newArray, newSize);
     }
+
+    IndexFileMetaArray onIndexCompacted(FileProperties oldProperties, IndexFileMeta newMeta) {
+        // Find index meta associated with the file being compacted.
+        int updateIndex = -1;
+
+        for (int i = 0; i < size; i++) {
+            if (array[i].indexFileProperties().equals(oldProperties)) {
+                updateIndex = i;
+                break;
+            }
+        }
+
+        if (updateIndex == -1) {
+            return this;
+        }
+
+        IndexFileMeta[] newArray = Arrays.copyOf(array, size);
+
+        newArray[updateIndex] = newMeta;
+
+        return new IndexFileMetaArray(newArray, size);
+    }
+
+    IndexFileMetaArray onIndexRemoved(FileProperties fileProperties) {
+        int removeIndex = -1;
+
+        for (int i = 0; i < size; i++) {
+            if (array[i].indexFileProperties().equals(fileProperties)) {
+                removeIndex = i;
+                break;
+            }
+        }
+
+        if (removeIndex == -1) {
+            return this;
+        }
+
+        var newArray = new IndexFileMeta[size];
+
+        if (array.length == 1) {
+            return new IndexFileMetaArray(newArray, 0);
+        }
+
+        System.arraycopy(array, 0, newArray, 0, removeIndex);
+        System.arraycopy(array, removeIndex + 1, newArray, removeIndex, size - removeIndex - 1);
+
+        return new IndexFileMetaArray(newArray, size - 1);
+    }
+
+    @Override
+    public String toString() {
+        return Arrays.toString(array);
+    }
 }

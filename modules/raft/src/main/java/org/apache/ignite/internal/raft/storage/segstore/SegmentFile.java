@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -106,7 +107,7 @@ class SegmentFile implements ManuallyCloseable {
 
     static SegmentFile openExisting(Path path, boolean isSync) throws IOException {
         if (!Files.exists(path)) {
-            throw new IllegalArgumentException("File does not exist: " + path);
+            throw new FileNotFoundException("File does not exist: " + path);
         }
 
         try (var file = new RandomAccessFile(path.toFile(), "rw")) {

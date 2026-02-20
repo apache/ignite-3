@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
@@ -379,8 +380,8 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
     @Test
     void testExists() throws IOException {
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(false));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(false));
 
         var memtable = new StripedMemTable(STRIPES);
 
@@ -388,13 +389,13 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         indexFileManager.saveNewIndexMemtable(memtable);
 
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(true));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(false));
 
         indexFileManager.saveNewIndexMemtable(memtable);
 
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(true));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(true));
     }
 
     @Test
