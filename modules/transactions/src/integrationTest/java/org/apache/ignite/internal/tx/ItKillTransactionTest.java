@@ -47,7 +47,7 @@ import org.junit.jupiter.api.Test;
  * The behavior of this API is similar to the rollback invocation,
  * but a client has to get a specific exception when trying to interact with the transaction object.
  */
-public class KillTransactionTest extends ClusterPerClassIntegrationTest {
+public class ItKillTransactionTest extends ClusterPerClassIntegrationTest {
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         super.configureInitParameters(builder);

@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -33,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -43,6 +51,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -57,6 +66,7 @@ public class ClientTransaction implements Transaction {
 
     public static final UUID EMPTY = new UUID(0, 0);
 
+    // TODO use enum
     /** Open state. */
     private static final int STATE_OPEN = 0;
 
@@ -65,6 +75,9 @@ public class ClientTransaction implements Transaction {
 
     /** Rolled back state. */
     private static final int STATE_ROLLED_BACK = 2;
+
+    /** Kill state. */
+    private static final int STATE_KILLED = 3;
 
     /** Channel that the transaction belongs to. */
     @IgniteToStringExclude
@@ -75,7 +88,7 @@ public class ClientTransaction implements Transaction {
 
     /** The future used on repeated commit/rollback. */
     @IgniteToStringExclude
-    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
+    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>(); // TODO use updater
 
     /** State. */
     private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
@@ -105,10 +118,13 @@ public class ClientTransaction implements Transaction {
     @IgniteToStringExclude
     private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
 
+    private final ReliableChannel reliableChannel;
+
     /**
      * Constructor.
      *
-     * @param ch Channel that the transaction belongs to.
+     * @param ch Channel that the transaction belongs to (coordinator connection).
+     * @param reliableChannel Channels repository.
      * @param id Transaction id.
      * @param isReadOnly Read-only flag.
      * @param txId Transaction id.
@@ -119,6 +135,7 @@ public class ClientTransaction implements Transaction {
      */
     public ClientTransaction(
             ClientChannel ch,
+            ReliableChannel reliableChannel,
             long id,
             boolean isReadOnly,
             UUID txId,
@@ -128,6 +145,7 @@ public class ClientTransaction implements Transaction {
             long timeout
     ) {
         this.ch = ch;
+        this.reliableChannel = reliableChannel;
         this.id = id;
         this.isReadOnly = isReadOnly;
         this.txId = txId;
@@ -206,6 +224,75 @@ public class ClientTransaction implements Transaction {
         sync(commitAsync());
     }
 
+    /**
+     * Discards the directly mapped transaction fragments in case of coordinator side transaction invalidation
+     * (either kill or implicit rollback due to mapping failure, see postEnlist).
+     *
+     * @param killed Killed flag.
+     *
+     * @return The future.
+     */
+    public CompletableFuture<Void> discardDirectMappings(boolean killed) {
+        enlistPartitionLock.writeLock().lock();
+
+        try {
+            if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
+                return finishFut.get();
+            }
+        } finally {
+            enlistPartitionLock.writeLock().unlock();
+        }
+
+        return sendDiscardRequests().handle((r, e) -> {
+            setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
+            ch.inflights().erase(txId());
+            this.finishFut.get().complete(null);
+            return null;
+        });
+    }
+
+    private CompletableFuture<Void> sendDiscardRequests() {
+        assert finishFut != null;
+
+        Map<String, List<TablePartitionId>> enlistments = new HashMap<>();
+
+        for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
+            IgniteBiTuple<String, Long> info = entry.getValue().getNow(null);
+
+            if (info == null) {
+                continue; // Ignore incomplete enlistments.
+            }
+
+            enlistments.computeIfAbsent(info.get1(), k -> new ArrayList<>()).add(entry.getKey());
+        }
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>(enlistments.size());
+
+        for (Entry<String, List<TablePartitionId>> entry : enlistments.entrySet()) {
+            CompletableFuture<Void> discardFut = reliableChannel.getNodeChannelAsync(entry.getKey()).thenCompose(ch -> {
+                if (ch == null) {
+                    return failedFuture(
+                            new IgniteClientConnectionException(CONNECTION_ERR, "Failed to connect to node " + entry.getKey(), null));
+                }
+
+                return ch.serviceAsync(ClientOp.TX_DISCARD, w -> {
+                    int cnt = entry.getValue().size();
+                    w.out().packUuid(txId);
+                    w.out().packInt(cnt);
+
+                    for (int i = 0; i < cnt; i++) {
+                        w.out().packInt(entry.getValue().get(i).tableId());
+                        w.out().packInt(entry.getValue().get(i).partitionId());
+                    }
+                }, null);
+            });
+
+            futures.add(discardFut);
+        }
+
+        return allOf(futures);
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> commitAsync() {
@@ -245,6 +332,20 @@ public class ClientTransaction implements Transaction {
         }).thenCompose(identity());
 
         mainFinishFut.handle((res, e) -> {
+            if (e != null) {
+                // Failed to commit for some reason, need to discard direct mappings.
+                Throwable cause = ExceptionUtils.unwrapCause(e);
+
+                sendDiscardRequests().handle((r, e0) -> {
+                    setState(cause instanceof ClientTransactionKilledException ? STATE_KILLED : STATE_ROLLED_BACK);
+                    ch.inflights().erase(txId());
+                    this.finishFut.get().complete(null);
+                    return null;
+                });
+
+                return null;
+            }
+
             setState(STATE_COMMITTED);
             ch.inflights().erase(txId());
             this.finishFut.get().complete(null);
@@ -346,9 +447,19 @@ public class ClientTransaction implements Transaction {
             return clientTx;
         }
 
-        throw new TransactionException(
-                TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [tx={}].", clientTx));
+        throw exceptionForState(state, clientTx);
+    }
+
+    private static TransactionException exceptionForState(int state, ClientTransaction clientTx) {
+        if (state == STATE_KILLED) {
+            return new TransactionException(
+                    TX_KILLED_ERR,
+                    format("Transaction is killed [tx={}].", clientTx));
+        } else {
+            return new TransactionException(
+                    TX_ALREADY_FINISHED_ERR,
+                    format("Transaction is already finished [tx={}].", clientTx));
+        }
     }
 
     static IgniteException unsupportedTxTypeException(Transaction tx) {
@@ -363,7 +474,7 @@ public class ClientTransaction implements Transaction {
 
     private void checkEnlistPossible() {
         if (finishFut.get() != null) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
+            throw exceptionForState(state.get(), this);
         }
     }
 
@@ -383,35 +494,34 @@ public class ClientTransaction implements Transaction {
             throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
         }
 
-        checkEnlistPossible();
+        try {
+            checkEnlistPossible();
 
-        boolean[] first = {false};
+            boolean[] first = {false};
 
-        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+            TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
 
-        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
-            if (v == null) {
-                first[0] = true;
-                return new CompletableFuture<>();
-            } else {
-                return v;
+            CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
+                if (v == null) {
+                    first[0] = true;
+                    return new CompletableFuture<>();
+                } else {
+                    return v;
+                }
+            });
+
+            if (trackOperation) {
+                ch.inflights().addInflight(this);
             }
-        });
 
-        enlistPartitionLock.readLock().unlock();
-
-        // Re-check after unlock.
-        checkEnlistPossible();
-
-        if (trackOperation) {
-            ch.inflights().addInflight(txId);
-        }
-
-        if (first[0]) {
-            // For the first request return completed future.
-            return CompletableFuture.completedFuture(new IgniteBiTuple<>(null, null));
-        } else {
-            return fut;
+            if (first[0]) {
+                // For the first request return completed future.
+                return CompletableFuture.completedFuture(new IgniteBiTuple<>(null, null));
+            } else {
+                return fut;
+            }
+        } finally {
+            enlistPartitionLock.readLock().unlock();
         }
     }
 

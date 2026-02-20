@@ -203,6 +203,9 @@ public class ClientOp {
     /** Get next result set. */
     public static final int SQL_CURSOR_NEXT_RESULT_SET = 74;
 
+    /** Discard request for directly mapped transactions. */
+    public static final int TX_DISCARD = 75;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;

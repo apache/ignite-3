@@ -28,6 +28,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -92,14 +93,7 @@ public class ClientLazyTransaction implements Transaction {
 
     @Override
     public void rollback() throws TransactionException {
-        var tx0 = tx;
-
-        if (tx0 == null) {
-            // No operations were performed, nothing to rollback.
-            return;
-        }
-
-        tx0.join().rollback();
+        rollbackAsync().join();
     }
 
     @Override
@@ -227,5 +221,10 @@ public class ClientLazyTransaction implements Transaction {
 
     @Nullable EnumSet<ClientInternalTxOptions> options() {
         return txOptions;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

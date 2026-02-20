@@ -61,6 +61,7 @@ import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
@@ -78,6 +79,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -411,7 +413,75 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         TransactionException ex = assertThrows(TransactionException.class, tx::commit);
 
         assertThat(ex.getMessage(), startsWith("Transaction is killed"));
-        assertEquals("IGN-TX-13", ex.codeAsString());
+        assertEquals("IGN-TX-18", ex.codeAsString());
+    }
+
+    @Test
+    void testEnlistmentAfterKillTransaction() {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+
+        Transaction tx = client.transactions().begin();
+        Tuple key = tuples.get(0);
+        Tuple val = val(tuples.get(0).intValue(0) + "");
+        kvView.put(tx, key, val);
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        Tuple key2 = tuples.get(1);
+        Tuple val2 = val(tuples.get(1).intValue(0) + "");
+        assertThat(kvView.putAsync(tx, key2, val2),
+                willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
+
+        assertThat(tx.commitAsync(), willSucceedFast());
+
+        // Validate lock possibility.
+        assertThat(kvView.putAsync(null, key, val), willSucceedFast());
+        assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
+    }
+
+    @Test
+    void testDirectEnlistmentAfterKillTransaction() {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+        List<Tuple> tuples2 = generateKeysForNode(100, 10, map, server1.cluster().localNode(), table());
+
+        Transaction tx = client.transactions().begin();
+        Tuple key = tuples.get(0);
+        Tuple val = val(tuples.get(0).intValue(0) + "");
+        kvView.put(tx, key, val);
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        // No direct enlistments exists at this point so put will succeed. This can be improved.
+        Tuple key2 = tuples2.get(0);
+        Tuple val2 = val(tuples2.get(0).intValue(0) + "");
+        assertThat(kvView.putAsync(tx, key2, val2), willSucceedFast());
+
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
+
+        // Validate lock possibility.
+        assertThat(kvView.putAsync(null, key, val), willSucceedFast());
+        assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
     }
 
     @Test
@@ -425,7 +495,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         assertEquals(PARTITIONS, map.size());
 
-        int k = 111; // Avoid intersection with previous tests.
+        int k = 1111; // Avoid intersection with previous tests.
 
         Map<Tuple, Tuple> txMap = new HashMap<>();
 
@@ -835,7 +905,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         // Expecting each write operation to trigger add/remove events.
         int exp = 20 + partitions;
-        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx().txId());
+        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx());
         Mockito.verify(spyed, Mockito.times(exp)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
         // Check if all locks are released.
@@ -1184,12 +1254,12 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testRollbackDoesNotBlockOnLockConflict() {
+    public void testRollbackDoesNotBlockOnLockConflict() throws InterruptedException {
         ClientTable table = (ClientTable) table();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
-        List<Tuple> tuples0 = generateKeysForPartition(800, 10, map, 0, table);
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
 
         ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
         ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
@@ -1211,10 +1281,158 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         CompletableFuture<Void> fut = kvView.putAsync(olderTxProxy, key2, val);
         assertFalse(fut.isDone());
 
+        // Give some time to acquire a lock to avoid a race with next rollback.
+        Thread.sleep(500);
+
         assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
 
         // Operation future should be failed.
         assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
+
+        // Ensure inflights cleanup.
+        assertThat(youngerTxProxy.rollbackAsync(), willSucceedFast());
+    }
+
+    @Test
+    @Disabled // TODO disable under ticket.
+    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() {
+        // Note: reversed tx priority is required for this test.
+        ClientTable table = (ClientTable) table();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
+
+        // We need a waiter for this scenario.
+        Tuple key = tuples0.get(0);
+        Tuple val = val("1");
+
+        ClientLazyTransaction tx1 = (ClientLazyTransaction) client().transactions().begin();
+        ClientLazyTransaction tx2 = (ClientLazyTransaction) client().transactions().begin();
+
+        kvView.put(tx1, key, val);
+
+        // Will wait for lock.
+        CompletableFuture<Void> fut2 = kvView.putAsync(tx2, key, val);
+        assertFalse(fut2.isDone());
+
+        // Rollback should not be blocked.
+        assertThat(tx2.rollbackAsync(), willSucceedFast());
+        assertThat(tx1.rollbackAsync(), willSucceedFast());
+    }
+
+    @Test
+    public void testRollbackDoesNotBlockOnLockConflictWithDirectMapping() {
+        ClientTable table = (ClientTable) table();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        Entry<Partition, ClusterNode> p0 = null;
+        Entry<Partition, ClusterNode> p1 = null;
+        for (Entry<Partition, ClusterNode> entry : map.entrySet()) {
+            if (p0 == null) {
+                p0 = entry;
+            } else if (!p0.getValue().equals(entry.getValue())) {
+                p1 = entry;
+                break;
+            }
+        }
+
+        // Expecting at least one partition on different node.
+        assertNotNull(p0);
+        assertNotNull(p1);
+
+        List<Tuple> tuples0 = generateKeysForPartition(100, 50, map, (int) p0.getKey().id(), table);
+        List<Tuple> tuples1 = generateKeysForPartition(100, 50, map, (int) p1.getKey().id(), table);
+
+        ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
+        ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
+
+        Tuple key = tuples0.get(0);
+        Tuple val = val(key.intValue(0) + "");
+
+        Tuple key2 = tuples0.get(1);
+        Tuple val2 = val(key2.intValue(0) + "");
+
+        Tuple key3 = tuples1.get(0);
+        Tuple val3 = val(key3.intValue(0) + "");
+
+        Tuple key4 = tuples1.get(1);
+        Tuple val4 = val(key4.intValue(0) + "");
+
+        kvView.put(olderTxProxy, key, val);
+        ClientTransaction olderTx = olderTxProxy.startedTx();
+
+        kvView.put(youngerTxProxy, key2, val2);
+        ClientTransaction youngerTx = youngerTxProxy.startedTx();
+
+        assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
+
+        // Should be directly mapped
+        kvView.put(youngerTxProxy, key3, val3);
+
+        // Younger is not allowed to wait with wait-die.
+        // Next operation should invalidate the transaction.
+        CompletableFuture<Void> fut = kvView.putAsync(youngerTxProxy, key, val);
+        assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
+
+        olderTxProxy.commit();
+
+        // Ensure all enlisted keys are unlocked.
+        assertThat(kvView.putAsync(null, key, val), willSucceedFast());
+        assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
+        assertThat(kvView.putAsync(null, key3, val3), willSucceedFast());
+        assertThat(kvView.putAsync(null, key4, val4), willSucceedFast());
+    }
+
+    @Test
+    public void testKillDirectlyMappedTransaction() {
+        ClientTable table = (ClientTable) table();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        Entry<Partition, ClusterNode> p0 = null;
+        Entry<Partition, ClusterNode> p1 = null;
+        for (Entry<Partition, ClusterNode> entry : map.entrySet()) {
+            if (p0 == null) {
+                p0 = entry;
+            } else if (!p0.getValue().equals(entry.getValue())) {
+                p1 = entry;
+                break;
+            }
+        }
+
+        // Expecting at least one partition on different node.
+        assertNotNull(p0);
+        assertNotNull(p1);
+
+        List<Tuple> tuples0 = generateKeysForPartition(100, 50, map, (int) p0.getKey().id(), table);
+        List<Tuple> tuples1 = generateKeysForPartition(100, 50, map, (int) p1.getKey().id(), table);
+
+        ClientLazyTransaction tx = (ClientLazyTransaction) client().transactions().begin();
+
+        Tuple key = tuples0.get(0);
+        Tuple val = val(key.intValue(0) + "");
+
+        Tuple key2 = tuples1.get(0);
+        Tuple val2 = val(key2.intValue(0) + "");
+
+        // Proxy mode.
+        kvView.put(tx, key, val);
+
+        // Direct mode.
+        kvView.put(tx, key2, val2);
+
+        IgniteImpl coord = unwrapIgniteImpl(server(p0.getValue()));
+        TxStateMeta txStateMeta = coord.txManager().stateMeta(tx.startedTx().txId());
+        assertNotNull(txStateMeta);
+        assertEquals(TxState.PENDING, txStateMeta.txState());
+        // Kill should be propagated to the client.
+        coord.txManager().kill(tx.startedTx().txId()).join();
+
+        // Locks should be released.
+        assertThat(kvView.putAsync(null, key, val), willSucceedFast());
+        assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
     }
 
     @AfterEach

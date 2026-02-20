@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.client.tx;
 
 import java.util.UUID;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Holds the transaction id and the cause for delayed replication ack failure.
+ * Reports a killed transaction.
  */
-public class ClientDelayedAckException extends IgniteInternalException {
+public class ClientTransactionKilledException extends TransactionException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -36,13 +37,13 @@ public class ClientDelayedAckException extends IgniteInternalException {
      *
      * @param traceId Trace ID.
      * @param code Error code.
-     *
      * @param message String message.
      * @param txId Related transaction id.
-     * @param cause Cause.
+     * @param causeWithStackTrace The cause.
      */
-    ClientDelayedAckException(UUID traceId, int code, @Nullable String message, UUID txId, @Nullable Throwable cause) {
-        super(traceId, code, message, cause);
+    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, UUID txId,
+            IgniteException causeWithStackTrace) {
+        super(traceId, code, message, causeWithStackTrace);
 
         this.txId = txId;
     }

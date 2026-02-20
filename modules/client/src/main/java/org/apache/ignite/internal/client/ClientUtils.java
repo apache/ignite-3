@@ -141,6 +141,7 @@ public class ClientUtils {
             case ClientOp.TX_BEGIN:
             case ClientOp.TX_COMMIT:
             case ClientOp.TX_ROLLBACK:
+            case ClientOp.TX_DISCARD:
                 return null; // Commit/rollback use owning connection and bypass retry mechanism.
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:

@@ -68,11 +68,11 @@ public final class ViewUtils {
         e = unwrapCause(e);
 
         if (e instanceof IgniteException) {
-            return copyExceptionWithCauseIfPossible((IgniteException) e);
+            return e;
         }
 
         if (e instanceof IgniteCheckedException) {
-            return copyExceptionWithCauseIfPossible((IgniteCheckedException) e);
+            return e;
         }
 
         var e0 = IgniteExceptionMapperUtil.mapToPublicException(e);
