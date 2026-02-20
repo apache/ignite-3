@@ -238,7 +238,7 @@ class IndexFileManager {
         saveIndexMemtable(indexFilePath(fileProperties), indexMemTable, fileProperties);
     }
 
-    void onIndexFileCompacted(
+    Path onIndexFileCompacted(
             ReadModeIndexMemTable indexMemTable,
             FileProperties oldIndexFileProperties,
             FileProperties newIndexFileProperties
@@ -258,6 +258,12 @@ class IndexFileManager {
         });
 
         LOG.info("New index file created after compaction: {}.", newIndexFilePath);
+
+        return newIndexFilePath;
+    }
+
+    void onIndexFileRemoved(FileProperties indexFileProperties) {
+        groupIndexMetas.values().forEach(groupIndexMeta -> groupIndexMeta.onIndexRemoved(indexFileProperties));
     }
 
     /**

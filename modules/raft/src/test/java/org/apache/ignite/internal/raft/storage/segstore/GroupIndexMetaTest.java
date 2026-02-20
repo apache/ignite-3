@@ -299,6 +299,25 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testOnIndexRemoved() {
+        var meta1 = new IndexFileMeta(1, 50, 0, new FileProperties(0));
+        var meta2 = new IndexFileMeta(50, 100, 42, new FileProperties(1));
+        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(2));
+
+        var groupMeta = new GroupIndexMeta(meta1);
+        groupMeta.addIndexMeta(meta2);
+        groupMeta.addIndexMeta(meta3);
+
+        groupMeta.onIndexRemoved(new FileProperties(1));
+
+        assertThat(groupMeta.indexMeta(1), is(meta1));
+        assertThat(groupMeta.indexMeta(50), is(nullValue()));
+        assertThat(groupMeta.indexMeta(99), is(nullValue()));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+        assertThat(groupMeta.lastLogIndexExclusive(), is(150L));
+    }
+
+    @Test
     void testOnIndexCompactedWithMultipleBlocks() {
         // meta1 is in block 0.
         var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(0));
@@ -329,6 +348,33 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         assertThat(groupMeta.indexMeta(100), is(compactedMeta3));
     }
 
+    @Test
+    void testOnIndexRemovedWithMultipleBlocks() {
+        var meta1 = new IndexFileMeta(1, 50, 0, new FileProperties(0));
+        var meta1b = new IndexFileMeta(50, 100, 42, new FileProperties(1));
+
+        var groupMeta = new GroupIndexMeta(meta1);
+        groupMeta.addIndexMeta(meta1b);
+
+        var meta2 = new IndexFileMeta(42, 100, 42, new FileProperties(2));
+        groupMeta.addIndexMeta(meta2);
+
+        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(3));
+        groupMeta.addIndexMeta(meta3);
+
+        groupMeta.onIndexRemoved(new FileProperties(2));
+
+        assertThat(groupMeta.indexMeta(42), is(meta1));
+        assertThat(groupMeta.indexMeta(60), is(meta1b));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+
+        groupMeta.onIndexRemoved(new FileProperties(1));
+
+        assertThat(groupMeta.indexMeta(42), is(meta1));
+        assertThat(groupMeta.indexMeta(60), is(nullValue()));
+        assertThat(groupMeta.indexMeta(100), is(meta3));
+    }
+
     @RepeatedTest(100)
     void multithreadCompactionWithTruncatePrefix() {
         var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(0));
@@ -353,5 +399,25 @@ class GroupIndexMetaTest extends BaseIgniteAbstractTest {
         );
 
         runRace(compactionTask, truncateTask, readTask);
+    }
+
+    @RepeatedTest(100)
+    void multithreadRemovalWithTruncatePrefix() {
+        var meta1 = new IndexFileMeta(1, 100, 0, new FileProperties(0));
+        var meta2 = new IndexFileMeta(42, 100, 42, new FileProperties(1));
+        var meta3 = new IndexFileMeta(100, 150, 84, new FileProperties(2));
+
+        var groupMeta = new GroupIndexMeta(meta1);
+        groupMeta.addIndexMeta(meta2);
+        groupMeta.addIndexMeta(meta3);
+
+        RunnableX removeTask = () -> groupMeta.onIndexRemoved(new FileProperties(1));
+        RunnableX truncateTask = () -> groupMeta.truncatePrefix(100);
+        RunnableX readTask = () -> assertThat(
+                groupMeta.indexMeta(50),
+                is(anyOf(equalTo(meta2), nullValue()))
+        );
+
+        runRace(removeTask, truncateTask, readTask);
     }
 }

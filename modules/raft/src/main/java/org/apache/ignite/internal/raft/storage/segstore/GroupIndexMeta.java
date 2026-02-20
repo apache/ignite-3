@@ -97,6 +97,23 @@ class GroupIndexMeta {
                 }
             }
         }
+
+        boolean onIndexRemoved(FileProperties fileProperties) {
+            while (true) {
+                IndexFileMetaArray fileMetas = this.fileMetas;
+
+                IndexFileMetaArray newFileMetas = fileMetas.onIndexRemoved(fileProperties);
+
+                // Nothing was updated which means the array does not contain index meta for the compacted file.
+                if (fileMetas == newFileMetas) {
+                    return false;
+                }
+
+                if (FILE_METAS_VH.compareAndSet(this, fileMetas, newFileMetas)) {
+                    return true;
+                }
+            }
+        }
     }
 
     /**
@@ -205,13 +222,26 @@ class GroupIndexMeta {
     }
 
     /**
-     * Called when an index file is being compacted with the GC.
+     * Called when an index file is being compacted by the GC.
      *
      * <p>This means that we need to find index meta for the file being compacted and replace it with the meta of the new file.
      */
     void onIndexCompacted(FileProperties oldProperties, IndexFileMeta newIndexMeta) {
         for (IndexMetaArrayHolder holder : fileMetaDeque) {
             if (holder.onIndexCompacted(oldProperties, newIndexMeta)) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Called when the GC is removing an index file (i.e., compacts it completely).
+     *
+     * <p>This means that the whole meta block for the corresponding file needs to be removed.
+     */
+    void onIndexRemoved(FileProperties fileProperties) {
+        for (IndexMetaArrayHolder holder : fileMetaDeque) {
+            if (holder.onIndexRemoved(fileProperties)) {
                 return;
             }
         }

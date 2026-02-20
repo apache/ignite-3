@@ -113,6 +113,7 @@ class RaftLogGarbageCollector {
             }
         }
 
+        // Do the same routine but for index files.
         prevFileProperties = null;
 
         try (Stream<Path> indexFiles = Files.list(indexFileManager.indexFilesDir())) {
@@ -210,28 +211,35 @@ class RaftLogGarbageCollector {
                 tmpMemTable.appendSegmentFileOffset(groupId, index, toIntExact(newStartOfRecordOffset));
             }
 
+            Path indexFilePath = indexFileManager.indexFilePath(segmentFile.fileProperties());
+
             long logSizeDelta;
 
             if (tmpSegmentFile != null) {
                 tmpSegmentFile.syncAndRename();
 
                 // Create a new index file and update the in-memory state to point to it.
-                indexFileManager.onIndexFileCompacted(
+                Path newIndexFilePath = indexFileManager.onIndexFileCompacted(
                         tmpMemTable.transitionToReadMode(),
                         segmentFile.fileProperties(),
                         tmpSegmentFile.fileProperties()
                 );
 
-                logSizeDelta = Files.size(segmentFile.path()) - tmpSegmentFile.size();
+                logSizeDelta = Files.size(segmentFile.path())
+                        + Files.size(indexFilePath)
+                        - tmpSegmentFile.size()
+                        - Files.size(newIndexFilePath);
             } else {
                 // We got lucky and the whole file can be removed.
-                logSizeDelta = Files.size(segmentFile.path());
+                indexFileManager.onIndexFileRemoved(segmentFile.fileProperties());
+
+                logSizeDelta = Files.size(segmentFile.path()) + Files.size(indexFilePath);
             }
 
             // Remove the previous generation of the segment file and its index. This is safe to do, because we rely on the file system
             // guarantees that other threads reading from the segment file will still be able to do that even if the file is deleted.
             Files.delete(segmentFile.path());
-            Files.delete(indexFileManager.indexFilePath(segmentFile.fileProperties()));
+            Files.delete(indexFilePath);
 
             long newLogSize = logSize.addAndGet(-logSizeDelta);
 
