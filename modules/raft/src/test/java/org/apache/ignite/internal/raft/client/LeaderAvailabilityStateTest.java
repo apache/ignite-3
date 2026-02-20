@@ -104,7 +104,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(expectedTerm, state.currentTerm());
     }
 
-    /** Stale term notifications are ignored. */
+    /** Stale term notifications are ignored and return false. */
     @Test
     void testStaleTermIgnored() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -113,15 +113,15 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
         long expectedTerm = 5;
 
-        state.onLeaderElected(leaderNode1, expectedTerm);
+        assertTrue(state.onLeaderElected(leaderNode1, expectedTerm));
         assertEquals(expectedTerm, state.currentTerm());
 
-        // Stale notification with lower term should be ignored.
-        state.onLeaderElected(leaderNode2, 3);
+        // Stale notification with lower term should be ignored and return false.
+        assertFalse(state.onLeaderElected(leaderNode2, 3));
         assertEquals(expectedTerm, state.currentTerm());
     }
 
-    /** Equal term notifications are ignored. */
+    /** Equal term notifications are ignored and return false. */
     @Test
     void testEqualTermIgnored() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
@@ -129,25 +129,25 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
         long expectedTerm = 5;
 
-        state.onLeaderElected(leaderNode, expectedTerm);
+        assertTrue(state.onLeaderElected(leaderNode, expectedTerm));
         assertEquals(expectedTerm, state.currentTerm());
 
-        // Same term should be ignored.
-        state.onLeaderElected(leaderNode, expectedTerm);
+        // Same term should be ignored and return false.
+        assertFalse(state.onLeaderElected(leaderNode, expectedTerm));
         assertEquals(expectedTerm, state.currentTerm());
     }
 
-    /** Higher term updates current term. */
+    /** Higher term updates current term and returns true. */
     @Test
     void testHigherTermUpdates() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         InternalClusterNode leaderNode1 = createNode("leader-1");
         InternalClusterNode leaderNode2 = createNode("leader-2");
 
-        state.onLeaderElected(leaderNode1, 1);
+        assertTrue(state.onLeaderElected(leaderNode1, 1));
         assertEquals(1, state.currentTerm());
 
-        state.onLeaderElected(leaderNode2, 5);
+        assertTrue(state.onLeaderElected(leaderNode2, 5));
         assertEquals(5, state.currentTerm());
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
     }
@@ -416,7 +416,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} is ignored after stop.
+     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} is ignored after stop and returns false.
      */
     @Test
     void testOnLeaderElectedIgnoredAfterStop() {
@@ -428,8 +428,8 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         state.stop(testException);
         assertTrue(waiter1.isCompletedExceptionally());
 
-        // Leader election after stop should be ignored
-        state.onLeaderElected(leader, 5);
+        // Leader election after stop should be ignored and return false.
+        assertFalse(state.onLeaderElected(leader, 5));
 
         // State should still be stopped.
         assertTrue(state.stopped());
