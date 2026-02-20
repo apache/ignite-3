@@ -472,6 +472,29 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Unwraps exception cause until the given cause type from the given wrapper exception. If there is no any cause of the expected type
+     * then the original exception will be thrown.
+     *
+     * @param e The exception to unwrap.
+     * @param causeType Expected type of a cause to look up.
+     * @return The desired cause of the exception.
+     * @throws Throwable Original exception in case if there is no cause with given type.
+     */
+    public static <T extends Throwable> T unwrapCause(Throwable e, Class<T> causeType) {
+        Throwable cause = e;
+
+        while (!causeType.isAssignableFrom(cause.getClass()) && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
+        if (!causeType.isInstance(cause)) {
+            sneakyThrow(e);
+        }
+
+        return (T) cause;
+    }
+
+    /**
      * Unwraps the root cause of the given exception.
      *
      * @param e The exception to unwrap.
