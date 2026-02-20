@@ -26,7 +26,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API.
+ * This example demonstrates the usage of the { @link KeyValueView} API.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
