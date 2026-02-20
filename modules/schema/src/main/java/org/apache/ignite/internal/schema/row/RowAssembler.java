@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -360,11 +359,6 @@ public class RowAssembler {
         Column col = columns.get(curCol);
 
         DecimalNativeType type = (DecimalNativeType) col.type();
-
-        BigDecimal scaled = val.setScale(type.scale(), RoundingMode.HALF_UP);
-        if (scaled.precision() > type.precision()) {
-            throw new SchemaMismatchException(Column.numericFieldOverflow(col.name()));
-        }
 
         builder.appendDecimalNotNull(val, type.scale());
 
