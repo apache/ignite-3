@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -127,6 +128,18 @@ class IndexBuildTask {
 
     private final IndexBuilderMetricSource indexBuilderMetricSource;
 
+    /**
+     * Base {@link RowId} value to start the batch in {@link #createBatchToIndex(RowId)}. Assigned only in the beginning of the task or
+     * after a successful processing of a build index request, in which case it is assigned with the value of {@link #newNextRowIdToBuild}.
+     */
+    private @Nullable RowId nextRowIdToBuild;
+
+    /**
+     * Candidate value for {@link #nextRowIdToBuild}, chosen before sending build index request. Will only be used if the request is
+     * successfully processed by a primary replica.
+     */
+    private @Nullable RowId newNextRowIdToBuild;
+
     IndexBuildTask(
             IndexBuildTaskId taskId,
             MetaIndexStatusChange indexCreationInfo,
@@ -187,6 +200,8 @@ class IndexBuildTask {
         } else {
             LOG.info("Start building the index [{}]", indexInfo);
         }
+
+        nextRowIdToBuild = indexStorage.getNextRowIdToBuild();
 
         try {
             // Before starting to build the index, we are waiting for all operations of RW transactions that started before index creation
@@ -276,13 +291,17 @@ class IndexBuildTask {
                             if (!(cause instanceof ReplicationTimeoutException || cause instanceof GroupOverloadedException)) {
                                 return CompletableFuture.<Void>failedFuture(cause);
                             }
-                        } else if (indexStorage.getNextRowIdToBuild() == null) {
-                            // Index has been built.
-                            LOG.info("Index build completed [{}]", createCommonIndexInfo());
+                        } else {
+                            if (newNextRowIdToBuild == null) {
+                                // Index has been built.
+                                LOG.info("Index build completed [{}]", createCommonIndexInfo());
 
-                            notifyBuildCompletionListeners(taskId);
+                                notifyBuildCompletionListeners(taskId);
 
-                            return CompletableFutures.<Void>nullCompletedFuture();
+                                return CompletableFutures.<Void>nullCompletedFuture();
+                            }
+
+                            nextRowIdToBuild = newNextRowIdToBuild;
                         }
 
                         return handleNextBatch(highestRowId);
@@ -301,8 +320,6 @@ class IndexBuildTask {
         if (highestRowId == null) {
             return completedFuture(new BatchToIndex(List.of(), Set.of()));
         }
-
-        RowId nextRowIdToBuild = indexStorage.getNextRowIdToBuild();
 
         List<RowId> rowIds = new ArrayList<>(batchSize);
         Map<UUID, CommitPartitionId> transactionsToResolve = new HashMap<>();
@@ -377,6 +394,12 @@ class IndexBuildTask {
 
         ZonePartitionIdMessage groupIdMessage =
                 toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId()));
+
+        if (finish) {
+            newNextRowIdToBuild = null;
+        } else {
+            newNextRowIdToBuild = last(rowIds).increment();
+        }
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexReplicaRequest()
                 .groupId(groupIdMessage)
