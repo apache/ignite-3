@@ -20,6 +20,7 @@ package org.apache.ignite.internal.deployunit;
 import static org.apache.ignite.deployment.version.Version.parseVersion;
 import static org.apache.ignite.internal.deployment.UnitStatusMatchers.deploymentStatusIs;
 import static org.apache.ignite.internal.deployment.UnitStatusMatchers.versionIs;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.create;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -31,34 +32,29 @@ import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for {@link StaticUnitDeployer}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
-    private StaticUnitDeployer observer;
+public class StaticUnitDeployerTest extends IgniteAbstractTest {
+    private StaticUnitDeployer deployer;
 
     private DeploymentUnitStore deploymentUnitStore;
 
-    @WorkDirectory
-    private Path workDir;
     private StandaloneMetaStorageManager metastore;
 
     @BeforeEach
@@ -67,7 +63,7 @@ public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
         assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
         deploymentUnitStore = new DeploymentUnitStoreImpl(metastore);
 
-        this.observer = new StaticUnitDeployer(deploymentUnitStore, "node1", workDir);
+        this.deployer = new StaticUnitDeployer(deploymentUnitStore, "node1", workDir);
     }
 
     @AfterEach
@@ -83,7 +79,7 @@ public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
         Files.createDirectories(workDir.resolve("unit2").resolve("1.0.0"));
         Files.createDirectories(workDir.resolve("unit3").resolve("1.1.0"));
 
-        assertThat(observer.searchAndDeployStaticUnits(), willCompleteSuccessfully());
+        assertThat(deployer.syncDeployedUnits(), willCompleteSuccessfully());
 
         assertThat(
                 deploymentUnitStore.getNodeStatuses("node1", "unit1"),
@@ -120,7 +116,7 @@ public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
         Files.createDirectories(workDir.resolve("unit1").resolve("1.0.1"));
         Files.createDirectories(workDir.resolve("unit2").resolve("1.0.0"));
 
-        assertThat(observer.searchAndDeployStaticUnits(), willCompleteSuccessfully());
+        assertThat(deployer.syncDeployedUnits(), willCompleteSuccessfully());
 
         assertThat(
                 deploymentUnitStore.getNodeStatuses("node1", "unit1"),
@@ -130,5 +126,25 @@ public class StaticDeploymentUnitObserverTest extends BaseIgniteAbstractTest {
         // Due to static deploy process should be skipped
         assertThat(deploymentUnitStore.getClusterStatus("unit1", parseVersion("1.0.0")), willBe(deploymentStatusIs(UPLOADING)));
         assertThat(deploymentUnitStore.getNodeStatus("node1", "unit1", parseVersion("1.0.0")), willBe(deploymentStatusIs(UPLOADING)));
+    }
+
+    @Test
+    void recoverMissingUnits() {
+        String id = "unit1";
+        Version version = parseVersion("1.0.0");
+
+        // Imitate completely deployed unit
+        CompletableFuture<UnitClusterStatus> clusterStatus = deploymentUnitStore.createClusterStatus(id, version, Set.of("node1"));
+        assertThat(clusterStatus, willBe(notNullValue()));
+        UUID opId = clusterStatus.join().opId();
+        assertThat(deploymentUnitStore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
+        assertThat(deploymentUnitStore.createNodeStatus("node1", id, version, opId, DEPLOYED), willBe(true));
+
+        // Sync units
+        assertThat(deployer.syncDeployedUnits(), willCompleteSuccessfully());
+
+        // Verify that the node status has changed
+        assertThat(deploymentUnitStore.getClusterStatus(id, version), willBe(deploymentStatusIs(DEPLOYED)));
+        assertThat(deploymentUnitStore.getNodeStatus("node1", id, version), willBe(deploymentStatusIs(UPLOADING)));
     }
 }
