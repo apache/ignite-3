@@ -49,8 +49,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -1627,7 +1629,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             return failedFuture(new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                    format("Transaction is already finished or finishing [{}, txState={}].", formatTxInfo(txId, txManager), txState),
                     cause
             ));
         }
@@ -3702,9 +3704,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
 
                         if (ex != null) {
-                            LockException lockException = findLockException(ex);
-                            if (lockException != null) {
+                            storeFailureInTxMeta(request, ex);
+
+                            if (hasCause(ex, LockException.class)) {
                                 RequestType failedRequestType = getRequestOperationType(request);
+
+                                TransactionException alreadyFinished = transactionAlreadyFinishedException(request);
+                                if (alreadyFinished != null) {
+                                    sneakyThrow(alreadyFinished);
+                                }
+                                LockException lockException = findLockException(ex);
 
                                 sneakyThrow(new OperationLockException(failedRequestType, lockException));
                             }
@@ -3728,6 +3737,48 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             }
             throw e;
         }
+    }
+
+    private void storeFailureInTxMeta(ReplicaRequest request, Throwable throwable) {
+        if (!(request instanceof ReadWriteReplicaRequest)) {
+            return;
+        }
+
+        UUID txId = ((ReadWriteReplicaRequest) request).transactionId();
+        Throwable toStore = unwrapRootCause(throwable);
+
+        txManager.enrichTxMeta(txId, old -> {
+            if (old == null || old.lastException() != null) {
+                return old;
+            }
+
+            return old.mutate()
+                    .lastException(toStore)
+                    .build();
+        });
+    }
+
+    private @Nullable TransactionException transactionAlreadyFinishedException(ReplicaRequest request) {
+        if (!(request instanceof ReadWriteReplicaRequest)) {
+            return null;
+        }
+
+        UUID txId = ((ReadWriteReplicaRequest) request).transactionId();
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+        if (txStateMeta == null || !(isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING)) {
+            return null;
+        }
+
+        TxState txState = txStateMeta.txState();
+        boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeout() != null && txStateMeta.isFinishedDueToTimeout();
+        Throwable cause = txStateMeta.lastException();
+
+        return new TransactionException(
+                isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
+                format("Transaction is already finished or finishing [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                cause
+        );
     }
 
     private static RequestType getRequestOperationType(ReplicaRequest request) {

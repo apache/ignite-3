@@ -45,7 +45,7 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
             boolean result = tx.isReadOnly() ? delegate.addScanInflight(tx.id()) : delegate.track(tx.id());
 
             if (!result) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}, {}]",
+                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished or finishing [tx={}, {}]",
                         tx, formatTxInfo(tx.id(), txManager, false)));
             }
         }

@@ -671,7 +671,8 @@ public class InternalTableImpl implements InternalTable {
 
                     return failedFuture(
                             new TransactionException(code, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
+                                    "Transaction is already finished or finishing"
+                                            + " [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
                                     tx.state(),
@@ -2097,7 +2098,7 @@ public class InternalTableImpl implements InternalTable {
             // Track read only requests which are able to create cursors.
             if (!transactionInflights.addScanInflight(txId)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                        "Transaction is already finished [{}, readOnly=true].",
+                        "Transaction is already finished or finishing [{}, readOnly=true].",
                         formatTxInfo(txId, txManager, false)
                 ));
             }
@@ -2307,7 +2308,7 @@ public class InternalTableImpl implements InternalTable {
             Throwable cause = lastException(transaction.id());
             throw new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, readOnly={}].",
+                    format("Transaction is already finished or finishing [{}, readOnly={}].",
                             formatTxInfo(transaction.id(), txManager, false),
                             transaction.isReadOnly()
                     ),

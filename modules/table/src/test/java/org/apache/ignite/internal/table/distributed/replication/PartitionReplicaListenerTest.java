@@ -746,7 +746,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertThat(
                 doSingleRowRequest(txId, testRow, requestType),
-                willThrowFast(TransactionException.class, "Transaction is already finished")
+                willThrowFast(TransactionException.class, "Transaction is already finished or finishing")
         );
     }
 

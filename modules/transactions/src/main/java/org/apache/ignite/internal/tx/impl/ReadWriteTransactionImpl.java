@@ -146,7 +146,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         Throwable cause = lastException();
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [{}, txState={}].",
+                format("Transaction is already finished or finishing [{}, txState={}].",
                         formatTxInfo(id(), txManager, false), state()),
                 cause);
     }

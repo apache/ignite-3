@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,11 +54,13 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -226,24 +229,26 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void retryAfterLockFailureInSameTransaction() {
-        RecordView<Tuple> view = node(0).tables().table(TABLE_NAME).recordView();
-
         Transaction tx1 = node(0).transactions().begin();
         Transaction tx2 = node(0).transactions().begin();
 
-        view.upsert(tx1, NEW_RECORD_TUPLE);
+        executeSql(0, tx1, "INSERT INTO " + TABLE_NAME + " VALUES(?, ?)", NEW_RECORD_KEY, NEW_RECORD_VALUE);
 
-        Tuple anotherValue = Tuple.create().set("key", NEW_RECORD_KEY).set("val", "other value");
+        Exception firstAttempt = assertThrows(Exception.class, () ->
+                executeSql(0, tx2, "INSERT INTO " + TABLE_NAME + " VALUES(?, ?)", NEW_RECORD_KEY, "other value"));
 
-        Exception firstAttempt = assertThrows(Exception.class, () -> view.upsert(tx2, anotherValue));
-        assertTransactionLockException(firstAttempt);
+        assertInstanceOf(SqlException.class, firstAttempt);
+        assertThat(firstAttempt.getMessage(), containsString("Failed to acquire a lock during request handling"));
+        assertTrue(hasCause(firstAttempt, LockException.class, null), "Expected lock exception as a cause");
 
-        Exception secondAttempt = assertThrows(Exception.class, () -> view.upsert(tx2, anotherValue));
+        Exception secondAttempt = assertThrows(Exception.class, () ->
+                executeSql(0, tx2, "INSERT INTO " + TABLE_NAME + " VALUES(?, ?)", NEW_RECORD_KEY, "other value"));
 
-        if (secondAttempt.getMessage() != null && secondAttempt.getMessage().contains("Transaction is already finished")) {
-            assertInstanceOf(TransactionException.class, secondAttempt);
+        if (secondAttempt.getMessage() != null && secondAttempt.getMessage().contains("Transaction is already finished or finishing")) {
+            assertInstanceOf(SqlException.class, secondAttempt);
+            assertTrue(hasCause(secondAttempt, LockException.class, null), "Expected lock exception as a cause");
         } else {
-            assertTransactionLockException(secondAttempt);
+            fail();
         }
 
         tx1.rollback();
@@ -295,7 +300,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void assertTransactionLockException(Exception e) {
-        assertInstanceOf(TransactionException.class, e);
+        assertInstanceOf(SqlException.class, e);
         assertThat(e.getMessage(), containsString("Failed to acquire a lock during request handling"));
         assertTrue(hasCause(e, LockException.class, null), "Expected lock exception as a cause");
     }

@@ -376,7 +376,7 @@ public class ItThinClientMultistatementSqlTest extends ItAbstractThinClientTest 
 
             assertThrowsSqlException(
                     TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished",
+                    "Transaction is already finished or finishing",
                     () -> executeSql(
                             tx,
                             "INSERT INTO test VALUES(3); INSERT INTO test VALUES(4);"

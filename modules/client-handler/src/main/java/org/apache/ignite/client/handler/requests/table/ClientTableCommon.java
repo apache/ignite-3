@@ -526,7 +526,7 @@ public class ClientTableCommon {
                             // Remote transaction will be synchronously rolled back if the timeout has exceeded.
                             if (remote.isRolledBackWithTimeoutExceeded()) {
                                 throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                                        "Transaction is already finished [tx=" + remote + "].");
+                                        "Transaction is already finished or finishing [tx=" + remote + "].");
                             }
 
                             return remote;

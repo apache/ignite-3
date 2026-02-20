@@ -348,7 +348,7 @@ public class ClientTransaction implements Transaction {
 
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [tx={}].", clientTx));
+                format("Transaction is already finished or finishing [tx={}].", clientTx));
     }
 
     static IgniteException unsupportedTxTypeException(Transaction tx) {
@@ -363,7 +363,7 @@ public class ClientTransaction implements Transaction {
 
     private void checkEnlistPossible() {
         if (finishFut.get() != null) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished or finishing [tx={}].", this));
         }
     }
 
@@ -380,7 +380,7 @@ public class ClientTransaction implements Transaction {
     public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, ClientChannel opChannel, PartitionMapping pm,
             boolean trackOperation) {
         if (!enlistPartitionLock.readLock().tryLock()) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished or finishing [tx={}].", this));
         }
 
         checkEnlistPossible();

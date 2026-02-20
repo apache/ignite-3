@@ -128,7 +128,7 @@ class TransactionExpirationRegistry {
 
     private void abortTransaction(InternalTransaction tx) {
         Throwable abortionReason = new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                format("Transaction is already finished {}",
+                format("Transaction is already finished or finishing {}",
                 formatTxInfo(tx.id(), volatileTxStateMetaStorage)));
         tx.rollbackWithExceptionAsync(abortionReason).whenComplete((res, ex) -> {
             if (ex != null) {

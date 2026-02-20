@@ -456,7 +456,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         // Even though TX control statements don't affect a JDBC managed transaction directly,
         // exceptions during execution of previous statements may cause the transaction to rollback.
         assertThrowsSqlException(
-                "Transaction is already finished",
+                "Transaction is already finished or finishing",
                 () -> stmt.executeQuery("SELECT COUNT(1) FROM TEST_TX")
         );
 

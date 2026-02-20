@@ -271,7 +271,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         Transaction outerTx0 = outerTx;
         assertThrowsSqlException(
                 Transactions.TX_ALREADY_FINISHED_ERR,
-                "Transaction is already finished",
+                "Transaction is already finished or finishing",
                 () -> checkDml(1, outerTx0, sql, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
 
         assertThrowsSqlException(
@@ -703,7 +703,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 IgniteException.class,
                 Transactions.TX_ALREADY_FINISHED_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished or finishing");
     }
 
     @ParameterizedTest
@@ -729,7 +729,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 IgniteException.class,
                 Transactions.TX_ALREADY_FINISHED_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished or finishing");
     }
 
     @Test
@@ -750,7 +750,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             assertThrowsSqlException(
                     Transactions.TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished",
+                    "Transaction is already finished or finishing",
                     () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );
         }

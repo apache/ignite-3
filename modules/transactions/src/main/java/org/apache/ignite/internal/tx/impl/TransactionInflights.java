@@ -276,7 +276,7 @@ public class TransactionInflights {
             }
 
             assert !tuple0.isTxFinishing()
-                    : format("Transaction is already finished {}.", formatTxInfo(uuid, txStateVolatileStorage));
+                    : format("Transaction is already finished or finishing {}.", formatTxInfo(uuid, txStateVolatileStorage));
 
             tuple0.finishTx(enlistedGroups);
 
