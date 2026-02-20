@@ -75,12 +75,12 @@ public class PartitionSafeTimeValidator implements SafeTimeValidator {
         );
 
         if (!future.isDone()) {
-            String format = "Metadata not yet available by safe time, rejecting ActionRequest with EBUSY [group={}, safeTs={}].";
+            String template = "Metadata not yet available by safe time, rejecting ActionRequest with EBUSY [group={}, safeTs={}].";
 
             // TODO: IGNITE-20298 - throttle logging.
-            LOG.warn(format, groupId, safeTime);
+            LOG.warn(template, groupId, safeTime);
 
-            return SafeTimeValidationResult.forRetry(IgniteStringFormatter.format(format, groupId, safeTime));
+            return SafeTimeValidationResult.forRetry(IgniteStringFormatter.format(template, groupId, safeTime));
         }
 
         CompatValidationResult compatibilityValidationResult = future.join();
