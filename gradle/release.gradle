@@ -1,0 +1,39 @@
+apply plugin: 'org.shipkit.shipkit-auto-version'
+apply plugin: 'org.shipkit.shipkit-changelog'
+apply plugin: 'org.shipkit.shipkit-github-release'
+
+
+if (!project.hasProperty('disableShipkit')) {
+    task checkGitHubToken {
+        doFirst {
+            if (System.getenv("GITHUB_TOKEN") == null) {
+                throw new Exception("Environment variable GITHUB_TOKEN not set.");
+            }
+            println "Using repository " + System.getenv("GITHUB_REPOSITORY")
+        }
+    }
+
+    tasks.named("generateChangelog") {
+        dependsOn checkGitHubToken
+        previousRevision = project.ext.'shipkit-auto-version.previous-tag'
+        githubToken = System.getenv("GITHUB_TOKEN")
+        repository = System.getenv("GITHUB_REPOSITORY")
+    }
+
+    tasks.named("githubRelease") {
+        dependsOn tasks.named("generateChangelog")
+        dependsOn checkGitHubToken
+        repository = System.getenv("GITHUB_REPOSITORY")
+        changelog = tasks.named("generateChangelog").get().outputFile
+        githubToken = System.getenv("GITHUB_TOKEN")
+        newTagRevision = System.getenv("GITHUB_SHA")
+    }
+}
+
+allprojects { p ->
+    group = "com.linkedin.ignite-3"
+}
+
+if (!project.hasProperty('disableShipkit')) {
+    apply from: file("gradle/ci-release.gradle")
+}
