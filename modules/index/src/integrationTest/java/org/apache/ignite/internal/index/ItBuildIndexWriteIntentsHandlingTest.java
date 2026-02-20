@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.ClusterPerClassIntegrationTest.isIndexAvailable;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.index.IndexBuildTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.IndexBuildTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.IndexBuildTestUtils.createTestTable;
 import static org.apache.ignite.internal.index.WriteIntentSwitchControl.disableWriteIntentSwitchExecution;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,7 +34,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
@@ -55,16 +59,11 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
 
         createIndex(INDEX_NAME);
 
-        // Allow cleanup to be completed after some time. This is required because transaction abortion (that is triggered by
-        // write intent resolution that is done in index build task) is completed only after successful txn cleanup, and the index
-        // can't become available before building is completed.
-        runAsync(() -> {
-            sleep(5_000);
-            runningNodesIter().forEach(IgniteImpl::stopDroppingMessages);
-        });
+        waitTillIndexAtLeastStartsBeingBuilt();
+        enableWriteIntentSwitchExecution();
 
         await("Index did not become available in time")
-                .atMost(30, SECONDS)
+                .atMost(20, SECONDS)
                 .until(() -> isIndexAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
 
         verifyNoNodesHaveAnythingInIndex();
@@ -102,7 +101,10 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
         // the pre-build wait.
         cluster.restartNode(txCoordinatorOrdinal);
 
-        await("Index did not become available in time")
+        waitTillIndexAtLeastStartsBeingBuilt();
+        enableWriteIntentSwitchExecution();
+
+        await("Index should become available in time")
                 .atMost(10, SECONDS)
                 .until(() -> isIndexAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
 
@@ -122,5 +124,27 @@ class ItBuildIndexWriteIntentsHandlingTest extends ClusterPerTestIntegrationTest
 
     private void createIndex(String indexName) {
         IndexBuildTestUtils.createIndex(cluster, indexName);
+    }
+
+    private void waitTillIndexAtLeastStartsBeingBuilt() {
+        await("Index should at least start being built in time")
+                .atMost(10, SECONDS)
+                .until(() -> isIndexBuildingOrAvailable(unwrapIgniteImpl(cluster.aliveNode()), INDEX_NAME));
+    }
+
+    private static boolean isIndexBuildingOrAvailable(IgniteImpl ignite, String indexName) {
+        CatalogManager catalogManager = ignite.catalogManager();
+        HybridClock clock = ignite.clock();
+
+        CatalogIndexDescriptor indexDescriptor = catalogManager.activeCatalog(clock.nowLong())
+                .aliveIndex(SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
+
+        return indexDescriptor != null && (indexDescriptor.status() == BUILDING || indexDescriptor.status() == AVAILABLE);
+    }
+
+    private void enableWriteIntentSwitchExecution() {
+        cluster.runningNodes().forEach(ignite -> {
+            unwrapIgniteImpl(ignite).stopDroppingMessages();
+        });
     }
 }
