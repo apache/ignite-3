@@ -1,0 +1,214 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#pragma once
+
+#include <iostream>
+#include <queue>
+#include <tuple>
+
+#include <asio.hpp>
+#include <asio/ts/buffer.hpp>
+#include <asio/ts/internet.hpp>
+
+namespace ignite::proxy {
+
+using asio::ip::tcp;
+
+struct message {
+    char *m_arr;
+    size_t m_size;
+
+    message(char *arr, size_t size)
+        : m_arr(nullptr)
+        , m_size(size) {
+        m_arr = new char[m_size];
+        std::memcpy(m_arr, arr, size);
+    }
+
+    ~message() { delete[] m_arr; }
+};
+
+class session : public std::enable_shared_from_this<session> {
+public:
+    session(tcp::socket in_sock, tcp::socket out_sock, std::atomic_bool& stopped)
+        : m_in_sock(std::move(in_sock))
+        , m_out_sock(std::move(out_sock))
+        , m_stopped(stopped) { }
+
+    ~session() {
+        std::cout << "Session destructed " << this <<  std::endl;
+    }
+
+    void start() { do_serve(); }
+
+    tcp::socket &get_out_sock() { return m_out_sock; }
+
+    void set_writable(bool writable) {
+        m_in_to_out_writable = writable;
+        m_out_to_in_writable = writable;
+    }
+
+    enum direction { forward, reverse };
+
+private:
+    void do_serve() {
+        do_read(forward);
+        do_read(reverse);
+    }
+
+    void do_read(direction direction) {
+        if (m_stopped.load())
+            return;
+
+        tcp::socket &src = direction == forward ? m_in_sock : m_out_sock;
+        std::queue<message> &queue = direction == forward ? m_in_to_out : m_out_to_in;
+        bool &writable = direction == forward ? m_in_to_out_writable : m_out_to_in_writable;
+
+        auto self(shared_from_this());
+
+        src.async_read_some(asio::buffer(buf, BUFF_SIZE),
+    [&queue, direction, &writable, self](const asio::error_code& ec, size_t len) {
+            if (ec) {
+                if (ec == asio::error::eof) {
+                    return;
+                }
+                throw std::runtime_error("Error while reading from socket " + ec.message());
+            }
+
+            // we have one-threaded executor no synchronization is needed
+            queue.emplace(self->buf, len);
+
+            if (writable) { // there are pending write operation on this socket
+                self->do_write(direction);
+            }
+
+            self->do_read(direction);
+        });
+    }
+
+    void do_write(direction direction) {
+        tcp::socket &dst = direction == forward ? m_out_sock : m_in_sock;
+        std::queue<message> &queue = direction == forward ? m_in_to_out : m_out_to_in;
+        bool &writable = direction == forward ? m_in_to_out_writable : m_out_to_in_writable;
+
+        writable = false; // protects from writing same buffer twice (from head of queue).
+
+        auto self(shared_from_this());
+        if (!queue.empty()) {
+            message &msg = queue.front();
+
+            asio::async_write(
+                dst, asio::buffer(msg.m_arr, msg.m_size),
+                [&queue, direction, &writable, self](asio::error_code ec, size_t) {
+                    if (ec) {
+                        throw std::runtime_error("Error while writing to socket " + ec.message());
+                    }
+
+                    queue.pop();
+
+                    if (!queue.empty()) {
+                        // makes writes on the same socket strictly ordered
+                        self->do_write(direction);
+                    } else {
+                        writable = true; // now read operation can initiate writes
+                    }
+                });
+        }
+    }
+
+    tcp::socket m_in_sock;
+    tcp::socket m_out_sock;
+
+    bool m_in_to_out_writable{false};
+    bool m_out_to_in_writable{false};
+
+    std::queue<message> m_in_to_out;
+    std::queue<message> m_out_to_in;
+
+    static constexpr size_t BUFF_SIZE = 4096;
+
+    char buf[BUFF_SIZE];
+
+    std::atomic_bool& m_stopped;
+};
+
+class asio_proxy {
+public:
+    asio_proxy(short port)
+        : m_acceptor(m_io_context, tcp::endpoint(tcp::v4(), port))
+        , m_resolver(m_io_context)
+        , m_in_sock(m_io_context)
+    {
+        do_accept();
+
+        m_executor = std::make_unique<std::thread>([this]() {
+            m_io_context.run();
+        });
+    }
+
+    ~asio_proxy() {
+        m_stopped.store(true);
+        m_io_context.stop();
+
+        m_executor->join();
+    }
+
+private:
+    void do_accept() {
+        if (m_stopped.load()) {
+            return;
+        }
+
+        m_acceptor.async_accept(m_in_sock, [this](asio::error_code ec) {
+            if (ec) {
+                throw std::runtime_error("Error accepting incoming connection " + ec.message());
+            }
+
+            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped);
+
+            m_resolver.async_resolve(
+                "127.0.0.1", "50900", [ses](asio::error_code ec, tcp::resolver::results_type endpoints) {
+                    if (ec) {
+                        throw std::runtime_error("Error resolving server's address " + ec.message());
+                    }
+
+                    asio::async_connect(
+                        ses->get_out_sock(), endpoints, [ses](const asio::error_code &ec, const tcp::endpoint &e) {
+                            if (ec) {
+                                std::cout << e.port();
+                                throw std::runtime_error("Error connecting to server " + ec.message());
+                            }
+
+                            ses->set_writable(true);
+                            ses->start();
+                        });
+                });
+
+            do_accept();
+        });
+    }
+
+    asio::io_context m_io_context{};
+    std::unique_ptr<std::thread> m_executor{};
+
+    tcp::acceptor m_acceptor;
+    tcp::resolver m_resolver;
+    tcp::socket m_in_sock;
+
+    std::atomic_bool m_stopped{false};
+};
+} // namespace ignite::proxy
