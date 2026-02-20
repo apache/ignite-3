@@ -99,6 +99,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private final Object leaseInfoLock = new Object();
 
+    /** RunConsistently metrics. */
+    final RunConsistentlyMetrics consistencyMetrics;
+
     /**
      * Constructor.
      *
@@ -110,6 +113,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
      * @param failureProcessor Failure processor.
+     * @param consistencyMetrics Metric source for runConsistently operations.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -120,7 +124,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
             ExecutorService destructionExecutor,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            RunConsistentlyMetrics consistencyMetrics
     ) {
         super(
                 partitionId,
@@ -166,6 +171,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+
+        this.consistencyMetrics = consistencyMetrics;
     }
 
     /**
@@ -193,6 +200,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
+                long startTime = System.nanoTime();
+                consistencyMetrics.incrementActiveCount();
+
                 LocalLocker locker0 = new PersistentPageMemoryLocker();
 
                 checkpointTimeoutLock.checkpointReadLock();
@@ -208,6 +218,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                     locker0.unlockAll();
 
                     checkpointTimeoutLock.checkpointReadUnlock();
+
+                    long duration = System.nanoTime() - startTime;
+                    consistencyMetrics.recordRunConsistentlyDuration(duration);
+                    consistencyMetrics.decrementActiveCount();
                 }
             });
         }

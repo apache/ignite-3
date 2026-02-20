@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,6 +46,8 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.AtomicIntMetric;
+import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.RowId;
@@ -536,5 +539,84 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
             assertThrows(StorageClosedException.class, cursor::hasNext);
             assertThrows(StorageClosedException.class, cursor::next);
         }
+    }
+
+    @Test
+    void verifyRunConsistentlyMetrics() {
+        RunConsistentlyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
+
+        // Verify metrics start at zero
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 0L);
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+
+        // Execute a simple operation within runConsistently
+        storage.runConsistently(locker -> {
+            // Verify active count is incremented
+            assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
+
+            insert(binaryRow, txId);
+
+            return null;
+        });
+
+        // Verify duration was recorded
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 1L);
+
+        // Verify active count is decremented back to zero
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+
+        // Execute another operation
+        storage.runConsistently(locker -> {
+            assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
+
+            return null;
+        });
+
+        // Verify another duration was recorded
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 2L);
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+    }
+
+    @Test
+    void verifyNestedRunConsistentlyDoesNotDoubleCountMetrics() {
+        RunConsistentlyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
+
+        storage.runConsistently(outerLocker -> {
+            assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
+
+            // Nested call
+            storage.runConsistently(innerLocker -> {
+                // Active count should not increase for nested calls
+                assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
+
+                return null;
+            });
+
+            return null;
+        });
+
+        // Only one duration should be recorded for the outer call
+        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 1L);
+        assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+    }
+
+    private static void assertMetricValue(AtomicIntMetric metric, int value) {
+        assertThat(metric.value(), is(value));
+    }
+
+    /**
+     * Verifies that the specified distribution metric has recorded the expected total number of measurements.
+     *
+     * <p>
+     * Rather than checking individual histogram buckets, this method aggregates all recorded measurements across every bucket
+     * and confirms that the expected interaction was captured in at least one of them.
+     */
+    private static void assertDistributionMetricRecordsCount(DistributionMetric metric, long expectedMeasuresCount) {
+        long totalMeasuresCount = Arrays.stream(metric.value()).sum();
+        assertThat(
+                "Unexpected total measures count in distribution metric " + metric.name(),
+                totalMeasuresCount,
+                is(expectedMeasuresCount)
+        );
     }
 }
