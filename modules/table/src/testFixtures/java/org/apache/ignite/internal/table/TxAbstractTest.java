@@ -2140,7 +2140,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     private void assertThrowsTxFinishedException(Executable run) {
-        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR, run, "Transaction is already finished or finishing");
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR, run, "Transaction is already finished");
     }
 
     private void assertAsyncThrowsTxFinishedException(Supplier<CompletableFuture<?>> run) {
@@ -2353,16 +2353,16 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         finisher.accept(tx, txId);
 
         assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.get(tx, makeKey(1)), "Transaction is already finished or finishing");
+                () -> accountsRv.get(tx, makeKey(1)), "Transaction is already finished");
 
         assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.delete(tx, makeKey(1)), "Transaction is already finished or finishing");
+                () -> accountsRv.delete(tx, makeKey(1)), "Transaction is already finished");
 
         assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.get(tx, makeKey(2)), "Transaction is already finished or finishing");
+                () -> accountsRv.get(tx, makeKey(2)), "Transaction is already finished");
 
         assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.upsert(tx, makeValue(2, 300.)), "Transaction is already finished or finishing");
+                () -> accountsRv.upsert(tx, makeValue(2, 300.)), "Transaction is already finished");
 
         if (checkLocks) {
             assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));

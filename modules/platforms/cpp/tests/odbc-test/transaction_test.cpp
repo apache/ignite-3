@@ -608,7 +608,7 @@ TEST_F(transaction_test, transaction_error) {
             try {
                 insert_test_value(conn2.m_statement, 2, "test_2");
             } catch (const odbc_exception &err) {
-                EXPECT_THAT(err.message, testing::HasSubstr("Transaction is already finished or finishing"));
+                EXPECT_THAT(err.message, testing::HasSubstr("Transaction is already finished"));
                 EXPECT_EQ(err.sql_state, "25000");
                 throw;
             }

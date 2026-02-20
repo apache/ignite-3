@@ -119,7 +119,7 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
         assertThat(ex, isA(reader.sql() ? SqlException.class : TransactionException.class));
         assertThat(ex, hasToString(
                 either(containsString("Read timestamp is not available anymore."))
-                        .or(containsString("Transaction is already finished or finishing"))
+                        .or(containsString("Transaction is already finished"))
         ));
         assertThat("Wrong error code: " + ex.codeAsString(), ex.code(),
                 either(is(Transactions.TX_STALE_READ_ONLY_OPERATION_ERR))

@@ -192,7 +192,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
 
             assertThrowsSqlException(
                     TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished or finishing",
+                    "Transaction is already finished",
                     () -> executeScript(
                             "INSERT INTO test VALUES(3); INSERT INTO test VALUES(4);",
                             (InternalTransaction) tx

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
 
 import java.util.Collection;
 import java.util.Map;
@@ -276,7 +277,7 @@ public class TransactionInflights {
             }
 
             assert !tuple0.isTxFinishing()
-                    : format("Transaction is already finished or finishing {}.", formatTxInfo(uuid, txStateVolatileStorage));
+                    : format(TX_ALREADY_FINISHED + " {}.", formatTxInfo(uuid, txStateVolatileStorage));
 
             tuple0.finishTx(enlistedGroups);
 

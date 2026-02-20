@@ -126,7 +126,7 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
                 } else {
                     rv.get(tx, makeKey(1));
                 }
-            }, "Transaction is already finished or finishing");
+            }, "Transaction is already finished");
 
             return null;
         }, threadNum, "txCommitTestThread");

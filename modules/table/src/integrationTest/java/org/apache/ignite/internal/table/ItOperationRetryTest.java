@@ -244,7 +244,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         Exception secondAttempt = assertThrows(Exception.class, () ->
                 executeSql(0, tx2, "INSERT INTO " + TABLE_NAME + " VALUES(?, ?)", NEW_RECORD_KEY, "other value"));
 
-        if (secondAttempt.getMessage() != null && secondAttempt.getMessage().contains("Transaction is already finished or finishing")) {
+        if (secondAttempt.getMessage() != null && secondAttempt.getMessage().contains("Transaction is already finished")) {
             assertInstanceOf(SqlException.class, secondAttempt);
             assertTrue(hasCause(secondAttempt, LockException.class, null), "Expected lock exception as a cause");
         } else {

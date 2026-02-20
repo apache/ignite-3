@@ -271,7 +271,7 @@ public class ItSqlQueryEventLogTest extends BaseSqlIntegrationTest {
         resetLog();
 
         String query = "INSERT INTO test VALUES (1)";;
-        String expErr = "Transaction is already finished or finishing";
+        String expErr = "Transaction is already finished";
 
         assertThrowsSqlException(Transactions.TX_ALREADY_FINISHED_ERR, expErr, () -> igniteSql().execute(tx, query));
 

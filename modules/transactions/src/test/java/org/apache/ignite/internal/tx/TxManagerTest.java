@@ -691,7 +691,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         InternalTransaction tx = prepareTransaction();
 
         assertThat(tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                "Transaction is already finished or finishing")), willSucceedFast());
+                "Transaction is already finished")), willSucceedFast());
 
         assertThat(tx.rollbackWithExceptionAsync(new RuntimeException("abort")), willSucceedFast());
 

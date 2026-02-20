@@ -862,7 +862,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
             when(txManager.stateMeta(txId)).thenReturn(meta);
             tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                    "Transaction is already finished or finishing")).join();
+                    "Transaction is already finished")).join();
 
             Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
 
