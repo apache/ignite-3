@@ -231,7 +231,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     HybridTimestampTracker observableTimestampTracker,
                     ZonePartitionId commitPartition,
                     boolean commitIntent,
-                    boolean timeoutExceeded,
+                    @Nullable Throwable finishReason,
                     boolean recovery,
                     boolean noRemoteWrites,
                     Map<ZonePartitionId, PendingTxPartitionEnlistment> enlistedGroups,

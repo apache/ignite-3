@@ -23,6 +23,7 @@ import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.newSetFromMap;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -49,6 +50,7 @@ import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -817,6 +819,24 @@ public final class ExceptionUtils {
      */
     public static boolean isOrCausedBy(Class<? extends Exception> exceptionClass, @Nullable Throwable ex) {
         return ex != null && (exceptionClass.isInstance(ex) || isOrCausedBy(exceptionClass, ex.getCause()));
+    }
+
+    /**
+     * Returns {@code true} if the given throwable (or its cause) is a {@link TransactionException}
+     * with {@link org.apache.ignite.lang.ErrorGroups.Transactions#TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR}.
+     *
+     * @param e Throwable to inspect.
+     * @return {@code true} when the transaction was finished due to timeout, {@code false} otherwise.
+     */
+    public static boolean isFinishedDueToTimeout(Throwable e) {
+        Throwable unwrapped = unwrapCause(e);
+        if (!(unwrapped instanceof TransactionException)) {
+            return false;
+        }
+
+        TransactionException ex = (TransactionException) unwrapped;
+
+        return ex.code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
     }
 
     /**
