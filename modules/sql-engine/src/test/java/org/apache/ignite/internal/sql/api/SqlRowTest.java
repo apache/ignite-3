@@ -63,9 +63,7 @@ import org.apache.ignite.table.AbstractImmutableTupleTest;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * Tests {@link SqlRow} tuple implementation.
@@ -136,12 +134,10 @@ public class SqlRowTest extends AbstractImmutableTupleTest {
         Assumptions.abort(SqlRow.class.getSimpleName() + " is not serializable.");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27577")
-    @ParameterizedTest
+    // TODO https://issues.apache.org/jira/browse/IGNITE-27577 Remove this method
     @Override
-    @SuppressWarnings("JUnitMalformedDeclaration")
-    public void allTypesUnsupportedConversion(ColumnType from, ColumnType to) {
-        super.allTypesUnsupportedConversion(from, to);
+    protected boolean enableClassCastMessageVerification() {
+        return false;
     }
 
     @Override
