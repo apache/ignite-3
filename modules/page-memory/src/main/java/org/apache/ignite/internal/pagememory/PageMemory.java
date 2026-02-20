@@ -28,11 +28,6 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 // TODO IGNITE-16350 Improve javadoc in this class.
 public interface PageMemory extends PageIdAllocator, PageSupport {
     /**
-     * Starts page memory.
-     */
-    void start() throws IgniteInternalException;
-
-    /**
      * Stops page memory.
      *
      * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse on subsequent {@link #start()}

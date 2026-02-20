@@ -152,7 +152,7 @@ public class SqlApiExample {
 
             System.out.println("\nAll accounts:");
 
-            try (ResultSet<SqlRow> rs = client.sql().execute(null,
+            try (ResultSet<SqlRow> rs = client.sql().execute(
                     "SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
                             + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")) {
                 while (rs.hasNext()) {
@@ -180,7 +180,7 @@ public class SqlApiExample {
                     .build();
 
             // POJO mapping.
-            try (ResultSet<AccountInfo> rs = client.sql().execute(null, Mapper.of(AccountInfo.class), statement)) {
+            try (ResultSet<AccountInfo> rs = client.sql().execute((Transaction) null, Mapper.of(AccountInfo.class), statement)) {
                 while (rs.hasNext()) {
                     AccountInfo row = rs.next();
 
@@ -201,7 +201,7 @@ public class SqlApiExample {
             CancellationToken cancelToken = cancelHandle.token();
 
             client.sql().executeAsync(
-                    null, cancelToken,
+                    (Transaction) null, cancelToken,
                     "SELECT a.FIRST_NAME, b.LAST_NAME " +
                             "FROM ACCOUNTS a, ACCOUNTS b, ACCOUNTS c ORDER BY a.ACCOUNT_ID"
             );
@@ -219,7 +219,7 @@ public class SqlApiExample {
 
             System.out.println("\nDeleting one of the accounts...");
 
-            try (ResultSet<SqlRow> rs = client.sql().execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
+            try (ResultSet<SqlRow> rs = client.sql().execute( "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
                 System.out.println("\n Removed accounts: " + rs.affectedRows());
             }
 
@@ -239,7 +239,7 @@ public class SqlApiExample {
                     .pageSize(1)
                     .build();
 
-            client.sql().executeAsync(null, stmt)
+            client.sql().executeAsync((Transaction) null, stmt)
                     .thenCompose(SqlApiExample::fetchAllRowsInto)
                     .get();
 

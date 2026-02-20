@@ -158,7 +158,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(99, len);
+            assertEquals(100, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -561,6 +561,8 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             expected.set(13);
             expected.set(14);
             expected.set(15);
+            expected.set(16);
+
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();

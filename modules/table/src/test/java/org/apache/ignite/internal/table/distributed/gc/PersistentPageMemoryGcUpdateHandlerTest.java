@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -60,8 +61,8 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -73,7 +74,7 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
                 nodeName,
                 mock(MetricManager.class),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 new LongJvmPauseDetector(nodeName),

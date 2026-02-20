@@ -47,6 +47,4 @@ dependencies {
     jobsImplementation project(':ignite-core')
     unit1Implementation project(':ignite-api')
     unit2Implementation project(':ignite-api')
-
-    integrationTestImplementation sourceSets.jobs.output
 }

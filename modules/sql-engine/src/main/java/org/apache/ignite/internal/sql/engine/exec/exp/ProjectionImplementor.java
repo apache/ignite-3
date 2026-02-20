@@ -111,7 +111,7 @@ class ProjectionImplementor {
 
         InputGetter inputGetter = new FieldGetter(rowHandler, row, inputRowType);
 
-        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler).build(projections);
+        Function1<String, InputGetter> correlates = new CorrelatesBuilder(ctx).build(projections);
 
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
                 builder, null, null, ctx, inputGetter, correlates);

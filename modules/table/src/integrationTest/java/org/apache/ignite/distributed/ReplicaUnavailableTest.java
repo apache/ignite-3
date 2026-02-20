@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -80,7 +82,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageManager;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -209,6 +211,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NODE_NAME,
                 clusterService,
                 cmgManager,
+                groupId -> completedFuture(Assignments.EMPTY),
                 testClockService,
                 Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
@@ -219,7 +222,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
-                view -> new LocalLogStorageFactory(),
+                view -> new LocalLogStorageManager(),
                 Executors.newSingleThreadScheduledExecutor(),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()
@@ -232,7 +235,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {

@@ -233,6 +233,7 @@ Fragment#2 root
         predicate: true
         type: inner
         correlates: [$cor3]
+        correlationFieldNames: [ID]
         est: (rows=1)
       Receiver
           fieldNames: [ID, C1, C2]
@@ -320,6 +321,7 @@ Fragment#2 root
         predicate: true
         type: inner
         correlates: [$cor3]
+        correlationFieldNames: [ID]
         est: (rows=1)
       Receiver
           fieldNames: [ID, C1, C2]

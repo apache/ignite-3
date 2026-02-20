@@ -63,8 +63,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -105,7 +105,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     /** Servers. */
     private final List<JraftServerImpl> servers = new ArrayList<>();
 
-    private final List<LogStorageFactory> logStorageFactories = new ArrayList<>();
+    private final List<LogStorageManager> logStorageFactories = new ArrayList<>();
 
     /** Clients. */
     private final List<RaftGroupService> clients = new ArrayList<>();
@@ -271,12 +271,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         // Shutdown that node
         toStop.stopRaftNode(nodeId);
-        toStop.beforeNodeStop();
 
         ComponentContext componentContext = new ComponentContext();
-        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(logStorageFactories.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(cluster.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
+
+        assertThat(stopAsync(componentContext, toStop, logStorageFactories.get(stopIdx), cluster.get(stopIdx)), willCompleteSuccessfully());
 
         logStorageFactories.remove(stopIdx);
         // Create a snapshot of the raft group
@@ -443,13 +441,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         ClusterService service = clusterService(testInfo, PORT + idx, addr);
 
-        LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                 service.nodeName(),
                 componentWorkDir.raftLogPath()
         );
-        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        logStorageFactories.add(partitionsLogStorageFactory);
+        logStorageFactories.add(partitionsLogStorageManager);
 
         JraftServerImpl server = TestJraftServerFactory.create(service);
 
@@ -463,7 +461,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 createListener(service, server, componentWorkDir.dbPath()),
                 defaults()
                         .commandsMarshaller(commandsMarshaller(service))
-                        .setLogStorageFactory(partitionsLogStorageFactory)
+                        .setLogStorageManager(partitionsLogStorageManager)
                         .serverDataPath(componentWorkDir.metaPath())
         );
 

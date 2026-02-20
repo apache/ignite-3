@@ -69,6 +69,17 @@ public interface IKeyValueView<TK, TV> : IDataStreamerTarget<KeyValuePair<TK, TV
     Task<bool> ContainsAsync(ITransaction? transaction, TK key);
 
     /// <summary>
+    /// Determines if the table contains entries for all specified keys.
+    /// </summary>
+    /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>
+    /// <param name="keys">Keys.</param>
+    /// <returns>
+    /// A <see cref="Task"/> representing the asynchronous operation.
+    /// The task result is <c>true</c> if values exist for all specified keys, and <c>false</c> otherwise.
+    /// </returns>
+    Task<bool> ContainsAllKeysAsync(ITransaction? transaction, IEnumerable<TK> keys);
+
+    /// <summary>
     /// Puts a value with a given key.
     /// </summary>
     /// <param name="transaction">The transaction or <c>null</c> to auto commit.</param>

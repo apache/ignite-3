@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
-import static org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshaller;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.raft.jraft.Node;

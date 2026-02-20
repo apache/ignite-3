@@ -54,7 +54,7 @@ namespace Apache.Ignite
             Rest.GroupCode => Rest.GroupName,
             CommonConfiguration.GroupCode => CommonConfiguration.GroupName,
 
-            _ => UnknownGroupName
+            _ => UnknownGroupName + groupCode
         };
 
         /// <summary>
@@ -413,6 +413,9 @@ namespace Apache.Ignite
 
             /// <summary> GroupUnavailable error. </summary>
             public const int GroupUnavailable = (GroupCode << 16) | (10 & 0xFFFF);
+
+            /// <summary> ReplicaAbsent error. </summary>
+            public const int ReplicaAbsent = (GroupCode << 16) | (11 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>

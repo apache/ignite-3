@@ -146,7 +146,7 @@ class IndexFileMetaArray {
                 firstLogIndexKept,
                 metaToUpdate.lastLogIndexExclusive(),
                 adjustedPayloadOffset,
-                metaToUpdate.indexFileOrdinal()
+                metaToUpdate.indexFileProperties()
         );
 
         // Create a new array: the trimmed meta becomes the first element, other elements with "firstLogIndexInclusive" larger

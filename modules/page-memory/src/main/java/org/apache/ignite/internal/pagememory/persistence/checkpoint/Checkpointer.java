@@ -44,7 +44,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -223,7 +223,7 @@ public class Checkpointer extends IgniteWorker {
             CheckpointConfiguration checkpointConfig,
             LogSyncer logSyncer,
             PartitionDestructionLockManager partitionDestructionLockManager,
-            CheckpointMetricSource checkpointMetricSource
+            CollectionMetricSource checkpointMetricSource
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread");
 
@@ -496,7 +496,7 @@ public class Checkpointer extends IgniteWorker {
         int checkpointWritePageThreads = pageWritePool == null ? 1 : pageWritePool.getMaximumPoolSize();
 
         // Updated partitions.
-        ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
+        ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions = new ConcurrentHashMap<>();
 
         CompletableFuture<?>[] futures = new CompletableFuture[checkpointWritePageThreads];
 
@@ -576,13 +576,13 @@ public class Checkpointer extends IgniteWorker {
     }
 
     private void syncUpdatedPageStores(
-            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
+            ConcurrentMap<GroupPartitionId, PartitionWriteStats> updatedPartitions,
             CheckpointProgressImpl currentCheckpointProgress
     ) throws IgniteInternalCheckedException {
         ThreadPoolExecutor pageWritePool = checkpointWritePagesPool;
 
         if (pageWritePool == null) {
-            for (Map.Entry<GroupPartitionId, LongAdder> entry : updatedPartitions.entrySet()) {
+            for (Map.Entry<GroupPartitionId, PartitionWriteStats> entry : updatedPartitions.entrySet()) {
                 if (shutdownNow) {
                     return;
                 }
@@ -598,13 +598,13 @@ public class Checkpointer extends IgniteWorker {
                 futures[i] = new CompletableFuture<>();
             }
 
-            BlockingQueue<Entry<GroupPartitionId, LongAdder>> queue = new LinkedBlockingQueue<>(updatedPartitions.entrySet());
+            BlockingQueue<Entry<GroupPartitionId, PartitionWriteStats>> queue = new LinkedBlockingQueue<>(updatedPartitions.entrySet());
 
             for (int i = 0; i < checkpointThreads; i++) {
                 int threadIdx = i;
 
                 pageWritePool.execute(() -> {
-                    Map.Entry<GroupPartitionId, LongAdder> entry = queue.poll();
+                    Map.Entry<GroupPartitionId, PartitionWriteStats> entry = queue.poll();
 
                     try {
                         while (entry != null) {
@@ -637,7 +637,7 @@ public class Checkpointer extends IgniteWorker {
     private void fsyncPartitionFiles(
             CheckpointProgressImpl currentCheckpointProgress,
             GroupPartitionId partitionId,
-            LongAdder pagesWritten
+            PartitionWriteStats writeStats
     ) throws IgniteInternalCheckedException {
         FilePageStore filePageStore = filePageStoreManager.getStore(partitionId);
 
@@ -657,15 +657,19 @@ public class Checkpointer extends IgniteWorker {
                 return;
             }
 
+            // Always sync delta file (delta file always receives writes in the current system).
             fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, currentCheckpointProgress);
 
-            fsyncFilePageStoreOnCheckpointThread(filePageStore, currentCheckpointProgress);
+            // Conditionally sync main file only if it received writes.
+            if (writeStats.hasMainFileWrites()) {
+                fsyncFilePageStoreOnCheckpointThread(filePageStore, currentCheckpointProgress);
+            }
 
             renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
 
             filePageStore.checkpointedPageCount(meta.metaSnapshot(currentCheckpointProgress.id()).pageCount());
 
-            currentCheckpointProgress.syncedPagesCounter().addAndGet(pagesWritten.intValue());
+            currentCheckpointProgress.syncedPagesCounter().addAndGet(writeStats.getTotalWrites());
         } finally {
             partitionDestructionLock.unlock();
         }

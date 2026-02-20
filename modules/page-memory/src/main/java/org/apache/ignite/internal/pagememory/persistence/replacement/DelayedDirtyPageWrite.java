@@ -146,6 +146,7 @@ public class DelayedDirtyPageWrite {
         partitionDestructionLock.lock();
 
         try {
+            // Return value not needed for page replacement writes
             flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
         } catch (Throwable t) {
             errorOnWrite = t;

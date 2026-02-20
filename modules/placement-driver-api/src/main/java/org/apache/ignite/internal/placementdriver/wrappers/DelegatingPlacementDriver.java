@@ -69,10 +69,9 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     @Override
     public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
             List<? extends ReplicationGroupId> replicationGroupIds,
-            HybridTimestamp clusterTimeToAwait,
             long timeoutMillis
     ) {
-        return delegate.awaitNonEmptyAssignments(replicationGroupIds, clusterTimeToAwait, timeoutMillis);
+        return delegate.awaitNonEmptyAssignments(replicationGroupIds, timeoutMillis);
     }
 
     @Override

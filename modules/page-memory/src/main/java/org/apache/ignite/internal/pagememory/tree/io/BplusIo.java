@@ -229,10 +229,9 @@ public abstract class BplusIo<L> extends PageIo {
     /**
      * Returns max items count.
      *
-     * @param pageAddr Page address.
      * @param pageSize Page size without encryption overhead.
      */
-    public abstract int getMaxCount(long pageAddr, int pageSize);
+    public abstract int getMaxCount(int pageSize);
 
     /**
      * Store the needed info about the row in the page. Leaf and inner pages can store different info.
@@ -472,7 +471,7 @@ public abstract class BplusIo<L> extends PageIo {
             newCnt++;
         }
 
-        if (newCnt > getMaxCount(leftPageAddr, pageSize)) {
+        if (newCnt > getMaxCount(pageSize)) {
             assert !emptyBranch;
 
             return false;

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 
 /**
  * Metrics for checkpoint read/write lock operations.
@@ -69,7 +70,7 @@ public class CheckpointReadWriteLockMetrics {
      *
      * @param metricSource Metric source to register metrics with.
      */
-    public CheckpointReadWriteLockMetrics(CheckpointMetricSource metricSource) {
+    public CheckpointReadWriteLockMetrics(CollectionMetricSource metricSource) {
         metricSource.addMetric(readLockAcquisitionTime);
         metricSource.addMetric(readLockHoldTime);
         metricSource.addMetric(readLockWaitingThreads);
