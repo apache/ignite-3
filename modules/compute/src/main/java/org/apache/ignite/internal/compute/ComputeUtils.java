@@ -372,7 +372,7 @@ public class ComputeUtils {
         }
 
         if (input instanceof ComputeJobDataHolder) {
-            return SharedComputeUtils.unmarshalArgOrResult((ComputeJobDataHolder) input, marshaller, pojoType, classLoader);
+            return SharedComputeUtils.unmarshalArg((ComputeJobDataHolder) input, marshaller, pojoType, classLoader);
         }
 
         if (marshaller == null) {
