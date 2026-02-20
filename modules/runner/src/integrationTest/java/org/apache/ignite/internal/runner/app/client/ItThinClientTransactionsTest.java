@@ -417,6 +417,74 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testEnlistmentAfterKillTransaction() {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+
+        Transaction tx = client.transactions().begin();
+        Tuple key = tuples.get(0);
+        Tuple val = val(tuples.get(0).intValue(0) + "");
+        kvView.put(tx, key, val);
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        Tuple key2 = tuples.get(1);
+        Tuple val2 = val(tuples.get(1).intValue(0) + "");
+        assertThat(kvView.putAsync(tx, key2, val2),
+                willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
+
+        assertThat(tx.commitAsync(), willSucceedFast());
+
+        // Validate lock possibility.
+        assertThat(kvView.putAsync(null, key, val), willSucceedFast());
+        assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
+    }
+
+    @Test
+    void testDirectEnlistmentAfterKillTransaction() {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+        List<Tuple> tuples2 = generateKeysForNode(100, 10, map, server1.cluster().localNode(), table());
+
+        Transaction tx = client.transactions().begin();
+        Tuple key = tuples.get(0);
+        Tuple val = val(tuples.get(0).intValue(0) + "");
+        kvView.put(tx, key, val);
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        // No direct enlistments exists at this point so put will succeed. This can be improved.
+        Tuple key2 = tuples2.get(0);
+        Tuple val2 = val(tuples2.get(0).intValue(0) + "");
+        assertThat(kvView.putAsync(tx, key2, val2), willSucceedFast());
+
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
+
+        // Validate lock possibility.
+        assertThat(kvView.putAsync(null, key, val), willSucceedFast());
+        assertThat(kvView.putAsync(null, key2, val2), willSucceedFast());
+    }
+
+    @Test
     void testTxWithTimeout() throws InterruptedException {
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 

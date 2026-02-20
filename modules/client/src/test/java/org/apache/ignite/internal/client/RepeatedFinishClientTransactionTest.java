@@ -242,7 +242,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
     private static Stream<Arguments> rollbackClosureFactory() {
         return Stream.of(
                 argumentSet("rollback", (Consumer<ClientTransaction>) ClientTransaction::rollback),
-                argumentSet("discard", (Consumer<ClientTransaction>) ClientTransaction::discardDirectMappings)
+                argumentSet("discard", (Consumer<ClientTransaction>) tx -> tx.discardDirectMappings(false))
         );
     }
 

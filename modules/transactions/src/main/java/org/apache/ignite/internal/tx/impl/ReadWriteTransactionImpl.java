@@ -131,8 +131,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     ) {
         // No need to wait for lock if commit is in progress.
         if (!enlistPartitionLock.readLock().tryLock()) {
-            failEnlist();
-            assert false; // Not reachable.
+            throw enlistFailedException();
         }
 
         try {
@@ -152,20 +151,20 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /**
      * Fails the operation.
      */
-    private void failEnlist() {
-        throw new TransactionException(
-                TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [{}, txState={}].",
-                        formatTxInfo(id(), txManager, false), state()));
+    private RuntimeException enlistFailedException() {
+        return killed ? new TransactionKilledException(id(), txManager) :
+                new TransactionException(
+                        TX_ALREADY_FINISHED_ERR,
+                        format("Transaction is already finished [{}, txState={}].",
+                                formatTxInfo(id(), txManager, false), state()));
     }
 
     /**
      * Checks that this transaction was not finished and will be able to enlist another partition.
      */
     private void checkEnlistPossibility() {
-        if (isFinishingOrFinished()) {
-            // This means that the transaction is either in final or FINISHING state.
-            failEnlist();
+        if (isFinishingOrFinished() || killed) {
+            throw enlistFailedException();
         }
     }
 
