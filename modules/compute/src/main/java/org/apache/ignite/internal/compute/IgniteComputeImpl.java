@@ -403,13 +403,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             ExecutionContext executionContext,
             @Nullable CancellationToken cancellationToken
     ) {
-        Set<InternalClusterNode> candidates1 = new HashSet<>();
+        Set<InternalClusterNode> candidates = new HashSet<>();
         for (InternalClusterNode node : nodes) {
             if (topologyService.getByConsistentId(node.name()) != null) {
-                candidates1.add(node);
+                candidates.add(node);
             }
         }
-        Set<InternalClusterNode> candidates = candidates1;
         if (candidates.isEmpty()) {
             Set<String> nodeNames = nodes.stream().map(InternalClusterNode::name).collect(Collectors.toSet());
             return failedFuture(new NodeNotFoundException(nodeNames));
