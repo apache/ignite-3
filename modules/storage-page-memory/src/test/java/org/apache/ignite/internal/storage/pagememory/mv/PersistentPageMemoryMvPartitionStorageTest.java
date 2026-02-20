@@ -542,8 +542,8 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void verifyStorageConsistencyMetrics() {
-        StorageConsistencyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
+    void verifyRunConsistentlyMetrics() {
+        RunConsistentlyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
 
         // Verify metrics start at zero
         assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 0L);
@@ -579,7 +579,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
     @Test
     void verifyNestedRunConsistentlyDoesNotDoubleCountMetrics() {
-        StorageConsistencyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
+        RunConsistentlyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).consistencyMetrics;
 
         storage.runConsistently(outerLocker -> {
             assertMetricValue(metrics.runConsistentlyActiveCount(), 1);

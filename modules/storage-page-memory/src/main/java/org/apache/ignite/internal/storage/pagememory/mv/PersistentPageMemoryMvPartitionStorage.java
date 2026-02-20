@@ -99,8 +99,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private final Object leaseInfoLock = new Object();
 
-    /** Storage consistency metrics. */
-    final StorageConsistencyMetrics consistencyMetrics;
+    /** RunConsistently metrics. */
+    final RunConsistentlyMetrics consistencyMetrics;
 
     /**
      * Constructor.
@@ -113,7 +113,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
      * @param failureProcessor Failure processor.
-     * @param consistencyMetrics Metric source for storage consistency operations.
+     * @param consistencyMetrics Metric source for runConsistently operations.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -125,7 +125,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             GcQueue gcQueue,
             ExecutorService destructionExecutor,
             FailureProcessor failureProcessor,
-            StorageConsistencyMetrics consistencyMetrics
+            RunConsistentlyMetrics consistencyMetrics
     ) {
         super(
                 partitionId,

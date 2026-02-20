@@ -64,7 +64,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
-import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetrics;
+import org.apache.ignite.internal.storage.pagememory.mv.RunConsistentlyMetrics;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -131,7 +131,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     /** For unspecified tasks, i.e. throttling log. */
     private final ExecutorService commonExecutorService;
 
-    private StorageConsistencyMetrics consistencyMetrics;
+    private RunConsistentlyMetrics consistencyMetrics;
 
     /**
      * Constructor.
@@ -260,7 +260,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
 
-        consistencyMetrics = new StorageConsistencyMetrics(storageMetricSource);
+        consistencyMetrics = new RunConsistentlyMetrics(storageMetricSource);
 
         metricManager.registerSource(checkpointMetricSource);
         metricManager.registerSource(storageMetricSource);

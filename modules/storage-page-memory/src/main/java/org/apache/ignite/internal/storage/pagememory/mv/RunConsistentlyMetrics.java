@@ -22,12 +22,12 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 
 /**
- * Storage consistency operation metrics.
+ * Metrics for runConsistently operation.
  *
  * <p>Tracks runConsistently closure execution performance including duration
  * and active call count.
  */
-public class StorageConsistencyMetrics {
+public class RunConsistentlyMetrics {
     /**
      * Histogram buckets for runConsistently duration in nanoseconds.
      *
@@ -60,7 +60,7 @@ public class StorageConsistencyMetrics {
      *
      * @param metricSource Metric source to register metrics with.
      */
-    public StorageConsistencyMetrics(CollectionMetricSource metricSource) {
+    public RunConsistentlyMetrics(CollectionMetricSource metricSource) {
         runConsistentlyDuration = metricSource.addMetric(new DistributionMetric(
                 "RunConsistentlyDuration",
                 "Time spent in runConsistently closures in nanoseconds.",

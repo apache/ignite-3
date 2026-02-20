@@ -47,7 +47,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
-import org.apache.ignite.internal.storage.pagememory.mv.StorageConsistencyMetrics;
+import org.apache.ignite.internal.storage.pagememory.mv.RunConsistentlyMetrics;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
@@ -66,7 +66,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     private final FailureProcessor failureProcessor;
 
-    private final StorageConsistencyMetrics consistencyMetrics;
+    private final RunConsistentlyMetrics consistencyMetrics;
 
     /**
      * Constructor.
@@ -77,7 +77,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param dataRegion Data region for the table.
      * @param destructionExecutor Executor service for destruction tasks.
      * @param failureProcessor Failure processor.
-     * @param consistencyMetrics Storage consistency metrics.
+     * @param consistencyMetrics RunConsistently metrics.
      */
     public PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
@@ -86,7 +86,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             PersistentPageMemoryDataRegion dataRegion,
             ExecutorService destructionExecutor,
             FailureProcessor failureProcessor,
-            StorageConsistencyMetrics consistencyMetrics
+            RunConsistentlyMetrics consistencyMetrics
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
