@@ -105,6 +105,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -2027,7 +2028,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return null;
         }).when(txManager).updateTxMeta(any(), any());
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
+        Executor wise = Runnable::run;
+
+        doAnswer(invocation -> wise).when(txManager).writeIntentSwitchExecutor();
 
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
