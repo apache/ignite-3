@@ -657,7 +657,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {
-        private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
+        private static final IgniteLogger LOG = Loggers.forClass(VolcanoPlannerExt.class);
 
         private final long startTs;
 
