@@ -1442,7 +1442,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
 
             // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
-            // FuturesCleanupResult.hadWrites() returns false).
+            // txCleanupState.hadWrites() returns false).
             boolean forceCleanup = txCleanupState == null || !txCleanupState.hadAnyOperations();
 
             if (txCleanupState == null) {
@@ -1610,20 +1610,20 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         fut.whenComplete((v, th) -> {
             if (th != null) {
-                txCleanupReadyState.completeInflight();
+                txCleanupReadyState.completeInflight(txId);
             } else {
                 if (v instanceof ReplicaResult) {
                     ReplicaResult res = (ReplicaResult) v;
 
                     if (res.applyResult().replicationFuture() != null) {
                         res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
-                            txCleanupReadyState.completeInflight();
+                            txCleanupReadyState.completeInflight(txId);
                         });
                     } else {
-                        txCleanupReadyState.completeInflight();
+                        txCleanupReadyState.completeInflight(txId);
                     }
                 } else {
-                    txCleanupReadyState.completeInflight();
+                    txCleanupReadyState.completeInflight(txId);
                 }
             }
         });
@@ -3691,8 +3691,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         // Cross-thread.
-        void completeInflight() {
+        void completeInflight(UUID txId) {
             int remaining = inflightOperationsCount.decrementAndGet();
+
+            if (remaining < 0) {
+                LOG.error("Removed inflight when there were no inflights [txId={}]", txId);
+            }
 
             if (remaining == 0) {
                 completeFutureIfAny();
