@@ -26,11 +26,16 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,9 +52,11 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -217,6 +224,32 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         assertEquals(NEW_RECORD_VALUE, view.get(null, NEW_RECORD_KEY_TUPLE).value("val"));
     }
 
+    @Test
+    public void retryAfterLockFailureInSameTransaction() {
+        RecordView<Tuple> view = node(0).tables().table(TABLE_NAME).recordView();
+
+        Transaction tx1 = node(0).transactions().begin();
+        Transaction tx2 = node(0).transactions().begin();
+
+        view.upsert(tx1, NEW_RECORD_TUPLE);
+
+        Tuple anotherValue = Tuple.create().set("key", NEW_RECORD_KEY).set("val", "other value");
+
+        Exception firstAttempt = assertThrows(Exception.class, () -> view.upsert(tx2, anotherValue));
+        assertTransactionLockException(firstAttempt);
+
+        Exception secondAttempt = assertThrows(Exception.class, () -> view.upsert(tx2, anotherValue));
+
+        if (secondAttempt.getMessage() != null && secondAttempt.getMessage().contains("Transaction is already finished")) {
+            assertInstanceOf(TransactionException.class, secondAttempt);
+        } else {
+            assertTransactionLockException(secondAttempt);
+        }
+
+        tx1.rollback();
+        tx2.rollback();
+    }
+
     private String  transferPrimaryTo(String newLeaseholderNodeName, ZonePartitionId replicationGroup) {
         return NodeUtils.transferPrimary(
                 runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(Collectors.toList()),
@@ -259,6 +292,12 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
     private IgniteImpl findNonLeaseholderNode(String leaseholderNodeName) {
         return findNodeByFilter(ignite -> !leaseholderNodeName.equals(ignite.name()));
+    }
+
+    private static void assertTransactionLockException(Exception e) {
+        assertInstanceOf(TransactionException.class, e);
+        assertThat(e.getMessage(), containsString("Failed to acquire a lock during request handling"));
+        assertTrue(hasCause(e, LockException.class, null), "Expected lock exception as a cause");
     }
 
     private IgniteImpl findLeaseholderNode(ZonePartitionId replicationGroupId) {

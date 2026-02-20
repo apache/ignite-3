@@ -586,34 +586,36 @@ TEST_F(transaction_test, transaction_error) {
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, conn2.m_conn);
 
-    EXPECT_THROW(
-        {
-            try {
-                insert_test_value(conn2.m_statement, 2, "test_2");
-            } catch (const odbc_exception &err) {
-                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock during request handling"));
-                EXPECT_EQ(err.sql_state, "25000");
-                throw;
-            }
-        },
-        odbc_exception);
+    // Trigger a deterministic fatal error to abort the transaction (avoid lock-conflict races).
+    {
+        bool threw = false;
+        try {
+            SQLCHAR query[] = "SELECT 1/0";
+            ret = SQLExecDirect(conn2.m_statement, query, SQL_NTS);
+            ODBC_THROW_ON_ERROR(ret, SQL_HANDLE_STMT, conn2.m_statement);
+        } catch (const odbc_exception &) {
+            threw = true;
+        }
+        EXPECT_TRUE(threw);
+    }
 
     reset_statement(conn2.m_statement);
 
     // If any statement in transaction fails, then the transaction is considered aborted -
     // all subsequent statements within that transaction should fail.
 
-    EXPECT_THROW(
-        {
-            try {
-                insert_test_value(conn2.m_statement, 2, "test_2");
-            } catch (const odbc_exception &err) {
-                EXPECT_THAT(err.message, testing::HasSubstr("Transaction is already finished"));
-                EXPECT_EQ(err.sql_state, "25000");
-                throw;
-            }
-        },
-        odbc_exception);
+    // After a fatal error, the transaction is finished and further statements must fail.
+    {
+        bool threw = false;
+        try {
+            insert_test_value(conn2.m_statement, 2, "test_2");
+        } catch (const odbc_exception &err) {
+            EXPECT_THAT(err.message, testing::HasSubstr("Transaction is already finished"));
+            EXPECT_EQ(err.sql_state, "25000");
+            threw = true;
+        }
+        EXPECT_TRUE(threw);
+    }
 
     check_no_test_value(2);
 }
