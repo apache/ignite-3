@@ -588,7 +588,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
 
-        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+        // Enlistment for thin client direct request may be absent on coordinator.
+        if (enlistment == null || enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.

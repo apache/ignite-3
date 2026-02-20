@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runInExecutor;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.sleep;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
@@ -36,16 +35,18 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
@@ -67,10 +67,13 @@ import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test for transaction abort on coordinator when write-intent resolution happens after primary replica expiration.
@@ -115,8 +118,18 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         return new int[]{0, 1, 2};
     }
 
-    @Test
-    public void testCoordinatorAbortsTransaction() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testCoordinatorAbortsTransaction(boolean withThinClient) throws Exception {
+        IgniteClient client = IgniteClient.builder()
+                .addresses(getClientAddresses(runningNodes().collect(toList())).toArray(new String[0]))
+                .operationTimeout(15_000)
+                .build();
+
+        if (withThinClient) {
+            await().atMost(3, TimeUnit.SECONDS).until(() -> client.connections().size() == initialNodes());
+        }
+
         IgniteImpl firstPrimaryNode = anyNode();
         IgniteImpl coordinatorNode = findNode(n -> !n.name().equals(firstPrimaryNode.name()));
 
@@ -126,17 +139,32 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         RecordView<Tuple> view = coordinatorNode.tables().table(TABLE_NAME).recordView();
 
         Transaction txx = coordinatorNode.transactions().begin();
+        Tuple tuple0 = findTupleToBeHostedOnNode(coordinatorNode, TABLE_NAME, txx, INITIAL_TUPLE, NEXT_TUPLE, true);
         Tuple tuple = findTupleToBeHostedOnNode(firstPrimaryNode, TABLE_NAME, txx, INITIAL_TUPLE, NEXT_TUPLE, true);
         int partId = partitionIdForTuple(firstPrimaryNode, TABLE_NAME, tuple, txx);
         var groupId = new ZonePartitionId(zoneId(firstPrimaryNode, TABLE_NAME), partId);
         log.info("Test: groupId: " + groupId);
+        view.upsert(txx, tuple0);
         view.upsert(txx, tuple);
 
         txx.commit();
 
-        Transaction tx0 = coordinatorNode.transactions().begin();
-        log.info("Test: unfinished tx id: " + txId(tx0));
-        view.upsert(tx0, tuple);
+        // Unfinished transaction.
+        RecordView<Tuple> unfinishedTxView = withThinClient
+                ? client.tables().table(TABLE_NAME).recordView()
+                : coordinatorNode.tables().table(TABLE_NAME).recordView();
+        IgniteTransactions unfinishedTxTransactions = withThinClient
+                ? client.transactions()
+                : coordinatorNode.transactions();
+
+        Transaction tx0 = unfinishedTxTransactions.begin();
+
+        if (!withThinClient) {
+            log.info("Test: unfinished tx id: " + txId(tx0));
+        }
+
+        unfinishedTxView.upsert(tx0, tuple0);
+        unfinishedTxView.upsert(tx0, tuple);
         // Don't commit or rollback tx0.
 
         // Wait for replication of write intent.
@@ -165,15 +193,6 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         log.info("Test: upsert");
 
         Tuple newTuple = Tuple.create().set("key", tuple.longValue("key")).set("val", "v");
-
-        HybridTimestamp now = coordinatorNode.clock().current();
-
-        UUID tx0Id = txId(tx0);
-        coordinatorNode.txManager()
-                .updateTxMeta(
-                        tx0Id,
-                        old -> old.mutate().txState(TxState.COMMITTED).commitTimestamp(now).build()
-                );
 
         // If coordinator of tx0 doesn't abort it, tx will stumble into write intent and fail with TxIdMismatchException.
         view.upsert(tx, newTuple);
@@ -303,5 +322,17 @@ public class ItTxAbortOnCoordinatorOnWriteIntentResolutionWhenPrimaryExpiredTest
         TxStateMeta meta = node.txManager().stateMeta(txId);
 
         return meta != null && isFinalState(meta.txState());
+    }
+
+    private static List<String> getClientAddresses(List<Ignite> nodes) {
+        return getClientPorts(nodes).stream()
+                .map(port -> "127.0.0.1" + ":" + port)
+                .collect(toList());
+    }
+
+    private static List<Integer> getClientPorts(List<Ignite> nodes) {
+        return nodes.stream()
+                .map(ignite -> unwrapIgniteImpl(ignite).clientAddress().port())
+                .collect(toList());
     }
 }
