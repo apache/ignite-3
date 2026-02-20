@@ -102,7 +102,7 @@ TEST_F(connection_test, using_asio) {
     fake_server fs{50900, get_logger()};
     fs.start();
 
-    proxy::asio_proxy proxy{static_cast<short>(50800)};
+    proxy::asio_proxy proxy{{{50800, "127.0.0.1:50900"}}};
 
     ignite_client_configuration cfg;
     cfg.set_logger(get_logger());
@@ -113,6 +113,4 @@ TEST_F(connection_test, using_asio) {
     auto cluster_nodes = cl.get_cluster_nodes();
 
     ASSERT_EQ(1, cluster_nodes.size());
-
-    // t.join();
 }

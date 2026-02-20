@@ -23,6 +23,7 @@
 #include <asio.hpp>
 #include <asio/ts/buffer.hpp>
 #include <asio/ts/internet.hpp>
+#include <map>
 
 namespace ignite::proxy {
 
@@ -115,6 +116,9 @@ private:
                 dst, asio::buffer(msg.m_arr, msg.m_size),
                 [&queue, direction, &writable, self](asio::error_code ec, size_t) {
                     if (ec) {
+                        if (ec == asio::error::eof) {
+                            return;
+                        }
                         throw std::runtime_error("Error while writing to socket " + ec.message());
                     }
 
@@ -148,12 +152,16 @@ private:
 
 class asio_proxy {
 public:
-    asio_proxy(short port)
-        : m_acceptor(m_io_context, tcp::endpoint(tcp::v4(), port))
-        , m_resolver(m_io_context)
+    asio_proxy(std::map<short, std::string> conn_map)
+        : m_resolver(m_io_context)
         , m_in_sock(m_io_context)
+
     {
-        do_accept();
+        for (auto& [in_port, out_host_and_port]  : conn_map) {
+            m_conn_map.emplace(in_port, proxy_entry{m_io_context, in_port, out_host_and_port});
+        }
+
+        do_serve();
 
         m_executor = std::make_unique<std::thread>([this]() {
             m_io_context.run();
@@ -168,20 +176,46 @@ public:
     }
 
 private:
-    void do_accept() {
+    struct proxy_entry {
+        tcp::acceptor m_in_acceptor;
+        std::string m_out_host;
+        std::string m_out_port;
+
+        proxy_entry(asio::io_context& io_context, short in_port, const std::string& out_host_and_port)
+            : m_in_acceptor(io_context, tcp::endpoint(tcp::v4(), in_port))
+        {
+            auto colon_pos = out_host_and_port.find(':');
+
+            if (colon_pos == std::string::npos) {
+                throw std::runtime_error("Incorrect host and part format. Expected 'hostname:port' but got " + out_host_and_port);
+            }
+
+            m_out_host = out_host_and_port.substr(0, colon_pos);
+            m_out_port = out_host_and_port.substr(colon_pos + 1);
+        }
+    };
+
+
+    void do_serve() {
+        for (auto& [_, entry]: m_conn_map) {
+            do_accept(entry);
+        }
+    }
+
+    void do_accept(proxy_entry& entry) {
         if (m_stopped.load()) {
             return;
         }
 
-        m_acceptor.async_accept(m_in_sock, [this](asio::error_code ec) {
+        entry.m_in_acceptor.async_accept(m_in_sock, [this, &entry](asio::error_code ec) {
             if (ec) {
                 throw std::runtime_error("Error accepting incoming connection " + ec.message());
             }
 
             auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped);
 
-            m_resolver.async_resolve(
-                "127.0.0.1", "50900", [ses](asio::error_code ec, tcp::resolver::results_type endpoints) {
+            m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
+                [ses](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
                     if (ec) {
                         throw std::runtime_error("Error resolving server's address " + ec.message());
                     }
@@ -198,14 +232,15 @@ private:
                         });
                 });
 
-            do_accept();
+            do_accept(entry);
         });
     }
+
+    std::map<short, proxy_entry> m_conn_map{};
 
     asio::io_context m_io_context{};
     std::unique_ptr<std::thread> m_executor{};
 
-    tcp::acceptor m_acceptor;
     tcp::resolver m_resolver;
     tcp::socket m_in_sock;
 
