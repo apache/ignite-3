@@ -403,6 +403,8 @@
       <!-- <property name="fieldNamePattern" value="LOG|log|LOGGER|logger"/> -->
       <!-- default: getLogger,forClass -->
       <!-- <property name="factoryMethods" value="getLogger,forClass"/> -->
+      <!-- Comma-separated fully qualified class names to exclude from the check -->
+      <!-- <property name="excludeClasses" value=""/> -->
     </module>
   </module>
   <module name="Header">

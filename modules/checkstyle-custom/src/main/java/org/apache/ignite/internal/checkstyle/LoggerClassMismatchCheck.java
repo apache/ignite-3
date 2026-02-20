@@ -53,6 +53,9 @@ public class LoggerClassMismatchCheck extends AbstractCheck {
     /** Set of factory method names. */
     private Set<String> factoryMethods = new HashSet<>(Arrays.asList(DEFAULT_FACTORY_METHODS.split(",")));
 
+    /** Set of fully qualified class names to exclude from the check. */
+    private Set<String> excludeClasses = Set.of();
+
     /**
      * Sets the field name pattern.
      *
@@ -69,6 +72,15 @@ public class LoggerClassMismatchCheck extends AbstractCheck {
      */
     public void setFactoryMethods(String methods) {
         this.factoryMethods = new HashSet<>(Arrays.asList(methods.split(",")));
+    }
+
+    /**
+     * Sets the fully qualified class names to exclude from the check.
+     *
+     * @param classNames comma-separated list of fully qualified class names to exclude.
+     */
+    public void setExcludeClasses(String classNames) {
+        this.excludeClasses = new HashSet<>(Arrays.asList(classNames.split(",")));
     }
 
     @Override
@@ -110,6 +122,13 @@ public class LoggerClassMismatchCheck extends AbstractCheck {
         String enclosingClassName = findEnclosingClassName(ast);
         if (enclosingClassName == null) {
             return;
+        }
+
+        if (!excludeClasses.isEmpty()) {
+            String fullyQualifiedName = buildFullyQualifiedName(ast);
+            if (fullyQualifiedName != null && excludeClasses.contains(fullyQualifiedName)) {
+                return;
+            }
         }
 
         if (!argClassName.equals(enclosingClassName)) {
@@ -249,6 +268,81 @@ public class LoggerClassMismatchCheck extends AbstractCheck {
         }
 
         return null;
+    }
+
+    /**
+     * Builds the fully qualified name of the nearest enclosing class (package + nested class path).
+     */
+    private static String buildFullyQualifiedName(DetailAST node) {
+        // Find the compilation unit (root) to get the package name.
+        DetailAST root = node;
+        while (root.getParent() != null) {
+            root = root.getParent();
+        }
+
+        String packageName = "";
+        for (DetailAST child = root.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child.getType() == TokenTypes.PACKAGE_DEF) {
+                packageName = extractDottedName(child.findFirstToken(TokenTypes.DOT),
+                        child.findFirstToken(TokenTypes.IDENT));
+                break;
+            }
+        }
+
+        // Build the class nesting path from outermost to the immediate enclosing class.
+        StringBuilder classPath = new StringBuilder();
+        DetailAST parent = node.getParent();
+        while (parent != null) {
+            if (parent.getType() == TokenTypes.CLASS_DEF
+                    || parent.getType() == TokenTypes.INTERFACE_DEF
+                    || parent.getType() == TokenTypes.ENUM_DEF) {
+                DetailAST ident = parent.findFirstToken(TokenTypes.IDENT);
+                if (ident != null) {
+                    if (classPath.length() > 0) {
+                        classPath.insert(0, '.');
+                    }
+                    classPath.insert(0, ident.getText());
+                }
+            }
+            parent = parent.getParent();
+        }
+
+        if (classPath.length() == 0) {
+            return null;
+        }
+
+        if (packageName.isEmpty()) {
+            return classPath.toString();
+        }
+
+        return packageName + "." + classPath;
+    }
+
+    /**
+     * Extracts a dotted name (like a package name) from the AST.
+     */
+    private static String extractDottedName(DetailAST dot, DetailAST ident) {
+        if (dot != null) {
+            return buildDotExpression(dot);
+        }
+        if (ident != null) {
+            return ident.getText();
+        }
+        return "";
+    }
+
+    /**
+     * Recursively builds a dotted expression string from a DOT node.
+     */
+    private static String buildDotExpression(DetailAST dot) {
+        DetailAST left = dot.getFirstChild();
+        DetailAST right = dot.getLastChild();
+
+        String leftText = left.getType() == TokenTypes.DOT
+                ? buildDotExpression(left) : left.getText();
+        String rightText = right.getText();
+
+        return leftText + "." + rightText;
     }
 
     /**

@@ -108,6 +108,17 @@ class LoggerClassMismatchCheckTest {
         assertThat(violations.get(1).getLine(), is(27));
     }
 
+    @Test
+    void excludeClassSuppressesViolation() throws Exception {
+        DefaultConfiguration checkConfig = new DefaultConfiguration(
+                LoggerClassMismatchCheck.class.getName());
+        checkConfig.addProperty("excludeClasses", "org.apache.ignite.internal.checkstyle.InputLoggerMismatched");
+
+        List<AuditEvent> violations = runCheck("InputLoggerMismatched.java", checkConfig);
+
+        assertThat(violations, is(empty()));
+    }
+
     private List<AuditEvent> runCheck(String inputFile, DefaultConfiguration checkConfig) throws Exception {
         DefaultConfiguration treeWalkerConfig = new DefaultConfiguration(TreeWalker.class.getName());
         treeWalkerConfig.addChild(checkConfig);
