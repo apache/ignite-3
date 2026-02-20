@@ -127,6 +127,8 @@ license = 'com.github.jk1.dependency-license-report:2.9'
 
 
 [libraries]
+checkstyle = { module = "com.puppycrawl.tools:checkstyle", version.ref = "checkstyleTool" }
+
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 
 bouncycastle-bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }

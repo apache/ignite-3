@@ -107,6 +107,7 @@ include(':ignite-system-disaster-recovery')
 include(':ignite-system-disaster-recovery-api')
 include(':ignite-compatibility-tests')
 include(':ignite-configuration-storage')
+include(':ignite-checkstyle-custom')
 
 project(":ignite-examples").projectDir = file('examples/java')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
@@ -191,6 +192,7 @@ project(":ignite-system-disaster-recovery").projectDir = file('modules/system-di
 project(":ignite-system-disaster-recovery-api").projectDir = file('modules/system-disaster-recovery-api')
 project(':ignite-compatibility-tests').projectDir = file('modules/compatibility-tests')
 project(':ignite-configuration-storage').projectDir = file('modules/configuration-storage')
+project(':ignite-checkstyle-custom').projectDir = file('modules/checkstyle-custom')
 
 include(":migration-tools-ignite2-repack")
 include(":migration-tools-ignite3-repack")
