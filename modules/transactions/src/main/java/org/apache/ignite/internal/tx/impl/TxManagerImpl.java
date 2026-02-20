@@ -21,7 +21,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
@@ -459,6 +458,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
+        if (readOnly && txOptions.txLabel() != null) {
+            throw new TransactionException(Common.ILLEGAL_ARGUMENT_ERR, "Labels are not supported for read only transactions");
+        }
+
         InternalTransaction tx;
 
         if (readOnly) {
@@ -1205,8 +1208,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
-        return runAsync(runnable, writeIntentSwitchPool);
+    public Executor writeIntentSwitchExecutor() {
+        return writeIntentSwitchPool;
     }
 
     void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp) {
