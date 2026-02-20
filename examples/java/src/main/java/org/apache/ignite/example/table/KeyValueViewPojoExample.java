@@ -88,8 +88,8 @@ public class KeyValueViewPojoExample {
             AccountKey key = new AccountKey(123456);
 
             Account value = new Account(
-                    "Val",
-                    "Kulichenko",
+                    "Jane",
+                    "Doe",
                     100.00d
             );
 

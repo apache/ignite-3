@@ -69,7 +69,7 @@ public class MapperExample {
 
                 Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
 
-                view.upsert(null, myPerson);
+                view.upsert(myPerson);
             } finally {
 
                 System.out.println("Dropping the table...");

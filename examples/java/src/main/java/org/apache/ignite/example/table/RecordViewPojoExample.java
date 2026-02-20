@@ -87,12 +87,12 @@ public class RecordViewPojoExample {
 
             Account newAccount = new Account(
                     123456,
-                    "Val",
-                    "Kulichenko",
+                    "Jane",
+                    "Doe",
                     100.00d
             );
 
-            accounts.insert(null, newAccount);
+            accounts.insert(newAccount);
 
             //--------------------------------------------------------------------------------------
             //
@@ -102,7 +102,7 @@ public class RecordViewPojoExample {
 
             System.out.println("\nRetrieving a record using RecordView API...");
 
-            Account account = accounts.get(null, new Account(123456));
+            Account account = accounts.get(new Account(123456));
 
             System.out.println(
                     "\nRetrieved record:\n"
