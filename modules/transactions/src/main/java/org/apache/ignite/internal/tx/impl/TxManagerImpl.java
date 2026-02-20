@@ -591,7 +591,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
 
-        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+        // Enlistment for thin client direct request may be absent on coordinator.
+        if (enlistment == null || enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
@@ -605,6 +606,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         return newMeta;
                     });
         }
+
+        LOG.info("Skipped aborting on coordinator a transaction that lost its primary replica's volatile state "
+                        + "[txId={}, internalTx={}, enlistment={}, senderCurrentConsistencyToken={}, txMeta={}].",
+                tx.id(),
+                tx,
+                enlistment,
+                currentEnlistmentConsistencyToken,
+                txMeta
+        );
 
         return completedFuture(txMeta);
     }

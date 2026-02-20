@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.testframework;
 
-import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.function.Function.identity;
@@ -1097,6 +1096,21 @@ public final class IgniteTestUtils {
      */
     public static UUID deriveUuidFrom(String str) {
         return new UUID(str.hashCode(), new StringBuilder(str).reverse().toString().hashCode());
+    }
+
+    /**
+     * Sleep for a while.
+     *
+     * @param millis Time to sleep in milliseconds.
+     */
+    public static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new RuntimeException(e);
+        }
     }
 
     /**
