@@ -40,6 +40,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,6 +71,7 @@ import org.springframework.data.util.Streamable;
  */
 @SpringBootTest(classes = TestApplication.class)
 @ExtendWith(WorkDirectoryExtension.class)
+@DisplayNameGeneration(SpringDataVersionDisplayNameGenerator.class)
 public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @WorkDirectory
@@ -89,7 +91,7 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
         cluster = new Cluster(clusterConfiguration);
         cluster.startAndInit(1);
 
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS Person ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS Person ("
                 + "    id INT,"
                 + "    name VARCHAR,"
                 + "    flag BOOLEAN,"
@@ -98,18 +100,18 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
                 + "    Primary key(id)"
                 + ");");
 
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS ROOT ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS ROOT ("
                 + "    ID   BIGINT PRIMARY KEY,"
                 + "    NAME VARCHAR(100)"
                 + ");");
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS INTERMEDIATE ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS INTERMEDIATE ("
                 + "    ID       BIGINT  PRIMARY KEY,"
                 + "    NAME     VARCHAR(100),"
                 + "    ROOT     BIGINT,"
                 + "    ROOT_ID  BIGINT,"
                 + "    ROOT_KEY INTEGER"
                 + ");");
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS LEAF ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS LEAF ("
                 + "    ID               BIGINT PRIMARY KEY,"
                 + "    NAME             VARCHAR(100),"
                 + "    INTERMEDIATE     BIGINT,"

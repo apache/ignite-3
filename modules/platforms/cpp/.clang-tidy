@@ -81,6 +81,7 @@ cppcoreguidelines-narrowing-conversions,
 cppcoreguidelines-pro-type-member-init,
 cppcoreguidelines-pro-type-static-cast-downcast,
 cppcoreguidelines-slicing,
+concurrency-*,
 google-default-arguments,
 google-explicit-constructor,
 google-runtime-operator,
@@ -161,3 +162,5 @@ readability-static-definition-in-anonymous-namespace,
 readability-string-compare,
 readability-uniqueptr-delete-release,
 readability-use-anyofallof'
+HeaderFilterRegex: '^.*(client|common|network|odbc|protocol|tuple).*'
+ExcludeHeaderFilterRegex: '^.*(build|tests).*'

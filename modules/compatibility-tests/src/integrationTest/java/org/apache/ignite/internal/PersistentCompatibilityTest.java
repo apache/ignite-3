@@ -17,17 +17,21 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.compute.CheckpointJob;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -88,6 +92,8 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private static final String ORIGINAL_ROW_VALUE = "original_value";
     private static final String UPDATED_ROW_VALUE = "updated_value";
 
+    private static final Long EXPECTED_ROWS = 3L;
+
     @Override
     protected int nodesCount() {
         return 1;
@@ -130,9 +136,12 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
 
         updateRow(baseIgnite, null, tableName, UPDATED_ROW_ID, UPDATED_ROW_VALUE);
 
-        Transaction tx = baseIgnite.transactions().begin();
-        updateRow(baseIgnite, tx, tableName, ROLLED_BACK_ROW_ID, UPDATED_ROW_VALUE);
-        tx.rollback();
+        Transaction rolledBackTx = baseIgnite.transactions().begin();
+        updateRow(baseIgnite, rolledBackTx, tableName, ROLLED_BACK_ROW_ID, UPDATED_ROW_VALUE);
+        rolledBackTx.rollback();
+
+        Transaction notRolledBackTx = baseIgnite.transactions().begin();
+        updateRow(baseIgnite, notRolledBackTx, tableName, ROLLED_BACK_ROW_ID, UPDATED_ROW_VALUE);
     }
 
     @ParameterizedTest
@@ -160,6 +169,16 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
         assertThat(rows.get(3).get(1), is(newRowValue));
     }
 
+    @Test
+    void testEstimatedSize() {
+        TableImpl table = (TableImpl) unwrapIgniteImpl(node(0)).distributedTableManager().table(TABLE_WITHOUT_DELTA_FILES);
+
+        CompletableFuture<Long> estimatedSizeFut = table.internalTable().estimatedSize();
+        assertThat(estimatedSizeFut, willCompleteSuccessfully());
+
+        assertThat(estimatedSizeFut.join(), is(EXPECTED_ROWS));
+    }
+
     private void doCheckpointWithCompaction() throws IOException {
         doCheckpoint(false);
     }
@@ -183,7 +202,7 @@ public class PersistentCompatibilityTest extends CompatibilityTestBase {
     private void checkRows(String tableName) {
         List<List<Object>> rows = sql("select * from " + tableName + " order by id");
 
-        assertThat(rows.size(), is(3));
+        assertThat(rows.size(), is(EXPECTED_ROWS.intValue()));
         assertThat(rows.get(0).get(1), is(UNCHANGED_ROW_VALUE));
         assertThat(rows.get(1).get(1), is(UPDATED_ROW_VALUE));
         assertThat(rows.get(2).get(1), is(ORIGINAL_ROW_VALUE));

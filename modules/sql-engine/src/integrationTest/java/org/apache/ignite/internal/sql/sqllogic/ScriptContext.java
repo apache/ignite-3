@@ -35,6 +35,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -94,7 +95,7 @@ final class ScriptContext {
             statement = statement.timeZoneId(timeZone);
         }
 
-        try (ResultSet<SqlRow> rs = ignSql.execute(null, statement.build())) {
+        try (ResultSet<SqlRow> rs = ignSql.execute((Transaction) null, statement.build())) {
             if (rs.hasRowSet()) {
                 List<List<?>> out = new ArrayList<>();
 

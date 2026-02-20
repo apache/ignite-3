@@ -793,6 +793,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
         nodeOptions.setNodeManager(this.getNodeManager());
         nodeOptions.setAppendEntriesByteBufferCollectorPool(appendEntriesByteBufferCollectorPool);
+        nodeOptions.setRaftMetrics(raftMetrics);
 
         return nodeOptions;
     }

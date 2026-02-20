@@ -31,7 +31,13 @@ def table_name(request):
 
 @pytest.fixture()
 def connection():
-    conn = pyignite_dbapi.connect(address=server_addresses_basic, page_size=TEST_PAGE_SIZE)
+    conn = pyignite_dbapi.connect(address=server_addresses_basic, page_size=TEST_PAGE_SIZE, heartbeat_interval=2)
+    yield conn
+    conn.close()
+
+@pytest.fixture()
+def service_connection():
+    conn = pyignite_dbapi.connect(address=server_addresses_basic, page_size=TEST_PAGE_SIZE, heartbeat_interval=2)
     yield conn
     conn.close()
 
@@ -44,10 +50,17 @@ def cursor(connection):
 
 
 @pytest.fixture()
-def drop_table_cleanup(cursor, table_name):
+def service_cursor(service_connection):
+    cursor = service_connection.cursor()
+    yield cursor
+    cursor.close()
+
+
+@pytest.fixture()
+def drop_table_cleanup(service_cursor, table_name):
+    service_cursor.execute(f'drop table if exists {table_name}')
     yield None
-    cursor.connection.setautocommit(True)
-    cursor.execute(f'drop table if exists {table_name}')
+    service_cursor.execute(f'drop table if exists {table_name}')
 
 
 @pytest.fixture(autouse=True, scope="session")

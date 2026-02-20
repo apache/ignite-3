@@ -29,6 +29,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -36,6 +37,11 @@ import org.jetbrains.annotations.TestOnly;
  * A transaction manager.
  */
 public interface TxManager extends IgniteComponent {
+    /**
+     * Returns transaction metrics source.
+     */
+    TransactionMetricsSource transactionMetricsSource();
+
     /**
      * Starts an implicit read-write transaction coordinated by a local node.
      *

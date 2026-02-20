@@ -28,6 +28,7 @@ import org.apache.ignite.Ignite;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -440,6 +441,7 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27779")
     void testAggregations() {
         for (Ignite node : List.of(node(0), node(1))) {
             assertQuery(node, "SELECT MIN(f), MIN(d) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();

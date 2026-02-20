@@ -42,6 +42,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,6 +54,12 @@ public class FakeTxManager implements TxManager {
 
     public FakeTxManager(HybridClock clock) {
         this.clock = clock;
+    }
+
+    @Override
+    public @Nullable TransactionMetricsSource transactionMetricsSource() {
+        // No-op
+        return null;
     }
 
     @Override

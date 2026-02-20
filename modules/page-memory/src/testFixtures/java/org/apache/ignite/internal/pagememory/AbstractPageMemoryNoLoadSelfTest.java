@@ -55,8 +55,6 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
     public void testPageTearingInner() throws Exception {
         PageMemory mem = memory();
 
-        mem.start();
-
         try {
             FullPageId fullId1 = allocatePage(mem);
             FullPageId fullId2 = allocatePage(mem);
@@ -93,8 +91,6 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
     @Test
     public void testPageTearingSequential() throws Exception {
         PageMemory mem = memory();
-
-        mem.start();
 
         try {
             int pagesCnt = 1024;
@@ -143,8 +139,6 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
     public void testPageHandleDeallocation() throws Exception {
         PageMemory mem = memory();
 
-        mem.start();
-
         try {
             int pages = 3 * 1024 * 1024 / (8 * 1024);
 
@@ -169,8 +163,6 @@ public abstract class AbstractPageMemoryNoLoadSelfTest extends BaseIgniteAbstrac
     @Test
     public void testPageIdRotation() throws Exception {
         PageMemory mem = memory();
-
-        mem.start();
 
         try {
             int pages = 5;

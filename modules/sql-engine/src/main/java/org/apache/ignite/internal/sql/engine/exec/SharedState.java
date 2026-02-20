@@ -17,41 +17,53 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.checkRange;
-
-import java.io.Serializable;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class represents the volatile state that may be propagated from parent to its children
  * during rewind.
  */
-public class SharedState implements Serializable {
-    private static final long serialVersionUID = 42L;
+public class SharedState {
+    private final Long2ObjectMap<Object> correlations;
 
-    private Object[] correlations = new Object[16];
+    public SharedState() {
+        this(new Long2ObjectOpenHashMap<>());
+    }
+
+    SharedState(Long2ObjectMap<Object> correlations) {
+        this.correlations = correlations;
+    }
 
     /**
      * Gets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @return Correlated value.
      */
-    public Object correlatedVariable(int id) {
-        checkRange(correlations, id);
+    public @Nullable Object correlatedVariable(long id) {
+        Object value = correlations.getOrDefault(id, this);
 
-        return correlations[id];
+        if (value == this) {
+            throw new IllegalStateException("Correlated variable is not set [id=" + id + "]");
+        }
+
+        return value;
     }
 
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(int id, Object value) {
-        correlations = Commons.ensureCapacity(correlations, id + 1);
+    public void correlatedVariable(long id, @Nullable Object value) {
+        correlations.put(id, value);
+    }
 
-        correlations[id] = value;
+    Long2ObjectMap<Object> correlations() {
+        return Long2ObjectMaps.unmodifiable(correlations);
     }
 }

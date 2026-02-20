@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite3-odbc)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ${PROJECT_NAME}-odbc)
 
 include(find_odbc)
 find_package(ODBC REQUIRED)
@@ -97,7 +95,7 @@ foreach(_target_lib IN LISTS _target_libs)
     target_include_directories(${_target_lib} SYSTEM INTERFACE ${ODBC_INCLUDE_DIRS})
     target_include_directories(${_target_lib}
         INTERFACE $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}/>
-                  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/>
+                  $<INSTALL_INTERFACE:${IGNITE_INSTALL_INCLUDE_DIR}/>
     )
     target_link_libraries(${_target_lib} PRIVATE ${LIBRARIES})
 endforeach()
@@ -107,10 +105,11 @@ add_library(ignite::odbc ALIAS ${TARGET})
 
 install(TARGETS ${TARGET}
     EXPORT ignite-odbc-targets
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    COMPONENT odbc
+    ARCHIVE DESTINATION ${IGNITE_INSTALL_ARCHIVE_DIR}
+    LIBRARY DESTINATION ${IGNITE_INSTALL_LIBRARY_DIR}
+    RUNTIME DESTINATION ${IGNITE_INSTALL_RUNTIME_DIR}
+    INCLUDES DESTINATION ${IGNITE_INSTALL_INCLUDE_DIR}
 )
 
 export(
@@ -122,8 +121,8 @@ export(
 install(
     EXPORT ignite-odbc-targets
     NAMESPACE ignite::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
-    COMPONENT odbc
+    DESTINATION "${IGNITE_INSTALL_LIBRARY_DIR}/cmake/ignite"
+    COMPONENT odbc-local
     FILE "ignite-odbc-targets.cmake"
 )
 

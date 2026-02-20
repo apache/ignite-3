@@ -82,7 +82,7 @@ public class LargeStringBenchmark extends AbstractMultiNodeBenchmark {
         sql = publicIgnite.sql();
 
         String stmt = format("CREATE TABLE t (id INT PRIMARY KEY, val VARCHAR({}))", Integer.MAX_VALUE);
-        try (ResultSet<SqlRow> rs = sql.execute(null, stmt)) {
+        try (ResultSet<SqlRow> rs = sql.execute(stmt)) {
             assertTrue(rs.wasApplied());
         }
 
@@ -136,7 +136,7 @@ public class LargeStringBenchmark extends AbstractMultiNodeBenchmark {
     public void sqlRwRoWriter(SharedState sharedState, Blackhole bh) {
         int id = sharedState.id.incrementAndGet();
 
-        try (ResultSet<SqlRow> rs = sql.execute(null, "INSERT INTO t VALUES(?, ?)", id, localString)) {
+        try (ResultSet<SqlRow> rs = sql.execute("INSERT INTO t VALUES(?, ?)", id, localString)) {
             bh.consume(rs);
         }
     }
@@ -149,7 +149,7 @@ public class LargeStringBenchmark extends AbstractMultiNodeBenchmark {
     public void sqlRwRoReader(SharedState sharedState, Blackhole bh) {
         int id = ThreadLocalRandom.current().nextInt(sharedState.id.get() + 1);
 
-        try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT val FROM t WHERE id=?", id)) {
+        try (ResultSet<SqlRow> rs = sql.execute("SELECT val FROM t WHERE id=?", id)) {
             bh.consume(rs.hasNext());
         }
     }
@@ -161,7 +161,7 @@ public class LargeStringBenchmark extends AbstractMultiNodeBenchmark {
     public void sqlRwOnly(SharedState sharedState, Blackhole bh) {
         int id = sharedState.id.incrementAndGet();
 
-        try (ResultSet<SqlRow> rs = sql.execute(null, "INSERT INTO t VALUES(?, ?)", id, localString)) {
+        try (ResultSet<SqlRow> rs = sql.execute("INSERT INTO t VALUES(?, ?)", id, localString)) {
             bh.consume(rs);
         }
     }

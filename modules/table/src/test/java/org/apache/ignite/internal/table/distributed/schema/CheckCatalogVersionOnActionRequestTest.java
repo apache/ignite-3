@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
