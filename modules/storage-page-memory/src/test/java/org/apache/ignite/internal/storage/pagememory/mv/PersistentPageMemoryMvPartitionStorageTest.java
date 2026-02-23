@@ -19,6 +19,8 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasuresCount;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasValue;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -37,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,8 +47,7 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metrics.AtomicIntMetric;
-import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.RowId;
@@ -546,7 +546,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         RunConsistentlyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).runConsistentlyMetrics();
 
         // Verify metrics start at zero
-        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 0L);
+        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(0L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
 
         // Execute a simple operation within runConsistently
@@ -558,7 +558,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         });
 
         // Verify duration was recorded
-        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 1L);
+        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(1L));
 
         // Verify active count is decremented back to zero
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
@@ -571,7 +571,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         });
 
         // Verify another duration was recorded
-        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 2L);
+        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(2L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
     }
 
@@ -594,27 +594,11 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         });
 
         // Only one duration should be recorded for the outer call
-        assertDistributionMetricRecordsCount(metrics.runConsistentlyDuration(), 1L);
+        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(1L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
     }
 
-    private static void assertMetricValue(AtomicIntMetric metric, int value) {
-        assertThat(metric.value(), is(value));
-    }
-
-    /**
-     * Verifies that the specified distribution metric has recorded the expected total number of measurements.
-     *
-     * <p>
-     * Rather than checking individual histogram buckets, this method aggregates all recorded measurements across every bucket
-     * and confirms that the expected interaction was captured in at least one of them.
-     */
-    private static void assertDistributionMetricRecordsCount(DistributionMetric metric, long expectedMeasuresCount) {
-        long totalMeasuresCount = Arrays.stream(metric.value()).sum();
-        assertThat(
-                "Unexpected total measures count in distribution metric " + metric.name(),
-                totalMeasuresCount,
-                is(expectedMeasuresCount)
-        );
+    private static void assertMetricValue(LongAdderMetric metric, long value) {
+        assertThat(metric, hasValue(is(value)));
     }
 }

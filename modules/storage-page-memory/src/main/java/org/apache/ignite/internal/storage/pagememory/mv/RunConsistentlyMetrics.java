@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.jetbrains.annotations.TestOnly;
 
@@ -42,7 +42,7 @@ public class RunConsistentlyMetrics {
     };
 
     private final DistributionMetric runConsistentlyDuration;
-    private final AtomicIntMetric runConsistentlyActiveCount;
+    private final LongAdderMetric runConsistentlyActiveCount;
 
     /**
      * Constructor.
@@ -56,7 +56,7 @@ public class RunConsistentlyMetrics {
                 RUN_CONSISTENTLY_DURATION_BOUNDS
         ));
 
-        runConsistentlyActiveCount = metricSource.addMetric(new AtomicIntMetric(
+        runConsistentlyActiveCount = metricSource.addMetric(new LongAdderMetric(
                 "RunConsistentlyActiveCount",
                 "Current number of active runConsistently calls."
         ));
@@ -91,7 +91,7 @@ public class RunConsistentlyMetrics {
 
     /** Returns the runConsistently active count metric for testing. */
     @TestOnly
-    AtomicIntMetric runConsistentlyActiveCount() {
+    LongAdderMetric runConsistentlyActiveCount() {
         return runConsistentlyActiveCount;
     }
 }
