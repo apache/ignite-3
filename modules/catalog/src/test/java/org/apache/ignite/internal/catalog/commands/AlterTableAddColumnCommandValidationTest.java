@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
@@ -34,7 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify validation of {@link AlterTableAddColumnCommand}.
  */
-@SuppressWarnings({"DataFlowIssue", "ThrowableNotThrown"})
+@SuppressWarnings("ThrowableNotThrown")
 public class AlterTableAddColumnCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
@@ -91,6 +92,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         ColumnParams column = ColumnParams.builder()
                 .name("C")
                 .type(INT32)
+                .nullable(true)
                 .build();
 
         builder = fillProperties(builder).columns(List.of(column, column));
@@ -110,6 +112,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                         ColumnParams.builder()
                                 .name("NEW_C")
                                 .type(INT32)
+                                .nullable(true)
                                 .build()
                 ));
     }
@@ -152,18 +155,18 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
     void exceptionIsThrownIfColumnWithGivenNameAlreadyExists() {
         String tableName = "TEST";
         String columnName = "TEST";
-        ColumnParams columnParams = ColumnParams.builder().name(columnName).type(INT32).build();
+
         Catalog catalog = catalogWithTable(builder -> builder
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
-                .columns(List.of(columnParams))
+                .columns(List.of(columnParams(columnName, INT32)))
                 .primaryKey(primaryKey(columnName))
         );
 
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
-                .columns(List.of(columnParams));
+                .columns(List.of(columnParams(columnName, INT32, true)));
 
         assertThrowsWithCause(
                 () -> builder.build().get(new UpdateContext(catalog)),
@@ -176,18 +179,18 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
     void exceptionNotThrownIfColumnWithGivenNameAlreadyExistsWithIfColumnNotExists() {
         String tableName = "TEST";
         String columnName = "TEST";
-        ColumnParams columnParams = ColumnParams.builder().name(columnName).type(INT32).build();
+
         Catalog catalog = catalogWithTable(builder -> builder
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
-                .columns(List.of(columnParams))
+                .columns(List.of(columnParams(columnName, INT32)))
                 .primaryKey(primaryKey(columnName))
         );
 
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
-                .columns(List.of(columnParams))
+                .columns(List.of(columnParams(columnName, INT32, true)))
                 .ifColumnNotExists(true);
 
         assertDoesNotThrow(() -> builder.build().get(new UpdateContext(catalog)));
