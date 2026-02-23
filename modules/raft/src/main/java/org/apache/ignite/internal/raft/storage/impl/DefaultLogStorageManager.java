@@ -210,11 +210,11 @@ public class DefaultLogStorageManager implements LogStorageManager {
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
-            Env env = db.getEnv();
+            Env dbEnv = db.getEnv();
             // Setup background flushes pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
+            dbEnv.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
             // Setup background compactions pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
+            dbEnv.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
             assert (columnFamilyHandles.size() == 3);
             this.metaHandle = columnFamilyHandles.get(0);
