@@ -276,6 +276,59 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void dropDefaultNonNullableColumn() {
+        sql("CREATE TABLE t (id INT PRIMARY KEY)");
+        sql("INSERT INTO t VALUES (0)");
+        sql("ALTER TABLE t ADD COLUMN C1 VARCHAR NOT NULL DEFAULT 'a'");
+        sql("ALTER TABLE t ADD COLUMN C2 VARCHAR NOT NULL DEFAULT 'b'");
+
+        sql("ALTER TABLE t ALTER COLUMN C1 DROP DEFAULT");
+        sql("ALTER TABLE t ALTER COLUMN C2 SET DEFAULT NULL");
+
+        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, "Column 'C1' does not allow NULL",
+                () -> sql("INSERT INTO t (id, c2) VALUES (1, 'c')"));
+        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, "Column 'C2' does not allow NULL",
+                () -> sql("INSERT INTO t (id, c1) VALUES (1, 'c')"));
+
+        sql("INSERT INTO t (id, c1, c2) VALUES (1, 'a1', 'b1')");
+
+        sql("ALTER TABLE t ALTER COLUMN C1 SET DEFAULT 'a2'");
+        sql("ALTER TABLE t ALTER COLUMN C2 SET DEFAULT 'b2'");
+
+        sql("INSERT INTO t (id) VALUES (2)");
+
+        assertQuery("SELECT id, c1, c2 FROM t ORDER BY id")
+                .returns(1, "a", "b")
+                .returns(2, "a1", "b1")
+                .returns(3, "a2", "b2")
+                .check();
+    }
+
+    @Test
+    public void dropDefaultNullableColumn() {
+        sql("CREATE TABLE t (id INT PRIMARY KEY)");
+        sql("INSERT INTO t VALUES (0)");
+        sql("ALTER TABLE t ADD COLUMN C1 VARCHAR DEFAULT 'a'");
+        sql("ALTER TABLE t ADD COLUMN C2 VARCHAR DEFAULT 'b'");
+
+        sql("ALTER TABLE t ALTER COLUMN C1 DROP DEFAULT");
+        sql("ALTER TABLE t ALTER COLUMN C2 SET DEFAULT NULL");
+
+        sql("INSERT INTO t (id) VALUES (1)");
+
+        sql("ALTER TABLE t ALTER COLUMN C1 SET DEFAULT 'a2'");
+        sql("ALTER TABLE t ALTER COLUMN C2 SET DEFAULT 'b2'");
+
+        sql("INSERT INTO t (id) VALUES (2)");
+
+        assertQuery("SELECT id, c1, c2 FROM t ORDER BY id")
+                .returns(1, "a", "b")
+                .returns(2, null, null)
+                .returns(3, "a2", "b2")
+                .check();
+    }
+
+    @Test
     public void setDataTypeSetDefault() {
         sql("CREATE TABLE t (id int PRIMARY KEY, val int)");
 
