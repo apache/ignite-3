@@ -62,6 +62,7 @@ import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
 import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
+import org.rocksdb.FlushOptions;
 import org.rocksdb.Priority;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -434,6 +435,16 @@ public class DefaultLogStorageManager implements LogStorageManager {
     @TestOnly
     RocksDB db() {
         return db;
+    }
+
+    /**
+     * Flushes all SST files to disk.
+     */
+    @TestOnly
+    public void flushSstFiles() throws Exception {
+        try (var flushOptions = new FlushOptions().setWaitForFlush(true)) {
+            db.flush(flushOptions, List.of(metaHandle, confHandle, dataHandle));
+        }
     }
 
     @TestOnly

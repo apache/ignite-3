@@ -171,6 +171,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
+import org.apache.ignite.internal.metrics.logstorage.LogStorageMetrics;
 import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
@@ -450,6 +451,8 @@ public class IgniteImpl implements Ignite {
 
     /** Creator for volatile {@link LogStorageManager} instances. */
     private final VolatileLogStorageManagerCreator volatileLogStorageManagerCreator;
+
+    private final LogStorageMetrics logStorageMetrics;
 
     private final SystemPropertiesComponent systemPropertiesComponent;
 
@@ -924,6 +927,15 @@ public class IgniteImpl implements Ignite {
         Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
 
         volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(name, workDir.resolve("volatile-log-spillout"));
+
+        logStorageMetrics = new LogStorageMetrics(
+                name,
+                metricManager,
+                cmgLogStorageManager,
+                msLogStorageManager,
+                partitionsLogStorageManager,
+                volatileLogStorageManagerCreator
+        );
 
         schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
@@ -1630,6 +1642,7 @@ public class IgniteImpl implements Ignite {
                                 distributionZoneManager,
                                 computeComponent,
                                 volatileLogStorageManagerCreator,
+                                logStorageMetrics,
                                 replicaMgr,
                                 indexNodeFinishedRwTransactionsChecker,
                                 txManager,

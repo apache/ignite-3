@@ -29,6 +29,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /** Test implementation without exporters. */
 public class TestMetricManager implements MetricManager {
@@ -110,6 +111,7 @@ public class TestMetricManager implements MetricManager {
     }
 
     /** Returns the metric for the arguments if it exists. */
+    @TestOnly
     public @Nullable Metric metric(String sourceName, String metricName) {
         MetricSnapshot snapshot = metricSnapshot();
 

@@ -75,6 +75,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("index.builder", true),
             new MetricSource("raft.snapshots", true),
             new MetricSource("messaging", true),
+            new MetricSource("log.storage", true),
             new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.default", true),
             new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.deploymentunits", true),
             new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.scalecube", true),
