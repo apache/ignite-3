@@ -2422,7 +2422,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             Throwable ex
     ) {
         if (ex != null) {
-            Throwable rootCause = ExceptionUtils.unwrapRootCause(ex);
+            Throwable rootCause = unwrapRootCause(ex);
             if (rootCause instanceof RaftException && ((RaftException) rootCause).raftError() == RaftError.EREJECTED_BY_VALIDATOR) {
                 throw new IncompatibleSchemaVersionException(rootCause.getMessage());
             }
