@@ -510,8 +510,8 @@ public class ClientTable implements Table {
                                         if (ctx.firstReqFut != null) {
                                             // Create failed transaction.
                                             // TODO move under enlistment token condition.
-                                            ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null, ctx.pm,
-                                                    null, ch.observableTimestamp(), 0);
+                                            ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null,
+                                                    ctx.pm, null, ch.observableTimestamp(), 0);
                                             failed.fail();
                                             ctx.firstReqFut.complete(failed);
                                             // Txn was not started, rollback is not required.
