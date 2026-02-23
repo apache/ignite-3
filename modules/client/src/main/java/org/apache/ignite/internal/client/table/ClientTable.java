@@ -553,7 +553,7 @@ public class ClientTable implements Table {
                                                 fut.completeExceptionally(ex);
                                             } else {
                                                 // In case of unrecoverable error the tx is already rolled back on coordinator.
-                                                // We need to additionally cleanup directly mapped part.
+                                                // We need to additionally cleanup directly mapped parts.
                                                 tx0.discardDirectMappings(false).handle((ignored, err0) -> {
                                                     if (err0 != null) {
                                                         ex.addSuppressed(err0);

@@ -581,4 +581,13 @@ public class ClientTransaction implements Transaction {
     public String toString() {
         return S.toString(this);
     }
+
+    /**
+     * Returns a killed state.
+     *
+     * @return The value.
+     */
+    public boolean killed() {
+        return state.get() == STATE_KILLED;
+    }
 }
