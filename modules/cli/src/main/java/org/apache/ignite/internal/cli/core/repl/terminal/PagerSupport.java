@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl.terminal;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -71,6 +72,96 @@ public class PagerSupport {
         this.configManagerProvider = null;
         this.pagerEnabledOverride = pagerEnabled;
         this.pagerCommandOverride = resolveCommand(pagerCommand);
+    }
+
+    /**
+     * Opens a streaming pager that allows incremental writes to the pager subprocess.
+     *
+     * <p>The caller must close the returned {@link StreamingPager} when done.
+     * If the pager process cannot be started, the returned pager falls back to writing directly to the terminal.
+     *
+     * @return a new streaming pager instance
+     */
+    public StreamingPager openStreaming() {
+        String command = getPagerCommand();
+        try {
+            if (terminal != null) {
+                terminal.pause();
+            }
+            ProcessBuilder pb = createPagerProcess(command);
+            Process process = pb.start();
+            return new StreamingPager(process);
+        } catch (IOException e) {
+            // Resume terminal immediately since we failed to start the pager
+            if (terminal != null) {
+                try {
+                    terminal.resume();
+                } catch (Exception ignored) {
+                    // Ignore resume errors
+                }
+            }
+            return new StreamingPager(null);
+        }
+    }
+
+    /**
+     * A streaming pager that allows incremental writes to a pager subprocess.
+     *
+     * <p>When the pager process is available, chunks are written directly to its stdin.
+     * When the process is unavailable (fallback mode), chunks are written to the terminal.
+     */
+    public class StreamingPager implements Closeable {
+        private final Process process;
+        private final OutputStream outputStream;
+
+        StreamingPager(Process process) {
+            this.process = process;
+            this.outputStream = process != null ? process.getOutputStream() : null;
+        }
+
+        /**
+         * Writes a chunk of text to the pager.
+         *
+         * @param chunk the text to write
+         */
+        public void write(String chunk) {
+            if (outputStream != null) {
+                try {
+                    outputStream.write(chunk.getBytes(StandardCharsets.UTF_8));
+                    outputStream.flush();
+                } catch (IOException e) {
+                    // Pager process died (e.g. user pressed 'q'), ignore
+                }
+            } else if (terminal != null) {
+                terminal.writer().print(chunk);
+                terminal.writer().flush();
+            }
+        }
+
+        @Override
+        public void close() {
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException ignored) {
+                    // Ignore close errors
+                }
+            }
+            if (process != null) {
+                try {
+                    process.waitFor();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            if (terminal != null) {
+                try {
+                    terminal.resume();
+                } catch (Exception ignored) {
+                    // Ignore resume errors
+                }
+            }
+        }
     }
 
     /**

@@ -42,8 +42,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -73,6 +72,7 @@ import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.cli.sql.PagedSqlResult;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
+import org.apache.ignite.internal.cli.sql.table.AlternateScreenTableRenderer;
 import org.apache.ignite.internal.cli.sql.table.StreamingTableRenderer;
 import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.internal.cli.util.TableTruncator;
@@ -326,6 +326,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                     if (timed) {
                         out.println("Query executed in " + pagedResult.getDurationMs() + " ms");
                     }
+                    out.flush();
                     return 0;
                 }
 
@@ -348,6 +349,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
                 if (timed) {
                     out.println("Query executed in " + pagedResult.getDurationMs() + " ms, " + totalRows + " rows returned");
+                    out.flush();
                 }
 
                 return 0;
@@ -359,37 +361,47 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
         private int streamPlain(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
                 throws SQLException {
-            boolean usePager = pagerSupport.isPagerEnabled();
-            StringBuilder pagerBuf = usePager ? new StringBuilder() : null;
-
-            // Header
-            appendOrPrint(out, pagerBuf, String.join("\t", firstPage.header()) + System.lineSeparator());
-
-            // First page rows
-            int totalRows = printPlainRows(out, pagerBuf, firstPage.content());
-            if (!usePager) {
-                out.flush();
+            if (pagerSupport.isPagerEnabled() && isRealTerminal()) {
+                return streamPlainPager(pagedResult, firstPage);
+            } else {
+                return streamPlainDirect(out, pagedResult, firstPage);
             }
+        }
 
-            // Remaining pages
+        private int streamPlainPager(PagedSqlResult pagedResult, Table<String> firstPage) throws SQLException {
+            try (PagerSupport.StreamingPager pager = pagerSupport.openStreaming()) {
+                Consumer<String> sink = pager::write;
+                sink.accept(String.join("\t", firstPage.header()) + System.lineSeparator());
+
+                int totalRows = printPlainRows(sink, firstPage.content());
+
+                Table<String> page;
+                while ((page = pagedResult.fetchNextPage()) != null) {
+                    totalRows += printPlainRows(sink, page.content());
+                }
+
+                return totalRows;
+            }
+        }
+
+        private int streamPlainDirect(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
+                throws SQLException {
+            Consumer<String> sink = out::print;
+            sink.accept(String.join("\t", firstPage.header()) + System.lineSeparator());
+
+            int totalRows = printPlainRows(sink, firstPage.content());
+            out.flush();
+
             Table<String> page;
             while ((page = pagedResult.fetchNextPage()) != null) {
-                totalRows += printPlainRows(out, pagerBuf, page.content());
-                if (!usePager) {
-                    out.flush();
-                }
-            }
-
-            if (usePager) {
-                pagerSupport.write(pagerBuf.toString());
-            } else {
+                totalRows += printPlainRows(sink, page.content());
                 out.flush();
             }
 
             return totalRows;
         }
 
-        private int printPlainRows(PrintWriter out, StringBuilder pagerBuf, Object[][] content) {
+        private int printPlainRows(Consumer<String> sink, Object[][] content) {
             String lineSep = System.lineSeparator();
             for (Object[] row : content) {
                 StringBuilder line = new StringBuilder();
@@ -397,87 +409,121 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                     if (i > 0) {
                         line.append('\t');
                     }
-                    line.append(String.valueOf(row[i]));
+                    line.append(row[i]);
                 }
                 line.append(lineSep);
-                appendOrPrint(out, pagerBuf, line.toString());
+                sink.accept(line.toString());
             }
             return content.length;
         }
 
         private int streamBoxDrawing(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
                 throws SQLException {
+            if (isRealTerminal() && !pagerSupport.isPagerEnabled()) {
+                return streamBoxDrawingAltScreen(out, pagedResult, firstPage);
+            } else {
+                return streamBoxDrawingBatch(out, pagedResult, firstPage);
+            }
+        }
+
+        private int streamBoxDrawingAltScreen(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
+                throws SQLException {
+            AlternateScreenTableRenderer alt = new AlternateScreenTableRenderer(terminal, truncationConfig);
+            try {
+                alt.enter(firstPage.header(), firstPage.content());
+                int totalRows = firstPage.content().length;
+
+                Table<String> page;
+                while ((page = pagedResult.fetchNextPage()) != null) {
+                    alt.addPage(page.content());
+                    totalRows += page.content().length;
+                }
+
+                alt.finish(totalRows, pagedResult.getDurationMs(), timed);
+
+                // Print final table to main buffer for terminal history.
+                out.print(alt.renderFinalTable());
+                out.flush();
+
+                return totalRows;
+            } finally {
+                alt.leave();
+            }
+        }
+
+        private int streamBoxDrawingBatch(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
+                throws SQLException {
             String[] columnNames = firstPage.header();
 
-            // Collect all pages to calculate column widths across all data.
-            List<Object[][]> allPages = new ArrayList<>();
-            allPages.add(firstPage.content());
-
-            Table<String> page;
-            while ((page = pagedResult.fetchNextPage()) != null) {
-                allPages.add(page.content());
-            }
-
-            // Combine all page content for width calculation.
-            int totalRows = 0;
-            for (Object[][] p : allPages) {
-                totalRows += p.length;
-            }
-            Object[][] allContent = new Object[totalRows][];
-            int idx = 0;
-            for (Object[][] p : allPages) {
-                System.arraycopy(p, 0, allContent, idx, p.length);
-                idx += p.length;
-            }
-
-            // Calculate column widths across all data.
-            // When truncation is disabled, use uncapped widths so columns are as wide as the data needs.
+            // Lock column widths from first page only so we can start streaming immediately.
             TruncationConfig widthCalcConfig = truncationConfig.isTruncateEnabled()
                     ? truncationConfig
                     : new TruncationConfig(true, Integer.MAX_VALUE, 0);
             TableTruncator truncator = new TableTruncator(widthCalcConfig);
-            int[] lockedWidths = truncator.calculateColumnWidths(columnNames, allContent);
+            int[] lockedWidths = truncator.calculateColumnWidths(columnNames, firstPage.content());
 
-            // Truncate header to locked widths
             String[] truncatedHeader = truncateRowCells(columnNames, lockedWidths);
-
             StreamingTableRenderer renderer = new StreamingTableRenderer(truncatedHeader, lockedWidths);
 
-            boolean usePager = pagerSupport.isPagerEnabled();
-            StringBuilder pagerBuf = usePager ? new StringBuilder() : null;
-
-            // Header
-            appendOrPrint(out, pagerBuf, renderer.renderHeader());
-
-            // Render all pages
-            int rowOffset = 0;
-            for (Object[][] pageContent : allPages) {
-                rowOffset = renderPageRows(out, pagerBuf, renderer, pageContent, lockedWidths, rowOffset);
-                if (!usePager) {
-                    out.flush();
-                }
-            }
-
-            // Footer
-            appendOrPrint(out, pagerBuf, renderer.renderFooter());
-
-            if (usePager) {
-                pagerSupport.write(pagerBuf.toString());
+            if (pagerSupport.isPagerEnabled() && isRealTerminal()) {
+                return streamBoxDrawingBatchPager(renderer, lockedWidths, pagedResult, firstPage);
             } else {
+                return streamBoxDrawingBatchDirect(out, renderer, lockedWidths, pagedResult, firstPage);
+            }
+        }
+
+        private int streamBoxDrawingBatchPager(StreamingTableRenderer renderer, int[] lockedWidths,
+                PagedSqlResult pagedResult, Table<String> firstPage) throws SQLException {
+            try (PagerSupport.StreamingPager pager = pagerSupport.openStreaming()) {
+                Consumer<String> sink = pager::write;
+                sink.accept(renderer.renderHeader());
+
+                int rowOffset = renderPageRows(sink, renderer, firstPage.content(), lockedWidths, 0);
+
+                Table<String> page;
+                while ((page = pagedResult.fetchNextPage()) != null) {
+                    rowOffset = renderPageRows(sink, renderer, page.content(), lockedWidths, rowOffset);
+                }
+
+                sink.accept(renderer.renderFooter());
+
+                return rowOffset;
+            }
+        }
+
+        private int streamBoxDrawingBatchDirect(PrintWriter out, StreamingTableRenderer renderer, int[] lockedWidths,
+                PagedSqlResult pagedResult, Table<String> firstPage) throws SQLException {
+            Consumer<String> sink = out::print;
+            sink.accept(renderer.renderHeader());
+
+            int rowOffset = renderPageRows(sink, renderer, firstPage.content(), lockedWidths, 0);
+            out.flush();
+
+            Table<String> page;
+            while ((page = pagedResult.fetchNextPage()) != null) {
+                rowOffset = renderPageRows(sink, renderer, page.content(), lockedWidths, rowOffset);
                 out.flush();
             }
+
+            sink.accept(renderer.renderFooter());
+            out.flush();
 
             return rowOffset;
         }
 
-        private int renderPageRows(PrintWriter out, StringBuilder pagerBuf, StreamingTableRenderer renderer,
+        private boolean isRealTerminal() {
+            String type = terminal.getType();
+            return type != null && !Terminal.TYPE_DUMB.equals(type) && !Terminal.TYPE_DUMB_COLOR.equals(type);
+        }
+
+        private int renderPageRows(Consumer<String> sink, StreamingTableRenderer renderer,
                 Object[][] content, int[] lockedWidths, int rowOffset) {
             for (int r = 0; r < content.length; r++) {
                 Object[] truncatedRow = new Object[content[r].length];
                 for (int c = 0; c < content[r].length; c++) {
                     truncatedRow[c] = TableTruncator.truncateCell(content[r][c], lockedWidths[c]);
                 }
-                appendOrPrint(out, pagerBuf, renderer.renderRow(truncatedRow, rowOffset + r == 0));
+                sink.accept(renderer.renderRow(truncatedRow, rowOffset + r == 0));
             }
             return rowOffset + content.length;
         }
@@ -488,14 +534,6 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
                 result[i] = TableTruncator.truncateCell(row[i], columnWidths[i]);
             }
             return result;
-        }
-
-        private void appendOrPrint(PrintWriter out, StringBuilder pagerBuf, String text) {
-            if (pagerBuf != null) {
-                pagerBuf.append(text);
-            } else {
-                out.print(text);
-            }
         }
     }
 
