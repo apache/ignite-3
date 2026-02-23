@@ -548,6 +548,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         // Verify metrics start at zero
         assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(0L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+        assertMetricValue(metrics.runConsistentlyTotalCount(), 0);
 
         // Execute a simple operation within runConsistently
         storage.runConsistently(locker -> {
@@ -563,6 +564,9 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         // Verify active count is decremented back to zero
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
 
+        // Verify total count is incremented
+        assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
+
         // Execute another operation
         storage.runConsistently(locker -> {
             assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
@@ -573,6 +577,9 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         // Verify another duration was recorded
         assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(2L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+
+        // Verify total count is incremented again
+        assertMetricValue(metrics.runConsistentlyTotalCount(), 2);
     }
 
     @Test
@@ -581,11 +588,13 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         storage.runConsistently(outerLocker -> {
             assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
+            assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
 
-            // Nested call
+            // Nested call - takes fast path, no metrics recorded
             storage.runConsistently(innerLocker -> {
-                // Active count should not increase for nested calls
+                // Active count and total count should not increase for nested calls
                 assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
+                assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
 
                 return null;
             });
@@ -593,9 +602,10 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
             return null;
         });
 
-        // Only one duration should be recorded for the outer call
+        // Only one duration and one total count should be recorded for the outer call
         assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(1L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
+        assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
     }
 
     private static void assertMetricValue(LongAdderMetric metric, long value) {

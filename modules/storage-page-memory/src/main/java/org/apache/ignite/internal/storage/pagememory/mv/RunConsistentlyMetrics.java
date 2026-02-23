@@ -26,8 +26,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Metrics for runConsistently operation.
  *
- * <p>Tracks runConsistently closure execution performance including duration
- * and active call count.
+ * <p>Tracks runConsistently closure execution performance including duration,
+ * active call count, and total invocation count.
  */
 public class RunConsistentlyMetrics {
     /** Histogram bucket bounds for runConsistently duration in nanoseconds. */
@@ -43,6 +43,7 @@ public class RunConsistentlyMetrics {
 
     private final DistributionMetric runConsistentlyDuration;
     private final LongAdderMetric runConsistentlyActiveCount;
+    private final LongAdderMetric runConsistentlyTotalCount;
 
     /**
      * Constructor.
@@ -60,6 +61,11 @@ public class RunConsistentlyMetrics {
                 "RunConsistentlyActiveCount",
                 "Current number of active runConsistently calls."
         ));
+
+        runConsistentlyTotalCount = metricSource.addMetric(new LongAdderMetric(
+                "RunConsistentlyTotalCount",
+                "Total number of runConsistently invocations."
+        ));
     }
 
     /**
@@ -70,10 +76,11 @@ public class RunConsistentlyMetrics {
     }
 
     /**
-     * Increments the active count of runConsistently calls.
+     * Increments the active count and total count of runConsistently calls.
      */
     public void incrementActiveCount() {
         runConsistentlyActiveCount.increment();
+        runConsistentlyTotalCount.increment();
     }
 
     /**
@@ -93,5 +100,11 @@ public class RunConsistentlyMetrics {
     @TestOnly
     LongAdderMetric runConsistentlyActiveCount() {
         return runConsistentlyActiveCount;
+    }
+
+    /** Returns the runConsistently total count metric for testing. */
+    @TestOnly
+    LongAdderMetric runConsistentlyTotalCount() {
+        return runConsistentlyTotalCount;
     }
 }
