@@ -20,6 +20,13 @@ object Javadoc : BuildType({
 
     steps {
         customGradle {
+            name = "Build Javadoc JDK 11"
+            tasks = "aggregateJavadoc"
+            workingDir = "%VCSROOT__IGNITE3%"
+            jdkHome = "%env.JDK_ORA_11%"
+        }
+
+        customGradle {
             name = "Build Javadoc"
             tasks = "aggregateJavadoc"
             workingDir = "%VCSROOT__IGNITE3%"

@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -567,6 +568,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .commitPartitionId(serializeReplicationGroupId(tx.commitPartition()))
                         .coordinatorId(tx.coordinatorId())
+                        .txLabel(txLabel(tx))
                         .build();
 
         if (enlistment != null) {
@@ -937,6 +939,7 @@ public class InternalTableImpl implements InternalTable {
                             .timestamp(txo.schemaTimestamp())
                             .full(false)
                             .coordinatorId(txo.coordinatorId())
+                            .txLabel(txLabel(txo))
                             .build(),
                     (res, req) -> false
             );
@@ -1087,6 +1090,7 @@ public class InternalTableImpl implements InternalTable {
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
+                .txLabel(txLabel(tx))
                 .build();
     }
 
@@ -1153,6 +1157,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> false
         );
@@ -1246,6 +1251,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> false
         ));
@@ -1270,6 +1276,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1329,6 +1336,7 @@ public class InternalTableImpl implements InternalTable {
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
+                .txLabel(txLabel(tx))
                 .build();
     }
 
@@ -1351,6 +1359,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1379,6 +1388,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1403,6 +1413,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> res == null
         ));
@@ -1427,6 +1438,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1451,6 +1463,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> !res
         );
@@ -1475,6 +1488,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
+                        .txLabel(txLabel(txo))
                         .build(),
                 (res, req) -> res == null
         ));
@@ -1627,6 +1641,8 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert opCtx.txContext().isReadOnly();
 
+        TxContext.ReadOnly txContext = (TxContext.ReadOnly) opCtx.txContext();
+
         boolean rangeScan = criteria instanceof IndexScanCriteria.Range;
         boolean lookup = criteria instanceof IndexScanCriteria.Lookup;
 
@@ -1634,8 +1650,6 @@ public class InternalTableImpl implements InternalTable {
         BinaryTuplePrefix lowerBound = rangeScan ? ((IndexScanCriteria.Range) criteria).lowerBound() : null;
         BinaryTuplePrefix upperBound = rangeScan ? ((IndexScanCriteria.Range) criteria).upperBound() : null;
         int flags = rangeScan ? ((IndexScanCriteria.Range) criteria).flags() : 0;
-
-        TxContext.ReadOnly txContext = (TxContext.ReadOnly) opCtx.txContext();
 
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
@@ -1753,6 +1767,11 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert !opCtx.txContext().isReadOnly();
 
+        TxContext.ReadWrite txContext = (TxContext.ReadWrite) opCtx.txContext();
+
+        // Update transaction state meta with label if present.
+        updateLabel(txContext, txContext.commitPartition());
+
         boolean rangeScan = criteria instanceof IndexScanCriteria.Range;
         boolean lookup = criteria instanceof IndexScanCriteria.Lookup;
 
@@ -1760,8 +1779,6 @@ public class InternalTableImpl implements InternalTable {
         BinaryTuplePrefix lowerBound = rangeScan ? ((IndexScanCriteria.Range) criteria).lowerBound() : null;
         BinaryTuplePrefix upperBound = rangeScan ? ((IndexScanCriteria.Range) criteria).upperBound() : null;
         int flags = rangeScan ? ((IndexScanCriteria.Range) criteria).flags() : 0;
-
-        TxContext.ReadWrite txContext = (TxContext.ReadWrite) opCtx.txContext();
 
         ZonePartitionId replicationGroupId = targetReplicationGroupId(partId);
 
@@ -1784,6 +1801,7 @@ public class InternalTableImpl implements InternalTable {
                         .flags(flags)
                         .batchSize(batchSize)
                         .full(false) // Set explicitly.
+                        .txLabel(txContext.label())
                         .build();
 
                 return replicaSvc.invoke(recipient, request);
@@ -1794,6 +1812,30 @@ public class InternalTableImpl implements InternalTable {
                 return completeScan(txContext.txId(), replicationGroupId, scanId, th, recipient.name(), intentionallyClose);
             }
         };
+    }
+
+    /**
+     * Updates transaction meta with the label and commit partition, if a label is present.
+     *
+     * <p>This is used for tracking labeled transactions in the meta storage; unlabeled transactions are ignored.
+     *
+     * @param txContext Transaction context.
+     * @param commitPartition Commit partition to record (may be {@code null}).
+     */
+    private void updateLabel(TxContext txContext, @Nullable ZonePartitionId commitPartition) {
+        String label = txContext.label();
+        if (label != null) {
+            txManager.updateTxMeta(txContext.txId(), old -> TxStateMeta.builder(old, PENDING)
+                    .txCoordinatorId(txContext.coordinatorId())
+                    .commitPartitionId(commitPartition)
+                    .txLabel(label)
+                    .build());
+        }
+    }
+
+    private @Nullable String txLabel(InternalTransaction tx) {
+        TxStateMeta meta = txManager.stateMeta(tx.id());
+        return meta == null ? null : meta.txLabel();
     }
 
     /**

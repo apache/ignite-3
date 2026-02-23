@@ -123,6 +123,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -244,6 +245,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 () -> Long.MAX_VALUE,
                 failureManager,
                 null,
+                new PermissiveSafeTimeValidator(),
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,

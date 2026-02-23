@@ -174,7 +174,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         txCoordInhibitor.stopInhibit();
         startNode(leaseholderNodeIdx);
 
-        // Waiting unitl lease will be granted for the group and the coordinator should be able to get the primary replica for the retry.
+        // Waiting until lease will be granted for the group and the coordinator should be able to get the primary replica for the retry.
         waitAndGetPrimaryReplica(transactionCoordinatorNode,  partitionGroupId);
 
         // Finally we expect the upsert will succeed eventually because of retry with new leaseholder enlisted.

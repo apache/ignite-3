@@ -111,6 +111,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -219,6 +220,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
+                new PermissiveSafeTimeValidator(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,

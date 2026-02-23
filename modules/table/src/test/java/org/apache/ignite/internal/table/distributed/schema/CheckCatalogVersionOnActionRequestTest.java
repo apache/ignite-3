@@ -25,9 +25,9 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -164,7 +164,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
         ErrorResponse errorResponse = (ErrorResponse) result;
         assertThat(errorResponse.errorCode(), is(RaftError.EBUSY.getNumber()));
         assertThat(errorResponse.errorMsg(),
-                is("Metadata not yet available, rejecting ActionRequest with EBUSY [group=test, requiredLevel=6]."));
+                is("Metadata not yet available by catalog version, rejecting ActionRequest with EBUSY [group=test, requiredLevel=6]."));
     }
 
     @ParameterizedTest
