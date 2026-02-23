@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Metrics for runConsistently operation.
@@ -28,28 +30,15 @@ import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
  * and active call count.
  */
 public class RunConsistentlyMetrics {
-    /**
-     * Histogram buckets for runConsistently duration in nanoseconds.
-     *
-     * <p>Covers operations from fast single-row writes to slow bulk operations with checkpoint contention:
-     * <ul>
-     *   <li>10µs: Fast single-row operations without lock contention</li>
-     *   <li>100µs: Multi-row operations, small index operations</li>
-     *   <li>1ms: Medium-sized operations</li>
-     *   <li>10ms: Larger operations, small vacuum operations</li>
-     *   <li>100ms: Large operations, significant vacuum work</li>
-     *   <li>1s: Very slow operations, likely checkpoint write lock contention</li>
-     *   <li>10s: Pathological cases requiring investigation</li>
-     * </ul>
-     */
-    private static final long[] RUN_CONSISTENTLY_NANOS = {
-            10_000,          // 10µs
-            100_000,         // 100µs
-            1_000_000,       // 1ms
-            10_000_000,      // 10ms
-            100_000_000,     // 100ms
-            1_000_000_000,   // 1s
-            10_000_000_000L, // 10s
+    /** Histogram bucket bounds for runConsistently duration in nanoseconds. */
+    private static final long[] RUN_CONSISTENTLY_DURATION_BOUNDS = {
+            TimeUnit.MICROSECONDS.toNanos(10),
+            TimeUnit.MICROSECONDS.toNanos(100),
+            TimeUnit.MILLISECONDS.toNanos(1),
+            TimeUnit.MILLISECONDS.toNanos(10),
+            TimeUnit.MILLISECONDS.toNanos(100),
+            TimeUnit.SECONDS.toNanos(1),
+            TimeUnit.SECONDS.toNanos(10),
     };
 
     private final DistributionMetric runConsistentlyDuration;
@@ -64,7 +53,7 @@ public class RunConsistentlyMetrics {
         runConsistentlyDuration = metricSource.addMetric(new DistributionMetric(
                 "RunConsistentlyDuration",
                 "Time spent in runConsistently closures in nanoseconds.",
-                RUN_CONSISTENTLY_NANOS
+                RUN_CONSISTENTLY_DURATION_BOUNDS
         ));
 
         runConsistentlyActiveCount = metricSource.addMetric(new AtomicIntMetric(
@@ -95,11 +84,13 @@ public class RunConsistentlyMetrics {
     }
 
     /** Returns the runConsistently duration metric for testing. */
+    @TestOnly
     DistributionMetric runConsistentlyDuration() {
         return runConsistentlyDuration;
     }
 
     /** Returns the runConsistently active count metric for testing. */
+    @TestOnly
     AtomicIntMetric runConsistentlyActiveCount() {
         return runConsistentlyActiveCount;
     }

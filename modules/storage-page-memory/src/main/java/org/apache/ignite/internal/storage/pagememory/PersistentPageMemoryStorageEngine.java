@@ -131,7 +131,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     /** For unspecified tasks, i.e. throttling log. */
     private final ExecutorService commonExecutorService;
 
-    private RunConsistentlyMetrics consistencyMetrics;
+    private RunConsistentlyMetrics runConsistentlyMetrics;
 
     /**
      * Constructor.
@@ -260,7 +260,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
 
-        consistencyMetrics = new RunConsistentlyMetrics(storageMetricSource);
+        runConsistentlyMetrics = new RunConsistentlyMetrics(storageMetricSource);
 
         metricManager.registerSource(checkpointMetricSource);
         metricManager.registerSource(storageMetricSource);
@@ -338,7 +338,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 dataRegion,
                 destructionExecutor,
                 failureManager,
-                consistencyMetrics
+                runConsistentlyMetrics
         );
 
         dataRegion.addTableStorage(tableStorage);

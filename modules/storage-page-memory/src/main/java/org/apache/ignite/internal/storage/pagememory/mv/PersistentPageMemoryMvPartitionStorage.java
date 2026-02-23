@@ -63,6 +63,7 @@ import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
@@ -100,7 +101,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final Object leaseInfoLock = new Object();
 
     /** RunConsistently metrics. */
-    final RunConsistentlyMetrics consistencyMetrics;
+    private final RunConsistentlyMetrics runConsistentlyMetrics;
 
     /**
      * Constructor.
@@ -113,7 +114,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
      * @param failureProcessor Failure processor.
-     * @param consistencyMetrics Metric source for runConsistently operations.
+     * @param runConsistentlyMetrics Metric source for runConsistently operations.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -125,7 +126,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             GcQueue gcQueue,
             ExecutorService destructionExecutor,
             FailureProcessor failureProcessor,
-            RunConsistentlyMetrics consistencyMetrics
+            RunConsistentlyMetrics runConsistentlyMetrics
     ) {
         super(
                 partitionId,
@@ -172,7 +173,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         leaseInfo = leaseInfoFromMeta();
 
-        this.consistencyMetrics = consistencyMetrics;
+        this.runConsistentlyMetrics = runConsistentlyMetrics;
     }
 
     /**
@@ -201,29 +202,35 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
                 long startTime = System.nanoTime();
-                consistencyMetrics.incrementActiveCount();
-
-                LocalLocker locker0 = new PersistentPageMemoryLocker();
-
-                checkpointTimeoutLock.checkpointReadLock();
-
-                THREAD_LOCAL_LOCKER.set(locker0);
+                runConsistentlyMetrics.incrementActiveCount();
 
                 try {
-                    return closure.execute(locker0);
+                    return executeRunConsistently(closure);
                 } finally {
-                    THREAD_LOCAL_LOCKER.set(null);
-
-                    // Can't throw any exception, it's safe to do it without try/finally.
-                    locker0.unlockAll();
-
-                    checkpointTimeoutLock.checkpointReadUnlock();
-
                     long duration = System.nanoTime() - startTime;
-                    consistencyMetrics.recordRunConsistentlyDuration(duration);
-                    consistencyMetrics.decrementActiveCount();
+                    runConsistentlyMetrics.recordRunConsistentlyDuration(duration);
+                    runConsistentlyMetrics.decrementActiveCount();
                 }
             });
+        }
+    }
+
+    private <V> V executeRunConsistently(WriteClosure<V> closure) {
+        LocalLocker locker0 = new PersistentPageMemoryLocker();
+
+        checkpointTimeoutLock.checkpointReadLock();
+
+        THREAD_LOCAL_LOCKER.set(locker0);
+
+        try {
+            return closure.execute(locker0);
+        } finally {
+            THREAD_LOCAL_LOCKER.set(null);
+
+            // Can't throw any exception, it's safe to do it without try/finally.
+            locker0.unlockAll();
+
+            checkpointTimeoutLock.checkpointReadUnlock();
         }
     }
 
@@ -449,6 +456,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     boolean writeIntentHeadIsLockedByCurrentThread() {
         return wiHeadLock.isHeldByCurrentThread();
+    }
+
+    /** Returns the runConsistently metrics for testing. */
+    @TestOnly
+    RunConsistentlyMetrics runConsistentlyMetrics() {
+        return runConsistentlyMetrics;
     }
 
     @Override

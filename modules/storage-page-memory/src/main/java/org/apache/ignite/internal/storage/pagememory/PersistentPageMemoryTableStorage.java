@@ -66,7 +66,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     private final FailureProcessor failureProcessor;
 
-    private final RunConsistentlyMetrics consistencyMetrics;
+    private final RunConsistentlyMetrics runConsistentlyMetrics;
 
     /**
      * Constructor.
@@ -77,7 +77,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param dataRegion Data region for the table.
      * @param destructionExecutor Executor service for destruction tasks.
      * @param failureProcessor Failure processor.
-     * @param consistencyMetrics RunConsistently metrics.
+     * @param runConsistentlyMetrics RunConsistently metrics.
      */
     public PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
@@ -86,7 +86,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             PersistentPageMemoryDataRegion dataRegion,
             ExecutorService destructionExecutor,
             FailureProcessor failureProcessor,
-            RunConsistentlyMetrics consistencyMetrics
+            RunConsistentlyMetrics runConsistentlyMetrics
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
@@ -94,7 +94,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
         this.failureProcessor = failureProcessor;
-        this.consistencyMetrics = consistencyMetrics;
+        this.runConsistentlyMetrics = runConsistentlyMetrics;
     }
 
     @Override
@@ -152,7 +152,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     gcQueue,
                     destructionExecutor,
                     failureProcessor,
-                    consistencyMetrics
+                    runConsistentlyMetrics
             );
         });
     }
