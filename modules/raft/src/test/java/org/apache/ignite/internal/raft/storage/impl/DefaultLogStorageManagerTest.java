@@ -18,16 +18,23 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
@@ -48,7 +55,10 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.rocksdb.FlushOptions;
+import org.rocksdb.RocksDBException;
 
 @ExtendWith(WorkDirectoryExtension.class)
 class DefaultLogStorageManagerTest {
@@ -62,11 +72,12 @@ class DefaultLogStorageManagerTest {
     private final Peer peer = new Peer("127.0.0.1");
 
     @BeforeEach
-    void setUp() {
+    void setUp(TestInfo testInfo) {
         logStorageOptions.setConfigurationManager(new ConfigurationManager());
         logStorageOptions.setLogEntryCodecFactory(DefaultLogEntryCodecFactory.getInstance());
 
-        logStorageManager = new DefaultLogStorageManager(workDir);
+        boolean disableFsync = testInfo.getTestMethod().get().isAnnotationPresent(DisableFsync.class);
+        logStorageManager = new DefaultLogStorageManager("test", "test", workDir, !disableFsync);
 
         startFactory();
     }
@@ -149,11 +160,15 @@ class DefaultLogStorageManagerTest {
     }
 
     private static LogEntry dataLogEntry(int index) {
+        return dataLogEntry(index, new byte[0]);
+    }
+
+    private static LogEntry dataLogEntry(int index, byte[] content) {
         LogEntry logEntry = new LogEntry();
 
         logEntry.setId(new LogId(index, 1));
         logEntry.setType(EntryType.ENTRY_TYPE_DATA);
-        logEntry.setData(ByteBuffer.wrap(new byte[0]));
+        logEntry.setData(ByteBuffer.wrap(content));
 
         return logEntry;
     }
@@ -290,5 +305,45 @@ class DefaultLogStorageManagerTest {
                         new RaftNodeId(groupId3, peer).nodeIdStringForStorage()
                 )
         );
+    }
+
+    @Test
+    void totalBytesOnDiskAccountsForWal() throws Exception {
+        int entrySize = 1000;
+
+        long originalSize = logStorageManager.totalBytesOnDisk();
+
+        LogStorage logStorage = createAndInitLogStorage(new ZonePartitionId(1, 0));
+        logStorage.appendEntry(dataLogEntry(1, randomBytes(new Random(), entrySize)));
+
+        // Make sure WAL is accounted for.
+        assertThat(logStorageManager.totalBytesOnDisk(), is(greaterThanOrEqualTo(originalSize + entrySize)));
+    }
+
+    @Test
+    @DisableFsync
+    void totalBytesOnDiskAccountsForSstFiles() throws Exception {
+        int entrySize = 1000;
+
+        long originalSize = logStorageManager.totalBytesOnDisk();
+
+        LogStorage logStorage = createAndInitLogStorage(new ZonePartitionId(1, 0));
+        logStorage.appendEntry(dataLogEntry(1, randomBytes(new Random(), entrySize)));
+
+        // Make sure SST files are accounted for.
+        flushSstFiles();
+        assertThat(logStorageManager.totalBytesOnDisk(), is(greaterThanOrEqualTo(originalSize + entrySize)));
+    }
+
+    private void flushSstFiles() throws RocksDBException {
+        try (var flushOptions = new FlushOptions().setWaitForFlush(true)) {
+            //noinspection resource
+            logStorageManager.db().flush(flushOptions);
+        }
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    private @interface DisableFsync {
     }
 }
