@@ -250,14 +250,16 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                 () -> sql("ALTER TABLE t ADD COLUMN val VARCHAR NOT NULL")
         );
 
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Non-nullable column 'VAL' must have the default value",
-                () -> sql("ALTER TABLE t ADD COLUMN val VARCHAR NOT NULL DEFAULT NULL")
-        );
-
         // Should not throw an exception since default value is provided.
         sql("ALTER TABLE t ADD COLUMN val VARCHAR NOT NULL DEFAULT 'a'");
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Non-nullable column 'VAL2' must have the default value",
+                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR NOT NULL DEFAULT NULL")
+        );
+
+        sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT NULL");
     }
 
     @Test

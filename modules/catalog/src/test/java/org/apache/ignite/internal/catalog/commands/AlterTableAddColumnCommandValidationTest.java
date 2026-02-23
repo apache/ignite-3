@@ -229,7 +229,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         Catalog catalog = catalogWithTable(builder -> builder
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
-                .columns(List.of(ColumnParams.builder().name("ID").type(INT32).build()))
+                .columns(List.of(columnParams("ID", INT32, false)))
                 .primaryKey(primaryKey("ID"))
         );
 
