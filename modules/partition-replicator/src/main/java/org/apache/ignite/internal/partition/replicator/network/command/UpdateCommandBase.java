@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal.partition.replicator.network.command;
+
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.PropertyName;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Contains result of cleanup futures await.
+ * Base for commands executing updates to the storage.
  */
-public class FuturesCleanupResult {
-    private final boolean cleanupNeeded;
+public interface UpdateCommandBase extends PartitionCommand {
+    @PropertyName("tablePartitionId")
+    ReplicationGroupIdMessage commitPartitionId();
 
-    /** Constructor. */
-    public FuturesCleanupResult(boolean cleanupNeeded) {
-        this.cleanupNeeded = cleanupNeeded;
-    }
+    UUID txCoordinatorId();
 
-    public boolean shouldApplyWriteIntent() {
-        return cleanupNeeded;
-    }
+    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
+    @Nullable Long leaseStartTime();
 }

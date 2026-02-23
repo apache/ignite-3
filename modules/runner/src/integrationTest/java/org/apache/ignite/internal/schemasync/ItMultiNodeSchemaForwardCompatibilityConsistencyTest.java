@@ -15,20 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal.schemasync;
 
-/**
- * Contains result of cleanup futures await.
- */
-public class FuturesCleanupResult {
-    private final boolean cleanupNeeded;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-    /** Constructor. */
-    public FuturesCleanupResult(boolean cleanupNeeded) {
-        this.cleanupNeeded = cleanupNeeded;
-    }
-
-    public boolean shouldApplyWriteIntent() {
-        return cleanupNeeded;
+@ExtendWith(ExecutorServiceExtension.class)
+class ItMultiNodeSchemaForwardCompatibilityConsistencyTest extends ItSchemaForwardCompatibilityConsistencyTest {
+    @Override
+    protected int initialNodes() {
+        return 3;
     }
 }

@@ -14,21 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ignite.raft.jraft.option;
 
-package org.apache.ignite.internal.partition.replicator;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Contains result of cleanup futures await.
+ * Validator that never rejects anything.
  */
-public class FuturesCleanupResult {
-    private final boolean cleanupNeeded;
-
-    /** Constructor. */
-    public FuturesCleanupResult(boolean cleanupNeeded) {
-        this.cleanupNeeded = cleanupNeeded;
+public class PermissiveSafeTimeValidator implements SafeTimeValidator {
+    @Override
+    public boolean shouldValidateFor(WriteCommand command) {
+        return false;
     }
 
-    public boolean shouldApplyWriteIntent() {
-        return cleanupNeeded;
+    @Override
+    public SafeTimeValidationResult validate(String groupId, WriteCommand command, HybridTimestamp safeTime) {
+        return SafeTimeValidationResult.forValid();
     }
 }

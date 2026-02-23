@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -170,12 +171,11 @@ public interface TxManager extends IgniteComponent {
     LockManager lockManager();
 
     /**
-     * Execute write intent switch asynchronously.
+     * Executor that writes intent switch asynchronously.
      *
-     * @param runnable Write intent switch action.
-     * @return Future that completes once the write intent switch action finishes.
+     * @return Executor.
      */
-    CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable);
+    Executor writeIntentSwitchExecutor();
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
