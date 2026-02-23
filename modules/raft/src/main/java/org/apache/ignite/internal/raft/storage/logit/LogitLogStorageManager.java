@@ -51,6 +51,7 @@ import sun.nio.ch.DirectBuffer;
 /**
  * Log storage manager for {@link LogitLogStorage} instances.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-27946 remove this.
 public class LogitLogStorageManager implements LogStorageManager {
     private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorageManager.class);
 
@@ -133,7 +134,7 @@ public class LogitLogStorageManager implements LogStorageManager {
 
     @Override
     public long totalBytesOnDisk() {
-        // The implementation is ineffeicient, but it's here just for completeness. Logit is not production ready and will never become
+        // The implementation is inefficient, but it's here just for completeness. Logit is not production ready and will never become
         // production ready.
         try (Stream<Path> paths = Files.walk(logPath)) {
             return paths.filter(Files::isRegularFile)
