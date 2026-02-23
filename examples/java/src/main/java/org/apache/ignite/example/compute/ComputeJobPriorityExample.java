@@ -26,13 +26,12 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
+import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This example demonstrates the usage of the
@@ -56,7 +55,7 @@ public class ComputeJobPriorityExample {
      */
     public static void main(String[] args) throws Exception {
 
-        AbstractDeploymentUnitExample.processDeploymentUnit(args);
+        DeployComputeUnit.processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -76,7 +75,7 @@ public class ComputeJobPriorityExample {
             System.out.println("\nConfiguring compute job...");
 
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             JobDescriptor<Integer, String> lowPriorityJob = JobDescriptor.builder(LowPriorityJob.class)
                     .options(JobExecutionOptions.builder().priority(0).maxRetries(5).build())

@@ -26,14 +26,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
+import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.lang.CancelHandle;
-import org.apache.ignite.lang.CancellationToken;
 
 /**
  * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object, CancellationToken)} API.
@@ -56,7 +54,7 @@ public class ComputeCancellationExample {
      */
     public static void main(String[] args) throws Exception {
 
-        AbstractDeploymentUnitExample.processDeploymentUnit(args);
+        DeployComputeUnit.processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -79,7 +77,7 @@ public class ComputeCancellationExample {
             System.out.println("\nConfiguring compute job...");
 
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))

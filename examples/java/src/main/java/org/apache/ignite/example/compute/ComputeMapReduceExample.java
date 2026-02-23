@@ -28,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.TaskDescriptor;
@@ -36,7 +35,7 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
+import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This example demonstrates the usage of the
@@ -60,7 +59,7 @@ public class ComputeMapReduceExample {
      */
     public static void main(String[] args) throws Exception {
 
-        AbstractDeploymentUnitExample.processDeploymentUnit(args);
+        DeployComputeUnit.processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -79,7 +78,7 @@ public class ComputeMapReduceExample {
 
             System.out.println("\nConfiguring map reduce task...");
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             TaskDescriptor<String, Integer> taskDescriptor = TaskDescriptor.builder(PhraseWordLengthCountMapReduceTask.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))

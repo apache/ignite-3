@@ -26,12 +26,11 @@ import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
+import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 
@@ -57,7 +56,7 @@ public class ComputeWithCustomResultMarshallerExample {
      */
     public static void main(String[] args) throws Exception {
 
-        AbstractDeploymentUnitExample.processDeploymentUnit(args);
+        DeployComputeUnit.processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -80,7 +79,7 @@ public class ComputeWithCustomResultMarshallerExample {
             System.out.println("\nConfiguring compute job...");
 
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             JobDescriptor<String, WordInfoResult> job = JobDescriptor.builder(WordInfoJob.class)
                     .resultMarshaller(new WordInfoResultMarshaller())

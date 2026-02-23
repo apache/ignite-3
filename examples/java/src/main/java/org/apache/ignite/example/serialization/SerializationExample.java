@@ -21,7 +21,7 @@ import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
+import org.apache.ignite.example.util.DeployComputeUnit;
 /**
  * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
  *
@@ -41,18 +41,18 @@ public class SerializationExample {
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
-            AbstractDeploymentUnitExample.processDeploymentUnit(args);
+            DeployComputeUnit.processDeploymentUnit(args);
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NATIVE, VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NATIVE, VERSION, DeployComputeUnit.getJarPath());
             NativeTypeSerializationExample.runNativeSerialization(client);
 
-            deployIfNotExist(DEPLOYMENT_UNIT_TUPLE, VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_TUPLE, VERSION, DeployComputeUnit.getJarPath());
             TupleSerializationExample.runTupleSerialization(client);
 
-            deployIfNotExist(DEPLOYMENT_UNIT_AUTO, VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_AUTO, VERSION, DeployComputeUnit.getJarPath());
             PojoAutoSerializationExample.runPojoAutoSerialization(client);
 
-            deployIfNotExist(DEPLOYMENT_UNIT_CUSTOM, VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_CUSTOM, VERSION, DeployComputeUnit.getJarPath());
             CustomPojoSerializationExample.runPojoCustomJsonSerialization(client);
 
         } finally {

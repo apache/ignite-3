@@ -30,7 +30,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.example.code.deployment.AbstractDeploymentUnitExample;
+import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This code demonstrates the usage of the {@link JobExecution} interface that allows to get job statuses and, for example, handle
@@ -55,7 +55,7 @@ public class ComputeJobStateExample {
      */
     public static void main(String[] args) throws Exception {
 
-        AbstractDeploymentUnitExample.processDeploymentUnit(args);
+        DeployComputeUnit.processDeploymentUnit(args);
 
         //--------------------------------------------------------------------------------------
         //
@@ -77,7 +77,7 @@ public class ComputeJobStateExample {
 
             System.out.println("\nConfiguring compute job...");
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             CompletableFuture<JobExecution<Void>> execution = client.compute().submitAsync(JobTarget.anyNode(client.cluster().nodes()),
                     JobDescriptor.builder(WordPrintJob.class)

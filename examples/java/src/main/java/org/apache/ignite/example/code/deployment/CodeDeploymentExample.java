@@ -21,11 +21,10 @@ import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.BroadcastJobTarget;
-import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
  * This example demonstrates the usage of the { @link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
@@ -44,14 +43,14 @@ public class CodeDeploymentExample {
 
 
     public static void main(String[] args) throws Exception {
-        AbstractDeploymentUnitExample.processDeploymentUnit(args);
+        DeployComputeUnit.processDeploymentUnit(args);
         System.out.println("\nConnecting to server...");
 
         try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
 
             System.out.println("\nConfiguring compute job...");
 
-            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, AbstractDeploymentUnitExample.getJarPath());
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             JobDescriptor<String, String> job = JobDescriptor.builder(MyJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION)).resultClass(String.class).build();
