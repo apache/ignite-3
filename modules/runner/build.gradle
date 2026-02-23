@@ -97,6 +97,8 @@ dependencies {
     implementation project(':ignite-system-disaster-recovery')
     implementation project(':ignite-system-disaster-recovery-api')
     implementation project(':ignite-configuration-storage')
+
+    implementation libs.jakarta.inject
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation

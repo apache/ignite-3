@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.app;
 
+import io.micronaut.context.ApplicationContext;
+import io.micronaut.runtime.Micronaut;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -71,36 +73,39 @@ public class IgniteRunner implements Callable<IgniteServer> {
      * @param args CLI args to start a new node.
      */
     public static void main(String[] args) {
-        IgniteServer server = start(args);
-        AtomicBoolean shutdown = new AtomicBoolean(false);
+        try (ApplicationContext micronautContext = Micronaut.run(IgniteRunner.class, args)) {
+            IgniteServer server = start(args);
+            AtomicBoolean shutdown = new AtomicBoolean(false);
 
-        Handler handler = sig -> {
+            Handler handler = sig -> {
+                try {
+                    System.out.println("Ignite node shutting down...");
+                    shutdown.set(true);
+                    server.shutdown();
+                    micronautContext.stop();
+                } catch (Throwable t) {
+                    System.out.println("Failed to shutdown: " + t.getMessage());
+
+                    t.printStackTrace(System.out);
+                }
+
+                // Copy-paste from default JVM signal handler java.lang.Terminator#setup.
+                System.exit(sig.getNumber() + 0200);
+            };
+
+            Signal.handle(new Signal("INT"), handler);
+            Signal.handle(new Signal("TERM"), handler);
+
             try {
-                System.out.println("Ignite node shutting down...");
-                shutdown.set(true);
-                server.shutdown();
-            } catch (Throwable t) {
-                System.out.println("Failed to shutdown: " + t.getMessage());
+                server.waitForInitAsync().get();
+            } catch (ExecutionException | InterruptedException e) {
+                if (!shutdown.get()) {
+                    System.out.println("Error when starting the node: " + e.getMessage());
 
-                t.printStackTrace(System.out);
-            }
+                    e.printStackTrace(System.out);
 
-            // Copy-paste from default JVM signal handler java.lang.Terminator#setup.
-            System.exit(sig.getNumber() + 0200);
-        };
-
-        Signal.handle(new Signal("INT"), handler);
-        Signal.handle(new Signal("TERM"), handler);
-
-        try {
-            server.waitForInitAsync().get();
-        } catch (ExecutionException | InterruptedException e) {
-            if (!shutdown.get()) {
-                System.out.println("Error when starting the node: " + e.getMessage());
-
-                e.printStackTrace(System.out);
-
-                System.exit(1);
+                    System.exit(1);
+                }
             }
         }
     }
