@@ -298,9 +298,9 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO t (id) VALUES (2)");
 
         assertQuery("SELECT id, c1, c2 FROM t ORDER BY id")
-                .returns(1, "a", "b")
-                .returns(2, "a1", "b1")
-                .returns(3, "a2", "b2")
+                .returns(0, "a", "b")
+                .returns(1, "a1", "b1")
+                .returns(2, "a2", "b2")
                 .check();
     }
 
@@ -322,9 +322,9 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO t (id) VALUES (2)");
 
         assertQuery("SELECT id, c1, c2 FROM t ORDER BY id")
-                .returns(1, "a", "b")
-                .returns(2, null, null)
-                .returns(3, "a2", "b2")
+                .returns(0, "a", "b")
+                .returns(1, null, null)
+                .returns(2, "a2", "b2")
                 .check();
     }
 
