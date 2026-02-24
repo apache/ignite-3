@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.aggressiv
 import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.RAFT_GROUP_LEADERS;
 import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.SOURCE_NAME;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -35,6 +36,8 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     // CMG and Metastore leaders.
     private static final int SYSTEM_RAFT_LEADER_COUNT = 2;
 
+    private static final int PARTITION_COUNT = 10;
+
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         // To trigger zone's raft partitions destruction.
@@ -45,22 +48,22 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     void testLeaderCountIncreases() {
         createZoneIfNotExists();
 
-        awaitExpectedLeaderCount(DEFAULT_PARTITION_COUNT + SYSTEM_RAFT_LEADER_COUNT);
+        awaitExpectedLeaderCount(PARTITION_COUNT + SYSTEM_RAFT_LEADER_COUNT);
     }
 
     @Test
     void testLeaderCountDecreases() {
         createZoneIfNotExists();
 
-        awaitExpectedLeaderCount(DEFAULT_PARTITION_COUNT + SYSTEM_RAFT_LEADER_COUNT);
+        awaitExpectedLeaderCount(PARTITION_COUNT + SYSTEM_RAFT_LEADER_COUNT);
 
         dropZone();
 
         awaitExpectedLeaderCount(SYSTEM_RAFT_LEADER_COUNT);
     }
 
-    private static void awaitExpectedLeaderCount(int expected) {
-        await().until(() -> TestMetricUtils.metricValue(CLUSTER, SOURCE_NAME, RAFT_GROUP_LEADERS) == expected);
+    private static void awaitExpectedLeaderCount(long expected) {
+        await().until(() -> TestMetricUtils.metricValue(CLUSTER, SOURCE_NAME, RAFT_GROUP_LEADERS), is(expected));
     }
 
     private static void dropZone() {
@@ -68,6 +71,6 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void createZoneIfNotExists() {
-        sql("CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH STORAGE_PROFILES='default'");
+        sql("CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH STORAGE_PROFILES='default', PARTITIONS = " + PARTITION_COUNT);
     }
 }

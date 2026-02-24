@@ -19,9 +19,9 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.HashMap;
 import java.util.List;
@@ -100,13 +100,10 @@ public class TestMetricUtils {
 
             if (metric instanceof IntMetric) {
                 result += ((IntMetric) metric).value();
-            } else {
-                assertThat(
-                        "Not a LongMetric / IntMetric [name=" + metricName + ", class=" + metric.getClass().getSimpleName() + ']',
-                        metric,
-                        instanceOf(LongMetric.class));
-
+            } else if (metric instanceof LongMetric) {
                 result += ((LongMetric) metric).value();
+            } else {
+                fail("Not a LongMetric / IntMetric [name=" + metricName + ", class=" + metric.getClass().getSimpleName() + ']');
             }
         }
 
