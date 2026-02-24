@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT;
@@ -372,28 +373,30 @@ public class ClientSql implements IgniteSql {
                 false
         ).handle((BiFunction<AsyncResultSet<T>, Throwable, CompletableFuture<AsyncResultSet<T>>>) (r, err) -> {
             if (err != null) {
-                if (tx == null) {
-                    throw sneakyThrow(err);
+                if (tx == null || !shouldTrackOperation) {
+                    return failedFuture(err);
                 }
 
                 if (ctx.enlistmentToken != null) {
-                    // In case of direct mapping error we need to rollback the tx on coordinator.
+                    // In case of direct mapping error need to rollback the tx on coordinator.
                     return tx.rollbackAsync().handle((ignored, err0) -> {
                         if (err0 != null) {
                             err.addSuppressed(err0);
                         }
 
-                        throw sneakyThrow(err);
+                        sneakyThrow(err);
+                        return null;
                     });
                 } else {
                     // In case of unrecoverable error the tx is already rolled back on coordinator.
-                    // We need to additionally cleanup directly mapped parts.
+                    // Need to additionally cleanup directly mapped parts.
                     return tx.discardDirectMappings(false).handle((ignored, err0) -> {
                         if (err0 != null) {
                             err.addSuppressed(err0);
                         }
 
-                        throw sneakyThrow(err);
+                        sneakyThrow(err);
+                        return null;
                     });
                 }
             }

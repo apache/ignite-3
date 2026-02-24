@@ -39,13 +39,27 @@ public class ClientTransactionKilledException extends TransactionException {
      * @param code Error code.
      * @param message String message.
      * @param txId Related transaction id.
-     * @param causeWithStackTrace The cause.
+     * @param cause The cause.
      */
-    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, UUID txId,
-            IgniteException causeWithStackTrace) {
-        super(traceId, code, message, causeWithStackTrace);
+    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, UUID txId, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
 
         this.txId = txId;
+    }
+
+    /**
+     * Constructor (for copying purposes).
+     *
+     * @param traceId Trace ID.
+     * @param code Error code.
+     * @param message String message.
+     * @param cause The cause.
+     */
+    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
+
+        this.txId = cause instanceof ClientTransactionKilledException
+                ? ((ClientTransactionKilledException) cause).txId : null;
     }
 
     /**

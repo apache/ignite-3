@@ -260,6 +260,7 @@ public class ClientOp {
         OP_MASK.set(STREAMER_BATCH_SEND);
         OP_MASK.set(TX_COMMIT);
         OP_MASK.set(TX_ROLLBACK);
+        OP_MASK.set(TX_DISCARD);
         OP_MASK.set(TUPLE_GET_ALL);
         OP_MASK.set(TUPLE_CONTAINS_ALL_KEYS);
     }
