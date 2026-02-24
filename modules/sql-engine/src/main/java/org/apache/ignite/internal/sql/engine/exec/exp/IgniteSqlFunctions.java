@@ -318,6 +318,7 @@ public class IgniteSqlFunctions {
     }
 
     /** CAST(BOOL AS DECIMAL). */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static BigDecimal toBigDecimal(boolean val, int precision, int scale) {
         throw new UnsupportedOperationException();
     }
@@ -611,6 +612,7 @@ public class IgniteSqlFunctions {
     }
 
     /** Returns the second argument and ignores the first. */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static Object consumeFirstArgument(Object args0, Object args1) {
         return args1;
     }

@@ -66,12 +66,12 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
 
     @Test
     public void joinEmptyTables() {
-        verifyJoin(EMPTY, EMPTY, INNER, EMPTY, joinAlgo());
-        verifyJoin(EMPTY, EMPTY, LEFT, EMPTY, joinAlgo());
-        verifyJoin(EMPTY, EMPTY, RIGHT, EMPTY, joinAlgo());
-        verifyJoin(EMPTY, EMPTY, FULL, EMPTY, joinAlgo());
-        verifyJoin(EMPTY, EMPTY, SEMI, EMPTY, joinAlgo());
-        verifyJoin(EMPTY, EMPTY, ANTI, EMPTY, joinAlgo());
+        verifyJoin(EMPTY, EMPTY, INNER, EMPTY);
+        verifyJoin(EMPTY, EMPTY, LEFT, EMPTY);
+        verifyJoin(EMPTY, EMPTY, RIGHT, EMPTY);
+        verifyJoin(EMPTY, EMPTY, FULL, EMPTY);
+        verifyJoin(EMPTY, EMPTY, SEMI, EMPTY);
+        verifyJoin(EMPTY, EMPTY, ANTI, EMPTY);
     }
 
     @Test
@@ -82,20 +82,20 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {2, "SQL"}
         };
 
-        verifyJoin(EMPTY, right, INNER, EMPTY, joinAlgo());
-        verifyJoin(EMPTY, right, LEFT, EMPTY, joinAlgo());
+        verifyJoin(EMPTY, right, INNER, EMPTY);
+        verifyJoin(EMPTY, right, LEFT, EMPTY);
         verifyJoin(EMPTY, right, RIGHT, new Object[][]{
                 {null, null, "Core"},
                 {null, null, "OLD_Core"},
                 {null, null, "SQL"}
-        }, joinAlgo());
+        });
         verifyJoin(EMPTY, right, FULL, new Object[][]{
                 {null, null, "Core"},
                 {null, null, "OLD_Core"},
                 {null, null, "SQL"}
-        }, joinAlgo());
-        verifyJoin(EMPTY, right, SEMI, EMPTY, joinAlgo());
-        verifyJoin(EMPTY, right, ANTI, EMPTY, joinAlgo());
+        });
+        verifyJoin(EMPTY, right, SEMI, EMPTY);
+        verifyJoin(EMPTY, right, ANTI, EMPTY);
     }
 
     @Test
@@ -106,24 +106,24 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {3, "Alexey", 2}
         };
 
-        verifyJoin(left, EMPTY, INNER, EMPTY, joinAlgo());
+        verifyJoin(left, EMPTY, INNER, EMPTY);
         verifyJoin(left, EMPTY, LEFT, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", null},
                 {3, "Alexey", null}
-        }, joinAlgo());
-        verifyJoin(left, EMPTY, RIGHT, EMPTY, joinAlgo());
+        });
+        verifyJoin(left, EMPTY, RIGHT, EMPTY);
         verifyJoin(left, EMPTY, FULL, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", null},
                 {3, "Alexey", null}
-        }, joinAlgo());
-        verifyJoin(left, EMPTY, SEMI, EMPTY, joinAlgo());
+        });
+        verifyJoin(left, EMPTY, SEMI, EMPTY);
         verifyJoin(left, EMPTY, ANTI, new Object[][]{
                 {1, "Roman"},
                 {2, "Igor"},
                 {3, "Alexey"}
-        }, joinAlgo());
+        });
     }
 
     @Test
@@ -145,33 +145,33 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
                 {3, "Alexey", "SQL"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, LEFT, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
                 {3, "Alexey", "SQL"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, RIGHT, new Object[][]{
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
                 {3, "Alexey", "SQL"},
                 {null, null, "Arch"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, FULL, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
                 {3, "Alexey", "SQL"},
                 {null, null, "Arch"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, SEMI, new Object[][]{
                 {2, "Igor"},
                 {3, "Alexey"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, ANTI, new Object[][]{
                 {1, "Roman"}
-        }, joinAlgo());
+        });
     }
 
     @Test
@@ -198,7 +198,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {1, "Roman", "SQL"},
                 {2, "Ivan", null},
                 {3, "Alexey", "Core"},
-        }, joinAlgo());
+        });
     }
 
     @Test
@@ -224,7 +224,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         verifyJoin(deps, persons, SEMI, new Object[][]{
                 {1, "Core"},
                 {2, "SQL"},
-        }, joinAlgo());
+        });
     }
 
     @Test
@@ -249,7 +249,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
 
         verifyJoin(deps, persons, ANTI, new Object[][]{
                 {3, "QA"}
-        }, joinAlgo());
+        });
     }
 
     @Test
@@ -276,7 +276,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {2, "Igor", "OLD_Core"},
                 {3, "Alexey", "SQL"},
                 {5, "Taras", "Arch"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, LEFT, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
@@ -285,14 +285,14 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {4, "Ivan", null},
                 {5, "Taras", "Arch"},
                 {6, "Lisa", null}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, RIGHT, new Object[][]{
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
                 {3, "Alexey", "SQL"},
                 {5, "Taras", "Arch"},
                 {null, null, "QA"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, FULL, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
@@ -302,17 +302,17 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {5, "Taras", "Arch"},
                 {6, "Lisa", null},
                 {null, null, "QA"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, SEMI, new Object[][]{
                 {2, "Igor"},
                 {3, "Alexey"},
                 {5, "Taras"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, ANTI, new Object[][]{
                 {1, "Roman"},
                 {4, "Ivan"},
                 {6, "Lisa"}
-        }, joinAlgo());
+        });
     }
 
     @Test
@@ -345,7 +345,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {5, "Ivan", "QA"},
                 {6, "Andrey", "OLD_QA"},
                 {6, "Andrey", "QA"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, LEFT, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
@@ -357,7 +357,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {5, "Ivan", "QA"},
                 {6, "Andrey", "OLD_QA"},
                 {6, "Andrey", "QA"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, RIGHT, new Object[][]{
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
@@ -369,7 +369,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {6, "Andrey", "OLD_QA"},
                 {6, "Andrey", "QA"},
                 {null, null, "Arch"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, FULL, new Object[][]{
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
@@ -382,17 +382,17 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                 {6, "Andrey", "OLD_QA"},
                 {6, "Andrey", "QA"},
                 {null, null, "Arch"}
-        }, joinAlgo());
+        });
         verifyJoin(left, right, SEMI, new Object[][]{
                 {2, "Igor"},
                 {3, "Taras"},
                 {4, "Alexey"},
                 {5, "Ivan"},
                 {6, "Andrey"},
-        }, joinAlgo());
+        });
         verifyJoin(left, right, ANTI, new Object[][]{
                 {1, "Roman"}
-        }, joinAlgo());
+        });
     }
 
     enum JoinAlgo {
@@ -408,7 +408,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
      * @param joinType Join type.
      * @param expRes   Expected result.
      */
-    private void verifyJoin(Object[][] left, Object[][] right, JoinRelType joinType, Object[][] expRes, JoinAlgo algo) {
+    private void verifyJoin(Object[][] left, Object[][] right, JoinRelType joinType, Object[][] expRes) {
         ExecutionContext<Object[]> ctx = executionContext();
 
         ScanNode<Object[]> leftNode = new ScanNode<>(ctx, Arrays.asList(left));

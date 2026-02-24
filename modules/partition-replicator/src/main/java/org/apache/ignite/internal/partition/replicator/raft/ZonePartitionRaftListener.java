@@ -208,7 +208,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                 } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
                     result = processCrossTableProcessorsCommand(command, commandIndex, commandTerm, safeTimestamp);
                 } else if (command instanceof SafeTimeSyncCommand) {
-                    result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
+                    result = handleSafeTimeSyncCommand(commandIndex, commandTerm);
                 } else if (command instanceof PrimaryReplicaChangeCommand) {
                     PrimaryReplicaChangeCommand cmd = (PrimaryReplicaChangeCommand) command;
                     LOG.debug("Processing PrimaryReplicaChangeCommand [groupId={}, commandIndex={}, commandTerm={}, "
@@ -522,7 +522,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
      * @param commandIndex RAFT index of the command.
      * @param commandTerm RAFT term of the command.
      */
-    private CommandResult handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
+    private CommandResult handleSafeTimeSyncCommand(long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
             return EMPTY_NOT_APPLIED_RESULT;

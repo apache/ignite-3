@@ -246,7 +246,6 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         } else {
             ValidationResult validationResult = ValidationManager.validateState(
                     state,
-                    command.node().asClusterNode(),
                     command.clusterState()
             );
 
@@ -274,7 +273,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
         LogicalNode logicalNode = logicalNodeFromClusterNodeMessage(command.node());
 
-        return validationManager.validateNode(storageManager.getClusterState(), logicalNode, command.igniteVersion(), command.clusterTag());
+        return validationManager.validateNode(storageManager.getClusterState(), logicalNode, command.clusterTag());
     }
 
     private ValidationResult completeValidation(JoinReadyCommand command) {

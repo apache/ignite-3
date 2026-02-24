@@ -317,6 +317,7 @@ public class PlacementDriverMessageProcessor {
                 });
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter") // term is required by LeaderElectionListener interface
     private void onLeaderElected(InternalClusterNode clusterNode, long term) {
         leaderRef = clusterNode;
         leaderReadyFuture.complete(null);

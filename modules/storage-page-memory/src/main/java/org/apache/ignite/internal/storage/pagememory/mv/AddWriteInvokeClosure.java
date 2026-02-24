@@ -130,6 +130,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return insertRowVersion(NULL_LINK);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter") // existingWriteIntent is used by subclass overrides
     protected RowVersion insertAnotherRowVersion(VersionChain oldRow, @Nullable RowVersion existingWriteIntent) {
         return insertRowVersion(oldRow.newestCommittedLink());
     }

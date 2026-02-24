@@ -621,6 +621,7 @@ public class DataPageIo extends PageIo {
         return directItemId;
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected int getDataOffsetOrNotFoundMarker(long pageAddr, int itemId, int pageSize) {
         assert checkIndex(itemId) : itemId;
 

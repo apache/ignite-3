@@ -28,6 +28,17 @@
 
     <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
     <rule ref="category/java/bestpractices.xml/UnusedPrivateField"/>
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter">
+        <properties>
+            <property name="checkAll" value="true" />
+            <property name="violationSuppressXPath"
+                      value="./ancestor::MethodDeclaration[@Name='main'][@Static = true()]
+                             | ./ancestor::MethodDeclaration[@Name='writeObject' or @Name='readObject']
+                             | ./ancestor::MethodDeclaration[@Visibility = 'protected'][count(Block/*) = 0]
+                                 /ancestor::ClassDeclaration[@Abstract = true()]
+                             | ./ancestor::MethodDeclaration[pmd-java:hasAnnotation('org.junit.jupiter.params.ParameterizedTest')]" />
+        </properties>
+    </rule>
     <rule ref="category/java/bestpractices.xml/AvoidPrintStackTrace" />
     <rule ref="category/java/bestpractices.xml/AvoidReassigningCatchVariables" />
     <rule ref="category/java/bestpractices.xml/MissingOverride" />

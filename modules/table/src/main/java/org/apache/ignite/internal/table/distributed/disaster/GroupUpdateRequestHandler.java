@@ -346,7 +346,7 @@ class GroupUpdateRequestHandler {
                                 ? ByteUtils.bytesToLongKeepingOrder(recoveryTriggerRevisionEntry.value())
                                 : -1L;
                         if (entry.revision() > reductionRevision
-                                && pendingQueueIsViableForRecovery(pendingQueue, aliveNodesConsistentIds, replicas)) {
+                                && pendingQueueIsViableForRecovery(pendingQueue, aliveNodesConsistentIds)) {
                             return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
                         }
                         AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
@@ -367,7 +367,7 @@ class GroupUpdateRequestHandler {
         });
     }
 
-    private static boolean pendingQueueIsViableForRecovery(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds, int replicas) {
+    private static boolean pendingQueueIsViableForRecovery(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds) {
         // Lets assume we have nodes A, B, C, D, E.
         // C, D, E restart.
         // Reset timeout triggers.

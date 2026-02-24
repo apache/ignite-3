@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator.handlers;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -45,14 +44,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
-import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
-import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageClosedException;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageDestroyedException;
@@ -66,9 +62,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class TxCleanupRecoveryRequestHandlerTest extends BaseIgniteAbstractTest {
-    private final TxMessagesFactory txMessagesFactory = new TxMessagesFactory();
-    private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
-
     private final ZonePartitionId replicationGroupId = new ZonePartitionId(0, 0);
 
     @Mock
@@ -111,10 +104,7 @@ class TxCleanupRecoveryRequestHandlerTest extends BaseIgniteAbstractTest {
         when(cursor.iterator()).thenReturn(iterator);
         when(iterator.hasNext()).thenThrow(exceptionFactory.get());
 
-        TxCleanupRecoveryRequest request = txMessagesFactory.txCleanupRecoveryRequest()
-                .groupId(toZonePartitionIdMessage(replicaMessagesFactory, replicationGroupId))
-                .build();
-        assertThat(handler.handle(request), willCompleteSuccessfully());
+        assertThat(handler.handle(), willCompleteSuccessfully());
 
         verify(failureProcessor, never()).process(any());
     }
@@ -143,10 +133,7 @@ class TxCleanupRecoveryRequestHandlerTest extends BaseIgniteAbstractTest {
                     return cleanupFuture;
                 });
 
-        TxCleanupRecoveryRequest request = txMessagesFactory.txCleanupRecoveryRequest()
-                .groupId(toZonePartitionIdMessage(replicaMessagesFactory, replicationGroupId))
-                .build();
-        assertThat(handler.handle(request), willCompleteSuccessfully());
+        assertThat(handler.handle(), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(() -> futures.size() == 1000, 10_000),
                 () -> "Cleanup batch is  " + futures.size());

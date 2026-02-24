@@ -138,6 +138,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private void onMessage(NetworkMessage msg, InternalClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;

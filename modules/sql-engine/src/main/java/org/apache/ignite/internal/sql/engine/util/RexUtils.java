@@ -198,6 +198,7 @@ public class RexUtils {
      * @param maxOrNodes Max OR nodes in output.
      * @return DNF expression representation or {@code null} if limit is reached.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public static @Nullable RexNode tryToDnf(RexBuilder rexBuilder, RexNode node, int maxOrNodes) {
         DnfHelper helper = new DnfHelper(Commons.rexBuilder(), maxOrNodes);
 

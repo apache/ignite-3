@@ -32,7 +32,6 @@ import org.apache.ignite.internal.cluster.management.raft.responses.ValidationEr
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,7 +54,7 @@ public class ValidationManager {
     /**
      * Validates a given {@code state} against the {@code nodeState} received from an {@link InitCmgStateCommand}.
      */
-    static ValidationResult validateState(ClusterState state, InternalClusterNode node, ClusterState nodeState) {
+    static ValidationResult validateState(ClusterState state, ClusterState nodeState) {
         if (!state.cmgNodes().equals(nodeState.cmgNodes())) {
             return ValidationResult.errorResult(String.format(
                     "CMG node names do not match. CMG nodes: %s, nodes stored in CMG: %s",
@@ -94,14 +93,12 @@ public class ValidationManager {
      *
      * @param state Cluster state.
      * @param node Node that wishes to join the logical topology.
-     * @param version Version of the Ignite node.
      * @param clusterTag Cluster tag.
      * @return A {@link ValidationErrorResponse} with validation results.
      */
     protected ValidationResult validateNode(
             @Nullable ClusterState state,
             LogicalNode node,
-            IgniteProductVersion version,
             ClusterTag clusterTag
     ) {
         if (isNodeValidated(node)) {

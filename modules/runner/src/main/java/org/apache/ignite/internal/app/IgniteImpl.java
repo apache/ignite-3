@@ -1026,7 +1026,6 @@ public class IgniteImpl implements Ignite {
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 () -> clusterSvc.topologyService().localMember().id(),
-                registry,
                 metaStorageMgr,
                 logicalTopologyService,
                 failureManager,
@@ -1234,7 +1233,6 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 distributedTblMgr,
                 schemaManager,
-                dataStorageMgr,
                 replicaSvc,
                 clockService,
                 schemaSyncService,

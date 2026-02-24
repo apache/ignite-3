@@ -317,24 +317,6 @@ public class ReplicaService {
     }
 
     /**
-     * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
-     *
-     * <p>If the replica is not yet available, the method will automatically wait for the replica to become ready
-     * before retrying the request. The wait is bounded by the RPC timeout configured in {@code ReplicationConfiguration}.
-     *
-     * @param node Replica node.
-     * @param request Request.
-     * @param storageId Storage id.
-     * @return Response future with either evaluation result or completed exceptionally.
-     * @see NodeStoppingException If either supplier or demander node is stopping.
-     * @see AwaitReplicaTimeoutException If the replica does not become ready within the RPC timeout period.
-     * @see ReplicationTimeoutException If the response could not be received due to a timeout.
-     */
-    public <R> CompletableFuture<R> invoke(InternalClusterNode node, ReplicaRequest request, String storageId) {
-        return sendToReplica(node.name(), request);
-    }
-
-    /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a raw response.
      * This can be used to carry additional metadata to the caller.
      *

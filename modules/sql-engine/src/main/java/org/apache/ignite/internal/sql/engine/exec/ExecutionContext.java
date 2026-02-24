@@ -474,7 +474,7 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
         String nodeName = localNode.name();
 
         if (columns == null) {
-            return new StaticPartitionProvider<>(nodeName, group, sourceId);
+            return new StaticPartitionProvider<>(nodeName, group);
         } else {
             return new DynamicPartitionProvider<>(nodeName, group.assignments(), columns, table);
         }

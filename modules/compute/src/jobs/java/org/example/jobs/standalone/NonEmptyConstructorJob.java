@@ -25,6 +25,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 
 /** A compute job without default constructor. */
 public class NonEmptyConstructorJob implements ComputeJob<Void, String> {
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private NonEmptyConstructorJob(String s) {
     }
 

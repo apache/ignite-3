@@ -456,6 +456,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
         // private final CompletableFuture<MappedFragments> mappedFragments;
 
+        @SuppressWarnings("PMD.UnusedFormalParameter")
         MappingsCacheValue(long topologyVersion, IntSet zoneIds, CompletableFuture<MappedFragmentsWithNodes> mappedFragments) {
             this.topologyVersion = topologyVersion;
             this.zoneIds = zoneIds;

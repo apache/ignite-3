@@ -713,6 +713,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      *     <li>Broadcasts the current CMG state to all nodes in the physical topology.</li>
      * </ol>
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private void onElectedAsLeader(
             long term,
             long configurationTerm,

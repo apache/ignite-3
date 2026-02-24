@@ -184,13 +184,13 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
     private void captureReduceExecution(QueueExecution<R> reduceExecution, Throwable throwable) {
         if (throwable != null) {
-            captureReduceSubmitFailure(throwable);
+            captureReduceSubmitFailure();
         } else {
             handleReduceResult(reduceExecution);
         }
     }
 
-    private void captureReduceSubmitFailure(Throwable throwable) {
+    private void captureReduceSubmitFailure() {
         // Capture the reduce submit failure reason and time.
         TaskStatus status = isCancelled.get() ? CANCELED : FAILED;
 

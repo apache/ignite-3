@@ -106,10 +106,12 @@ public class LoggingRocksDbFlushListener extends AbstractEventListener {
         }
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected void onFlushBeginCallback(RocksDB db, FlushJobInfo flushJobInfo) {
         // No-op.
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected void onFlushCompletedCallback(RocksDB db, FlushJobInfo flushJobInfo) {
         // No-op.
     }

@@ -134,7 +134,7 @@ public class PagesListMetaIo extends PageIo {
         assertPageType(pageAddr);
 
         int cnt = getCount(pageAddr);
-        int cap = getCapacity(pageSize, pageAddr);
+        int cap = getCapacity(pageSize);
 
         if (cnt == cap) {
             return 0;
@@ -196,10 +196,8 @@ public class PagesListMetaIo extends PageIo {
 
     /**
      * Returns maximum number of items which can be stored in buffer.
-     *
-     * @param pageAddr Page address.
      */
-    private int getCapacity(int pageSize, long pageAddr) {
+    private int getCapacity(int pageSize) {
         return (pageSize - ITEMS_OFF) / ITEM_SIZE;
     }
 

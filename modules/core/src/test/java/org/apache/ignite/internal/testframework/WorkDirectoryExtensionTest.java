@@ -146,6 +146,7 @@ class WorkDirectoryExtensionTest {
         private static Path workDir;
 
         @BeforeEach
+        @SuppressWarnings("PMD.UnusedFormalParameter")
         void setUp(@WorkDirectory Path anotherWorkDir) {
             fail("Should not reach here");
         }

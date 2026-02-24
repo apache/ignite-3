@@ -49,7 +49,7 @@ public class IgniteNameUtilsTest {
 
     @ParameterizedTest
     @MethodSource("validUnqoutedIdentifiers")
-    public void validNormalizedIdentifiers(String source, String expected) {
+    public void validNormalizedIdentifiers(String source) {
         assertThat(IgniteNameUtils.isValidNormalizedIdentifier(source), is(true));
     }
 

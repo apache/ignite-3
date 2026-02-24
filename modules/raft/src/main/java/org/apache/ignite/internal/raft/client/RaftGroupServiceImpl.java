@@ -677,7 +677,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
                 executor.schedule(
-                        () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
+                        () -> future.completeExceptionally(new GroupOverloadedException(groupId)),
                         100,
                         TimeUnit.MILLISECONDS
                 );

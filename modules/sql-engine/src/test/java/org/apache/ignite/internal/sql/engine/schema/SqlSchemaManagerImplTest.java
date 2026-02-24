@@ -749,7 +749,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("systemViewDistributions")
-    public void testBasicView(SystemViewType viewType, IgniteDistribution distribution) {
+    public void testBasicView(SystemViewType viewType) {
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
                 createDummySystemView("V1", SystemViewType.NODE),

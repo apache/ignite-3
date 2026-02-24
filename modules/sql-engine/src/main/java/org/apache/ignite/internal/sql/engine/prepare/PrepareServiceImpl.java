@@ -111,7 +111,6 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
-import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -179,7 +178,6 @@ public class PrepareServiceImpl implements PrepareService {
      *
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheFactory A factory to create cache of query plans.
-     * @param dataStorageManager Data storage manager.
      * @param metricManager Metric manager.
      * @param clusterCfg Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
@@ -192,7 +190,6 @@ public class PrepareServiceImpl implements PrepareService {
     public static PrepareServiceImpl create(
             String nodeName,
             CacheFactory cacheFactory,
-            DataStorageManager dataStorageManager,
             MetricManager metricManager,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,

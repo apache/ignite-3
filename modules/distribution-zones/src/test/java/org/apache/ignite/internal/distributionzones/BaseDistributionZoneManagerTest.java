@@ -123,8 +123,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
 
-        var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
-
         catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager, () -> DELAY_DURATION_MS, () -> null);
         components.add(catalogManager);
 
@@ -138,7 +136,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
                 () -> nodeId,
-                revisionUpdater,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 catalogManager,

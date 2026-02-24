@@ -21,7 +21,6 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -41,7 +40,6 @@ public class ClientSqlExecuteBatchRequest {
     /**
      * Processes the request.
      *
-     * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
      * @param sql SQL API.
      * @param resources Resources.
@@ -52,7 +50,6 @@ public class ClientSqlExecuteBatchRequest {
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
-            Executor operationExecutor,
             ClientMessageUnpacker in,
             QueryProcessor sql,
             ClientResourceRegistry resources,

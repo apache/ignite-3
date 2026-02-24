@@ -107,6 +107,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     private ReplicaMeta lastKnownLease;
 
     /** Constructor. */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // partitionOperationsExecutor kept for API compatibility
     public TablePartitionProcessor(
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
@@ -311,7 +312,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -378,7 +379,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -545,7 +546,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         }
     }
 
-    private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+    private void replicaTouch(UUID txId, UUID txCoordinatorId, boolean full) {
         // Saving state is not needed for full transactions.
         if (!full) {
             txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, PENDING)
