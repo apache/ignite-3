@@ -592,7 +592,7 @@ public class ClientSql implements IgniteSql {
                         .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader))
                         .exceptionally(ClientSql::handleException);
             } catch (TransactionException e) {
-                return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
+                return failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
             }
         }
 

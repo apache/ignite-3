@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.tx;
 
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 

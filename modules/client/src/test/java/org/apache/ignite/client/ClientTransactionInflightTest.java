@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -36,7 +37,7 @@ import org.mockito.Mockito;
 /**
  * Tests inflight tracker.
  */
-public class ClientTransactionInflightTest {
+public class ClientTransactionInflightTest extends BaseIgniteAbstractTest {
     private final UUID txId = UUID.randomUUID();
 
     private final ClientTransactionInflights inflights = new ClientTransactionInflights();
