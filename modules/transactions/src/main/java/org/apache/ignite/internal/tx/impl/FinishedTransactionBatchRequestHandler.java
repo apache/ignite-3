@@ -34,6 +34,9 @@ public class FinishedTransactionBatchRequestHandler {
     /** Resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
+    /** Transaction inflights tracker. */
+    private final TransactionInflights transactionInflights;
+
     private final LowWatermark lowWatermark;
 
     private final Executor asyncExecutor;
@@ -43,17 +46,20 @@ public class FinishedTransactionBatchRequestHandler {
      *
      * @param messagingService Messaging service.
      * @param resourcesRegistry Resources registry.
+     * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
      * @param asyncExecutor Executor to run cleanup commands.
      */
     public FinishedTransactionBatchRequestHandler(
             MessagingService messagingService,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
+            TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
             Executor asyncExecutor
     ) {
         this.messagingService = messagingService;
         this.resourcesRegistry = resourcesRegistry;
+        this.transactionInflights = transactionInflights;
         this.lowWatermark = lowWatermark;
         this.asyncExecutor = asyncExecutor;
     }
@@ -74,6 +80,8 @@ public class FinishedTransactionBatchRequestHandler {
     }
 
     private void cleanUpForTransaction(UUID transactionId) {
+        transactionInflights.markReadOnlyTxFinished(transactionId);
+
         resourcesRegistry.close(transactionId);
 
         lowWatermark.unlock(transactionId);

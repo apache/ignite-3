@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -73,7 +74,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -840,7 +840,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26567")
     public void testBroadcastQueryTxInflightStateCleanup() {
         IgniteSql sql = client().sql();
 
@@ -858,7 +857,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             IgniteImpl server = TestWrappers.unwrapIgniteImpl(server(i));
             TxManager txManager = server.txManager();
             TransactionInflights transactionInflights = IgniteTestUtils.getFieldValue(txManager, "transactionInflights");
-            assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights");
+
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(60))
+                    .untilAsserted(() -> assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights"));
         }
     }
 
