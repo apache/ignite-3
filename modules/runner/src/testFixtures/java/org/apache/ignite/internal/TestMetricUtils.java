@@ -70,8 +70,23 @@ public class TestMetricUtils {
      * @param metricNames Metric names.
      * @return Map of metric names to their values.
      */
-    private static Map<String, Long> metricValues(Cluster cluster, String sourceName, List<String> metricNames) {
+    public static Map<String, Long> metricValues(Cluster cluster, String sourceName, List<String> metricNames) {
         Map<String, Long> values = new HashMap<>(metricNames.size());
+
+        for (String metricName : metricNames) {
+            values.put(metricName, metricValue(cluster, sourceName, metricName));
+        }
+
+        return values;
+    }
+
+    /**
+     * Returns the sum of the specified metric on all nodes.
+     *
+     * @param metricName Metric names.
+     */
+    public static long metricValue(Cluster cluster, String sourceName, String metricName) {
+        long result = 0;
 
         for (int i = 0; i < cluster.runningNodes().count(); i++) {
             MetricSet metricSet = unwrapIgniteImpl(cluster.node(i)).metricManager().metricSnapshot().metrics()
@@ -79,24 +94,22 @@ public class TestMetricUtils {
 
             assertThat(metricSet, is(notNullValue()));
 
-            for (String metricName : metricNames) {
-                Metric metric = metricSet.get(metricName);
+            Metric metric = metricSet.get(metricName);
 
-                assertThat(metric, is(notNullValue()));
+            assertThat(metric, is(notNullValue()));
 
-                if (metric instanceof IntMetric) {
-                    values.merge(metricName, (long) ((IntMetric) metric).value(), Long::sum);
-                } else {
-                    assertThat(
-                            "Not a LongMetric / IntMetric [name=" + metricName + ", class=" + metric.getClass().getSimpleName() + ']',
-                            metric,
-                            instanceOf(LongMetric.class));
+            if (metric instanceof IntMetric) {
+                result += ((IntMetric) metric).value();
+            } else {
+                assertThat(
+                        "Not a LongMetric / IntMetric [name=" + metricName + ", class=" + metric.getClass().getSimpleName() + ']',
+                        metric,
+                        instanceOf(LongMetric.class));
 
-                    values.merge(metricName, ((LongMetric) metric).value(), Long::sum);
-                }
+                result += ((LongMetric) metric).value();
             }
         }
 
-        return values;
+        return result;
     }
 }

@@ -18,23 +18,22 @@
 package org.apache.ignite.raft;
 
 import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.aggressiveLowWatermarkIncreaseClusterConfig;
-import static org.apache.ignite.internal.TestMetricUtils.testMetricChangeAfterOperation;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.RAFT_GROUP_LEADERS;
 import static org.apache.ignite.internal.metrics.sources.RaftMetricSource.SOURCE_NAME;
 import static org.awaitility.Awaitility.await;
 
-import java.util.List;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.TestMetricUtils;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link RaftMetricSource}. */
 public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
+
+    // CMG and Metastore leaders.
+    private static final int SYSTEM_RAFT_LEADER_COUNT = 2;
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
@@ -42,54 +41,33 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
         builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());
     }
 
-    @BeforeEach
-    void setUp() {
-        dropTableAndZone();
-    }
-
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27728")
     void testLeaderCountIncreases() {
-        testMetricChangeAfterOperation(
-                CLUSTER,
-                SOURCE_NAME,
-                List.of(RAFT_GROUP_LEADERS),
-                List.of((long) DEFAULT_PARTITION_COUNT),
-                ItRaftMetricTest::createZoneAndTable
-        );
+        createZoneIfNotExists();
+
+        awaitExpectedLeaderCount(DEFAULT_PARTITION_COUNT + SYSTEM_RAFT_LEADER_COUNT);
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27728")
     void testLeaderCountDecreases() {
-        createZoneAndTable();
+        createZoneIfNotExists();
 
-        testMetricChangeAfterOperation(
-                CLUSTER,
-                SOURCE_NAME,
-                List.of(RAFT_GROUP_LEADERS),
-                List.of((long) -DEFAULT_PARTITION_COUNT),
-                () -> {
-                    int initialNodes = getRaftNodesCount();
+        awaitExpectedLeaderCount(DEFAULT_PARTITION_COUNT + SYSTEM_RAFT_LEADER_COUNT);
 
-                    dropTableAndZone();
+        dropZone();
 
-                    // Waiting for zone partitions to be destroyed.
-                    await().until(() -> initialNodes - getRaftNodesCount() >= DEFAULT_PARTITION_COUNT);
-                });
+        awaitExpectedLeaderCount(SYSTEM_RAFT_LEADER_COUNT);
     }
 
-    private static void dropTableAndZone() {
-        sql("DROP ZONE IF EXISTS " + ZONE_NAME);
+    private static void awaitExpectedLeaderCount(int expected) {
+        await().until(() -> TestMetricUtils.metricValue(CLUSTER, SOURCE_NAME, RAFT_GROUP_LEADERS) == expected);
     }
 
-    private static void createZoneAndTable() {
-        sql("CREATE ZONE " + ZONE_NAME + " WITH STORAGE_PROFILES='default'");
+    private static void dropZone() {
+        sql("DROP ZONE " + ZONE_NAME);
     }
 
-    private static int getRaftNodesCount() {
-        return CLUSTER.runningNodes()
-                .mapToInt(node -> unwrapIgniteImpl(node).raftManager().localNodes().size())
-                .sum();
+    private static void createZoneIfNotExists() {
+        sql("CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH STORAGE_PROFILES='default'");
     }
 }
