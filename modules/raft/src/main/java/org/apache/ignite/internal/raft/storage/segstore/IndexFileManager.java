@@ -95,12 +95,6 @@ import org.jetbrains.annotations.Nullable;
  * @see SegmentFileManager
  */
 class IndexFileManager {
-    /**
-     * Maximum number of times we try to read data from a segment file returned based the index before giving up and throwing an
-     * exception. See {@link #getSegmentFilePointer} for more information.
-     */
-    private static final int MAX_NUM_INDEX_FILE_READ_RETRIES = 5;
-
     private static final IgniteLogger LOG = Loggers.forClass(IndexFileManager.class);
 
     static final int MAGIC_NUMBER = 0x6BF0A76A;
@@ -262,68 +256,57 @@ class IndexFileManager {
         return newIndexFilePath;
     }
 
-    void onIndexFileRemoved(FileProperties indexFileProperties) {
-        groupIndexMetas.values().forEach(groupIndexMeta -> groupIndexMeta.onIndexRemoved(indexFileProperties));
-    }
-
     /**
      * Returns a pointer into a segment file that contains the entry for the given group's index. Returns {@code null} if the given log
      * index could not be found in any of the index files.
      */
     @Nullable
     SegmentFilePointer getSegmentFilePointer(long groupId, long logIndex) throws IOException {
-        return getSegmentFilePointer(groupId, logIndex, 1);
-    }
+        while (true) {
+            GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
 
-    @Nullable
-    private SegmentFilePointer getSegmentFilePointer(long groupId, long logIndex, int attemptNum) throws IOException {
-        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+            if (groupIndexMeta == null) {
+                return null;
+            }
 
-        if (groupIndexMeta == null) {
-            return null;
-        }
+            IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
 
-        IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
+            if (indexFileMeta == null) {
+                return null;
+            }
 
-        if (indexFileMeta == null) {
-            return null;
-        }
+            Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileProperties()));
 
-        Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileProperties()));
+            // TODO: Consider caching the opened channels for index files: https://issues.apache.org/jira/browse/IGNITE-26622.
+            try (SeekableByteChannel channel = Files.newByteChannel(indexFile, StandardOpenOption.READ)) {
+                // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex)
+                // range.
+                long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
 
-        try (SeekableByteChannel channel = Files.newByteChannel(indexFile, StandardOpenOption.READ)) {
-            // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex) range.
-            long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
+                assert payloadArrayIndex >= 0 : payloadArrayIndex;
 
-            assert payloadArrayIndex >= 0 : payloadArrayIndex;
+                long payloadOffset = indexFileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
 
-            long payloadOffset = indexFileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
+                channel.position(payloadOffset);
 
-            channel.position(payloadOffset);
+                ByteBuffer segmentPayloadOffsetBuffer = ByteBuffer.allocate(Integer.BYTES).order(BYTE_ORDER);
 
-            ByteBuffer segmentPayloadOffsetBuffer = ByteBuffer.allocate(Integer.BYTES).order(BYTE_ORDER);
+                while (segmentPayloadOffsetBuffer.hasRemaining()) {
+                    int bytesRead = channel.read(segmentPayloadOffsetBuffer);
 
-            while (segmentPayloadOffsetBuffer.hasRemaining()) {
-                int bytesRead = channel.read(segmentPayloadOffsetBuffer);
-
-                if (bytesRead == -1) {
-                    throw new EOFException("EOF reached while reading index file: " + indexFile);
+                    if (bytesRead == -1) {
+                        throw new EOFException("EOF reached while reading index file: " + indexFile);
+                    }
                 }
+
+                int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
+
+                return new SegmentFilePointer(indexFileMeta.indexFileProperties(), segmentPayloadOffset);
+            } catch (NoSuchFileException e) {
+                // There exists a race between the Garbage Collection process and "groupIndexMetas.get" call. It is possible that
+                // groupIndexMetas returned stale information, we should simply retry in this case.
+                LOG.info("Index file {} not found, retrying.", indexFile);
             }
-
-            int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
-
-            return new SegmentFilePointer(indexFileMeta.indexFileProperties(), segmentPayloadOffset);
-        } catch (NoSuchFileException e) {
-            // There exists a race between the Garbage Collection process and "groupIndexMetas.get" call. It is possible that
-            // groupIndexMetas returned stale information, we should simply retry in this case.
-            if (attemptNum == MAX_NUM_INDEX_FILE_READ_RETRIES) {
-                throw e;
-            }
-
-            LOG.info("Index file {} not found, retrying (attempt {}/{}).", indexFile, attemptNum, MAX_NUM_INDEX_FILE_READ_RETRIES - 1);
-
-            return getSegmentFilePointer(groupId, logIndex, attemptNum + 1);
         }
     }
 
@@ -433,6 +416,7 @@ class IndexFileManager {
     private void putIndexFileMeta(IndexMetaSpec metaSpec) {
         IndexFileMeta indexFileMeta = metaSpec.indexFileMeta();
 
+        // Using boxed value to avoid unnecessary autoboxing later.
         Long groupId = metaSpec.groupId();
 
         long firstIndexKept = metaSpec.firstIndexKept();

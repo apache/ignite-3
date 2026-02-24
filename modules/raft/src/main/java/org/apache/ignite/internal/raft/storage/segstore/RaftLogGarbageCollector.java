@@ -142,6 +142,7 @@ class RaftLogGarbageCollector {
         }
     }
 
+    // TODO: Optimize compaction of completely truncated files, see https://issues.apache.org/jira/browse/IGNITE-27964.
     @VisibleForTesting
     void compactSegmentFile(SegmentFile segmentFile) throws IOException {
         LOG.info("Compacting segment file: {}.", segmentFile.path());
@@ -231,8 +232,6 @@ class RaftLogGarbageCollector {
                         - Files.size(newIndexFilePath);
             } else {
                 // We got lucky and the whole file can be removed.
-                indexFileManager.onIndexFileRemoved(segmentFile.fileProperties());
-
                 logSizeDelta = Files.size(segmentFile.path()) + Files.size(indexFilePath);
             }
 

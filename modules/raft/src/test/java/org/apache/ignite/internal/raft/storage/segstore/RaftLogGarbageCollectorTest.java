@@ -312,7 +312,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
                 Path curSegmentFilePath = segmentFiles.get(0);
 
-                // Unlike in the similar test, segment files will never be removed completely due to the presense of the second group.
+                // Unlike in the similar test, segment files will never be removed completely due to the presence of the second group.
                 // Because of that we need to use more complex logic to iterate over the segment files.
                 int segmentFilesIndex = 0;
 

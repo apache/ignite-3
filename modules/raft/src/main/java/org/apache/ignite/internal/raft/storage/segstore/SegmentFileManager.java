@@ -96,12 +96,6 @@ class SegmentFileManager implements ManuallyCloseable {
 
     private static final int ROLLOVER_WAIT_TIMEOUT_MS = 30_000;
 
-    /**
-     * Maximum number of times we try to read data from a segment file returned based the index before giving up and throwing an
-     * exception. See {@link #readFromOtherSegmentFiles} for more information.
-     */
-    private static final int MAX_NUM_INDEX_FILE_READ_RETRIES = 5;
-
     static final int MAGIC_NUMBER = 0x56E0B526;
 
     static final int FORMAT_VERSION = 1;
@@ -214,6 +208,7 @@ class SegmentFileManager implements ManuallyCloseable {
                     // Create missing index files.
                     FileProperties segmentFileProperties = SegmentFile.fileProperties(segmentFilePath);
 
+                    // TODO: we may want to load the file list into memory, see https://issues.apache.org/jira/browse/IGNITE-27961
                     if (!Files.exists(indexFileManager.indexFilePath(segmentFileProperties))) {
                         LOG.info("Creating missing index file for segment file {}.", segmentFilePath);
 
@@ -340,7 +335,7 @@ class SegmentFileManager implements ManuallyCloseable {
             searchResult = checkpointer.findSegmentPayloadInQueue(groupId, logIndex);
 
             if (searchResult.searchOutcome() == SearchOutcome.CONTINUE_SEARCH) {
-                searchResult = readFromOtherSegmentFiles(groupId, logIndex, 1);
+                searchResult = readFromOtherSegmentFiles(groupId, logIndex);
             }
         }
 
@@ -555,33 +550,29 @@ class SegmentFileManager implements ManuallyCloseable {
         }
     }
 
-    private EntrySearchResult readFromOtherSegmentFiles(long groupId, long logIndex, int attemptNum) throws IOException {
-        SegmentFilePointer segmentFilePointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
+    private EntrySearchResult readFromOtherSegmentFiles(long groupId, long logIndex) throws IOException {
+        while (true) {
+            SegmentFilePointer segmentFilePointer = indexFileManager.getSegmentFilePointer(groupId, logIndex);
 
-        if (segmentFilePointer == null) {
-            return EntrySearchResult.notFound();
-        }
-
-        Path path = segmentFilesDir.resolve(SegmentFile.fileName(segmentFilePointer.fileProperties()));
-
-        // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
-        try {
-            SegmentFile segmentFile = SegmentFile.openExisting(path, isSync);
-
-            ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
-
-            return EntrySearchResult.success(buffer);
-        } catch (FileNotFoundException e) {
-            // When reading from a segment file based on information from the index manager, there exists a race with the Garbage Collector:
-            // index manager can return a pointer to a segment file that may have been compacted. In this case, we should just retry and
-            // get the more recent information.
-            if (attemptNum == MAX_NUM_INDEX_FILE_READ_RETRIES) {
-                throw e;
+            if (segmentFilePointer == null) {
+                return EntrySearchResult.notFound();
             }
 
-            LOG.info("Segment file {} not found, retrying (attempt {}/{}).", path, attemptNum, MAX_NUM_INDEX_FILE_READ_RETRIES - 1);
+            Path path = segmentFilesDir.resolve(SegmentFile.fileName(segmentFilePointer.fileProperties()));
 
-            return readFromOtherSegmentFiles(groupId, logIndex, attemptNum + 1);
+            // TODO: Add a cache for recently accessed segment files, see https://issues.apache.org/jira/browse/IGNITE-26622.
+            try {
+                SegmentFile segmentFile = SegmentFile.openExisting(path, isSync);
+
+                ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
+
+                return EntrySearchResult.success(buffer);
+            } catch (FileNotFoundException e) {
+                // When reading from a segment file based on information from the index manager, there exists a race with the Garbage
+                // Collector: index manager can return a pointer to a segment file that may have been compacted. In this case, we should
+                // just retry and get more recent information.
+                LOG.info("Segment file {} not found, retrying.", path);
+            }
         }
     }
 
