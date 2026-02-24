@@ -22,13 +22,12 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.apache.ignite.catalog.annotations.Column;
 
 /**
@@ -152,11 +151,21 @@ public final class MapperBuilder<T> {
      * @throws IllegalArgumentException If a field is {@code null} or if the class has no declared field with the given name.
      */
     private String requireValidField(String fieldName) {
-        try {
-            if (fieldName == null || targetType.getDeclaredField(fieldName) == null) {
-                throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
-            }
-        } catch (NoSuchFieldException e) {
+        if (fieldName == null) {
+            throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
+        }
+
+        boolean fieldNotExists = typeHierarchy(targetType)
+                .noneMatch(t -> {
+                    try {
+                        t.getDeclaredField(fieldName);
+                        return true;
+                    } catch (NoSuchFieldException e) {
+                        return false;
+                    }
+                });
+
+        if (fieldNotExists) {
             throw new IllegalArgumentException(
                     String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
         }
@@ -285,7 +294,8 @@ public final class MapperBuilder<T> {
         }
 
         if (automapFlag) {
-            getAllFields(targetType).stream()
+            typeHierarchy(targetType)
+                    .flatMap(t -> Arrays.stream(t.getDeclaredFields()))
                     .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
                     .map(MapperBuilder::getColumnToFieldMapping)
                     .filter(entry -> !fields.contains(entry.getValue()))
@@ -304,13 +314,9 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Gets all fields of the given class and its parents (if any).
+     * Provides a Stream of the Class hierarchy for the provided type. Ordered from Base to Superclasses.
      */
-    private static List<Field> getAllFields(Class<?> clazz) {
-        var result = new ArrayList<Field>();
-        for (Class<?> current = clazz; current != Object.class; current = current.getSuperclass()) {
-            Collections.addAll(result, current.getDeclaredFields());
-        }
-        return result;
+    private static Stream<Class<?>> typeHierarchy(Class<?> clazz) {
+        return Stream.iterate(clazz, c -> c != Object.class, Class::getSuperclass);
     }
 }
