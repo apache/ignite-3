@@ -105,14 +105,14 @@ public enum ProtocolBitmaskFeature {
     TX_DIRECT_MAPPING_SEND_REMOTE_WRITES(15),
 
     /**
-     * Send discard requests to directly mapped partitions.
-     */
-    TX_DIRECT_MAPPING_SEND_DISCARD(16),
-
-    /**
      * Client supports Partition Awareness for SQL queries with table name in the response metadata.
      */
-    SQL_PARTITION_AWARENESS_TABLE_NAME(17);
+    SQL_PARTITION_AWARENESS_TABLE_NAME(16),
+
+    /**
+     * Send discard requests to directly mapped partitions.
+     */
+    TX_DIRECT_MAPPING_SEND_DISCARD(17);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
