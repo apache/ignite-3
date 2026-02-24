@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raftsnapshot;
 
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.awaitility.Awaitility.await;
@@ -27,9 +25,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.Map;
 import java.util.Random;
-import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.metrics.LongGauge;
@@ -57,10 +53,12 @@ class ItLogStorageMetricsTest extends ClusterPerTestIntegrationTest {
     void totalLogStorageMetricIsUpdated() throws Exception {
         LongGauge totalLogStorageSize = totalLogStorageSizeGauge();
 
-        feedLogStorageWithAtLeast1MbOfData();
+        int valueLength = 1_000_000;
+
+        feedLogStorageWithBlob(valueLength);
 
         await().alias("Total log storage size should reach the expected value")
-                .until(totalLogStorageSize::value, is(greaterThanOrEqualTo(1_000_000L)));
+                .until(totalLogStorageSize::value, is(greaterThanOrEqualTo((long) valueLength)));
     }
 
     private LongGauge totalLogStorageSizeGauge() {
@@ -77,17 +75,12 @@ class ItLogStorageMetricsTest extends ClusterPerTestIntegrationTest {
         return totalLogStorageSize;
     }
 
-    private void feedLogStorageWithAtLeast1MbOfData() throws Exception {
-        node.sql().executeScript("CREATE TABLE " + TABLE_NAME + "(ID INT PRIMARY KEY, VAL VARBINARY)");
-
-        Random random = new Random();
-        Map<Integer, byte[]> batch = IntStream.range(0, 100)
-                .boxed()
-                .collect(toMap(identity(), n -> randomBytes(random, 10_000)));
+    private void feedLogStorageWithBlob(int valueLength) throws Exception {
+        node.sql().executeScript("CREATE TABLE " + TABLE_NAME + "(ID INT PRIMARY KEY, VAL VARBINARY(" + valueLength + "))");
 
         node.tables().table(TABLE_NAME)
                 .keyValueView(Integer.class, byte[].class)
-                .putAll(batch);
+                .put(1, randomBytes(new Random(), valueLength));
 
         DefaultLogStorageManager logStorageManager = (DefaultLogStorageManager) unwrapIgniteImpl(node).partitionsLogStorageManager();
         logStorageManager.flushSstFiles();
