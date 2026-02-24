@@ -74,8 +74,4 @@ class ItDefaultPartitionCountTest extends ClusterPerTestIntegrationTest {
 
         return descriptor;
     }
-
-    private void sql(String sql) {
-        node(0).sql().executeScript(sql);
-    }
 }
