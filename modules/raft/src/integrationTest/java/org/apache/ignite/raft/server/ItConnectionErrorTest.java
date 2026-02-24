@@ -115,7 +115,7 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
                 RaftGroupOptions groupOptions = groupOptions(raftServer);
 
-                groupOptions.setLogStorageFactory(logStorageFactories.get(finalI));
+                groupOptions.setLogStorageManager(logStorageFactories.get(finalI));
                 groupOptions.serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(

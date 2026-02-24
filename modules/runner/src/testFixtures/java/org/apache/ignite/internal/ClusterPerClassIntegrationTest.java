@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllResultSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
@@ -30,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -566,26 +566,13 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected static void sqlScript(String query, Object... args) {
-        IgniteSql sql = CLUSTER.aliveNode().sql();
-
-        sql.executeScript(query, args);
+        sqlScript(CLUSTER.aliveNode(), query, args);
     }
 
-    private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
-        List<List<Object>> res = new ArrayList<>();
+    protected static void sqlScript(Ignite node, String query, Object... args) {
+        IgniteSql sql = node.sql();
 
-        while (resultSet.hasNext()) {
-            SqlRow sqlRow = resultSet.next();
-
-            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
-            for (int i = 0; i < sqlRow.columnCount(); i++) {
-                row.add(sqlRow.value(i));
-            }
-
-            res.add(row);
-        }
-
-        return res;
+        sql.executeScript(query, args);
     }
 
     /**

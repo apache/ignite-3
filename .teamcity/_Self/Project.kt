@@ -25,5 +25,6 @@ object Project : Project({
         hiddenText("env.GRADLE_OPTS", "-Dorg.gradle.caching=true")
         hiddenText("env.JAVA_HOME", "%env.JDK_ORA_17%")
         hiddenText("env.M2_HOME", "%teamcity.tool.maven.DEFAULT%")
+        hiddenText("teamcity.internal.docker.busybox", "docker.gridgain.com/dockerhub-proxy/busybox:latest")
     }
 })

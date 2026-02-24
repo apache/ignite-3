@@ -18,19 +18,23 @@
 package org.apache.ignite.internal.raft.storage.logit;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
@@ -45,10 +49,11 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import sun.nio.ch.DirectBuffer;
 
 /**
- * Log storage factory for {@link LogitLogStorage} instances.
+ * Log storage manager for {@link LogitLogStorage} instances.
  */
-public class LogitLogStorageFactory implements LogStorageFactory {
-    private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorageFactory.class);
+// TODO: https://issues.apache.org/jira/browse/IGNITE-27946 remove this.
+public class LogitLogStorageManager implements LogStorageManager {
+    private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorageManager.class);
 
     private static final String LOG_DIR_PREFIX = "log-";
 
@@ -66,7 +71,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
      * @param logPath Function to get base path of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Path logPath) {
+    public LogitLogStorageManager(String nodeName, StoreOptions storeOptions, Path logPath) {
         this.logPath = logPath;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
@@ -125,6 +130,19 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     public LogSyncer logSyncer() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21955
         return new NoOpLogSyncer();
+    }
+
+    @Override
+    public long totalBytesOnDisk() {
+        // The implementation is inefficient, but it's here just for completeness. Logit is not production ready and will never become
+        // production ready.
+        try (Stream<Path> paths = Files.walk(logPath)) {
+            return paths.filter(Files::isRegularFile)
+                    .mapToLong(path -> path.toFile().length())
+                    .sum();
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
     }
 
     /** Returns path to log storage by group ID. */

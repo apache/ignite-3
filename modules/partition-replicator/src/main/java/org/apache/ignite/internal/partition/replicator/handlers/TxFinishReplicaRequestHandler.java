@@ -232,24 +232,7 @@ public class TxFinishReplicaRequestHandler {
 
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
         if (!validationResult.isSuccessful()) {
-            if (validationResult.isTableDropped()) {
-                throw new IncompatibleSchemaAbortException(
-                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
-                        txResult
-                );
-            } else {
-                throw new IncompatibleSchemaAbortException(
-                        format(
-                                "Commit failed because schema is not forward-compatible "
-                                        + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
-                                validationResult.fromSchemaVersion(),
-                                validationResult.toSchemaVersion(),
-                                validationResult.failedTableName(),
-                                validationResult.details()
-                        ),
-                        txResult
-                );
-            }
+            throw new IncompatibleSchemaAbortException(validationResult.validationFailedMessage(), txResult);
         }
     }
 

@@ -31,7 +31,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -41,9 +41,9 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
 /**
- * Log storage factory based on {@link VolatileLogStorage}.
+ * Log storage manager based on {@link VolatileLogStorage}.
  */
-public class VolatileLogStorageFactory implements LogStorageFactory {
+public class VolatileLogStorageManager implements LogStorageManager {
     private final LogStorageBudgetView logStorageBudgetConfig;
 
     /** Shared db instance. */
@@ -62,7 +62,7 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
      *
      * @param logStorageBudgetConfig Budget config.
      */
-    public VolatileLogStorageFactory(
+    public VolatileLogStorageManager(
             LogStorageBudgetView logStorageBudgetConfig,
             RocksDB db,
             ColumnFamilyHandle columnFamily,
@@ -131,6 +131,11 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         // This is a volatile storage; the storage is destroyed as a whole on startup, so nothing can remain on disk to the moment
         // when this method is called.
         return Set.of();
+    }
+
+    @Override
+    public long totalBytesOnDisk() {
+        return 0;
     }
 
     private LogStorageBudget createLogStorageBudget() {

@@ -54,7 +54,7 @@ namespace Apache.Ignite
             Rest.GroupCode => Rest.GroupName,
             CommonConfiguration.GroupCode => CommonConfiguration.GroupName,
 
-            _ => UnknownGroupName
+            _ => UnknownGroupName + groupCode
         };
 
         /// <summary>

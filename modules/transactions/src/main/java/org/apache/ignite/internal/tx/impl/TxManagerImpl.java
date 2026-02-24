@@ -21,7 +21,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
@@ -459,6 +458,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
+        if (readOnly && txOptions.txLabel() != null) {
+            throw new TransactionException(Common.ILLEGAL_ARGUMENT_ERR, "Labels are not supported for read only transactions");
+        }
+
         InternalTransaction tx;
 
         if (readOnly) {
@@ -588,7 +591,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
 
-        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+        // Enlistment for thin client direct request may be absent on coordinator.
+        if (enlistment == null || enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
@@ -602,6 +606,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         return newMeta;
                     });
         }
+
+        LOG.info("Skipped aborting on coordinator a transaction that lost its primary replica's volatile state "
+                        + "[txId={}, internalTx={}, enlistment={}, senderCurrentConsistencyToken={}, txMeta={}].",
+                tx.id(),
+                tx,
+                enlistment,
+                currentEnlistmentConsistencyToken,
+                txMeta
+        );
 
         return completedFuture(txMeta);
     }
@@ -1195,8 +1208,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
-        return runAsync(runnable, writeIntentSwitchPool);
+    public Executor writeIntentSwitchExecutor() {
+        return writeIntentSwitchPool;
     }
 
     void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp) {

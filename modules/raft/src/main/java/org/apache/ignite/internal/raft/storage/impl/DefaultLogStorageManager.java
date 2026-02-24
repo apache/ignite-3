@@ -43,7 +43,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -68,13 +68,14 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
+import org.rocksdb.SstFileManager;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 import org.rocksdb.util.SizeUnit;
 
-/** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
-public class DefaultLogStorageFactory implements LogStorageFactory {
-    private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
+/** Implementation of the {@link LogStorageManager} that creates {@link RocksDbSharedLogStorage}s. */
+public class DefaultLogStorageManager implements LogStorageManager {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageManager.class);
 
     static final byte[] FINISHED_META_MIGRATION_META_KEY = {0};
 
@@ -98,6 +99,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Database options. */
     private DBOptions dbOptions;
 
+    private Env env;
+
+    private SstFileManager sstFileManager;
+
     /** Write options to use in writes to database. */
     private WriteOptions writeOptions;
 
@@ -115,6 +120,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     private final boolean fsync;
 
+    private RocksDbSizeCalculator sizeCalculator;
+
     /**
      * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
      * {@link RocksDbSharedLogStorage#commitWriteBatch()}.
@@ -130,7 +137,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      * @param path Path to the storage.
      */
     @TestOnly
-    public DefaultLogStorageFactory(Path path) {
+    public DefaultLogStorageManager(Path path) {
         this("test", "test", path, true);
     }
 
@@ -142,7 +149,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      * @param logPath Function to get path to the log storage.
      * @param fsync If should fsync after each write to database.
      */
-    public DefaultLogStorageFactory(String factoryName, String nodeName, Path logPath, boolean fsync) {
+    public DefaultLogStorageManager(String factoryName, String nodeName, Path logPath, boolean fsync) {
         this.factoryName = factoryName;
         this.logPath = logPath;
         this.fsync = fsync;
@@ -174,6 +181,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
 
+        this.env = createEnv();
+        this.sstFileManager = new SstFileManager(env);
         this.dbOptions = createDbOptions();
 
         this.writeOptions = new WriteOptions().setSync(dbOptions.useFsync());
@@ -192,17 +201,20 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
 
         try {
+            dbOptions.setEnv(env);
+            dbOptions.setSstFileManager(sstFileManager);
+
             dbOptions.setListeners(List.of(flushListener));
 
             this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
-            Env env = db.getEnv();
+            Env dbEnv = db.getEnv();
             // Setup background flushes pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
+            dbEnv.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
             // Setup background compactions pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
+            dbEnv.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
             assert (columnFamilyHandles.size() == 3);
             this.metaHandle = columnFamilyHandles.get(0);
@@ -216,6 +228,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
             throw e;
         }
+
+        sizeCalculator = new RocksDbSizeCalculator(db, sstFileManager);
     }
 
     MetadataMigration metadataMigration() {
@@ -245,6 +259,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         closables.add(cfOption);
         closables.add(flushListener);
         closables.add(writeOptions);
+        closables.add(sstFileManager);
+        // This class obtains a default env which is not necessary to be closed, but the closure call is tolerated.
+        // But subclasses might override how they create env, so we still close it explicitly.
+        closables.add(env);
 
         RocksUtils.closeAll(closables);
     }
@@ -278,6 +296,11 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     @Override
     public LogSyncer logSyncer() {
         return fsync ? new NoOpLogSyncer() : () -> db.syncWal();
+    }
+
+    @Override
+    public long totalBytesOnDisk() {
+        return sizeCalculator.totalBytesOnDisk();
     }
 
     /**
@@ -314,6 +337,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         writeBatch.close();
 
         threadLocalWriteBatch.remove();
+    }
+
+    protected Env createEnv() {
+        return Env.getDefault();
     }
 
     /**

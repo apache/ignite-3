@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage.impl;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.PropertyName;
+import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Creates {@link LogStorageFactory} instances.
+ * Base for commands executing updates to the storage.
  */
-public interface LogStorageFactoryCreator {
-    /**
-     * Creates a {@link LogStorageFactory} instance with the given configuration.
-     *
-     * @param budgetView Configuration.
-     * @return LogStorageFactory instance.
-     */
-    LogStorageFactory factory(LogStorageBudgetView budgetView);
+public interface UpdateCommandBase extends PartitionCommand {
+    @PropertyName("tablePartitionId")
+    ReplicationGroupIdMessage commitPartitionId();
+
+    UUID txCoordinatorId();
+
+    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
+    @Nullable Long leaseStartTime();
 }

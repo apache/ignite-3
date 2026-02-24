@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Proto;
 
-using System;
 using Internal.Proto;
 using NUnit.Framework;
 
@@ -142,12 +141,17 @@ public class ProtocolBitmaskFeatureExtensionsTest
     }
 
     [Test]
-    public void TestFromBytesWithMoreThanFourBytesThrows()
+    public void TestFromBytesWithMoreThanFourBytesIgnoresUnknownFeatures()
     {
-        byte[] bytes = [1, 2, 3, 4, 5];
+        byte[] bytes = [7, 0, 0, 0, 255, 255];
 
-        var ex = Assert.Throws<InvalidOperationException>(() => ProtocolBitmaskFeatureExtensions.FromBytes(bytes));
-        StringAssert.Contains("Invalid bitmask feature length: 5", ex!.Message);
+        var features = ProtocolBitmaskFeatureExtensions.FromBytes(bytes);
+
+        var expected = ProtocolBitmaskFeature.UserAttributes |
+                       ProtocolBitmaskFeature.TableReqsUseQualifiedName |
+                       ProtocolBitmaskFeature.TxDirectMapping;
+
+        Assert.AreEqual(expected, features);
     }
 
     [Test]

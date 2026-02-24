@@ -75,7 +75,7 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
@@ -508,17 +508,20 @@ public class JraftServerImpl implements RaftServer {
             if (groupOptions.commandsMarshaller() != null) {
                 nodeOptions.setCommandsMarshaller(groupOptions.commandsMarshaller());
             }
+            if (groupOptions.safeTimeValidator() != null) {
+                nodeOptions.setSafeTimeValidator(groupOptions.safeTimeValidator());
+            }
 
             nodeOptions.setFsm(
                     new DelegatingStateMachine(nodeId, lsnr, nodeOptions, failureManager));
 
             nodeOptions.setRaftGrpEvtsLsnr(new RaftGroupEventsListenerAdapter(nodeId.groupId(), serviceEventInterceptor, evLsnr));
 
-            LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory();
+            LogStorageManager logStorageManager = groupOptions.getLogStorageManager();
 
-            assert logStorageFactory != null : "LogStorageFactory was not set.";
+            assert logStorageManager != null : "LogStorageManager was not set.";
 
-            IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageFactory);
+            IgniteJraftServiceFactory serviceFactory = new IgniteJraftServiceFactory(logStorageManager);
 
             if (groupOptions.snapshotStorageFactory() != null) {
                 serviceFactory.setSnapshotStorageFactory(groupOptions.snapshotStorageFactory());
@@ -638,7 +641,7 @@ public class JraftServerImpl implements RaftServer {
         }
 
         destroyStorages(
-                new StoragesDestructionContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()),
+                new StoragesDestructionContext(intent, groupOptions.getLogStorageManager(), groupOptions.serverDataPath()),
                 durable
         );
     }
@@ -651,8 +654,8 @@ public class JraftServerImpl implements RaftServer {
         String nodeId = context.intent().nodeId();
 
         try {
-            if (context.logStorageFactory() != null) {
-                context.logStorageFactory().destroyLogStorage(nodeId);
+            if (context.logStorageManager() != null) {
+                context.logStorageManager().destroyLogStorage(nodeId);
             }
 
             Path dataPath = getServerDataPath(context.serverDataPath(), nodeId);
@@ -676,8 +679,8 @@ public class JraftServerImpl implements RaftServer {
     public Set<StoredRaftNodeId> raftNodeIdsOnDisk() {
         Set<String> groupIdsForStorage = new HashSet<>();
 
-        for (LogStorageFactory logStorageFactory : groupStoragesContextResolver.logStorageFactories()) {
-            groupIdsForStorage.addAll(logStorageFactory.raftNodeStorageIdsOnDisk());
+        for (LogStorageManager logStorageManager : groupStoragesContextResolver.logStorageFactories()) {
+            groupIdsForStorage.addAll(logStorageManager.raftNodeStorageIdsOnDisk());
         }
         groupIdsForStorage.addAll(raftNodeMetaStorageIdsOnDisk());
 

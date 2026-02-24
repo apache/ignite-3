@@ -115,6 +115,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
@@ -128,7 +129,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -163,6 +164,7 @@ import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -448,10 +450,11 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 failureProcessor,
                 null,
+                new PermissiveSafeTimeValidator(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 rm,
                 RaftGroupOptionsConfigurer.EMPTY,
-                new VolatileLogStorageFactoryCreator(NODE_NAME, workDir.resolve("volatile-log-spillout")),
+                new VolatileLogStorageManagerCreator(NODE_NAME, workDir.resolve("volatile-log-spillout")),
                 Executors.newScheduledThreadPool(4),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()
@@ -573,6 +576,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 sharedTxStateStorage,
                 metaStorageManager,
                 sm,
+                mock(ValidationSchemasSource.class),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 scheduledExecutor,

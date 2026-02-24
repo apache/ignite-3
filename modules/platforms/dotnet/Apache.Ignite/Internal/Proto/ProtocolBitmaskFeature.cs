@@ -61,6 +61,11 @@ internal enum ProtocolBitmaskFeature
     SqlPartitionAwareness = 1 << 9,
 
     /// <summary>
+    /// Compute tasks and jobs accept observable timestamp from the client.
+    /// </summary>
+    ComputeObservableTs = 1 << 14,
+
+    /// <summary>
     /// Partition awareness for SQL requests with table name in metadata.
     /// </summary>
     SqlPartitionAwarenessTableName = 1 << 16

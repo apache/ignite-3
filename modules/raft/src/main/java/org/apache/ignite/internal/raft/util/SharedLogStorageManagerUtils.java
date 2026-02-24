@@ -19,14 +19,14 @@ package org.apache.ignite.internal.raft.util;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
-import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageManager;
+import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageManager;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.jetbrains.annotations.TestOnly;
 
-/** Utility methods for creating {@link LogStorageFactory}is for the Shared Log. */
-public class SharedLogStorageFactoryUtils {
+/** Utility methods for creating {@link LogStorageManager}is for the Shared Log. */
+public class SharedLogStorageManagerUtils {
     /**
      * Enables logit log storage. {@code false} by default. This is a temporary property, that should only be used for testing and comparing
      * the two storages.
@@ -36,21 +36,21 @@ public class SharedLogStorageFactoryUtils {
     private static final boolean LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT = false;
 
     /**
-     * Creates a LogStorageFactory with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation depending on
+     * Creates a LogStorageManager with {@link DefaultLogStorageManager} or {@link LogitLogStorageManager} implementation depending on
      * LOGIT_STORAGE_ENABLED_PROPERTY and fsync set to true.
      */
     @TestOnly
-    public static LogStorageFactory create(String nodeName, Path logStoragePath) {
+    public static LogStorageManager create(String nodeName, Path logStoragePath) {
         return create("test", nodeName, logStoragePath, true);
     }
 
     /**
-     * Creates a LogStorageFactory with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation depending on
+     * Creates a LogStorageManager with {@link DefaultLogStorageManager} or {@link LogitLogStorageManager} implementation depending on
      * LOGIT_STORAGE_ENABLED_PROPERTY.
      */
-    public static LogStorageFactory create(String factoryName, String nodeName, Path logStoragePath, boolean fsync) {
+    public static LogStorageManager create(String factoryName, String nodeName, Path logStoragePath, boolean fsync) {
         return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT)
-                ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
-                : new DefaultLogStorageFactory(factoryName, nodeName, logStoragePath, fsync);
+                ? new LogitLogStorageManager(nodeName, new StoreOptions(), logStoragePath)
+                : new DefaultLogStorageManager(factoryName, nodeName, logStoragePath, fsync);
     }
 }

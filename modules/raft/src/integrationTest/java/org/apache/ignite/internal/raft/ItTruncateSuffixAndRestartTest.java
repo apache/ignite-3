@@ -57,6 +57,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -68,7 +69,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
 import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorage;
@@ -161,7 +162,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
     private class SimpleIgniteNode {
         final LogStorage logStorage = new VolatileLogStorage(new UnlimitedBudget(), new ReusableOnHeapLogs(), new OnHeapLogs());
 
-        final LogStorageFactory logStorageFactory = new TestLogStorageFactory(logStorage);
+        final LogStorageManager logStorageManager = new TestLogStorageManager(logStorage);
 
         final String nodeName;
 
@@ -198,7 +199,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureManager.class),
                     defaultChannelTypeRegistry(),
-                    new DefaultIgniteProductVersionSource()
+                    new DefaultIgniteProductVersionSource(),
+                    new NoOpMetricManager()
             );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -225,7 +227,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                         raftGroupListener,
                         RaftGroupEventsListener.noopLsnr,
                         RaftGroupOptions.defaults()
-                                .setLogStorageFactory(logStorageFactory)
+                                .setLogStorageManager(logStorageManager)
                                 .serverDataPath(partitionsWorkDir.metaPath())
                 );
             } catch (NodeStoppingException e) {
@@ -390,10 +392,10 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static class TestLogStorageFactory implements LogStorageFactory {
+    private static class TestLogStorageManager implements LogStorageManager {
         private final LogStorage logStorage;
 
-        TestLogStorageFactory(LogStorage logStorage) {
+        TestLogStorageManager(LogStorage logStorage) {
             this.logStorage = logStorage;
         }
 
@@ -411,6 +413,11 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         public Set<String> raftNodeStorageIdsOnDisk() {
             // There is nothing on disk.
             return Set.of();
+        }
+
+        @Override
+        public long totalBytesOnDisk() {
+            return 0;
         }
 
         @Override
