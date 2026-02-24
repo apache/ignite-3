@@ -54,6 +54,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -947,6 +948,29 @@ public class IgniteUtils {
      *         {@link IgniteBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
      */
     public static <T> CompletableFuture<T> inBusyLockAsync(IgniteBusyLock busyLock, Supplier<CompletableFuture<T>> fn) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return fn.get();
+        } catch (Throwable t) {
+            return failedFuture(t);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Method that runs the provided {@code fn} in {@code busyLock}.
+     *
+     * @param <T> Type of returned value from {@code fn}.
+     * @param busyLock Component's busy lock.
+     * @param fn Function to run.
+     * @return Future returned from the {@code fn}, or future with the {@link NodeStoppingException} if
+     *         {@link IgniteBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
+     */
+    public static <T> CompletionStage<T> inBusyLockAsyncCS(IgniteBusyLock busyLock, Supplier<CompletionStage<T>> fn) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }

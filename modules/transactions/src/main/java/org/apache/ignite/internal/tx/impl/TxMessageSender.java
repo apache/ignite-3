@@ -19,6 +19,8 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessageNullable;
+import static org.apache.ignite.internal.traced.TraceContext.unpackFromString;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
+import org.apache.ignite.internal.traced.TracedFuture0;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -223,26 +226,35 @@ public class TxMessageSender {
      * @param senderGroupId See {@link TxStateCommitPartitionRequest#senderGroupId()}
      * @return Completable future of {@link TxStateResponse}.
      */
-    public CompletableFuture<TxStateResponse> resolveTxStateFromCoordinator(
+    public TracedFuture0<TxStateResponse> resolveTxStateFromCoordinator(
             InternalClusterNode coordinatorClusterNode,
             UUID txId,
             HybridTimestamp timestamp,
             @Nullable Long senderCurrentConsistencyToken,
             @Nullable ZonePartitionId senderGroupId
     ) {
-        return messagingService.invoke(
-                        coordinatorClusterNode,
-                        TX_MESSAGES_FACTORY.txStateCoordinatorRequest()
-                                .readTimestamp(timestamp)
-                                .txId(txId)
-                                .senderCurrentConsistencyToken(senderCurrentConsistencyToken)
-                                .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, senderGroupId))
-                                .build(),
-                        RPC_TIMEOUT_MILLIS)
-                .thenApply(resp -> {
+        return TracedFuture0.wrapFuture(nullCompletedFuture())
+                .section("resolve tx state from coordinator")
+                .thenCompose(unused -> messagingService.invoke(
+                            coordinatorClusterNode,
+                            TX_MESSAGES_FACTORY.txStateCoordinatorRequest()
+                                    .readTimestamp(timestamp)
+                                    .txId(txId)
+                                    .senderCurrentConsistencyToken(senderCurrentConsistencyToken)
+                                    .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, senderGroupId))
+                                    .build(),
+                            RPC_TIMEOUT_MILLIS
+                        )
+                )
+                .thenCompose(resp -> {
                     assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
-                    return (TxStateResponse) resp;
+                    TxStateResponse txStateResponse = (TxStateResponse) resp;
+
+                    return TracedFuture0.continueWithContext(
+                            CompletableFuture.completedFuture(txStateResponse),
+                            unpackFromString(txStateResponse.trace())
+                    );
                 });
     }
 

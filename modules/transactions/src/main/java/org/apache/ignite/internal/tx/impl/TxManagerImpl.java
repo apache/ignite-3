@@ -93,6 +93,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.traced.TracedFuture0;
 import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
@@ -591,22 +592,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
 
-        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken && 1 != 1) {
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
             // TODO https://issues.apache.org/jira/browse/IGNITE-27386 the reason of rollback needs to be explained.
-            return tx.rollbackAsync()
+            return TracedFuture0.wrapFuture(tx.rollbackAsync()
                     .thenApply(unused -> {
-                        TxStateMeta newMeta = stateMeta(tx.id());
+                        TransactionMeta newMeta = stateMeta(tx.id());
 
                         assert isFinalState(newMeta.txState());
 
                         return newMeta;
-                    });
+                    })).section("txn is aborted");
         }
 
-        return completedFuture(txMeta);
+        return TracedFuture0.wrapFuture(completedFuture((TransactionMeta) txMeta)).section("txn not aborted");
     }
 
     @TestOnly

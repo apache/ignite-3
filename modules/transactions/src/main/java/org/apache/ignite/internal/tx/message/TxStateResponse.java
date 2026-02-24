@@ -28,4 +28,6 @@ import org.jetbrains.annotations.Nullable;
 public interface TxStateResponse extends TimestampAware {
     /** Transaction metadata. */
     @Nullable TransactionMetaMessage txStateMeta();
+
+    @Nullable String trace();
 }

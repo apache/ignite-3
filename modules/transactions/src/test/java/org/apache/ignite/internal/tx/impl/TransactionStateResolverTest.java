@@ -49,6 +49,7 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.traced.TracedFuture0;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -140,7 +141,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     any(Long.class),
                     any(ZonePartitionId.class)
                 ))
-                .thenReturn(completedFuture(response));
+                .thenReturn(TracedFuture0.wrapFuture(completedFuture(response)));
 
         // Mock the commit partition resolution to complete the future.
         when(txMessageSender.resolveTxStateFromCommitPartition(
@@ -206,7 +207,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     any(Long.class),
                     any(ZonePartitionId.class))
                 )
-                .thenReturn(failedFuture);
+                .thenReturn(TracedFuture0.wrapFuture(failedFuture));
         // Mock the commit partition resolution to complete the future.
         TxStateMeta abandonedMeta = new TxStateMeta(TxState.ABANDONED, coordinatorId, commitPartitionId, null, null, null);
         when(txMessageSender.resolveTxStateFromCommitPartition(
@@ -276,7 +277,7 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                     any(Long.class),
                     any(ZonePartitionId.class)
                 ))
-                .thenReturn(completedFuture(response));
+                .thenReturn(TracedFuture0.wrapFuture(completedFuture(response)));
 
         CompletableFuture<TransactionMeta> result = resolver.resolveTxState(
                 txId,

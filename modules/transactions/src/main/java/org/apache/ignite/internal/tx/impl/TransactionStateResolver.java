@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.impl.PlacementDriverHelper.AWAIT_PRIMARY_REPLICA_TIMEOUT;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.UUID;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.traced.TracedFuture0;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
@@ -71,7 +73,7 @@ public class TransactionStateResolver {
 
     private final PlacementDriverHelper placementDriverHelper;
 
-    private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
+    private final Map<UUID, TracedFuture0<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
 
     private final TxManager txManager;
 
@@ -118,13 +120,16 @@ public class TransactionStateResolver {
                 TxStateCoordinatorRequest req = (TxStateCoordinatorRequest) msg;
 
                 processTxStateRequest(req)
-                        .thenAccept(txStateMeta -> {
+                        .withContext(ctx -> {
                             NetworkMessage response = TX_MESSAGES_FACTORY.txStateResponse()
-                                    .txStateMeta(toTransactionMetaMessage(txStateMeta))
+                                    .txStateMeta(toTransactionMetaMessage(ctx.value()))
+                                    .trace(ctx.traceContext().packToString())
                                     .timestamp(clockService.now())
                                     .build();
 
                             messagingService.respond(sender, response, correlationId);
+
+                            return null;
                         });
             }
         });
@@ -187,7 +192,7 @@ public class TransactionStateResolver {
 
         CompletableFuture<TransactionMeta> future = txStateFutures.compute(txId, (k, v) -> {
             if (v == null) {
-                v = new CompletableFuture<>();
+                v = TracedFuture0.wrapFuture(new CompletableFuture<>());
 
                 resolveDistributiveTxState(
                         txId,
@@ -232,7 +237,7 @@ public class TransactionStateResolver {
             TimeUnit awaitCommitPartitionAvailabilityTimeUnit,
             @Nullable Long senderCurrentConsistencyToken,
             @Nullable ZonePartitionId senderGroupId,
-            CompletableFuture<TransactionMeta> txMetaFuture
+            TracedFuture0<TransactionMeta> txMetaFuture
     ) {
         assert localMeta == null || !isFinalState(localMeta.txState()) : "Unexpected tx meta [txId" + txId + ", meta=" + localMeta + ']';
 
@@ -289,7 +294,7 @@ public class TransactionStateResolver {
             HybridTimestamp timestamp,
             @Nullable Long senderCurrentConsistencyToken,
             @Nullable ZonePartitionId senderGroupId,
-            CompletableFuture<TransactionMeta> txMetaFuture
+            TracedFuture0<TransactionMeta> txMetaFuture
     ) {
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 
@@ -301,9 +306,15 @@ public class TransactionStateResolver {
             resolveTxStateFromCommitPartition(txId, commitGrpId, senderCurrentConsistencyToken, senderGroupId, txMetaFuture);
         } else {
             txMessageSender.resolveTxStateFromCoordinator(coordinator, txId, timestamp, senderCurrentConsistencyToken, senderGroupId)
-                    .whenComplete((response, e) -> {
+                    .withContext(ctx -> {
+                        var response = ctx.value();
+                        Throwable e = ctx.throwable();
+
                         if (e == null && response.txStateMeta() != null) {
-                            txMetaFuture.complete(response.txStateMeta().asTransactionMeta());
+                            ctx.traceContext().startTrace("received tx state from coordinator=" + response.txStateMeta().asTransactionMeta().txState());
+
+                            txMetaFuture
+                                    .completeWithValueAndContext(response.txStateMeta().asTransactionMeta(), ctx.traceContext());
                         } else {
                             if (e != null && e.getCause() instanceof RecipientLeftException) {
                                 markAbandoned(txId);
@@ -317,6 +328,8 @@ public class TransactionStateResolver {
                                     txMetaFuture
                             );
                         }
+
+                        return null;
                     });
         }
     }
@@ -438,7 +451,7 @@ public class TransactionStateResolver {
      * @param request Request.
      * @return Future that should be completed with transaction state meta.
      */
-    private CompletableFuture<@Nullable TransactionMeta> processTxStateRequest(TxStateCoordinatorRequest request) {
+    private TracedFuture0<@Nullable TransactionMeta> processTxStateRequest(TxStateCoordinatorRequest request) {
         clockService.updateClock(request.readTimestamp());
 
         UUID txId = request.txId();
@@ -447,14 +460,18 @@ public class TransactionStateResolver {
 
         if (txStateMeta != null) {
             if (isFinalState(txStateMeta.txState())) {
-                return completedFuture(txStateMeta);
+                return TracedFuture0
+                        .wrapFuture(completedFuture((TransactionMeta) txStateMeta))
+                        .section("final state on coordinator");
             } else if (txStateMeta.txState() == FINISHING) {
                 assert txStateMeta instanceof TxStateMetaFinishing;
 
                 TxStateMetaFinishing txStateMetaFinishing = (TxStateMetaFinishing) txStateMeta;
 
-                return txStateMetaFinishing.txFinishFuture();
+                return TracedFuture0.wrapFuture(txStateMetaFinishing.txFinishFuture()).section("finishing state on coordinator");
             } else {
+                TracedFuture0 res = TracedFuture0.wrapFuture(nullCompletedFuture()).section("non-final state on coordinator");
+
                 InternalTransaction tx = txStateMeta.tx();
                 Long currentConsistencyToken = request.senderCurrentConsistencyToken();
                 ZonePartitionId groupId = request.senderGroupId() == null
@@ -462,12 +479,14 @@ public class TransactionStateResolver {
                         : request.senderGroupId().asZonePartitionId();
 
                 if (tx != null && !tx.isReadOnly() && currentConsistencyToken != null && groupId != null) {
-                    return txManager.checkEnlistedPartitionsAndAbortIfNeeded(txStateMeta, tx, currentConsistencyToken, groupId);
+                    return res.thenCompose(unused ->
+                            txManager.checkEnlistedPartitionsAndAbortIfNeeded(txStateMeta, tx, currentConsistencyToken, groupId)
+                    );
                 }
             }
         }
 
-        return completedFuture(txStateMeta);
+        return TracedFuture0.wrapFuture(completedFuture(txStateMeta));
     }
 
     private static @Nullable TransactionMetaMessage toTransactionMetaMessage(@Nullable TransactionMeta transactionMeta) {

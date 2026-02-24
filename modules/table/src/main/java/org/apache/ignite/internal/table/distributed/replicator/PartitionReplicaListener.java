@@ -182,6 +182,7 @@ import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.handlers.BuildIndexReplicaRequestHandler;
 import org.apache.ignite.internal.table.metrics.ReadWriteMetricSource;
+import org.apache.ignite.internal.traced.TracedFuture0;
 import org.apache.ignite.internal.tx.DelayedAckException;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -1494,7 +1495,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         assert pkLocker != null;
 
-        CompletableFuture<Void> lockFut = pkLocker.locksForLookupByKey(txId, pk);
+        TracedFuture0<Void> lockFut = TracedFuture0.wrapFuture(pkLocker.locksForLookupByKey(txId, pk))
+                .section("locksForLookupByKey");
 
         Supplier<CompletableFuture<T>> sup = () -> {
             boolean cursorClosureSetUp = false;
@@ -2808,7 +2810,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                             ? takeLocksForInsert(searchRow, rowId0, txId)
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
-                    return lockFut
+                    return TracedFuture0.wrapFuture(lockFut)
+                            .section("locksAcquired")
                             .thenCompose(rowIdLock -> validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
                                     .thenCompose(catalogVersion -> awaitCleanup(rowId, catalogVersion))
                                     .thenCompose(
