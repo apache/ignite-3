@@ -84,7 +84,7 @@ import org.jetbrains.annotations.Nullable;
  * A colocation-aware handler for {@link GroupUpdateRequest}.
  */
 class GroupUpdateRequestHandler {
-    private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequestHandler.class);
 
     private final GroupUpdateRequest request;
 
