@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.schema.ColumnDefinitionDiff;
@@ -350,6 +351,12 @@ public class SchemaCompatibilityValidator {
         public ValidationResult compatible(TableDefinitionDiff diff) {
             if (diff.addedColumns().isEmpty()) {
                 return ValidationResult.DONT_CARE;
+            }
+
+            for (CatalogTableColumnDescriptor column : diff.addedColumns()) {
+                if (!column.nullable() && column.defaultValue() == null) {
+                    return new ValidationResult(ValidatorVerdict.INCOMPATIBLE, "Not null column added without default value");
+                }
             }
 
             return ValidationResult.COMPATIBLE;
