@@ -58,14 +58,15 @@ import org.apache.ignite.internal.pagememory.configuration.CheckpointConfigurati
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FakePartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -154,7 +155,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 ioRegistry,
                 new NoOpLogSyncer(),
                 executorService,
-                new CheckpointMetricSource("test"),
+                new CollectionMetricSource("test", "storage", null),
                 PAGE_SIZE
         );
 
@@ -170,13 +171,15 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 CHECKPOINT_BUFFER_SIZE,
                 pageStoreManager,
                 (pageMem, pageId, pageBuf) -> {
-                    checkpointManager.writePageToFilePageStore(pageMem, pageId, pageBuf);
+                    PageWriteTarget target = checkpointManager.writePageToFilePageStore(pageMem, pageId, pageBuf);
 
                     // Almost the same code that happens in data region, but here the region is mocked.
                     CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
 
                     assertNotNull(checkpointProgress);
                     checkpointProgress.evictedPagesCounter().incrementAndGet();
+
+                    return target;
                 },
                 checkpointManager.checkpointTimeoutLock(),
                 new OffheapReadWriteLock(2),

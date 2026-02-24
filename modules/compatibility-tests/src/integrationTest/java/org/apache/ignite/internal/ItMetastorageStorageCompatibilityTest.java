@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
@@ -32,7 +31,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Compatibility tests for metastorage storage. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-@MicronautTest(rebuildContext = true)
 public class ItMetastorageStorageCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected int nodesCount() {

@@ -126,8 +126,8 @@ import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.Zone
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
@@ -304,6 +304,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final SchemaVersions schemaVersions;
 
+    private final ValidationSchemasSource validationSchemasSource;
+
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
     /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
@@ -417,6 +419,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TxStateRocksDbSharedStorage txStateRocksDbSharedStorage,
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
+            ValidationSchemasSource validationSchemasSource,
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
             ScheduledExecutorService commonScheduler,
@@ -447,6 +450,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
+        this.validationSchemasSource = validationSchemasSource;
         this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
@@ -1065,7 +1069,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 safeTimeTracker,
                 transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
-                new CatalogValidationSchemasSource(catalogService, schemaManager),
+                validationSchemasSource,
                 localNode(),
                 executorInclinedSchemaSyncService,
                 catalogService,

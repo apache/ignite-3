@@ -111,8 +111,8 @@ public:
      *
      * @param connection Connection.
      */
-    explicit statement(node_connection &connection)
-        : m_connection(connection) { }
+    explicit statement(std::shared_ptr<node_connection> connection)
+        : m_connection(std::move(connection)) { }
 
     /**
      * Destructor.
@@ -215,7 +215,7 @@ private:
     void set_params_meta(std::vector<sql_parameter> value);
 
     /** Connection associated with the statement. */
-    node_connection &m_connection;
+    std::shared_ptr<node_connection> m_connection;
 
     /** SQL query. */
     std::string m_query;

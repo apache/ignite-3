@@ -124,6 +124,8 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -131,9 +133,9 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.VersionedAssignments;
@@ -173,6 +175,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -220,7 +223,7 @@ public class Node {
 
     private final ThreadPoolsManager threadPoolsManager;
 
-    private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
+    private final VolatileLogStorageManagerCreator volatileLogStorageManagerCreator;
 
     public final ReplicaManager replicaManager;
 
@@ -286,11 +289,11 @@ public class Node {
     /** Failure processor. */
     private final FailureManager failureManager;
 
-    private final LogStorageFactory partitionsLogStorageFactory;
+    private final LogStorageManager partitionsLogStorageManager;
 
-    private final LogStorageFactory msLogStorageFactory;
+    private final LogStorageManager msLogStorageManager;
 
-    private final LogStorageFactory cmgLogStorageFactory;
+    private final LogStorageManager cmgLogStorageManager;
 
     private final IndexMetaStorage indexMetaStorage;
 
@@ -391,12 +394,12 @@ public class Node {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemLocalConfiguration, dir);
 
-        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
+        partitionsLogStorageManager = SharedLogStorageManagerUtils.create(clusterService.nodeName(), partitionsWorkDir.raftLogPath());
 
-        LogSyncer partitionsLogSyncer = partitionsLogStorageFactory.logSyncer();
+        LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
 
         RaftGroupOptionsConfigurer partitionRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, partitionsWorkDir.metaPath());
 
         MetricManager metricManager = new NoOpMetricManager();
 
@@ -423,11 +426,11 @@ public class Node {
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 
-        cmgLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
+        cmgLogStorageManager =
+                SharedLogStorageManagerUtils.create(clusterService.nodeName(), cmgWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
 
         cmgManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -465,11 +468,11 @@ public class Node {
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(dir.resolve("metastorage"));
 
-        msLogStorageFactory =
-                SharedLogStorageFactoryUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
+        msLogStorageManager =
+                SharedLogStorageManagerUtils.create(clusterService.nodeName(), metastorageWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer msRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageManager, metastorageWorkDir.metaPath());
 
         metaStorageManager = new MetaStorageManagerImpl(
                 clusterService,
@@ -637,7 +640,26 @@ public class Node {
                 metricManager
         );
 
-        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout-" + name));
+        volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(name, workDir.resolve("volatile-log-spillout-" + name));
+
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
+        metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
+
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+
+        catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageManager, failureManager),
+                clockService,
+                failureManager,
+                delayDurationMsSupplier,
+                CatalogTestUtils.defaultPartitionCountCalculator()
+        );
+
+        schemaManager = new SchemaManager(registry, catalogManager);
+
+        ValidationSchemasSource validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager);
 
         replicaManager = new ReplicaManager(
                 name,
@@ -651,37 +673,21 @@ public class Node {
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new NoOpFailureManager(),
                 new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
+                new PartitionSafeTimeValidator(validationSchemasSource, catalogManager, schemaSyncService),
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 partitionRaftConfigurer,
-                volatileLogStorageFactoryCreator,
+                volatileLogStorageManagerCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
                         .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
                 threadPoolsManager.commonScheduler()
         );
 
-        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
-
-        catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageManager, failureManager),
-                clockService,
-                failureManager,
-                delayDurationMsSupplier,
-                CatalogTestUtils.defaultPartitionCountCalculator()
-        );
-
         raftManager.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftManager.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
-
-        schemaManager = new SchemaManager(registry, catalogManager);
-
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
-        metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
-
-        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
@@ -783,6 +789,7 @@ public class Node {
                 sharedTxStateStorage,
                 metaStorageManager,
                 schemaManager,
+                validationSchemasSource,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 threadPoolsManager.commonScheduler(),
@@ -911,9 +918,9 @@ public class Node {
                 nodeCfgMgr,
                 failureManager,
                 clusterService,
-                partitionsLogStorageFactory,
-                msLogStorageFactory,
-                cmgLogStorageFactory,
+                partitionsLogStorageManager,
+                msLogStorageManager,
+                cmgLogStorageManager,
                 raftManager,
                 cmgManager,
                 lowWatermark
@@ -928,7 +935,7 @@ public class Node {
                 catalogCompactionRunner,
                 indexMetaStorage,
                 distributionZoneManager,
-                volatileLogStorageFactoryCreator,
+                volatileLogStorageManagerCreator,
                 replicaManager,
                 txManager,
                 dataStorageMgr,

@@ -82,7 +82,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageManager;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -111,6 +111,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -219,10 +220,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
+                new PermissiveSafeTimeValidator(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 raftManager,
                 RaftGroupOptionsConfigurer.EMPTY,
-                view -> new LocalLogStorageFactory(),
+                view -> new LocalLogStorageManager(),
                 Executors.newSingleThreadScheduledExecutor(),
                 replicaGrpId -> nullCompletedFuture(),
                 ForkJoinPool.commonPool()

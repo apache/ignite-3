@@ -132,7 +132,7 @@ void statement::close() noexcept {
         if (!m_query_id)
             return;
 
-        auto res = m_connection.sync_request_nothrow(ignite::protocol::client_operation::SQL_CURSOR_CLOSE,
+        auto res = m_connection->sync_request_nothrow(ignite::protocol::client_operation::SQL_CURSOR_CLOSE,
             [&](ignite::protocol::writer &writer) { writer.write(*m_query_id); });
 
         UNUSED_VALUE res;
@@ -156,16 +156,16 @@ void statement::execute(const char *query, py_parameter_set &params) {
     close();
 
     m_query = query;
-    auto &schema = m_connection.get_schema();
+    auto &schema = m_connection->get_schema();
 
     bool single = !params.is_batch_query();
 
-    auto tx = m_connection.get_transaction_id();
-    if (!tx && !m_connection.is_auto_commit()) {
+    auto tx = m_connection->get_transaction_id();
+    if (!tx && !m_connection->is_auto_commit()) {
         // Starting transaction if it's not started already.
-        m_connection.transaction_start();
+        m_connection->transaction_start();
 
-        tx = m_connection.get_transaction_id();
+        tx = m_connection->get_transaction_id();
         assert(tx);
     }
 
@@ -173,15 +173,15 @@ void statement::execute(const char *query, py_parameter_set &params) {
         ? ignite::protocol::client_operation::SQL_EXEC
         : ignite::protocol::client_operation::SQL_EXEC_BATCH;
 
-    auto [resp, err] = m_connection.sync_request_nothrow(client_op, [&](ignite::protocol::writer &writer) {
+    auto [resp, err] = m_connection->sync_request_nothrow(client_op, [&](ignite::protocol::writer &writer) {
         if (tx)
             writer.write(*tx);
         else
             writer.write_nil();
 
         writer.write(schema);
-        writer.write(m_connection.get_page_size());
-        writer.write(std::int64_t(m_connection.get_timeout()) * 1000);
+        writer.write(m_connection->get_page_size());
+        writer.write(std::int64_t(m_connection->get_timeout()) * 1000);
         writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
         writer.write_nil(); // Timezone
 
@@ -195,7 +195,7 @@ void statement::execute(const char *query, py_parameter_set &params) {
 
         writer.write(m_query);
         params.write(writer);
-        writer.write(m_connection.get_observable_timestamp());
+        writer.write(m_connection->get_observable_timestamp());
     });
 
     // Check error
@@ -211,7 +211,7 @@ void statement::execute(const char *query, py_parameter_set &params) {
         throw std::move(*err);
     }
 
-    m_connection.mark_transaction_non_empty();
+    m_connection->mark_transaction_non_empty();
 
     auto &response = resp;
     ignite::protocol::reader reader(response.get_bytes_view());
@@ -279,7 +279,7 @@ bool statement::fetch_next_row() {
                 ignite::error::code::CURSOR_ALREADY_CLOSED, "Cursor already closed.");
         }
 
-        auto [response, err] = m_connection.sync_request_nothrow(
+        auto [response, err] = m_connection->sync_request_nothrow(
             ignite::protocol::client_operation::SQL_CURSOR_NEXT_PAGE,
             [&](ignite::protocol::writer &writer) { writer.write(*m_query_id); });
 
@@ -301,10 +301,10 @@ bool statement::fetch_next_row() {
 }
 
 void statement::update_meta() {
-    auto &schema = m_connection.get_schema();
+    auto &schema = m_connection->get_schema();
 
-    auto tx = m_connection.get_transaction_id();
-    auto [response, err] = m_connection.sync_request_nothrow(ignite::protocol::client_operation::SQL_QUERY_META,
+    auto tx = m_connection->get_transaction_id();
+    auto [response, err] = m_connection->sync_request_nothrow(ignite::protocol::client_operation::SQL_QUERY_META,
         [&](ignite::protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
@@ -316,7 +316,7 @@ void statement::update_meta() {
         });
 
     if (tx) {
-        m_connection.mark_transaction_non_empty();
+        m_connection->mark_transaction_non_empty();
     }
 
     if (err) {

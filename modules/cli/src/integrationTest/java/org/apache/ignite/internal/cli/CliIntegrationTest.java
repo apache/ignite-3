@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli;
 
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
@@ -73,6 +74,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("storage.aipersist.default").enabled(true),
             new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
             new MetricSource().name("storage.aipersist.checkpoint").enabled(true),
+            new MetricSource().name("storage.aipersist.io").enabled(true),
             new MetricSource().name("topology.cluster").enabled(true),
             new MetricSource().name("topology.local").enabled(true),
             new MetricSource().name("thread.pools.partitions-executor").enabled(true),
@@ -84,7 +86,13 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("zones.Default").enabled(true),
             new MetricSource().name("clock.service").enabled(true),
             new MetricSource().name("index.builder").enabled(true),
-            new MetricSource().name("raft.snapshots").enabled(true)
+            new MetricSource().name("raft.snapshots").enabled(true),
+            new MetricSource().name("messaging").enabled(true),
+            new MetricSource().name("log.storage").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.default").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.deploymentunits").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.scalecube").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".messaging.outbound").enabled(true),
     };
 
     /** Correct ignite jdbc url. */

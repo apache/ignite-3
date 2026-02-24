@@ -25,7 +25,7 @@ package org.apache.ignite.internal.raft;
  *    RaftGroupOptionsConfigurer groupOptionsConfigurer = options -> {
  *        RaftGroupOptions groupOptions = (RaftGroupOptions) options;
  *
- *        groupOptions.setLogStorageFactory(logStorageFactory);
+ *        groupOptions.setLogStorageManager(logStorageManager);
  *        groupOptions.serverDataPath(dataPath);
  *    };
  * </pre>

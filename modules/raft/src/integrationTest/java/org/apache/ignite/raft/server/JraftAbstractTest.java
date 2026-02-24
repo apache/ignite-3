@@ -53,9 +53,9 @@ import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -98,7 +98,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     protected final List<JraftServerImpl> servers = new ArrayList<>();
 
-    protected final List<LogStorageFactory> logStorageFactories = new ArrayList<>();
+    protected final List<LogStorageManager> logStorageFactories = new ArrayList<>();
 
     protected final List<VaultManager> vaultManagers = new ArrayList<>();
 
@@ -208,14 +208,14 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         serverWorkingDirs.add(workingDir);
 
-        LogStorageFactory partitionsLogStorageFactory = spy(SharedLogStorageFactoryUtils.create(
+        LogStorageManager partitionsLogStorageManager = spy(SharedLogStorageManagerUtils.create(
                 service.nodeName(),
                 workingDir.raftLogPath()
         ));
 
-        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        logStorageFactories.add(partitionsLogStorageFactory);
+        logStorageFactories.add(partitionsLogStorageManager);
 
         NodeOptions opts = new NodeOptions();
 
@@ -234,7 +234,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
         GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
                 replicationGroupId -> groupName,
                 Map.of(groupName, workingDir.metaPath()),
-                Map.of(groupName, partitionsLogStorageFactory)
+                Map.of(groupName, partitionsLogStorageManager)
         );
 
         JraftServerImpl server = TestJraftServerFactory.create(

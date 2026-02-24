@@ -30,15 +30,10 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.IntConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -48,7 +43,6 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.table.Tuple;
 
 /**
  * Test utility class.
@@ -77,8 +71,6 @@ public final class SchemaTestUtils {
             NativeTypes.timestamp(6),
             NativeTypes.BYTES,
             NativeTypes.STRING);
-
-    public static final Map<NativeType, BiConsumer<Tuple, Object>> PRIMITIVE_ACCESSORS = makePrimitiveAccessorsMap();
 
     /**
      * Generates random value of given type.
@@ -220,29 +212,5 @@ public final class SchemaTestUtils {
 
         return Instant.ofEpochMilli(minTs + (long) (rnd.nextDouble() * (maxTs - minTs))).truncatedTo(ChronoUnit.SECONDS)
                 .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), type.precision()));
-    }
-
-    private static Map<NativeType, BiConsumer<Tuple, Object>> makePrimitiveAccessorsMap() {
-        IdentityHashMap<NativeType, BiConsumer<Tuple, Object>> map = new IdentityHashMap<>();
-
-        map.put(NativeTypes.BOOLEAN, (tuple, index) -> invoke(index, tuple::booleanValue, tuple::booleanValue));
-        map.put(NativeTypes.INT8, (tuple, index) -> invoke(index, tuple::byteValue, tuple::byteValue));
-        map.put(NativeTypes.INT16, (tuple, index) -> invoke(index, tuple::shortValue, tuple::shortValue));
-        map.put(NativeTypes.INT32, (tuple, index) -> invoke(index, tuple::intValue, tuple::intValue));
-        map.put(NativeTypes.INT64, (tuple, index) -> invoke(index, tuple::longValue, tuple::longValue));
-        map.put(NativeTypes.FLOAT, (tuple, index) -> invoke(index, tuple::floatValue, tuple::floatValue));
-        map.put(NativeTypes.DOUBLE, (tuple, index) -> invoke(index, tuple::doubleValue, tuple::doubleValue));
-
-        return Collections.unmodifiableMap(map);
-    }
-
-    private static void invoke(Object index, IntConsumer intConsumer, Consumer<String> strConsumer) {
-        if (index instanceof Integer) {
-            intConsumer.accept((int) index);
-        } else {
-            assert index instanceof String : index.getClass();
-
-            strConsumer.accept((String) index);
-        }
     }
 }

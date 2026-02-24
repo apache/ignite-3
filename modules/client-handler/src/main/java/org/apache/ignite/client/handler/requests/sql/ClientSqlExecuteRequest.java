@@ -99,6 +99,7 @@ public class ClientSqlExecuteRequest {
             NotificationSender notificationSender,
             @Nullable String username,
             boolean sqlMultistatementsSupported,
+            boolean sqlPartitionAwarenessQualifiedNameSupported,
             Consumer<SqlQueryType> queryTypeListener
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
@@ -141,8 +142,16 @@ public class ClientSqlExecuteRequest {
                 queryTypeListener,
                 arguments
         ).thenCompose(asyncResultSet ->
-                        ClientSqlCommon.writeResultSetAsync(resources, asyncResultSet, metrics, props.pageSize(),
-                                includePartitionAwarenessMeta, sqlDirectTxMappingSupported, sqlMultistatementsSupported, operationExecutor))
+                        ClientSqlCommon.writeResultSetAsync(
+                                resources,
+                                asyncResultSet,
+                                metrics,
+                                props.pageSize(),
+                                includePartitionAwarenessMeta,
+                                sqlDirectTxMappingSupported,
+                                sqlMultistatementsSupported,
+                                sqlPartitionAwarenessQualifiedNameSupported,
+                                operationExecutor))
                 .thenApply(rsWriter -> out -> {
                     if (tx != null) {
                         writeTxMeta(out, timestampTracker, clockService, tx, resIdHolder[0]);
