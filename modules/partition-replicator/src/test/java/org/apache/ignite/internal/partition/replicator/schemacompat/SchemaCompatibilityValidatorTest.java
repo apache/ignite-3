@@ -406,7 +406,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         return new CatalogTableColumnDescriptor(columnName, INT32, true, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
     }
 
-    private static CatalogTableColumnDescriptor intColumnWithDefault(String columnName, int defaultValue) {
+    private static CatalogTableColumnDescriptor intColumnWithDefault(String columnName, @Nullable Integer defaultValue) {
         return new CatalogTableColumnDescriptor(
                 columnName,
                 INT32,
@@ -552,6 +552,16 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                         )),
                         tableSchema(2, List.of(
                                 intColumn("NON_NULL_WITHOUT_DEFAULT_COL")
+                        ))
+                ),
+                "Not null column added without default value"
+        ),
+        NON_NULL_WITH_DEFAULT_NULL(
+                List.of(
+                        tableSchema(1, List.of(
+                        )),
+                        tableSchema(2, List.of(
+                                intColumnWithDefault("NON_NULL_WITHOUT_DEFAULT_COL", null)
                         ))
                 ),
                 "Not null column added without default value"
