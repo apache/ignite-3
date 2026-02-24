@@ -85,9 +85,9 @@ class AlternateScreenTableRendererTest extends BaseIgniteAbstractTest {
         // Header line should contain column names
         assertThat(output, containsString("ID"));
         assertThat(output, containsString("NAME"));
-        // Scroll region should be set
+        // Scroll region should be set based on terminal height.
         assertThat(output, containsString(AlternateScreenTableRenderer.setScrollRegion(
-                AlternateScreenTableRenderer.HEADER_LINES + 1, 40)));
+                AlternateScreenTableRenderer.HEADER_LINES + 1, terminal.getHeight())));
         // First page data should be rendered
         assertThat(output, containsString("Alice"));
         assertTrue(renderer.isActive());
