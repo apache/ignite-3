@@ -120,7 +120,9 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testRaftCommandsDuplicationOnPrimaryNotCollocatedWithLeader() throws Exception {
+    void testRaftCommandsDuplicationOnPrimaryNotColocatedWithLeader() throws Exception {
+        // Usage of 2 replicas is a minimal possible configuration where it's possible to have a follower node.
+        // Cluster with 2 nodes would be enough, but it would require more complex test class modifications.
         int replicas = 2;
         int partitions = 1;
 
@@ -137,7 +139,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
             IgniteImpl currentPrimary = primaryReplica(tableGroupId);
 
-            changeLeader(tableGroupId, currentPrimary);
+            unColocateLeaderFromPrimaryReplica(tableGroupId, currentPrimary);
 
             createIndex(INDEX_NAME);
 
@@ -452,7 +454,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
     }
 
-    private static void changeLeader(ZonePartitionId groupId, IgniteImpl currentPrimary) throws Exception {
+    private static void unColocateLeaderFromPrimaryReplica(ZonePartitionId groupId, IgniteImpl currentPrimary) throws Exception {
         String newLeaderNodeName = collectAssignments(TABLE_NAME).get(groupId.partitionId())
                 .stream()
                 .filter(name -> !Objects.equals(name, currentPrimary.name()))

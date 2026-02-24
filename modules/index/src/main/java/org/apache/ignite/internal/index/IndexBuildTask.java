@@ -291,16 +291,14 @@ class IndexBuildTask {
                             if (!(cause instanceof ReplicationTimeoutException || cause instanceof GroupOverloadedException)) {
                                 return CompletableFuture.<Void>failedFuture(cause);
                             }
+                        } else if (newNextRowIdToBuild == null) {
+                            // Index has been built.
+                            LOG.info("Index build completed [{}]", createCommonIndexInfo());
+
+                            notifyBuildCompletionListeners(taskId);
+
+                            return CompletableFutures.<Void>nullCompletedFuture();
                         } else {
-                            if (newNextRowIdToBuild == null) {
-                                // Index has been built.
-                                LOG.info("Index build completed [{}]", createCommonIndexInfo());
-
-                                notifyBuildCompletionListeners(taskId);
-
-                                return CompletableFutures.<Void>nullCompletedFuture();
-                            }
-
                             nextRowIdToBuild = newNextRowIdToBuild;
                         }
 
