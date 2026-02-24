@@ -59,6 +59,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -240,24 +241,14 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     }
 
     private void scheduleBuildIndex(int indexId, int zoneId, int tableId, int partitionId, Collection<RowId> rowIds) {
-        BinaryRowImpl binaryRow = new BinaryRowImpl(1, ByteBuffer.allocate(1));
-
-        mvPartitionStorage.runConsistently(locker -> {
-            for (RowId rowId : rowIds) {
-                locker.lock(rowId);
-
-                mvPartitionStorage.addWriteCommitted(rowId, binaryRow, MAX_VALUE);
-            }
-
-            return null;
-        });
+        insertRowsIntoMvPartitionStorage(rowIds);
 
         indexBuilder.scheduleBuildIndex(
                 zoneId,
                 tableId,
                 partitionId,
                 indexId,
-                indexStorage(rowIds),
+                indexStorage(),
                 mvPartitionStorage,
                 txRwOperationTracker,
                 safeTime,
@@ -272,14 +263,16 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
             int zoneId,
             int tableId,
             int partitionId,
-            Collection<RowId> nextRowIdsToBuild
+            Collection<RowId> rowIds
     ) {
+        insertRowsIntoMvPartitionStorage(rowIds);
+
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
                 zoneId,
                 tableId,
                 partitionId,
                 indexId,
-                indexStorage(nextRowIdsToBuild),
+                indexStorage(),
                 mvPartitionStorage,
                 txRwOperationTracker,
                 safeTime,
@@ -287,6 +280,20 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
                 mock(HybridTimestamp.class)
         );
+    }
+
+    private void insertRowsIntoMvPartitionStorage(Collection<RowId> rowIds) {
+        BinaryRow binaryRow = new BinaryRowImpl(1, ByteBuffer.allocate(1));
+
+        mvPartitionStorage.runConsistently(locker -> {
+            for (RowId rowId : rowIds) {
+                locker.lock(rowId);
+
+                mvPartitionStorage.addWriteCommitted(rowId, binaryRow, MAX_VALUE);
+            }
+
+            return null;
+        });
     }
 
     private CompletableFuture<Void> listenCompletionIndexBuilding(int indexId, int tableId, int partitionId) {
@@ -343,7 +350,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         return future;
     }
 
-    private static IndexStorage indexStorage(Collection<RowId> nextRowIdsToBuild) {
+    private static IndexStorage indexStorage() {
         IndexStorage indexStorage = mock(IndexStorage.class);
 
         when(indexStorage.getNextRowIdToBuild()).thenReturn(RowId.lowestRowId(PARTITION_ID));

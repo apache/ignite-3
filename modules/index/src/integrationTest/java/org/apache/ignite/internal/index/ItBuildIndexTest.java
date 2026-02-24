@@ -149,16 +149,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         }
     }
 
-    private static void changeLeader(ZonePartitionId groupId, IgniteImpl currentPrimary) throws Exception {
-        String newLeaderNodeName = collectAssignments(TABLE_NAME).get(groupId.partitionId())
-                .stream()
-                .filter(name -> !Objects.equals(name, currentPrimary.name()))
-                .findAny()
-                .orElseThrow();
-
-        CLUSTER.transferLeadershipTo(CLUSTER.nodeIndex(newLeaderNodeName), groupId);
-    }
-
     @Test
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         IgniteImpl currentPrimary = prepareBuildIndexToChangePrimaryReplica();
@@ -460,5 +450,15 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         HybridClock clock = node.clock();
         CatalogManager catalogManager = node.catalogManager();
         return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
+    }
+
+    private static void changeLeader(ZonePartitionId groupId, IgniteImpl currentPrimary) throws Exception {
+        String newLeaderNodeName = collectAssignments(TABLE_NAME).get(groupId.partitionId())
+                .stream()
+                .filter(name -> !Objects.equals(name, currentPrimary.name()))
+                .findAny()
+                .orElseThrow();
+
+        CLUSTER.transferLeadershipTo(CLUSTER.nodeIndex(newLeaderNodeName), groupId);
     }
 }
