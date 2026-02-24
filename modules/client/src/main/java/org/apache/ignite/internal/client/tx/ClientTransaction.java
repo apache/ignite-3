@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.tx;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
@@ -253,6 +254,10 @@ public class ClientTransaction implements Transaction {
 
     private CompletableFuture<Void> sendDiscardRequests() {
         assert finishFut != null;
+
+        if (!ch.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING_SEND_DISCARD)) {
+            return nullCompletedFuture();
+        }
 
         Map<String, List<TablePartitionId>> enlistments = new HashMap<>();
 
