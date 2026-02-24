@@ -50,8 +50,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyCollection
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -59,6 +61,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -204,7 +208,6 @@ import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -1609,7 +1612,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             return failedFuture(new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                    format((isFinishedDueToTimeout ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : TX_ALREADY_FINISHED)
+                            + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
                     cause
             ));
         }
@@ -2417,7 +2421,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             Throwable ex
     ) {
         if (ex != null) {
-            Throwable rootCause = ExceptionUtils.unwrapRootCause(ex);
+            Throwable rootCause = unwrapRootCause(ex);
             if (rootCause instanceof RaftException && ((RaftException) rootCause).raftError() == RaftError.EREJECTED_BY_VALIDATOR) {
                 throw new IncompatibleSchemaVersionException(rootCause.getMessage());
             }
@@ -3803,9 +3807,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
 
                         if (ex != null) {
-                            LockException lockException = findLockException(ex);
-                            if (lockException != null) {
+                            storeFailureInTxMeta(request, ex);
+
+                            if (hasCause(ex, LockException.class)) {
                                 RequestType failedRequestType = getRequestOperationType(request);
+
+                                TransactionException alreadyFinished = transactionAlreadyFinishedException(request);
+                                if (alreadyFinished != null) {
+                                    sneakyThrow(alreadyFinished);
+                                }
+                                LockException lockException = findLockException(ex);
 
                                 sneakyThrow(new OperationLockException(failedRequestType, lockException));
                             }
@@ -3829,6 +3840,49 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             }
             throw e;
         }
+    }
+
+    private void storeFailureInTxMeta(ReplicaRequest request, Throwable throwable) {
+        if (!(request instanceof ReadWriteReplicaRequest)) {
+            return;
+        }
+
+        UUID txId = ((ReadWriteReplicaRequest) request).transactionId();
+        Throwable toStore = unwrapRootCause(throwable);
+
+        txManager.enrichTxMeta(txId, old -> {
+            if (old == null || old.lastException() != null) {
+                return old;
+            }
+
+            return old.mutate()
+                    .lastException(toStore)
+                    .build();
+        });
+    }
+
+    private @Nullable TransactionException transactionAlreadyFinishedException(ReplicaRequest request) {
+        if (!(request instanceof ReadWriteReplicaRequest)) {
+            return null;
+        }
+
+        UUID txId = ((ReadWriteReplicaRequest) request).transactionId();
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+        if (txStateMeta == null || !(isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING)) {
+            return null;
+        }
+
+        TxState txState = txStateMeta.txState();
+        boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeout() != null && txStateMeta.isFinishedDueToTimeout();
+        Throwable cause = txStateMeta.lastException();
+
+        return new TransactionException(
+                isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
+                format((isFinishedDueToTimeout ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : TX_ALREADY_FINISHED)
+                        + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                cause
+        );
     }
 
     private static RequestType getRequestOperationType(ReplicaRequest request) {

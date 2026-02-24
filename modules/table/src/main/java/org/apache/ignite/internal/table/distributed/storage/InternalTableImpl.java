@@ -64,6 +64,8 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -673,7 +675,8 @@ public class InternalTableImpl implements InternalTable {
                         }
                         return failedFuture(
                                 new TransactionException(code, format(
-                                        "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
+                                        "{} [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
+                                        code == TX_ALREADY_FINISHED_ERR ? TX_ALREADY_FINISHED : TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
                                         tableName,
                                         partId,
                                         tx.state(),
@@ -2134,7 +2137,7 @@ public class InternalTableImpl implements InternalTable {
             // Track read only requests which are able to create cursors.
             if (!transactionInflights.addScanInflight(txId)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                        "Transaction is already finished [{}, readOnly=true].",
+                        TX_ALREADY_FINISHED + " [{}, readOnly=true].",
                         formatTxInfo(txId, txManager, false)
                 ));
             }
@@ -2348,7 +2351,8 @@ public class InternalTableImpl implements InternalTable {
 
         return lastExceptionAsync(transaction.id()).thenCompose(cause -> failedFuture(new TransactionException(
                 isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [{}, readOnly={}].",
+                format("{} [{}, readOnly={}].",
+                        isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED,
                         formatTxInfo(transaction.id(), txManager, false),
                         transaction.isReadOnly()
                 ),

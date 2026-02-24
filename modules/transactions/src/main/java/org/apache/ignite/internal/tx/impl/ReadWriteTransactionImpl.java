@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTime
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
 
 import java.util.Map;
 import java.util.UUID;
@@ -146,7 +147,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         Throwable cause = lastException();
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [{}, txState={}].",
+                format(TX_ALREADY_FINISHED + " [{}, txState={}].",
                         formatTxInfo(id(), txManager, false), state()),
                 cause);
     }

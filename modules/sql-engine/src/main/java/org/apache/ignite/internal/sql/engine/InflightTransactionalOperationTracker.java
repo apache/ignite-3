@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -73,7 +75,9 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
 
         return new TransactionException(
                 isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                format("Transaction is already finished [tx={}, {}]", tx, formatTxInfo(tx.id(), txManager, false)),
+                format("{} [tx={}, {}]",
+                        isFinishedDueToTimeout ? TX_ALREADY_FINISHED_ERR : TX_ALREADY_FINISHED_DUE_TO_TIMEOUT,
+                        tx, formatTxInfo(tx.id(), txManager, false)),
                 cause
         );
     }
