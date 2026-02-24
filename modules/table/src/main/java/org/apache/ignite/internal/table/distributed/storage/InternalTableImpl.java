@@ -676,7 +676,7 @@ public class InternalTableImpl implements InternalTable {
                         return failedFuture(
                                 new TransactionException(code, format(
                                         "{} [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
-                                        code == TX_ALREADY_FINISHED_ERR ? TX_ALREADY_FINISHED : TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                                        code == TX_ALREADY_FINISHED_ERR ? TX_ALREADY_FINISHED : TX_ALREADY_FINISHED_DUE_TO_TIMEOUT,
                                         tableName,
                                         partId,
                                         tx.state(),
