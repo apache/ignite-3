@@ -597,11 +597,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         // Enlistment for thin client direct request may be absent on coordinator.
         if (enlistment == null || enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+            long expectedEnlistmentConsistencyToken = enlistment == null
+                    ? currentEnlistmentConsistencyToken
+                    : enlistment.consistencyToken();
+
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
             return tx.rollbackWithExceptionAsync(
-                            new PrimaryReplicaExpiredException(senderGroupId, enlistment.consistencyToken(), null, null))
+                            new PrimaryReplicaExpiredException(senderGroupId, expectedEnlistmentConsistencyToken, null, null))
                     .thenApply(unused -> {
                         TxStateMeta newMeta = stateMeta(tx.id());
 
