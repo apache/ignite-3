@@ -55,6 +55,12 @@ public class DistributedComputeWithReceiverExample {
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
+    /**
+     * Runs the DistributedComputeWithReceiverExample.
+     *
+     * @param arg The command line arguments.
+     * @throws Exception if any error occurs.
+     */
     public static void main(String[] arg) throws Exception {
 
         DeployComputeUnit.processDeploymentUnit(arg);
@@ -147,7 +153,9 @@ public class DistributedComputeWithReceiverExample {
         }
     }
 
-
+    /**
+     * Receiver that processes transactions and detects potential fraud.
+     */
     public static class FraudDetectorReceiver implements DataStreamerReceiver<Tuple, Void, Tuple> {
         @Override
         public CompletableFuture<List<Tuple>> receive(List<Tuple> page, DataStreamerReceiverContext ctx, Void arg) {

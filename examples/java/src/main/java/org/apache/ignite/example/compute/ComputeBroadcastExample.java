@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -33,7 +34,7 @@ import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.QualifiedName;
 
 /**
- * This example demonstrates the usage of the { @link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
+ * This example demonstrates the usage of the {@link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

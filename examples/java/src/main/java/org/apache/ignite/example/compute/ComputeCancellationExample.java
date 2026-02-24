@@ -26,6 +26,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
@@ -34,7 +35,7 @@ import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.lang.CancelHandle;
 
 /**
- * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object, CancellationToken)} API.
+ * This example demonstrates the usage of the {@link IgniteCompute#executeAsync} API with cancellation support.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

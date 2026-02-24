@@ -21,9 +21,11 @@ import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.example.util.DeployComputeUnit;
+
 /**
- * This example demonstrates the usage of the { @link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object)} API.
+ * This example demonstrates the usage of the {@link IgniteCompute#executeAsync} API with various serialization approaches.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

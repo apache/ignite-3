@@ -48,6 +48,12 @@ public class MultiTableDataStreamerExample {
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
+    /**
+     * Runs the MultiTableDataStreamerExample.
+     *
+     * @param arg The command line arguments.
+     * @throws Exception if any error occurs.
+     */
     public static void main(String[] arg) throws Exception {
 
         DeployComputeUnit.processDeploymentUnit(arg);

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
@@ -35,8 +36,7 @@ import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with a custom result marshaller.
+ * This example demonstrates the usage of the {@link IgniteCompute#execute} API with a custom result marshaller.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */

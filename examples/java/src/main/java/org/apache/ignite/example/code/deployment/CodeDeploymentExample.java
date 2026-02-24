@@ -21,13 +21,14 @@ import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
 import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.example.util.DeployComputeUnit;
 
 /**
- * This example demonstrates the usage of the { @link IgniteCompute#execute(BroadcastJobTarget, JobDescriptor, Object)} API.
+ * This example demonstrates the usage of the {@link IgniteCompute#execute} API.
  *
  * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
@@ -41,7 +42,12 @@ public class CodeDeploymentExample {
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
-
+    /**
+     * Runs the CodeDeploymentExample.
+     *
+     * @param args The command line arguments.
+     * @throws Exception if any error occurs.
+     */
     public static void main(String[] args) throws Exception {
         DeployComputeUnit.processDeploymentUnit(args);
         System.out.println("\nConnecting to server...");
