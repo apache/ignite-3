@@ -21,7 +21,7 @@ import static java.lang.Thread.currentThread;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasuresCount;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasurementsCount;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
@@ -439,7 +439,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
             // Verify metrics start at zero
             assertThat(
                     metrics.readLockAcquisitionTime(),
-                    hasMeasuresCount(0L)
+                    hasMeasurementsCount(0L)
             );
 
             // Acquire and immediately release the lock
@@ -449,13 +449,13 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
             // Verify acquisition was recorded
             assertThat(
                     metrics.readLockAcquisitionTime(),
-                    hasMeasuresCount(1L)
+                    hasMeasurementsCount(1L)
             );
 
             // Verify hold time distribution was recorded
             assertThat(
                     metrics.readLockHoldTime(),
-                    hasMeasuresCount(1L)
+                    hasMeasurementsCount(1L)
             );
 
             readWriteLock.writeLock();

@@ -40,7 +40,7 @@ public final class MetricMatchers {
      * @param expectedMeasuresCount Expected total number of measurements across all buckets.
      * @return Matcher for distribution metric measures count.
      */
-    public static Matcher<DistributionMetric> hasMeasuresCount(long expectedMeasuresCount) {
+    public static Matcher<DistributionMetric> hasMeasurementsCount(long expectedMeasuresCount) {
         return new FeatureMatcher<>(
                 is(expectedMeasuresCount),
                 "a DistributionMetric with measures count",

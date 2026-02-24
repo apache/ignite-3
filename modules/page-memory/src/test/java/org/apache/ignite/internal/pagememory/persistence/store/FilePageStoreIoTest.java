@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
-import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasuresCount;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasurementsCount;
 import static org.apache.ignite.internal.metrics.MetricMatchers.hasMetric;
 import static org.apache.ignite.internal.metrics.MetricMatchers.hasValue;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
@@ -184,7 +184,7 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     private static void assertDistributionMetricFromSet(MetricSet metrics, String metricName, long expectedMeasuresCount) {
         assertThat(metrics, hasMetric(
                 metricName,
-                hasMeasuresCount(expectedMeasuresCount)
+                hasMeasurementsCount(expectedMeasuresCount)
         ));
     }
 }

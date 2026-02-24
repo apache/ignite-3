@@ -201,15 +201,20 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-                long startTime = System.nanoTime();
-                runConsistentlyMetrics.incrementActiveCount();
+                boolean metricsEnabled = runConsistentlyMetrics.enabled();
+                long startTime = metricsEnabled ? System.nanoTime() : 0;
+
+                if (metricsEnabled) {
+                    runConsistentlyMetrics.onRunConsistentlyStarted();
+                }
 
                 try {
                     return executeRunConsistently(closure);
                 } finally {
-                    long duration = System.nanoTime() - startTime;
-                    runConsistentlyMetrics.recordRunConsistentlyDuration(duration);
-                    runConsistentlyMetrics.decrementActiveCount();
+                    if (metricsEnabled) {
+                        runConsistentlyMetrics.recordRunConsistentlyDuration(System.nanoTime() - startTime);
+                        runConsistentlyMetrics.onRunConsistentlyFinished();
+                    }
                 }
             });
         }

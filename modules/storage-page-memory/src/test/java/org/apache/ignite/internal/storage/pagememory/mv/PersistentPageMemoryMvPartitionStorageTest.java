@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasuresCount;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasurementsCount;
 import static org.apache.ignite.internal.metrics.MetricMatchers.hasValue;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
@@ -47,8 +47,8 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metrics.LongAdderMetric;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -94,7 +94,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
-                mock(MetricManager.class),
+                new TestMetricManager(),
                 storageConfig,
                 systemConfig,
                 ioRegistry,
@@ -546,26 +546,28 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         RunConsistentlyMetrics metrics = ((PersistentPageMemoryMvPartitionStorage) storage).runConsistentlyMetrics();
 
         // Verify metrics start at zero
-        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(0L));
+        assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(0L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
-        assertMetricValue(metrics.runConsistentlyTotalCount(), 0);
+        assertMetricValue(metrics.runConsistentlyStarted(), 0);
+        assertMetricValue(metrics.runConsistentlyFinished(), 0);
 
         // Execute a simple operation within runConsistently
         storage.runConsistently(locker -> {
-            // Verify active count is incremented
+            // Verify active count is incremented (started=1, finished=0)
             assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
+            assertMetricValue(metrics.runConsistentlyStarted(), 1);
+            assertMetricValue(metrics.runConsistentlyFinished(), 0);
 
             return null;
         });
 
         // Verify duration was recorded
-        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(1L));
+        assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(1L));
 
-        // Verify active count is decremented back to zero
+        // Verify active count is back to zero (started=1, finished=1)
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
-
-        // Verify total count is incremented
-        assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
+        assertMetricValue(metrics.runConsistentlyStarted(), 1);
+        assertMetricValue(metrics.runConsistentlyFinished(), 1);
 
         // Execute another operation
         storage.runConsistently(locker -> {
@@ -574,12 +576,11 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
             return null;
         });
 
-        // Verify another duration was recorded
-        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(2L));
+        // Verify counters after second invocation
+        assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(2L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
-
-        // Verify total count is incremented again
-        assertMetricValue(metrics.runConsistentlyTotalCount(), 2);
+        assertMetricValue(metrics.runConsistentlyStarted(), 2);
+        assertMetricValue(metrics.runConsistentlyFinished(), 2);
     }
 
     @Test
@@ -588,13 +589,12 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         storage.runConsistently(outerLocker -> {
             assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
-            assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
+            assertMetricValue(metrics.runConsistentlyStarted(), 1);
 
             // Nested call - takes fast path, no metrics recorded
             storage.runConsistently(innerLocker -> {
-                // Active count and total count should not increase for nested calls
                 assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
-                assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
+                assertMetricValue(metrics.runConsistentlyStarted(), 1);
 
                 return null;
             });
@@ -602,13 +602,14 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
             return null;
         });
 
-        // Only one duration and one total count should be recorded for the outer call
-        assertThat(metrics.runConsistentlyDuration(), hasMeasuresCount(1L));
+        // Only one started/finished pair should be recorded for the outer call
+        assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(1L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
-        assertMetricValue(metrics.runConsistentlyTotalCount(), 1);
+        assertMetricValue(metrics.runConsistentlyStarted(), 1);
+        assertMetricValue(metrics.runConsistentlyFinished(), 1);
     }
 
-    private static void assertMetricValue(LongAdderMetric metric, long value) {
+    private static void assertMetricValue(LongMetric metric, long value) {
         assertThat(metric, hasValue(is(value)));
     }
 }
