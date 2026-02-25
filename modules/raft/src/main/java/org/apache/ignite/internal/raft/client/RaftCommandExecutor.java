@@ -584,41 +584,6 @@ class RaftCommandExecutor {
         return RetryPeerResult.success(nextPeer);
     }
 
-    /**
-     * Result of attempting to select a peer for retry.
-     */
-    private static final class RetryPeerResult {
-        private final @Nullable Peer peer;
-        private final @Nullable Throwable error;
-
-        private RetryPeerResult(@Nullable Peer peer, @Nullable Throwable error) {
-            this.peer = peer;
-            this.error = error;
-        }
-
-        static RetryPeerResult success(Peer peer) {
-            return new RetryPeerResult(peer, null);
-        }
-
-        static RetryPeerResult fail(Throwable error) {
-            return new RetryPeerResult(null, error);
-        }
-
-        boolean isSuccess() {
-            return peer != null;
-        }
-
-        Peer peer() {
-            assert peer != null : "Check isSuccess() before calling peer()";
-            return peer;
-        }
-
-        Throwable error() {
-            assert error != null : "Check isSuccess() before calling error()";
-            return error;
-        }
-    }
-
     private static void logRecoverableError(RetryContext retryContext, Peer nextPeer) {
         if (LOG.isDebugEnabled()) {
             LOG.debug(
@@ -906,64 +871,6 @@ class RaftCommandExecutor {
 
     private static String getShortReasonMessage(RetryContext retryContext, RaftError error, ErrorResponse resp) {
         return format("Peer {} returned code {}: {}", retryContext.targetPeer().consistentId(), error, resp.errorMsg());
-    }
-
-    /**
-     * How to track the current peer when moving to a new one.
-     */
-    private enum PeerTracking {
-        /** Don't mark the current peer (transient errors, leader redirects). */
-        COMMON,
-        /** Mark as unavailable (down, shutting down). */
-        UNAVAILABLE,
-        /** Mark as "no leader" (working but doesn't know leader). */
-        NO_LEADER
-    }
-
-    /**
-     * Strategy for executing retries. Each method receives everything needed to perform the retry.
-     *
-     * <p>This interface abstracts the differences between single-attempt mode and leader-wait mode:
-     * <ul>
-     *     <li><b>Single-attempt mode</b>: Each peer is tried at most once. All errors mark the peer
-     *         as unavailable. When all peers exhausted, fail immediately.</li>
-     *     <li><b>Leader-wait mode</b>: Transient errors retry on the same peer with delay.
-     *         "No leader" errors track peers separately. When exhausted, wait for leader notification.</li>
-     * </ul>
-     */
-    private interface RetryExecutionStrategy {
-        /**
-         * Executes retry on the specified peer with the given tracking for the current peer.
-         *
-         * @param context Current retry context.
-         * @param nextPeer Peer to retry on.
-         * @param trackCurrentAs How to track the current peer ({@link PeerTracking#COMMON} for "don't track").
-         * @param reason Human-readable reason for the retry.
-         */
-        void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason);
-
-        /**
-         * Called when all peers have been exhausted.
-         *
-         * <p>In leader-wait mode, this triggers waiting for leader notification.
-         * In single-attempt mode, this completes with {@link ReplicationGroupUnavailableException}.
-         */
-        void onAllPeersExhausted();
-
-        /**
-         * Whether to track "no leader" peers separately from unavailable peers.
-         *
-         * <p>In leader-wait mode, peers that return "no leader" are tracked separately so that
-         * when all peers are exhausted, the strategy can wait for a leader notification rather
-         * than failing immediately. In single-attempt mode, all errors are treated uniformly
-         * as unavailable.
-         */
-        boolean trackNoLeaderSeparately();
-
-        /**
-         * Returns the target peer strategy used for this request.
-         */
-        TargetPeerStrategy targetSelectionStrategy();
     }
 
     /**
