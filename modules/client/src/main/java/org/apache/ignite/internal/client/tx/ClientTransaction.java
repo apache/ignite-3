@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.tx;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
@@ -25,7 +24,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
-import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
@@ -39,9 +37,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -89,7 +85,7 @@ public class ClientTransaction implements Transaction {
 
     /** The future used on repeated commit/rollback. */
     @IgniteToStringExclude
-    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>(); // TODO use updater
+    private volatile CompletableFuture<Void> finishFut;
 
     /** State. */
     private final AtomicInteger state = new AtomicInteger(STATE_OPEN);
@@ -237,8 +233,10 @@ public class ClientTransaction implements Transaction {
         enlistPartitionLock.writeLock().lock();
 
         try {
-            if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-                return finishFut.get();
+            if (finishFut != null) {
+                return finishFut;
+            } else {
+                finishFut = new CompletableFuture<>();
             }
         } finally {
             enlistPartitionLock.writeLock().unlock();
@@ -247,7 +245,7 @@ public class ClientTransaction implements Transaction {
         return sendDiscardRequests().handle((r, e) -> {
             setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
             ch.inflights().erase(txId());
-            this.finishFut.get().complete(null);
+            this.finishFut.complete(null);
             return null;
         });
     }
@@ -279,6 +277,7 @@ public class ClientTransaction implements Transaction {
             if (ch == null) {
                 // Connection is lost, the transaction will be cleaned up by other means.
                 // TODO https://issues.apache.org/jira/browse/IGNITE-27651
+                continue;
             }
 
             CompletableFuture<Void> discardFut = ch.serviceAsync(ClientOp.TX_DISCARD, w -> {
@@ -304,8 +303,10 @@ public class ClientTransaction implements Transaction {
         enlistPartitionLock.writeLock().lock();
 
         try {
-            if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-                return finishFut.get();
+            if (finishFut != null) {
+                return finishFut;
+            } else {
+                finishFut = new CompletableFuture<>();
             }
         } finally {
             enlistPartitionLock.writeLock().unlock();
@@ -344,7 +345,7 @@ public class ClientTransaction implements Transaction {
                 sendDiscardRequests().handle((r, e0) -> {
                     setState(cause instanceof ClientTransactionKilledException ? STATE_KILLED : STATE_ROLLED_BACK);
                     ch.inflights().erase(txId());
-                    this.finishFut.get().complete(null);
+                    this.finishFut.complete(null);
                     return null;
                 });
 
@@ -353,7 +354,7 @@ public class ClientTransaction implements Transaction {
 
             setState(STATE_COMMITTED);
             ch.inflights().erase(txId());
-            this.finishFut.get().complete(null);
+            this.finishFut.complete(null);
             return null;
         });
 
@@ -372,8 +373,10 @@ public class ClientTransaction implements Transaction {
         enlistPartitionLock.writeLock().lock();
 
         try {
-            if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-                return finishFut.get();
+            if (finishFut != null) {
+                return finishFut;
+            } else {
+                finishFut = new CompletableFuture<>();
             }
         } finally {
             enlistPartitionLock.writeLock().unlock();
@@ -391,7 +394,7 @@ public class ClientTransaction implements Transaction {
         mainFinishFut.handle((res, e) -> {
             setState(STATE_ROLLED_BACK);
             ch.inflights().erase(txId());
-            this.finishFut.get().complete(null);
+            this.finishFut.complete(null);
             return null;
         });
 
@@ -478,7 +481,7 @@ public class ClientTransaction implements Transaction {
     }
 
     private void checkEnlistPossible() {
-        if (finishFut.get() != null) {
+        if (finishFut != null) {
             throw exceptionForState(state.get(), this);
         }
     }
@@ -495,9 +498,7 @@ public class ClientTransaction implements Transaction {
      */
     public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, ClientChannel opChannel, PartitionMapping pm,
             boolean trackOperation) {
-        if (!enlistPartitionLock.readLock().tryLock()) {
-            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
-        }
+        enlistPartitionLock.readLock().lock();
 
         try {
             checkEnlistPossible();
@@ -579,7 +580,7 @@ public class ClientTransaction implements Transaction {
     /** Fail the transaction. */
     public void fail() {
         state.set(STATE_ROLLED_BACK);
-        finishFut.set(nullCompletedFuture());
+        finishFut = nullCompletedFuture();
     }
 
     @Override

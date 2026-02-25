@@ -248,7 +248,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         finishFuture = nullCompletedFuture();
                         this.timeoutExceeded = timeoutExceeded;
                     } else {
-                        assert killClosure == null : "Invalid kill state for a full transaction";
+                        if (killClosure == null) {
+                            throw new AssertionError("Invalid kill state for a full transaction");
+                        }
                         killed = true;
                     }
                 } else {
@@ -270,7 +272,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         killed = true;
 
                         return finishFutureInternal.handle((unused, throwable) -> {
-                            // TODO make async after async cleanup.
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-25825 move before finish after async cleanup
                             if (killClosure != null) {
                                 // Notify the client about the kill.
                                 killClosure.accept(this);

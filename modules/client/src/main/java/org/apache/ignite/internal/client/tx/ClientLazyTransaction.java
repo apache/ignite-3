@@ -69,14 +69,7 @@ public class ClientLazyTransaction implements Transaction {
 
     @Override
     public void commit() throws TransactionException {
-        var tx0 = tx;
-
-        if (tx0 == null) {
-            // No operations were performed, nothing to commit.
-            return;
-        }
-
-        tx0.join().commit();
+        commitAsync().join();
     }
 
     @Override

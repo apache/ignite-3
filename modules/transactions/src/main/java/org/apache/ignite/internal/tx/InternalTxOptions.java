@@ -52,7 +52,7 @@ public class InternalTxOptions {
     private final @Nullable Consumer<InternalTransaction> killClosure;
 
     private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp, @Nullable String txLabel,
-            Consumer<InternalTransaction> killClosure) {
+            @Nullable Consumer<InternalTransaction> killClosure) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
         this.readTimestamp = readTimestamp;

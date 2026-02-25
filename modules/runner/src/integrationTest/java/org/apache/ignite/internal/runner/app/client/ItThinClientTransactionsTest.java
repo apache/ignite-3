@@ -1382,7 +1382,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-27947")
-    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() {
+    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() throws InterruptedException {
         // Note: reversed tx priority is required for this test.
         ClientTable table = (ClientTable) table();
         KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
@@ -1402,6 +1402,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // Will wait for lock.
         CompletableFuture<Void> fut2 = kvView.putAsync(tx2, key, val);
         assertFalse(fut2.isDone());
+
+        Thread.sleep(500);
 
         // Rollback should not be blocked.
         assertThat(tx2.rollbackAsync(), willSucceedFast());

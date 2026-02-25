@@ -57,8 +57,11 @@ public class ClientTransactionKilledException extends TransactionException {
     public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
 
-        this.txId = cause instanceof ClientTransactionKilledException
-                ? ((ClientTransactionKilledException) cause).txId : null;
+        if (cause instanceof ClientTransactionKilledException) {
+            this.txId = ((ClientTransactionKilledException) cause).txId;
+        } else {
+            throw new IllegalArgumentException("Copy constructor should only be called with the source exception");
+        }
     }
 
     /**
