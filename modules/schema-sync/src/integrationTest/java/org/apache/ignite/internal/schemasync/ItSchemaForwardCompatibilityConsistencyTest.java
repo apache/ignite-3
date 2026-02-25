@@ -48,7 +48,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -76,6 +75,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
+    private static final int PARTITION_COUNT = 25;
+
     private Ignite node0;
 
     @InjectExecutorService
@@ -95,8 +96,8 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
 
         node0.sql()
                 .execute(
-                        "CREATE ZONE " + ZONE_NAME + " (REPLICAS " + initialNodes() + ") STORAGE PROFILES ['"
-                                + DEFAULT_AIPERSIST_PROFILE_NAME + "']"
+                        "CREATE ZONE " + ZONE_NAME + " (REPLICAS " + initialNodes() + ", PARTITIONS " + PARTITION_COUNT
+                                + ") STORAGE PROFILES ['" + DEFAULT_AIPERSIST_PROFILE_NAME + "']"
                 )
                 .close();
     }
@@ -194,11 +195,7 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
     }
 
     private static List<ReadResult> readRowsFromTable(Ignite node, String tableName) {
-        try (ResultSet<SqlRow> resultSet = node.sql().execute("SELECT * FROM " + tableName)) {
-            while (resultSet.hasNext()) {
-                resultSet.next();
-            }
-        }
+        forceUpdatesApplicationAndWriteIntentResolution(node, tableName);
 
         List<ReadResult> readResults = new ArrayList<>();
 
@@ -207,11 +204,21 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
 
         int partitionCount = partitions(ignite.catalogManager(), tableName);
 
+        assertThat(partitionCount, is(PARTITION_COUNT));
+
         for (int partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++) {
             collectRowsFromPartition(table, partitionIndex, readResults);
         }
 
         return readResults;
+    }
+
+    private static void forceUpdatesApplicationAndWriteIntentResolution(Ignite node, String tableName) {
+        try (ResultSet<SqlRow> resultSet = node.sql().execute("SELECT * FROM " + tableName)) {
+            while (resultSet.hasNext()) {
+                resultSet.next();
+            }
+        }
     }
 
     private static int partitions(CatalogManager catalogManager, String tableName) {
