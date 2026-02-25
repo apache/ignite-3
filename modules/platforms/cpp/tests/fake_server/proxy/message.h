@@ -16,4 +16,43 @@
 
 //
 
-#include "asio_proxy.h"
+#pragma once
+
+#include <cstring>
+
+struct message {
+    char *m_arr{nullptr};
+    size_t m_size = 0;
+
+    friend void swap(message& lhs, message& rhs) noexcept {
+        using std::swap;
+        swap(lhs.m_arr, rhs.m_arr);
+        swap(lhs.m_size, rhs.m_size);
+    }
+
+    message(char *arr, size_t size)
+        : m_size(size)
+    {
+        m_arr = new char[m_size];
+        std::memcpy(m_arr, arr, size);
+    }
+
+    message(const message &other)
+        : m_size(other.m_size)
+    {
+        m_arr = new char[m_size];
+        std::memcpy(m_arr, other.m_arr, m_size);
+    }
+
+    message(message &&other) noexcept
+    {
+        swap(*this, other);
+    }
+
+    message& operator=(message rhs) noexcept {
+        swap(*this, rhs);
+        return *this;
+    }
+
+    ~message() { delete[] m_arr; }
+};
