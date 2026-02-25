@@ -170,6 +170,18 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
                 requestLeaderManually(topologyService, executor, fut);
             }
+
+            @Override
+            public void onDisappeared(InternalClusterNode member) {
+                Peer cachedLeader = commandExecutor.leader();
+
+                if (cachedLeader != null && member.name().equals(cachedLeader.consistentId())) {
+                    commandExecutor.setLeader(null);
+
+                    LOG.info("Cleared cached leader due to node disappearance [grp={}, leader={}].",
+                            groupId, member.name());
+                }
+            }
         };
         topologyService.addEventHandler(topologyEventHandler);
 
