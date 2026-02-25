@@ -114,12 +114,6 @@ class RaftCommandExecutor {
     /** State machine for tracking leader availability. */
     private final LeaderAvailabilityState leaderAvailabilityState;
 
-    /** Current leader. */
-    private volatile Peer leader;
-
-    /** Term associated with the cached leader. Used by {@link #setLeaderIfTermNewer} to prevent stale updates. */
-    private volatile long cachedLeaderTerm = -1;
-
     /** Busy lock for shutdown. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -160,21 +154,12 @@ class RaftCommandExecutor {
     }
 
     /**
-     * Returns a {@link LeaderElectionListener} that feeds the internal leader availability state machine
-     * and updates the cached leader peer.
+     * Returns a {@link LeaderElectionListener} that feeds the internal leader availability state machine.
      *
      * @return Leader election listener callback.
      */
     LeaderElectionListener leaderElectionListener() {
-        return (node, term) -> {
-            if (leaderAvailabilityState.onLeaderElected(node, term)) {
-                // Update cached leader only if the state machine accepted the new term.
-                // This ensures leader field stays in sync with LeaderAvailabilityState.
-                this.leader = new Peer(node.name());
-                // Also update cachedLeaderTerm so setLeaderIfTermNewer works correctly.
-                this.cachedLeaderTerm = term;
-            }
-        };
+        return (node, term) -> leaderAvailabilityState.updateKnownLeaderAndTerm(new Peer(node.name()), term);
     }
 
     /**
@@ -286,16 +271,16 @@ class RaftCommandExecutor {
      * @return Current leader or {@code null} if unknown.
      */
     @Nullable Peer leader() {
-        return leader;
+        return leaderAvailabilityState.leader();
     }
 
     /**
-     * Sets the current leader. Used by PhysicalTopologyAwareRaftGroupService to update state from response.
+     * Sets the current leader hint. Used by PhysicalTopologyAwareRaftGroupService to update state from response.
      *
      * @param leader New leader.
      */
     void setLeader(@Nullable Peer leader) {
-        this.leader = leader;
+        leaderAvailabilityState.setLeaderHint(leader);
     }
 
     /**
@@ -309,18 +294,7 @@ class RaftCommandExecutor {
      * @return {@code true} if the leader was updated (term is newer), {@code false} otherwise.
      */
     boolean setLeaderIfTermNewer(@Nullable Peer leader, long term) {
-        // Compare against the highest known term from either source:
-        // - leaderAvailabilityState.currentTerm(): term from leader election notifications
-        // - cachedLeaderTerm: term from previous setLeaderIfTermNewer calls
-        long highestKnownTerm = Math.max(leaderAvailabilityState.currentTerm(), cachedLeaderTerm);
-
-        if (term > highestKnownTerm) {
-            this.leader = leader;
-            this.cachedLeaderTerm = term;
-            return true;
-        }
-
-        return false;
+        return leaderAvailabilityState.updateKnownLeaderAndTerm(leader, term);
     }
 
     /**
@@ -343,7 +317,7 @@ class RaftCommandExecutor {
         switch (strategy) {
             case LEADER:
                 // Current behavior: try known leader, fallback to random.
-                Peer targetPeer = leader;
+                Peer targetPeer = leaderAvailabilityState.leader();
                 return targetPeer != null ? targetPeer : randomNode(null, false);
             case RANDOM:
                 return randomNode(null, false);
@@ -694,7 +668,7 @@ class RaftCommandExecutor {
                 // response means the target peer is the leader. For RANDOM/SPECIFIC strategies,
                 // the target peer is not necessarily the leader.
                 if (strategy.targetSelectionStrategy() == TargetPeerStrategy.LEADER) {
-                    leader = retryContext.targetPeer();
+                    leaderAvailabilityState.setLeaderHint(retryContext.targetPeer());
                 }
                 fut.complete((R) resp);
             }
@@ -1204,7 +1178,7 @@ class RaftCommandExecutor {
 
         switch (error) {
             case SUCCESS:
-                leader = retryContext.targetPeer();
+                leaderAvailabilityState.setLeaderHint(retryContext.targetPeer());
                 fut.complete(null);
                 break;
 
@@ -1257,7 +1231,7 @@ class RaftCommandExecutor {
                         throw new IllegalStateException("parsePeer returned null for non-null leaderId: " + resp.leaderId());
                     }
 
-                    leader = leaderPeer;
+                    leaderAvailabilityState.setLeaderHint(leaderPeer);
                     strategy.executeRetry(retryContext, leaderPeer, PeerTracking.COMMON, reason);
                 }
                 break;

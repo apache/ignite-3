@@ -20,7 +20,8 @@ package org.apache.ignite.internal.raft.client;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.raft.Peer;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -34,10 +35,12 @@ import org.jetbrains.annotations.VisibleForTesting;
  *
  * <p>State transitions:
  * <pre>
- *     WAITING_FOR_LEADER --[onLeaderElected]--> LEADER_AVAILABLE
+ *     WAITING_FOR_LEADER --[updateKnownLeaderAndTerm(non-null peer)]--> LEADER_AVAILABLE
  *     LEADER_AVAILABLE --[onGroupUnavailable]--> WAITING_FOR_LEADER
  *     Any state --[stop]--> stopped (terminal state)
  * </pre>
+ *
+ * <p>This class is the single source of truth for the current leader peer and term.
  *
  * <p>Thread-safe: all public methods are synchronized or use proper synchronization.
  */
@@ -63,6 +66,9 @@ class LeaderAvailabilityState {
     /** Current leader term. Initialized to -1 to accept term 0 as the first valid term. Guarded by {@code mutex}. */
     private long currentTerm = -1;
 
+    /** Current leader peer. Guarded by {@code mutex}. */
+    private @Nullable Peer leader;
+
     /** Future that waiters block on. Guarded by {@code mutex}. */
     private CompletableFuture<Long> waiters = new CompletableFuture<>();
 
@@ -76,7 +82,7 @@ class LeaderAvailabilityState {
      * Returns a future that completes when a leader becomes available.
      *
      * <p>If a leader is already available, returns an already-completed future with the current term.
-     * Otherwise, returns a future that will complete when {@link #onLeaderElected} is called.
+     * Otherwise, returns a future that will complete when {@link #updateKnownLeaderAndTerm} is called.
      * If the state machine has been destroyed, returns a failed future.
      *
      * @return Future that completes with the leader term when a leader is available.
@@ -94,17 +100,23 @@ class LeaderAvailabilityState {
     }
 
     /**
-     * Handles leader election notification.
+     * Updates the known leader and term.
      *
-     * <p>Transitions from {@link State#WAITING_FOR_LEADER} to {@link State#LEADER_AVAILABLE}
-     * if the new term is greater than the current term. Stale notifications (with term <= current)
-     * are ignored. Has no effect if the state machine has been stopped.
+     * <p>If the new term is greater than the current term:
+     * <ul>
+     *     <li>Updates the term and stores the peer.</li>
+     *     <li>If peer is non-null: transitions from {@link State#WAITING_FOR_LEADER} to {@link State#LEADER_AVAILABLE}
+     *         and completes waiters.</li>
+     *     <li>If peer is null: updates the term only, does NOT transition state or wake waiters.</li>
+     * </ul>
+     * Stale notifications (with term &lt;= current) are ignored.
+     * Has no effect if the state machine has been stopped.
      *
-     * @param leader The newly elected leader node.
-     * @param term The term of the new leader.
-     * @return {@code true} if the leader was accepted (term is newer), {@code false} if ignored (stale or stopped).
+     * @param leader The leader peer (may be {@code null} if only the term is known).
+     * @param term The term of the leader.
+     * @return {@code true} if accepted (term is newer), {@code false} if ignored (stale or stopped).
      */
-    boolean onLeaderElected(InternalClusterNode leader, long term) {
+    boolean updateKnownLeaderAndTerm(@Nullable Peer leader, long term) {
         if (term < 0) {
             throw new IllegalArgumentException("Term must be non-negative: " + term);
         }
@@ -113,7 +125,7 @@ class LeaderAvailabilityState {
 
         synchronized (mutex) {
             if (stopped) {
-                LOG.debug("Ignoring leader election after stop [leader={}, term={}]", leader, term);
+                LOG.debug("Ignoring leader update after stop [leader={}, term={}]", leader, term);
                 return false;
             }
 
@@ -127,13 +139,14 @@ class LeaderAvailabilityState {
             State previousState = currentState;
 
             currentTerm = term;
+            this.leader = leader;
 
-            if (currentState == State.WAITING_FOR_LEADER) {
+            if (leader != null && currentState == State.WAITING_FOR_LEADER) {
                 currentState = State.LEADER_AVAILABLE;
                 futureToComplete = waiters;
             }
 
-            LOG.debug("Leader elected [leader={}, term={}, previousTerm={}, stateChange={}->{}]",
+            LOG.debug("Leader updated [leader={}, term={}, previousTerm={}, stateChange={}->{}]",
                     leader, term, previousTerm, previousState, currentState);
         }
 
@@ -146,12 +159,44 @@ class LeaderAvailabilityState {
     }
 
     /**
+     * Updates the cached leader without changing the term or availability state.
+     *
+     * <p>This is an optimistic cache update used when a response or redirect provides leader information
+     * without a term change. Has no effect after stop.
+     *
+     * @param leader The leader peer hint (may be {@code null} to clear).
+     */
+    void setLeaderHint(@Nullable Peer leader) {
+        synchronized (mutex) {
+            if (stopped) {
+                return;
+            }
+
+            this.leader = leader;
+        }
+    }
+
+    /**
+     * Returns the current leader peer.
+     *
+     * @return Current leader or {@code null} if unknown.
+     */
+    @Nullable Peer leader() {
+        synchronized (mutex) {
+            return leader;
+        }
+    }
+
+    /**
      * Handles group unavailability notification.
      *
      * <p>Transitions from {@link State#LEADER_AVAILABLE} to {@link State#WAITING_FOR_LEADER}
      * only if the term hasn't changed since the unavailability was detected. This prevents
      * resetting the state if a new leader was already elected.
-     * Has no effect if the state machine has been stopped.
+     *
+     * <p>Note: does NOT clear the leader field — intentionally allows retry to the old leader as a first guess.
+     *
+     * <p>Has no effect if the state machine has been stopped.
      *
      * @param termWhenDetected The term at which unavailability was detected.
      */
@@ -213,7 +258,8 @@ class LeaderAvailabilityState {
      * <p>After stop, the state machine is no longer active:
      * <ul>
      *     <li>{@link #awaitLeader()} returns a failed future</li>
-     *     <li>{@link #onLeaderElected} is ignored</li>
+     *     <li>{@link #updateKnownLeaderAndTerm} is ignored</li>
+     *     <li>{@link #setLeaderHint} is ignored</li>
      *     <li>{@link #onGroupUnavailable} is ignored</li>
      * </ul>
      *

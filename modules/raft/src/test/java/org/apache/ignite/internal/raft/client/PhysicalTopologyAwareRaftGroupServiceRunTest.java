@@ -1271,7 +1271,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                 "Constructor's refreshAndGetLeaderWithTerm should complete");
 
         // Set initial leader via leader election to establish a known baseline.
-        // This sets cachedLeaderTerm=2 via leaderElectionListener.
+        // This sets term=2 in leaderAvailabilityState via leaderElectionListener.
         simulateLeaderElectionAndWait(initialLeader, 2);
         assertThat(svc.leader().consistentId(), is(initialLeader.consistentId()));
 

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.raft.client;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,11 +28,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.network.InternalClusterNode;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.LeaderAvailabilityState.State;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,6 +48,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
 
         assertEquals(State.WAITING_FOR_LEADER, state.currentState());
         assertEquals(-1, state.currentTerm());
+        assertNull(state.leader());
 
         // Already in WAITING_FOR_LEADER, should have no effect
         state.onGroupUnavailable(0);
@@ -69,14 +68,14 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} transitions to {@link State#LEADER_AVAILABLE} state and
+     * {@link LeaderAvailabilityState#updateKnownLeaderAndTerm(Peer, long)} transitions to {@link State#LEADER_AVAILABLE} state and
      * completes waiting futures.
      * {@link LeaderAvailabilityState#awaitLeader()} returns completed future when leader is available.
      */
     @Test
     void testAwaitLeader() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader-node");
+        Peer leaderPeer = new Peer("leader-node");
 
         long expectedTerm = 1;
 
@@ -84,11 +83,12 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         CompletableFuture<Long> waiter = state.awaitLeader();
         assertFalse(waiter.isDone());
 
-        state.onLeaderElected(leaderNode, expectedTerm);
+        state.updateKnownLeaderAndTerm(leaderPeer, expectedTerm);
 
-        // Verify leader is available after onLeaderElected.
+        // Verify leader is available after updateKnownLeaderAndTerm.
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
         assertEquals(expectedTerm, state.currentTerm());
+        assertEquals(leaderPeer, state.leader());
 
         assertTrue(waiter.isDone());
         assertEquals(expectedTerm, waiter.join());
@@ -108,16 +108,16 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testStaleTermIgnored() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode1 = createNode("leader-1");
-        InternalClusterNode leaderNode2 = createNode("leader-2");
+        Peer peer1 = new Peer("leader-1");
+        Peer peer2 = new Peer("leader-2");
 
         long expectedTerm = 5;
 
-        assertTrue(state.onLeaderElected(leaderNode1, expectedTerm));
+        assertTrue(state.updateKnownLeaderAndTerm(peer1, expectedTerm));
         assertEquals(expectedTerm, state.currentTerm());
 
         // Stale notification with lower term should be ignored and return false.
-        assertFalse(state.onLeaderElected(leaderNode2, 3));
+        assertFalse(state.updateKnownLeaderAndTerm(peer2, 3));
         assertEquals(expectedTerm, state.currentTerm());
     }
 
@@ -125,15 +125,15 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testEqualTermIgnored() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader");
+        Peer peer = new Peer("leader");
 
         long expectedTerm = 5;
 
-        assertTrue(state.onLeaderElected(leaderNode, expectedTerm));
+        assertTrue(state.updateKnownLeaderAndTerm(peer, expectedTerm));
         assertEquals(expectedTerm, state.currentTerm());
 
         // Same term should be ignored and return false.
-        assertFalse(state.onLeaderElected(leaderNode, expectedTerm));
+        assertFalse(state.updateKnownLeaderAndTerm(peer, expectedTerm));
         assertEquals(expectedTerm, state.currentTerm());
     }
 
@@ -141,13 +141,13 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testHigherTermUpdates() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode1 = createNode("leader-1");
-        InternalClusterNode leaderNode2 = createNode("leader-2");
+        Peer peer1 = new Peer("leader-1");
+        Peer peer2 = new Peer("leader-2");
 
-        assertTrue(state.onLeaderElected(leaderNode1, 1));
+        assertTrue(state.updateKnownLeaderAndTerm(peer1, 1));
         assertEquals(1, state.currentTerm());
 
-        assertTrue(state.onLeaderElected(leaderNode2, 5));
+        assertTrue(state.updateKnownLeaderAndTerm(peer2, 5));
         assertEquals(5, state.currentTerm());
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
     }
@@ -158,17 +158,19 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testOnGroupUnavailableTransition() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader-node");
+        Peer peer = new Peer("leader-node");
 
         long expectedTerm = 1;
 
-        state.onLeaderElected(leaderNode, expectedTerm);
+        state.updateKnownLeaderAndTerm(peer, expectedTerm);
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
         assertEquals(expectedTerm, state.currentTerm());
 
         state.onGroupUnavailable(expectedTerm);
         assertEquals(State.WAITING_FOR_LEADER, state.currentState());
         assertEquals(expectedTerm, state.currentTerm());
+        // Leader hint is intentionally preserved for retry to old leader as a first guess.
+        assertEquals(peer, state.leader());
     }
 
     /**
@@ -177,10 +179,10 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testOnGroupUnavailableIgnoredIfTermChanged() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader-node");
+        Peer peer = new Peer("leader-node");
 
-        state.onLeaderElected(leaderNode, 1);
-        state.onLeaderElected(leaderNode, 2);
+        state.updateKnownLeaderAndTerm(peer, 1);
+        state.updateKnownLeaderAndTerm(peer, 2);
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
         assertEquals(2, state.currentTerm());
 
@@ -196,9 +198,9 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testNewWaitersAfterUnavailable() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader-node");
+        Peer peer = new Peer("leader-node");
 
-        state.onLeaderElected(leaderNode, 1);
+        state.updateKnownLeaderAndTerm(peer, 1);
         CompletableFuture<Long> future1 = state.awaitLeader();
         assertTrue(future1.isDone());
 
@@ -212,7 +214,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testMultipleWaitersCompleted() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader-node");
+        Peer peer = new Peer("leader-node");
 
         CompletableFuture<Long> waiter1 = state.awaitLeader();
         CompletableFuture<Long> waiter2 = state.awaitLeader();
@@ -222,7 +224,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertFalse(waiter2.isDone());
         assertFalse(waiter3.isDone());
 
-        state.onLeaderElected(leaderNode, 10);
+        state.updateKnownLeaderAndTerm(peer, 10);
 
         assertTrue(waiter1.isDone());
         assertTrue(waiter2.isDone());
@@ -237,11 +239,11 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testTermZeroAccepted() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader");
+        Peer peer = new Peer("leader");
 
         assertEquals(-1, state.currentTerm());
 
-        state.onLeaderElected(leaderNode, 0);
+        state.updateKnownLeaderAndTerm(peer, 0);
 
         assertEquals(0, state.currentTerm());
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
@@ -253,13 +255,13 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testNegativeTermRejected() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leaderNode = createNode("leader");
+        Peer peer = new Peer("leader");
 
         assertEquals(-1, state.currentTerm());
 
         IllegalArgumentException thrown = assertThrows(
                 IllegalArgumentException.class,
-                () -> state.onLeaderElected(leaderNode, -1)
+                () -> state.updateKnownLeaderAndTerm(peer, -1)
         );
 
         assertEquals("Term must be non-negative: -1", thrown.getMessage());
@@ -281,8 +283,8 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
             threads[i] = new Thread(() -> {
                 try {
                     startLatch.await();
-                    InternalClusterNode leader = createNode("leader-" + term);
-                    state.onLeaderElected(leader, term);
+                    Peer leader = new Peer("leader-" + term);
+                    state.updateKnownLeaderAndTerm(leader, term);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 } finally {
@@ -374,10 +376,10 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testStopWhenLeaderAvailable() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leader = createNode("leader");
+        Peer peer = new Peer("leader");
         RuntimeException testException = new RuntimeException("Test shutdown");
 
-        state.onLeaderElected(leader, 1);
+        state.updateKnownLeaderAndTerm(peer, 1);
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
 
         state.stop(testException);
@@ -416,20 +418,20 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * {@link LeaderAvailabilityState#onLeaderElected(InternalClusterNode, long)} is ignored after stop and returns false.
+     * {@link LeaderAvailabilityState#updateKnownLeaderAndTerm(Peer, long)} is ignored after stop and returns false.
      */
     @Test
-    void testOnLeaderElectedIgnoredAfterStop() {
+    void testUpdateKnownLeaderAndTermIgnoredAfterStop() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leader = createNode("leader");
+        Peer peer = new Peer("leader");
         RuntimeException testException = new RuntimeException("Test shutdown");
 
         CompletableFuture<Long> waiter1 = state.awaitLeader();
         state.stop(testException);
         assertTrue(waiter1.isCompletedExceptionally());
 
-        // Leader election after stop should be ignored and return false.
-        assertFalse(state.onLeaderElected(leader, 5));
+        // Leader update after stop should be ignored and return false.
+        assertFalse(state.updateKnownLeaderAndTerm(peer, 5));
 
         // State should still be stopped.
         assertTrue(state.stopped());
@@ -446,10 +448,10 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
     @Test
     void testOnGroupUnavailableIgnoredAfterStop() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
-        InternalClusterNode leader = createNode("leader");
+        Peer peer = new Peer("leader");
         RuntimeException testException = new RuntimeException("Test shutdown");
 
-        state.onLeaderElected(leader, 1);
+        state.updateKnownLeaderAndTerm(peer, 1);
         assertEquals(State.LEADER_AVAILABLE, state.currentState());
 
         state.stop(testException);
@@ -460,7 +462,52 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertTrue(state.stopped());
     }
 
-    private static InternalClusterNode createNode(String name) {
-        return new ClusterNodeImpl(deriveUuidFrom(name), name, new NetworkAddress("localhost", 123));
+    /** {@link LeaderAvailabilityState#setLeaderHint(Peer)} updates the cached leader without changing term or state. */
+    @Test
+    void testSetLeaderHint() {
+        LeaderAvailabilityState state = new LeaderAvailabilityState();
+        Peer peerA = new Peer("peer-a");
+        Peer peerB = new Peer("peer-b");
+
+        // setLeaderHint works even before any updateKnownLeaderAndTerm call.
+        state.setLeaderHint(peerB);
+        assertEquals(peerB, state.leader());
+
+        // updateKnownLeaderAndTerm overwrites hint.
+        state.updateKnownLeaderAndTerm(peerA, 5);
+        assertEquals(peerA, state.leader());
+
+        // setLeaderHint overwrites updateKnownLeaderAndTerm's peer.
+        state.setLeaderHint(peerB);
+        assertEquals(peerB, state.leader());
+
+        // null clears the leader.
+        state.setLeaderHint(null);
+        assertNull(state.leader());
+
+        // No-op after stop.
+        state.setLeaderHint(peerA);
+        assertEquals(peerA, state.leader());
+        state.stop(new RuntimeException("Test shutdown"));
+
+        state.setLeaderHint(peerB);
+        assertEquals(peerA, state.leader());
+    }
+
+    /** {@code updateKnownLeaderAndTerm(null, term)} updates term but does NOT transition to LEADER_AVAILABLE. */
+    @Test
+    void testUpdateKnownLeaderWithNullPeerDoesNotTransition() {
+        LeaderAvailabilityState state = new LeaderAvailabilityState();
+
+        CompletableFuture<Long> waiter = state.awaitLeader();
+        assertFalse(waiter.isDone());
+
+        // Null peer: term should be updated, but state should remain WAITING_FOR_LEADER.
+        assertTrue(state.updateKnownLeaderAndTerm(null, 5));
+
+        assertEquals(5, state.currentTerm());
+        assertEquals(State.WAITING_FOR_LEADER, state.currentState());
+        assertNull(state.leader());
+        assertFalse(waiter.isDone(), "Waiter should NOT be completed when peer is null");
     }
 }
