@@ -29,6 +29,7 @@ import org.apache.ignite.internal.client.proto.tx.ClientInternalTxOptions;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -69,7 +70,7 @@ public class ClientLazyTransaction implements Transaction {
 
     @Override
     public void commit() throws TransactionException {
-        commitAsync().join();
+        ViewUtils.sync(commitAsync());
     }
 
     @Override
@@ -86,7 +87,7 @@ public class ClientLazyTransaction implements Transaction {
 
     @Override
     public void rollback() throws TransactionException {
-        rollbackAsync().join();
+        ViewUtils.sync(rollbackAsync());
     }
 
     @Override

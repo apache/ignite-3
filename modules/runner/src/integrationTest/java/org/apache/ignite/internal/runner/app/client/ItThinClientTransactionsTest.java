@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -68,7 +69,9 @@ import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
@@ -1344,17 +1347,28 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @MethodSource("killTestContextFactory")
-    public void testRollbackDoesNotBlockOnLockConflict(KillTestContext ctx) throws InterruptedException {
+    public void testRollbackDoesNotBlockOnLockConflict(KillTestContext ctx) {
         ClientTable table = (ClientTable) table();
+        ClientSql sql = (ClientSql) client().sql();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
         Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
-        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
+        Entry<Partition, ClusterNode> mapping = map.entrySet().iterator().next();
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, (int) mapping.getKey().id(), table);
+        Ignite server = server(mapping.getValue());
+
+        // Init SQL mappings.
+        Tuple key0 = tuples0.get(0);
+        sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                key0.intValue(0), key0.intValue(0) + "");
+        await().atMost(2, TimeUnit.SECONDS)
+                .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
 
         ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
         ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
 
-        Tuple key = tuples0.get(0);
-        Tuple key2 = tuples0.get(1);
+        Tuple key = tuples0.get(1);
+        Tuple key2 = tuples0.get(2);
 
         assertThat(ctx.put.apply(client(), olderTxProxy, key), willSucceedFast());
         ClientTransaction olderTx = olderTxProxy.startedTx();
@@ -1368,8 +1382,13 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         CompletableFuture<?> fut = ctx.put.apply(client(), olderTxProxy, key2);
         assertFalse(fut.isDone());
 
-        // Give some time to acquire a lock to avoid a race with next rollback.
-        Thread.sleep(500);
+        IgniteImpl ignite = unwrapIgniteImpl(server);
+
+        await().atMost(2, TimeUnit.SECONDS).until(() -> {
+            Iterator<Lock> locks = ignite.txManager().lockManager().locks(olderTx.txId());
+
+            return CollectionUtils.count(locks) == 2;
+        });
 
         assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
 
@@ -1378,6 +1397,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         // Ensure inflights cleanup.
         assertThat(youngerTxProxy.rollbackAsync(), willSucceedFast());
+
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2)), willSucceedFast());
     }
 
     @Test

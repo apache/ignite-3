@@ -155,9 +155,8 @@ public interface TxManager extends IgniteComponent {
      * Returns lock manager.
      *
      * @return Lock manager for the given transactions manager.
-     * @deprecated Use lockManager directly.
      */
-    @Deprecated
+    @TestOnly
     LockManager lockManager();
 
     /**
