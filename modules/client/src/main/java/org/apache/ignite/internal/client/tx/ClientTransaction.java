@@ -274,23 +274,23 @@ public class ClientTransaction implements Transaction {
         List<CompletableFuture<Void>> futures = new ArrayList<>(enlistments.size());
 
         for (Entry<String, List<TablePartitionId>> entry : enlistments.entrySet()) {
-            CompletableFuture<Void> discardFut = reliableChannel.getNodeChannelAsync(entry.getKey()).thenCompose(ch -> {
-                if (ch == null) {
-                    return failedFuture(
-                            new IgniteClientConnectionException(CONNECTION_ERR, "Failed to connect to node " + entry.getKey(), null));
+            ClientChannel ch = reliableChannel.getNodeChannel(entry.getKey());
+
+            if (ch == null) {
+                // Connection is lost, the transaction will be cleaned up by other means.
+                // TODO https://issues.apache.org/jira/browse/IGNITE-27651
+            }
+
+            CompletableFuture<Void> discardFut = ch.serviceAsync(ClientOp.TX_DISCARD, w -> {
+                int cnt = entry.getValue().size();
+                w.out().packUuid(txId);
+                w.out().packInt(cnt);
+
+                for (int i = 0; i < cnt; i++) {
+                    w.out().packInt(entry.getValue().get(i).tableId());
+                    w.out().packInt(entry.getValue().get(i).partitionId());
                 }
-
-                return ch.serviceAsync(ClientOp.TX_DISCARD, w -> {
-                    int cnt = entry.getValue().size();
-                    w.out().packUuid(txId);
-                    w.out().packInt(cnt);
-
-                    for (int i = 0; i < cnt; i++) {
-                        w.out().packInt(entry.getValue().get(i).tableId());
-                        w.out().packInt(entry.getValue().get(i).partitionId());
-                    }
-                }, null);
-            });
+            }, null);
 
             futures.add(discardFut);
         }

@@ -303,12 +303,12 @@ public class TxCleanupRequestHandler {
         Map<EnlistedPartitionGroup, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
 
         for (EnlistedPartitionGroup partition : partitions) {
-            CompletableFuture<Void> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
+            CompletableFuture<?> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
                     partition,
                     txId,
                     false,
                     null
-            ).thenAccept(this::processWriteIntentSwitchResponse);
+            );
 
             writeIntentSwitches.put(partition, future);
         }
@@ -317,7 +317,7 @@ public class TxCleanupRequestHandler {
 
         remotelyTriggeredResourceRegistry.close(txId);
 
-        // We don't bother about replicating discarded write intents state, because it will be lazily resolved if needed.
+        // We don't care about replicating discarded write intents state, because it will be lazily resolved if needed.
         return allOf(writeIntentSwitches.values().toArray(new CompletableFuture<?>[0]));
     }
 
