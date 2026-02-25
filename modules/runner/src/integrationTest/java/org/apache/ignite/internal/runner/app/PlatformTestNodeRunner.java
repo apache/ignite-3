@@ -82,6 +82,7 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -301,6 +302,8 @@ public class PlatformTestNodeRunner {
                     return TestIgnitionManager.start(nodeName, config, basePath.resolve(nodeName));
                 })
                 .collect(toList());
+
+        nodes.forEach(server -> ((IgniteServerImpl) server).igniteImpl().useConstantPartitionCountCalculator(DEFAULT_PARTITION_COUNT));
 
         IgniteServer metaStorageNode = nodes.get(0);
 
