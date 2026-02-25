@@ -283,9 +283,9 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
         Assert.IsNotNull(await cache.GetAsync("x"));
 
         // Access before expiration to reset the timer.
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 15; i++)
         {
-            await Task.Delay(TimeSpan.FromSeconds(0.2));
+            await Task.Delay(TimeSpan.FromSeconds(0.1));
             Assert.IsNotNull(await cache.GetAsync("x"));
         }
 
