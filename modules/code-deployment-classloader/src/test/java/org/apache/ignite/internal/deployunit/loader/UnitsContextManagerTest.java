@@ -35,8 +35,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -207,16 +205,4 @@ class UnitsContextManagerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static URL[] extractUrls(List<DisposableDeploymentUnit> units) {
-        return units.stream()
-                .map(DisposableDeploymentUnit::path)
-                .map(it -> {
-                    try {
-                        return it.toUri().toURL();
-                    } catch (MalformedURLException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .toArray(URL[]::new);
-    }
 }

@@ -62,8 +62,6 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -274,9 +272,4 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         controller.start(metastoreRecoveryFuture.join().revision());
     }
 
-    private void setLocalNodeToClusterService(InternalClusterNode clusterNode) {
-        TopologyService topologyService = mock(TopologyService.class, invocation -> clusterNode);
-
-        when(clusterService.topologyService()).thenReturn(topologyService);
-    }
 }

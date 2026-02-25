@@ -369,7 +369,4 @@ class TableTruncatorTest {
         return new Table<>(headers, content);
     }
 
-    private static TruncationConfig enabledConfig(int maxColumnWidth) {
-        return new TruncationConfig(true, maxColumnWidth, 0);
-    }
 }

@@ -335,6 +335,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
     }
 
     /** Guess cost multiplier regarding search bounds only. */
+    @SuppressWarnings("PMD.UnusedPrivateMethod") // Might be called via reflections
     private static double guessCostMultiplier(SearchBounds bounds) {
         if (bounds instanceof ExactBounds) {
             return .1;

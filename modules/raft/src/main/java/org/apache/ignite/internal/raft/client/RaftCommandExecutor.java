@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeS
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -649,20 +648,6 @@ class RaftCommandExecutor {
                     "Unknown SMThrowable type: " + (th == null ? "null" : th.getClass().getName())
             );
         }
-    }
-
-    private static boolean retriableError(@Nullable Throwable e, NetworkMessage raftResponse) {
-        int errorCode = raftResponse instanceof ErrorResponse ? ((ErrorResponse) raftResponse).errorCode() : 0;
-        RaftError raftError = RaftError.forNumber(errorCode);
-
-        if (e != null) {
-            e = unwrapCause(e);
-
-            // Retriable error but can be caused by an overload.
-            return e instanceof TimeoutException || e instanceof IOException;
-        }
-
-        return raftError == RaftError.EBUSY || raftError == RaftError.EAGAIN;
     }
 
     /**

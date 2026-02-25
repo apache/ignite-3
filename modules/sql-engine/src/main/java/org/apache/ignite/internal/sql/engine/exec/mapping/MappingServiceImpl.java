@@ -169,6 +169,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                 .thenApply(frags -> new MappedFragments(frags, topologySnapshot.version));
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateMethod") // TODO: IGNITE-26465 Part of planned caching approach (see commented-out code above)
     private MappingsCacheValue computeMappingCacheKey(
             MappingsCacheValue val,
             TopologySnapshot topologySnapshot,

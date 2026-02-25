@@ -21,7 +21,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,8 +57,6 @@ public class BinaryTupleBuilder {
     /** Buffer for tuple content. */
     private ByteBuffer buffer;
 
-    /** Charset encoder for strings. Initialized lazily. */
-    private CharsetEncoder cachedEncoder;
 
     /**
      * Creates a builder.
@@ -800,15 +797,5 @@ public class BinaryTupleBuilder {
         newBuffer.put(buffer.flip());
 
         buffer = newBuffer;
-    }
-
-    /**
-     * Get UTF-8 string encoder.
-     */
-    private CharsetEncoder encoder() {
-        if (cachedEncoder == null) {
-            cachedEncoder = StandardCharsets.UTF_8.newEncoder();
-        }
-        return cachedEncoder;
     }
 }
