@@ -22,7 +22,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -32,6 +31,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -43,10 +43,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -79,6 +83,11 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
 
     @Override
     protected abstract int initialNodes();
+
+    @Override
+    protected boolean shouldCreateDefaultZone() {
+        return false;
+    }
 
     @BeforeEach
     void prepare() {
@@ -196,11 +205,27 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
         IgniteImpl ignite = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(requireNonNull(ignite.distributedTableManager().cachedTable(tableName)));
 
-        for (int partitionIndex = 0; partitionIndex < DEFAULT_PARTITION_COUNT; partitionIndex++) {
+        int partitionCount = partitions(ignite.catalogManager(), tableName);
+
+        for (int partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++) {
             collectRowsFromPartition(table, partitionIndex, readResults);
         }
 
         return readResults;
+    }
+
+    private static int partitions(CatalogManager catalogManager, String tableName) {
+        Catalog catalog = catalogManager.latestCatalog();
+
+        CatalogTableDescriptor tableDescriptor = catalog.table(Table.DEFAULT_SCHEMA,  tableName);
+
+        assertNotNull(tableDescriptor);
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
+
+        assertNotNull(zoneDescriptor);
+
+        return zoneDescriptor.partitions();
     }
 
     private static void collectRowsFromPartition(TableImpl table, int partitionIndex, List<ReadResult> readResults) {
