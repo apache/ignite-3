@@ -21,6 +21,8 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.util.Map.entry;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -40,6 +42,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -197,7 +200,11 @@ public class TestIgnitionManager {
                 writeConfigurationFile(configStr, configPath);
             }
 
-            return IgniteServer.start(nodeName, configPath, workDir);
+            IgniteServer server = IgniteServer.start(nodeName, configPath, workDir);
+
+            unwrapIgniteImpl(((IgniteServerImpl) server).igniteImpl()).useConstantPartitionCountCalculator(DEFAULT_PARTITION_COUNT);
+
+            return server;
         } catch (IOException e) {
             throw new IgniteException(INTERNAL_ERR, "Couldn't write node config.", e);
         }
