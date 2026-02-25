@@ -79,10 +79,6 @@ class ApacheIgnite3Teamcity {
             "Examples",
             "ignite-examples"
         )
-        private val IGNITE__FILE_TRANSFER = GradleModule(
-            "File Transfer",
-            "ignite-file-transfer"
-        )
         private val IGNITE__FILE_IO = GradleModule(
             "File IO",
             "ignite-file-io"
@@ -291,7 +287,6 @@ class ApacheIgnite3Teamcity {
             IGNITE__CONFIGURATION_ANNOTATION_PROCESSOR,
             IGNITE__DISTRIBUTION_ZONES,
             IGNITE__EXAMPLES,
-            IGNITE__FILE_TRANSFER,
             IGNITE__INDEX,
             IGNITE__JDBC,
             IGNITE__METASTORAGE,

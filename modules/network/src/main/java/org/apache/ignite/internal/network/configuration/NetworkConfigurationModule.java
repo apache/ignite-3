@@ -49,4 +49,9 @@ public class NetworkConfigurationModule implements ConfigurationModule {
     public Set<Validator<?, ?>> validators() {
         return Set.of(SslConfigurationValidatorImpl.INSTANCE, MulticastAddressValidator.INSTANCE);
     }
+
+    @Override
+    public Collection<String> deletedPrefixes() {
+        return List.of("ignite.network.fileTransfer");
+    }
 }
