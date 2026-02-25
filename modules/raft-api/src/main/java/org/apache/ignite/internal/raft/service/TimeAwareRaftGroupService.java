@@ -39,10 +39,10 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Each asynchronous method takes a {@code timeoutMillis} parameter with the following semantics:
  * <ul>
- *     <li>{@code 0} - single attempt without retries</li>
- *     <li>{@code Long.MAX_VALUE} - infinite wait</li>
- *     <li>negative values - treated as infinite for compatibility</li>
- *     <li>positive values - bounded wait up to the specified timeout</li>
+ *     <li>{@code 0} - single attempt without retries.</li>
+ *     <li>{@code Long.MAX_VALUE} - infinite wait.</li>
+ *     <li>negative values - treated as infinite for compatibility.</li>
+ *     <li>positive values - bounded wait up to the specified timeout.</li>
  * </ul>
  * If a result is not available within the timeout, the future will be completed with a {@link TimeoutException}.
  *
@@ -178,7 +178,10 @@ public interface TimeAwareRaftGroupService {
      * @return A future.
      */
     CompletableFuture<Void> changePeersAndLearners(
-            PeersAndLearners peersAndLearners, @Deprecated long term, long sequenceToken, long timeoutMillis);
+            PeersAndLearners peersAndLearners,
+            @Deprecated long term,
+            long sequenceToken,
+            long timeoutMillis);
 
     /**
      * Changes peers and learners of a replication group with the given timeout.
@@ -201,7 +204,10 @@ public interface TimeAwareRaftGroupService {
      * @return A future.
      */
     CompletableFuture<Void> changePeersAndLearnersAsync(
-            PeersAndLearners peersAndLearners, @Deprecated long term, long sequenceToken, long timeoutMillis);
+            PeersAndLearners peersAndLearners,
+            @Deprecated long term,
+            long sequenceToken,
+            long timeoutMillis);
 
     /**
      * Adds learners (non-voting members) with the given timeout.

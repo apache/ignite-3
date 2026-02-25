@@ -45,7 +45,6 @@ import org.jetbrains.annotations.Nullable;
  * calls.
  */
 class RetryContext {
-
     private static final int MAX_RETRY_REASONS = 25;
 
     private static final DateTimeFormatter TIMESTAMP_FORMATTER =

@@ -124,6 +124,11 @@ class SubscriptionMessageSender {
 
                 msgSendFut.complete(false);
             } else if (invokeCause instanceof NodeStoppingException) {
+                LOG.warn(
+                        "Could not subscribe to leader update from a specific node, because the node is stopping: [node={}].",
+                        node
+                );
+
                 msgSendFut.complete(false);
             } else {
                 LOG.error("Could not send the subscribe message to the node: [node={}, msg={}].", invokeThrowable, node, msg);

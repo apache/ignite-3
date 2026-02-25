@@ -232,6 +232,7 @@ class RaftCommandExecutor {
 
         return executeWithBusyLock(responseFuture -> {
             Peer initialPeer = resolveInitialPeer(targetStrategy, specificPeer);
+
             if (initialPeer == null) {
                 responseFuture.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
                 return;
