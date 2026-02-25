@@ -228,7 +228,10 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         Peer peer = new Peer(member.name());
 
         if (peers().contains(peer)) {
-            SubscriptionLeaderChangeRequest msg = subscriptionLeaderChangeRequest(subscribe);
+            SubscriptionLeaderChangeRequest msg = MESSAGES_FACTORY.subscriptionLeaderChangeRequest()
+                    .groupId(groupId)
+                    .subscribe(subscribe)
+                    .build();
 
             return subscriptionMessageSender.send(member, msg).whenComplete((isSent, err) -> {
                 if (err != null) {
@@ -308,13 +311,6 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
 
     public void unsubscribeLeader(LeaderElectionListener callback) {
         generalLeaderElectionListener.removeCallbackAndNotify(callback);
-    }
-
-    private SubscriptionLeaderChangeRequest subscriptionLeaderChangeRequest(boolean subscribe) {
-        return MESSAGES_FACTORY.subscriptionLeaderChangeRequest()
-                .groupId(groupId)
-                .subscribe(subscribe)
-                .build();
     }
 
     @Override
