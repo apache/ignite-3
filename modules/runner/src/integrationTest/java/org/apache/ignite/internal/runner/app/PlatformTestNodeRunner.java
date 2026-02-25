@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
@@ -301,6 +302,8 @@ public class PlatformTestNodeRunner {
                 })
                 .collect(toList());
 
+        nodes.forEach(igniteServer -> unwrapIgniteImpl(igniteServer.api()).useConstantPartitionCountCalculator(DEFAULT_PARTITION_COUNT));
+
         IgniteServer metaStorageNode = nodes.get(0);
 
         InitParameters initParameters = InitParameters.builder()
@@ -324,8 +327,6 @@ public class PlatformTestNodeRunner {
         var keyCol = "KEY";
 
         IgniteImpl ignite = unwrapIgniteImpl(node);
-
-        createDefaultZone(ignite);
 
         createZone(ignite.catalogManager(), ZONE_NAME, 10, 1);
 

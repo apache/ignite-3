@@ -72,6 +72,7 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
 import org.apache.ignite.internal.catalog.PartitionCountCalculator;
 import org.apache.ignite.internal.catalog.PartitionCountCalculatorWrapper;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
@@ -2277,6 +2278,13 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public PartitionCountCalculator partitionCountCalculator() {
         return partitionCountCalculatorWrapper;
+    }
+
+    @TestOnly
+    public void useConstantPartitionCountCalculator(int partitionCount) {
+        partitionCountCalculatorWrapper.setPartitionCountCalculator(
+                PartitionCountCalculator.staticPartitionCountCalculator(partitionCount)
+        );
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

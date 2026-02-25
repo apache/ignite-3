@@ -176,7 +176,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     }
 
     protected boolean shouldCreateDefaultZone() {
-        return true;
+        return false;
     }
 
     private static void createDefaultZone() {
