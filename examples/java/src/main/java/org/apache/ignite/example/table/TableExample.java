@@ -82,11 +82,11 @@ public class TableExample {
                     .set("age", 32)
                     .set("company", "Apache");
 
-            personTableView.upsert(null, personTuple);
+            personTableView.upsert(personTuple);
 
             Tuple personIdTuple = Tuple.create()
                     .set("id", 1);
-            Tuple insertedPerson = personTableView.get(null, personIdTuple);
+            Tuple insertedPerson = personTableView.get(personIdTuple);
 
             System.out.println("Person name: " + insertedPerson.stringValue("name"));
         }

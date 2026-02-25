@@ -60,7 +60,7 @@ public class TransactionsExample {
 
             /* Insert initial account */
             accounts.put(null, key, new Account("John", "Doe", 1000.0d));
-            System.out.println("Initial balance: " + accounts.get(null, key).balance);
+            System.out.println("Initial balance: " + accounts.get(key).balance);
 
             /* Using synchronous transactional API to update the balance */
             client.transactions().runInTransaction(tx -> {
@@ -69,7 +69,7 @@ public class TransactionsExample {
                 accounts.put(tx, key, acct);
             });
 
-            System.out.println("Balance after the sync transaction: " + accounts.get(null, key).balance);
+            System.out.println("Balance after the sync transaction: " + accounts.get(key).balance);
 
             /* Using asynchronous transactional API to update the balance */
             CompletableFuture<Void> future = client.transactions().runInTransactionAsync(tx ->
@@ -80,7 +80,7 @@ public class TransactionsExample {
                             })
             );
             future.join();
-            System.out.println("Balance after the async transaction: " + accounts.get(null, key).balance);
+            System.out.println("Balance after the async transaction: " + accounts.get(key).balance);
 
         } finally {
 

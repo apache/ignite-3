@@ -68,7 +68,7 @@ public class QueryExample {
         System.out.println("[ Example 1 ] Performing query without transaction");
 
         try (Cursor<Entry<Tuple, Tuple>> cursor = table.keyValueView().query(
-                null, // Implicit transaction
+                (Transaction) null, // Implicit transaction
                 // Query criteria
                 and(
                         columnValue("name", equalTo("John Doe")),
@@ -117,8 +117,7 @@ public class QueryExample {
     public static void performQueryAsync(Table table) {
         System.out.println("[ Example 3 ] Performing asynchronous query");
 
-        AsyncCursor<Entry<Tuple, Tuple>> result = table.keyValueView().queryAsync(
-                        null, // Implicit transaction
+        AsyncCursor<Entry<Tuple, Tuple>> result = table.keyValueView().queryAsync(null, // Implicit transaction
                         and(
                                 columnValue("name", equalTo("John Doe")),
                                 columnValue("age", greaterThan(20))

@@ -36,7 +36,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
         assertConsoleOutputContains(RecordViewExample::main, EMPTY_ARGS,
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
-                        + "    Owner: Val Kulichenko\n"
+                        + "    Owner: Jane Doe\n"
                         + "    Balance: $100.0\n");
     }
 
@@ -50,7 +50,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
         assertConsoleOutputContains(RecordViewPojoExample::main, EMPTY_ARGS,
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
-                        + "    Owner: Val Kulichenko\n"
+                        + "    Owner: Jane Doe\n"
                         + "    Balance: $100.0\n");
     }
 
@@ -64,7 +64,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
         assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
-                        + "    Owner: Val Kulichenko\n"
+                        + "    Owner: Jane Doe\n"
                         + "    Balance: $100.0\n");
     }
 
@@ -78,7 +78,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
         assertConsoleOutputContains(KeyValueViewPojoExample::main, EMPTY_ARGS,
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
-                        + "    Owner: Val Kulichenko\n"
+                        + "    Owner: Jane Doe\n"
                         + "    Balance: $100.0\n");
     }
 }

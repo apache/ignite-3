@@ -35,8 +35,8 @@ public class TwoTableReceiver implements DataStreamerReceiver<Tuple, Void, Tuple
                     .set("street", sourceItem.stringValue("street"))
                     .set("city", sourceItem.stringValue("city"));
 
-            customersTable.upsert(null, customer);
-            addressesTable.upsert(null, address);
+            customersTable.upsert(customer);
+            addressesTable.upsert(address);
         }
 
         return CompletableFuture.completedFuture(results);
