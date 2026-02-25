@@ -48,6 +48,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -75,7 +76,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
-    private static final int PARTITION_COUNT = 25;
+    private static final int PARTITION_COUNT = CatalogUtils.DEFAULT_PARTITION_COUNT;
 
     private Ignite node0;
 

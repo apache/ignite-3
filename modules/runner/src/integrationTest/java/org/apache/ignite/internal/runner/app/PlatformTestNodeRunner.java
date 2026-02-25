@@ -303,7 +303,7 @@ public class PlatformTestNodeRunner {
                 })
                 .collect(toList());
 
-        nodes.forEach(server -> ((IgniteServerImpl) server).igniteImpl().useConstantPartitionCountCalculator(DEFAULT_PARTITION_COUNT));
+        nodes.forEach(server -> ((IgniteServerImpl) server).igniteImpl().useStaticPartitionCountCalculator(DEFAULT_PARTITION_COUNT));
 
         IgniteServer metaStorageNode = nodes.get(0);
 
