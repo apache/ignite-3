@@ -37,6 +37,7 @@ import org.jetbrains.annotations.VisibleForTesting;
  * <pre>
  *     WAITING_FOR_LEADER --[updateKnownLeaderAndTerm(non-null peer)]--> LEADER_AVAILABLE
  *     LEADER_AVAILABLE --[onGroupUnavailable]--> WAITING_FOR_LEADER
+ *     Any state --[resetLeaderState]--> WAITING_FOR_LEADER (leader=null, term=-1)
  *     Any state --[stop]--> stopped (terminal state)
  * </pre>
  *
@@ -184,6 +185,35 @@ class LeaderAvailabilityState {
     @Nullable Peer leader() {
         synchronized (mutex) {
             return leader;
+        }
+    }
+
+    /**
+     * Resets the leader state completely: clears the cached leader, resets term to -1,
+     * and transitions to {@link State#WAITING_FOR_LEADER}.
+     *
+     * <p>Used when the peer configuration changes (e.g., {@code resetPeers}) and the cached
+     * leader/term may no longer be valid. Resetting term to -1 ensures the next leader update
+     * (even with the same term) will be accepted by the stale term guard.
+     *
+     * <p>Has no effect if the state machine has been stopped.
+     */
+    void resetLeaderState() {
+        synchronized (mutex) {
+            if (stopped) {
+                return;
+            }
+
+            State previousState = currentState;
+            long previousTerm = currentTerm;
+
+            leader = null;
+            currentTerm = -1;
+            currentState = State.WAITING_FOR_LEADER;
+            waiters = new CompletableFuture<>();
+
+            LOG.debug("Leader state reset [previousTerm={}, stateChange={}->{}]",
+                    previousTerm, previousState, currentState);
         }
     }
 

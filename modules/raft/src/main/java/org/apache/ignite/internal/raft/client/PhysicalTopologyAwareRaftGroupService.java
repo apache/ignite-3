@@ -584,7 +584,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     public void updateConfiguration(PeersAndLearners configuration) {
         this.peers = List.copyOf(configuration.peers());
         this.learners = List.copyOf(configuration.learners());
-        commandExecutor.setLeader(null);
+        commandExecutor.resetLeaderState();
     }
 
     @Override

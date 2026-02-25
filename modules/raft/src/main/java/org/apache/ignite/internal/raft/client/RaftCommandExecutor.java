@@ -284,6 +284,14 @@ class RaftCommandExecutor {
     }
 
     /**
+     * Resets the leader state completely (leader, term, availability).
+     * Used on peer reconfiguration when the cached state may no longer be valid.
+     */
+    void resetLeaderState() {
+        leaderAvailabilityState.resetLeaderState();
+    }
+
+    /**
      * Updates the leader only if the given term is newer than the currently known term.
      *
      * <p>This prevents stale leader information from overwriting fresher information
