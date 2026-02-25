@@ -80,29 +80,16 @@ TEST_F(connection_test, request_timeout) {
     }
 }
 
-// TEST_F(connection_test, using_proxy) {
-//     fake_server fs{50900, get_logger()};
-//     proxy::kgb_proxy proxy{50800, 50900};
-//
-//     fs.start();
-//     proxy.start();
-//
-//     ignite_client_configuration cfg;
-//     cfg.set_logger(get_logger());
-//     cfg.set_endpoints(get_endpoints());
-//
-//     auto cl = ignite_client::start(cfg, 5s);
-//
-//     auto cluster_nodes = cl.get_cluster_nodes();
-//
-//     ASSERT_EQ(1, cluster_nodes.size());
-// }
-
 TEST_F(connection_test, using_asio) {
     fake_server fs{50900, get_logger()};
     fs.start();
 
-    proxy::asio_proxy proxy{{{50800, "127.0.0.1:50900"}}};
+    proxy::message_listener listener;
+
+    proxy::asio_proxy proxy{
+        {proxy::configuration(50800, "127.0.0.1:50900", &listener)}
+    };
+
 
     ignite_client_configuration cfg;
     cfg.set_logger(get_logger());

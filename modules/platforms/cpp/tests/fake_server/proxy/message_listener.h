@@ -14,6 +14,24 @@
 // limitations under the License.
 //
 
-//
+#pragma once
+#include <queue>
 
-#include "asio_proxy.h"
+#include "message.h"
+
+namespace ignite::proxy {
+
+class message_listener {
+public:
+    void register_out_message(message msg) {
+        m_out_queue.push(std::move(msg));
+    }
+
+    void register_in_message(message msg) {
+        m_in_queue.push(std::move(msg));
+    }
+private:
+    std::queue<message> m_out_queue{};
+    std::queue<message> m_in_queue{};
+};
+} // namespace ignite::proxy

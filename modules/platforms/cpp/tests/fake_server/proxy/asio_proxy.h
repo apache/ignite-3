@@ -19,36 +19,38 @@
 #include <iostream>
 #include <queue>
 #include <tuple>
+#include <map>
 
 #include <asio.hpp>
 #include <asio/ts/buffer.hpp>
 #include <asio/ts/internet.hpp>
-#include <map>
+
+#include "message.h"
+#include "message_listener.h"
 
 namespace ignite::proxy {
 
 using asio::ip::tcp;
 
-struct message {
-    char *m_arr;
-    size_t m_size;
+struct configuration {
+    asio::ip::port_type m_in_port;
+    std::string m_out_host_and_port;
+    message_listener* m_listener;
 
-    message(char *arr, size_t size)
-        : m_arr(nullptr)
-        , m_size(size) {
-        m_arr = new char[m_size];
-        std::memcpy(m_arr, arr, size);
-    }
-
-    ~message() { delete[] m_arr; }
+    configuration(asio::ip::port_type m_in_port, const std::string &m_out_host_and_port, message_listener *m_listener)
+        : m_in_port(m_in_port)
+        , m_out_host_and_port(m_out_host_and_port)
+        , m_listener(m_listener) { }
 };
 
 class session : public std::enable_shared_from_this<session> {
 public:
-    session(tcp::socket in_sock, tcp::socket out_sock, std::atomic_bool& stopped)
+    session(tcp::socket in_sock, tcp::socket out_sock, std::atomic_bool& stopped, message_listener* listener)
         : m_in_sock(std::move(in_sock))
         , m_out_sock(std::move(out_sock))
-        , m_stopped(stopped) { }
+        , m_stopped(stopped)
+        , m_listener(listener)
+    { }
 
     ~session() {
         std::cout << "Session destructed " << this <<  std::endl;
@@ -91,7 +93,15 @@ private:
             }
 
             // we have one-threaded executor no synchronization is needed
-            queue.emplace(self->buf, len);
+            message& msg = queue.emplace(self->buf, len);
+
+            if (self->m_listener) {
+                if (direction == forward) {
+                    self->m_listener->register_out_message(msg);
+                } else {
+                    self->m_listener->register_in_message(msg);
+                }
+            }
 
             if (writable) { // there are pending write operation on this socket
                 self->do_write(direction);
@@ -145,20 +155,21 @@ private:
 
     static constexpr size_t BUFF_SIZE = 4096;
 
-    char buf[BUFF_SIZE];
+    char buf[BUFF_SIZE]{};
 
     std::atomic_bool& m_stopped;
+
+    message_listener* m_listener{nullptr};
 };
 
 class asio_proxy {
 public:
-    asio_proxy(std::map<short, std::string> conn_map)
+    asio_proxy(std::vector<configuration> configurations)
         : m_resolver(m_io_context)
         , m_in_sock(m_io_context)
-
     {
-        for (auto& [in_port, out_host_and_port]  : conn_map) {
-            m_conn_map.emplace(in_port, proxy_entry{m_io_context, in_port, out_host_and_port});
+        for (auto& cfg  : configurations) {
+            m_conn_map.emplace(cfg.m_in_port, proxy_entry{m_io_context, cfg.m_in_port, cfg.m_out_host_and_port});
         }
 
         do_serve();
@@ -181,7 +192,7 @@ private:
         std::string m_out_host;
         std::string m_out_port;
 
-        proxy_entry(asio::io_context& io_context, short in_port, const std::string& out_host_and_port)
+        proxy_entry(asio::io_context& io_context, asio::ip::port_type in_port, const std::string& out_host_and_port)
             : m_in_acceptor(io_context, tcp::endpoint(tcp::v4(), in_port))
         {
             auto colon_pos = out_host_and_port.find(':');
@@ -212,7 +223,7 @@ private:
                 throw std::runtime_error("Error accepting incoming connection " + ec.message());
             }
 
-            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped);
+            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped, nullptr);
 
             m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
                 [ses](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
@@ -236,7 +247,7 @@ private:
         });
     }
 
-    std::map<short, proxy_entry> m_conn_map{};
+    std::map<asio::ip::port_type, proxy_entry> m_conn_map{};
 
     asio::io_context m_io_context{};
     std::unique_ptr<std::thread> m_executor{};
