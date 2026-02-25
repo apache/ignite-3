@@ -39,11 +39,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -113,7 +113,7 @@ class SegmentFileTest extends IgniteAbstractTest {
 
     @Test
     void testOpenExistingConstructorInvariants() throws IOException {
-        assertThrows(FileNotFoundException.class, () -> SegmentFile.openExisting(path, false));
+        assertThrows(NoSuchFileException.class, () -> SegmentFile.openExisting(path, false));
 
         createSegmentFile(1);
 

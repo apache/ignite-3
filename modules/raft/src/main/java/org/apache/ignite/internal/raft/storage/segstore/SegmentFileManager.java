@@ -27,10 +27,10 @@ import static org.apache.ignite.internal.raft.storage.segstore.SegmentPayload.TR
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
@@ -567,7 +567,7 @@ class SegmentFileManager implements ManuallyCloseable {
                 ByteBuffer buffer = segmentFile.buffer().position(segmentFilePointer.payloadOffset());
 
                 return EntrySearchResult.success(buffer);
-            } catch (FileNotFoundException e) {
+            } catch (NoSuchFileException e) {
                 // When reading from a segment file based on information from the index manager, there exists a race with the Garbage
                 // Collector: index manager can return a pointer to a segment file that may have been compacted. In this case, we should
                 // just retry and get more recent information.

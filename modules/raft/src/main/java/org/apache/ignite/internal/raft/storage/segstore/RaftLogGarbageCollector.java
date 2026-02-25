@@ -94,7 +94,7 @@ class RaftLogGarbageCollector {
                 Path segmentFile = it.next();
 
                 if (segmentFile.getFileName().toString().endsWith(TMP_FILE_SUFFIX)) {
-                    LOG.info("Deleting temporary segment file: {}.", segmentFile);
+                    LOG.info("Deleting temporary segment file [path = {}].", segmentFile);
 
                     Files.delete(segmentFile);
                 } else {
@@ -103,7 +103,7 @@ class RaftLogGarbageCollector {
                     if (prevFileProperties != null && prevFileProperties.ordinal() == fileProperties.ordinal()) {
                         Path prevPath = segmentFilesDir.resolve(SegmentFile.fileName(prevFileProperties));
 
-                        LOG.info("Deleting segment file {} because it has a higher generation version.", prevPath);
+                        LOG.info("Deleting segment file because it has a higher generation version [path = {}].", prevPath);
 
                         Files.delete(prevPath);
                     }
@@ -124,15 +124,15 @@ class RaftLogGarbageCollector {
 
                 FileProperties fileProperties = indexFileProperties(indexFile);
 
-                // Temporary index fils are not created by the GC, they are created by the index manager and are cleaned up by it.
+                // The GC does not create temporary index files, they are created by the index manager and are cleaned up by it.
                 if (!Files.exists(segmentFilesDir.resolve(SegmentFile.fileName(fileProperties)))) {
-                    LOG.info("Deleting index file {} because the corresponding segment file does not exist.", indexFile);
+                    LOG.info("Deleting index file because the corresponding segment file does not exist [path = {}].", indexFile);
 
                     Files.delete(indexFile);
                 } else if (prevFileProperties != null && prevFileProperties.ordinal() == fileProperties.ordinal()) {
                     Path prevPath = indexFileManager.indexFilePath(prevFileProperties);
 
-                    LOG.info("Deleting index file {} because it has a higher generation version.", prevPath);
+                    LOG.info("Deleting index file because it has a higher generation version [path = {}].", prevPath);
 
                     Files.deleteIfExists(prevPath);
                 }
@@ -145,7 +145,7 @@ class RaftLogGarbageCollector {
     // TODO: Optimize compaction of completely truncated files, see https://issues.apache.org/jira/browse/IGNITE-27964.
     @VisibleForTesting
     void compactSegmentFile(SegmentFile segmentFile) throws IOException {
-        LOG.info("Compacting segment file: {}.", segmentFile.path());
+        LOG.info("Compacting segment file [path = {}].", segmentFile.path());
 
         // Cache for avoiding excessive min/max log index computations.
         var logStorageInfos = new Long2ObjectOpenHashMap<GroupInfo>();
@@ -168,7 +168,7 @@ class RaftLogGarbageCollector {
 
                 if (payloadLength <= 0) {
                     // Skip special entries (such as truncation records). They can always be omitted.
-                    // To identify such entries we rely on the fact that they have negative length field value.
+                    // To identify such entries we rely on the fact that they have nonpositive length field value.
                     int endOfRecordOffset = buffer.position() + Long.BYTES + CRC_SIZE_BYTES;
 
                     buffer.position(endOfRecordOffset);

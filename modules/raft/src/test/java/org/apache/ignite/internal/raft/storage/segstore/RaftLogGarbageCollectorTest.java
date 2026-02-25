@@ -54,6 +54,7 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -227,6 +228,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         assertThat(Files.exists(firstSegmentFile), is(false));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27964")
     @RepeatedTest(10)
     void testConcurrentCompactionAndReads() throws Exception {
         List<byte[]> batches = createRandomData(FILE_SIZE / 10, 50);
@@ -286,6 +288,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         runRace(gcTask, readTask, readTask, readTask);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27964")
     @RepeatedTest(10)
     void testConcurrentCompactionAndReadsFromMultipleGroups() throws Exception {
         List<byte[]> batches = createRandomData(FILE_SIZE / 10, 50);

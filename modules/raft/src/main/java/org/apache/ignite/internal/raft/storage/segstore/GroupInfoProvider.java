@@ -31,7 +31,7 @@ interface GroupInfoProvider {
 
         private final long lastLogIndexExclusive;
 
-        public GroupInfo(long firstLogIndexInclusive, long lastLogIndexExclusive) {
+        GroupInfo(long firstLogIndexInclusive, long lastLogIndexExclusive) {
             this.firstLogIndexInclusive = firstLogIndexInclusive;
             this.lastLogIndexExclusive = lastLogIndexExclusive;
         }
