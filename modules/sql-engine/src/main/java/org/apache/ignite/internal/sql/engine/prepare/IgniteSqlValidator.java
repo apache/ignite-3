@@ -241,9 +241,17 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         super.validateQuery(node, scope, targetRowType);
 
         if (node.getKind() == SqlKind.VALUES) {
+            // The type must have been derived at this point.
+            RelDataType valuesType = getValidatedNodeTypeIfKnown(node);
+            if (valuesType == null) {
+                throw new AssertionError("Type for a VALUEs row should have been resolved");
+            }
+            if (valuesType.getFieldList().size() != targetRowType.getFieldList().size()) {
+                // If rows do not match, a validation error will be risen later.
+                return;
+            }
             // Row type for VALUES node derived as least restrictive type among all the tuples.
             // We have to make sure that all the tuples indeed match the derived type.
-            RelDataType valuesType = deriveType(scope, node);
             for (int i = 0; i < targetRowType.getFieldCount(); i++) {
                 getTypeCoercion().rowTypeCoercion(scope, node, i, valuesType.getFieldList().get(i).getType());
             }
