@@ -489,13 +489,11 @@ public class ClientTableCommon {
                     builder = builder.timeoutMillis(timeoutMillis);
                 }
 
-                builder.killClosure((tx) -> {
-                    if (notificationSender != null) {
-                        // Exception will be ignored if a client doesn't support it.
-                        TransactionKilledException err = new TransactionKilledException(tx.id(), txManager);
+                builder.killClosure(notificationSender == null ? tx -> {} : tx -> {
+                    // Exception will be ignored if a client doesn't support it.
+                    TransactionKilledException err = new TransactionKilledException(tx.id(), txManager);
 
-                        notificationSender.sendNotification(w -> {}, err, NULL_HYBRID_TIMESTAMP);
-                    }
+                    notificationSender.sendNotification(w -> {}, err, NULL_HYBRID_TIMESTAMP);
                 });
 
                 InternalTxOptions txOptions = builder.build();

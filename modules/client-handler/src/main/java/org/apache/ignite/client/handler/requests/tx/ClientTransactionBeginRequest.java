@@ -68,13 +68,11 @@ public class ClientTransactionBeginRequest {
         InternalTxOptions txOptions = InternalTxOptions.builder()
                 .timeoutMillis(timeoutMillis)
                 .readTimestamp(observableTs)
-                .killClosure(tx -> {
-                    if (notificationSender != null) {
-                        // Exception will be ignored if a client doesn't support it.
-                        TransactionKilledException err = new TransactionKilledException(tx.id(), txManager);
+                .killClosure(notificationSender == null ? tx -> {} : tx -> {
+                    // Exception will be ignored if a client doesn't support it.
+                    TransactionKilledException err = new TransactionKilledException(tx.id(), txManager);
 
-                        notificationSender.sendNotification(w -> {}, err, NULL_HYBRID_TIMESTAMP);
-                    }
+                    notificationSender.sendNotification(w -> {}, err, NULL_HYBRID_TIMESTAMP);
                 })
                 .build();
 
