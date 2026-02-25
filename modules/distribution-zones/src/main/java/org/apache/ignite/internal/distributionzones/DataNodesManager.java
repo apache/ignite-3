@@ -1336,6 +1336,10 @@ public class DataNodesManager {
         }
 
         try {
+            if (zoneId != 0 && dataNodes.isEmpty()) {
+                throw new RuntimeException("Empty data nodes set is not allowed [zoneId=" + zoneId + "].");
+            }
+
             // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
             Condition condition = and(
                     notExists(zoneDataNodesHistoryKey(zoneId)),
