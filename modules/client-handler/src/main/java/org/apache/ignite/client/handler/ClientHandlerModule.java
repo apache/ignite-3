@@ -348,6 +348,9 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                                         + ", remoteAddress=" + ch.remoteAddress() + ']');
                             }
 
+                            ch.pipeline().addFirst(new FlushConsolidationHandler(
+                                    FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
+
                             if (configuration.idleTimeoutMillis() > 0) {
                                 IdleStateHandler idleStateHandler = new IdleStateHandler(
                                         configuration.idleTimeoutMillis(), 0, 0, TimeUnit.MILLISECONDS);
