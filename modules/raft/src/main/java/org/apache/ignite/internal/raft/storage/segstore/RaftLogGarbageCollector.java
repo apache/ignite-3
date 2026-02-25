@@ -245,12 +245,12 @@ class RaftLogGarbageCollector {
             if (LOG.isInfoEnabled()) {
                 if (tmpSegmentFile == null) {
                     LOG.info(
-                            "Segment file {} removed (all entries are truncated). Log size freed: {}. New log size: {}.",
+                            "Segment file removed (all entries are truncated) [path = {}, log size freed = {}, new log size = {}].",
                             segmentFile.path(), logSizeDelta, newLogSize
                     );
                 } else {
                     LOG.info(
-                            "Segment file {} compacted. Log size freed: {}. New log size: {}.",
+                            "Segment file compacted [path = {}, log size freed = {}, new log size = {}].",
                             segmentFile.path(), logSizeDelta, newLogSize
                     );
                 }

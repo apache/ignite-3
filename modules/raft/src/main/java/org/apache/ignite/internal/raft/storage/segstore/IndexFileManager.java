@@ -251,7 +251,7 @@ class IndexFileManager {
             }
         });
 
-        LOG.info("New index file created after compaction: {}.", newIndexFilePath);
+        LOG.info("New index file created after compaction [path={}].", newIndexFilePath);
 
         return newIndexFilePath;
     }
@@ -305,7 +305,7 @@ class IndexFileManager {
             } catch (NoSuchFileException e) {
                 // There exists a race between the Garbage Collection process and "groupIndexMetas.get" call. It is possible that
                 // groupIndexMetas returned stale information, we should simply retry in this case.
-                LOG.info("Index file {} not found, retrying.", indexFile);
+                LOG.info("Index file not found, retrying [path={}].", indexFile);
             }
         }
     }
