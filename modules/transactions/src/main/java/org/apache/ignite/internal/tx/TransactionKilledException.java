@@ -21,11 +21,12 @@ import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
 
 import java.util.UUID;
+import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
  * Reports killed transaction.
  */
-public class TransactionKilledException extends TransactionInternalException {
+public class TransactionKilledException extends TransactionInternalException implements RetriableTransactionException {
     private static final long serialVersionUID = 0L;
 
     private final UUID txId;
