@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
 import org.apache.ignite.internal.jobs.DeploymentUtils;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 @MethodSource("baseVersions")
 @MicronautTest(rebuildContext = true)
 public class ItMetastorageStorageCompatibilityTest extends CompatibilityTestBase {
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        builder.clusterConfiguration("ignite.system.properties.metastorageCompactionInterval=10000");
+    }
+
     @Override
     protected int nodesCount() {
         return 1;

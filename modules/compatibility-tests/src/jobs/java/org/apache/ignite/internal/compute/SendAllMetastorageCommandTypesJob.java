@@ -18,28 +18,35 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 
-/** A job that runs different MetastorageWriteCommands. */
-// TODO IGNITE-26874 Add a check that all write commands are covered.
+/** A job that runs different meta storage write commands. */
+// TODO: IGNITE-26874 Add a check that all write commands are covered.
 public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext context, String arg) {
@@ -72,18 +79,36 @@ public class SendAllMetastorageCommandTypesJob implements ComputeJob<String, Voi
 
         return sendCommandsFuture
                 // Send compaction command after other commands have been applied to guarantee a non-zero applied index.
-                .thenCompose(v -> sendCompactionCommand(metastorage))
+                .thenCompose(v -> sendCompactionCommand(igniteImpl))
                 .thenCompose(v -> metastorage.storage().flush());
     }
 
-    private static CompletableFuture<Void> sendCompactionCommand(MetaStorageManagerImpl metastorage) {
-        try {
-            Method sendCompactionCommand = metastorage.getClass().getDeclaredMethod("sendCompactionCommand", long.class);
-            sendCompactionCommand.setAccessible(true);
+    private static CompletableFuture<Void> sendCompactionCommand(IgniteImpl igniteImpl) {
+        return runAsync(() -> {
+            try {
+                ScheduledFuture<?> compactionFuture = getScheduledFuture(igniteImpl);
 
-            return (CompletableFuture<Void>) sendCompactionCommand.invoke(metastorage, 0);
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
+                if (compactionFuture == null) {
+                    return;
+                }
+
+                compactionFuture.get(20, TimeUnit.SECONDS);
+            } catch (IllegalAccessException | InterruptedException | ExecutionException | TimeoutException | NoSuchFieldException e) {
+                throw new IgniteInternalException(INTERNAL_ERR, "Failed to wait for Meta Storage compaction to complete", e);
+            }
+        });
+    }
+
+    private static ScheduledFuture<?> getScheduledFuture(IgniteImpl igniteImpl) throws NoSuchFieldException, IllegalAccessException {
+        Field metaStorageCompactionTriggerField = IgniteImpl.class.getDeclaredField("metaStorageCompactionTrigger");
+        metaStorageCompactionTriggerField.setAccessible(true);
+
+        MetaStorageCompactionTrigger metaStorageCompactionTrigger =
+                (MetaStorageCompactionTrigger) metaStorageCompactionTriggerField.get(igniteImpl);
+
+        Field lastScheduledFutureField = metaStorageCompactionTrigger.getClass().getDeclaredField("lastScheduledFuture");
+        lastScheduledFutureField.setAccessible(true);
+
+        return (ScheduledFuture<?>) lastScheduledFutureField.get(metaStorageCompactionTrigger);
     }
 }
