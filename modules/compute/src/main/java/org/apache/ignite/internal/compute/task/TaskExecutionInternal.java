@@ -152,7 +152,6 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
                     I input = unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType, taskClass.getClassLoader());
                     return task.splitAsync(context, input).thenApply(jobs -> new SplitResult<>(task, jobs));
                 },
-
                 Integer.MAX_VALUE,
                 0
         );
@@ -184,13 +183,19 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
     private void captureReduceExecution(QueueExecution<R> reduceExecution, Throwable throwable) {
         if (throwable != null) {
-            captureReduceSubmitFailure();
+            captureReduceSubmitFailure(throwable);
         } else {
             handleReduceResult(reduceExecution);
         }
     }
 
-    private void captureReduceSubmitFailure() {
+    private void captureReduceSubmitFailure(Throwable throwable) {
+        if (isCancelled.get()) {
+            LOG.warn("Reduce job for task {} was cancelled.", taskId);
+        } else {
+            LOG.error("Failed to submit reduce job for task {}", throwable, taskId);
+        }
+
         // Capture the reduce submit failure reason and time.
         TaskStatus status = isCancelled.get() ? CANCELED : FAILED;
 

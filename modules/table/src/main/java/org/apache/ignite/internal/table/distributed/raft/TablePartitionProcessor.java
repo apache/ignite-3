@@ -33,7 +33,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -107,7 +106,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
     private ReplicaMeta lastKnownLease;
 
     /** Constructor. */
-    @SuppressWarnings("PMD.UnusedFormalParameter") // partitionOperationsExecutor kept for API compatibility
     public TablePartitionProcessor(
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
@@ -117,7 +115,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
-            Executor partitionOperationsExecutor,
             LeasePlacementDriver placementDriver,
             ClockService clockService,
             ZonePartitionId realReplicationGroupId

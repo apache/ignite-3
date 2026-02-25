@@ -713,14 +713,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      *     <li>Broadcasts the current CMG state to all nodes in the physical topology.</li>
      * </ol>
      */
-    @SuppressWarnings("PMD.UnusedFormalParameter")
-    private void onElectedAsLeader(
-            long term,
-            long configurationTerm,
-            long configurationIndex,
-            PeersAndLearners configuration,
-            long sequenceToken
-    ) {
+    private void onElectedAsLeader(long term) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping onLeaderElected callback, because the node is stopping");
 
@@ -989,7 +982,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             failureProcessor,
                             onConfigurationCommittedListener
                     ),
-                    this::onElectedAsLeader,
+                    (term, configurationTerm, configurationIndex, configuration, sequenceToken) -> {
+                        onElectedAsLeader(term);
+                    },
                     null,
                     raftGroupOptionsConfigurer
             );

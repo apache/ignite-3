@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -770,7 +769,6 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(IndexMetaStorage.class),
                 randomUUID(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                mock(Executor.class),
                 placementDriver,
                 clockService,
                 new ZonePartitionId(ZONE_ID, PARTITION_ID)

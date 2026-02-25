@@ -318,7 +318,7 @@ public class IgniteSqlFunctions {
     }
 
     /** CAST(BOOL AS DECIMAL). */
-    @SuppressWarnings("PMD.UnusedFormalParameter")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // Calcite codegen
     public static BigDecimal toBigDecimal(boolean val, int precision, int scale) {
         throw new UnsupportedOperationException();
     }
