@@ -124,7 +124,6 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
             if (command.finish()) {
                 logCommandDuplication(command);
             } else {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-27844
                 logCommandReordering(command);
             }
 
