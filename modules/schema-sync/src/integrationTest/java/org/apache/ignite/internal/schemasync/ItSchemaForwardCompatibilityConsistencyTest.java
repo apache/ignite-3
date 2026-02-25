@@ -22,7 +22,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -72,6 +71,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
+    private static final int PARTITION_COUNT = 25;
+
     private Ignite node0;
 
     @InjectExecutorService
@@ -86,8 +87,8 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
 
         node0.sql()
                 .execute(
-                        "CREATE ZONE " + ZONE_NAME + " (REPLICAS " + initialNodes() + ") STORAGE PROFILES ['"
-                                + DEFAULT_AIPERSIST_PROFILE_NAME + "']"
+                        "CREATE ZONE " + ZONE_NAME + " (REPLICAS " + initialNodes() + ", PARTITIONS " + PARTITION_COUNT
+                                + ") STORAGE PROFILES ['" + DEFAULT_AIPERSIST_PROFILE_NAME + "']"
                 )
                 .close();
     }
@@ -185,22 +186,26 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
     }
 
     private static List<ReadResult> readRowsFromTable(Ignite node, String tableName) {
-        try (ResultSet<SqlRow> resultSet = node.sql().execute("SELECT * FROM " + tableName)) {
-            while (resultSet.hasNext()) {
-                resultSet.next();
-            }
-        }
+        forceUpdatesApplicationAndWriteIntentResolution(node, tableName);
 
         List<ReadResult> readResults = new ArrayList<>();
 
         IgniteImpl ignite = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(requireNonNull(ignite.distributedTableManager().cachedTable(tableName)));
 
-        for (int partitionIndex = 0; partitionIndex < DEFAULT_PARTITION_COUNT; partitionIndex++) {
+        for (int partitionIndex = 0; partitionIndex < PARTITION_COUNT; partitionIndex++) {
             collectRowsFromPartition(table, partitionIndex, readResults);
         }
 
         return readResults;
+    }
+
+    private static void forceUpdatesApplicationAndWriteIntentResolution(Ignite node, String tableName) {
+        try (ResultSet<SqlRow> resultSet = node.sql().execute("SELECT * FROM " + tableName)) {
+            while (resultSet.hasNext()) {
+                resultSet.next();
+            }
+        }
     }
 
     private static void collectRowsFromPartition(TableImpl table, int partitionIndex, List<ReadResult> readResults) {
