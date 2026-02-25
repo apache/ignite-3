@@ -25,6 +25,10 @@ import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCa
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.context.annotation.Context;
+import io.micronaut.context.annotation.Value;
+import io.micronaut.core.annotation.Creator;
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.GarbageCollectorMXBean;
@@ -41,6 +45,7 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -67,6 +72,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of embedded node.
  */
+@Context
 public class IgniteServerImpl implements IgniteServer {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(IgniteServerImpl.class);
@@ -141,6 +147,15 @@ public class IgniteServerImpl implements IgniteServer {
      * Gets set to {@code true} when the node shutdown is initiated. This disallows restarts.
      */
     private volatile boolean shutDown;
+
+    @Creator
+    public IgniteServerImpl(
+            @Value("${node-name}") String nodeName,
+            @Value("${config-path}") Path configPath,
+            @Value("${work-dir}") Path workDir
+    ) {
+        this(nodeName, configPath, null, workDir, null, ForkJoinPool.commonPool());
+    }
 
     /**
      * Constructs an embedded node.
@@ -466,6 +481,7 @@ public class IgniteServerImpl implements IgniteServer {
         }
     }
 
+    @PostConstruct
     @Override
     public void start() {
         sync(startAsync());

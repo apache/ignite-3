@@ -20,14 +20,10 @@ package org.apache.ignite.internal.app;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.runtime.Micronaut;
 import java.nio.file.Path;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import jdk.internal.misc.Signal;
 import jdk.internal.misc.Signal.Handler;
 import org.apache.ignite.IgniteServer;
 import picocli.CommandLine;
-import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 /**
@@ -35,8 +31,7 @@ import picocli.CommandLine.Option;
  * {@code IGNITE_CONFIG_PATH}, {@code IGNITE_WORK_DIR} and {@code IGNITE_NODE_NAME} for {@code --config-path}, {@code --work-dir} and
  * {@code --node-name} command line arguments respectively.
  */
-@Command(name = "runner")
-public class IgniteRunner implements Callable<IgniteServer> {
+public class IgniteRunner {
     @Option(names = "--config-path", description = "Path to node configuration file in HOCON format.", required = true)
     private Path configPath;
 
@@ -46,7 +41,6 @@ public class IgniteRunner implements Callable<IgniteServer> {
     @Option(names = "--node-name", description = "Node name.", required = true)
     private String nodeName;
 
-    @Override
     public IgniteServer call() throws Exception {
         return IgniteServer.start(nodeName, configPath.toAbsolutePath(), workDir);
     }
@@ -73,40 +67,23 @@ public class IgniteRunner implements Callable<IgniteServer> {
      * @param args CLI args to start a new node.
      */
     public static void main(String[] args) {
-        try (ApplicationContext micronautContext = Micronaut.run(IgniteRunner.class, args)) {
-            IgniteServer server = start(args);
-            AtomicBoolean shutdown = new AtomicBoolean(false);
+        ApplicationContext micronautContext = Micronaut.run(IgniteRunner.class, args);
 
-            Handler handler = sig -> {
-                try {
-                    System.out.println("Ignite node shutting down...");
-                    shutdown.set(true);
-                    server.shutdown();
-                    micronautContext.stop();
-                } catch (Throwable t) {
-                    System.out.println("Failed to shutdown: " + t.getMessage());
-
-                    t.printStackTrace(System.out);
-                }
-
-                // Copy-paste from default JVM signal handler java.lang.Terminator#setup.
-                System.exit(sig.getNumber() + 0200);
-            };
-
-            Signal.handle(new Signal("INT"), handler);
-            Signal.handle(new Signal("TERM"), handler);
-
+        Handler handler = sig -> {
             try {
-                server.waitForInitAsync().get();
-            } catch (ExecutionException | InterruptedException e) {
-                if (!shutdown.get()) {
-                    System.out.println("Error when starting the node: " + e.getMessage());
+                System.out.println("Ignite node shutting down...");
+                micronautContext.stop();
+            } catch (Throwable t) {
+                System.out.println("Failed to shutdown: " + t.getMessage());
 
-                    e.printStackTrace(System.out);
-
-                    System.exit(1);
-                }
+                t.printStackTrace(System.out);
             }
-        }
+
+            // Copy-paste from default JVM signal handler java.lang.Terminator#setup.
+            System.exit(sig.getNumber() + 0200);
+        };
+
+        Signal.handle(new Signal("INT"), handler);
+        Signal.handle(new Signal("TERM"), handler);
     }
 }

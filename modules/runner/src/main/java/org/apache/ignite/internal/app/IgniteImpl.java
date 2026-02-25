@@ -302,7 +302,6 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
@@ -402,7 +401,7 @@ public class IgniteImpl implements Ignite {
     private final IndexManager indexManager;
 
     /** Rest module. */
-    private final RestComponent restComponent;
+    // private final RestComponent restComponent;
 
     private final ClusterStateStorage clusterStateStorage;
 
@@ -1341,7 +1340,7 @@ public class IgniteImpl implements Ignite {
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
         systemPropertiesComponent = new SystemPropertiesComponent(systemDistributedConfiguration);
 
-        restComponent = createRestComponent(name);
+        // restComponent = createRestComponent(name);
 
         publicTables = new PublicApiThreadingIgniteTables(distributedTblMgr, asyncContinuationExecutor);
         publicTransactions = new PublicApiThreadingIgniteTransactions(
@@ -1542,7 +1541,7 @@ public class IgniteImpl implements Ignite {
                     nettyBootstrapFactory,
                     nettyWorkersRegistrar,
                     clusterSvc,
-                    restComponent,
+                    // restComponent,
                     partitionsLogStorageManager,
                     msLogStorageManager,
                     cmgLogStorageManager,
@@ -1555,8 +1554,8 @@ public class IgniteImpl implements Ignite {
                     .thenRunAsync(() -> {
                         vaultMgr.putName(name);
 
-                        clusterSvc.updateMetadata(
-                                new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
+                        // clusterSvc.updateMetadata(
+                        //         new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
 
                         LOG.info("Components started");
                     }, startupExecutor)
@@ -1597,7 +1596,7 @@ public class IgniteImpl implements Ignite {
                     systemDisasterRecoveryManager.saveClusterState(clusterState);
                 }, joinExecutor)
                 // Disable REST component during initialization.
-                .thenRunAsync(restComponent::disable, joinExecutor)
+                // .thenRunAsync(restComponent::disable, joinExecutor)
                 .thenComposeAsync(unused -> {
                     LOG.info("Join complete, starting MetaStorage");
 
@@ -1686,7 +1685,7 @@ public class IgniteImpl implements Ignite {
                         clientHandlerModule.enable();
 
                         // Enable REST component on start complete.
-                        restComponent.enable();
+                        // restComponent.enable();
 
                         // Enable compute messages handling
                         computeComponent.enable();
@@ -1946,8 +1945,8 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     @Nullable
     public NetworkAddress restHttpAddress() {
-        String host = restComponent.hostName();
-        int port = restComponent.httpPort();
+        String host = ""; // restComponent.hostName();
+        int port = 0; // restComponent.httpPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
         } else {
@@ -1964,8 +1963,8 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     @Nullable
     public NetworkAddress restHttpsAddress() {
-        String host = restComponent.hostName();
-        int port = restComponent.httpsPort();
+        String host = ""; // restComponent.hostName();
+        int port = 0; // restComponent.httpsPort();
         if (port != -1) {
             return new NetworkAddress(host, port);
         } else {
