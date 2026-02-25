@@ -57,8 +57,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.rocksdb.FlushOptions;
-import org.rocksdb.RocksDBException;
 
 @ExtendWith(WorkDirectoryExtension.class)
 class DefaultLogStorageManagerTest {
@@ -76,7 +74,7 @@ class DefaultLogStorageManagerTest {
         logStorageOptions.setConfigurationManager(new ConfigurationManager());
         logStorageOptions.setLogEntryCodecFactory(DefaultLogEntryCodecFactory.getInstance());
 
-        boolean disableFsync = testInfo.getTestMethod().get().isAnnotationPresent(DisableFsync.class);
+        boolean disableFsync = testInfo.getTestMethod().orElseThrow().isAnnotationPresent(DisableFsync.class);
         logStorageManager = new DefaultLogStorageManager("test", "test", workDir, !disableFsync);
 
         startFactory();
@@ -308,7 +306,7 @@ class DefaultLogStorageManagerTest {
     }
 
     @Test
-    void totalBytesOnDiskAccountsForWal() throws Exception {
+    void totalBytesOnDiskAccountsForWal() {
         int entrySize = 1000;
 
         long originalSize = logStorageManager.totalBytesOnDisk();
@@ -331,15 +329,8 @@ class DefaultLogStorageManagerTest {
         logStorage.appendEntry(dataLogEntry(1, randomBytes(new Random(), entrySize)));
 
         // Make sure SST files are accounted for.
-        flushSstFiles();
+        logStorageManager.flushSstFiles();
         assertThat(logStorageManager.totalBytesOnDisk(), is(greaterThanOrEqualTo(originalSize + entrySize)));
-    }
-
-    private void flushSstFiles() throws RocksDBException {
-        try (var flushOptions = new FlushOptions().setWaitForFlush(true)) {
-            //noinspection resource
-            logStorageManager.db().flush(flushOptions);
-        }
     }
 
     @Retention(RetentionPolicy.RUNTIME)

@@ -19,14 +19,18 @@ package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.internal.util.TupleTypeCastUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -222,6 +226,10 @@ public class Column {
                 String error = format("Value too long [column='{}', type={}]", name, type.displayName());
                 throw new InvalidTypeException(error);
             } else {
+                if (TupleTypeCastUtils.isCastAllowed(objType.spec(), type.spec(), val)) {
+                    return;
+                }
+
                 String error = format(
                         "Value type does not match [column='{}', expected={}, actual={}]",
                         name, type.displayName(), objType.displayName()
@@ -236,6 +244,8 @@ public class Column {
             checkBounds((LocalDateTime) val, SchemaUtils.DATETIME_MIN, SchemaUtils.DATETIME_MAX);
         } else if (type.spec() == ColumnType.TIMESTAMP) {
             checkBounds((Instant) val, SchemaUtils.TIMESTAMP_MIN, SchemaUtils.TIMESTAMP_MAX);
+        } else if (type.spec() == ColumnType.DECIMAL) {
+            checkPrecision((BigDecimal) val);
         }
     }
 
@@ -243,6 +253,14 @@ public class Column {
         if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
             throw new ValueOutOfBoundsException(format("Value is out of allowed range"
                     + " (column='{}', value='{}', min='{}', max='{}').", name, value, min, max));
+        }
+    }
+
+    private void checkPrecision(BigDecimal val) throws SchemaMismatchException {
+        DecimalNativeType dnt = (DecimalNativeType) type;
+        BigDecimal scaled = val.setScale(dnt.scale(), RoundingMode.HALF_UP);
+        if (scaled.precision() > dnt.precision()) {
+            throw new SchemaMismatchException(format("Numeric field overflow in column '{}'", name));
         }
     }
 
@@ -280,15 +298,5 @@ public class Column {
      */
     public static String nullConstraintViolationMessage(String columnName) {
         return format("Column '{}' does not allow NULLs", columnName);
-    }
-
-    /**
-     * Returns an error message for numeric field overflow error.
-     *
-     * @param columnName Column name.
-     * @return Error message.
-     */
-    public static String numericFieldOverflow(String columnName) {
-        return format("Numeric field overflow in column '{}'", columnName);
     }
 }

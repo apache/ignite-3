@@ -43,7 +43,7 @@ import org.jetbrains.annotations.TestOnly;
  * probability of getting timeout exceptions dramatically increase.
  */
 public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
-    private static final IgniteLogger LOG = Loggers.forClass(ThrottlingContextHolder.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ThrottlingContextHolderImpl.class);
 
     private final RaftConfiguration configuration;
 

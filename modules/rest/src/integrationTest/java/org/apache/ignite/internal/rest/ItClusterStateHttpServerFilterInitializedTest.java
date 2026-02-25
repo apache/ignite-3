@@ -33,7 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that after cluster is initialized, all endpoints are available. */
-@MicronautTest(rebuildContext = true)
+@MicronautTest
 public class ItClusterStateHttpServerFilterInitializedTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
