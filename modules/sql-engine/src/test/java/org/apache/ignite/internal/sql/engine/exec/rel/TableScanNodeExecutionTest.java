@@ -79,6 +79,7 @@ import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -228,7 +229,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             };
             ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
             PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partsWithConsistencyTokens);
-            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
+            IgniteTable schemaTable = mock(IgniteTable.class);
+            TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, schemaTable, scanableTable,
                     partitionProvider, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
@@ -282,7 +284,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         RowFactory<Object[]> rowFactory = ctx.rowFactoryFactory().create(schema);
 
         ScannableTable scannableTable = TestBuilders.tableScan(DataProvider.fromRow(new Object[]{42}, partDataSize));
-        TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scannableTable, c -> partitions, null, null, null);
+        IgniteTable schemaTable = mock(IgniteTable.class);
+        TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, schemaTable, scannableTable,
+                c -> partitions, null, null, null);
         RootNode<Object[]> rootNode = new RootNode<>(ctx);
 
         rootNode.register(scanNode);

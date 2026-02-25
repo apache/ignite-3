@@ -74,6 +74,10 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         INITIAL, FILLING_LEFT, FILLING_RIGHT, IDLE, IN_LOOP, END
     }
 
+    // Metrics
+    private long receivedRowsFromLeft = 0L;
+    private long receiveRowsFromRight = 0L;
+
     /**
      * Creates CorrelatedNestedLoopJoin node.
      *
@@ -113,6 +117,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 2;
         assert rowsCnt > 0 && requested == 0;
+
+        onRequestReceived();
 
         requested = rowsCnt;
 
@@ -196,6 +202,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingLeft > 0;
 
+        onRowReceivedFromLeft();
+
         waitingLeft--;
 
         if (leftInBuf == null) {
@@ -210,6 +218,8 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
+
+        onRowReceivedFromRight();
 
         waitingRight--;
 
@@ -487,5 +497,23 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             RowT row = i < leftInBuf.size() ? leftInBuf.get(i) : first(leftInBuf);
             context().correlatedVariable(row, correlationIds.get(i).getId());
         }
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        // Calculate aggregated statistics.
+        onRowsReceived(receivedRowsFromLeft + receiveRowsFromRight);
+
+        super.dumpMetrics0(writer);
+        writer.app(", leftRows=").app(receivedRowsFromLeft)
+                .app(", rightRows=").app(receiveRowsFromRight);
+    }
+
+    private void onRowReceivedFromLeft() {
+        receivedRowsFromLeft++;
+    }
+
+    private void onRowReceivedFromRight() {
+        receiveRowsFromRight++;
     }
 }
