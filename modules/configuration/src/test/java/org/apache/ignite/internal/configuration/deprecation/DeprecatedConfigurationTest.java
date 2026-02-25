@@ -49,8 +49,9 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.Data;
+import org.apache.ignite.internal.configuration.storage.ReadEntry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.WriteEntryImpl;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -175,7 +176,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     void setUp() {
         storage = spy(new TestConfigurationStorage(TEST_CONFIGURATION_TYPE));
 
-        when(storage.write(lastWriteCapture.capture(), anyLong())).thenAnswer(InvocationOnMock::callRealMethod);
+        when(storage.write(new WriteEntryImpl(lastWriteCapture.capture(), anyLong()))).thenAnswer(InvocationOnMock::callRealMethod);
     }
 
     @AfterEach
@@ -197,7 +198,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     lastWriteCapture.getValue()
             );
 
-            Data data = getData();
+            ReadEntry data = getData();
 
             assertEquals(1, data.changeId());
             assertEquals(
@@ -227,7 +228,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             );
 
             // Check that deprecated value is not present in the storage anymore.
-            Data data = getData();
+            ReadEntry data = getData();
             assertEquals(2, data.changeId());
             assertEquals(
                     Map.of("root.child.my-int-cfg", 99),
@@ -315,7 +316,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             );
 
             // Check that deprecated value is not present in the storage anymore.
-            Data data = getData();
+            ReadEntry data = getData();
 
             assertEquals(2, data.changeId());
             assertEquals(
@@ -370,7 +371,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             );
 
             // Check storage state.
-            Data data = getData();
+            ReadEntry data = getData();
 
             assertEquals(2, data.changeId());
             assertEquals(
@@ -403,7 +404,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             );
 
             // Check that deprecated value is not present in the storage anymore.
-            Data data = getData();
+            ReadEntry data = getData();
 
             assertEquals(3, data.changeId());
             assertEquals(
@@ -467,7 +468,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             );
 
             // Check storage state.
-            Data data = getData();
+            ReadEntry data = getData();
 
             assertEquals(2, data.changeId());
             assertEquals(
@@ -502,7 +503,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             );
 
             // Check that deprecated value is not present in the storage anymore.
-            Data data = getData();
+            ReadEntry data = getData();
 
             assertEquals(3, data.changeId());
             assertEquals(
@@ -557,8 +558,8 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         assertThat(changeFuture, willCompleteSuccessfully());
     }
 
-    private Data getData() {
-        CompletableFuture<Data> dataFuture = storage.readDataOnRecovery();
+    private ReadEntry getData() {
+        CompletableFuture<ReadEntry> dataFuture = storage.readDataOnRecovery();
 
         assertThat(dataFuture, willCompleteSuccessfully());
 

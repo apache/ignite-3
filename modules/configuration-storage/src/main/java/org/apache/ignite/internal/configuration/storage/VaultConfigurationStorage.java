@@ -46,7 +46,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 /**
  * Local configuration storage.
  */
-public class LocalConfigurationStorage implements ConfigurationStorage {
+public class VaultConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in the Vault. */
     private static final String LOC_PREFIX = "loc-cfg.";
 
@@ -54,7 +54,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     private static final ByteArray VERSION_KEY = new ByteArray(LOC_PREFIX + "$version");
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LocalConfigurationStorage.class);
+    private static final IgniteLogger LOG = Loggers.forClass(VaultConfigurationStorage.class);
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
@@ -89,7 +89,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
      *
      * @param vaultMgr Vault manager.
      */
-    public LocalConfigurationStorage(String nodeName, VaultManager vaultMgr) {
+    public VaultConfigurationStorage(String nodeName, VaultManager vaultMgr) {
         this.vaultMgr = vaultMgr;
         this.threadPool = Executors.newFixedThreadPool(4, IgniteThreadFactory.create(nodeName, "loc-cfg", LOG));
     }
@@ -108,7 +108,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
         var rangeEnd = new ByteArray(incrementLastChar(LOC_PREFIX + prefix));
 
-        return readAll(rangeStart, rangeEnd).thenApply(Data::values);
+        return readAll(rangeStart, rangeEnd).thenApply(ReadEntry::values);
     }
 
     /** {@inheritDoc} */
@@ -127,14 +127,14 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Data> readDataOnRecovery() {
+    public CompletableFuture<ReadEntry> readDataOnRecovery() {
         return readAll(LOC_KEYS_START_RANGE, LOC_KEYS_END_RANGE);
     }
 
     /**
      * Retrieves all data, which keys lie in between {@code [rangeStart, rangeEnd)}.
      */
-    private CompletableFuture<Data> readAll(ByteArray rangeStart, ByteArray rangeEnd) {
+    private CompletableFuture<ReadEntry> readAll(ByteArray rangeStart, ByteArray rangeEnd) {
         return registerFuture(supplyAsync(() -> {
             var data = new HashMap<String, Serializable>();
 
@@ -156,14 +156,16 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                 throw new StorageException("Exception when closing a Vault cursor", e);
             }
 
-            return new Data(data, version);
+            return new ReadEntry(data, version);
         }, threadPool));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long sentVersion) {
+    public CompletableFuture<Boolean> write(WriteEntry writeEntry) {
         synchronized (writeSerializationLock) {
+            long sentVersion = writeEntry.version();
+            Map<String, ? extends Serializable> newValues = writeEntry.newValues();
             CompletableFuture<Boolean> writeFuture = registerFuture(writeSerializationFuture
                     .thenCompose(v -> lastRevision())
                     .thenComposeAsync(version -> {
@@ -192,7 +194,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                             ));
                         }
 
-                        Data entries = new Data(newValues, version + 1);
+                        ReadEntry entries = new ReadEntry(newValues, version + 1);
 
                         vaultMgr.putAll(data);
 

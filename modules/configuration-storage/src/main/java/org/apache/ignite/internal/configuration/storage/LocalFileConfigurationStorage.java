@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationFlatten
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException.Parse;
@@ -71,7 +70,10 @@ import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.VaultService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -108,6 +110,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Tracks all running futures. */
     private final InFlightFutures futureTracker = new InFlightFutures();
 
+    private final ConfigurationStorage defaultStorage;
+
     /** Last revision for configuration. */
     private long lastRevision = 0L;
 
@@ -119,8 +123,13 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param module Configuration module, which provides configuration patches.
      */
     @TestOnly
-    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
-        this("test", configPath, generator, module);
+    public LocalFileConfigurationStorage(
+            Path configPath,
+            ConfigurationTreeGenerator generator,
+            VaultService vaultService,
+            @Nullable ConfigurationModule module
+    ) {
+        this("test", configPath, generator, new VaultManager(vaultService), module);
     }
 
     /**
@@ -131,11 +140,27 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param module Configuration module, which provides configuration patches.
      */
     public LocalFileConfigurationStorage(
-            String nodeName, Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
+            String nodeName,
+            Path configPath,
+            ConfigurationTreeGenerator generator,
+            VaultManager vaultManager,
+            @Nullable ConfigurationModule module
+    ) {
+        this(nodeName, configPath, generator, createVaultStorage(nodeName, vaultManager), module);
+    }
+
+    public LocalFileConfigurationStorage(
+            String nodeName,
+            Path configPath,
+            ConfigurationTreeGenerator generator,
+            ConfigurationStorage defaultStorage,
+            @Nullable ConfigurationModule module
+    ) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
         this.module = module;
+        this.defaultStorage = defaultStorage;
 
         notificationsThreadPool = Executors.newFixedThreadPool(
                 2, IgniteThreadFactory.create(nodeName, "cfg-file", LOG)
@@ -145,29 +170,31 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     @Override
-    public CompletableFuture<Data> readDataOnRecovery() {
+    public CompletableFuture<ReadEntry> readDataOnRecovery() {
         lock.writeLock().lock();
         try {
-            // Here we don't use ConfigurationDynamicDefaultsPatcher because it works only on Hocon string representation level.
-            // But it's not applicable here because we need to produce map presentation with same ids in names lists.
-            // Each tree walk for string to map mapping produce different ids by design.
-            String hocon = readHoconFromFile();
-            SuperRoot superRoot = convertToSuperRoot(hocon);
+            return defaultStorage.readDataOnRecovery().thenApply(data -> {
+                // Here we don't use ConfigurationDynamicDefaultsPatcher because it works only on Hocon string representation level.
+                // But it's not applicable here because we need to produce map presentation with same ids in names lists.
+                // Each tree walk for string to map mapping produce different ids by design.
+                String hocon = readHoconFromFile();
+                SuperRoot superRoot = convertToSuperRoot(hocon);
 
-            Map<String, Serializable> transformedHocon = transformToMap(superRoot);
+                Map<String, Serializable> transformedHocon = transformToMap(superRoot);
 
-            transformedHocon.forEach((key, value) -> {
-                if (value != null) { // Filter defaults.
-                    latest.put(key, value);
+                transformedHocon.forEach((key, value) -> {
+                    if (value != null) { // Filter defaults.
+                        latest.put(key, value);
+                    }
+                });
+
+                if (module != null) {
+                    module.patchConfigurationWithDynamicDefaults(new SuperRootChangeImpl(superRoot));
+                    transformedHocon = transformToMap(superRoot);
                 }
+
+                return new ReadEntry(transformedHocon, lastRevision, data.values());
             });
-
-            if (module != null) {
-                module.patchConfigurationWithDynamicDefaults(new SuperRootChangeImpl(superRoot));
-                transformedHocon = transformToMap(superRoot);
-            }
-
-            return completedFuture(new Data(transformedHocon, lastRevision));
         } finally {
             lock.writeLock().unlock();
         }
@@ -241,18 +268,25 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     @Override
-    public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long ver) {
+    public CompletableFuture<Boolean> write(WriteEntry writeEntry) {
         lock.writeLock().lock();
         try {
+            long ver = writeEntry.version();
             if (ver != lastRevision) {
                 return falseCompletedFuture();
             }
 
-            mergeAndSave(newValues);
+            return defaultStorage.write(writeEntry).thenApply(success -> {
+                if (!success) {
+                    return false;
+                }
 
-            sendNotificationAsync(new Data(newValues, lastRevision));
+                Map<String, ? extends Serializable> newValues = writeEntry.valuesWithFilteredDefaults();
+                mergeAndSave(newValues);
+                sendNotificationAsync(new ReadEntry(newValues, lastRevision));
 
-            return trueCompletedFuture();
+                return true;
+            });
         } finally {
             lock.writeLock().unlock();
         }
@@ -298,14 +332,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public void close() {
+        defaultStorage.close();
         futureTracker.cancelInFlightFutures();
 
         IgniteUtils.shutdownAndAwaitTermination(notificationsThreadPool, 10, TimeUnit.SECONDS);
-    }
-
-    @Override
-    public boolean supportDefaults() {
-        return false;
     }
 
     private void saveConfigFile() {
@@ -394,12 +424,18 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         }
     }
 
-    private void sendNotificationAsync(Data data) {
+    private void sendNotificationAsync(ReadEntry data) {
         CompletableFuture<Void> future = CompletableFuture.runAsync(
                 () -> lsnrRef.get().onEntriesChanged(data),
                 notificationsThreadPool
         );
 
         futureTracker.registerFuture(future);
+    }
+
+    private static ConfigurationStorage createVaultStorage(String nodeName, VaultManager vaultManager) {
+        VaultConfigurationStorage result = new VaultConfigurationStorage(nodeName, vaultManager);
+        result.registerConfigurationListener(changedEntries -> CompletableFutures.nullCompletedFuture());
+        return result;
     }
 }

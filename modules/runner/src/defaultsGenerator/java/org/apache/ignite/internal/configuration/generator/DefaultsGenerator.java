@@ -22,17 +22,19 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
-import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.InMemoryConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -89,7 +91,12 @@ public class DefaultsGenerator {
         );
 
         ConfigurationStorage storage = new LocalFileConfigurationStorage(
-                "defaultGen", configPath, localConfigurationGenerator, modules.local());
+                "defaultGen",
+                configPath,
+                localConfigurationGenerator,
+                new InMemoryConfigurationStorage(ConfigurationType.LOCAL, Map.of()),
+                modules.local()
+        );
 
         ConfigurationValidator configurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
