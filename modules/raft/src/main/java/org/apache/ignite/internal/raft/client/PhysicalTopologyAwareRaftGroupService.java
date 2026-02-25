@@ -97,7 +97,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
     private final RaftCommandExecutor commandExecutor;
 
     /** Sender for subscription messages with retry logic. */
-    private final SubscriptionMessageSender messageSender;
+    private final SubscriptionMessageSender subscriptionMessageSender;
 
     /** Current peers. */
     private volatile List<Peer> peers;
@@ -151,7 +151,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
                 stoppingExceptionFactory
         );
 
-        this.messageSender = new SubscriptionMessageSender(clusterService.messagingService(), executor, raftConfiguration);
+        this.subscriptionMessageSender = new SubscriptionMessageSender(clusterService.messagingService(), executor, raftConfiguration);
 
         this.generalLeaderElectionListener = new ServerEventHandler(executor);
 
@@ -230,7 +230,7 @@ public class PhysicalTopologyAwareRaftGroupService implements TimeAwareRaftGroup
         if (peers().contains(peer)) {
             SubscriptionLeaderChangeRequest msg = subscriptionLeaderChangeRequest(subscribe);
 
-            return messageSender.send(member, msg).whenComplete((isSent, err) -> {
+            return subscriptionMessageSender.send(member, msg).whenComplete((isSent, err) -> {
                 if (err != null) {
                     failureManager.process(new FailureContext(err, "Could not change subscription to leader updates [grp="
                             + groupId() + "]."));

@@ -88,26 +88,26 @@ class SubscriptionMessageSender {
                 return;
             }
 
-            Throwable invokeCause = unwrapCause(invokeThrowable);
+            Throwable retryCause = unwrapCause(invokeThrowable);
             if (!msg.subscribe()) {
                 // We don't want to propagate exceptions when unsubscribing (if it's not an Error!).
-                if (invokeCause instanceof Error) {
+                if (retryCause instanceof Error) {
                     msgSendFut.completeExceptionally(invokeThrowable);
                 } else {
                     LOG.debug("An exception while trying to unsubscribe.", invokeThrowable);
 
                     msgSendFut.complete(false);
                 }
-            } else if (RaftErrorUtils.recoverable(invokeCause)) {
+            } else if (RaftErrorUtils.recoverable(retryCause)) {
                 sendWithRetry(node, msg, msgSendFut);
-            } else if (invokeCause instanceof RecipientLeftException) {
+            } else if (retryCause instanceof RecipientLeftException) {
                 LOG.info(
                         "Could not subscribe to leader update from a specific node, because the node had left the cluster: [node={}].",
                         node
                 );
 
                 msgSendFut.complete(false);
-            } else if (invokeCause instanceof HandshakeException) {
+            } else if (retryCause instanceof HandshakeException) {
                 LOG.info(
                         "Could not subscribe to leader update from a specific node, because the handshake failed "
                                 + "(node may be unavailable): [node={}].",
@@ -115,7 +115,7 @@ class SubscriptionMessageSender {
                 );
 
                 msgSendFut.complete(false);
-            } else if (invokeCause instanceof CancellationException) {
+            } else if (retryCause instanceof CancellationException) {
                 LOG.info(
                         "Could not subscribe to leader update from a specific node, because the operation was cancelled "
                                 + "(node may be stopping): [node={}].",
@@ -123,7 +123,7 @@ class SubscriptionMessageSender {
                 );
 
                 msgSendFut.complete(false);
-            } else if (invokeCause instanceof NodeStoppingException) {
+            } else if (retryCause instanceof NodeStoppingException) {
                 LOG.warn(
                         "Could not subscribe to leader update from a specific node, because the node is stopping: [node={}].",
                         node

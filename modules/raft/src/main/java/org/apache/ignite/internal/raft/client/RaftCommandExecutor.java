@@ -693,7 +693,7 @@ class RaftCommandExecutor {
                 // Only cache the leader when using LEADER strategy - in that case, a successful
                 // response means the target peer is the leader. For RANDOM/SPECIFIC strategies,
                 // the target peer is not necessarily the leader.
-                if (strategy.targetStrategy() == TargetPeerStrategy.LEADER) {
+                if (strategy.targetSelectionStrategy() == TargetPeerStrategy.LEADER) {
                     leader = retryContext.targetPeer();
                 }
                 fut.complete((R) resp);
@@ -895,13 +895,12 @@ class RaftCommandExecutor {
                 if (!peersAreUnavailable.getAndSet(true)) {
                     LOG.warn(
                             "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}, "
-                                    + "request {}, origin command {}, instance={}].",
+                                    + "request {}, origin command {}].",
                             localPeers,
                             groupId,
                             retryContext.errorTraceId(),
                             retryContext.request().toStringForLightLogging(),
-                            retryContext.originCommandDescription(),
-                            this
+                            retryContext.originCommandDescription()
                     );
                 }
 
@@ -990,7 +989,7 @@ class RaftCommandExecutor {
         /**
          * Returns the target peer strategy used for this request.
          */
-        TargetPeerStrategy targetStrategy();
+        TargetPeerStrategy targetSelectionStrategy();
     }
 
     /**
@@ -1001,21 +1000,21 @@ class RaftCommandExecutor {
      * {@link ReplicationGroupUnavailableException}.
      */
     private class SingleAttemptRetryStrategy<R extends NetworkMessage> implements RetryExecutionStrategy {
-        private final CompletableFuture<R> fut;
-        private final TargetPeerStrategy targetStrategy;
+        private final CompletableFuture<R> futureInvokeResult;
+        private final TargetPeerStrategy targetSelectionStrategy;
 
         SingleAttemptRetryStrategy(
-                CompletableFuture<R> fut,
-                TargetPeerStrategy targetStrategy
+                CompletableFuture<R> futureInvokeResult,
+                TargetPeerStrategy targetSelectionStrategy
         ) {
-            this.fut = fut;
-            this.targetStrategy = targetStrategy;
+            this.futureInvokeResult = futureInvokeResult;
+            this.targetSelectionStrategy = targetSelectionStrategy;
         }
 
         @Override
         public void executeRetry(RetryContext context, Peer nextPeer, PeerTracking trackCurrentAs, String reason) {
             // For SPECIFIC strategy, don't try other peers.
-            if (targetStrategy == TargetPeerStrategy.SPECIFIC) {
+            if (targetSelectionStrategy == TargetPeerStrategy.SPECIFIC) {
                 onAllPeersExhausted();
                 return;
             }
@@ -1032,12 +1031,13 @@ class RaftCommandExecutor {
                 return;
             }
 
-            sendWithRetrySingleAttempt(fut, context.nextAttemptForUnavailablePeer(effectiveNextPeer, reason), targetStrategy);
+            sendWithRetrySingleAttempt(
+                    futureInvokeResult, context.nextAttemptForUnavailablePeer(effectiveNextPeer, reason), targetSelectionStrategy);
         }
 
         @Override
         public void onAllPeersExhausted() {
-            fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
+            futureInvokeResult.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
         }
 
         @Override
@@ -1046,8 +1046,8 @@ class RaftCommandExecutor {
         }
 
         @Override
-        public TargetPeerStrategy targetStrategy() {
-            return targetStrategy;
+        public TargetPeerStrategy targetSelectionStrategy() {
+            return targetSelectionStrategy;
         }
     }
 
@@ -1062,25 +1062,25 @@ class RaftCommandExecutor {
      * </ul>
      */
     private class LeaderWaitRetryStrategy<R extends NetworkMessage> implements RetryExecutionStrategy {
-        private final CompletableFuture<R> fut;
+        private final CompletableFuture<R> futureInvokeResult;
         private final Function<Peer, ? extends NetworkMessage> requestFactory;
-        private final TargetPeerStrategy targetStrategy;
+        private final TargetPeerStrategy targetSelectionStrategy;
         /** Original peer from strategy. For SPECIFIC, used for retry validation and re-resolution. */
         private final Peer originalPeer;
         private final long deadline;
         private final long termWhenStarted;
 
         LeaderWaitRetryStrategy(
-                CompletableFuture<R> fut,
+                CompletableFuture<R> futureInvokeResult,
                 Function<Peer, ? extends NetworkMessage> requestFactory,
-                TargetPeerStrategy targetStrategy,
+                TargetPeerStrategy targetSelectionStrategy,
                 Peer originalPeer,
                 long deadline,
                 long termWhenStarted
         ) {
-            this.fut = fut;
+            this.futureInvokeResult = futureInvokeResult;
             this.requestFactory = requestFactory;
-            this.targetStrategy = targetStrategy;
+            this.targetSelectionStrategy = targetSelectionStrategy;
             this.originalPeer = originalPeer;
             this.deadline = deadline;
             this.termWhenStarted = termWhenStarted;
@@ -1104,14 +1104,15 @@ class RaftCommandExecutor {
             }
 
             // For SPECIFIC strategy, only allow retry to the same peer.
-            if (targetStrategy == TargetPeerStrategy.SPECIFIC && !nextPeer.equals(originalPeer)) {
+            if (targetSelectionStrategy == TargetPeerStrategy.SPECIFIC && !nextPeer.equals(originalPeer)) {
                 onAllPeersExhausted();
                 return;
             }
 
             executor.schedule(
                     () -> sendWithRetryWaitingForLeader(
-                            fut, nextContext, requestFactory, targetStrategy, originalPeer, deadline, termWhenStarted
+                            futureInvokeResult, nextContext, requestFactory,
+                            targetSelectionStrategy, originalPeer, deadline, termWhenStarted
                     ),
                     raftConfiguration.retryDelayMillis().value(),
                     TimeUnit.MILLISECONDS
@@ -1121,26 +1122,26 @@ class RaftCommandExecutor {
         @Override
         public void onAllPeersExhausted() {
             // For RANDOM and SPECIFIC strategies, fail immediately - don't wait for leader.
-            if (targetStrategy != TargetPeerStrategy.LEADER) {
-                fut.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
+            if (targetSelectionStrategy != TargetPeerStrategy.LEADER) {
+                futureInvokeResult.completeExceptionally(new ReplicationGroupUnavailableException(groupId));
                 return;
             }
 
             LOG.debug("All peers exhausted, waiting for leader [groupId={}, term={}]", groupId, termWhenStarted);
             leaderAvailabilityState.onGroupUnavailable(termWhenStarted);
-            waitForLeaderAndRetry(fut, requestFactory, targetStrategy, originalPeer, deadline);
+            waitForLeaderAndRetry(futureInvokeResult, requestFactory, targetSelectionStrategy, originalPeer, deadline);
         }
 
         @Override
         public boolean trackNoLeaderSeparately() {
             // For LEADER strategy, track no-leader peers separately so we can wait for leader.
             // For RANDOM/SPECIFIC, treat all errors uniformly.
-            return targetStrategy == TargetPeerStrategy.LEADER;
+            return targetSelectionStrategy == TargetPeerStrategy.LEADER;
         }
 
         @Override
-        public TargetPeerStrategy targetStrategy() {
-            return targetStrategy;
+        public TargetPeerStrategy targetSelectionStrategy() {
+            return targetSelectionStrategy;
         }
     }
 
