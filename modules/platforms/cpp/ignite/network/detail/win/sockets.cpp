@@ -30,6 +30,8 @@
 
 namespace ignite::network::detail {
 
+std::once_flag wsa_init_flag;
+
 std::string get_socket_error_message(HRESULT error) {
     std::stringstream res;
 
@@ -129,21 +131,13 @@ bool set_non_blocking_mode(SOCKET socket_handle, bool non_blocking) {
 }
 
 void init_wsa() {
-    static std::mutex init_mutex;
-    static bool network_inited = false;
+    std::call_once(wsa_init_flag, [&] {
+        WSADATA wsa_data;
 
-    if (!network_inited) {
-        std::lock_guard<std::mutex> lock(init_mutex);
-        if (!network_inited) {
-            WSADATA wsaData;
-
-            network_inited = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
-
-            if (!network_inited)
-                throw ignite_error(
-                    error::code::CONNECTION, "Networking initialisation failed: " + get_last_socket_error_message());
-        }
-    }
+        if (!WSAStartup(MAKEWORD(2, 2), &wsa_data) == 0)
+            throw ignite_error(
+                error::code::CONNECTION, "Networking initialisation failed: " + get_last_socket_error_message());
+    });
 }
 
 int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd) {
@@ -182,6 +176,22 @@ int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd) {
         return socket_client::wait_result::TIMEOUT;
 
     return socket_client::wait_result::SUCCESS;
+}
+
+int send(SOCKET socket, const void *buf, int len) {
+    return ::send(socket, static_cast<const char*>(buf), len, 0);
+}
+
+int recv(SOCKET socket, void* buf, int len) {
+    return ::recv(socket, static_cast<char*>(buf), len, 0);
+}
+
+void close(SOCKET socket) {
+    if (socket != SOCKET_ERROR)
+    {
+        ::closesocket(socket);
+        socket = SOCKET_ERROR;
+    }
 }
 
 } // namespace ignite::network::detail

@@ -20,6 +20,11 @@
 #include <cstdint>
 #include <string>
 
+#include <netdb.h>
+#include <optional>
+#include <sys/socket.h>
+#include <unistd.h>
+
 #ifndef SOCKET_ERROR
 # define SOCKET_ERROR (-1)
 #endif // SOCKET_ERROR
@@ -68,5 +73,11 @@ int wait_on_socket(int socket, std::int32_t timeout, bool rd);
  * @param non_blocking Non-blocking mode.
  */
 bool set_non_blocking_mode(int socket_fd, bool non_blocking);
+
+ssize_t send(int socket, const void* buf, int len);
+
+ssize_t recv(int socket, void* buf, int len);
+
+void close(int socket);
 
 } // namespace ignite::network::detail
