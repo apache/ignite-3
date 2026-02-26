@@ -71,10 +71,10 @@ public class ConfigurationModules {
     }
 
     /**
-     * Loads modules using {@link ServiceLoader} mechanism.
+     * Creates instance of the {@link ConfigurationModules} provided {@link ClassLoader}.
      *
-     * @param classLoader the class loader to use
-     * @return modules
+     * @param classLoader the class loader to use.
+     * @return Configuration modules.
      */
     public static ConfigurationModules create(@Nullable ClassLoader classLoader) {
         List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
