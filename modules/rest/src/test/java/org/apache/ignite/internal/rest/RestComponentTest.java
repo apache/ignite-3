@@ -39,7 +39,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
@@ -94,15 +93,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 List.of(RestExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
                 List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
-        ConfigurationManager configurationManager = new ConfigurationManager(
+        var configurationRegistry = new ConfigurationRegistry(
                 List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
                 new TestConfigurationValidator()
         );
-        assertThat(configurationManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(configurationRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
         RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestExtensionConfiguration.KEY).rest();
 
         ClusterManagementGroupManager cmg = mock(ClusterManagementGroupManager.class);
@@ -112,8 +110,8 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
         AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, EventLog.NOOP);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
-                configurationManager,
-                mock(ConfigurationManager.class)
+                configurationRegistry,
+                mock(ConfigurationRegistry.class)
         );
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
         Supplier<RestFactory> restEventsFactory = () -> new RestEventsFactory(EventLog.NOOP, "NOOP");

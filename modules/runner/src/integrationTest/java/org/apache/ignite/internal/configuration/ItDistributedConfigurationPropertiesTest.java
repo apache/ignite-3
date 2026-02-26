@@ -141,7 +141,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
         private final ConfigurationTreeGenerator generator;
 
-        private final ConfigurationManager distributedCfgManager;
+        private final ConfigurationRegistry distributedConfigRegistry;
 
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private final CompletableFuture<Void> deployWatchesFut;
@@ -275,7 +275,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             };
 
             generator = new ConfigurationTreeGenerator(DistributedConfiguration.KEY);
-            distributedCfgManager = new ConfigurationManager(
+            distributedConfigRegistry = new ConfigurationRegistry(
                     List.of(DistributedConfiguration.KEY),
                     distributedCfgStorage,
                     generator,
@@ -309,7 +309,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             );
 
             return CompletableFuture.runAsync(() ->
-                    assertThat(distributedCfgManager.startAsync(new ComponentContext()), willCompleteSuccessfully())
+                    assertThat(distributedConfigRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
 
@@ -325,7 +325,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          */
         void stop() {
             var components = List.of(
-                    distributedCfgManager,
+                    distributedConfigRegistry,
                     cmgManager,
                     failureManager,
                     metaStorageManager,
@@ -425,11 +425,11 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
      */
     @Test
     public void testFallingBehindDistributedStorageValue() throws Exception {
-        ConfigurationValue<String> firstValue = firstNode.distributedCfgManager.configurationRegistry()
+        ConfigurationValue<String> firstValue = firstNode.distributedConfigRegistry
                 .getConfiguration(DistributedConfiguration.KEY)
                 .str();
 
-        ConfigurationValue<String> secondValue = secondNode.distributedCfgManager.configurationRegistry()
+        ConfigurationValue<String> secondValue = secondNode.distributedConfigRegistry
                 .getConfiguration(DistributedConfiguration.KEY)
                 .str();
 

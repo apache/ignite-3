@@ -71,7 +71,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
@@ -247,9 +246,9 @@ public class Node {
 
     public final DistributionZoneManager distributionZoneManager;
 
-    private final ConfigurationManager nodeCfgMgr;
+    private final ConfigurationRegistry nodeConfigRegistry;
 
-    private final ConfigurationManager clusterCfgMgr;
+    private final ConfigurationRegistry clusterConfigRegistry;
 
     public final ClusterManagementGroupManager cmgManager;
 
@@ -371,7 +370,7 @@ public class Node {
         Path configPath = dir.resolve("config");
         TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
-        nodeCfgMgr = new ConfigurationManager(
+        nodeConfigRegistry = new ConfigurationRegistry(
                 List.of(NodeConfiguration.KEY),
                 new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                 nodeCfgGenerator,
@@ -578,14 +577,12 @@ public class Node {
                 List.of()
         );
 
-        clusterCfgMgr = new ConfigurationManager(
+        clusterConfigRegistry = new ConfigurationRegistry(
                 List.of(ClusterConfiguration.KEY),
                 cfgStorage,
                 clusterCfgGenerator,
                 new TestConfigurationValidator()
         );
-
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
@@ -601,7 +598,7 @@ public class Node {
                 dataStorageModules.createStorageEngines(
                         name,
                         new NoOpMetricManager(),
-                        nodeCfgMgr.configurationRegistry(),
+                        nodeConfigRegistry,
                         dir.resolve("storage"),
                         null,
                         failureManager,
@@ -910,7 +907,7 @@ public class Node {
                 threadPoolsManager,
                 vaultManager,
                 nodeProperties,
-                nodeCfgMgr,
+                nodeConfigRegistry,
                 failureManager,
                 clusterService,
                 partitionsLogStorageManager,
@@ -923,7 +920,7 @@ public class Node {
 
         IgniteComponent[] componentsToStartAfterJoin = {
                 metaStorageManager,
-                clusterCfgMgr,
+                clusterConfigRegistry,
                 placementDriverManager,
                 clockWaiter,
                 catalogManager,
