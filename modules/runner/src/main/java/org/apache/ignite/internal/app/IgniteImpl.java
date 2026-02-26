@@ -1333,6 +1333,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
+                eventLog,
                 lowWatermark,
                 threadPoolsManager.partitionOperationsExecutor(),
                 () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value()

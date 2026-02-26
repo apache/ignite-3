@@ -141,6 +141,9 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -243,6 +246,9 @@ public class ClientInboundMessageHandler
 
     private final ClockService clockService;
 
+    /** Event log. */
+    private final EventLog eventLog;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -299,6 +305,7 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param eventLog Event log.
      * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
      */
     public ClientInboundMessageHandler(
@@ -321,6 +328,7 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            EventLog eventLog,
             Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
@@ -339,6 +347,7 @@ public class ClientInboundMessageHandler
         assert partitionOperationsExecutor != null;
         assert features != null;
         assert extensions != null;
+        assert eventLog != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
@@ -355,6 +364,7 @@ public class ClientInboundMessageHandler
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clockService = clockService;
+        this.eventLog = eventLog;
         this.primaryReplicaTracker = primaryReplicaTracker;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
@@ -441,6 +451,8 @@ public class ClientInboundMessageHandler
         for (var fut : serverToClientRequests.values()) {
             fut.completeExceptionally(new IgniteException(SERVER_TO_CLIENT_REQUEST_ERR, "Connection lost"));
         }
+
+        logConnectionClosed(ctx);
 
         super.channelInactive(ctx);
 
@@ -533,6 +545,8 @@ public class ClientInboundMessageHandler
 
         BitSet supportedFeatures = HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures);
         clientContext = new ClientContext(clientVer, clientCode, supportedFeatures, user, ctx.channel().remoteAddress());
+
+        logConnectionEstablished(ctx);
 
         sendHandshakeResponse(ctx, actualFeatures);
     }
@@ -1417,6 +1431,55 @@ public class ClientInboundMessageHandler
                 throw sneakyThrow(e);
             }
         }
+    }
+
+    private void logConnectionEstablished(ChannelHandlerContext ctx) {
+        eventLog.log(
+                IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.name(),
+                () -> {
+                    Map<String, Object> fields = Map.of(
+                            "connectionId", connectionId,
+                            "remoteAddress", ctx.channel().remoteAddress().toString(),
+                            "protocolVersion", clientContext.version().toString(),
+                            "clientCode", clientContext.clientCode()
+                    );
+
+                    return IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.builder()
+                            .user(EventUser.of(
+                                    clientContext.userDetails().username(),
+                                    clientContext.userDetails().providerName()
+                            ))
+                            .timestamp(System.currentTimeMillis())
+                            .fields(fields)
+                            .build();
+                }
+        );
+    }
+
+    private void logConnectionClosed(ChannelHandlerContext ctx) {
+        if (clientContext == null) {
+            // Connection was closed before handshake completion, no event needed
+            return;
+        }
+
+        eventLog.log(
+                IgniteEventType.CLIENT_CONNECTION_CLOSED.name(),
+                () -> {
+                    Map<String, Object> fields = Map.of(
+                            "connectionId", connectionId,
+                            "remoteAddress", ctx.channel().remoteAddress().toString()
+                    );
+
+                    return IgniteEventType.CLIENT_CONNECTION_CLOSED.builder()
+                            .user(EventUser.of(
+                                    clientContext.userDetails().username(),
+                                    clientContext.userDetails().providerName()
+                            ))
+                            .timestamp(System.currentTimeMillis())
+                            .fields(fields)
+                            .build();
+                }
+        );
     }
 
     private class ComputeConnection implements PlatformComputeConnection {
