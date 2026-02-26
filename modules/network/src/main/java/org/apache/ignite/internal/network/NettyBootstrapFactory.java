@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Creator;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelOption;
@@ -29,13 +30,19 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.concurrent.EventExecutor;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.IgniteNodeDetails;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.OutboundView;
 import org.apache.ignite.internal.network.handshake.HandshakeEventLoopSwitcher;
@@ -46,6 +53,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
  */
+@Singleton
 public class NettyBootstrapFactory implements IgniteComponent {
     /** Network configuration. */
     private final NetworkConfiguration networkConfiguration;
@@ -73,6 +81,22 @@ public class NettyBootstrapFactory implements IgniteComponent {
 
         this.networkConfiguration = networkConfiguration;
         this.eventLoopGroupNamePrefix = eventLoopGroupNamePrefix;
+    }
+
+    /**
+     * Creates a new instance of {@link NettyBootstrapFactory} configured with the provided
+     * {@link ConfigurationRegistry} and {@link IgniteNodeDetails}.
+     *
+     * @param configurationRegistry The configuration registry containing network configuration details.
+     * @param nodeDetails Contains details about the current node, including its name.
+     * @return A new instance of {@link NettyBootstrapFactory}.
+     */
+    @Creator
+    @Inject
+    public static NettyBootstrapFactory create(@Named("node") ConfigurationRegistry configurationRegistry, IgniteNodeDetails nodeDetails) {
+        NetworkConfiguration networkConfiguration = configurationRegistry.getConfiguration(NetworkExtensionConfiguration.KEY).network();
+
+        return new NettyBootstrapFactory(networkConfiguration, nodeDetails.nodeName());
     }
 
     /**

@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -189,6 +190,57 @@ public class PlacementDriverManager implements IgniteComponent {
         this.placementDriver = createPlacementDriver();
         this.metricManager = metricManager;
         this.metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker, clockService);
+    }
+
+    /**
+     * Initializes a new instance of the PlacementDriverManager class.
+     *
+     * @param metastore Meta Storage manager for the placement driver.
+     * @param replicationGroupId ID of the placement driver group used for replication management.
+     * @param clusterService Service for cluster management operations.
+     * @param cmgManager Manager responsible for the cluster management group (CMG) operations.
+     * @param raftManager Manager responsible for handling Raft-based consensus protocols.
+     * @param topologyAwareRaftGroupServiceFactory Factory for creating Raft client services aware of topology changes.
+     * @param failureProcessor Processor handling failure scenarios within the cluster.
+     * @param metricManager Manager responsible for collecting and publishing metrics.
+     * @param leaseTracker Tracker for monitoring and managing lease agreements.
+     * @param assignmentsTracker Tracker for monitoring assignment changes within the cluster.
+     * @param leaseUpdater Updater responsible for lease renewal and maintenance tasks.
+     * @param metricSource Source for metrics related to the placement driver.
+     */
+    public PlacementDriverManager(
+            MetaStorageManager metastore,
+            ReplicationGroupId replicationGroupId,
+            ClusterService clusterService,
+            ClusterManagementGroupManager cmgManager,
+            RaftManager raftManager,
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
+            FailureProcessor failureProcessor,
+            MetricManager metricManager,
+            LeaseTracker leaseTracker,
+            AssignmentsTracker assignmentsTracker,
+            LeaseUpdater leaseUpdater,
+            PlacementDriverMetricSource metricSource
+    ) {
+        this.replicationGroupId = replicationGroupId;
+        this.clusterService = clusterService;
+        this.placementDriverNodesNamesProvider = cmgManager::metaStorageNodes;
+        this.raftManager = raftManager;
+        this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
+        this.metastore = metastore;
+        this.failureProcessor = failureProcessor;
+
+        this.raftClientFuture = new CompletableFuture<>();
+
+        this.leaseTracker = leaseTracker;
+
+        this.assignmentsTracker = assignmentsTracker;
+
+        this.leaseUpdater = leaseUpdater;
+
+        this.placementDriver = createPlacementDriver();
+        this.metricManager = metricManager;
+        this.metricSource = metricSource;
     }
 
     @Override

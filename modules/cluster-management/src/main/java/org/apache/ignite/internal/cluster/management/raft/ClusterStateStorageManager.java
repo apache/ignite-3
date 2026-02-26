@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
@@ -37,6 +39,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A wrapper around a {@link ClusterStateStorage} which provides convenient methods.
  */
+@Singleton
 public class ClusterStateStorageManager {
     /** Storage key for the CMG state. */
     private static final byte[] CMG_STATE_KEY = "cmg_state".getBytes(UTF_8);
@@ -48,6 +51,7 @@ public class ClusterStateStorageManager {
 
     private final ClusterStateStorage storage;
 
+    @Inject
     public ClusterStateStorageManager(ClusterStateStorage storage) {
         this.storage = storage;
     }

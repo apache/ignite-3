@@ -21,10 +21,13 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -42,6 +45,7 @@ import org.jetbrains.annotations.Nullable;
  * properties IGNITE_JVM_PAUSE_DETECTOR_PRECISION, IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD and IGNITE_JVM_PAUSE_DETECTOR_LAST_EVENTS_COUNT
  * accordingly.
  */
+@Singleton
 public class LongJvmPauseDetector implements IgniteComponent {
     private final IgniteLogger log = Loggers.forClass(LongJvmPauseDetector.class);
 
@@ -87,8 +91,9 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     private final String nodeName;
 
-    public LongJvmPauseDetector(String nodeName) {
-        this.nodeName = nodeName;
+    @Inject
+    public LongJvmPauseDetector(IgniteNodeDetails nodeDetails) {
+        this.nodeName = nodeDetails.nodeName();
     }
 
     /** {@inheritDoc} */

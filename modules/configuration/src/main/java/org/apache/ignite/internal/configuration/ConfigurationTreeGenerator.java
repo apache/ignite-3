@@ -30,6 +30,9 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.sc
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashMap;
@@ -38,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
@@ -57,7 +61,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
     private final Map<String, RootKey<?, ?, ?>> rootKeys;
 
     @Nullable
-    private ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
+    private final ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
 
     /**
      * Constructor that takes a collection of root keys. Internal and polymorphic schema extensions are empty by default.
@@ -149,7 +153,6 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
 
     @Override
     public synchronized void close() {
-        generator = null;
     }
 
     /**
@@ -183,7 +186,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @return Mapping: original of the schema -> internal schema extensions.
      * @throws IllegalArgumentException If the schema extension is invalid.
      */
-    private Map<Class<?>, Set<Class<?>>> extensionsWithCheck(
+    private static Map<Class<?>, Set<Class<?>>> extensionsWithCheck(
             Set<Class<?>> allSchemas,
             Collection<Class<?>> schemaExtensions
     ) {
@@ -212,7 +215,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @return Mapping: polymorphic scheme -> extensions (instances) of polymorphic configuration.
      * @throws IllegalArgumentException If the schema extension is invalid.
      */
-    private Map<Class<?>, Set<Class<?>>> polymorphicExtensionsWithCheck(
+    private static Map<Class<?>, Set<Class<?>>> polymorphicExtensionsWithCheck(
             Set<Class<?>> allSchemas,
             Collection<Class<?>> polymorphicSchemaExtensions
     ) {
@@ -263,7 +266,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @throws IllegalArgumentException If a polymorphic configuration id conflict is found.
      * @see PolymorphicConfigInstance#value
      */
-    private void checkPolymorphicConfigIds(Map<Class<?>, Set<Class<?>>> polymorphicExtensions) {
+    private static void checkPolymorphicConfigIds(Map<Class<?>, Set<Class<?>>> polymorphicExtensions) {
         // Mapping: id -> configuration schema.
         Map<String, Class<?>> ids = new HashMap<>();
 
@@ -279,6 +282,58 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
             }
 
             ids.clear();
+        }
+    }
+
+    /**
+     * Factory class for creating instances of {@link ConfigurationTreeGenerator}.
+     *
+     * <p>This class provides factory methods to generate {@link ConfigurationTreeGenerator} instances
+     * configured for specific purposes, such as working with node-level or distributed-level
+     * configuration modules.
+     *
+     * <p>The factory methods rely on {@link ConfigurationModules} to extract necessary details, including
+     * root keys, schema extensions, and polymorphic schema extensions, which are used to initialize
+     * the generator instances.
+     *
+     * <p>The factory ensures that the generated instances are properly initialized, encapsulating the
+     * complexity associated with setting up configuration tree generators.
+     */
+    @Factory
+    public static final class ConfigurationTreeGeneratorFactory {
+        /**
+         * Creates a new instance of {@link ConfigurationTreeGenerator} using the provided {@link ConfigurationModules}.
+         *
+         * @param modules The configuration modules from which root keys, schema extensions,
+         *                and polymorphic schema extensions are retrieved to initialize the generator.
+         * @return A new instance of {@link ConfigurationTreeGenerator}.
+         */
+        @Singleton
+        @Inject
+        public static ConfigurationTreeGenerator nodeConfigurationTreeGenerator(ConfigurationModules modules) {
+            return create(modules.local());
+        }
+
+        /**
+         * Creates and returns a new instance of {@link ConfigurationTreeGenerator} initialized with the
+         * distributed configuration modules provided.
+         *
+         * @param modules The configuration modules containing the distributed configuration details,
+         *                including root keys, schema extensions, and polymorphic schema extensions.
+         * @return A {@link ConfigurationTreeGenerator} initialized for distributed configuration.
+         */
+        @Singleton
+        @Inject
+        public static ConfigurationTreeGenerator distributedConfigurationTreeGenerator(ConfigurationModules modules) {
+            return create(modules.distributed());
+        }
+
+        private static ConfigurationTreeGenerator create(ConfigurationModule module) {
+            return new ConfigurationTreeGenerator(
+                    module.rootKeys(),
+                    module.schemaExtensions(),
+                    module.polymorphicSchemaExtensions()
+            );
         }
     }
 }

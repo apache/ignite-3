@@ -17,14 +17,20 @@
 
 package org.apache.ignite.internal.configuration;
 
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.IgniteNodeDetails;
 
 /**
  * Manages storage paths for Ignite.
  */
+@Factory
 public class IgnitePaths {
 
     /**
@@ -66,6 +72,25 @@ public class IgnitePaths {
     }
 
     /**
+     * Retrieves the working directory subtree structure representation for partitions
+     * based on the provided configuration registry and node details.
+     *
+     * @param configRegistry Configuration registry used to obtain system-specific configuration details.
+     * @param nodeDetails Details of the Ignite node, including its working directory.
+     * @return A {@link ComponentWorkingDir} instance representing the directory structure for partitions.
+     */
+    @Inject
+    @Singleton
+    public static ComponentWorkingDir partitionsComponentWorkingDir(
+            @Named("node") ConfigurationRegistry configRegistry,
+            IgniteNodeDetails nodeDetails
+    ) {
+        SystemLocalConfiguration systemConfiguration = systemConfiguration(configRegistry);
+
+        return partitionsPath(systemConfiguration, nodeDetails.workDir());
+    }
+
+    /**
      * Gets paths where metastorage data is stored.
      *
      * @param systemConfiguration System configuration.
@@ -76,6 +101,25 @@ public class IgnitePaths {
         Path basePath = pathOrDefault(systemConfiguration.metastoragePath(), () -> workDir.resolve(METASTORAGE_PATH));
 
         return new ComponentWorkingDir(basePath);
+    }
+
+    /**
+     * Retrieves the working directory subtree structure representation for the metastorage component
+     * based on the provided configuration registry and node details.
+     *
+     * @param configRegistry Configuration registry used to obtain system-specific configuration details.
+     * @param nodeDetails Details of the Ignite node, including its working directory.
+     * @return A {@link ComponentWorkingDir} instance representing the directory structure for the metastorage component.
+     */
+    @Inject
+    @Singleton
+    public static ComponentWorkingDir metastorageComponentWorkingDir(
+            @Named("node") ConfigurationRegistry configRegistry,
+            IgniteNodeDetails nodeDetails
+    ) {
+        SystemLocalConfiguration systemConfiguration = systemConfiguration(configRegistry);
+
+        return metastoragePath(systemConfiguration, nodeDetails.workDir());
     }
 
     /**
@@ -92,6 +136,25 @@ public class IgnitePaths {
     }
 
     /**
+     * Retrieves the working directory subtree structure representation for the CMG component
+     * based on the provided configuration registry and node details.
+     *
+     * @param configRegistry Configuration registry used to obtain system-specific configuration details.
+     * @param nodeDetails Details of the Ignite node, including its working directory.
+     * @return A {@link ComponentWorkingDir} instance representing the directory structure for the CMG component.
+     */
+    @Inject
+    @Singleton
+    public static ComponentWorkingDir cmgComponentWorkingDir(
+            @Named("node") ConfigurationRegistry configRegistry,
+            IgniteNodeDetails nodeDetails
+    ) {
+        SystemLocalConfiguration systemConfiguration = systemConfiguration(configRegistry);
+
+        return cmgPath(systemConfiguration, nodeDetails.workDir());
+    }
+
+    /**
      * Path to Vault store.
      *
      * @param workDir Ignite working dir.
@@ -100,12 +163,24 @@ public class IgnitePaths {
         return workDir.resolve(VAULT_DB_PATH);
     }
 
-    private IgnitePaths() {
-        // No-op.
+    /**
+     * Computes and retrieves the path to the Vault store directory for the given Ignite node.
+     *
+     * @param nodeDetails Details of the Ignite node, including its working directory.
+     * @return The path to the Vault store directory within the node's working directory.
+     */
+    @Singleton
+    @Inject
+    public static Path vaultPath(IgniteNodeDetails nodeDetails) {
+        return vaultPath(nodeDetails.workDir());
     }
 
     private static Path pathOrDefault(ConfigurationValue<String> value, Supplier<Path> defaultPathSupplier) {
         String valueStr = value.value();
         return valueStr.isEmpty() ? defaultPathSupplier.get() : Path.of(valueStr);
+    }
+
+    private static SystemLocalConfiguration systemConfiguration(ConfigurationRegistry configRegistry) {
+        return configRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
     }
 }

@@ -25,10 +25,12 @@ import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCa
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.annotation.Context;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.core.annotation.Creator;
 import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.GarbageCollectorMXBean;
@@ -51,6 +53,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -148,13 +151,25 @@ public class IgniteServerImpl implements IgniteServer {
      */
     private volatile boolean shutDown;
 
+    /**
+     * Creates an instance of IgniteServerImpl using the provided IgniteNodeDetails and ApplicationContext.
+     * This constructor initializes the node with essential details like its name, configuration path,
+     * and working directory, leveraging the application context for dependency injection.
+     *
+     * @param nodeDetails An instance of {@link IgniteNodeDetails} providing node attributes such as the name,
+     *                    configuration file path, and working directory. Must not be {@code null}.
+     */
     @Creator
-    public IgniteServerImpl(
-            @Value("${node-name}") String nodeName,
-            @Value("${config-path}") Path configPath,
-            @Value("${work-dir}") Path workDir
-    ) {
-        this(nodeName, configPath, null, workDir, null, ForkJoinPool.commonPool());
+    @Inject
+    public IgniteServerImpl(IgniteNodeDetails nodeDetails) {
+        this(
+                nodeDetails.nodeName(),
+                nodeDetails.configPath(),
+                null,
+                nodeDetails.workDir(),
+                null,
+                ForkJoinPool.commonPool()
+        );
     }
 
     /**

@@ -37,7 +37,9 @@ pmdTest {
 
 dependencies {
     implementation project(':ignite-core')
+    implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-configuration-system')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-network')
@@ -53,8 +55,11 @@ dependencies {
     implementation libs.jctools.core
     implementation libs.auto.service.annotations
     implementation libs.jna
+    implementation libs.micronaut.inject
+    implementation libs.jakarta.inject
 
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(':ignite-network-annotation-processor')

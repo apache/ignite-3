@@ -20,6 +20,8 @@ package org.apache.ignite.internal.disaster.system;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterStatePersistentSerializer;
@@ -35,6 +37,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage used by tools for disaster recovery of system groups.
  */
+@Singleton
 public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     private static final ByteArray INIT_CONFIG_APPLIED_VAULT_KEY = new ByteArray("systemRecovery.initConfigApplied");
     private static final ByteArray CLUSTER_STATE_VAULT_KEY = new ByteArray("systemRecovery.clusterState");
@@ -47,6 +50,7 @@ public class SystemDisasterRecoveryStorage implements ClusterResetStorage {
     private volatile ResetClusterMessage volatileResetClusterMessage;
 
     /** Constructor. */
+    @Inject
     public SystemDisasterRecoveryStorage(VaultManager vault) {
         this.vault = vault;
     }

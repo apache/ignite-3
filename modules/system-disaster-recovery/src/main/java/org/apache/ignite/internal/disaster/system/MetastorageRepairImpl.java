@@ -23,6 +23,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.raft.IndexWithTerm;
 /**
  * Implementation of {@link MetastorageRepair}.
  */
+@Singleton
 public class MetastorageRepairImpl implements MetastorageRepair {
     private static final IgniteLogger LOG = Loggers.forClass(MetastorageRepairImpl.class);
 
@@ -63,6 +66,7 @@ public class MetastorageRepairImpl implements MetastorageRepair {
     private final SystemDisasterRecoveryMessagesFactory messagesFactory = new SystemDisasterRecoveryMessagesFactory();
 
     /** Constructor. */
+    @Inject
     public MetastorageRepairImpl(
             MessagingService messagingService,
             LogicalTopology logicalTopology,

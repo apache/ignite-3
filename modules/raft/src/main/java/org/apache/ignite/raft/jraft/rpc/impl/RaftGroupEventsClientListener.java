@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.util.Map;
+import jakarta.inject.Singleton;import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -30,6 +30,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 /**
 * Listener for Raft group events on client side.
 */
+@Singleton
 public class RaftGroupEventsClientListener {
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupEventsClientListener.class);
 

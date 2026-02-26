@@ -22,6 +22,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -29,7 +32,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.IgniteNodeDetails;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorView;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
@@ -53,6 +59,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * General failure processing implementation.
  */
+@Singleton
 public class FailureManager implements FailureProcessor, IgniteComponent {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(FailureManager.class);
@@ -122,6 +129,22 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         this.nodeName = nodeName;
         this.nodeStopper = nodeStopper;
         this.configuration = configuration;
+    }
+
+    /**
+     * Creates and initializes an instance of {@code FailureManager}.
+     *
+     * @param nodeDetails Details about the Ignite node, including its name, working directory, and configuration path.
+     * @param configuration The configuration registry providing access to the failure processor configuration.
+     * @return A new instance of {@code FailureManager} initialized with the provided node details and configuration.
+     */
+    @Creator
+    @Inject
+    public static FailureManager create(IgniteNodeDetails nodeDetails, ConfigurationRegistry configuration) {
+        FailureProcessorConfiguration failureProcessorConfiguration =
+                configuration.getConfiguration(FailureProcessorExtensionConfiguration.KEY).failureHandler();
+
+        return new FailureManager(nodeDetails.nodeName(), null, failureProcessorConfiguration);
     }
 
     @Override

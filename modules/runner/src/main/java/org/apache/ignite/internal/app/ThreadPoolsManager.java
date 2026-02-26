@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
@@ -25,6 +26,10 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -32,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -44,6 +50,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Component that hosts thread pools which do not belong to a certain component and which are global to an Ignite instance.
  */
+@Factory
 public class ThreadPoolsManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadPoolsManager.class);
 
@@ -70,19 +77,20 @@ public class ThreadPoolsManager implements IgniteComponent {
     /**
      * Constructor.
      */
-    public ThreadPoolsManager(String nodeName, MetricManager metricManager) {
+    @Inject
+    public ThreadPoolsManager(IgniteNodeDetails nodeDetails, MetricManager metricManager) {
         int cpus = Runtime.getRuntime().availableProcessors();
 
         tableIoExecutor = Executors.newScheduledThreadPool(
                 Math.min(cpus * 3, 25),
-                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE)
+                IgniteThreadFactory.create(nodeDetails.nodeName(), "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         int partitionsOperationsThreads = Math.min(cpus * 3, 25);
         partitionOperationsExecutor = Executors.newFixedThreadPool(
                 partitionsOperationsThreads,
                 IgniteThreadFactory.create(
-                        nodeName,
+                        nodeDetails.nodeName(),
                         "partition-operations",
                         LOG,
                         STORAGE_READ,
@@ -92,9 +100,10 @@ public class ThreadPoolsManager implements IgniteComponent {
                 )
         );
 
-        commonScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "common-scheduler", LOG));
+        commonScheduler = newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeDetails.nodeName(), "common-scheduler", LOG));
 
-        rebalanceScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "rebalance-scheduler", LOG));
+        rebalanceScheduler =
+                newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeDetails.nodeName(), "rebalance-scheduler", LOG));
 
         this.metricManager = metricManager;
 
@@ -130,6 +139,8 @@ public class ThreadPoolsManager implements IgniteComponent {
     /**
      * Returns executor used to create/destroy storages, start partition Raft groups, create index storages...
      */
+    @Singleton
+    @Named("tableIoExecutor")
     public ScheduledExecutorService tableIoExecutor() {
         return tableIoExecutor;
     }
@@ -137,6 +148,8 @@ public class ThreadPoolsManager implements IgniteComponent {
     /**
      * Returns the executor of partition operations.
      */
+    @Singleton
+    @Named("partitionOperationsExecutor")
     public ExecutorService partitionOperationsExecutor() {
         return partitionOperationsExecutor;
     }
@@ -144,11 +157,15 @@ public class ThreadPoolsManager implements IgniteComponent {
     /**
      * Returns a global {@link ScheduledExecutorService}. Only small tasks should be scheduled.
      */
+    @Singleton
+    @Named("commonScheduler")
     public ScheduledExecutorService commonScheduler() {
         return commonScheduler;
     }
 
     /** Returns executor for scheduling rebalance routine. */
+    @Singleton
+    @Named("rebalanceScheduler")
     public ScheduledExecutorService rebalanceScheduler() {
         return rebalanceScheduler;
     }

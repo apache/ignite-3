@@ -23,6 +23,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +39,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.IgniteNodeDetails;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -58,6 +63,7 @@ import org.rocksdb.WriteOptions;
 /**
  * {@link ClusterStateStorage} implementation based on RocksDB.
  */
+@Singleton
 public class RocksDbClusterStateStorage implements ClusterStateStorage {
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbClusterStateStorage.class);
 
@@ -96,6 +102,22 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         this.snapshotExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "cluster-state-snapshot-executor", LOG)
         );
+    }
+
+    /**
+     * Creates and initializes an instance of {@code RocksDbClusterStateStorage}.
+     *
+     * @param nodeDetails Contains details about the Ignite node, including its name and working directory.
+     * @param cmgComponentWorkingDir Provides the working directory structure for the component, including the database path.
+     * @return A newly created {@code RocksDbClusterStateStorage} configured with the database path and node name.
+     */
+    @Creator
+    @Inject
+    public static RocksDbClusterStateStorage clusterStateStorage(
+            IgniteNodeDetails nodeDetails,
+            ComponentWorkingDir cmgComponentWorkingDir
+    ) {
+        return new RocksDbClusterStateStorage(cmgComponentWorkingDir.dbPath(), nodeDetails.nodeName());
     }
 
     @Override

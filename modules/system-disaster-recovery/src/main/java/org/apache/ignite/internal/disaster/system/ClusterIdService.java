@@ -19,6 +19,8 @@ package org.apache.ignite.internal.disaster.system;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterIdStore;
@@ -35,12 +37,14 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>This MUST be started after the Vault, but before networking.
  */
+@Singleton
 public class ClusterIdService implements ClusterIdSupplier, ClusterIdStore, IgniteComponent {
     private final SystemDisasterRecoveryStorage storage;
 
     private volatile @Nullable UUID clusterId;
     private volatile @Nullable UUID clusterIdOverride;
 
+    @Inject
     public ClusterIdService(VaultManager vault) {
         storage = new SystemDisasterRecoveryStorage(vault);
     }
@@ -52,7 +56,7 @@ public class ClusterIdService implements ClusterIdSupplier, ClusterIdStore, Igni
         // the ClusterStateStorage.
         ClusterState clusterState = storage.readClusterState();
         if (clusterState != null) {
-            clusterId(clusterState.clusterTag().clusterId());
+            clusterId = clusterState.clusterTag().clusterId();
         }
 
         ResetClusterMessage resetClusterMessage = storage.readResetClusterMessage();

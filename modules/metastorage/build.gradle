@@ -24,7 +24,9 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 dependencies {
     api project(':ignite-metastorage-api')
 
+    implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-configuration-system')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
@@ -41,8 +43,11 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
+    implementation libs.jakarta.inject
+    implementation libs.micronaut.inject
 
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-vault'))

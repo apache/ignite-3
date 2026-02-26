@@ -28,6 +28,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +55,9 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
@@ -128,6 +135,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
+@Singleton
 public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
@@ -233,6 +241,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      * @param ioExecutor Executor to which I/O operations can be offloaded from network threads.
      * @param failureProcessor Failure processor to use when reporting failures.
      */
+    @Inject
+    @Creator
     public MetaStorageManagerImpl(
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
@@ -246,7 +256,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetastorageRepair metastorageRepair,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            Executor ioExecutor,
+            @Named("tableIoExecutor") Executor ioExecutor,
             FailureProcessor failureProcessor
     ) {
         this.clusterService = clusterService;
@@ -337,7 +347,23 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 new FailureManager(new NoOpFailureHandler())
         );
 
-        configure(systemConfiguration);
+        this.systemConfiguration = systemConfiguration;
+    }
+
+    /**
+     * Initializes the MetaStorage manager with the system distributed configuration.
+     *
+     * <p>This method is automatically invoked after dependency injection is complete,
+     * as indicated by the {@link PostConstruct} annotation. It retrieves and sets the
+     * system distributed configuration from the provided cluster configuration registry.
+     *
+     * @param clusterConfigRegistry The distributed configuration registry containing
+     *                              system-wide configuration settings.
+     */
+    @PostConstruct
+    @Inject
+    public void init(@Named("distributed") ConfigurationRegistry clusterConfigRegistry) {
+        this.systemConfiguration = clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
     }
 
     /** Adds new listener to notify with election events. */
@@ -717,18 +743,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     private static boolean targetVotingSetIsEstablished(RaftGroupConfiguration configuration, PeersChangeState currentState) {
         return Set.copyOf(configuration.peers()).equals(currentState.targetPeers);
-    }
-
-    /**
-     * Sets the Meta Storage configuration.
-     *
-     * <p>This method is needed to avoid the cyclic dependency between the Meta Storage and distributed configuration (built on top of the
-     * Meta Storage).
-     *
-     * <p>This method <b>must</b> always be called <b>before</b> calling {@link #startAsync}.
-     */
-    public final void configure(SystemDistributedConfiguration configuration) {
-        this.systemConfiguration = configuration;
     }
 
     @Override

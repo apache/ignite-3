@@ -20,6 +20,9 @@ package org.apache.ignite.internal.configuration;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -50,6 +53,15 @@ public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDyn
     ) {
         this.configurationModule = configurationModule;
         this.generator = generator;
+    }
+
+    @Creator
+    @Inject
+    public static ConfigurationDynamicDefaultsPatcher create(
+            ConfigurationModules modules,
+            @Named("distributed") ConfigurationTreeGenerator generator
+    ) {
+        return new ConfigurationDynamicDefaultsPatcherImpl(modules.distributed(), generator);
     }
 
     @Override

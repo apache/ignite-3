@@ -17,18 +17,48 @@
 
 package org.apache.ignite.internal.network;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Singleton;
+import java.util.ServiceLoader;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 
 /**
  * Default implementation of a {@link MessageSerializationRegistry}.
  */
+@Singleton
 public class MessageSerializationRegistryImpl implements MessageSerializationRegistry {
     /** group type → message type → MessageSerializerProvider instance. */
     private final MessageSerializationFactory<?>[][] factories =
             new MessageSerializationFactory<?>[Short.MAX_VALUE + 1][];
+
+    /**
+     * Creates and initializes an instance of {@link MessageSerializationRegistry}.
+     *
+     * This method constructs a new instance of {@link MessageSerializationRegistryImpl} and populates it
+     * by loading all {@link MessageSerializationRegistryInitializer} implementations available via the
+     * Java ServiceLoader mechanism. Each initializer contributes its message serialization factories
+     * to the registry.
+     *
+     * @return A fully initialized instance of {@link MessageSerializationRegistry} containing all registered
+     *      message serialization factories.
+     */
+    @Creator
+    public static MessageSerializationRegistry registry() {
+        var registry = new MessageSerializationRegistryImpl();
+
+        ServiceLoader<MessageSerializationRegistryInitializer> loader =
+                ServiceLoader.load(MessageSerializationRegistryInitializer.class, null);
+
+        for (MessageSerializationRegistryInitializer initializer : loader) {
+            initializer.registerFactories(registry);
+        }
+
+        return registry;
+    }
 
     @Override
     public MessageSerializationRegistry registerFactory(

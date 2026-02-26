@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -129,6 +130,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
+@Singleton
 public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;

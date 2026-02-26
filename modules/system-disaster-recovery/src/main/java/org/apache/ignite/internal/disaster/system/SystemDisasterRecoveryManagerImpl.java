@@ -27,6 +27,9 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -38,6 +41,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -69,6 +73,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link SystemDisasterRecoveryManager}.
  */
+@Singleton
 public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecoveryManager, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(SystemDisasterRecoveryManagerImpl.class);
 
@@ -110,6 +115,42 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
         storage = new SystemDisasterRecoveryStorage(vaultManager);
         restartExecutor = new ThreadPerTaskExecutor(thisNodeName + "-restart-");
+    }
+
+    /**
+     * Creates an instance of {@code SystemDisasterRecoveryManagerImpl}.
+     *
+     * @param nodeDetails Details about the Ignite node including its name, working directory,
+     *                    and configuration file path.
+     * @param topologyService Service for managing and accessing the cluster topology.
+     * @param messagingService Service for enabling inter-node messaging.
+     * @param vaultManager Manager for accessing the persistent key-value storage (vault).
+     * @param metastorageGroupMaintenance Maintenance logic for the metastorage group.
+     * @param cmgManager Manager for coordinating cluster management group operations.
+     * @param clusterIdSupplier Supplier for accessing the cluster ID.
+     * @return A new instance of {@code SystemDisasterRecoveryManagerImpl}.
+     */
+    @Creator
+    @Inject
+    public static SystemDisasterRecoveryManagerImpl create(
+            IgniteNodeDetails nodeDetails,
+            TopologyService topologyService,
+            MessagingService messagingService,
+            VaultManager vaultManager,
+            MetastorageGroupMaintenance metastorageGroupMaintenance,
+            ClusterManagementGroupManager cmgManager,
+            ClusterIdSupplier clusterIdSupplier
+    ) {
+        return new SystemDisasterRecoveryManagerImpl(
+                nodeDetails.nodeName(),
+                topologyService,
+                messagingService,
+                vaultManager,
+                () -> {},
+                metastorageGroupMaintenance,
+                cmgManager,
+                clusterIdSupplier
+        );
     }
 
     @Override

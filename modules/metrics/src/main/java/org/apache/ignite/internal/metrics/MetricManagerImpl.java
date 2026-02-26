@@ -27,6 +27,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +45,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -61,6 +65,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 /**
  * Metric manager.
  */
+@Singleton
 public class MetricManagerImpl implements MetricManager {
     /** Logger. */
     private final IgniteLogger log;
@@ -86,8 +91,10 @@ public class MetricManagerImpl implements MetricManager {
     /**
      * Constructor.
      */
-    public MetricManagerImpl() {
-        this(Loggers.forClass(MetricManagerImpl.class), null);
+    @Creator
+    @Inject
+    public MetricManagerImpl(IgniteNodeDetails nodeDetails) {
+        this(Loggers.forClass(MetricManagerImpl.class), nodeDetails.nodeName());
     }
 
     /**

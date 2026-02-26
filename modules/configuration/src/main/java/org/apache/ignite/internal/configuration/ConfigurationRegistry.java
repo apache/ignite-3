@@ -22,6 +22,10 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ch
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
@@ -113,12 +118,16 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        start();
+
+        return nullCompletedFuture();
+    }
+
+    private void start() {
         changer.start();
 
         // Initialize configuration so that it can be read and modified during other components' start.
         configs.values().forEach(ConfigurationUtil::touch);
-
-        return nullCompletedFuture();
     }
 
     @Override
@@ -263,5 +272,77 @@ public class ConfigurationRegistry implements IgniteComponent {
      */
     public long notificationCount() {
         return changer.notificationCount();
+    }
+
+    /**
+     * A factory class for creating instances of {@link ConfigurationRegistry}.
+     * This class provides methods for instantiating a configuration registry that manages
+     * the configuration structure, validation, and migration of deprecated configurations.
+     */
+    @Factory
+    public static final class ConfigurationRegistryFactory {
+        /**
+         * Creates a new instance of {@link ConfigurationRegistry} using the provided modules, storage, tree generator,
+         * and validator. The created registry will handle the configuration structure, validation, and migration of deprecated
+         * configurations.
+         *
+         * @param modules The ensemble of configuration modules to facilitate access to node-local and distributed configuration details.
+         * @param storage The storage instance responsible for persisting configuration data.
+         * @param treeGenerator The tree generator used to construct the configuration tree.
+         * @param validator The validator to ensure that the configuration structure is consistent and valid.
+         * @return A new instance of {@link ConfigurationRegistry}.
+         */
+        @Singleton
+        @Inject
+        public static ConfigurationRegistry nodeConfigurationRegistry(
+                ConfigurationModules modules,
+                ConfigurationStorage storage,
+                ConfigurationTreeGenerator treeGenerator,
+                ConfigurationValidator validator
+        ) {
+            ConfigurationRegistry configurationRegistry = create(modules.local(), storage, treeGenerator, validator);
+
+            configurationRegistry.start();
+
+            return configurationRegistry;
+        }
+
+        /**
+         * Creates a new instance of {@link ConfigurationRegistry} for handling distributed configurations.
+         * The returned registry manages the configuration structure, validation, and migration
+         * of deprecated distributed configuration parameters.
+         *
+         * @param modules The set of configuration modules providing access to distributed configuration details.
+         * @param storage The storage implementation annotated as "distributed", responsible for persisting the distributed configuration data.
+         * @param treeGenerator The tree generator annotated as "distributed", used for creating the distributed configuration tree structure.
+         * @param validator The validator annotated as "distributed", ensuring the validity and consistency of the distributed configuration structure.
+         * @return A new instance of {@link ConfigurationRegistry} set up for managing distributed configurations.
+         */
+        @Singleton
+        @Inject
+        public static ConfigurationRegistry distributedConfigurationRegistry(
+                ConfigurationModules modules,
+                @Named("distributed") ConfigurationStorage storage,
+                @Named("distributed") ConfigurationTreeGenerator treeGenerator,
+                @Named("distributed") ConfigurationValidator validator
+        ) {
+            return create(modules.distributed(), storage, treeGenerator, validator);
+        }
+
+        private static ConfigurationRegistry create(
+                ConfigurationModule module,
+                ConfigurationStorage storage,
+                ConfigurationTreeGenerator treeGenerator,
+                ConfigurationValidator validator
+        ) {
+            return new ConfigurationRegistry(
+                    module.rootKeys(),
+                    storage,
+                    treeGenerator,
+                    validator,
+                    module::migrateDeprecatedConfigurations,
+                    KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes())
+            );
+        }
     }
 }

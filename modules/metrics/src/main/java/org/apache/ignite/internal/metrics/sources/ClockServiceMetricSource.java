@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.DistributionMetric;
@@ -26,6 +28,8 @@ import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource.Holde
 /**
  * Metric source, which provides clock service metrics.
  */
+@Singleton
+@Named
 public class ClockServiceMetricSource extends AbstractMetricSource<Holder> {
     /** Source name. */
     public static final String SOURCE_NAME = "clock.service";

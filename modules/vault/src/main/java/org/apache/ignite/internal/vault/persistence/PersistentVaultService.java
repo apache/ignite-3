@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
@@ -45,6 +48,7 @@ import org.rocksdb.WriteOptions;
 /**
  * Vault Service implementation based on <a href="https://github.com/facebook/rocksdb">RocksDB</a>.
  */
+@Singleton
 public class PersistentVaultService implements VaultService {
     static {
         RocksDB.loadLibrary();
@@ -58,12 +62,14 @@ public class PersistentVaultService implements VaultService {
     private final Path path;
 
     /**
-     * Creates persistent vault service.
+     * Constructs a PersistentVaultService instance, initializing the path to the Vault store
+     * based on the provided Ignite node details.
      *
-     * @param path base path for RocksDB
+     * @param nodeDetails the details of the Ignite node, including its working directory.
      */
-    public PersistentVaultService(Path path) {
-        this.path = path;
+    @Inject
+    public PersistentVaultService(IgniteNodeDetails nodeDetails, Path vaultPath) {
+        this.path = vaultPath;
     }
 
     private static Options options() {

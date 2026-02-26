@@ -21,6 +21,9 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -29,6 +32,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -41,6 +45,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
  * Allows to wait for the supplied clock to reach a required timestamp. It only uses the clock itself,
  * no SafeTime mechanisms are involved.
  */
+@Singleton
 public class ClockWaiter implements IgniteComponent {
     private final HybridClock clock;
 
@@ -61,13 +66,14 @@ public class ClockWaiter implements IgniteComponent {
     private final ExecutorService futureExecutor;
 
     /**
-     * Creates a new {@link ClockWaiter}.
+     * Constructs an instance of the {@code ClockWaiter} class.
      *
-     * @param nodeName Name of the current Ignite node.
-     * @param clock Clock to look at.
-     * @param scheduler Executor on which short-lived tasks are scheduled that are needed to timely complete awaiting futures.
+     * @param nodeDetails The details of the Ignite node, which include the node name, working directory, and configuration file path.
+     * @param clock The hybrid logical clock used to manage timestamps and logical time-related operations.
+     * @param scheduler The scheduled executor service used for scheduling tasks.
      */
-    public ClockWaiter(String nodeName, HybridClock clock, ScheduledExecutorService scheduler) {
+    @Inject
+    public ClockWaiter(IgniteNodeDetails nodeDetails, HybridClock clock, @Named("common") ScheduledExecutorService scheduler) {
         this.clock = clock;
         this.scheduler = scheduler;
 
@@ -77,7 +83,7 @@ public class ClockWaiter implements IgniteComponent {
                 10,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "clock-waiter-future-executor", Loggers.forClass(ClockWaiter.class))
+                IgniteThreadFactory.create(nodeDetails.nodeName(), "clock-waiter-future-executor", Loggers.forClass(ClockWaiter.class))
         );
         executor.allowCoreThreadTimeOut(true);
 

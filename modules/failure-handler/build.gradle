@@ -24,13 +24,17 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 dependencies {
     annotationProcessor libs.auto.service
     annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-root')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
+    implementation libs.jakarta.inject
+    implementation libs.micronaut.inject
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))

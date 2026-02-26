@@ -19,7 +19,12 @@ package org.apache.ignite.internal.network.wrapper;
 
 import static java.util.function.Function.identity;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -34,6 +39,7 @@ import org.apache.ignite.network.NetworkAddress;
  * the provided executor chooser if the message is actually sent via network (i.e. it is sent not to this
  * same node). Otherwise, proceeds with execution in the same thread which completes the future.
  */
+@Singleton
 public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
     private final MessagingService messagingService;
 
@@ -50,6 +56,28 @@ public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
         this.messagingService = messagingService;
         this.localConsistentId = localConsistentId;
         this.executorChooser = executorChooser;
+    }
+
+    /**
+     * Creates an instance of {@code JumpToExecutorByConsistentIdAfterSend}.
+     *
+     * @param nodeDetails the details of the current Ignite node, providing information such as the node's name.
+     * @param messagingService the messaging service used for network communication between nodes.
+     * @param partitionExecutor the executor service managing execution for specific partitions.
+     * @return a new {@code JumpToExecutorByConsistentIdAfterSend} instance configured with the provided parameters.
+     */
+    @Creator
+    @Inject
+    public static JumpToExecutorByConsistentIdAfterSend create(
+            IgniteNodeDetails nodeDetails,
+            MessagingService messagingService,
+            ExecutorService partitionExecutor
+    ) {
+        return new JumpToExecutorByConsistentIdAfterSend(
+                messagingService,
+                nodeDetails.nodeName(),
+                message -> partitionExecutor
+        );
     }
 
     @Override

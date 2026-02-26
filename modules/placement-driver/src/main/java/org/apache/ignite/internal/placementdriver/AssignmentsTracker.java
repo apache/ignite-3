@@ -31,6 +31,9 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCompletionThr
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -68,6 +72,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The class tracks assignment of all replication groups.
  */
+@Singleton
 public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(AssignmentsTracker.class);
@@ -120,6 +125,16 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         this.pendingAssignmentsListener = createPendingAssignmentsListener();
 
         this.currentDataNodesProvider = currentDataNodesProvider;
+    }
+
+    @Creator
+    @Inject
+    public AssignmentsTracker(
+            MetaStorageManager msManager,
+            FailureProcessor failureProcessor,
+            DistributionZoneManager distributionZoneManager
+    ) {
+        this(msManager, failureProcessor, distributionZoneManager::currentDataNodes);
     }
 
     /**

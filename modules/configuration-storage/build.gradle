@@ -22,6 +22,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-configuration-api')
@@ -31,6 +32,8 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
     implementation libs.typesafe.config
+    implementation libs.jakarta.inject
+    implementation libs.micronaut.inject
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testAnnotationProcessor libs.auto.service

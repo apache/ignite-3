@@ -35,6 +35,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +51,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.exception.EmptyDataNodesException;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -60,6 +65,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -76,6 +82,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class that tracks cluster leases in memory.
  */
+@Singleton
 public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
         LeasePlacementDriver {
     /** Ignite logger. */
@@ -126,6 +133,30 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         this.clusterNodeResolver = clusterNodeResolver;
         this.clockService = clockService;
         this.currentDataNodesProvider = currentDataNodesProvider;
+    }
+
+    /**
+     * Constructs a LeaseTracker instance and initializes dependencies.
+     *
+     * @param msManager Provides access to meta storage for managing leases and related metadata.
+     * @param clusterService Supports operations for cluster-wide infrastructure services, including topology updates.
+     * @param clockService Supplies clock-related utilities for lease time management and synchronization.
+     * @param distributionZoneManager Handles distribution zone-related configuration and provides access to current data nodes.
+     */
+    @Creator
+    @Inject
+    public LeaseTracker(
+            MetaStorageManager msManager,
+            ClusterService clusterService,
+            ClockService clockService,
+            DistributionZoneManager distributionZoneManager
+    ) {
+        this(
+                msManager,
+                clusterService.topologyService(),
+                clockService,
+                distributionZoneManager::currentDataNodes
+        );
     }
 
     /**

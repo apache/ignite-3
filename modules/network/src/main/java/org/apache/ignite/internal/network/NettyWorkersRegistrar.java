@@ -20,9 +20,13 @@ package org.apache.ignite.internal.network;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Creator;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.SingleThreadEventExecutor;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +34,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
@@ -45,6 +52,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * This component is responsible for registering Netty workers with the {@link CriticalWorkerRegistry} and for updating their heartbeats.
  */
+@Singleton
 public class NettyWorkersRegistrar implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(NettyWorkersRegistrar.class);
 
@@ -90,6 +98,37 @@ public class NettyWorkersRegistrar implements IgniteComponent {
         this.bootstrapFactory = bootstrapFactory;
         this.criticalWorkersConfiguration = criticalWorkersConfiguration;
         this.failureManager = failureManager;
+    }
+
+    /**
+     * Creates an instance of {@link NettyWorkersRegistrar} by initializing it with the provided dependencies.
+     *
+     * @param criticalWorkerRegistry Registry used to register critical workers for monitoring their liveness.
+     * @param scheduler Scheduled executor service used to schedule periodic tasks.
+     * @param bootstrapFactory Factory used to obtain instances of Netty workers.
+     * @param configurationRegistry Configuration registry used to access system configurations.
+     * @param failureManager Manager responsible for handling failures.
+     * @return A new instance of {@link NettyWorkersRegistrar} configured with the provided dependencies.
+     */
+    @Creator
+    @Inject
+    public static NettyWorkersRegistrar create(
+            CriticalWorkerRegistry criticalWorkerRegistry,
+            @Named("common") ScheduledExecutorService scheduler,
+            NettyBootstrapFactory bootstrapFactory,
+            @Named("node") ConfigurationRegistry configurationRegistry,
+            FailureManager failureManager
+    ) {
+        SystemLocalConfiguration systemConfiguration =
+                configurationRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
+
+        return new NettyWorkersRegistrar(
+                criticalWorkerRegistry,
+                scheduler,
+                bootstrapFactory,
+                systemConfiguration.criticalWorkers(),
+                failureManager
+        );
     }
 
     @Override

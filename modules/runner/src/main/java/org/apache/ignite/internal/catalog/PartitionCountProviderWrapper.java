@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.catalog;
 
+import jakarta.inject.Singleton;
+
 /**
  * Wrapper that allows to apply and use different partition count computing approaches.
  */
+@Singleton
 public final class PartitionCountProviderWrapper implements PartitionCountProvider {
     /** Wrapped delegate to compute partition count. */
     private volatile PartitionCountProvider delegate;

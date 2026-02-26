@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.configuration;
 
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.nio.file.Path;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -25,6 +28,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageManager;
 /**
  * A helper that creates an instance of {@link RaftGroupOptionsConfigurer}.
  */
+@Factory
 public interface RaftGroupOptionsConfigHelper {
 
     /**
@@ -45,5 +49,14 @@ public interface RaftGroupOptionsConfigHelper {
                 groupOptions.serverDataPath(serverDataPath);
             }
         };
+    }
+
+    @Singleton
+    @Named("cmgRaftConfigurer")
+    static RaftGroupOptionsConfigurer cmgRaftConfigurer(
+            @Named("cmg") LogStorageManager logStorageManager,
+            @Named("cmg") ComponentWorkingDir workingDir
+    ) {
+        return configureProperties(logStorageManager, workingDir.metaPath());
     }
 }

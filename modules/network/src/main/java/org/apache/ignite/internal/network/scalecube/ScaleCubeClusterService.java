@@ -22,12 +22,16 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 
+import io.micronaut.core.annotation.Creator;
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -41,6 +45,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.IgniteNodeDetails;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -48,6 +54,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ChannelTypeRegistry;
+import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -62,9 +69,11 @@ import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.configuration.ClusterMembershipView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.ScaleCubeView;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.StaleIds;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -73,6 +82,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
@@ -83,6 +93,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * ScaleCube-based implementation of {@link ClusterService}.
  */
+@Singleton
 public class ScaleCubeClusterService implements ClusterService {
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeClusterService.class);
 
@@ -182,6 +193,48 @@ public class ScaleCubeClusterService implements ClusterService {
                         .thenRun(() -> nettyBootstrapFactory.handshakeEventLoopSwitcher().nodeLeftTopology(member));
             }
         });
+    }
+
+    /**
+     * Creates and initializes an instance of {@code ScaleCubeClusterService}.
+     *
+     * @param nodeDetails               The details of the local Ignite node, including its name and configuration information.
+     * @param configurationRegistry     The configuration registry used to access various network-related configurations.
+     * @param nettyBootstrapFactory     Factory for creating Netty-based networking components.
+     * @param messageSerializationRegistry Registry for message serialization and deserialization.
+     * @param clusterIdSupplier         Supplier for cluster identifiers.
+     * @param criticalWorkerRegistry    Registry for critical worker threads associated with the cluster service.
+     * @param failureProcessor          Processor for handling cluster-related failures.
+     * @param metricManager             Manager for cluster metrics.
+     * @return A fully initialized {@code ScaleCubeClusterService} instance.
+     */
+    @Creator
+    @Inject
+    public static ScaleCubeClusterService create(
+            IgniteNodeDetails nodeDetails,
+            @Named("node") ConfigurationRegistry configurationRegistry,
+            NettyBootstrapFactory nettyBootstrapFactory,
+            MessageSerializationRegistry messageSerializationRegistry,
+            ClusterIdSupplier clusterIdSupplier,
+            CriticalWorkerRegistry criticalWorkerRegistry,
+            FailureProcessor failureProcessor,
+            MetricManager metricManager
+    ) {
+        NetworkConfiguration networkConfiguration = configurationRegistry.getConfiguration(NetworkExtensionConfiguration.KEY).network();
+
+        return new ScaleCubeClusterService(
+                nodeDetails.nodeName(),
+                networkConfiguration,
+                nettyBootstrapFactory,
+                messageSerializationRegistry,
+                new InMemoryStaleIds(),
+                clusterIdSupplier,
+                criticalWorkerRegistry,
+                failureProcessor,
+                ChannelTypeRegistryProvider.loadByServiceLoader(null),
+                new DefaultIgniteProductVersionSource(),
+                metricManager
+        );
     }
 
     @Override

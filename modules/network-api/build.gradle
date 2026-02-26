@@ -24,11 +24,14 @@ dependencies {
     api project(':ignite-api')
     api libs.fastutil.core
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
+    implementation libs.micronaut.inject
+    implementation libs.jakarta.inject
 
     testImplementation testFixtures(project(':ignite-core'))
 }

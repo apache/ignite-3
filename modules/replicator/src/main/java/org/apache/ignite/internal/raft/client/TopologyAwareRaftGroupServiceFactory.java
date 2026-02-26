@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.raft.client;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.ExceptionFactory;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftServiceFactory;
@@ -33,6 +37,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 /**
  * Factory for creation {@link TopologyAwareRaftGroupService}.
  */
+@Singleton
 public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<TopologyAwareRaftGroupService> {
     private final ClusterService clusterService;
 
@@ -60,6 +65,16 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
         this.logicalTopologyService = logicalTopologyService;
         this.raftMessagesFactory = raftMessagesFactory;
         this.eventsClientListener = eventsClientListener;
+    }
+
+    @Creator
+    @Inject
+    public static TopologyAwareRaftGroupServiceFactory create(
+            ClusterService clusterService,
+            LogicalTopologyService logicalTopologyService,
+            RaftGroupEventsClientListener eventsClientListener
+    ) {
+        return new TopologyAwareRaftGroupServiceFactory(clusterService, logicalTopologyService, Loza.FACTORY, eventsClientListener);
     }
 
     /** {@inheritDoc} */

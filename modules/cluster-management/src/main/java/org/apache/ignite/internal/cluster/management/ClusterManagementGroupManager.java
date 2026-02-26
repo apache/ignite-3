@@ -30,6 +30,10 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.failOrConsume;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -75,6 +79,7 @@ import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -113,6 +118,7 @@ import org.jetbrains.annotations.TestOnly;
  * <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
  * for the description of the Cluster Management Group and its responsibilities.
  */
+@Singleton
 public class ClusterManagementGroupManager extends AbstractEventProducer<ClusterManagerGroupEvent, EventParameters>
         implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
@@ -275,6 +281,58 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, message -> scheduledExecutor, cmgMessageHandler);
 
         this.onConfigurationCommittedListener = onConfigurationCommittedListener;
+    }
+
+    /**
+     * Creates and initializes an instance of {@code ClusterManagementGroupManager}.
+     *
+     * @param vault The Vault Manager responsible for managing secrets and secure storage.
+     * @param clusterResetStorage The cluster reset storage interface for handling cluster reset states.
+     * @param clusterService The cluster service providing access to cluster-related operations.
+     * @param clusterInitializer The cluster initializer responsible for cluster setup processes.
+     * @param raftManager The Raft Manager handling consensus-related operations.
+     * @param clusterStateStorageMgr The manager for cluster-wide state storage.
+     * @param logicalTopology The logical topology interface representing the cluster's logical structure.
+     * @param validationManager The manager responsible for validation processes within the cluster.
+     * @param nodeAttributesCollector The collector for node-specific attributes.
+     * @param failureManager The manager for handling cluster failure scenarios.
+     * @param clusterIdService The service for managing the cluster's unique identifier.
+     * @param cmgRaftConfigurer The Raft Group Options Configurer specific to CMG operations.
+     * @param metricManager The Metric Manager for managing and reporting metrics.
+     * @return A fully initialized {@code ClusterManagementGroupManager} instance.
+     */
+    @Creator
+    @Inject
+    public static ClusterManagementGroupManager create(
+            VaultManager vault,
+            ClusterResetStorage clusterResetStorage,
+            ClusterService clusterService,
+            ClusterInitializer clusterInitializer,
+            RaftManager raftManager,
+            ClusterStateStorageManager clusterStateStorageMgr,
+            LogicalTopology logicalTopology,
+            ValidationManager validationManager,
+            NodeAttributesCollector nodeAttributesCollector,
+            FailureManager failureManager,
+            ClusterIdStore clusterIdService,
+            @Named("cmgRaftConfigurer") RaftGroupOptionsConfigurer cmgRaftConfigurer,
+            MetricManager metricManager
+    ) {
+        return new ClusterManagementGroupManager(
+                vault,
+                clusterResetStorage,
+                clusterService,
+                clusterInitializer,
+                raftManager,
+                clusterStateStorageMgr,
+                logicalTopology,
+                validationManager,
+                nodeAttributesCollector,
+                failureManager,
+                clusterIdService,
+                cmgRaftConfigurer,
+                metricManager
+        );
     }
 
     private CmgMessageHandler createMessageHandler() {

@@ -56,6 +56,10 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_E
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
 import static org.rocksdb.util.SizeUnit.MB;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -76,7 +80,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -147,6 +153,7 @@ import org.rocksdb.WriteOptions;
  * The mapping from the key to the set of the storage's revisions is stored in the "index" column family. A key represents the key of an
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
+@Singleton
 public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
 
@@ -316,6 +323,34 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         executor = Executors.newFixedThreadPool(
                 2,
                 IgniteThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
+        );
+    }
+
+    /**
+     * Creates a new instance of {@code RocksDbKeyValueStorage}.
+     *
+     * @param nodeDetails The details of the Ignite node, including the node name.
+     * @param workingDir The component's working directory details, including the database path.
+     * @param failureProcessor The processor handling failure scenarios.
+     * @param readOperationForCompactionTracker The tracker for read operations during compaction.
+     * @param scheduledExecutor The scheduled executor service for common tasks.
+     * @return A new instance of {@code RocksDbKeyValueStorage}.
+     */
+    @Creator
+    @Inject
+    public static RocksDbKeyValueStorage create(
+            IgniteNodeDetails nodeDetails,
+            ComponentWorkingDir workingDir,
+            FailureProcessor failureProcessor,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            @Named("common") ScheduledExecutorService scheduledExecutor
+    ) {
+        return new RocksDbKeyValueStorage(
+                nodeDetails.nodeName(),
+                workingDir.dbPath(),
+                failureProcessor,
+                readOperationForCompactionTracker,
+                scheduledExecutor
         );
     }
 

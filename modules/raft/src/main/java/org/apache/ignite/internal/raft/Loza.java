@@ -20,6 +20,9 @@ package org.apache.ignite.internal.raft;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -29,7 +32,9 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -46,6 +51,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.client.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftView;
 import org.apache.ignite.internal.raft.configuration.VolatileRaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -78,6 +84,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 // TODO: Encapsulate RaftGroupOptions and move other methods to the RaftManager interface,
 //  see https://issues.apache.org/jira/browse/IGNITE-18273
+@Singleton
 public class Loza implements RaftManager {
     /** Factory. */
     public static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -199,6 +206,48 @@ public class Loza implements RaftManager {
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,
                 IgniteThreadFactory.create(clusterNetSvc.nodeName(), CLIENT_POOL_NAME, LOG)
+        );
+    }
+
+    /**
+     * Factory method to create an instance of the {@code Loza} class.
+     *
+     * @param clusterNetSvc Cluster service responsible for managing network interactions within the cluster.
+     * @param metricManager Metric manager for monitoring and managing metrics within the system.
+     * @param configurationRegistry Configuration registry for accessing system and Raft-related configurations.
+     * @param hybridClock Hybrid clock providing timestamps for operations.
+     * @param raftGroupEventsClientListener Listener for handling Raft group events.
+     * @param failureManager Manager responsible for handling system or component failures.
+     * @param groupStoragesDestructionIntents Handles intents for destroying group storages.
+     * @param groupStoragesContextResolver Resolver for determining group storage contexts.
+     * @return A new instance of {@code Loza}.
+     */
+    @Creator
+    @Inject
+    public static Loza loza(
+            ClusterService clusterNetSvc,
+            MetricManager metricManager,
+            ConfigurationRegistry configurationRegistry,
+            HybridClock hybridClock,
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            FailureManager failureManager,
+            GroupStoragesDestructionIntents groupStoragesDestructionIntents,
+            GroupStoragesContextResolver groupStoragesContextResolver
+    ) {
+        SystemLocalConfiguration systemConfiguration =
+                configurationRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
+        RaftConfiguration raftConfiguration = configurationRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
+
+        return new Loza(
+                clusterNetSvc,
+                metricManager,
+                raftConfiguration,
+                systemConfiguration,
+                hybridClock,
+                raftGroupEventsClientListener,
+                failureManager,
+                groupStoragesDestructionIntents,
+                groupStoragesContextResolver
         );
     }
 

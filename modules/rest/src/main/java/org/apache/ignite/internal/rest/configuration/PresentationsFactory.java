@@ -19,9 +19,10 @@ package org.apache.ignite.internal.rest.configuration;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.presentation.HoconPresentation;
 import org.apache.ignite.internal.rest.RestFactory;
@@ -34,9 +35,13 @@ public class PresentationsFactory implements RestFactory {
     private ConfigurationPresentation<String> nodeCfgPresentation;
     private ConfigurationPresentation<String> clusterCfgPresentation;
 
-    public PresentationsFactory(ConfigurationManager nodeCfgMgr, ConfigurationManager clusterCfgMgr) {
-        this.nodeCfgPresentation = new HoconPresentation(nodeCfgMgr.configurationRegistry());
-        this.clusterCfgPresentation = new HoconPresentation(clusterCfgMgr.configurationRegistry());
+    @Inject
+    public PresentationsFactory(
+            @Named("node") ConfigurationRegistry nodeConfigRegistry,
+            @Named("distributed") ConfigurationRegistry clusterConfigRegistry
+    ) {
+        this.nodeCfgPresentation = new HoconPresentation(nodeConfigRegistry);
+        this.clusterCfgPresentation = new HoconPresentation(clusterConfigRegistry);
     }
 
     @Bean

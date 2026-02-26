@@ -23,6 +23,9 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +39,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.IgniteNodeDetails;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -55,6 +59,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Distributed configuration storage.
  */
+@Singleton
 public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationStorage.class);
@@ -102,6 +107,22 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         this.metaStorageMgr = metaStorageMgr;
 
         threadPool = Executors.newFixedThreadPool(4, IgniteThreadFactory.create(nodeName, "dst-cfg", LOG));
+    }
+
+    /**
+     * Creates and initializes a new instance of {@code DistributedConfigurationStorage}.
+     *
+     * @param nodeDetails An object containing details about the Ignite node, including its name.
+     * @param metaStorageMgr The meta storage manager responsible for configuration and persistent metadata storage.
+     * @return A new instance of {@code DistributedConfigurationStorage}.
+     */
+    @Creator
+    @Inject
+    public static DistributedConfigurationStorage distributedConfigurationStorage(
+            IgniteNodeDetails nodeDetails,
+            MetaStorageManager metaStorageMgr
+    ) {
+        return new DistributedConfigurationStorage(nodeDetails.nodeName(), metaStorageMgr);
     }
 
     @Override

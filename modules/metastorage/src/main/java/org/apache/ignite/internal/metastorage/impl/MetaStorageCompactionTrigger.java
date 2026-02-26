@@ -26,6 +26,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -36,7 +40,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import org.apache.ignite.internal.IgniteNodeDetails;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -80,6 +87,7 @@ import org.jetbrains.annotations.Nullable;
  *     in the {@link MetaStorageManager#deployWatches}.</li>
  * </ul>
  */
+@Singleton
 public class MetaStorageCompactionTrigger implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
 
@@ -150,6 +158,41 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         storage.registerCompactionRevisionUpdateListener(this::onCompactionRevisionUpdate);
 
         metaStorageManager.addElectionListener(this::onLeaderElected);
+    }
+
+    /**
+     * Creates a new instance of {@code MetaStorageCompactionTrigger}.
+     *
+     * @param nodeDetails Provides details about the local Ignite node, including its name and configuration.
+     * @param storage The key-value storage implementation required for metadata storage operations.
+     * @param metaStorageManager The manager responsible for metastorage operations, such as read and write.
+     * @param failureProcessor The failure processor that handles node failures and failures related to metastorage operations.
+     * @param readOperationForCompactionTracker Tracks read operations, including those performed locally and by the leader,
+     *      for compaction purposes.
+     * @param clusterConfigRegistry The cluster-wide configuration registry used to access distributed system configurations.
+     * @return A new instance of {@code MetaStorageCompactionTrigger}.
+     */
+    @Creator
+    @Inject
+    public static MetaStorageCompactionTrigger create(
+            IgniteNodeDetails nodeDetails,
+            KeyValueStorage storage,
+            MetaStorageManagerImpl metaStorageManager,
+            FailureProcessor failureProcessor,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            @Named("distributed")ConfigurationRegistry clusterConfigRegistry
+    ) {
+        SystemDistributedConfiguration systemConfiguration =
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
+        return new MetaStorageCompactionTrigger(
+                nodeDetails.nodeName(),
+                storage,
+                metaStorageManager,
+                failureProcessor,
+                readOperationForCompactionTracker,
+                systemConfiguration
+        );
     }
 
     @Override

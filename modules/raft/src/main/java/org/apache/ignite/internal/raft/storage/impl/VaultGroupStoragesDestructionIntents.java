@@ -19,6 +19,8 @@ package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -31,6 +33,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /** Uses VaultManager to store destruction intents. */
+@Singleton
 public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {
     private static final byte[] GROUP_STORAGE_DESTRUCTION_PREFIX = "destroy.group.storages.".getBytes(UTF_8);
     private static final ByteOrder BYTE_UTILS_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
@@ -38,6 +41,7 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
     private final VaultManager vault;
 
     /** Constructor. */
+    @Inject
     public VaultGroupStoragesDestructionIntents(VaultManager vault) {
         this.vault = vault;
     }

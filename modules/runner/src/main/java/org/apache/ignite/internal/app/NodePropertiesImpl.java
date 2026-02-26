@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.UNSUPPORTED_TABLE_BASED_REPLICATION_ERR;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
@@ -39,6 +41,7 @@ import org.apache.ignite.lang.IgniteException;
 /**
  * Default implementation of {@link NodeProperties} using {@link VaultManager} for persistence.
  */
+@Singleton
 public class NodePropertiesImpl implements NodeProperties, IgniteComponent, NodeAttributesProvider {
     private static final IgniteLogger LOG = Loggers.forClass(NodePropertiesImpl.class);
 
@@ -50,6 +53,7 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent, Node
 
     private boolean colocationEnabled;
 
+    @Inject
     public NodePropertiesImpl(VaultManager vaultManager) {
         this.vaultManager = vaultManager;
     }

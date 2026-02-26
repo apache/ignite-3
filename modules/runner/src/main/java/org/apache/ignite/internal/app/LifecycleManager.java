@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 
+import io.micronaut.context.annotation.Value;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +43,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Class for managing the lifecycle of Ignite components.
  */
+@Singleton
 class LifecycleManager implements StateProvider, Debuggable {
     private static final IgniteLogger LOG = Loggers.forClass(LifecycleManager.class);
 
@@ -61,7 +64,7 @@ class LifecycleManager implements StateProvider, Debuggable {
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
 
-    LifecycleManager(String nodeName) {
+    LifecycleManager(@Value("${node-name}") String nodeName) {
         this.nodeName = nodeName;
     }
 

@@ -24,6 +24,9 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,12 +46,14 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link LogicalTopology}.
  */
+@Singleton
 public class LogicalTopologyImpl implements LogicalTopology {
     private static final IgniteLogger LOG = Loggers.forClass(LogicalTopologyImpl.class);
 
@@ -66,11 +71,33 @@ public class LogicalTopologyImpl implements LogicalTopology {
     private volatile @Nullable UUID clusterId;
 
     /** Constructor. */
+    @Inject
     public LogicalTopologyImpl(ClusterStateStorage storage, FailureProcessor failureProcessor) {
         this.storage = storage;
         this.failureProcessor = failureProcessor;
 
         clusterStateStorageManager = new ClusterStateStorageManager(storage);
+    }
+
+    /**
+     * Initializes the logical topology by registering an event listener to handle node join and leave events.
+     *
+     * @param clusterService The Cluster Service providing access to topology and network-related operations.
+     */
+    @Inject
+    @PostConstruct
+    public void init(ClusterService clusterService) {
+        addEventListener(new LogicalTopologyEventListener() {
+            @Override
+            public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
+                clusterService.topologyService().onJoined(joinedNode, newTopology.version());
+            }
+
+            @Override
+            public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
+                clusterService.topologyService().onLeft(leftNode, newTopology.version());
+            }
+        });
     }
 
     @Override
