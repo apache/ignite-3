@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_SUPPORTS_ERROR_FLAGS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -703,11 +702,22 @@ public class ClientInboundMessageHandler
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
+        int extCnt = 0;
+        boolean retriable = false;
+
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
         TransactionKilledException transactionKilledException = findException(err, TransactionKilledException.class);
-        boolean retriable = findException(err, RetriableTransactionException.class) != null;
+
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || transactionKilledException != null) {
+            extCnt = 1;
+        } else {
+            retriable = findException(err, RetriableTransactionException.class) != null;
+            if (retriable) {
+                extCnt++;
+            }
+        }
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -735,14 +745,6 @@ public class ClientInboundMessageHandler
         packer.packString(pubErr.getClass().getName());
         packer.packString(pubErr.getMessage());
 
-        if (clientContext != null && clientContext.hasFeature(TX_SUPPORTS_ERROR_FLAGS)) {
-            int mask = 0;
-            if (retriable) {
-                mask |= ErrorFlags.RETRIABLE.mask();
-            }
-            packer.packInt(mask);
-        }
-
         // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {
             packer.packString(ExceptionUtils.getFullStackTrace(pubErr));
@@ -751,22 +753,27 @@ public class ClientInboundMessageHandler
         }
 
         // Extensions.
-        if (schemaVersionMismatchException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
-            packer.packInt(schemaVersionMismatchException.expectedVersion());
-        } else if (sqlBatchException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
-            packer.packLongArray(sqlBatchException.updateCounters());
-        } else if (delayedAckException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.DELAYED_ACK);
-            packer.packUuid(delayedAckException.txId());
-        } else if (transactionKilledException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.TX_KILL);
-            packer.packUuid(transactionKilledException.txId());
+        if (extCnt > 0) {
+            packer.packInt(extCnt);
+
+            if (schemaVersionMismatchException != null) {
+                packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
+                packer.packInt(schemaVersionMismatchException.expectedVersion());
+            } else if (sqlBatchException != null) {
+                packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+                packer.packLongArray(sqlBatchException.updateCounters());
+            } else if (delayedAckException != null) {
+                packer.packString(ErrorExtensions.DELAYED_ACK);
+                packer.packUuid(delayedAckException.txId());
+            } else if (transactionKilledException != null) {
+                packer.packString(ErrorExtensions.TX_KILL);
+                packer.packUuid(transactionKilledException.txId());
+            }
+
+            if (retriable) {
+                packer.packString(ErrorExtensions.FLAGS);
+                packer.packInt(ErrorFlags.RETRIABLE.mask());
+            }
         } else {
             packer.packNil(); // No extensions.
         }

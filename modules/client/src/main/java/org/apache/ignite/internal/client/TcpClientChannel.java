@@ -551,8 +551,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         handlePartitionAssignmentChange(flags, unpacker);
         handleObservableTimestamp(unpacker);
 
-        Throwable err = getErrorFlag(flags) ?
-                readError(protocolContext().isFeatureSupported(ProtocolBitmaskFeature.TX_SUPPORTS_ERROR_FLAGS), unpacker) : null;
+        Throwable err = getErrorFlag(flags) ? readError(unpacker) : null;
 
         if (ResponseFlags.getNotificationFlag(flags)) {
             handleNotification(resId, unpacker, err);
@@ -635,21 +634,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Unpacks request error.
      *
      * @param unpacker Unpacker.
-     * @param errorFlags Supports error flags.
      * @return Exception.
      */
-    private static Throwable readError(boolean errorFlags, ClientMessageUnpacker unpacker) {
+    private static Throwable readError(ClientMessageUnpacker unpacker) {
         var traceId = unpacker.unpackUuid();
         var code = unpacker.unpackInt();
 
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
         boolean retriable = false;
-
-        if (errorFlags) {
-            EnumSet<ErrorFlags> flags = ErrorFlags.unpack(unpacker.unpackInt());
-            retriable = flags.contains(ErrorFlags.RETRIABLE);
-        }
 
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
@@ -668,6 +661,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.TX_KILL)) {
                 return new ClientTransactionKilledException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
+                txId = unpacker.unpackUuid();
+            } else if (key.equals(ErrorExtensions.FLAGS)) {
+                EnumSet<ErrorFlags> flags = ErrorFlags.unpack(unpacker.unpackInt());
+                retriable = flags.contains(ErrorFlags.RETRIABLE);
             } else {
                 // Unknown extension - ignore.
                 unpacker.skipValues(1);
@@ -791,10 +788,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(), unpacker.unpackShort());
 
             if (!unpacker.tryUnpackNil()) {
-                ProtocolContext protocolContext = protocolContext();
-                boolean errFlags =
-                        protocolContext != null && protocolContext.isFeatureSupported(ProtocolBitmaskFeature.TX_SUPPORTS_ERROR_FLAGS);
-                throw sneakyThrow(readError(errFlags, unpacker));
+                throw sneakyThrow(readError(unpacker));
             }
 
             var serverIdleTimeout = unpacker.unpackLong();
