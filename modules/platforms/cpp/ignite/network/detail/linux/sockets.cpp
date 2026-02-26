@@ -185,9 +185,9 @@ ssize_t send(int socket, const void* buf, size_t len) {
     if (len > INT_MAX)
         throw ignite_error("Socket send failed. Buffer size exceeds INT_MAX: " + std::to_string(len));
 #ifdef __APPLE__
-    return ::send(socket, buf, len, 0); // SIGPIPE is already handled via setsockopt SO_NOSIGPIPE
+    return ::send(socket, buf, static_cast<int>(len), 0); // SIGPIPE is already handled via setsockopt SO_NOSIGPIPE
 #else
-    return ::send(socket, buf, len, MSG_NOSIGNAL);
+    return ::send(socket, buf, static_cast<int>(len), MSG_NOSIGNAL);
 #endif
 }
 

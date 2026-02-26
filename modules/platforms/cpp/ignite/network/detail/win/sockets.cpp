@@ -190,7 +190,7 @@ int send(SOCKET socket, const void *buf, size_t len) {
     if (len > INT_MAX)
         throw ignite_error("Socket send failed. Buffer size exceeds INT_MAX: " + std::to_string(len));
 
-    return ::send(socket, static_cast<const char*>(buf), len, 0);
+    return ::send(socket, static_cast<const char*>(buf), static_cast<int>(len), 0);
 }
 
 /**
