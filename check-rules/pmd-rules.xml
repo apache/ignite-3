@@ -36,7 +36,7 @@
                              | ./ancestor::MethodDeclaration[@Name='writeObject' or @Name='readObject']
                              | ./ancestor::MethodDeclaration[@Visibility = 'protected'][count(Block/*) = 0]
                                  /ancestor::ClassDeclaration[@Abstract = true()]
-                             | ./ancestor::MethodDeclaration[pmd-java:hasAnnotation('org.junit.jupiter.params.ParameterizedTest')]" />
+" />
         </properties>
     </rule>
     <rule ref="category/java/bestpractices.xml/AvoidPrintStackTrace" />
