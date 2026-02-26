@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.schemacompat;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -153,5 +155,26 @@ public class CompatValidationResult {
         assert details != null : "Should not be called when there are no details";
 
         return details;
+    }
+
+    /**
+     * Returns error message corresponding to validation failure. Should only be called for a failed validation result, otherwise an
+     * assertion error may be thrown.
+     */
+    public String validationFailedMessage() {
+        assert !isSuccessful() : "Should not be called on a successful result";
+
+        if (isTableDropped()) {
+            return format("Commit failed because a table was already dropped [table={}]", failedTableName());
+        } else {
+            return format(
+                    "Commit failed because schema is not forward-compatible "
+                            + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
+                    fromSchemaVersion(),
+                    toSchemaVersion(),
+                    failedTableName(),
+                    details()
+            );
+        }
     }
 }

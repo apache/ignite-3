@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.Ignite;
@@ -41,7 +40,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Compatibility tests for metastorage raft log. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-@MicronautTest(rebuildContext = true)
 public class MetastorageRaftCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected boolean restartWithCurrentEmbeddedVersion() {

@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite for {@link NodeConfigurationController}.
  */
-@MicronautTest(rebuildContext = true)
+@MicronautTest
 public class ItNodeConfigurationControllerTest extends ClusterPerTestIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 

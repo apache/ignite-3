@@ -15,18 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cliconfig;
+package org.apache.ignite.internal.checkstyle;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * Parent command for CLI configuration commands in REPL mode.
- */
-@Command(name = "cli",
-        description = "CLI specific commands",
-        subcommands = {
-                CliConfigReplCommand.class
-        })
-public class CliReplCommand extends BaseCommand {
+public class InputLoggerCorrect {
+    private static final Logger LOG = LoggerFactory.getLogger(InputLoggerCorrect.class);
 }

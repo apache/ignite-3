@@ -20,10 +20,10 @@ package org.apache.ignite.internal.table.distributed.schema;
 import org.apache.ignite.internal.catalog.CatalogService;
 
 /**
- * Logic that allows to determine whether the logcal Catalog version is sufficient.
+ * Logic that allows to determine whether the local schema metadata is sufficient.
  */
-public class CatalogVersionSufficiency {
-    private CatalogVersionSufficiency() {
+public class MetadataSufficiency {
+    private MetadataSufficiency() {
         // Deny instantiation.
     }
 
@@ -34,7 +34,7 @@ public class CatalogVersionSufficiency {
      * @param catalogService Catalog service.
      * @return {@code true} iff the local Catalog version is sufficient.
      */
-    public static boolean isMetadataAvailableFor(int requiredCatalogVersion, CatalogService catalogService) {
+    public static boolean isMetadataAvailableForCatalogVersion(int requiredCatalogVersion, CatalogService catalogService) {
         return catalogService.catalogReadyFuture(requiredCatalogVersion).isDone();
     }
 }

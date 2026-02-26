@@ -797,8 +797,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             try {
                 sql(format("CREATE TABLE test (id INT PRIMARY KEY, val {} DEFAULT {})", arg.sqlType, arg.sqlVal));
                 sql("INSERT INTO test (id) VALUES (1)");
-                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
-
                 sql("ALTER TABLE test ALTER COLUMN val DROP DEFAULT");
 
                 if (arg.sqlType.endsWith("NOT NULL")) {
@@ -808,6 +806,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                     sql("INSERT INTO test (id) VALUES (2)");
                     assertQuery("SELECT val FROM test WHERE id = 2").returns(null).check();
                 }
+
+                assertQuery("SELECT val FROM test WHERE id = 1").returns(arg.expectedVal).check();
             } finally {
                 sql("DROP TABLE IF EXISTS test");
             }

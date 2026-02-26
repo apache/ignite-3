@@ -59,4 +59,9 @@ public interface LogStorageManager extends IgniteComponent {
     default LogSyncer logSyncer() {
         return new NoOpLogSyncer();
     }
+
+    /**
+     * Returns total number of bytes occupied on disk by the log storages managed by this manager.
+     */
+    long totalBytesOnDisk();
 }

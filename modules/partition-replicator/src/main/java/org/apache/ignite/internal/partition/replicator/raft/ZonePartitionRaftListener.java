@@ -282,7 +282,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             @Nullable HybridTimestamp safeTimestamp
     ) {
         if (tableProcessors.isEmpty()) {
-            return new CommandResult(null, lastAppliedIndex < commandIndex);
+            return new CommandResult(null, commandIndex > lastAppliedIndex);
         }
 
         boolean wasApplied = false;
