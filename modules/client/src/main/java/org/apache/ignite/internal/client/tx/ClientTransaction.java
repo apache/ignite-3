@@ -458,6 +458,8 @@ public class ClientTransaction implements Transaction {
     }
 
     private static TransactionException exceptionForState(int state, ClientTransaction clientTx) {
+        assert state > STATE_OPEN;
+
         if (state == STATE_KILLED) {
             return new TransactionException(
                     TX_KILLED_ERR,
@@ -465,7 +467,8 @@ public class ClientTransaction implements Transaction {
         } else {
             return new TransactionException(
                     TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [tx={}].", clientTx));
+                    format("Transaction is already finished [tx={}, committed={}].", clientTx,
+                            state == STATE_COMMITTED ? "true" : "false"));
         }
     }
 
