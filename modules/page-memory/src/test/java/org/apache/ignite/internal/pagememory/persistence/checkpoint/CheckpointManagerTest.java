@@ -56,6 +56,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -99,7 +100,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
                 executorService,
-                new CheckpointMetricSource("test"),
+                new CollectionMetricSource("test", "storage", null),
                 1024
         );
 
@@ -366,7 +367,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
                 executorService,
-                new CheckpointMetricSource("test"),
+                new CollectionMetricSource("test", "storage", null),
                 1024
         ));
 

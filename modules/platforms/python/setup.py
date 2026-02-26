@@ -14,6 +14,7 @@
 # limitations under the License.
 import os
 import platform
+import re
 import subprocess
 import setuptools
 import sys
@@ -52,11 +53,11 @@ with open(os.path.join(PACKAGE_NAME, '_version.txt'), 'r') as fd:
 
 def cmake_project_version(version):
     """
-    Strips the pre-release portion of the project version string to satisfy CMake requirements
+    Strips the extra portion of the project version string to satisfy CMake requirements
     """
-    dash_index = version.find("-")
-    if dash_index != -1:
-        return version[:dash_index]
+    end_index = re.search(r"\d+\.\d+\.\d+", version).end()
+    if end_index != -1:
+        return version[:end_index]
     return version
 
 def _get_env_variable(name, default='OFF'):

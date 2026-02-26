@@ -35,7 +35,7 @@ public abstract class BplusLeafIo<L> extends BplusIo<L> {
     }
 
     @Override
-    public int getMaxCount(long pageAddr, int pageSize) {
+    public int getMaxCount(int pageSize) {
         return (pageSize - ITEMS_OFF) / getItemSize();
     }
 

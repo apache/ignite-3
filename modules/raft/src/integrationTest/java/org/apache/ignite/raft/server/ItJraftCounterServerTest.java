@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
 import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
@@ -122,7 +123,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 RaftGroupOptions groupOptions = groupOptions(raftServer);
 
-                groupOptions.setLogStorageFactory(logStorageFactories.get(finalI));
+                groupOptions.setLogStorageManager(logStorageFactories.get(finalI));
                 groupOptions.serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(
@@ -153,7 +154,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(raftServer)
-                            .setLogStorageFactory(logStorageFactories.get(0))
+                            .setLogStorageManager(logStorageFactories.get(0))
                             .serverDataPath(serverWorkingDirs.get(0).metaPath())
             );
         }, opts -> {
@@ -184,7 +185,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                         initialMembersConf,
                         listenerFactory.get(),
                         groupOptions(srv)
-                                .setLogStorageFactory(logStorageFactories.get(j))
+                                .setLogStorageManager(logStorageFactories.get(j))
                                 .serverDataPath(serverWorkingDirs.get(j).metaPath())
                 );
             }
@@ -584,7 +585,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                         Peer serverPeer = initialMembersConf.peer(localNodeName);
 
                         RaftGroupOptions groupOptions = groupOptions(srv)
-                                .setLogStorageFactory(logStorageFactories.get(j))
+                                .setLogStorageManager(logStorageFactories.get(j))
                                 .serverDataPath(serverWorkingDirs.get(j).metaPath());
                         srv.startRaftNode(new RaftNodeId(groupId, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions);
                     }
@@ -646,7 +647,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 RaftGroupOptions opts = groupOptions(raftServer)
                         .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage))
-                        .setLogStorageFactory(logStorageFactories.get(finalI))
+                        .setLogStorageManager(logStorageFactories.get(finalI))
                         .serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
@@ -712,7 +713,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 RaftGroupOptions opts = groupOptions(raftServer)
                         .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage))
-                        .setLogStorageFactory(logStorageFactories.get(finalI))
+                        .setLogStorageManager(logStorageFactories.get(finalI))
                         .serverDataPath(serverWorkingDirs.get(finalI).metaPath());
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
@@ -831,14 +832,17 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         toStop.stopRaftNode(raftNodeId0);
         toStop.stopRaftNode(raftNodeId1);
 
-        toStop.beforeNodeStop();
+        assertThat(
+                stopAsync(
+                        new ComponentContext(),
+                        toStop,
+                        serverServices.get(stopIdx),
+                        logStorageFactories.get(stopIdx),
+                        vaultManagers.get(stopIdx)
+                ),
+                willCompleteSuccessfully()
+        );
 
-        ComponentContext componentContext = new ComponentContext();
-
-        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(serverServices.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(logStorageFactories.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(vaultManagers.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
         servers.remove(stopIdx);
         serverServices.remove(stopIdx);
         logStorageFactories.remove(stopIdx);
@@ -868,7 +872,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
             r.startRaftNode(
@@ -876,7 +880,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
         }, opts -> {});
@@ -887,13 +891,19 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         svc2.stopRaftNodes(COUNTER_GROUP_0);
         svc2.stopRaftNodes(COUNTER_GROUP_1);
 
-        svc2.beforeNodeStop();
-
         int sv2Idx = servers.size() - 1;
-        assertThat(svc2.stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(serverServices.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(logStorageFactories.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
-        assertThat(vaultManagers.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
+
+        assertThat(
+                stopAsync(
+                        new ComponentContext(),
+                        svc2,
+                        serverServices.get(sv2Idx),
+                        logStorageFactories.get(sv2Idx),
+                        vaultManagers.get(sv2Idx)
+                ),
+                willCompleteSuccessfully()
+        );
+
         servers.remove(sv2Idx);
         serverServices.remove(sv2Idx);
         logStorageFactories.remove(sv2Idx);
@@ -910,7 +920,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
             r.startRaftNode(
@@ -918,7 +928,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                     initialMembersConf,
                     listenerFactory.get(),
                     groupOptions(r)
-                            .setLogStorageFactory(logStorageFactories.get(stopIdx))
+                            .setLogStorageManager(logStorageFactories.get(stopIdx))
                             .serverDataPath(serverWorkingDirs.get(stopIdx).metaPath())
             );
         }, opts -> {});

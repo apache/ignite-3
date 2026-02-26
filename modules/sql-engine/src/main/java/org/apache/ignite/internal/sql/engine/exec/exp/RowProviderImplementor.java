@@ -133,9 +133,7 @@ class RowProviderImplementor {
                 Expressions.declare(Modifier.FINAL, DataContext.ROOT, Expressions.convert_(ctx, DataContext.class))
         );
 
-        Expression rowHandler = builder.append("hnd", Expressions.call(ctx, IgniteMethod.CONTEXT_ROW_HANDLER.method()));
-
-        Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, rowHandler).build(values);
+        Function1<String, InputGetter> correlates = new CorrelatesBuilder(ctx).build(values);
 
         List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
                 builder, null, null, ctx, NoOpFieldGetter.INSTANCE, correlates);

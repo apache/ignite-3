@@ -75,7 +75,7 @@ public class ItSqlConcurrentSchemaModificationTest extends BaseSqlIntegrationTes
                     ? "ALTER TABLE t ADD COLUMN val VARCHAR DEFAULT 'abc'"
                     : "ALTER TABLE t DROP COLUMN val";
 
-            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(null, ddlQuery);
+            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(ddlQuery);
 
             Thread.sleep(ThreadLocalRandom.current().nextInt(15) * 10);
 
@@ -109,7 +109,7 @@ public class ItSqlConcurrentSchemaModificationTest extends BaseSqlIntegrationTes
                     ? "ALTER TABLE t ADD COLUMN val VARCHAR DEFAULT 'abc'"
                     : "ALTER TABLE t DROP COLUMN val";
 
-            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(null, ddlQuery);
+            CompletableFuture<AsyncResultSet<SqlRow>> ddlFut = sql.executeAsync(ddlQuery);
             Thread.sleep(ThreadLocalRandom.current().nextInt(15) * 10);
 
             int id = i % 10;

@@ -199,6 +199,7 @@ dependencies {
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
+    integrationTestImplementation platform(libs.jackson.bom)
     integrationTestImplementation libs.jackson.databind
     integrationTestImplementation libs.jmh.core
     integrationTestImplementation libs.typesafe.config

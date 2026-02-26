@@ -81,7 +81,7 @@ public class CompatibilityTestCommon {
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     private static boolean ddl(Ignite client, String sql) {
-        try (var cursor = client.sql().execute(null, sql)) {
+        try (var cursor = client.sql().execute(sql)) {
             return cursor.wasApplied();
         }
     }

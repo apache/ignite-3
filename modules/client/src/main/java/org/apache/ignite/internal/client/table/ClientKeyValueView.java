@@ -420,8 +420,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return sync(removeAsync(tx, key, val));
+    public boolean removeExact(@Nullable Transaction tx, K key, V val) {
+        return sync(removeExactAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -439,7 +439,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<Boolean> removeExactAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(val, valSer.mapper().targetType());
@@ -561,10 +561,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, K key, V oldVal, V newVal) {
+    public boolean replaceExact(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key, "key");
 
-        return sync(replaceAsync(tx, key, oldVal, newVal));
+        return sync(replaceExactAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
@@ -584,7 +584,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
+    public CompletableFuture<Boolean> replaceExactAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key, "key");
 
         validateNullableValue(oldVal, valSer.mapper().targetType());

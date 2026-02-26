@@ -61,7 +61,7 @@ std::string get_current_exception_as_string();
  * @param obj Object.
  * @return Typename if available, and "Unknown" otherwise.
  */
-const char* py_object_get_typename(PyObject* obj);
+const char* py_object_get_typename(const PyObject* obj);
 
 /**
  * Get the module instance.

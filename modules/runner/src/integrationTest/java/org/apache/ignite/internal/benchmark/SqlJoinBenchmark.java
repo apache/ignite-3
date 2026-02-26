@@ -72,8 +72,8 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void leftHashJoin(Blackhole bh) {
-        try (var rs = sql.execute(null, ""
-                + "SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
+        try (var rs = sql.execute(
+                "SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
                 + "FROM usertable t1 "
                 + "LEFT JOIN usertable t2 "
                 + "on t1.field2 = t2.field2")) {
@@ -88,8 +88,8 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void leftMergeJoin(Blackhole bh) {
-        try (var rs = sql.execute(null, ""
-                + "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'NestedLoopJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
+        try (var rs = sql.execute(
+                "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'NestedLoopJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
                 + "FROM usertable t1 "
                 + "LEFT JOIN usertable t2 "
                 + "on t1.field2 = t2.field2")) {
@@ -104,8 +104,8 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void leftNestedJoin(Blackhole bh) {
-        try (var rs = sql.execute(null, ""
-                + "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
+        try (var rs = sql.execute(
+                "SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'CorrelatedNestedLoopJoin') */ t1.field1 "
                 + "FROM usertable t1 "
                 + "LEFT JOIN usertable t2 "
                 + "on t1.field2 = t2.field2")) {

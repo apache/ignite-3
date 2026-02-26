@@ -195,7 +195,7 @@ public class Ignite2PersistentCacheTools {
         if (table == null) {
             TableDefinition tblDef = tableDefinition.tableDefinition();
             if (!"PUBLIC".equals(tblDef.schemaName())) {
-                client.sql().executeAsync(null, "CREATE SCHEMA IF NOT EXISTS " + tblDef.schemaName() + ";").join();
+                client.sql().executeAsync("CREATE SCHEMA IF NOT EXISTS " + tblDef.schemaName() + ";").join();
             }
 
             table = (ClientTable) client.catalog()

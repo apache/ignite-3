@@ -50,7 +50,10 @@ public class OldClientLoader {
                 .forProjectDirectory(Path.of("..", "..").normalize().toFile())
                 .connect()
         ) {
-            File argFile = Dependencies.constructArgFile(connection, "org.apache.ignite:ignite-client:" + igniteVersion, true);
+            File argFile = Dependencies.argFileBuilder(connection, "org.apache.ignite:ignite-client:" + igniteVersion)
+                    .classPathOnly(true)
+                    .transitive(true)
+                    .build();
 
             List<URI> classpath = Files.readAllLines(argFile.toPath())
                     .stream()

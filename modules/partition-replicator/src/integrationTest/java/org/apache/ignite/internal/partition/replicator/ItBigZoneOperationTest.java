@@ -43,7 +43,7 @@ class ItBigZoneOperationTest extends ClusterPerTestIntegrationTest {
                             + "CREATE TABLE TEST_TABLE(id INT PRIMARY KEY, val VARCHAR(255)) ZONE TEST_ZONE"
             );
 
-            node.sql().execute(null, "SELECT * FROM TEST_TABLE").close();
+            node.sql().execute("SELECT * FROM TEST_TABLE").close();
         });
     }
 }

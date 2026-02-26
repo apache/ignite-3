@@ -22,7 +22,7 @@ if (${ENABLE_CLIENT})
             @ONLY
     )
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ignite-client.pc
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+            DESTINATION ${IGNITE_INSTALL_LIBRARY_DIR}/pkgconfig
     )
 endif()
 
@@ -33,6 +33,6 @@ if (${ENABLE_ODBC})
             @ONLY
     )
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ignite-odbc.pc
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+            DESTINATION ${IGNITE_INSTALL_LIBRARY_DIR}/pkgconfig
     )
 endif()

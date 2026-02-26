@@ -25,7 +25,7 @@ import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -72,13 +72,13 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
                 .raftGroupService(raftNodeId)
                 .getNodeOptions()
                 .getServiceFactory();
-        DefaultLogStorageFactory logStorageFactory = (DefaultLogStorageFactory) cmgServiceFactory.logStorageFactory();
+        DefaultLogStorageManager logStorageManager = (DefaultLogStorageManager) cmgServiceFactory.logStorageManager();
 
-        DBOptions dbOptions = logStorageFactory.dbOptions();
+        DBOptions dbOptions = logStorageManager.dbOptions();
         assertNotNull(dbOptions);
         assertEquals(expectedFsync, dbOptions.useFsync());
 
-        WriteOptions writeOptions = logStorageFactory.writeOptions();
+        WriteOptions writeOptions = logStorageManager.writeOptions();
         assertNotNull(writeOptions);
         assertEquals(expectedFsync, writeOptions.sync());
     }

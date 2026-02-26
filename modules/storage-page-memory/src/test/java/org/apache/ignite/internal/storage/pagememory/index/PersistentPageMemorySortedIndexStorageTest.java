@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -55,8 +56,8 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}") StorageConfiguration storageConfig,
+            @InjectConfiguration SystemLocalConfiguration systemConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -66,7 +67,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 workDir,
                 null,

@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite-fake-server)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ignite-fake-server)
 
 set(SOURCES
     main.cpp
@@ -26,4 +24,4 @@ set(SOURCES
     connection_test.cpp
 )
 
-ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client msgpack-c)
+ignite_test(${TARGET} SOURCES ${SOURCES} LIBS ignite-test-common ignite3-client msgpack-c ignite-protocol ignite-tuple)
