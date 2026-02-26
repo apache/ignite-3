@@ -1217,6 +1217,11 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
     }
 
+    @Test
+    public void testRollBackDoesNotThrowOnDisconnect() {
+        // Start transaction, update a row, close the client, rollback the transaction.
+    }
+
     @AfterEach
     protected void validateInflights() throws NoSuchFieldException {
         System.out.println("DBG: validateInflights");
