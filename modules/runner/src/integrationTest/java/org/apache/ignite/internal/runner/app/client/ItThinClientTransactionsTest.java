@@ -1217,9 +1217,26 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(fut, willThrowWithCauseOrSuppressed(TransactionException.class));
     }
 
-    @Test
-    public void testRollBackDoesNotThrowOnDisconnect() {
-        // Start transaction, update a row, close the client, rollback the transaction.
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testRollBackDoesNotThrowOnDisconnect(boolean async) {
+        try (IgniteClient client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
+            KeyValueView<Integer, String> kvView = client.tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
+
+            Transaction tx = client.transactions().begin();
+            kvView.put(tx, 999, "test");
+
+            client.close();
+
+            if (async) {
+                assertThat(tx.rollbackAsync(), willSucceedFast());
+            } else {
+                assertDoesNotThrow(tx::rollback, "Rollback should not throw after client disconnect");
+            }
+        }
+
+        KeyValueView<Integer, String> kvView = client().tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
+        assertNull(kvView.get(null, 999), "Value should not be visible after rollback");
     }
 
     @AfterEach
