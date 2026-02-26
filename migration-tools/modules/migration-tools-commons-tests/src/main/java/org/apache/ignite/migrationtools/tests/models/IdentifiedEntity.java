@@ -15,31 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.serialization;
+package org.apache.ignite.migrationtools.tests.models;
 
-/**
- * Argument object used in auto-serialization examples.
- */
-public class AutoSerializableArg {
+import java.util.Objects;
+import java.util.UUID;
 
-    /** Word to process. */
-    String word;
+/** IdentifiedEntity. */
+public class IdentifiedEntity {
+    private UUID id;
 
-    /** Whether the word should be converted to upper case. */
-    boolean isUpperCase;
-
-    /** Default constructor. */
-    public AutoSerializableArg() {
+    public IdentifiedEntity() {
+        id = UUID.randomUUID();
     }
 
-    /**
-     * Creates a new argument object.
-     *
-     * @param word Word value.
-     * @param isUpperCase Flag indicating upper-case conversion.
-     */
-    AutoSerializableArg(String word, boolean isUpperCase) {
-        this.word = word;
-        this.isUpperCase = isUpperCase;
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof IdentifiedEntity)) {
+            return false;
+        }
+        IdentifiedEntity that = (IdentifiedEntity) o;
+        return Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 }

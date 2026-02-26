@@ -15,31 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.serialization;
+package org.apache.ignite.internal.schema.marshaller.inheritance.parentwithprivatefield;
 
-/**
- * Argument object used in auto-serialization examples.
- */
-public class AutoSerializableArg {
+import org.apache.ignite.catalog.annotations.Column;
 
-    /** Word to process. */
-    String word;
+/** Test class. */
+public class Parent {
+    @Column("key")
+    private Integer key;
 
-    /** Whether the word should be converted to upper case. */
-    boolean isUpperCase;
+    @Column("val")
+    private String val;
 
-    /** Default constructor. */
-    public AutoSerializableArg() {
+    Parent() {
     }
 
-    /**
-     * Creates a new argument object.
-     *
-     * @param word Word value.
-     * @param isUpperCase Flag indicating upper-case conversion.
-     */
-    AutoSerializableArg(String word, boolean isUpperCase) {
-        this.word = word;
-        this.isUpperCase = isUpperCase;
+    Parent(Integer key, String val) {
+        this.key = key;
+        this.val = val;
+    }
+
+    Integer getKey() {
+        return key;
+    }
+
+    String getVal() {
+        return val;
     }
 }
