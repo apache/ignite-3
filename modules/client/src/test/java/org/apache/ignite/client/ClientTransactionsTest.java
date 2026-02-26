@@ -51,7 +51,7 @@ public class ClientTransactionsTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testRollBackDoesNotThrowOnServerDisconnect(boolean async) {
+    public void testRollbackDoesNotThrowOnServerDisconnect(boolean async) {
         try (var client = IgniteClient.builder().addresses("127.0.0.1:" + server.port()).build()) {
             ((FakeIgniteTables) server.ignite().tables()).createTable(TABLE_ONE_COLUMN);
             RecordView<String> recView = client.tables().table(TABLE_ONE_COLUMN).recordView(Mapper.of(String.class));
