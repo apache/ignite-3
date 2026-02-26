@@ -1571,7 +1571,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     gcConfig,
-                    txConfiguration,
                     replicationConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),

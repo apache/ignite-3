@@ -17,14 +17,11 @@
 
 package org.apache.ignite.migrationtools.persistence.mappers;
 
-import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.binary.BinaryObjectImpl;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.migrationtools.persistence.utils.pubsub.BasicProcessor;
-import org.apache.ignite3.table.Tuple;
 
 /** Processes {@link CacheDataRow} into Java Object entries. */
 public class CacheDataRowProcessor extends BasicProcessor<CacheDataRow, Map.Entry<Object, Object>> {

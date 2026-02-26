@@ -57,7 +57,6 @@ public class BinaryTupleBuilder {
     /** Buffer for tuple content. */
     private ByteBuffer buffer;
 
-
     /**
      * Creates a builder.
      *
