@@ -17,13 +17,16 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,9 +53,10 @@ public class ClientTransactionsTest extends BaseIgniteAbstractTest {
     @ValueSource(booleans = {true, false})
     public void testRollBackDoesNotThrowOnServerDisconnect(boolean async) {
         try (var client = IgniteClient.builder().addresses("127.0.0.1:" + server.port()).build()) {
-            RecordView<Tuple> recView = client.tables().table("t").recordView();
+            ((FakeIgniteTables) server.ignite().tables()).createTable(TABLE_ONE_COLUMN);
+            RecordView<String> recView = client.tables().table(TABLE_ONE_COLUMN).recordView(Mapper.of(String.class));
             Transaction tx = client.transactions().begin();
-            recView.upsert(tx, Tuple.create().set("id", 1).set("val", "value"));
+            recView.upsert(tx, "foo");
 
             server.close();
 
