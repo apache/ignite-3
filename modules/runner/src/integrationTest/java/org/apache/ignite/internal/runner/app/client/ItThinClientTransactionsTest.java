@@ -1219,7 +1219,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testRollBackDoesNotThrowOnDisconnect(boolean async) {
+    public void testRollBackDoesNotThrowOnClientDisconnect(boolean async) {
         try (IgniteClient client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             KeyValueView<Integer, String> kvView = client.tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
 
@@ -1231,7 +1231,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             if (async) {
                 assertThat(tx.rollbackAsync(), willSucceedFast());
             } else {
-                assertDoesNotThrow(tx::rollback, "Rollback should not throw after client disconnect");
+                assertDoesNotThrow(tx::rollback);
             }
         }
 

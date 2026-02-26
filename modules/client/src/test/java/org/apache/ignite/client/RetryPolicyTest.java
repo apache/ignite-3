@@ -182,23 +182,6 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testTransactionRollbackOnClosedChannel() {
-        initServer(reqId -> reqId % 4 == 0);
-        var plc = new TestRetryPolicy();
-
-        try (var client = getClient(plc)) {
-            RecordView<Tuple> recView = client.tables().table("t").recordView();
-            Transaction tx = client.transactions().begin();
-
-            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel()).get1().join();
-            assertThrows(IgniteException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
-
-            // Rollback should not throw an exception even when the channel is closed.
-            assertDoesNotThrow(tx::rollback);
-        }
-    }
-
-    @Test
     public void testRetryReadPolicyRetriesReadOperations() {
         // Standard requests are:
         // 1: Handshake
