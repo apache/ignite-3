@@ -139,7 +139,7 @@ def run_setup():
         description='Apache Ignite 3 DB API Driver',
         long_description=long_description,
         long_description_content_type='text/markdown',
-        url='https://github.com/apache/ignite-3/tree/main/modules/platforms/python',
+        url='https://github.com/apache/ignite-3/tree/main/modules/platforms/python/dbapi',
         packages=setuptools.find_packages(),
         include_package_data=True,
         ext_modules=[CMakeExtension(EXTENSION_NAME)],

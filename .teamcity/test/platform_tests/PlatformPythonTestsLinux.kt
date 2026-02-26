@@ -16,7 +16,7 @@ object PlatformPythonTestsLinux : BuildType({
     name = "Platform Python Tests (Linux)"
 
     params {
-        text("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\python""", display = ParameterDisplay.HIDDEN, allowEmpty = true)
+        text("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\python\dbapi""", display = ParameterDisplay.HIDDEN, allowEmpty = true)
         param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
         param("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
         param("TOX_ENV", "py310")
