@@ -58,7 +58,7 @@ def get_test_dir():
 
 
 def get_proj_dir():
-    return os.path.abspath(os.path.join(get_test_dir(), "..", "..", "..", ".."))
+    return os.path.abspath(os.path.join(get_test_dir(), "..", "..", "..", "..", ".."))
 
 
 def get_ignite_dirs():
