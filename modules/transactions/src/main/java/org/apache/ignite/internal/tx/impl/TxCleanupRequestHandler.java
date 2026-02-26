@@ -300,7 +300,7 @@ public class TxCleanupRequestHandler {
      * @return The future.
      */
     CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> partitions, UUID txId) {
-        Map<EnlistedPartitionGroup, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
+        Map<EnlistedPartitionGroup, CompletableFuture<?>> writeIntentSwitches = IgniteUtils.newHashMap(partitions.size());
 
         for (EnlistedPartitionGroup partition : partitions) {
             CompletableFuture<?> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
