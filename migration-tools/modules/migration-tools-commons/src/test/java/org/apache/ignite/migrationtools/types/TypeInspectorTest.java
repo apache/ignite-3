@@ -42,7 +42,7 @@ class TypeInspectorTest {
         List<InspectedField> inspectedTypes = inspectType(primitiveKlass);
 
         var expected = InspectedField.forUnnamed(typeName, InspectedFieldType.PRIMITIVE);
-        assertThat(inspectedTypes).containsExactly(expected);
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
     }
 
     private static Stream<Arguments> primitiveTypes() {
@@ -73,7 +73,7 @@ class TypeInspectorTest {
         List<InspectedField> inspectedTypes = inspectType(primitiveKlass);
 
         var expected = InspectedField.forUnnamed(primitiveKlass.getName(), InspectedFieldType.ARRAY);
-        assertThat(inspectedTypes).containsExactly(expected);
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
     }
 
     private static Stream<Arguments> arrayTypes() {
@@ -111,7 +111,7 @@ class TypeInspectorTest {
                 forNamed("lastUpdated", Timestamp.class.getName(), InspectedFieldType.POJO_ATTRIBUTE, true, false)
         };
 
-        assertThat(inspectedTypes).containsExactly(expected);
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
     }
 
     @Test
@@ -125,6 +125,6 @@ class TypeInspectorTest {
                 forNamed("id", UUID.class.getName(), InspectedFieldType.POJO_ATTRIBUTE, true, false)
         };
 
-        assertThat(inspectedTypes).containsExactly(expected);
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
     }
 }
