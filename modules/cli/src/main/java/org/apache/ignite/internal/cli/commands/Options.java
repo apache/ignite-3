@@ -360,6 +360,5 @@ public enum Options {
 
         /** No truncate option description. */
         public static final String NO_TRUNCATE_OPTION_DESC = "Disable column truncation, show full content";
-
     }
 }
