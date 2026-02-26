@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
+import io.micronaut.context.annotation.Value;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -45,7 +48,13 @@ import org.rocksdb.WriteOptions;
 /**
  * Vault Service implementation based on <a href="https://github.com/facebook/rocksdb">RocksDB</a>.
  */
+@Singleton
 public class PersistentVaultService implements VaultService {
+    /**
+     * Path to the persistent storage used by the VaultService component.
+     */
+    private static final Path VAULT_DB_PATH = Paths.get("vault");
+
     static {
         RocksDB.loadLibrary();
     }
@@ -62,8 +71,8 @@ public class PersistentVaultService implements VaultService {
      *
      * @param path base path for RocksDB
      */
-    public PersistentVaultService(Path path) {
-        this.path = path;
+    public PersistentVaultService(@Value("${work-dir}") Path path) {
+        this.path = vaultPath(path);
     }
 
     private static Options options() {
@@ -181,5 +190,14 @@ public class PersistentVaultService implements VaultService {
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to write data to RocksDB", e);
         }
+    }
+
+    /**
+     * Path to Vault store.
+     *
+     * @param workDir Ignite working dir.
+     */
+    public static Path vaultPath(Path workDir) {
+        return workDir.resolve(VAULT_DB_PATH);
     }
 }

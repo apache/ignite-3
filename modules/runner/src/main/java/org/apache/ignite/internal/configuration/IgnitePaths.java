@@ -33,11 +33,6 @@ public class IgnitePaths {
     private static final Path PARTITIONS_BASE_PATH = Paths.get("partitions");
 
     /**
-     * Path to the persistent storage used by the VaultService component.
-     */
-    private static final Path VAULT_DB_PATH = Paths.get("vault");
-
-    /**
      * Path to the persistent storage used by the MetaStorageManager component.
      */
     private static final Path METASTORAGE_PATH = Paths.get("metastorage");
@@ -89,15 +84,6 @@ public class IgnitePaths {
         Path basePath = pathOrDefault(systemConfiguration.cmgPath(), () -> workDir.resolve(CMG_PATH));
 
         return new ComponentWorkingDir(basePath);
-    }
-
-    /**
-     * Path to Vault store.
-     *
-     * @param workDir Ignite working dir.
-     */
-    public static Path vaultPath(Path workDir) {
-        return workDir.resolve(VAULT_DB_PATH);
     }
 
     private IgnitePaths() {

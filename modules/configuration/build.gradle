@@ -23,6 +23,8 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 description = 'ignite-configuration'
 
 dependencies {
+    annotationProcessor libs.micronaut.inject.annotation.processor
+
     api project(':ignite-configuration-api')
 
     implementation project(':ignite-api')
@@ -30,6 +32,8 @@ dependencies {
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
     implementation libs.typesafe.config
+    implementation libs.jakarta.inject
+    implementation libs.micronaut.inject
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-core')

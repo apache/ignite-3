@@ -21,10 +21,14 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    annotationProcessor libs.micronaut.inject.annotation.processor
+
     implementation project(':ignite-core')
     implementation project(':ignite-rocksdb-common')
     implementation libs.jetbrains.annotations
     implementation libs.rocksdb.jni
+    implementation libs.jakarta.inject
+    implementation libs.micronaut.inject
 
     testImplementation project(':ignite-core')
     testImplementation testFixtures(project(':ignite-core'))

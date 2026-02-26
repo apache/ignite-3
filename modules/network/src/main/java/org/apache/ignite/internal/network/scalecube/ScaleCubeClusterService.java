@@ -22,12 +22,14 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 
+import io.micronaut.context.annotation.Value;
 import io.scalecube.cluster.ClusterConfig;
 import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.ClusterMessageHandler;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
 import io.scalecube.net.Address;
+import jakarta.inject.Singleton;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -83,6 +85,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * ScaleCube-based implementation of {@link ClusterService}.
  */
+@Singleton
 public class ScaleCubeClusterService implements ClusterService {
     private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeClusterService.class);
 
@@ -111,7 +114,7 @@ public class ScaleCubeClusterService implements ClusterService {
 
     /** Constructor. */
     public ScaleCubeClusterService(
-            String consistentId,
+            @Value("${node-name}") String consistentId,
             NetworkConfiguration networkConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory,
             MessageSerializationRegistry serializationRegistry,

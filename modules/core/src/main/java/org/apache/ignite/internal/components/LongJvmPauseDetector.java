@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.context.annotation.Value;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * properties IGNITE_JVM_PAUSE_DETECTOR_PRECISION, IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD and IGNITE_JVM_PAUSE_DETECTOR_LAST_EVENTS_COUNT
  * accordingly.
  */
+@Singleton
 public class LongJvmPauseDetector implements IgniteComponent {
     private final IgniteLogger log = Loggers.forClass(LongJvmPauseDetector.class);
 
@@ -87,7 +90,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     private final String nodeName;
 
-    public LongJvmPauseDetector(String nodeName) {
+    public LongJvmPauseDetector(@Value("${node-name}") String nodeName) {
         this.nodeName = nodeName;
     }
 

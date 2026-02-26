@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.dr
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -41,6 +43,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -99,11 +102,15 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
      * @param validators Validators.
      * @return Configuration validator.
      */
-    public static ConfigurationValidatorImpl withDefaultValidators(ConfigurationTreeGenerator generator,
-            Set<? extends Validator<?, ?>> validators) {
-        HashSet<Validator<?, ?>> validators0 = new HashSet<>(DEFAULT_VALIDATORS);
-        validators0.addAll(validators);
-        return new ConfigurationValidatorImpl(generator, validators0);
+    private static ConfigurationValidatorImpl withDefaultValidators(
+            ConfigurationTreeGenerator generator,
+            Set<? extends Validator<?, ?>> validators
+    ) {
+        var defaultValidators = new HashSet<>(DEFAULT_VALIDATORS);
+
+        defaultValidators.addAll(validators);
+
+        return new ConfigurationValidatorImpl(generator, defaultValidators);
     }
 
     /** {@inheritDoc} */
@@ -256,5 +263,29 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
 
     private SuperRoot emptySuperRoot() {
         return generator.createSuperRoot();
+    }
+
+    /**
+     * Factory class for creating instances of {@link ConfigurationValidatorImpl}.
+     * Provides methods for configuring and instantiating validators using a combination of default validators and
+     * those provided in specific configuration modules.
+     */
+    @Factory
+    public static class ConfigurationValidatorImplFactory {
+        /**
+         * Creates a {@link ConfigurationValidatorImpl} instance using the specified configuration tree generator and
+         * the default validators combined with those provided in the given configuration modules.
+         *
+         * @param generator The configuration tree generator used to build configuration trees.
+         * @param modules The configuration modules containing additional validators to be applied.
+         * @return A new instance of {@link ConfigurationValidatorImpl} initialized with the default and provided validators.
+         */
+        @Singleton
+        public static ConfigurationValidatorImpl nodeValidatorsWithDefault(
+                ConfigurationTreeGenerator generator,
+                ConfigurationModules modules
+        ) {
+            return withDefaultValidators(generator, modules.local().validators());
+        }
     }
 }

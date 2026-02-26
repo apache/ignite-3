@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +63,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 /**
  * Metric manager.
  */
+@Singleton
 public class MetricManagerImpl implements MetricManager {
     /** Logger. */
     private final IgniteLogger log;
@@ -86,6 +89,7 @@ public class MetricManagerImpl implements MetricManager {
     /**
      * Constructor.
      */
+    @Creator
     public MetricManagerImpl() {
         this(Loggers.forClass(MetricManagerImpl.class), null);
     }

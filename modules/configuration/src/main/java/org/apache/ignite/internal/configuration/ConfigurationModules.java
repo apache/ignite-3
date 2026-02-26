@@ -19,8 +19,12 @@ package org.apache.ignite.internal.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.List;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
@@ -28,6 +32,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  * An ensemble of {@link ConfigurationModule}s used to easily pick node-local and cluster-wide configuration
  * and merge modules for convenience.
  */
+@Singleton
 public class ConfigurationModules {
     private final CompoundModule localCompound;
     private final CompoundModule distributedCompound;
@@ -40,6 +45,31 @@ public class ConfigurationModules {
     public ConfigurationModules(List<ConfigurationModule> modules) {
         localCompound = compoundOfType(ConfigurationType.LOCAL, modules);
         distributedCompound = compoundOfType(ConfigurationType.DISTRIBUTED, modules);
+    }
+
+    /**
+     * Creates a singleton instance of {@link ConfigurationModules} using configuration modules
+     * discovered through the {@link ServiceLoader} mechanism.
+     *
+     * <p>This method attempts to load all available {@link ConfigurationModule} services and wraps them
+     * in a new instance of {@link ConfigurationModules}. If no modules are found, an exception is thrown
+     * indicating that the application cannot start due to the absence of configuration modules.
+     *
+     * @return A singleton instance of {@link ConfigurationModules} wrapping all loaded {@link ConfigurationModule}s.
+     * @throws IllegalStateException if no configuration modules are found.
+     */
+    @Creator
+    public static ConfigurationModules instance() {
+        List<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class).stream()
+                .map(Provider::get)
+                .collect(toUnmodifiableList());
+
+        if (modules.isEmpty()) {
+            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
+                    + "Please make sure that the classloader for loading services is correct.");
+        }
+
+        return new ConfigurationModules(modules);
     }
 
     /**

@@ -33,6 +33,9 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
+import io.micronaut.context.annotation.Value;
+import io.micronaut.core.annotation.Creator;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -57,6 +60,7 @@ import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
 import org.apache.ignite.internal.configuration.NodeConfigParseException;
@@ -78,6 +82,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link ConfigurationStorage} based on local file configuration storage.
  */
+@Singleton
 public class LocalFileConfigurationStorage implements ConfigurationStorage {
     private static final IgniteLogger LOG = Loggers.forClass(LocalFileConfigurationStorage.class);
 
@@ -131,7 +136,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      * @param module Configuration module, which provides configuration patches.
      */
     public LocalFileConfigurationStorage(
-            String nodeName, Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
+            String nodeName,
+            Path configPath,
+            ConfigurationTreeGenerator generator,
+            @Nullable ConfigurationModule module
+    ) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
@@ -142,6 +151,25 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         );
 
         checkAndRestoreConfigFile();
+    }
+
+    /**
+     * Creates a new instance of LocalFileConfigurationStorage with the provided parameters.
+     *
+     * @param nodeName The name of the node, typically injected from configuration.
+     * @param configPath Path to the node bootstrap configuration file.
+     * @param generator The configuration tree generator responsible for structure creation.
+     * @param modules Configuration modules that provide configuration patches.
+     * @return An instance of LocalFileConfigurationStorage.
+     */
+    @Creator
+    public static LocalFileConfigurationStorage create(
+            @Value("${node-name}") String nodeName,
+            @Value("${config-path}") Path configPath,
+            ConfigurationTreeGenerator generator,
+            ConfigurationModules modules
+    ) {
+        return new LocalFileConfigurationStorage(nodeName, configPath, generator, modules.local());
     }
 
     @Override

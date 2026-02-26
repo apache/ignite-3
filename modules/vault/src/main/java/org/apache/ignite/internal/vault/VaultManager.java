@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -32,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * VaultManager is responsible for handling {@link VaultService} lifecycle and providing interface for managing local keys.
  */
+@Singleton
 public class VaultManager implements IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
     public static final ByteArray NODE_NAME = new ByteArray("node_name");

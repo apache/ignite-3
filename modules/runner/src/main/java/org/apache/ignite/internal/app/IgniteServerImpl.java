@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCa
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.annotation.Context;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.core.annotation.Creator;
@@ -148,13 +149,24 @@ public class IgniteServerImpl implements IgniteServer {
      */
     private volatile boolean shutDown;
 
+    private final ApplicationContext applicationContext;
+
+    /**
+     * Constructs an instance of IgniteServerImpl.
+     *
+     * @param nodeName Name of the node. Must not be null.
+     * @param configPath Path to the node configuration in the HOCON format. Must not be null. The specified file path must exist.
+     * @param workDir Work directory for the started node. Must not be null.
+     * @param applicationContext Micronaut's application context. Provides dependency injection and other framework services.
+     */
     @Creator
     public IgniteServerImpl(
             @Value("${node-name}") String nodeName,
             @Value("${config-path}") Path configPath,
-            @Value("${work-dir}") Path workDir
+            @Value("${work-dir}") Path workDir,
+            ApplicationContext applicationContext
     ) {
-        this(nodeName, configPath, null, workDir, null, ForkJoinPool.commonPool());
+        this(nodeName, configPath, null, workDir, null, ForkJoinPool.commonPool(), applicationContext);
     }
 
     /**
@@ -176,7 +188,8 @@ public class IgniteServerImpl implements IgniteServer {
             @Nullable String configString,
             Path workDir,
             @Nullable ClassLoader classLoader,
-            Executor asyncContinuationExecutor
+            Executor asyncContinuationExecutor,
+            ApplicationContext applicationContext
     ) {
         if (nodeName == null) {
             throw new NodeStartException("Node name must not be null");
@@ -205,6 +218,7 @@ public class IgniteServerImpl implements IgniteServer {
 
         attachmentLock = new IgniteAttachmentLock(() -> ignite, asyncContinuationExecutor);
         publicIgnite = new RestartProofIgnite(attachmentLock);
+        this.applicationContext = applicationContext;
     }
 
     private static Path createConfigFile(String config, Path workDir) {

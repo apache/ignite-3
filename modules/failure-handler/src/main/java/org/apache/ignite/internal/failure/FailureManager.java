@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
 
+import io.micronaut.context.annotation.Value;
+import io.micronaut.core.annotation.Creator;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -29,7 +31,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorView;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
@@ -122,6 +126,21 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         this.nodeName = nodeName;
         this.nodeStopper = nodeStopper;
         this.configuration = configuration;
+    }
+
+    /**
+     * Creates a new instance of a {@link FailureManager}.
+     *
+     * @param nodeName The name of the node.
+     * @param configuration The configuration registry containing the failure processor configuration.
+     * @return A newly created instance of {@link FailureManager}.
+     */
+    @Creator
+    public static FailureManager create(@Value("${node-name}") String nodeName, ConfigurationRegistry configuration) {
+        FailureProcessorConfiguration failureProcessorConfiguration =
+                configuration.getConfiguration(FailureProcessorExtensionConfiguration.KEY).failureHandler();
+
+        return new FailureManager(nodeName, null, failureProcessorConfiguration);
     }
 
     @Override

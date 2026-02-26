@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ch
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,12 +115,16 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        start();
+
+        return nullCompletedFuture();
+    }
+
+    private void start() {
         changer.start();
 
         // Initialize configuration so that it can be read and modified during other components' start.
         configs.values().forEach(ConfigurationUtil::touch);
-
-        return nullCompletedFuture();
     }
 
     @Override
@@ -263,5 +269,45 @@ public class ConfigurationRegistry implements IgniteComponent {
      */
     public long notificationCount() {
         return changer.notificationCount();
+    }
+
+    /**
+     * A factory class for creating instances of {@link ConfigurationRegistry}.
+     * This class provides methods for instantiating a configuration registry that manages
+     * the configuration structure, validation, and migration of deprecated configurations.
+     */
+    @Factory
+    public static final class ConfigurationRegistryFactory {
+        /**
+         * Creates a new instance of {@link ConfigurationRegistry} using the provided modules, storage, tree generator,
+         * and validator. The created registry will handle the configuration structure, validation, and migration of deprecated
+         * configurations.
+         *
+         * @param modules The ensemble of configuration modules to facilitate access to node-local and distributed configuration details.
+         * @param storage The storage instance responsible for persisting configuration data.
+         * @param treeGenerator The tree generator used to construct the configuration tree.
+         * @param validator The validator to ensure that the configuration structure is consistent and valid.
+         * @return A new instance of {@link ConfigurationRegistry}.
+         */
+        @Singleton
+        public static ConfigurationRegistry nodeConfigurationRegistry(
+                ConfigurationModules modules,
+                ConfigurationStorage storage,
+                ConfigurationTreeGenerator treeGenerator,
+                ConfigurationValidator validator
+        ) {
+            var configurationRegistry = new ConfigurationRegistry(
+                    modules.local().rootKeys(),
+                    storage,
+                    treeGenerator,
+                    validator,
+                    modules.local()::migrateDeprecatedConfigurations,
+                    KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+            );
+
+            configurationRegistry.start();
+
+            return configurationRegistry;
+        }
     }
 }

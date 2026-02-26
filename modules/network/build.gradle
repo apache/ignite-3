@@ -24,6 +24,8 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 description = 'ignite-network'
 
 dependencies {
+    annotationProcessor libs.micronaut.inject.annotation.processor
+
     api project(':ignite-api')
     api project(':ignite-network-api')
 
@@ -43,6 +45,8 @@ dependencies {
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
+    implementation libs.jakarta.inject
+    implementation libs.micronaut.inject
     compileOnly libs.jsr305 // Fix unknown enum constant warning
 
     annotationProcessor project(':ignite-configuration-annotation-processor')
