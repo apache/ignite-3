@@ -546,8 +546,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 progress.initCounters(dirtyPages.dirtyPagesCount());
             }
 
+            ((Runnable) answer.getArgument(2)).run();
             ((Runnable) answer.getArgument(3)).run();
-            ((Runnable) answer.getArgument(4)).run();
 
             return new Checkpoint(dirtyPages, progress);
         });
