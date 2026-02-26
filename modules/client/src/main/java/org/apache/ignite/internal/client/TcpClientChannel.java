@@ -661,7 +661,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.TX_KILL)) {
                 return new ClientTransactionKilledException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
-                txId = unpacker.unpackUuid();
             } else if (key.equals(ErrorExtensions.FLAGS)) {
                 EnumSet<ErrorFlags> flags = ErrorFlags.unpack(unpacker.unpackInt());
                 retriable = flags.contains(ErrorFlags.RETRIABLE);

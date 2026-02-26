@@ -708,9 +708,9 @@ public class ClientInboundMessageHandler
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
-        TransactionKilledException transactionKilledException = findException(err, TransactionKilledException.class);
+        TransactionKilledException killedException = findException(err, TransactionKilledException.class);
 
-        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || transactionKilledException != null) {
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
             extCnt = 1;
         } else {
             retriable = findException(err, RetriableTransactionException.class) != null;
@@ -723,7 +723,7 @@ public class ClientInboundMessageHandler
                 schemaVersionMismatchException,
                 sqlBatchException,
                 delayedAckException,
-                transactionKilledException,
+                killedException,
                 ExceptionUtils.unwrapCause(err)
         );
 
@@ -765,9 +765,9 @@ public class ClientInboundMessageHandler
             } else if (delayedAckException != null) {
                 packer.packString(ErrorExtensions.DELAYED_ACK);
                 packer.packUuid(delayedAckException.txId());
-            } else if (transactionKilledException != null) {
+            } else if (killedException != null) {
                 packer.packString(ErrorExtensions.TX_KILL);
-                packer.packUuid(transactionKilledException.txId());
+                packer.packUuid(killedException.txId());
             }
 
             if (retriable) {
