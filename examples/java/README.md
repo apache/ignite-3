@@ -118,3 +118,47 @@ with a result return.
     ```shell
     $IGNITE_HOME/bin/ignite3db stop
     ```
+
+## Running Compute and Streaming Examples
+
+Compute and streaming examples require deployment units to be deployed to the cluster. There are two ways to run these examples:
+
+### Automated Mode (Recommended)
+
+**From IDE:**
+
+Simply run the example from your IDE. The deployment unit JAR is automatically built and deployed if not already present.
+
+**From Command Line:**
+
+Run the example with the following arguments:
+```shell
+java -cp "<classpath>" <ExampleMainClass> runFromIDE=false jarPath="/path/to/examples.jar"
+```
+
+Where:
+- `runFromIDE=false` - indicates command-line execution
+- `jarPath` - path to the examples JAR used as the deployment unit
+
+### Manual Mode
+
+If you prefer to deploy the unit manually:
+
+1. Build the examples JAR:
+    ```shell
+    ./gradlew :ignite-examples:jar
+    ```
+
+2. Deploy the JAR as a deployment unit using the CLI:
+    ```shell
+    cluster unit deploy <unitName> \
+        --version 1.0.0 \
+        --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar
+    ```
+
+   Common unit names used by examples:
+   - `computeExampleUnit` - used by compute examples
+   - `streamerReceiverExampleUnit` - used by streaming examples
+
+3. Run the example from the IDE.
+

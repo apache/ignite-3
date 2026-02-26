@@ -39,7 +39,10 @@ public class TupleSerializationExample {
 
         Tuple arg = Tuple.create().set("key", "value");
         Tuple res = client.compute().execute(JobTarget.anyNode(client.cluster().nodes()), job, arg);
-        System.out.println("[Tuple] Transformed: " + res.stringValue("result"));
+
+        System.out.println("Result from job: " + res);
+
+        System.out.println("[Tuple] Transformed: " + res.stringValue("key"));
     }
 }
 
