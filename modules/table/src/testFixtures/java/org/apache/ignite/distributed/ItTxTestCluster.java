@@ -184,6 +184,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.KeyBasedExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -628,7 +629,8 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new TestMetricManager()
+                new TestMetricManager(),
+                new KeyBasedExponentialBackoffTimeoutStrategy(20)
         );
     }
 
@@ -1294,7 +1296,8 @@ public class ItTxTestCluster {
                 lowWatermark,
                 executor,
                 new NoOpFailureManager(),
-                new TestMetricManager()
+                new TestMetricManager(),
+                new KeyBasedExponentialBackoffTimeoutStrategy(20)
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
