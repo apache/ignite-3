@@ -49,6 +49,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
@@ -118,7 +119,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         assertThat(changeFuture, willThrowWithCauseOrSuppressed(ConfigurationValidationException.class));
     }
 
-    @Test
+    @RepeatedTest(50)
     void testHaRecoveryWhenPartitionResetTimeoutUpdated() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -390,7 +391,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      *   <li>No data should be lost</li>
      * </ol>
      */
-    @Test
+    @RepeatedTest(50)
     void testManualRecovery() throws InterruptedException {
         startNode(3);
         startNode(4);
@@ -492,7 +493,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
      *
      * @throws Exception If failed.
      */
-    @Test
+    @RepeatedTest(50)
     void testNodeStateCleanupAfterRestartInHaMode() throws Exception {
         startNode(3);
         startNode(4);
