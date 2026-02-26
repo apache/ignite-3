@@ -52,7 +52,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Includes {@link PartitionModificationCounter partition modification counter} metrics.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-27813")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-28002")
 public class ItPartitionTableStatsMetricTest extends BaseSqlIntegrationTest {
     private static final String ZONE_1_PART_NO_REPLICAS = "zone_single_partition_no_replicas";
     private static final String ZONE_1_PART_REPLICAS = "zone_single_partition";

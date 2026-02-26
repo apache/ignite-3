@@ -25,9 +25,11 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Check that partition modification counter settings are depends on configuration settings. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-28002")
 public class ItPartitionTableStatsMetricConfigurationTest extends BaseSqlIntegrationTest {
     private static final String ZONE_1_PART_NO_REPLICAS = "zone_single_partition_no_replicas";
     private static final int MIN_STALE_ROWS = 2;
