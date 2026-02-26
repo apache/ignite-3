@@ -549,14 +549,12 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(0L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
         assertMetricValue(metrics.runConsistentlyStarted(), 0);
-        assertMetricValue(metrics.runConsistentlyFinished(), 0);
 
         // Execute a simple operation within runConsistently
         storage.runConsistently(locker -> {
-            // Verify active count is incremented (started=1, finished=0)
+            // Verify active count is incremented during execution
             assertMetricValue(metrics.runConsistentlyActiveCount(), 1);
             assertMetricValue(metrics.runConsistentlyStarted(), 1);
-            assertMetricValue(metrics.runConsistentlyFinished(), 0);
 
             return null;
         });
@@ -564,10 +562,9 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         // Verify duration was recorded
         assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(1L));
 
-        // Verify active count is back to zero (started=1, finished=1)
+        // Verify active count is back to zero
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
         assertMetricValue(metrics.runConsistentlyStarted(), 1);
-        assertMetricValue(metrics.runConsistentlyFinished(), 1);
 
         // Execute another operation
         storage.runConsistently(locker -> {
@@ -580,7 +577,6 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(2L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
         assertMetricValue(metrics.runConsistentlyStarted(), 2);
-        assertMetricValue(metrics.runConsistentlyFinished(), 2);
     }
 
     @Test
@@ -602,11 +598,10 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
             return null;
         });
 
-        // Only one started/finished pair should be recorded for the outer call
+        // Only one entry should be recorded for the outer call
         assertThat(metrics.runConsistentlyDuration(), hasMeasurementsCount(1L));
         assertMetricValue(metrics.runConsistentlyActiveCount(), 0);
         assertMetricValue(metrics.runConsistentlyStarted(), 1);
-        assertMetricValue(metrics.runConsistentlyFinished(), 1);
     }
 
     private static void assertMetricValue(LongMetric metric, long value) {

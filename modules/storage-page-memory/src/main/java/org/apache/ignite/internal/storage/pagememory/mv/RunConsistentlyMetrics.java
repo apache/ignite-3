@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
@@ -45,7 +46,7 @@ public class RunConsistentlyMetrics {
 
     private final DistributionMetric runConsistentlyDuration;
     private final LongAdderMetric runConsistentlyStarted;
-    private final LongAdderMetric runConsistentlyFinished;
+    private final LongAdder exitCount = new LongAdder();
     private final LongGauge runConsistentlyActiveCount;
 
     private final CollectionMetricSource metricSource;
@@ -69,15 +70,10 @@ public class RunConsistentlyMetrics {
                 "Total number of runConsistently invocations started."
         ));
 
-        runConsistentlyFinished = metricSource.addMetric(new LongAdderMetric(
-                "RunConsistentlyFinished",
-                "Total number of runConsistently invocations finished."
-        ));
-
         runConsistentlyActiveCount = metricSource.addMetric(new LongGauge(
                 "RunConsistentlyActiveCount",
                 "Current number of active runConsistently calls.",
-                () -> runConsistentlyStarted.value() - runConsistentlyFinished.value()
+                () -> runConsistentlyStarted.value() - exitCount.sum()
         ));
     }
 
@@ -106,7 +102,7 @@ public class RunConsistentlyMetrics {
      * Records the completion of a runConsistently invocation.
      */
     public void onRunConsistentlyFinished() {
-        runConsistentlyFinished.increment();
+        exitCount.increment();
     }
 
     /** Returns the runConsistently duration metric for testing. */
@@ -119,12 +115,6 @@ public class RunConsistentlyMetrics {
     @TestOnly
     LongAdderMetric runConsistentlyStarted() {
         return runConsistentlyStarted;
-    }
-
-    /** Returns the runConsistently finished count metric for testing. */
-    @TestOnly
-    LongAdderMetric runConsistentlyFinished() {
-        return runConsistentlyFinished;
     }
 
     /** Returns the runConsistently active count metric for testing. */
