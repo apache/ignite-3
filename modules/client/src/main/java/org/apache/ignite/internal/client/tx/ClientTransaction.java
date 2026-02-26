@@ -63,7 +63,6 @@ public class ClientTransaction implements Transaction {
 
     public static final UUID EMPTY = new UUID(0, 0);
 
-    // TODO use enum
     /** Open state. */
     private static final int STATE_OPEN = 0;
 
