@@ -187,6 +187,7 @@ import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeExcepti
 import org.apache.ignite.sql.SqlBatchException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Handles messages from thin clients.
@@ -452,13 +453,13 @@ public class ClientInboundMessageHandler
             fut.completeExceptionally(new IgniteException(SERVER_TO_CLIENT_REQUEST_ERR, "Connection lost"));
         }
 
-        logConnectionClosed(ctx);
-
         super.channelInactive(ctx);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
         }
+
+        logConnectionClosed(ctx);
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker) {
@@ -1434,26 +1435,7 @@ public class ClientInboundMessageHandler
     }
 
     private void logConnectionEstablished(ChannelHandlerContext ctx) {
-        eventLog.log(
-                IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.name(),
-                () -> {
-                    Map<String, Object> fields = Map.of(
-                            "connectionId", connectionId,
-                            "remoteAddress", ctx.channel().remoteAddress().toString(),
-                            "protocolVersion", clientContext.version().toString(),
-                            "clientCode", clientContext.clientCode()
-                    );
-
-                    return IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.builder()
-                            .user(EventUser.of(
-                                    clientContext.userDetails().username(),
-                                    clientContext.userDetails().providerName()
-                            ))
-                            .timestamp(System.currentTimeMillis())
-                            .fields(fields)
-                            .build();
-                }
-        );
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_ESTABLISHED);
     }
 
     private void logConnectionClosed(ChannelHandlerContext ctx) {
@@ -1462,23 +1444,25 @@ public class ClientInboundMessageHandler
             return;
         }
 
-        eventLog.log(
-                IgniteEventType.CLIENT_CONNECTION_CLOSED.name(),
-                () -> {
-                    Map<String, Object> fields = Map.of(
-                            "connectionId", connectionId,
-                            "remoteAddress", ctx.channel().remoteAddress().toString()
-                    );
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_CLOSED);
+    }
 
-                    return IgniteEventType.CLIENT_CONNECTION_CLOSED.builder()
-                            .user(EventUser.of(
-                                    clientContext.userDetails().username(),
-                                    clientContext.userDetails().providerName()
-                            ))
-                            .timestamp(System.currentTimeMillis())
-                            .fields(fields)
-                            .build();
-                }
+    private void logIgniteEvent(ChannelHandlerContext ctx, IgniteEventType igniteEventType) {
+        assert clientContext != null : "clientContext should not be null when logging connection events";
+
+        eventLog.log(
+                igniteEventType.name(),
+                () -> igniteEventType.builder()
+                        .user(EventUser.of(
+                                clientContext.userDetails().username(),
+                                clientContext.userDetails().providerName()
+                        ))
+                        .timestamp(System.currentTimeMillis())
+                        .fields(Map.of(
+                                "connectionId", connectionId,
+                                "remoteAddress", ctx.channel().remoteAddress().toString()
+                        ))
+                        .build()
         );
     }
 
