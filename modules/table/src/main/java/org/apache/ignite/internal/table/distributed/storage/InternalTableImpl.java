@@ -64,6 +64,8 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -651,7 +653,7 @@ public class InternalTableImpl implements InternalTable {
                 assert hasError || r instanceof TimestampAware;
 
                 // Timestamp is set to commit timestamp for full transactions.
-                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, false);
+                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true, hasError ? e : null);
 
                 if (e != null) {
                     sneakyThrow(e);
@@ -670,14 +672,19 @@ public class InternalTableImpl implements InternalTable {
                         code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
                     }
 
+                    Throwable cause = lastException(tx.id());
+
                     return failedFuture(
                             new TransactionException(code, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
+                                    (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR
+                                            ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT
+                                            : TX_ALREADY_FINISHED)
+                                            + " [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
                                     tx.state(),
                                     tx.isRolledBackWithTimeoutExceeded()
-                            )));
+                            ), cause));
                 }
 
                 return replicaSvc.<R>invoke(enlistment.primaryNodeConsistentId(), request).thenApply(res -> {
@@ -761,12 +768,7 @@ public class InternalTableImpl implements InternalTable {
             }
 
             if (e != null) {
-                CompletableFuture<Void> rollbackFuture;
-                if (isFinishedDueToTimeout(e)) {
-                    rollbackFuture = tx0.rollbackTimeoutExceededAsync();
-                } else {
-                    rollbackFuture = tx0.rollbackAsync();
-                }
+                CompletableFuture<Void> rollbackFuture = tx0.rollbackWithExceptionAsync(e);
 
                 return rollbackFuture.handle((ignored, err) -> {
                     if (err != null) {
@@ -887,7 +889,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
         return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
             if (e != null) {
-                return tx.finish(false, clockService.current(), false, false)
+                return tx.finish(false, clockService.current(), false, e)
                         .handle((ignored, err) -> {
                             if (err != null) {
                                 // Preserve failed state.
@@ -899,7 +901,7 @@ public class InternalTableImpl implements InternalTable {
                         });
             }
 
-            return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
+            return tx.finish(true, clockService.current(), false, null).thenApply(ignored -> r);
         }).thenCompose(identity());
     }
 
@@ -2125,17 +2127,6 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    private static boolean isFinishedDueToTimeout(Throwable e) {
-        Throwable unwrapped = unwrapCause(e);
-        if (!(unwrapped instanceof TransactionException)) {
-            return false;
-        }
-
-        TransactionException ex = (TransactionException) unwrapped;
-
-        return ex.code() == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-    }
-
     private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
         private final TransactionInflights transactionInflights;
 
@@ -2154,7 +2145,7 @@ public class InternalTableImpl implements InternalTable {
             // Track read only requests which are able to create cursors.
             if (!transactionInflights.addScanInflight(txId)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                        "Transaction is already finished [{}, readOnly=true].",
+                        TX_ALREADY_FINISHED + " [{}, readOnly=true].",
                         formatTxInfo(txId, txManager, false)
                 ));
             }
@@ -2362,13 +2353,27 @@ public class InternalTableImpl implements InternalTable {
     private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
+            Throwable cause = lastException(transaction.id());
             throw new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, readOnly={}].",
+                    format((isFinishedDueToTimeout ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : TX_ALREADY_FINISHED)
+                            + " [{}, readOnly={}].",
                             formatTxInfo(transaction.id(), txManager, false),
                             transaction.isReadOnly()
-                    ));
+                    ),
+                    cause
+            );
         }
+    }
+
+    @Nullable
+    private Throwable lastException(UUID txId) {
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+        if (txStateMeta == null) {
+            return null;
+        }
+
+        return txStateMeta.lastException();
     }
 
     @FunctionalInterface
