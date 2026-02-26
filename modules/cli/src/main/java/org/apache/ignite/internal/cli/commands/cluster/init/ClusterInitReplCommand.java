@@ -29,7 +29,6 @@ import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.AsyncCall;
 import org.apache.ignite.internal.cli.core.call.ProgressTracker;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
@@ -54,23 +53,18 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
     private ClusterInitCallFactory callFactory;
 
     @Inject
-    private ConnectToClusterQuestion question;
-
-    @Inject
     private ConnectionHeartBeat connectionHeartBeat;
 
     @Override
     public void run() {
-        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .then(askQuestionIfConfigIsPath().build())
+        runFlow(askQuestionIfConfigIsPath()
                 .then(Flows.mono(this::runAsync))
         );
     }
 
-    private FlowBuilder<String, ClusterInitCallInput> askQuestionIfConfigIsPath() {
+    private FlowBuilder<Void, ClusterInitCallInput> askQuestionIfConfigIsPath() {
         try {
-            clusterInitOptions.clusterConfiguration();
-            return Flows.from(this::buildCallInput);
+            return Flows.from(buildCallInput());
         } catch (ConfigAsPathException e) {
             QuestionUiComponent questionUiComponent = fromYesNoQuestion(
                     "It seems that you have passed the path to the configuration file in the configuration content "
@@ -78,22 +72,24 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
                             + "Do you want to read cluster configuration from this file?"
             );
 
-            return Flows.acceptQuestion(questionUiComponent,
-                    clusterUrl -> ClusterInitCallInput.builder()
-                            .clusterConfiguration(clusterInitOptions.readConfigAsPath())
-                            .cmgNodes(clusterInitOptions.cmgNodes())
-                            .metaStorageNodes(clusterInitOptions.metaStorageNodes())
-                            .clusterName(clusterInitOptions.clusterName())
-                            .clusterUrl(clusterUrl)
-                            .build()
-            );
+            return Flows.acceptQuestion(questionUiComponent, this::buildCallInputFromConfigFile);
         }
     }
 
-    private ClusterInitCallInput buildCallInput(String clusterUrl) {
+    private ClusterInitCallInput buildCallInput() {
         return ClusterInitCallInput.builder()
-                .clusterUrl(clusterUrl)
+                .clusterUrl(clusterUrl.getClusterUrl())
                 .fromClusterInitOptions(clusterInitOptions)
+                .build();
+    }
+
+    private ClusterInitCallInput buildCallInputFromConfigFile() {
+        return ClusterInitCallInput.builder()
+                .clusterUrl(clusterUrl.getClusterUrl())
+                .clusterConfiguration(clusterInitOptions.readConfigAsPath())
+                .cmgNodes(clusterInitOptions.cmgNodes())
+                .metaStorageNodes(clusterInitOptions.metaStorageNodes())
+                .clusterName(clusterInitOptions.clusterName())
                 .build();
     }
 

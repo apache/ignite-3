@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.cli.commands.node.status;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -31,7 +31,7 @@ import picocli.CommandLine.Mixin;
  * Display the node status in REPL.
  */
 @Command(name = "status", description = "Prints status of the node")
-public class NodeStatusReplCommand extends BaseCommand implements Runnable {
+public class NodeStatusReplCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
@@ -39,16 +39,10 @@ public class NodeStatusReplCommand extends BaseCommand implements Runnable {
     @Inject
     private NodeStatusCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
-    /** {@inheritDoc} */
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(UrlCallInput::new)
-                .then(Flows.fromCall(call))
-                .print()
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
         );
     }
 }

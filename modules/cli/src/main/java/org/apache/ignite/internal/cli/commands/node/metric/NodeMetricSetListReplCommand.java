@@ -21,13 +21,12 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.MetricSetListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -35,7 +34,7 @@ import picocli.CommandLine.Option;
 
 /** Command that lists node metrics in REPL mode. */
 @Command(name = "list", description = "Lists node metrics")
-public class NodeMetricSetListReplCommand extends BaseCommand implements Runnable {
+public class NodeMetricSetListReplCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
@@ -46,17 +45,12 @@ public class NodeMetricSetListReplCommand extends BaseCommand implements Runnabl
     @Inject
     private NodeMetricSetListCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
-    /** {@inheritDoc} */
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(UrlCallInput::new)
-                .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list metrics"))
-                .print(new MetricSetListDecorator(plain))
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .exceptionHandler(createHandler("Cannot list metrics"))
+                .decorator(new MetricSetListDecorator(plain))
         );
     }
 }

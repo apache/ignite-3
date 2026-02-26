@@ -29,7 +29,6 @@ import org.apache.ignite.internal.cli.call.unit.UnitInspectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.UnitInspectDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -64,7 +63,7 @@ public class NodeUnitInspectCommand extends BaseCommand implements Callable<Inte
                         .url(nodeUrl.getNodeUrl())
                         .build())
                 .decorator(new UnitInspectDecorator(plain))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot inspect unit"))
+                .exceptionHandler(createHandler("Cannot inspect unit"))
         );
     }
 }

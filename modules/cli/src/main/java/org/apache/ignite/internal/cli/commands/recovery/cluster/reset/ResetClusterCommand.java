@@ -22,7 +22,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.recovery.cluster.ResetClusterCall;
 import org.apache.ignite.internal.cli.call.recovery.cluster.ResetClusterCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -32,7 +32,7 @@ import picocli.CommandLine.Mixin;
 public class ResetClusterCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Mixin
     private ResetClusterMixin options;

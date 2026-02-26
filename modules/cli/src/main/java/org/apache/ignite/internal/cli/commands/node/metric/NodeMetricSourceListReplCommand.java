@@ -21,13 +21,12 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.decorators.MetricSourceListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -35,7 +34,7 @@ import picocli.CommandLine.Option;
 
 /** Command that lists node metric sources in REPL mode. */
 @Command(name = "list", description = "Lists node metric sources")
-public class NodeMetricSourceListReplCommand extends BaseCommand implements Runnable {
+public class NodeMetricSourceListReplCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
@@ -46,17 +45,12 @@ public class NodeMetricSourceListReplCommand extends BaseCommand implements Runn
     @Inject
     private NodeMetricSourceListCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
-    /** {@inheritDoc} */
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(UrlCallInput::new)
-                .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list metric sources"))
-                .print(new MetricSourceListDecorator(plain))
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .exceptionHandler(createHandler("Cannot list metric sources"))
+                .decorator(new MetricSourceListDecorator(plain))
         );
     }
 }

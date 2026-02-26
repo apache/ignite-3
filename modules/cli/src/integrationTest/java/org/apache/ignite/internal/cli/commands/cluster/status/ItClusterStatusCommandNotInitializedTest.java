@@ -24,7 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link ClusterStatusReplCommand} for the cluster that is not initialized.
+ * Tests for {@link ClusterStatusCommand} for the cluster that is not initialized.
  */
 class ItClusterStatusCommandNotInitializedTest extends CliCommandTestNotInitializedIntegrationBase {
 

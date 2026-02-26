@@ -27,7 +27,6 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.MetricSourceListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -46,13 +45,12 @@ public class NodeMetricSourceListCommand extends BaseCommand implements Callable
     @Inject
     private NodeMetricSourceListCall call;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
                 .decorator(new MetricSourceListDecorator(plain))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list metric sources"))
+                .exceptionHandler(createHandler("Cannot list metric sources"))
         );
     }
 }
