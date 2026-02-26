@@ -79,6 +79,7 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
     /** Exception on read should trigger rollback of implicit transaction, if any. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // implicit: used for test naming only.
     public void testExceptionRollbacksImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 

@@ -28,7 +28,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.List;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -147,9 +146,12 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
     }
 
     @ParameterizedTest
-    @MethodSource("quorumSizeRange")
+    @MethodSource("quorumTable")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // shared quorumTable() has extra params used by CreateZoneCommandValidationTest.
     void zoneQuorumSize(
             @Nullable Integer replicas,
+            int defaultQuorumSize,
+            int defaultConsensusGroupSize,
             int minQuorumSize,
             int maxQuorumSize
     ) {
@@ -247,22 +249,5 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
      */
     private static CatalogZoneDescriptor getZoneDescriptor(AlterZoneCommandBuilder builder, Catalog catalog) {
         return ((AlterZoneEntry) builder.build().get(new UpdateContext(catalog)).get(0)).descriptor();
-    }
-
-    /** Valid quorum size ranges per replica count for alter zone. */
-    private static Stream<Arguments> quorumSizeRange() {
-        return Stream.of(
-                Arguments.of(null, 1, 1), // default replicas count is 1
-                Arguments.of(1, 1, 1),
-                Arguments.of(2, 2, 2),
-                Arguments.of(3, 2, 2),
-                Arguments.of(4, 2, 2),
-                Arguments.of(5, 2, 3),
-                Arguments.of(6, 2, 3),
-                Arguments.of(7, 2, 4),
-                Arguments.of(8, 2, 4),
-                Arguments.of(9, 2, 5),
-                Arguments.of(10, 2, 5)
-        );
     }
 }
