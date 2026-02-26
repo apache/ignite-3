@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_SUPPORTS_ERROR_FLAGS;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -138,6 +139,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerOp;
 import org.apache.ignite.internal.client.proto.ServerOpResponseFlags;
+import org.apache.ignite.internal.client.proto.tx.ErrorFlags;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
@@ -184,6 +186,7 @@ import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -704,6 +707,7 @@ public class ClientInboundMessageHandler
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
         TransactionKilledException transactionKilledException = findException(err, TransactionKilledException.class);
+        boolean retriable = findException(err, RetriableTransactionException.class) != null;
 
         err = firstNotNull(
                 schemaVersionMismatchException,
@@ -730,6 +734,14 @@ public class ClientInboundMessageHandler
         // Class name and message.
         packer.packString(pubErr.getClass().getName());
         packer.packString(pubErr.getMessage());
+
+        if (clientContext != null && clientContext.hasFeature(TX_SUPPORTS_ERROR_FLAGS)) {
+            int mask = 0;
+            if (retriable) {
+                mask |= ErrorFlags.RETRIABLE.mask();
+            }
+            packer.packInt(mask);
+        }
 
         // Stack trace.
         if (configuration.sendServerExceptionStackTraceToClient()) {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.client.proto.ResponseFlags.getErrorFlag;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
@@ -67,6 +68,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransactionKilledException;
+import org.apache.ignite.internal.client.proto.tx.ErrorFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -549,7 +551,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         handlePartitionAssignmentChange(flags, unpacker);
         handleObservableTimestamp(unpacker);
 
-        Throwable err = ResponseFlags.getErrorFlag(flags) ? readError(unpacker) : null;
+        Throwable err = getErrorFlag(flags) ?
+                readError(protocolContext().isFeatureSupported(ProtocolBitmaskFeature.TX_SUPPORTS_ERROR_FLAGS), unpacker) : null;
 
         if (ResponseFlags.getNotificationFlag(flags)) {
             handleNotification(resId, unpacker, err);
@@ -632,14 +635,21 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Unpacks request error.
      *
      * @param unpacker Unpacker.
+     * @param errorFlags Supports error flags.
      * @return Exception.
      */
-    private static Throwable readError(ClientMessageUnpacker unpacker) {
+    private static Throwable readError(boolean errorFlags, ClientMessageUnpacker unpacker) {
         var traceId = unpacker.unpackUuid();
         var code = unpacker.unpackInt();
 
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+        boolean retriable = false;
+
+        if (errorFlags) {
+            EnumSet<ErrorFlags> flags = ErrorFlags.unpack(unpacker.unpackInt());
+            retriable = flags.contains(ErrorFlags.RETRIABLE);
+        }
 
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
@@ -675,7 +685,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         try {
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
-            return copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
+            return copyExceptionWithCause(errCls, traceId, code, errMsg,
+                    retriable ? new ClientRetriableTransactionExceptionWrapper(causeWithStackTrace) : causeWithStackTrace);
         } catch (ClassNotFoundException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }
@@ -780,7 +791,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolVersion srvVer = new ProtocolVersion(unpacker.unpackShort(), unpacker.unpackShort(), unpacker.unpackShort());
 
             if (!unpacker.tryUnpackNil()) {
-                throw sneakyThrow(readError(unpacker));
+                ProtocolContext protocolContext = protocolContext();
+                boolean errFlags =
+                        protocolContext != null && protocolContext.isFeatureSupported(ProtocolBitmaskFeature.TX_SUPPORTS_ERROR_FLAGS);
+                throw sneakyThrow(readError(errFlags, unpacker));
             }
 
             var serverIdleTimeout = unpacker.unpackLong();
