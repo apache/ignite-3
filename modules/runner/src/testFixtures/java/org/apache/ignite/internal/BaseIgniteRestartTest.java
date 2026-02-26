@@ -325,8 +325,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * so returned partial node is started and ready to work.
      *
      * @param name Node name.
-     * @param nodeConfigRegistry Node configuration manager.
-     * @param clusterConfigRegistry Cluster configuration manager.
+     * @param nodeConfigRegistry Node configuration registry.
+     * @param clusterConfigRegistry Cluster configuration registry.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.

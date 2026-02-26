@@ -344,7 +344,7 @@ public class IgniteImpl implements Ignite {
     /** Sql API facade. */
     private final IgniteSqlImpl sql;
 
-    /** Configuration manager that handles node (local) configuration. */
+    /** Configuration registry that handles node (local) configuration. */
     private final ConfigurationRegistry nodeConfigRegistry;
 
     private final ClusterIdService clusterIdService;
@@ -376,7 +376,7 @@ public class IgniteImpl implements Ignite {
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
-    /** Configuration manager that handles cluster (distributed) configuration. */
+    /** Configuration registry that handles cluster (distributed) configuration. */
     private final ConfigurationRegistry clusterConfigRegistry;
 
     /** Idempotent cache vacuumizer. */
