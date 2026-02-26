@@ -560,6 +560,19 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     /**
+     * Renames the cluster with the provided name.
+     *
+     * @param newName the new name for the cluster.
+     * @return Completable future that will be completed when cluster is initialized.
+     */
+    public CompletableFuture<Void> renameCluster(String newName) {
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+
+        return serviceFuture == null ? nullCompletedFuture()
+                : serviceFuture.thenCompose(cmgRaftService -> cmgRaftService.changeClusterName(newName));
+    }
+
+    /**
      * Extracts the local state (if any) and starts the CMG.
      *
      * @return Future, that resolves into the CMG Raft service, or {@code null} if the local state is empty.

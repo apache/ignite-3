@@ -66,4 +66,22 @@ public interface ClusterManagementApi {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> init(@Body InitCommand initCommand);
+
+    /**
+     * Renames the cluster.
+     *
+     * @param newName the new name of the cluster.
+     * @return Completable future that will be completed when cluster is renamed.
+     */
+    @Post("rename")
+    @Operation(operationId = "rename", summary = "Rename cluster", description = "Assigns a new name to the cluster.")
+    @ApiResponse(responseCode = "200", description = "Cluster renamed.",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterTag.class)))
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid name.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Consumes(MediaType.TEXT_PLAIN)
+    @Produces({MediaType.APPLICATION_JSON, MediaType.PROBLEM_JSON})
+    CompletableFuture<ClusterTag> rename(@Body String newName);
 }
