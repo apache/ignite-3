@@ -15,40 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.tx;
+
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
- * Holds the transaction id and the cause for delayed replication ack failure.
+ * Reports killed transaction.
  */
-public class ClientDelayedAckException extends IgniteInternalException {
-    /** Serial version uid. */
+public class TransactionKilledException extends TransactionInternalException implements RetriableTransactionException {
     private static final long serialVersionUID = 0L;
 
-    /** Transaction id. */
     private final UUID txId;
 
     /**
-     * Constructor.
+     * Creates the exception with txId and optional txManager for label formatting.
      *
-     * @param traceId Trace ID.
-     * @param code Error code.
-     *
-     * @param message String message.
-     * @param txId Related transaction id.
-     * @param cause Cause.
+     * @param txId The transaction id.
+     * @param txManager transaction manager to retrieve label for logging.
      */
-    ClientDelayedAckException(UUID traceId, int code, @Nullable String message, UUID txId, @Nullable Throwable cause) {
-        super(traceId, code, message, cause);
-
+    public TransactionKilledException(UUID txId, TxManager txManager) {
+        super(
+                TX_KILLED_ERR,
+                "Transaction is killed " + formatTxInfo(txId, txManager)
+        );
         this.txId = txId;
     }
 
     /**
-     * Returns a related transaction id.
+     * Returns a transaction id.
      *
      * @return The id.
      */

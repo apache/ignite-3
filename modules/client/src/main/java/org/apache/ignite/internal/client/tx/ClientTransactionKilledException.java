@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.client.tx;
 
 import java.util.UUID;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Holds the transaction id and the cause for delayed replication ack failure.
+ * Reports a killed transaction.
  */
-public class ClientDelayedAckException extends IgniteInternalException {
+public class ClientTransactionKilledException extends TransactionException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -36,15 +36,32 @@ public class ClientDelayedAckException extends IgniteInternalException {
      *
      * @param traceId Trace ID.
      * @param code Error code.
-     *
      * @param message String message.
      * @param txId Related transaction id.
-     * @param cause Cause.
+     * @param cause The cause.
      */
-    ClientDelayedAckException(UUID traceId, int code, @Nullable String message, UUID txId, @Nullable Throwable cause) {
+    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, UUID txId, @Nullable Throwable cause) {
         super(traceId, code, message, cause);
 
         this.txId = txId;
+    }
+
+    /**
+     * Constructor (for copying purposes).
+     *
+     * @param traceId Trace ID.
+     * @param code Error code.
+     * @param message String message.
+     * @param cause The cause.
+     */
+    public ClientTransactionKilledException(UUID traceId, int code, @Nullable String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
+
+        if (cause instanceof ClientTransactionKilledException) {
+            this.txId = ((ClientTransactionKilledException) cause).txId;
+        } else {
+            throw new IllegalArgumentException("Copy constructor should only be called with the source exception");
+        }
     }
 
     /**
