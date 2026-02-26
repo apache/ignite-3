@@ -168,12 +168,16 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                     .addresses(getNodeAddress())
                     .build()) {
 
-                await().until(() -> logInspector.events().stream()
-                        .anyMatch(e -> e.contains(CLIENT_CONNECTION_ESTABLISHED.name())));
+                await().untilAsserted(() -> {
+                    assertEquals(1, logInspector.events().size());
+                    assertThat(logInspector.events().get(0), containsString(CLIENT_CONNECTION_ESTABLISHED.name()));
+                });
             }
 
-            await().until(() -> logInspector.events().stream()
-                    .anyMatch(e -> e.contains(CLIENT_CONNECTION_CLOSED.name())));
+            await().untilAsserted(() -> {
+                assertEquals(2, logInspector.events().size());
+                assertThat(logInspector.events().get(1), containsString(CLIENT_CONNECTION_CLOSED.name()));
+            });
         } finally {
             logInspector.stop();
         }
