@@ -28,7 +28,6 @@ import org.apache.ignite3.configuration.ConfigurationModule;
 import org.apache.ignite3.configuration.RootKey;
 import org.apache.ignite3.configuration.annotation.ConfigurationType;
 import org.apache.ignite3.configuration.validation.Validator;
-import org.apache.ignite3.internal.configuration.ConfigurationManager;
 import org.apache.ignite3.internal.configuration.ConfigurationModules;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite3.internal.configuration.ConfigurationTreeGenerator;
@@ -117,11 +116,11 @@ public class Ignite3ConfigurationUtils {
         ConfigurationValidator localConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, myValidators);
 
-        var nodeCfgMgr = new ConfigurationManager(module.rootKeys(), localFileConfigurationStorage, localConfigurationGenerator,
+        var nodeCfgMgr = new ConfigurationRegistry(module.rootKeys(), localFileConfigurationStorage, localConfigurationGenerator,
                 localConfigurationValidator, c -> {}, s -> false);
 
         nodeCfgMgr.startAsync(new ComponentContext()).join();
-        return nodeCfgMgr.configurationRegistry();
+        return nodeCfgMgr;
     }
 
     /**
