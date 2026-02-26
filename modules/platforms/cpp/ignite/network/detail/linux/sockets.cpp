@@ -194,10 +194,7 @@ ssize_t recv(int socket, void* buf, int len) {
 
 void close(int socket) {
     if (socket != SOCKET_ERROR)
-    {
         ::close(socket);
-        socket = SOCKET_ERROR;
-    }
 }
 
 } // namespace ignite::network::detail

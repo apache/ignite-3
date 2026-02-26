@@ -74,10 +74,31 @@ int wait_on_socket(int socket, std::int32_t timeout, bool rd);
  */
 bool set_non_blocking_mode(int socket_fd, bool non_blocking);
 
+/**
+ * Send data through the socket.
+ *
+ * @param socket Socket to send into.
+ * @param buf Pointer to the data buffer.
+ * @param len Length of the buffer.
+ * @return Size of the sent data, -1 in case of error.
+ */
 ssize_t send(int socket, const void* buf, int len);
 
+/**
+ * Receive data from the socket.
+ *
+ * @param socket Socket to receive from.
+ * @param buf Buffer for received data.
+ * @param len Length of the buffer.
+ * @return Size of the received data, -1 in case of error.
+ */
 ssize_t recv(int socket, void* buf, int len);
 
+/**
+ * Closes socket.
+ *
+ * @param socket Socket to close.
+ */
 void close(int socket);
 
 } // namespace ignite::network::detail
