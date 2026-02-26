@@ -186,7 +186,10 @@ int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd) {
  * @param len Length of the buffer.
  * @return Size of the sent data, -1 in case of error.
  */
-int send(SOCKET socket, const void *buf, int len) {
+int send(SOCKET socket, const void *buf, size_t len) {
+    if (len > INT_MAX)
+        throw ignite_error("Socket send failed. Buffer size exceeds INT_MAX: " + std::to_string(len));
+
     return ::send(socket, static_cast<const char*>(buf), len, 0);
 }
 

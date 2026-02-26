@@ -23,6 +23,7 @@
 #include "ignite/common/ignite_error.h"
 
 #include <cerrno>
+#include <climits>
 #include <cstring>
 #include <sstream>
 
@@ -180,7 +181,9 @@ bool set_non_blocking_mode(int socket_fd, bool non_blocking) {
     return res != -1;
 }
 
-ssize_t send(int socket, const void* buf, int len) {
+ssize_t send(int socket, const void* buf, size_t len) {
+    if (len > INT_MAX)
+        throw ignite_error("Socket send failed. Buffer size exceeds INT_MAX: " + std::to_string(len));
 #ifdef __APPLE__
     return ::send(socket, buf, len, 0); // SIGPIPE is already handled via setsockopt SO_NOSIGPIPE
 #else

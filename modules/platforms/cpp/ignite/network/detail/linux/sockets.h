@@ -82,7 +82,7 @@ bool set_non_blocking_mode(int socket_fd, bool non_blocking);
  * @param len Length of the buffer.
  * @return Size of the sent data, -1 in case of error.
  */
-ssize_t send(int socket, const void* buf, int len);
+ssize_t send(int socket, const void* buf, size_t len);
 
 /**
  * Receive data from the socket.
