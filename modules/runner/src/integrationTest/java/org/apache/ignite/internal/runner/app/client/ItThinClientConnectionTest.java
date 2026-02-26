@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CLIENT_CONNECTION_CLOSED;
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CLIENT_CONNECTION_ESTABLISHED;
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
@@ -35,6 +38,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.log4j2.EventLogInspector;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
@@ -151,6 +155,27 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
             assertEquals("tbl-2", table2.qualifiedName().objectName());
         } finally {
             client().sql().execute("DROP TABLE \"tbl-2\"");
+        }
+    }
+
+    @Test
+    void testConnectionEvents() {
+        EventLogInspector logInspector = new EventLogInspector();
+        logInspector.start();
+
+        try {
+            try (IgniteClient ignored = IgniteClient.builder()
+                    .addresses(getNodeAddress())
+                    .build()) {
+
+                await().until(() -> logInspector.events().stream()
+                        .anyMatch(e -> e.contains(CLIENT_CONNECTION_ESTABLISHED.name())));
+            }
+
+            await().until(() -> logInspector.events().stream()
+                    .anyMatch(e -> e.contains(CLIENT_CONNECTION_CLOSED.name())));
+        } finally {
+            logInspector.stop();
         }
     }
 }
