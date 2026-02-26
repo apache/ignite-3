@@ -1219,7 +1219,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testRollBackDoesNotThrowOnClientDisconnect(boolean async) {
+    public void testRollbackDoesNotThrowOnClientDisconnect(boolean async) {
         try (IgniteClient client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             KeyValueView<Integer, String> kvView = client.tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
 
