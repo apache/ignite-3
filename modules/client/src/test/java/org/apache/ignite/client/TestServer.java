@@ -65,7 +65,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -281,7 +281,7 @@ public class TestServer implements AutoCloseable {
                         clusterService,
                         bootstrapFactory,
                         () -> clusterInfo,
-                        mock(MetricManagerImpl.class),
+                        mock(MetricManager.class),
                         metrics,
                         authenticationManager,
                         new TestClockService(ignite.clock()),
