@@ -187,7 +187,6 @@ import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeExcepti
 import org.apache.ignite.sql.SqlBatchException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-import org.jspecify.annotations.NonNull;
 
 /**
  * Handles messages from thin clients.
