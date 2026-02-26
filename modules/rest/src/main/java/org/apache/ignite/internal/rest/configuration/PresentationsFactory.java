@@ -34,9 +34,9 @@ public class PresentationsFactory implements RestFactory {
     private ConfigurationPresentation<String> nodeCfgPresentation;
     private ConfigurationPresentation<String> clusterCfgPresentation;
 
-    public PresentationsFactory(ConfigurationRegistry nodeCfgMgr, ConfigurationRegistry clusterCfgMgr) {
-        this.nodeCfgPresentation = new HoconPresentation(nodeCfgMgr);
-        this.clusterCfgPresentation = new HoconPresentation(clusterCfgMgr);
+    public PresentationsFactory(ConfigurationRegistry nodeConfigRegistry, ConfigurationRegistry clusterConfigRegistry) {
+        this.nodeCfgPresentation = new HoconPresentation(nodeConfigRegistry);
+        this.clusterCfgPresentation = new HoconPresentation(clusterConfigRegistry);
     }
 
     @Bean

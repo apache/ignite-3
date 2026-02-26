@@ -213,21 +213,21 @@ public class ClusterServiceTestUtils {
                 List.of(NetworkExtensionConfigurationSchema.class),
                 List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
-        ConfigurationRegistry nodeConfigurationMgr = new ConfigurationRegistry(
+        ConfigurationRegistry nodeConfigurationRegistry = new ConfigurationRegistry(
                 Collections.singleton(NodeConfiguration.KEY),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
                 generator,
                 new TestConfigurationValidator()
         );
 
-        NetworkConfiguration networkConfiguration = nodeConfigurationMgr
+        NetworkConfiguration networkConfiguration = nodeConfigurationRegistry
                 .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
         var bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
         MessageSerializationRegistry serializationRegistry = defaultSerializationRegistry();
 
-        nodeConfigurationMgr.startAsync(new ComponentContext()).join();
+        nodeConfigurationRegistry.startAsync(new ComponentContext()).join();
 
         String[] netClusterNodes = nodeFinder.findNodes().stream().map(NetworkAddress::toString).toArray(String[]::new);
 
@@ -266,7 +266,7 @@ public class ClusterServiceTestUtils {
                 return CompletableFuture.allOf(
                         super.stopAsync(componentContext),
                         bootstrapFactory.stopAsync(componentContext),
-                        nodeConfigurationMgr.stopAsync(componentContext)
+                        nodeConfigurationRegistry.stopAsync(componentContext)
                 );
             }
         };
