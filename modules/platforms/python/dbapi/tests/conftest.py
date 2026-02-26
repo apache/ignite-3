@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import time
 
 import pyignite_dbapi
 import pytest
@@ -26,7 +27,7 @@ TEST_PAGE_SIZE = 32
 
 @pytest.fixture()
 def table_name(request):
-    return request.node.originalname
+    return f"{request.node.originalname}_{int(time.monotonic_ns())}"
 
 
 @pytest.fixture()
