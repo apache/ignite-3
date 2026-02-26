@@ -71,7 +71,7 @@ public class ConfigurationModules {
     }
 
     /**
-     * Creates instance of the {@link ConfigurationModules} provided {@link ClassLoader}.
+     * Creates instance of the {@link ConfigurationModules} using provided {@link ClassLoader}.
      *
      * @param classLoader the class loader to use.
      * @return Configuration modules.
