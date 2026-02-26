@@ -30,11 +30,14 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
@@ -175,7 +178,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     );
                 });
 
-        lenient().when(txManager.finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any()))
+        lenient().when(txManager.finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), any(), any()))
                 .thenReturn(nullCompletedFuture());
 
         // Mock for creating implicit transactions when null is passed
@@ -399,7 +402,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     private Map<ZonePartitionId, PendingTxPartitionEnlistment> extractEnlistmentsFromTxFinish() {
         ArgumentCaptor<Map<ZonePartitionId, PendingTxPartitionEnlistment>> enlistmentsCaptor = ArgumentCaptor.captor();
 
-        verify(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
+        verify(txManager).finish(any(), any(), anyBoolean(), any(), anyBoolean(), anyBoolean(), enlistmentsCaptor.capture(), any());
 
         return enlistmentsCaptor.getValue();
     }
@@ -837,6 +840,60 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 assertThat("Error should be TransactionException", cause, is(instanceOf(TransactionException.class)));
                 TransactionException txEx = (TransactionException) cause;
                 assertThat("Error code should be TX_ALREADY_FINISHED_ERR", txEx.code(), is(TX_ALREADY_FINISHED_ERR));
+            }
+        }
+
+        @Test
+        void testScanAfterTimeoutExposesExceptionInfosFromMeta() {
+            InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+            InternalTransaction tx = new ReadWriteTransactionImpl(
+                    txManager,
+                    mock(HybridTimestampTracker.class),
+                    TestTransactionIds.newTransactionId(),
+                    randomUUID(),
+                    false,
+                    1
+            );
+
+            UUID txId = tx.id();
+            RuntimeException firstFailure = new RuntimeException("first");
+            IllegalStateException secondFailure = new IllegalStateException("second");
+
+            TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
+                    .finishedDueToTimeout(true)
+                    .lastException(firstFailure)
+                    .lastException(secondFailure)
+                    .build();
+
+            when(txManager.stateMeta(txId)).thenReturn(meta);
+            tx.rollbackWithExceptionAsync(new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                    "Transaction is already finished")).join();
+
+            Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+            CompletableFuture<Void> completed = new CompletableFuture<>();
+
+            publisher.subscribe(new BlackholeSubscriber(completed));
+
+            try {
+                completed.get(10, TimeUnit.SECONDS);
+                fail("Expected TransactionException but scan completed successfully");
+            } catch (Exception e) {
+                Throwable unwrapped = unwrapCause(e);
+                assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+                TransactionException txEx = (TransactionException) unwrapped;
+                assertThat("Error code should be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR or TX_ALREADY_FINISHED_ERR",
+                        txEx.code(), anyOf(is(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR), is(TX_ALREADY_FINISHED_ERR)));
+                Throwable rootCause = unwrapRootCause(e);
+                assertThat("Cause should be the last recorded exception", rootCause,
+                        is(instanceOf(IllegalStateException.class)));
+                assertThat(rootCause.getMessage(), is(secondFailure.getMessage()));
+                Throwable[] suppressed = rootCause.getSuppressed();
+                assertThat("Expected exactly one suppressed exception", suppressed.length, is(1));
+                assertThat("Suppressed should be the 1st recorded exception", suppressed[0],
+                        is(instanceOf(RuntimeException.class)));
+                assertThat(suppressed[0].getMessage(), is(firstFailure.getMessage()));
             }
         }
 

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimes
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy transaction that should be used as mock transaction for execution tests.
@@ -115,7 +117,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
+        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, null);
     }
 
     @Override
@@ -125,7 +127,15 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
+        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, null);
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        if (throwable instanceof TimeoutException) {
+            this.isRolledBackWithTimeoutExceeded = true;
+        }
+        return rollbackAsync();
     }
 
     @Override
@@ -182,7 +192,12 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
+    public CompletableFuture<Void> finish(
+            boolean commit,
+            HybridTimestamp executionTimestamp,
+            boolean full,
+            @Nullable Throwable finishReason
+    ) {
         CompletableFuture<Void> fut = commit ? commitFut : rollbackFut;
 
         fut.complete(null);
@@ -215,12 +230,6 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> kill() {
-        return rollbackAsync();
-    }
-
-    @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        this.isRolledBackWithTimeoutExceeded = true;
         return rollbackAsync();
     }
 

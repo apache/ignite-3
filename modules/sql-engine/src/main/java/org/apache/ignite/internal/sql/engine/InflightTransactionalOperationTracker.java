@@ -20,10 +20,14 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
+import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.tx.TransactionException;
 
@@ -45,8 +49,7 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
             boolean result = tx.isReadOnly() ? delegate.addScanInflight(tx.id()) : delegate.track(tx.id());
 
             if (!result) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}, {}]",
-                        tx, formatTxInfo(tx.id(), txManager, false)));
+                throw alreadyFinishedException(tx);
             }
         }
     }
@@ -62,5 +65,20 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
 
     private static boolean shouldBeTracked(InternalTransaction tx) {
         return !tx.implicit();
+    }
+
+    private TransactionException alreadyFinishedException(InternalTransaction tx) {
+        TxStateMeta txStateMeta = txManager.stateMeta(tx.id());
+        boolean isFinishedDueToTimeout = txStateMeta != null
+                && Boolean.TRUE.equals(txStateMeta.isFinishedDueToTimeout());
+        Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
+
+        return new TransactionException(
+                isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
+                format("{} [tx={}, {}]",
+                        isFinishedDueToTimeout ? TX_ALREADY_FINISHED_ERR : TX_ALREADY_FINISHED_DUE_TO_TIMEOUT,
+                        tx, formatTxInfo(tx.id(), txManager, false)),
+                cause
+        );
     }
 }

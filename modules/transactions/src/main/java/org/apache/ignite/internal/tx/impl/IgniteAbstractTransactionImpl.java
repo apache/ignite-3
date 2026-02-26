@@ -18,13 +18,16 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -163,5 +166,13 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     @Override
     public boolean isRolledBackWithTimeoutExceeded() {
         return timeoutExceeded;
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, null, false, throwable),
+                isFinishedDueToTimeout(throwable) ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ROLLBACK_ERR
+        );
     }
 }

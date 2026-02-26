@@ -24,6 +24,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,6 +36,24 @@ public class TxStateMetaFinishing extends TxStateMeta {
 
     /** Future that is completed after the state of corresponding transaction changes to final state. */
     private final CompletableFuture<TransactionMeta> txFinishFuture = new CompletableFuture<>();
+
+    /**
+     * Constructor.
+     *
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition id.
+     * @param txLabel Transaction label.
+     * @param finishReason Exception which caused tx abortion.
+     */
+    public TxStateMetaFinishing(
+            @Nullable UUID txCoordinatorId,
+            @Nullable ZonePartitionId commitPartitionId,
+            @Nullable String txLabel,
+            @Nullable Throwable finishReason
+    ) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
+                null, null, ExceptionUtils.isFinishedDueToTimeout(finishReason), txLabel, finishReason);
+    }
 
     /**
      * Constructor.
@@ -117,7 +136,7 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeout, txLabel);
+                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, txLabel, lastException);
             } else {
                 return super.build();
             }
