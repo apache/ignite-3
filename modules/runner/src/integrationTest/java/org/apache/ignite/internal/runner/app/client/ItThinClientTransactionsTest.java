@@ -1495,6 +1495,28 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2, key3, key4)), willSucceedFast());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testRollbackDoesNotThrowOnClientDisconnect(boolean async) {
+        try (IgniteClient client = IgniteClient.builder().addresses(getNodeAddress()).build()) {
+            KeyValueView<Integer, String> kvView = client.tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
+
+            Transaction tx = client.transactions().begin();
+            kvView.put(tx, 999, "test");
+
+            client.close();
+
+            if (async) {
+                assertThat(tx.rollbackAsync(), willSucceedFast());
+            } else {
+                assertDoesNotThrow(tx::rollback);
+            }
+        }
+
+        KeyValueView<Integer, String> kvView = client().tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
+        assertNull(kvView.get(null, 999), "Value should not be visible after rollback");
+    }
+
     @AfterEach
     protected void validateInflights() throws NoSuchFieldException {
         System.out.println("DBG: validateInflights");
