@@ -573,7 +573,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
-                txConfig,
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),

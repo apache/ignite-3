@@ -1735,6 +1735,7 @@ public class IgniteToStringBuilder {
      * @param <T>      Type of object.
      * @return String presentation of the given object.
      */
+    @SuppressWarnings("PMD.UnusedPrivateMethod") // PMD false positive: method is called, but PMD doesn't resolve generic method references
     private static <T> String toStringImpl0(
             Class<T> cls,
             StringBuilderLimitedLength buf,

@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFla
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
-import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -171,27 +170,4 @@ public class PartialBinaryTupleMatcher {
         }
     }
 
-    /**
-     * Retrieves a trimmed portion of binary data from the specified tuple at a given index.
-     * The size of the retrieved data is limited to the specified maximum length.
-     *
-     * @param tuple The BinaryTupleReader from which to retrieve the binary data.
-     * @param index The index in the tuple specifying the location of the data to be retrieved.
-     * @param maxLength The maximum allowable length for the trimmed portion of the binary data.
-     * @return A byte array containing the trimmed binary data.
-     */
-    private static byte[] getTrimmedBytes(BinaryTupleReader tuple, int index, int maxLength) {
-        tuple.seek(index);
-
-        int begin = tuple.begin();
-        int end = tuple.end();
-
-        if (tuple.byteBuffer().get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
-            maxLength++;
-        }
-
-        int trimmedSize = Math.min(end - begin, maxLength);
-
-        return tuple.bytesValue(begin, begin + trimmedSize);
-    }
 }
