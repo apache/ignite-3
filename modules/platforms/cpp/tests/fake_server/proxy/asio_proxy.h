@@ -168,8 +168,11 @@ public:
         : m_resolver(m_io_context)
         , m_in_sock(m_io_context)
     {
-        for (auto& cfg  : configurations) {
-            m_conn_map.emplace(cfg.m_in_port, proxy_entry{m_io_context, cfg.m_in_port, cfg.m_out_host_and_port});
+        for (auto &cfg : configurations) {
+            m_conn_map.emplace(
+                cfg.m_in_port,
+                proxy_entry{m_io_context, cfg.m_in_port, cfg.m_out_host_and_port, cfg.m_listener}
+            );
         }
 
         do_serve();
@@ -191,9 +194,11 @@ private:
         tcp::acceptor m_in_acceptor;
         std::string m_out_host;
         std::string m_out_port;
+        message_listener* m_listener;
 
-        proxy_entry(asio::io_context& io_context, asio::ip::port_type in_port, const std::string& out_host_and_port)
+        proxy_entry(asio::io_context& io_context, asio::ip::port_type in_port, const std::string& out_host_and_port, message_listener* listener)
             : m_in_acceptor(io_context, tcp::endpoint(tcp::v4(), in_port))
+            , m_listener(listener)
         {
             auto colon_pos = out_host_and_port.find(':');
 
@@ -223,7 +228,7 @@ private:
                 throw std::runtime_error("Error accepting incoming connection " + ec.message());
             }
 
-            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped, nullptr);
+            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped);
 
             m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
                 [ses](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
