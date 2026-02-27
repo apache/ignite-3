@@ -80,7 +80,7 @@ public class FinishedTransactionBatchRequestHandler {
     }
 
     private void cleanUpForTransaction(UUID transactionId) {
-        transactionInflights.markReadOnlyTxFinished(transactionId);
+        transactionInflights.removeTxContext(transactionId);
 
         resourcesRegistry.close(transactionId);
 

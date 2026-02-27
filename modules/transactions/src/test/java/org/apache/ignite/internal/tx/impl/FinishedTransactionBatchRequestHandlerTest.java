@@ -90,8 +90,8 @@ class FinishedTransactionBatchRequestHandlerTest extends BaseIgniteAbstractTest 
 
         networkHandler.onReceived(message, mock(InternalClusterNode.class), null);
 
-        verify(transactionInflights, timeout(10_000)).markReadOnlyTxFinished(txId1);
-        verify(transactionInflights, timeout(10_000)).markReadOnlyTxFinished(txId2);
+        verify(transactionInflights, timeout(10_000)).removeTxContext(txId1);
+        verify(transactionInflights, timeout(10_000)).removeTxContext(txId2);
         verify(lowWatermark, timeout(10_000)).unlock(txId1);
         verify(lowWatermark, timeout(10_000)).unlock(txId2);
     }
