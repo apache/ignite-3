@@ -86,8 +86,8 @@ public class RecordViewExample {
 
             Tuple newAccountTuple = Tuple.create()
                     .set("accountNumber", 123456)
-                    .set("firstName", "Val")
-                    .set("lastName", "Kulichenko")
+                    .set("firstName", "John")
+                    .set("lastName", "Doe")
                     .set("balance", 100.00d);
 
             accounts.insert(null, newAccountTuple);

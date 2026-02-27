@@ -88,8 +88,8 @@ public class KeyValueViewExample {
                     .set("accountNumber", 123456);
 
             Tuple value = Tuple.create()
-                    .set("firstName", "Val")
-                    .set("lastName", "Kulichenko")
+                    .set("firstName", "John")
+                    .set("lastName", "Doe")
                     .set("balance", 100.00d);
 
             kvView.put(null, key, value);
