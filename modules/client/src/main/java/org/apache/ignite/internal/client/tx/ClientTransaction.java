@@ -492,13 +492,12 @@ public class ClientTransaction implements Transaction {
      * Enlists a write operation in direct mapping.
      *
      * @param ch Channel facade.
-     * @param opChannel Operation channel.
      * @param pm Partition mapping.
      * @param trackOperation Denotes if upcoming operation should be tracked. This affects finalization behavior as acknowledge must
      *         be received for every tracked operation prior to transaction finalization.
      * @return The future.
      */
-    public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, ClientChannel opChannel, PartitionMapping pm,
+    public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, PartitionMapping pm,
             boolean trackOperation) {
         enlistPartitionLock.readLock().lock();
 

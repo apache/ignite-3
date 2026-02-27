@@ -27,7 +27,6 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,11 +73,11 @@ public class RaftMetricSource implements MetricSource {
         this.metrics = createMetrics();
     }
 
-    public void onLeaderStart(RaftNodeId raftNodeId) {
+    public void onLeaderStart() {
         leadersCount.increment();
     }
 
-    public void onLeaderStop(RaftNodeId raftNodeId) {
+    public void onLeaderStop() {
         leadersCount.decrement();
     }
 

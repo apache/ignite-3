@@ -30,7 +30,7 @@ public class StaticPartitionProvider<RowT> implements PartitionProvider<RowT> {
     private final List<PartitionWithConsistencyToken> partitions;
 
     /** Constructor. */
-    public StaticPartitionProvider(String nodeName, ColocationGroup colocationGroup, long sourceId) {
+    public StaticPartitionProvider(String nodeName, ColocationGroup colocationGroup) {
         List<PartitionWithConsistencyToken> partitions = colocationGroup.partitionsWithConsistencyTokens(nodeName);
         assert !partitions.isEmpty() : format("No partitions for node {} group: {}", nodeName, colocationGroup);
 

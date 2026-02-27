@@ -348,6 +348,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @return Row bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // rightId is used by BplusInnerIo override
     public byte @Nullable [] insert(
             long pageAddr,
             int idx,
@@ -522,6 +523,7 @@ public abstract class BplusIo<L> extends PageIo {
      * @param pageAddr Page address.
      * @param c Consumer triggered for each element stored in the page.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public void visit(BplusTree<L, ?> tree, long pageAddr, Consumer<L> c) {
         // No-op.
     }

@@ -280,6 +280,7 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
      * @param mq Relational metadata.
      * @param predicate Operation predicate.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public Double getSelectivity(ProjectableFilterableTableScan rel, RelMetadataQuery mq, RexNode predicate) {
         if (predicate == null) {
             return guessSelectivity(rel.condition(), rel);

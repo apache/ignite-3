@@ -752,8 +752,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     public void testBasicView(SystemViewType viewType, IgniteDistribution distribution) {
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
-                createDummySystemView("V1", SystemViewType.NODE),
-                createDummySystemView("V2", SystemViewType.CLUSTER)
+                createDummySystemView("V1", viewType)
         )));
 
         int versionAfter = catalogManager.latestCatalogVersion();
@@ -766,19 +765,10 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         SchemaPlus schemaPlus = rootSchema.subSchemas().get(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
-        {
-            IgniteSystemView systemView = getSystemView(unwrapSchema(schemaPlus), "V1");
+        IgniteSystemView systemView = getSystemView(unwrapSchema(schemaPlus), "V1");
 
-            assertThat(systemView.name(), equalTo("V1"));
-            assertThat(systemView.distribution(), equalTo(IgniteDistributions.identity(0)));
-        }
-
-        {
-            IgniteSystemView systemView = getSystemView(unwrapSchema(schemaPlus), "V2");
-
-            assertThat(systemView.name(), equalTo("V2"));
-            assertThat(systemView.distribution(), equalTo(IgniteDistributions.single()));
-        }
+        assertThat(systemView.name(), equalTo("V1"));
+        assertThat(systemView.distribution(), equalTo(distribution));
     }
 
     @ParameterizedTest
@@ -793,7 +783,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 column("VAL_NULLABLE", columnType, precision, scale, true),
                                 column("VAL_NOT_NULLABLE", columnType, precision, scale, false)
                         ))
-                        .type(SystemViewType.CLUSTER)
+                        .type(viewType)
                         .build()
         )));
 

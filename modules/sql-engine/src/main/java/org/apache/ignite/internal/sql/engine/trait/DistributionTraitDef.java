@@ -44,7 +44,7 @@ public class DistributionTraitDef extends RelTraitDef<IgniteDistribution> {
     @Override
     public RelNode convert(RelOptPlanner planner, RelNode rel, IgniteDistribution toDist,
             boolean allowInfiniteCostConverters) {
-        return TraitUtils.convertDistribution(planner, toDist, rel);
+        return TraitUtils.convertDistribution(toDist, rel);
     }
 
     /** {@inheritDoc} */

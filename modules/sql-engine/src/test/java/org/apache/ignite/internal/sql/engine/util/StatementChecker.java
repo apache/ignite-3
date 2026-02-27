@@ -405,6 +405,7 @@ public class StatementChecker {
     }
 
     /** Executes default checks. Runs before a check provide by {@link StatementChecker#ok(Consumer)}. */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected void checkRel(IgniteRel igniteRel, IgnitePlanner planner, IgniteSchema schema) {
 
     }

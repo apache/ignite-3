@@ -55,11 +55,10 @@ public class ReplicaSafeTimeSyncRequestHandler {
     /**
      * Handles {@link ReplicaSafeTimeSyncRequest}.
      *
-     * @param request Request to handle.
      * @param isPrimary Whether current node is a primary replica.
      * @return Future that will be completed when the request is handled.
      */
-    public CompletableFuture<?> handle(ReplicaSafeTimeSyncRequest request, boolean isPrimary) {
+    public CompletableFuture<?> handle(boolean isPrimary) {
         if (!isPrimary) {
             return nullCompletedFuture();
         }

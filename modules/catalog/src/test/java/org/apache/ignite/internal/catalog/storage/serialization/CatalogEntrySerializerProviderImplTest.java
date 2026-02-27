@@ -236,6 +236,7 @@ public class CatalogEntrySerializerProviderImplTest {
     static class ContainerWithSerializerWithInvalidConstructor {
         @CatalogSerializer(version = 1, since = "3.0.0")
         static class Serializer1 extends DummySerializer {
+            @SuppressWarnings("PMD.UnusedFormalParameter")
             Serializer1(int a) {
 
             }

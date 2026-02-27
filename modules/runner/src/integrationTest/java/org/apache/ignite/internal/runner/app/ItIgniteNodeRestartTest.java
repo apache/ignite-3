@@ -729,7 +729,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 () -> clusterSvc.topologyService().localMember().id(),
-                registry,
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
@@ -837,7 +836,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 tableManager,
                 schemaManager,
-                dataStorageManager,
                 replicaService,
                 clockService,
                 schemaSyncService,

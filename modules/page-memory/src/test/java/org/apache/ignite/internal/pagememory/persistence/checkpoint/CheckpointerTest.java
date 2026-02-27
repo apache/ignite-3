@@ -47,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -534,13 +533,12 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
         when(mock.markCheckpointBegin(
-                anyLong(),
                 any(CheckpointProgressImpl.class),
                 any(CheckpointMetricsTracker.class),
                 any(Runnable.class),
                 any(Runnable.class)
         )).then(answer -> {
-            CheckpointProgressImpl progress = answer.getArgument(1);
+            CheckpointProgressImpl progress = answer.getArgument(0);
 
             if (dirtyPages.dirtyPagesCount() > 0) {
                 progress.pagesToWrite(dirtyPages);
@@ -548,8 +546,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 progress.initCounters(dirtyPages.dirtyPagesCount());
             }
 
+            ((Runnable) answer.getArgument(2)).run();
             ((Runnable) answer.getArgument(3)).run();
-            ((Runnable) answer.getArgument(4)).run();
 
             return new Checkpoint(dirtyPages, progress);
         });

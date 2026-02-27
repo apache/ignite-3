@@ -150,7 +150,7 @@ public class ComputeMessaging {
         } else if (message instanceof JobResultRequest) {
             processJobResultRequest((JobResultRequest) message, sender, correlationId);
         } else if (message instanceof JobStatesRequest) {
-            processJobStatesRequest((JobStatesRequest) message, sender, correlationId);
+            processJobStatesRequest(sender, correlationId);
         } else if (message instanceof JobStateRequest) {
             processJobStateRequest((JobStateRequest) message, sender, correlationId);
         } else if (message instanceof JobCancelRequest) {
@@ -261,7 +261,7 @@ public class ComputeMessaging {
                 .thenCompose(networkMessage -> statesFromJobStatesResponse((JobStatesResponse) networkMessage));
     }
 
-    private void processJobStatesRequest(JobStatesRequest message, InternalClusterNode sender, long correlationId) {
+    private void processJobStatesRequest(InternalClusterNode sender, long correlationId) {
         executionManager.localStatesAsync()
                 .whenComplete((states, throwable) -> sendJobStatesResponse(states, throwable, sender, correlationId));
     }

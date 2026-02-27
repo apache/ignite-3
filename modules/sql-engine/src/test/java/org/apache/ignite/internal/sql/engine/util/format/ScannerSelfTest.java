@@ -151,6 +151,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("singleElements")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // ignore: shared @MethodSource, not needed here.
     public void testSingleElementWithDelimiters(String ignore, List<DateTimeTemplateField> fields) {
         StringBuilder pattern = new StringBuilder();
         List<DateTimeFormatElement> expected = new ArrayList<>();

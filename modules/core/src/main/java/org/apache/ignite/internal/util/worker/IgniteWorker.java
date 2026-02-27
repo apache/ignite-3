@@ -255,6 +255,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
      *
      * @param firstCancelRequest Flag indicating that worker cancellation was requested for the first time.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected void onCancel(boolean firstCancelRequest) {
         Thread runner = this.runner;
 

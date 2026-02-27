@@ -431,7 +431,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();
-        failover.registerTopologyChangeCallback(nodeStatusCallback, clusterEventCallback);
+        failover.registerTopologyChangeCallback(nodeStatusCallback);
         undeployer.start(UNDEPLOYER_DELAY.getSeconds(), TimeUnit.SECONDS);
         return new StaticUnitDeployer(deploymentUnitStore, nodeName, deploymentUnitFolder).searchAndDeployStaticUnits();
     }

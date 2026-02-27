@@ -994,7 +994,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1004,7 +1003,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1076,7 +1074,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
                         resolveCurrentUsername()
                 );
 

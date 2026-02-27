@@ -354,7 +354,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                                         configuration.idleTimeoutMillis(), 0, 0, TimeUnit.MILLISECONDS);
 
                                 ch.pipeline().addLast(idleStateHandler);
-                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeoutMillis(), metrics, connectionId));
+                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeoutMillis(), metrics));
                             }
 
                             if (sslContext != null) {

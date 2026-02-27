@@ -75,12 +75,10 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link IndexBuildController} testing. */
@@ -101,7 +99,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private final ClockService clockService = new TestClockService(clock);
 
     @BeforeEach
-    void setUp(@Mock PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
+    void setUp() {
         indexBuilder = mock(IndexBuilder.class);
 
         IndexManager indexManager = mock(IndexManager.class, invocation -> {

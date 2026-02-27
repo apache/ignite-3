@@ -282,6 +282,7 @@ class SqlDdlGeneratorTest {
 
     @ParameterizedTest
     @MethodSource("provideSupportedClasses")
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     void testTableDefUsingIndexedTypes(
             BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
             boolean allowExtraFields,

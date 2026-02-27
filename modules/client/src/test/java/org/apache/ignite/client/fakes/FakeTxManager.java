@@ -79,15 +79,15 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
-        return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
+        return begin(timestampTracker, true, readOnly);
     }
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
-        return begin(timestampTracker, false, readOnly, txOptions);
+        return begin(timestampTracker, false, readOnly);
     }
 
-    private InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly, InternalTxOptions options) {
+    private InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 

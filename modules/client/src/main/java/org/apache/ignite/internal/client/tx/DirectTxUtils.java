@@ -295,7 +295,7 @@ public class DirectTxUtils {
             WriteContext ctx,
             boolean trackOperation
     ) {
-        return tx.enlistFuture(ch, opChannel, ctx.pm, trackOperation).thenCompose(tup -> {
+        return tx.enlistFuture(ch, ctx.pm, trackOperation).thenCompose(tup -> {
             if (tup.get2() == null) { // First request.
                 ctx.enlistmentToken = 0L;
                 return nullCompletedFuture();

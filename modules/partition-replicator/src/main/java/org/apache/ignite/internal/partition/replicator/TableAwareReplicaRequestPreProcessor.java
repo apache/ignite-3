@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -63,14 +62,10 @@ public class TableAwareReplicaRequestPreProcessor {
      * awaiting.
      *
      * @param request Request to be processed.
-     * @param replicaPrimacy Replica primacy information.
-     * @param senderId Node sender id.
      * @return Future with the result of the request.
      */
     public CompletableFuture<Void> preProcessTableAwareRequest(
-            ReplicaRequest request,
-            ReplicaPrimacy replicaPrimacy,
-            UUID senderId
+            ReplicaRequest request
     ) {
         assert request instanceof TableAware : "Request should be TableAware [request=" + request.getClass().getSimpleName() + ']';
 

@@ -241,7 +241,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof TxRecoveryMessage) {
             return txRecoveryMessageHandler.handle((TxRecoveryMessage) request, senderId);
         } else if (request instanceof TxCleanupRecoveryRequest) {
-            return txCleanupRecoveryRequestHandler.handle((TxCleanupRecoveryRequest) request);
+            return txCleanupRecoveryRequestHandler.handle();
         }
 
         return processZoneReplicaRequest(request, replicaPrimacy);
@@ -260,7 +260,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
+        return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request)
                 .thenCompose(ignored -> {
                     int tableId = ((TableAware) request).tableId();
 
@@ -294,7 +294,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            return replicaSafeTimeSyncRequestHandler.handle((ReplicaSafeTimeSyncRequest) request, replicaPrimacy.isPrimary());
+            return replicaSafeTimeSyncRequestHandler.handle(replicaPrimacy.isPrimary());
         } else {
             LOG.warn("Non table request is not supported by the zone partition yet " + request);
         }
