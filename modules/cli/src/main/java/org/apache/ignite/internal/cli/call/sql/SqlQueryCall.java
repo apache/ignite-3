@@ -52,7 +52,8 @@ public class SqlQueryCall implements Call<StringCallInput, SqlQueryResult> {
         }
     }
 
-    private static String trimQuotes(String input) {
+    /** Trims surrounding double quotes from the input string. */
+    public static String trimQuotes(String input) {
         if (input.startsWith("\"") && input.endsWith("\"") && input.length() > 2) {
             return input.substring(1, input.length() - 1);
         }

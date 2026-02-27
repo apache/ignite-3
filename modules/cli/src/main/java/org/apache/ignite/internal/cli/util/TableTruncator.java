@@ -100,7 +100,7 @@ public class TableTruncator {
      * @param content table content
      * @return array of column widths
      */
-    int[] calculateColumnWidths(String[] header, Object[][] content) {
+    public int[] calculateColumnWidths(String[] header, Object[][] content) {
         int columnCount = header.length;
         int[] maxContentWidths = new int[columnCount];
 
@@ -233,7 +233,7 @@ public class TableTruncator {
      * @param maxWidth maximum width
      * @return truncated value
      */
-    static String truncateCell(Object value, int maxWidth) {
+    public static String truncateCell(Object value, int maxWidth) {
         if (value == null) {
             return "null";
         }

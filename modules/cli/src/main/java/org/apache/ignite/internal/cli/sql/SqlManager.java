@@ -70,7 +70,7 @@ public class SqlManager implements AutoCloseable {
                 if (rs != null) {
                     logColumnMetadata(rs.getMetaData());
                     Table<String> table = Table.fromResultSet(rs);
-                    totalRows += table.content().length;
+                    totalRows += table.getRowCount();
                     sqlQueryResultBuilder.addTable(table);
                 } else {
                     int updateCount = statement.getUpdateCount();
@@ -82,6 +82,37 @@ public class SqlManager implements AutoCloseable {
             sqlQueryResultBuilder.setDurationMs(durationMs);
             CliLoggers.verboseLog(1, "<-- " + totalRows + " row(s) (" + durationMs + "ms)");
             return sqlQueryResultBuilder.build();
+        }
+    }
+
+    /**
+     * Execute provided SQL and return a paged result for lazy fetching.
+     *
+     * @param sql incoming string representation of SQL command.
+     * @param pageSize the page size for fetching rows.
+     * @return a PagedSqlResult for lazy row fetching.
+     * @throws SQLException in any case when SQL command can't be executed.
+     */
+    public PagedSqlResult executePaged(String sql, int pageSize) throws SQLException {
+        logConnectionInfo();
+        CliLoggers.verboseLog(1, "--> SQL " + sql);
+
+        long startTime = System.currentTimeMillis();
+        Statement statement = connection.createStatement();
+        try {
+            // Set fetch size to avoid fetching all rows at once
+            statement.setFetchSize(pageSize);
+            statement.execute(sql);
+
+            ResultSet rs = statement.getResultSet();
+            if (rs != null) {
+                logColumnMetadata(rs.getMetaData());
+            }
+
+            return new PagedSqlResult(statement, pageSize, startTime);
+        } catch (SQLException e) {
+            statement.close();
+            throw e;
         }
     }
 
