@@ -5,7 +5,7 @@ import org.apache.ignite.teamcity.Teamcity.Companion.getId
 
 object RunPythonTests : BuildType({
     id(getId(this::class))
-    name = "-> Run :: Python Tests"
+    name = "> Run :: Python Tests"
     description = "Run all Python Tests"
     type = Type.COMPOSITE
 
