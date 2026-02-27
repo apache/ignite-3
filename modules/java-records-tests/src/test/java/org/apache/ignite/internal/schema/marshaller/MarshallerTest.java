@@ -181,6 +181,7 @@ class MarshallerTest extends BaseIgniteAbstractTest {
         assertMarshaller(new Inheritance.RegularParent.Child(1, "a", "b"));
         assertMarshaller(new Inheritance.MultipleParent.Child(1, "a", "b"));
         assertMarshaller(new Inheritance.ParentWithPrivateField.Child(1, "a", "b"));
+        assertMarshaller(new org.apache.ignite.internal.schema.marshaller.inheritance.parentwithprivatefield.Child(1, "a", "b"));
 
         // kvView
         assertMarshaller(new Kv.Key(1), new ChildV("a", "b"));

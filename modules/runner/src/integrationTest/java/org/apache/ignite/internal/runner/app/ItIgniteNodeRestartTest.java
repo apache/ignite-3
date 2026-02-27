@@ -109,7 +109,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -156,6 +155,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
@@ -373,17 +373,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 modules.local().polymorphicSchemaExtensions()
         );
 
-        var nodeCfgMgr = new ConfigurationManager(
+        var nodeConfigRegistry = new ConfigurationRegistry(
                 modules.local().rootKeys(),
                 new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
                 localConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
         );
 
-        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
+        NetworkConfiguration networkConfiguration = nodeConfigRegistry
                 .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
-        var metricManager = new MetricManagerImpl();
+        var metricManager = new MetricManagerImpl(name, clusterIdService::clusterId);
 
         var threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
@@ -452,7 +452,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageManager, cmgWorkDir.metaPath());
 
-        StorageConfiguration storageConfiguration = nodeCfgMgr.configurationRegistry()
+        StorageConfiguration storageConfiguration = nodeConfigRegistry
                 .getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
         var cmgManager = new ClusterManagementGroupManager(
@@ -549,14 +549,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        var clusterCfgMgr = new ConfigurationManager(
+        var clusterConfigRegistry = new ConfigurationRegistry(
                 modules.distributed().rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
@@ -705,7 +705,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 dataStorageModules.createStorageEngines(
                         name,
                         new NoOpMetricManager(),
-                        nodeCfgMgr.configurationRegistry(),
+                        nodeConfigRegistry,
                         storagePath,
                         null,
                         failureProcessor,
@@ -792,7 +792,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 registry,
                 gcConfig,
-                txConfiguration,
                 replicationConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
@@ -848,7 +847,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 failureProcessor,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql(),
-                nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
+                nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
                 lowWatermark,
@@ -863,14 +862,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         components.add(vault);
         components.add(nodeProperties);
-        components.add(nodeCfgMgr);
+        components.add(nodeConfigRegistry);
 
         // Start.
 
         assertThat(vault.startAsync(new ComponentContext()), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(nodeConfigRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -892,7 +891,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourceVacuumManager,
                 lowWatermark,
                 metaStorageMgr,
-                clusterCfgMgr,
+                clusterConfigRegistry,
                 dataStorageManager,
                 clockWaiter,
                 catalogManager,
@@ -918,15 +917,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         PartialNode partialNode = partialNode(
                 name,
-                nodeCfgMgr,
-                clusterCfgMgr,
+                nodeConfigRegistry,
+                clusterConfigRegistry,
                 metaStorageMgr,
                 components,
                 localConfigurationGenerator,
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry,
                 hybridClock
         );
 

@@ -91,7 +91,6 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -220,7 +219,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 modules.local().polymorphicSchemaExtensions()
         );
 
-        var nodeCfgMgr = new ConfigurationManager(
+        var nodeConfigRegistry = new ConfigurationRegistry(
                 modules.local().rootKeys(),
                 new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
                 localConfigurationGenerator,
@@ -231,12 +230,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         // Start local configuration to be able to read all local properties.
         try {
-            nodeCfgMgr.startAsync(componentContext).get(30, TimeUnit.SECONDS);
+            nodeConfigRegistry.startAsync(componentContext).get(30, TimeUnit.SECONDS);
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             throw new AssertionError(e);
         }
 
-        NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
+        NetworkConfiguration networkConfiguration = nodeConfigRegistry
                 .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
@@ -299,14 +298,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         Set<Validator<?, ?>> validators = new HashSet<>(modules.distributed().validators());
         validators.remove(AuthenticationProvidersValidatorImpl.INSTANCE);
 
-        var clusterCfgMgr = new ConfigurationManager(
+        var clusterConfigRegistry = new ConfigurationRegistry(
                 modules.distributed().rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, validators)
         );
-
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -332,7 +329,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 metastore,
                 logicalTopologyService,
                 catalogManager,
-                clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system(),
                 clockService,
                 new NoOpMetricManager(),
                 lowWatermark
@@ -341,13 +338,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Preparing the result map.
 
         components.add(vault);
-        components.add(nodeCfgMgr);
+        components.add(nodeConfigRegistry);
 
         // Start.
         assertThat(vault.startAsync(componentContext), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(componentContext), willCompleteSuccessfully());
+        assertThat(nodeConfigRegistry.startAsync(componentContext), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -357,7 +354,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 clusterSvc,
                 cmgManager,
                 metastore,
-                clusterCfgMgr,
+                clusterConfigRegistry,
                 clockWaiter,
                 catalogManager,
                 distributionZoneManager
@@ -372,15 +369,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         PartialNode partialNode = partialNode(
                 name,
-                nodeCfgMgr,
-                clusterCfgMgr,
+                nodeConfigRegistry,
+                clusterConfigRegistry,
                 metastore,
                 components,
                 localConfigurationGenerator,
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry,
                 clock
         );
 
