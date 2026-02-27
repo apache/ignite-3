@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.scheduleRetry;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
@@ -118,6 +119,7 @@ import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.TimeoutStrategy;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -239,6 +241,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
+    private final TimeoutStrategy timeoutStrategy;
+
     /**
      * Test-only constructor.
      *
@@ -275,7 +279,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TimeoutStrategy timeoutStrategy
     ) {
         this(
                 clusterService.nodeName(),
@@ -297,7 +302,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 lowWatermark,
                 commonScheduler,
                 new FailureManager(new NoOpFailureHandler()),
-                metricManager
+                metricManager,
+                timeoutStrategy
         );
     }
 
@@ -321,6 +327,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
      * @param metricManager Metric manager.
+     * @param timeoutStrategy Timeout strategy.
      */
     public TxManagerImpl(
             String nodeName,
@@ -342,7 +349,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
             FailureProcessor failureProcessor,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TimeoutStrategy timeoutStrategy
     ) {
         this.txConfig = txConfig;
         this.systemCfg = systemCfg;
@@ -404,10 +412,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 placementDriverHelper,
                 txStateVolatileStorage,
                 writeIntentSwitchPool,
-                commonScheduler
+                commonScheduler,
+                timeoutStrategy
         );
 
         txMetrics = new TransactionMetricsSource(clockService);
+
+        this.timeoutStrategy = timeoutStrategy;
     }
 
     @Override
@@ -836,7 +847,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      */
     private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
-            ZonePartitionId commitPartition,
+            @Nullable ZonePartitionId commitPartition,
             boolean commit,
             Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
@@ -857,6 +868,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                 txFinishFuture
                         ))
                 .handle((res, ex) -> {
+                    String timeoutKey = commitPartition == null ? txId.toString() : commitPartition.toString();
+
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapRootCause(ex);
 
@@ -881,14 +894,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             LOG.debug("Failed to finish Tx. The operation will be retried {}.", ex,
                                     formatTxInfo(txId, txStateVolatileStorage));
 
-                            return supplyAsync(() -> durableFinish(
-                                    observableTimestampTracker,
-                                    commitPartition,
-                                    commit,
-                                    enlistedPartitions,
-                                    txId,
-                                    commitTimestamp,
-                                    txFinishFuture
+                            return supplyAsync(() -> scheduleRetry(
+                                    () -> durableFinish(
+                                            observableTimestampTracker,
+                                            commitPartition,
+                                            commit,
+                                            enlistedPartitions,
+                                            txId,
+                                            commitTimestamp,
+                                            txFinishFuture
+                                    ),
+                                    timeoutStrategy.next(timeoutKey),
+                                    MILLISECONDS,
+                                    commonScheduler
                             ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx {}.", ex,
@@ -897,6 +915,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             return CompletableFuture.<Void>failedFuture(cause);
                         }
                     }
+
+                    timeoutStrategy.reset(timeoutKey);
 
                     return CompletableFutures.<Void>nullCompletedFuture();
                 })

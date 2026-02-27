@@ -257,6 +257,7 @@ import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
+import org.apache.ignite.internal.util.KeyBasedExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
@@ -1465,7 +1466,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     transactionInflights,
                     lowWatermark,
                     commonScheduledExecutorService,
-                    metricManager
+                    metricManager,
+                    new KeyBasedExponentialBackoffTimeoutStrategy(20)
             );
 
             replicaManager = spy(new ReplicaManager(

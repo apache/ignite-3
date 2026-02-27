@@ -56,6 +56,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.KeyBasedExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -167,7 +168,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         transactionInflights,
                         lowWatermark,
                         commonExecutor,
-                        new TestMetricManager()
+                        new TestMetricManager(),
+                        new KeyBasedExponentialBackoffTimeoutStrategy(20)
                 );
             }
         };

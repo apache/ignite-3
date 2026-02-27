@@ -196,6 +196,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
+import org.apache.ignite.internal.util.KeyBasedExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -634,7 +635,8 @@ public class Node {
                 transactionInflights,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                metricManager
+                metricManager,
+                new KeyBasedExponentialBackoffTimeoutStrategy(20)
         );
 
         volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(name, workDir.resolve("volatile-log-spillout-" + name));
