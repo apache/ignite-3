@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -184,15 +185,23 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         changeClusterName();
 
         ClusterState updatedState = listener.storageManager().getClusterState();
-        assertThat(updatedState, is(notNullValue()));
+        assertNotNull(updatedState);
 
-        assertThat(updatedState.cmgNodes(), is(state.cmgNodes()));
-        assertThat(updatedState.metaStorageNodes(), is(state.metaStorageNodes()));
-        assertThat(updatedState.clusterTag().clusterId(), is(state.clusterTag().clusterId()));
-        assertThat(updatedState.clusterTag().clusterName(), is("cluster2"));
-        assertThat(updatedState.version(), is(state.version()));
-        assertThat(updatedState.initialClusterConfiguration(), is(state.initialClusterConfiguration()));
-        assertThat(updatedState.formerClusterIds(), is(state.formerClusterIds()));
+        ClusterTag expectedTag = msgFactory.clusterTag()
+                .clusterName("cluster2")
+                .clusterId(state.clusterTag().clusterId())
+                .build();
+
+        ClusterState expectedState = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(state.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(state.metaStorageNodes()))
+                .version(state.version())
+                .clusterTag(expectedTag)
+                .initialClusterConfiguration(state.initialClusterConfiguration())
+                .formerClusterIds(state.formerClusterIds())
+                .build();
+
+        assertThat(updatedState, is(expectedState));
     }
 
     @Test
