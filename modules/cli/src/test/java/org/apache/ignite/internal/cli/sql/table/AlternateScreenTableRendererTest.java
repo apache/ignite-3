@@ -39,8 +39,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link AlternateScreenTableRenderer}.
  *
- * <p>Uses a dumb terminal to avoid JLine pump thread issues in tests.
- * ANSI sequences are still written to the output stream regardless of terminal type.
+ * <p>Uses an xterm-256color virtual terminal so that ANSI escape sequences are preserved
+ * in the output stream (a dumb terminal strips the ESC byte from sequences).
  */
 class AlternateScreenTableRendererTest extends BaseIgniteAbstractTest {
 
@@ -51,7 +51,6 @@ class AlternateScreenTableRendererTest extends BaseIgniteAbstractTest {
     void setUp() throws IOException {
         termOutput = new ByteArrayOutputStream();
         // Provide enough input bytes for terminal.reader().read() calls in finish().
-        // DumbTerminal reads directly from the input stream without a pump thread.
         byte[] inputBytes = new byte[64];
         inputBytes[0] = '\n';
         ByteArrayInputStream termInput = new ByteArrayInputStream(inputBytes);
@@ -61,7 +60,7 @@ class AlternateScreenTableRendererTest extends BaseIgniteAbstractTest {
                 .jna(false)
                 .jansi(false)
                 .jni(false)
-                .type(Terminal.TYPE_DUMB)
+                .type("xterm-256color")
                 .size(new Size(120, 40))
                 .build();
     }
