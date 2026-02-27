@@ -679,6 +679,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         return renewableState.freeList().emptyDataPages();
     }
 
+    /** Returns the amount of free space (in bytes) in the partially filled pages. */
+    public long freeSpaceInFreeList() {
+        return renewableState.freeList().freeSpace();
+    }
+
     @Override
     public Cursor<RowId> scanWriteIntents() {
         return busy(() -> new WriteIntentsCursor(lockWriteIntentListHead()));
