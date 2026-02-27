@@ -18,7 +18,7 @@ object Project : Project({
     ).forEach { (ver, toxEnv, name) ->
         buildType(
             ApacheIgnite3CustomBuildType.Builder(PythonDbApiToxTest(ver, toxEnv, name))
-                .ignite3VCS().ignite3CommitStatusPublisher()
+                .ignite3VCS().ignite3BuildDependency().setupMavenProxy()
                 .defaultBuildTypeSettings().requireLinux()
                 .build().buildType
         )
