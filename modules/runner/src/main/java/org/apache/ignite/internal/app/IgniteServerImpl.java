@@ -22,7 +22,9 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
@@ -458,25 +460,39 @@ public class IgniteServerImpl implements IgniteServer {
 
                             return null;
                         } else {
-                            throw handleStartException(e);
+                            throw handleClusterStartException(e);
                         }
                     });
         } catch (Exception e) {
-            throw handleStartException(e);
+            throw handleClusterStartException(e);
         }
     }
 
-    @Override
-    public void start() {
-        sync(startAsync());
-    }
-
-    private static IgniteException handleStartException(Throwable e) {
+    private static IgniteException handleClusterStartException(Throwable e) {
         if (e instanceof IgniteException) {
             return (IgniteException) e;
         } else {
             return new NodeStartException("Error during node start.", e);
         }
+    }
+
+    @Override
+    public void start() {
+        CompletableFuture<Void> startFuture = startAsync().handle(IgniteServerImpl::handleNodeStartException);
+
+        sync(startFuture);
+    }
+
+    private static Void handleNodeStartException(Void v, Throwable e) {
+        if (e == null) {
+            return v;
+        }
+
+        throwIfError(e);
+
+        sneakyThrow(e);
+
+        return v;
     }
 
     private static void ackSuccessStart() {
@@ -617,10 +633,59 @@ public class IgniteServerImpl implements IgniteServer {
         try {
             future.get();
         } catch (ExecutionException e) {
+            if (hasCause(e, NodeStartException.class)) {
+                sneakyThrow(e.getCause());
+            }
+
             throw sneakyThrow(tryToCopyExceptionWithCause(e));
         } catch (InterruptedException e) {
             throw sneakyThrow(e);
         }
+    }
+
+    private static void throwIfError(Throwable exception) {
+        Error error = unwrapCause(exception, Error.class);
+
+        if (error == null) {
+            return;
+        }
+
+        throwIfExceptionInInitializerError(error);
+
+        throw new NodeStartException(
+                "Error occurred during node start, make sure that classpath and JVM execution arguments are correct.",
+                error
+        );
+    }
+
+    private static void throwIfExceptionInInitializerError(Error error) {
+        ExceptionInInitializerError initializerError = unwrapCause(error, ExceptionInInitializerError.class);
+
+        if (initializerError == null) {
+            return;
+        }
+
+        Throwable initializerErrorCause = initializerError.getCause();
+
+        if (initializerErrorCause == null) {
+            throw new NodeStartException(
+                    "Error during static components initialization with unknown cause, "
+                            + "make sure that classpath and JVM execution arguments are correct.",
+                    initializerError
+            );
+        }
+
+        if (initializerErrorCause instanceof IllegalAccessException) {
+            throw new NodeStartException(
+                    "Error during static components initialization due to illegal code access, check --add-opens JVM execution arguments.",
+                    initializerErrorCause
+            );
+        }
+
+        throw new NodeStartException(
+                "Error during static components initialization, make sure that classpath and JVM execution arguments are correct.",
+                initializerErrorCause
+        );
     }
 
     // TODO: remove after IGNITE-22721 gets resolved.

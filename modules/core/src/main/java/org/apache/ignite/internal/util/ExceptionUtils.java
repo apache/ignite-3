@@ -472,6 +472,28 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Unwraps exception cause until the given cause type from the given wrapper exception. If there is no any cause of the expected type
+     * then {@code null} will be returned.
+     *
+     * @param e The exception to unwrap.
+     * @param causeType Expected type of a cause to look up.
+     * @return The desired cause of the exception or {@code null} if it wasn't found.
+     */
+    public static @Nullable <T extends Throwable> T unwrapCause(Throwable e, Class<T> causeType) {
+        Throwable cause = e;
+
+        while (!causeType.isAssignableFrom(cause.getClass()) && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
+        if (!causeType.isInstance(cause)) {
+            return null;
+        }
+
+        return (T) cause;
+    }
+
+    /**
      * Unwraps the root cause of the given exception.
      *
      * @param e The exception to unwrap.
