@@ -437,7 +437,7 @@ public class IgniteImpl implements Ignite {
     private final SchemaManager schemaManager;
 
     /** Metric manager. */
-    private final MetricManager metricManager;
+    private final MetricManagerImpl metricManager;
 
     /** Metric messaging. */
     private final MetricMessaging metricMessaging;
@@ -555,7 +555,7 @@ public class IgniteImpl implements Ignite {
 
         lifecycleManager = new LifecycleManager(name);
 
-        metricManager = new MetricManagerImpl();
+        metricManager = new MetricManagerImpl(name, () -> clusterState().clusterTag().clusterId());
 
         threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
@@ -815,6 +815,8 @@ public class IgniteImpl implements Ignite {
                 KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         );
 
+        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
+
         eventLog = new EventLogImpl(
                 clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
                 () -> clusterState().clusterTag().clusterId(),
@@ -962,12 +964,6 @@ public class IgniteImpl implements Ignite {
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
                 threadPoolsManager.commonScheduler()
-        );
-
-        metricManager.configure(
-                clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics(),
-                () -> clusterState().clusterTag().clusterId(),
-                name
         );
 
         DataStorageModules dataStorageModules = new DataStorageModules(

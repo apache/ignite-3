@@ -155,6 +155,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
@@ -382,7 +383,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         NetworkConfiguration networkConfiguration = nodeConfigRegistry
                 .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
-        var metricManager = new MetricManagerImpl();
+        var metricManager = new MetricManagerImpl(name, clusterIdService::clusterId);
 
         var threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
@@ -554,6 +555,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributedConfigurationGenerator,
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
+
+        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
