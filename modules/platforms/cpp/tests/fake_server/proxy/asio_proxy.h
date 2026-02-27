@@ -16,13 +16,15 @@
 
 #pragma once
 
+#include <atomic>
 #include <iostream>
-#include <queue>
-#include <tuple>
 #include <map>
+#include <memory>
+#include <queue>
+#include <thread>
+#include <vector>
 
 #include <asio.hpp>
-#include <asio/ts/buffer.hpp>
 #include <asio/ts/internet.hpp>
 
 #include "message.h"
