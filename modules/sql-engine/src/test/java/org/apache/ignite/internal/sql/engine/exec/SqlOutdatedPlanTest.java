@@ -21,13 +21,16 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -50,8 +53,10 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -103,6 +108,11 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @AfterEach
+    void stopCluster() throws Exception {
+        cluster.stop();
+    }
+
     @ParameterizedTest
     @EnumSource(TxType.class)
     void planningIsRepeatedUsingTheSameTransaction(TxType type) {
@@ -134,13 +144,15 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
 
         semaphore2.release();
 
-        await(await(fut).closeAsync());
+        AsyncSqlCursor<InternalSqlRow> cursor = await(fut);
 
         // Planning must be repeated, but only once.
         assertThat(prepareServiceSpy.callsCounter.get(), is(2));
 
         // Transaction should be started only once.
         assertThat(txContext.startedTxCounter.get(), is(1));
+
+        drainAndCloseCursor(cursor);
     }
 
     @Test
@@ -167,13 +179,22 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
 
         semaphore.release();
 
-        await(await(fut).closeAsync());
+        AsyncSqlCursor<InternalSqlRow> cursor = await(fut);
 
         // Planning must be repeated, but only once.
         assertThat(prepareServiceSpy.callsCounter.get(), is(2));
 
         // The plan execution must be repeated using a new transaction.
         assertThat(txContext.startedTxCounter.get(), is(2));
+
+        drainAndCloseCursor(cursor);
+    }
+
+    private static void drainAndCloseCursor(AsyncSqlCursor<InternalSqlRow> cursor) {
+        BatchedResult<InternalSqlRow> result = await(cursor.requestNextAsync(1024));
+        assertThat(result.items(), is(not(empty())));
+        assertThat(result.hasMore(), is(false));
+        await(cursor.closeAsync());
     }
 
     private static CatalogCommand makeAddColumnCommand(String columnName) {
@@ -196,7 +217,7 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
                         Semaphore semaphore = prepareBlockHolder.get();
 
                         try {
-                            semaphore.acquire();
+                            semaphore.tryAcquire(10, TimeUnit.SECONDS);
                         } catch (InterruptedException e) {
                             throw new RuntimeException(e);
                         } finally {
