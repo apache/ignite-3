@@ -756,10 +756,16 @@ public class ClientInboundMessageHandler
         if (extCnt > 0) {
             packer.packInt(extCnt);
 
+            if (retriable) {
+                packer.packString(ErrorExtensions.FLAGS);
+                packer.packInt(ErrorFlags.RETRIABLE.mask());
+            }
+
             if (schemaVersionMismatchException != null) {
                 packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
                 packer.packInt(schemaVersionMismatchException.expectedVersion());
             } else if (sqlBatchException != null) {
+                // TODO IGNITE-28012 SQL_UPDATE_COUNTERS is an array and must come last
                 packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
                 packer.packLongArray(sqlBatchException.updateCounters());
             } else if (delayedAckException != null) {
@@ -768,11 +774,6 @@ public class ClientInboundMessageHandler
             } else if (killedException != null) {
                 packer.packString(ErrorExtensions.TX_KILL);
                 packer.packUuid(killedException.txId());
-            }
-
-            if (retriable) {
-                packer.packString(ErrorExtensions.FLAGS);
-                packer.packInt(ErrorFlags.RETRIABLE.mask());
             }
         } else {
             packer.packNil(); // No extensions.
