@@ -1345,7 +1345,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptor;
     }
 
-    private static ByteArray zoneRecoveryTriggerRevisionKey(int zoneId) {
+    static ByteArray zoneRecoveryTriggerRevisionKey(int zoneId) {
         return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + zoneId);
     }
 

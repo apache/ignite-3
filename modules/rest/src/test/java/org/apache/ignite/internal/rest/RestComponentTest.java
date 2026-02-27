@@ -39,11 +39,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.eventlog.api.EventLog;
@@ -64,6 +64,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
@@ -71,6 +72,7 @@ import org.mockito.Mockito;
 /**
  * Test suite for {@link RestComponent}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class RestComponentTest extends BaseIgniteAbstractTest {
     private final RestManager restManager = new RestManager();
 
@@ -91,15 +93,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 List.of(RestExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
                 List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
-        ConfigurationManager configurationManager = new ConfigurationManager(
+        var configurationRegistry = new ConfigurationRegistry(
                 List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
                 new TestConfigurationValidator()
         );
-        assertThat(configurationManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(configurationRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
         RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestExtensionConfiguration.KEY).rest();
 
         ClusterManagementGroupManager cmg = mock(ClusterManagementGroupManager.class);
@@ -109,8 +110,8 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
         AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, EventLog.NOOP);
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
-                configurationManager,
-                mock(ConfigurationManager.class)
+                configurationRegistry,
+                mock(ConfigurationRegistry.class)
         );
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
         Supplier<RestFactory> restEventsFactory = () -> new RestEventsFactory(EventLog.NOOP, "NOOP");

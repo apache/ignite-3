@@ -276,21 +276,21 @@ public class IgniteDistributedCacheTests(string keyPrefix) : IgniteTestsBase
 
         var entryOptions = new DistributedCacheEntryOptions
         {
-            SlidingExpiration = TimeSpan.FromSeconds(0.5)
+            SlidingExpiration = TimeSpan.FromSeconds(1)
         };
 
         await cache.SetAsync("x", [1], entryOptions);
         Assert.IsNotNull(await cache.GetAsync("x"));
 
         // Access before expiration to reset the timer.
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 15; i++)
         {
             await Task.Delay(TimeSpan.FromSeconds(0.1));
             Assert.IsNotNull(await cache.GetAsync("x"));
         }
 
         // Wait for expiration without accessing.
-        await Task.Delay(TimeSpan.FromSeconds(0.7));
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
         Assert.IsNull(await cache.GetAsync("x"));
     }
 

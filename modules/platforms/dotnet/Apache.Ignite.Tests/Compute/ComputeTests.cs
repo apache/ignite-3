@@ -191,7 +191,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestAllSupportedArgTypes()
+        public async Task TestAllSupportedArgTypes([Values(true, false)] bool colocated)
         {
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);
@@ -224,7 +224,22 @@ namespace Apache.Ignite.Tests.Compute
             await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
             await Test(Guid.NewGuid());
 
+            await Test(new IgniteTuple { ["foo"] = "bar", ["baz"] = 42 }, "TupleImpl [FOO=bar, BAZ=42]");
+
             async Task Test(object val, string? expectedStr = null)
+            {
+                if (colocated)
+                {
+                    await Test0(val, expectedStr, JobTarget.Colocated(TableName, 1L));
+                }
+                else
+                {
+                    await Test0(val, expectedStr, JobTarget.AnyNode(await Client.GetClusterNodesAsync()));
+                }
+            }
+
+            async Task Test0<TTarget>(object val, string? expectedStr, IJobTarget<TTarget> target)
+                where TTarget : notnull
             {
                 var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
@@ -994,7 +1009,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestCustomMarshaller()
+        public async Task TestCustomMarshaller([Values(true, false)] bool colocated)
         {
             var job = new JobDescriptor<Nested, Nested>(PlatformTestNodeRunner + "$ToStringMarshallerJob")
             {
@@ -1004,16 +1019,22 @@ namespace Apache.Ignite.Tests.Compute
 
             var arg = new Nested(Guid.NewGuid(), 1.234m);
 
-            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
-            Nested res = await exec.GetResultAsync();
-
-            var nullExec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null!);
-            Nested nullRes = await nullExec.GetResultAsync();
+            Nested res = await ExecJob(arg);
+            Nested nullRes = await ExecJob(null);
 
             Assert.AreEqual(arg.Id, res.Id);
             Assert.AreEqual(arg.Price + 1, res.Price);
 
             Assert.IsNull(nullRes);
+
+            async Task<Nested> ExecJob(Nested? arg0)
+            {
+                var jobExec = colocated
+                    ? await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, 1L), job, arg0!)
+                    : await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg0!);
+
+                return await jobExec.GetResultAsync();
+            }
         }
 
         [Test]

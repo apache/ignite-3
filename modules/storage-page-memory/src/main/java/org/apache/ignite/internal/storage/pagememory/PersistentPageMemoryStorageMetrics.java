@@ -21,6 +21,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.LongGauge;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
@@ -31,7 +32,7 @@ class PersistentPageMemoryStorageMetrics {
 
     /** Initializes metrics in the given metric source. */
     static void initMetrics(
-            PersistentPageMemoryStorageMetricSource source,
+            CollectionMetricSource source,
             FilePageStoreManager filePageStoreManager
     ) {
         source.addMetric(new LongGauge(

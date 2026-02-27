@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
@@ -85,6 +86,17 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     private List<IgniteServer> nodes;
 
     /**
+     * Enables stack traces for a node.
+     *
+     * @param nodeIdx Node index to test.
+     *
+     * @return The flag value.
+     */
+    protected boolean enableTracesPredicate(int nodeIdx) {
+        return nodeIdx == 1;
+    }
+
+    /**
      * Before all.
      */
     @BeforeAll
@@ -97,7 +109,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                     "ignite {\n"
                             + "  network.port: " + (3344 + i) + ",\n"
                             + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
-                            + (i == 1 ? ("  clientConnector.sendServerExceptionStackTraceToClient: true\n"
+                            + (enableTracesPredicate(i) ? ("  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                             + "  clientConnector.metricsEnabled: true\n") : "")
                             + "  clientConnector.port: " + (10800 + i) + ",\n"
                             + "  rest.port: " + (10300 + i) + ",\n"
@@ -209,6 +221,10 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
     protected Ignite server(int idx) {
         return startedNodes.get(idx);
+    }
+
+    protected Ignite server(ClusterNode node) {
+        return IntStream.range(0, nodes()).mapToObj(this::server).filter(n -> n.name().equals(node.name())).findFirst().orElseThrow();
     }
 
     protected ClusterNode node(int idx) {

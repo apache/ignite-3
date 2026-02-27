@@ -35,6 +35,11 @@ public class DetectFailedEntriesExample {
 
     private static final int ACCOUNTS_COUNT = 10;
 
+    /**
+     * Runs the DetectFailedEntriesExample.
+     *
+     * @param arg The command line arguments.
+     */
     public static void main(String[] arg) {
 
         try (IgniteClient client = IgniteClient.builder()

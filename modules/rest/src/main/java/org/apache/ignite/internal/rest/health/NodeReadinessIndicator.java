@@ -39,7 +39,7 @@ import reactor.core.publisher.Flux;
 @Singleton
 @Readiness
 public class NodeReadinessIndicator implements HealthIndicator {
-    private static final IgniteLogger LOG = Loggers.forClass(HealthIndicator.class);
+    private static final IgniteLogger LOG = Loggers.forClass(NodeReadinessIndicator.class);
 
     private final JoinFutureProvider joinFutureProvider;
 

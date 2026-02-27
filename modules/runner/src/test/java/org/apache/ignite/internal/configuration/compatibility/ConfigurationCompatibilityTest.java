@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.compatibility;
 
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager.loadSnapshotFromResource;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,15 +29,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Enumeration;
-import java.util.HashSet;
 import java.util.List;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
-import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNodeSerializer;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.configuration.compatibility.framework.Configur
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -108,7 +108,12 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     @MethodSource("getSnapshots")
     void testConfigurationCompatibility(String fileName) throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
-        Set<ConfigurationModule> allModules = allModules();
+
+        ClassLoader classLoader = ConfigurationCompatibilityTest.class.getClassLoader();
+        Set<ConfigurationModule> allModules = ServiceLoader.load(ConfigurationModule.class, classLoader).stream()
+                .map(Provider::get)
+                .collect(toUnmodifiableSet());
+
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
         ComparisonContext ctx = ComparisonContext.create(allModules);
@@ -116,15 +121,8 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, ctx);
     }
 
-    private static Set<ConfigurationModule> allModules() {
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(ConfigurationCompatibilityTest.class.getClassLoader());
-
-        return new HashSet<>(modules);
-    }
-
     static List<ConfigNode> loadCurrentConfiguration() {
-        ConfigurationModules modules = loadConfigurationModules(ConfigurationCompatibilityTest.class.getClassLoader());
+        ConfigurationModules modules = ConfigurationModules.create(ConfigurationCompatibilityTest.class.getClassLoader());
 
         ConfigurationModule local = modules.local();
         ConfigurationModule distributed = modules.distributed();
@@ -145,19 +143,6 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         ConfigurationTreeScanner.scan(root, rootClass, scanContext);
 
         return root;
-    }
-
-    /** Load configuration modules from classpath. */
-    private static ConfigurationModules loadConfigurationModules(@Nullable ClassLoader classLoader) {
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
-
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        return new ConfigurationModules(modules);
     }
 
     /**

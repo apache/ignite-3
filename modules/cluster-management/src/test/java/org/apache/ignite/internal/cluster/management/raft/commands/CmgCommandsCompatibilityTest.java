@@ -49,6 +49,7 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
     protected Collection<Command> commandsToSerialize() {
         return List.of(
                 createChangeMetaStorageInfoCommand(),
+                createChangeClusterNameCommand(),
                 createInitCmgStateCommand(),
                 createJoinReadyCommand(),
                 createJoinRequestCommand(),
@@ -58,6 +59,14 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
                 createReadStateCommand(),
                 createReadValidatedNodesCommand()
         );
+    }
+
+    @Test
+    @TestForCommand(ChangeClusterNameCommand.class)
+    void testChangeClusterNameCommand() {
+        ChangeClusterNameCommand command = decodeCommand("CEANY2x1c3Rlck5hbWUy");
+
+        assertEquals("clusterName2", command.clusterName());
     }
 
     @Test
@@ -210,6 +219,12 @@ public class CmgCommandsCompatibilityTest extends BaseCommandsCompatibilityTest 
         return factory.initCmgStateCommand()
                 .node(createClusterNodeMessage())
                 .clusterState(createClusterState())
+                .build();
+    }
+
+    private ChangeClusterNameCommand createChangeClusterNameCommand() {
+        return factory.changeClusterNameCommand()
+                .clusterName("clusterName2")
                 .build();
     }
 

@@ -822,22 +822,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return nullCompletedFuture();
     }
 
-    private static void cleanupMetaStorageServiceFuture(CompletableFuture<MetaStorageServiceImpl> future) {
-        future.completeExceptionally(new NodeStoppingException());
-
-        if (future.isCancelled() || future.isCompletedExceptionally()) {
-            return;
-        }
-
-        assert future.isDone();
-
-        MetaStorageServiceImpl res = future.join();
-
-        assert res != null;
-
-        res.close();
-    }
-
     @Override
     public long appliedRevision() {
         return appliedRevision;

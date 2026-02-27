@@ -27,13 +27,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.InvalidNodeConfigurationException;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeClusterNameCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -59,7 +59,7 @@ import org.jetbrains.annotations.Nullable;
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
  */
 public class CmgRaftService implements ManuallyCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CmgRaftService.class);
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
@@ -344,6 +344,18 @@ public class CmgRaftService implements ManuallyCloseable {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-26855.
             return raftService.resetLearners(newConfiguration.learners(), 0);
         }
+    }
+
+    /**
+     * Changes cluster name.
+     *
+     * @return Future that completes when the change is finished.
+     */
+    public CompletableFuture<Void> changeClusterName(String clusterName) {
+        ChangeClusterNameCommand command = msgFactory.changeClusterNameCommand()
+                .clusterName(clusterName)
+                .build();
+        return raftService.run(command);
     }
 
     /**

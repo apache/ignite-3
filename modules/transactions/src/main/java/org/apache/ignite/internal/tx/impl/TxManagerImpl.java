@@ -21,7 +21,6 @@ import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
@@ -459,6 +458,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
+        if (readOnly && txOptions.txLabel() != null) {
+            throw new TransactionException(Common.ILLEGAL_ARGUMENT_ERR, "Labels are not supported for read only transactions");
+        }
+
         InternalTransaction tx;
 
         if (readOnly) {
@@ -491,7 +494,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txId,
                 localNodeId,
                 implicit,
-                timeout
+                timeout,
+                options.killClosure()
         );
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
@@ -588,7 +592,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(senderGroupId);
 
-        if (enlistment != null && enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
+        // Enlistment for thin client direct request may be absent on coordinator.
+        if (enlistment == null || enlistment.consistencyToken() != currentEnlistmentConsistencyToken) {
             // Remote partition already has different consistency token, so we can't commit this transaction anyway.
             // Even when graceful primary replica switch is done, we can get here only if the write intent that requires resolution
             // is not under lock.
@@ -602,6 +607,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         return newMeta;
                     });
         }
+
+        LOG.info("Skipped aborting on coordinator a transaction that lost its primary replica's volatile state "
+                        + "[txId={}, internalTx={}, enlistment={}, senderCurrentConsistencyToken={}, txMeta={}].",
+                tx.id(),
+                tx,
+                enlistment,
+                currentEnlistmentConsistencyToken,
+                txMeta
+        );
 
         return completedFuture(txMeta);
     }
@@ -1133,7 +1147,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> cleanup(
             @Nullable ZonePartitionId commitPartitionId,
-            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -1190,13 +1204,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
+        return txCleanupRequestHandler.discardLocalWriteIntents(groups, txId).handle((r, e) -> {
+            // We don't need tx state any more.
+            updateTxMeta(txId, old -> null);
+            return null;
+        });
+    }
+
+    @Override
     public int lockRetryCount() {
         return lockRetryCount;
     }
 
     @Override
-    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
-        return runAsync(runnable, writeIntentSwitchPool);
+    public Executor writeIntentSwitchExecutor() {
+        return writeIntentSwitchPool;
     }
 
     void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp) {

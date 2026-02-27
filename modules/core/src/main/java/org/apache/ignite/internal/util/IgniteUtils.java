@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,6 +60,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1337,6 +1339,35 @@ public class IgniteUtils {
         }
 
         return list.toArray();
+    }
+
+    /**
+     * Schedules the provided operation to be retried after the specified delay.
+     *
+     * @param operation Operation.
+     * @param delay Delay.
+     * @param unit Time unit of the delay.
+     * @param executor Executor to schedule the retry in.
+     * @return Future that is completed when the operation is successful or failed with an exception.
+     */
+    public static <T> CompletableFuture<T> scheduleRetry(
+            Callable<CompletableFuture<T>> operation,
+            long delay,
+            TimeUnit unit,
+            ScheduledExecutorService executor
+    ) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+
+        executor.schedule(() -> operation.call()
+                .whenComplete((res, e) -> {
+                    if (e == null) {
+                        future.complete(res);
+                    } else {
+                        future.completeExceptionally(e);
+                    }
+                }), delay, unit);
+
+        return future;
     }
 
     private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {

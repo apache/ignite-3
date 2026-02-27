@@ -266,13 +266,6 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         );
     }
 
-    private static CatalogCommand createZoneParams(@Nullable Integer scaleUp, @Nullable Integer scaleDown) {
-        return createZoneBuilder()
-                .dataNodesAutoAdjustScaleUp(scaleUp)
-                .dataNodesAutoAdjustScaleDown(scaleDown)
-                .build();
-    }
-
     private static CreateZoneCommandBuilder createZoneBuilder() {
         return CatalogTestUtils.createZoneBuilder(ZONE_NAME);
     }

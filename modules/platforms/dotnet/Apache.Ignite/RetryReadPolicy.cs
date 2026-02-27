@@ -65,6 +65,7 @@ namespace Apache.Ignite
                 ClientOperationType.ComputeGetStatus => true,
                 ClientOperationType.StreamerBatchSend => false,
                 ClientOperationType.StreamerWithReceiverBatchSend => false,
+                ClientOperationType.TupleContainsAllKeys => true,
                 ClientOperationType.PrimaryReplicasGet => true,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };

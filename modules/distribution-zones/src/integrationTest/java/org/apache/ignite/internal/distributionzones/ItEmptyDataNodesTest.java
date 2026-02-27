@@ -160,10 +160,6 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
         return nodeFut.join();
     }
 
-    private void sql(String sql) {
-        cluster.aliveNode().sql().execute(sql);
-    }
-
     private CompletableFuture<?> sqlAsync(String sql) {
         return cluster.aliveNode().sql().executeAsync(sql);
     }

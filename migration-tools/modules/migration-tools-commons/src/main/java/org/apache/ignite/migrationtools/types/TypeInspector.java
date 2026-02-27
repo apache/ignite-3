@@ -95,33 +95,39 @@ public class TypeInspector {
         } else if (isPrimitiveType(rootType)) {
             return Collections.singletonList(InspectedField.forUnnamed(rootTypeName, InspectedFieldType.PRIMITIVE));
         } else {
-            Field[] fields = rootType.getDeclaredFields();
-            List<InspectedField> ret = new ArrayList<>(fields.length);
-            for (Field field : fields) {
-                if (shouldPersistField(field)) {
-                    @Nullable QuerySqlField annotation = field.getAnnotation(QuerySqlField.class);
-                    boolean hasAnnotation = annotation != null;
+            Class<?> currentType = type;
+            ArrayList<InspectedField> ret = new ArrayList<>();
+            do {
+                Field[] fields = currentType.getDeclaredFields();
+                ret.ensureCapacity(ret.size() + fields.length);
+                for (Field field : fields) {
+                    if (shouldPersistField(field)) {
+                        @Nullable QuerySqlField annotation = field.getAnnotation(QuerySqlField.class);
+                        boolean hasAnnotation = annotation != null;
 
-                    Class<?> origFieldType = field.getType();
-                    Class<?> wrappedFieldType = ClassUtils.primitiveToWrapper(origFieldType);
+                        Class<?> origFieldType = field.getType();
+                        Class<?> wrappedFieldType = ClassUtils.primitiveToWrapper(origFieldType);
 
-                    boolean nullable = !origFieldType.isPrimitive();
+                        boolean nullable = !origFieldType.isPrimitive();
 
-                    InspectedFieldType inspectedFieldType = isPrimitiveType(wrappedFieldType)
-                            ? InspectedFieldType.POJO_ATTRIBUTE
-                            : InspectedFieldType.NESTED_POJO_ATTRIBUTE;
+                        InspectedFieldType inspectedFieldType = isPrimitiveType(wrappedFieldType)
+                                ? InspectedFieldType.POJO_ATTRIBUTE
+                                : InspectedFieldType.NESTED_POJO_ATTRIBUTE;
 
-                    InspectedField inspectedField = InspectedField.forNamed(
-                            field.getName(),
-                            wrappedFieldType.getName(),
-                            inspectedFieldType,
-                            nullable,
-                            hasAnnotation
-                    );
+                        InspectedField inspectedField = InspectedField.forNamed(
+                                field.getName(),
+                                wrappedFieldType.getName(),
+                                inspectedFieldType,
+                                nullable,
+                                hasAnnotation
+                        );
 
-                    ret.add(inspectedField);
+                        ret.add(inspectedField);
+                    }
                 }
-            }
+
+                currentType = currentType.getSuperclass();
+            } while (currentType != Object.class && currentType != null);
 
             return ret;
         }

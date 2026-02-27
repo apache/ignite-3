@@ -33,8 +33,10 @@ javax = "1.3.2"
 jetbrainsAnnotations = "26.0.2-1"
 jline = "3.29.0"
 jmh = "1.37"
-junit5 = "5.14.2"
+junit5 = "5.14.3"
 junit5-platform = "1.14.2"
+junit6 = "6.0.2"
+junit6-platform = "6.0.2"
 junitPioneer = "2.3.0"
 jsr305 = "3.0.2"
 okhttp = "5.3.2"
@@ -72,7 +74,7 @@ msgpack = "0.8.24"
 caffeine = "3.2.3"
 fastutil = "8.5.18"
 kryo = "5.6.2"
-bytebuddy = "1.18.4"
+bytebuddy = "1.18.5"
 wiremock = "3.13.2"
 archunit = "1.4.1"
 testkit = "1.14.3"
@@ -117,7 +119,7 @@ dockerRemoteApi = "com.bmuschko.docker-remote-api:10.0.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
-ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.4"
+ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.4.1"
 spotbugs = "com.github.spotbugs:6.4.8"
 jmh = 'me.champeau.jmh:0.7.3'
 jmhReport = 'io.morethan.jmhreport:0.9.6'
@@ -125,6 +127,8 @@ license = 'com.github.jk1.dependency-license-report:2.9'
 
 
 [libraries]
+checkstyle = { module = "com.puppycrawl.tools:checkstyle", version.ref = "checkstyleTool" }
+
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 
 bouncycastle-bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
@@ -156,6 +160,11 @@ junit-testkit = { module = "org.junit.platform:junit-platform-testkit", version.
 
 # junit platform
 junit5-platform-console = { module = "org.junit.platform:junit-platform-console", version.ref = "junit5-platform" }
+
+#JUnit 6 (for Spring Boot 4.x modules)
+junit6-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit6" }
+junit6-impl = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit6" }
+junit6-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit6" }
 
 #junit-pioneer
 junit-pioneer = { module = "org.junit-pioneer:junit-pioneer", version.ref = "junitPioneer" }
@@ -320,6 +329,7 @@ japicmp = { module = "com.github.siom79.japicmp:japicmp", version.ref = "japicmp
 
 [bundles]
 junit = ["junit5-api", "junit5-impl", "junit5-params", "junit-pioneer"]
+junit6 = ["junit6-api", "junit6-impl", "junit6-params", "junit-pioneer"]
 mockito = ["mockito-core", "mockito-junit"]
 hamcrest = ["hamcrest-core", "hamcrest-optional", "hamcrest-path"]
 log4j = ["jansi-core", "log4j-api", "log4j-core", "log4j-bridge", "slf4j-log4j"]
