@@ -21,13 +21,12 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VER
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitCallInput;
 import org.apache.ignite.internal.cli.call.cluster.unit.UndeployUnitReplCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -35,7 +34,7 @@ import picocli.CommandLine.Parameters;
 
 /** Command to undeploy a unit in REPL mode. */
 @Command(name = "undeploy", description = "Undeploys a unit")
-public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runnable {
+public class ClusterUnitUndeployReplCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
     private ClusterUrlMixin clusterUrl;
@@ -51,20 +50,15 @@ public class ClusterUnitUndeployReplCommand extends BaseCommand implements Runna
     @Inject
     private UndeployUnitReplCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(clusterUrl -> UndeployUnitCallInput.builder()
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(() -> UndeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
-                        .clusterUrl(clusterUrl)
+                        .clusterUrl(clusterUrl.getClusterUrl())
                         .build())
-                .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot undeploy unit"))
-                .print()
+                .exceptionHandler(createHandler("Cannot undeploy unit"))
         );
     }
 }

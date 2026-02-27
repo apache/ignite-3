@@ -25,9 +25,10 @@ import jakarta.inject.Inject;
 import java.net.URL;
 import org.apache.ignite.internal.cli.commands.ProfileMixin;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
+import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -52,22 +53,34 @@ public class ClusterUrlMixin {
     @Inject
     private ConfigManagerProvider configManagerProvider;
 
+    @Inject
+    private Session session;
+
     /**
-     * Gets cluster URL from either the command line or from the specified profile in the config.
+     * Gets cluster URL from either the command line, the specified profile, the session, or the config default.
      *
      * @return cluster URL
      */
     @Nullable
     public String getClusterUrl() {
+        // First, get the cluster from the url option.
         if (clusterUrl != null) {
             return clusterUrl.toString();
-        } else {
-            String profileName = profile.getProfileName();
-            if (profileName != null) {
-                ConfigManager configManager = configManagerProvider.get();
-                return configManager.getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName);
-            }
         }
-        return null;
+
+        // Then get it from the specified profile.
+        String profileName = profile.getProfileName();
+        if (profileName != null) {
+            return configManagerProvider.get().getProperty(CliConfigKeys.CLUSTER_URL.value(), profileName);
+        }
+
+        // Then get it from the session.
+        SessionInfo sessionInfo = session.info();
+        if (sessionInfo != null) {
+            return sessionInfo.nodeUrl();
+        }
+
+        // Finally, get it from the default profile in the config.
+        return configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value());
     }
 }

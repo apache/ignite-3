@@ -54,7 +54,6 @@ import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.Session;
@@ -140,9 +139,6 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void run() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
@@ -179,7 +175,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
 
                 SqlExceptionHandler.INSTANCE.handle(exceptionWriter, e);
             } catch (ApiException apiE) {
-                new ClusterNotInitializedExceptionHandler("Failed to start sql repl mode", "cluster init")
+                createHandler("Failed to start sql repl mode")
                         .handle(exceptionWriter, new IgniteCliApiException(apiE, url));
             }
         }

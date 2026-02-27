@@ -22,9 +22,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCall;
 import org.apache.ignite.internal.cli.call.recovery.reset.ResetPartitionsCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -33,7 +32,7 @@ import picocli.CommandLine.Mixin;
 public class ResetPartitionsCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Mixin
     private ResetPartitionsMixin options;
@@ -45,7 +44,7 @@ public class ResetPartitionsCommand extends BaseCommand implements Callable<Inte
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> ResetPartitionsCallInput.of(options, clusterUrl.getClusterUrl()))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot reset partitions"))
+                .exceptionHandler(createHandler("Cannot reset partitions"))
         );
     }
 }

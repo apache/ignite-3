@@ -24,7 +24,6 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -41,12 +40,11 @@ public class NodeMetricSourceEnableCommand extends BaseCommand implements Callab
     @Inject
     private NodeMetricSourceEnableCall call;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot enable metrics"))
+                .exceptionHandler(createHandler("Cannot enable metrics"))
         );
     }
 }

@@ -22,9 +22,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.management.zone.ResetDataNodesCall;
 import org.apache.ignite.internal.cli.call.management.zone.ResetDataNodesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -34,7 +33,7 @@ public class ResetDataNodesCommand extends BaseCommand implements Callable<Integ
 
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Mixin
     private ResetDataNodesMixin options;
@@ -46,7 +45,7 @@ public class ResetDataNodesCommand extends BaseCommand implements Callable<Integ
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> ResetDataNodesCallInput.of(options, clusterUrl.getClusterUrl()))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot reset data nodes"))
+                .exceptionHandler(createHandler("Cannot reset data nodes"))
         );
     }
 }
