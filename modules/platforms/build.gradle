@@ -309,6 +309,6 @@ private void updateDotnetVersion(String version) {
 }
 
 private void updatePythonVersion(String version) {
-    def versionFile = file("$projectDir/python/pyignite_dbapi/_version.txt")
+    def versionFile = file("$projectDir/python/dbapi/pyignite_dbapi/_version.txt")
     versionFile.text = pythonProjectVersion(version)
 }

@@ -3,7 +3,7 @@ name: "Build Python DB API Driver Wheels"
 on:
   push:
     paths:
-      - 'modules/platforms/python/**'
+      - 'modules/platforms/python/dbapi/**'
       - '.github/workflows/python_dbapi_wheels.yml'
 
   workflow_dispatch:
@@ -27,16 +27,16 @@ jobs:
         run: python -m pip install --upgrade setuptools packaging>=24.2
 
       - name: Copy C++ sources
-        run: cp -r modules/platforms/cpp modules/platforms/python/
+        run: cp -r modules/platforms/cpp modules/platforms/python/dbapi/
 
       - name: Build source distribution
-        working-directory: modules/platforms/python
+        working-directory: modules/platforms/python/dbapi
         run: python setup.py sdist --formats=gztar --dist-dir ./dist
 
       - uses: actions/upload-artifact@v4
         with:
           name: source-distributions
-          path: modules/platforms/python/dist/*
+          path: modules/platforms/python/dbapi/dist/*
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
@@ -80,7 +80,7 @@ jobs:
           vcpkg install openssl:x64-windows-static-md
 
       - name: Build wheels ${{ matrix.os }}
-        run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
+        run: python -m cibuildwheel --output-dir modules/platforms/python/dbapi/wheels modules/platforms/python/dbapi
         env:
           CIBW_BUILD: ${{ matrix.cibw_build || 'cp31{0,1,2,3,4}-*' }}
           CIBW_ARCHS: ${{ matrix.arch }}
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
-          path: modules/platforms/python/wheels/*.whl
+          path: modules/platforms/python/dbapi/wheels/*.whl
 
   merge:
     runs-on: ubuntu-latest

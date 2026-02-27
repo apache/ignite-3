@@ -17,19 +17,54 @@
 
 package org.apache.ignite.example.serialization;
 
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
+
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.example.util.DeployComputeUnit;
+
+/**
+ * This example demonstrates the usage of the {@link IgniteCompute#executeAsync} API with various serialization approaches.
+ *
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
+ */
 
 public class SerializationExample {
+
+    private static final String DEPLOYMENT_UNIT_NATIVE = "nativeSerializationExampleUnit";
+    private static final String DEPLOYMENT_UNIT_CUSTOM = "customPojoSerializationExampleUnit";
+    private static final String DEPLOYMENT_UNIT_AUTO = "pojoAutoSerializationExampleUnit";
+    private static final String DEPLOYMENT_UNIT_TUPLE = "tupleSerializationExampleUnit";
+    private static final String VERSION = "1.0.0";
 
     public static void main(String[] args) throws Exception {
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
 
+            DeployComputeUnit.processDeploymentUnit(args);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_NATIVE, VERSION, DeployComputeUnit.getJarPath());
             NativeTypeSerializationExample.runNativeSerialization(client);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_TUPLE, VERSION, DeployComputeUnit.getJarPath());
             TupleSerializationExample.runTupleSerialization(client);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_AUTO, VERSION, DeployComputeUnit.getJarPath());
             PojoAutoSerializationExample.runPojoAutoSerialization(client);
+
+            deployIfNotExist(DEPLOYMENT_UNIT_CUSTOM, VERSION, DeployComputeUnit.getJarPath());
             CustomPojoSerializationExample.runPojoCustomJsonSerialization(client);
+
+        } finally {
+
+            System.out.println("Cleaning up resources...");
+            undeployUnit(DEPLOYMENT_UNIT_CUSTOM, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_AUTO, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_NATIVE, VERSION);
+            undeployUnit(DEPLOYMENT_UNIT_TUPLE, VERSION);
+
         }
     }
 }
