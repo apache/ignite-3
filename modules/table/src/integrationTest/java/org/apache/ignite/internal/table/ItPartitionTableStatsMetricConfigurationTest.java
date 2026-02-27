@@ -22,15 +22,13 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.ItPartitionTableStatsMetricTest.expectNextMilestone;
 
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Check that partition modification counter settings are depends on configuration settings. */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-28002")
-public class ItPartitionTableStatsMetricConfigurationTest extends BaseSqlIntegrationTest {
+// TODO: Revisit test during https://issues.apache.org/jira/browse/IGNITE-28002
+public class ItPartitionTableStatsMetricConfigurationTest extends BasePartitionTableStatsMetricTest {
     private static final String ZONE_1_PART_NO_REPLICAS = "zone_single_partition_no_replicas";
     private static final int MIN_STALE_ROWS = 2;
     private static final double STALE_ROWS_FRACTION = 1.0d;
@@ -68,6 +66,8 @@ public class ItPartitionTableStatsMetricConfigurationTest extends BaseSqlIntegra
         sql(format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tableName, ZONE_1_PART_NO_REPLICAS));
 
         sql(format("INSERT INTO {} VALUES(0, 0), (1, 1);", tableName));
+
+        enableStats(tableName);
 
         expectNextMilestone(tableName, 2 * MIN_STALE_ROWS);
 
