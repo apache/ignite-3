@@ -14,7 +14,7 @@ object Project : Project({
             Triple("3.12", "py312", "Python DB API Tests - Python 3.12"),
             Triple("3.13", "py313", "Python DB API Tests - Python 3.13"),
             Triple("3.14", "py314", "Python DB API Tests - Python 3.14"),
-            Triple("3.14t", "py314", "Python DB API Tests (No GIL) - Python 3.14"),
+            Triple("3.14t", "py314t", "Python DB API Tests (No GIL) - Python 3.14"),
     ).forEach { (ver, toxEnv, name) ->
         buildType(
             ApacheIgnite3CustomBuildType.Builder(PythonDbApiToxTest(ver, toxEnv, name))
