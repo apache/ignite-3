@@ -19,10 +19,9 @@ import time
 import pytest
 
 import pyignite_dbapi
-from tests.util import server_addresses_basic
+from tests.conftest import TEST_CONNECT_KWARGS
 
 
-CONNECT_KWARGS = {"address": server_addresses_basic}
 NUM_THREADS = 50
 
 
@@ -77,7 +76,7 @@ def test_concurrent_module_import(module_level_threadsafety):
 
 def test_concurrent_connect_use_close(module_level_threadsafety):
     def task(_):
-        c = pyignite_dbapi.connect(**CONNECT_KWARGS)
+        c = pyignite_dbapi.connect(**TEST_CONNECT_KWARGS)
         with c.cursor() as cur:
             cur.execute("SELECT 1")
             assert cur.fetchone() is not None
@@ -118,7 +117,7 @@ def test_concurrent_commit_and_rollback(table, module_level_threadsafety):
     lock = threading.Lock()
 
     def task(thread_id):
-        with pyignite_dbapi.connect(**CONNECT_KWARGS) as conn:
+        with pyignite_dbapi.connect(**TEST_CONNECT_KWARGS) as conn:
             conn.autocommit = False
             with conn.cursor() as cur:
                 cur.execute(f"INSERT INTO {table} (id, data) VALUES (?, ?)", (thread_id, "x"))
@@ -133,7 +132,7 @@ def test_concurrent_commit_and_rollback(table, module_level_threadsafety):
 
     time.sleep(3.0)
 
-    with pyignite_dbapi.connect(**CONNECT_KWARGS) as conn:
+    with pyignite_dbapi.connect(**TEST_CONNECT_KWARGS) as conn:
         with conn.cursor() as cur:
             cur.execute(f"SELECT id FROM {table} ORDER BY id")
             found_ids = {row[0] for row in cur.fetchall()}
