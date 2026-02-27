@@ -51,7 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -100,15 +100,13 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = mock(PendingComparableValuesTracker.class);
 
-    private final TestMetricManager metricManager = new TestMetricManager();
-
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             replicaService,
             new NoOpFailureManager(),
             new CommittedFinalTransactionStateResolver(),
             indexMetaStorage,
-            metricManager
+            new NoOpMetricManager()
     );
 
     @BeforeEach

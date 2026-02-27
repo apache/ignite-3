@@ -35,11 +35,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.DoubleGauge;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
@@ -47,14 +49,12 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
@@ -458,13 +458,32 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
     private void initMetrics() {
         metricSource.addMetric(new LongGauge(
                 "TotalAllocatedSize",
-                "Total size of allocated pages on disk in bytes.",
-                this::totalAllocatedPagesSizeOnDiskInBytes
+                String.format("Total size of all pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
+                () -> totalAllocatedPagesCount() * pageSize
         ));
+
         metricSource.addMetric(new LongGauge(
                 "TotalUsedSize",
-                "Total size of non-empty allocated pages on disk in bytes.",
-                this::totalNonEmptyAllocatedPagesSizeOnDiskInBytes
+                String.format("Total size of all non-empty pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
+                () -> totalNonEmptyAllocatedPagesCount() * pageSize
+        ));
+
+        metricSource.addMetric(new LongGauge(
+                "TotalEmptySize",
+                String.format("Total size of all empty pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
+                () -> emptyPagesCount() * pageSize
+        ));
+
+        metricSource.addMetric(new LongGauge(
+                "TotalDataSize",
+                String.format("Total space occupied by data contained in pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
+                this::nonEmptySpaceBytes
+        ));
+
+        metricSource.addMetric(new DoubleGauge(
+                "PagesFillFactor",
+                "Ratio of number of bytes occupied by data to the total number of bytes occupied by pages that contain this data.",
+                this::pagesFillFactor
         ));
     }
 
@@ -481,47 +500,76 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
         metricSource.addMetric(new LongGauge(
                 "TotalAllocatedSize",
-                "Total size of all pages allocated by '" + ENGINE_NAME + "' storage engine for a given table, in bytes.",
-                () -> {
-                    long totalPages = tableStorage.mvPartitionStorages.stream()
-                            .mapToLong(PersistentPageMemoryMvPartitionStorage::pageCount)
-                            .sum();
-
-                    return pageSize * totalPages;
-                }
+                String.format("Total size of all pages allocated by \"%s\" storage engine for a given table, in bytes.", ENGINE_NAME),
+                () -> tableAllocatedPagesCount(tableStorage) * pageSize
         ));
     }
 
-    private long totalAllocatedPagesSizeOnDiskInBytes() {
-        long pageCount = 0;
-
-        for (PersistentPageMemoryTableStorage tableStorage : tableStorages.values()) {
-            for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
-                pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
-            }
-        }
-
-        return pageCount * pageSize;
+    private long totalAllocatedPagesCount() {
+        return tableStorages.values().stream()
+                .mapToLong(PersistentPageMemoryDataRegion::tableAllocatedPagesCount)
+                .sum();
     }
 
-    private long totalNonEmptyAllocatedPagesSizeOnDiskInBytes() {
-        long pageCount = 0;
-
-        for (PersistentPageMemoryTableStorage tableStorage : tableStorages.values()) {
-            for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
-                pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
-
-                pageCount -= partitionStorage.emptyDataPageCountInFreeList();
-            }
-        }
-
-        return pageCount * pageSize;
+    private static long tableAllocatedPagesCount(PersistentPageMemoryTableStorage tableStorage) {
+        return tableStorage.mvPartitionStorages.getAll().stream()
+                .mapToLong(PersistentPageMemoryMvPartitionStorage::pageCount)
+                .sum();
     }
 
-    private long allocatedPageCountOnDisk(int tableId, int partitionId) {
-        FilePageStore store = filePageStoreManager.getStore(new GroupPartitionId(tableId, partitionId));
+    private long totalNonEmptyAllocatedPagesCount() {
+        return allPartitions()
+                .mapToLong(partitionStorage -> partitionStorage.pageCount() - partitionStorage.emptyDataPageCountInFreeList())
+                .sum();
+    }
 
-        return store == null ? 0 : store.pages();
+    private long emptyPagesCount() {
+        return allPartitions()
+                .mapToLong(PersistentPageMemoryMvPartitionStorage::emptyDataPageCountInFreeList)
+                .sum();
+    }
+
+    private long nonEmptySpaceBytes() {
+        return allPartitions()
+                .mapToLong(partitionStorage -> {
+                    int pagesCount = partitionStorage.pageCount();
+
+                    int emptyPagesCount = partitionStorage.emptyDataPageCountInFreeList();
+
+                    long pagesWithData = (long) pagesCount - emptyPagesCount;
+
+                    return pagesWithData * pageSize - partitionStorage.freeSpaceInFreeList();
+                })
+                .sum();
+    }
+
+    /**
+     * Returns the ratio of space occupied by user and system data to the size of all pages that contain this data.
+     *
+     * <p>This metric can help to determine how much space of a data page is occupied on average. Low fill factor can
+     * indicate that data pages are very fragmented (i.e. there is a lot of empty space across all data pages).
+     */
+    private double pagesFillFactor() {
+        // Number of bytes used by pages that contain at least some data.
+        long totalUsedSpaceBytes = totalNonEmptyAllocatedPagesCount() * pageSize;
+
+        if (totalUsedSpaceBytes == 0) {
+            return 0;
+        }
+
+        // Amount of free space in these pages.
+        long freeSpaceBytes = allPartitions()
+                .mapToLong(PersistentPageMemoryMvPartitionStorage::freeSpaceInFreeList)
+                .sum();
+
+        // Number of bytes that contain useful data.
+        long nonEmptySpaceBytes = totalUsedSpaceBytes - freeSpaceBytes;
+
+        return (double) nonEmptySpaceBytes / totalUsedSpaceBytes;
+    }
+
+    private Stream<PersistentPageMemoryMvPartitionStorage> allPartitions() {
+        return tableStorages.values().stream().flatMap(tableStorage -> tableStorage.mvPartitionStorages.getAll().stream());
     }
 
     @Override
