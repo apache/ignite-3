@@ -180,7 +180,8 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void changeClusterNameChangesClusterName() {
-        initCmgAndChangeClusterName();
+        initCmg();
+        changeClusterName();
 
         ClusterState updatedState = listener.storageManager().getClusterState();
         assertThat(updatedState, is(notNullValue()));
@@ -196,7 +197,8 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void changeMetastorageInfoChangesMsInfo() {
-        initCmgAndChangeMgInfo();
+        initCmg();
+        changeMgInfo();
 
         ClusterState updatedState = listener.storageManager().getClusterState();
         assertThat(updatedState, is(notNullValue()));
@@ -211,14 +213,16 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         assertThat(listener.storageManager().getMetastorageRepairingConfigIndex(), is(123L));
     }
 
-    private void initCmgAndChangeClusterName() {
+    private void initCmg() {
         listener.onWrite(iterator(
                 msgFactory.initCmgStateCommand()
                         .clusterState(state)
                         .node(node)
                         .build()
         ));
+    }
 
+    private void changeClusterName() {
         listener.onWrite(iterator(
                 msgFactory.changeClusterNameCommand()
                         .clusterName("cluster2")
@@ -226,14 +230,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
         ));
     }
 
-    private void initCmgAndChangeMgInfo() {
-        listener.onWrite(iterator(
-                msgFactory.initCmgStateCommand()
-                        .clusterState(state)
-                        .node(node)
-                        .build()
-        ));
-
+    private void changeMgInfo() {
         listener.onWrite(iterator(
                 msgFactory.changeMetaStorageInfoCommand()
                         .metaStorageNodes(Set.of("new-ms-1", "new-ms-2"))
