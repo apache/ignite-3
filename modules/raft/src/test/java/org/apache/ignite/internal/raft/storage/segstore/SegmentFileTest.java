@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -112,7 +113,7 @@ class SegmentFileTest extends IgniteAbstractTest {
 
     @Test
     void testOpenExistingConstructorInvariants() throws IOException {
-        assertThrows(IllegalArgumentException.class, () -> SegmentFile.openExisting(path, false));
+        assertThrows(NoSuchFileException.class, () -> SegmentFile.openExisting(path, false));
 
         createSegmentFile(1);
 

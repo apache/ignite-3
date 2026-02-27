@@ -145,23 +145,31 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Ensures a field name is valid and a field with the specified name exists.
+     * Ensures a field name is valid and a field with the specified name exists in the class hierarchy.
      *
      * @param fieldName Field name.
      * @return Field name for chaining.
      * @throws IllegalArgumentException If a field is {@code null} or if the class has no declared field with the given name.
      */
     private String requireValidField(String fieldName) {
-        try {
-            if (fieldName == null || targetType.getDeclaredField(fieldName) == null) {
-                throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
-            }
-        } catch (NoSuchFieldException e) {
-            throw new IllegalArgumentException(
-                    String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
+        if (fieldName == null) {
+            throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
         }
 
-        return fieldName;
+        Class<?> currType = targetType;
+        do {
+            try {
+                currType.getDeclaredField(fieldName);
+                return fieldName;
+            } catch (NoSuchFieldException ignored) {
+                // Intentionally left blank.
+            }
+
+            currType = currType.getSuperclass();
+        } while (currType != Object.class && currType != null);
+
+        throw new IllegalArgumentException(
+                String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
     }
 
     /**

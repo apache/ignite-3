@@ -24,10 +24,12 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.examples.model.Address;
 import org.apache.ignite.examples.model.Organization;
 import org.apache.ignite.examples.model.OrganizationType;
+import org.apache.ignite.migrationtools.tests.models.IdentifiedPojo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -40,7 +42,7 @@ class TypeInspectorTest {
         List<InspectedField> inspectedTypes = inspectType(primitiveKlass);
 
         var expected = InspectedField.forUnnamed(typeName, InspectedFieldType.PRIMITIVE);
-        assertThat(inspectedTypes).containsExactly(expected);
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
     }
 
     private static Stream<Arguments> primitiveTypes() {
@@ -71,7 +73,7 @@ class TypeInspectorTest {
         List<InspectedField> inspectedTypes = inspectType(primitiveKlass);
 
         var expected = InspectedField.forUnnamed(primitiveKlass.getName(), InspectedFieldType.ARRAY);
-        assertThat(inspectedTypes).containsExactly(expected);
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
     }
 
     private static Stream<Arguments> arrayTypes() {
@@ -109,6 +111,20 @@ class TypeInspectorTest {
                 forNamed("lastUpdated", Timestamp.class.getName(), InspectedFieldType.POJO_ATTRIBUTE, true, false)
         };
 
-        assertThat(inspectedTypes).containsExactly(expected);
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
+    }
+
+    @Test
+    void testSuperClass() {
+        List<InspectedField> inspectedTypes = inspectType(IdentifiedPojo.class);
+
+        InspectedField[] expected = new InspectedField[] {
+                forNamed("name", String.class.getName(), InspectedFieldType.POJO_ATTRIBUTE, true, false),
+                forNamed("amount", Integer.class.getName(), InspectedFieldType.POJO_ATTRIBUTE, false, false),
+                forNamed("decimalAmount", Double.class.getName(), InspectedFieldType.POJO_ATTRIBUTE, true, false),
+                forNamed("id", UUID.class.getName(), InspectedFieldType.POJO_ATTRIBUTE, true, false)
+        };
+
+        assertThat(inspectedTypes).containsExactlyInAnyOrder(expected);
     }
 }

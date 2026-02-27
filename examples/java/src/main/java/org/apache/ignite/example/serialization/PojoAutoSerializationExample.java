@@ -36,6 +36,7 @@ public class PojoAutoSerializationExample {
             System.out.println("\n[POJO auto] Running POJO job without custom marshallers...");
 
             JobDescriptor<AutoSerializableArg, AutoSerializableResult> job = JobDescriptor.builder(PojoAutoSerializationJob.class)
+                    .resultClass(AutoSerializableResult.class)   // REQUIRED
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                     .build();
 

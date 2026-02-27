@@ -120,6 +120,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.partition.ClientTablePartitionPrimaryReplicasNodesGetRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
+import org.apache.ignite.client.handler.requests.tx.ClientTransactionDiscardRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
@@ -171,6 +172,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.DelayedAckException;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -701,10 +703,13 @@ public class ClientInboundMessageHandler
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
+        TransactionKilledException transactionKilledException = findException(err, TransactionKilledException.class);
 
         err = firstNotNull(
                 schemaVersionMismatchException,
                 sqlBatchException,
+                delayedAckException,
+                transactionKilledException,
                 ExceptionUtils.unwrapCause(err)
         );
 
@@ -746,6 +751,10 @@ public class ClientInboundMessageHandler
             packer.packInt(1); // 1 extension.
             packer.packString(ErrorExtensions.DELAYED_ACK);
             packer.packUuid(delayedAckException.txId());
+        } else if (transactionKilledException != null) {
+            packer.packInt(1); // 1 extension.
+            packer.packString(ErrorExtensions.TX_KILL);
+            packer.packUuid(transactionKilledException.txId());
         } else {
             packer.packNil(); // No extensions.
         }
@@ -947,7 +956,7 @@ public class ClientInboundMessageHandler
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker);
+                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker, notificationSender(requestId));
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
@@ -1075,6 +1084,9 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TABLE_GET_QUALIFIED:
                 return ClientTableGetQualifiedRequest.process(in, igniteTables);
+
+            case ClientOp.TX_DISCARD:
+                return ClientTransactionDiscardRequest.process(in, txManager, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);

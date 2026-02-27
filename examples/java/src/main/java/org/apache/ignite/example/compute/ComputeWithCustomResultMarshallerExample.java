@@ -18,6 +18,8 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -29,29 +31,16 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with a custom result marshaller.
+ * This example demonstrates the usage of the {@link IgniteCompute#execute} API with a custom result marshaller.
  *
- * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
- *
- * <p>The following steps related to code deployment should be additionally executed before running the current example:
- * <ol>
- *     <li>
- *         Build "ignite-examples-x.y.z.jar" using the next command:<br>
- *         {@code ./gradlew :ignite-examples:jar}
- *     </li>
- *     <li>
- *         Create a new deployment unit using the CLI tool:<br>
- *         {@code cluster unit deploy computeExampleUnit \
- *          --version 1.0.0 \
- *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
- *     </li>
- * </ol>
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
+
 public class ComputeWithCustomResultMarshallerExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
@@ -63,8 +52,12 @@ public class ComputeWithCustomResultMarshallerExample {
      * Main method of the example.
      *
      * @param args The command line arguments.
+     * @throws Exception if any error occurs.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        DeployComputeUnit.processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -84,6 +77,9 @@ public class ComputeWithCustomResultMarshallerExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nConfiguring compute job...");
+
+
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             JobDescriptor<String, WordInfoResult> job = JobDescriptor.builder(WordInfoJob.class)
                     .resultMarshaller(new WordInfoResultMarshaller())
@@ -118,6 +114,11 @@ public class ComputeWithCustomResultMarshallerExample {
 
             for (WordInfoResult result : results)
                 System.out.println("The length of the word '" + result.word + "'" + " is " + result.length + ".");
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
         }
     }
 

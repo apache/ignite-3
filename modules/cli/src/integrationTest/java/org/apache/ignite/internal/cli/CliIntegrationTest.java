@@ -89,10 +89,10 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("raft.snapshots").enabled(true),
             new MetricSource().name("messaging").enabled(true),
             new MetricSource().name("log.storage").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.default").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.deploymentunits").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.scalecube").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".messaging.outbound").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound").enabled(true),
     };
 
     /** Correct ignite jdbc url. */
