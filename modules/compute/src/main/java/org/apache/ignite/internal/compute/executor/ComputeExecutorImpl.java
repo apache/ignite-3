@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgum
 import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
 import static org.apache.ignite.internal.compute.ComputeUtils.taskClass;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestampTracker.atomicTracker;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
@@ -34,9 +36,11 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.compute.ComputeIgniteFactory;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.ComputeUtils;
+import org.apache.ignite.internal.compute.ExecutionContext;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
@@ -53,6 +57,7 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.deployunit.loader.UnitsClassLoader;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
@@ -67,6 +72,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeExecutorImpl.class);
 
     private final Ignite ignite;
+
+    private final ComputeIgniteFactory igniteFactory;
 
     private final ComputeConfiguration configuration;
 
@@ -86,6 +93,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * Constructor.
      *
      * @param ignite Ignite instance for public API access.
+     * @param igniteFactory Factory for creating per-job scoped Ignite instances.
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
      * @param topologyService Topology service.
@@ -93,6 +101,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      */
     public ComputeExecutorImpl(
             Ignite ignite,
+            ComputeIgniteFactory igniteFactory,
             ComputeStateMachine stateMachine,
             ComputeConfiguration configuration,
             TopologyService topologyService,
@@ -100,6 +109,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             EventLog eventLog
     ) {
         this.ignite = ignite;
+        this.igniteFactory = igniteFactory;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
         this.topologyService = topologyService;
@@ -121,8 +131,9 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     ) {
         assert executorService != null;
 
+        Ignite scopedIgnite = createIgniteForJob(arg);
         AtomicBoolean isInterrupted = new AtomicBoolean();
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
+        JobExecutionContext context = new JobExecutionContextImpl(scopedIgnite, isInterrupted, classLoader, options.partition());
 
         metadataBuilder
                 .jobClassName(jobClassName)
@@ -141,6 +152,15 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
+    }
+
+    /**
+     * Extracts observable timestamp from the client payload, creates a per-job tracker and a wrapper for the Ignite instance.
+     */
+    private Ignite createIgniteForJob(@Nullable ComputeJobDataHolder arg) {
+        long obsTs = ExecutionContext.observableTimestamp(arg);
+        HybridTimestampTracker jobTracker = atomicTracker(nullableHybridTimestamp(obsTs));
+        return igniteFactory.createForJob(jobTracker);
     }
 
     private static Callable<CompletableFuture<ComputeJobDataHolder>> addObservableTimestamp(
