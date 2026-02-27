@@ -79,8 +79,11 @@ public abstract class AbstractMetricManager implements MetricManager {
     public void unregisterSource(MetricSource src) {
         inBusyLockSafe(busyLock, () -> {
             if (metricSources().contains(src)) {
-                disable(src);
+                MetricSet metricSet = getMetricSet(src.name());
+
                 registry.unregisterSource(src);
+
+                removeMetricSet(metricSet);
             }
         });
     }
@@ -89,8 +92,11 @@ public abstract class AbstractMetricManager implements MetricManager {
     public void unregisterSource(String srcName) {
         inBusyLockSafe(busyLock, () -> {
             if (metricSources().stream().anyMatch(metricSource -> metricSource.name().equals(srcName))) {
-                disable(srcName);
+                MetricSet metricSet = getMetricSet(srcName);
+
                 registry.unregisterSource(srcName);
+
+                removeMetricSet(metricSet);
             }
         });
     }
@@ -124,23 +130,31 @@ public abstract class AbstractMetricManager implements MetricManager {
     @Override
     public void disable(MetricSource src) {
         inBusyLockSafe(busyLock, () -> {
-            MetricSet metricSet = registry.snapshot().metrics().get(src.name());
+            MetricSet metricSet = getMetricSet(src.name());
 
             registry.disable(src);
 
-            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
+            removeMetricSet(metricSet);
         });
     }
 
     @Override
     public void disable(String srcName) {
         inBusyLockSafe(busyLock, () -> {
-            MetricSet metricSet = registry.snapshot().metrics().get(srcName);
+            MetricSet metricSet = getMetricSet(srcName);
 
             registry.disable(srcName);
 
-            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
+            removeMetricSet(metricSet);
         });
+    }
+
+    private MetricSet getMetricSet(String srcName) {
+        return registry.snapshot().metrics().get(srcName);
+    }
+
+    private void removeMetricSet(MetricSet metricSet) {
+        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
     }
 
     @Override

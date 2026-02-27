@@ -73,6 +73,8 @@ public class MetricManagerImpl extends AbstractMetricManager {
 
     /** Sets the configuration. Needed to resolve cyclic dependencies. */
     public void configure(MetricConfiguration metricConfiguration) {
+        assert this.metricConfiguration == null : "Metric configuration is already set.";
+
         this.metricConfiguration = metricConfiguration;
     }
 
@@ -117,7 +119,7 @@ public class MetricManagerImpl extends AbstractMetricManager {
         try {
             exporter.start(registry, exporterConfiguration, clusterIdSupplier, nodeName);
         } catch (Exception e) {
-            log.warn(String.format("Unable to start metric exporter [name = %s].", exporterName), e);
+            log.warn("Unable to start metric exporter [name = {}].", e, exporterName);
 
             return;
         }
