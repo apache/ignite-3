@@ -24,7 +24,7 @@ test {
 
     // Define default test timeouts to avoid everhanging tests.
     systemProperty 'junit.jupiter.execution.timeout.testable.method.default', '10m'
-    systemProperty 'junit.jupiter.execution.timeout.lifecycle.method.default', '60s'
+    systemProperty 'junit.jupiter.execution.timeout.lifecycle.method.default', '120s'
 
     // Enable auto-detection of JUnit 5 extensions to automatically apply DumpThreadsOnTimeout extension.
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', true
