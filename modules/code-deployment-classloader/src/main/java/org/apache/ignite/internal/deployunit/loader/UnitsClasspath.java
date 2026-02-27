@@ -64,9 +64,7 @@ class UnitsClasspath {
 
         @Override
         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-            if (Files.isDirectory(file) || file.toString().endsWith(".jar")) {
-                classpath.add(file.toAbsolutePath().toUri().toURL());
-            }
+            classpath.add(file.toAbsolutePath().toUri().toURL());
             return FileVisitResult.CONTINUE;
         }
 

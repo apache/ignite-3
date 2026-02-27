@@ -25,8 +25,6 @@ import org.springframework.data.relational.core.dialect.AbstractDialect;
 import org.springframework.data.relational.core.dialect.LimitClause;
 import org.springframework.data.relational.core.dialect.LockClause;
 import org.springframework.data.relational.core.sql.IdentifierProcessing;
-import org.springframework.data.relational.core.sql.IdentifierProcessing.LetterCasing;
-import org.springframework.data.relational.core.sql.IdentifierProcessing.Quoting;
 import org.springframework.data.relational.core.sql.LockOptions;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;

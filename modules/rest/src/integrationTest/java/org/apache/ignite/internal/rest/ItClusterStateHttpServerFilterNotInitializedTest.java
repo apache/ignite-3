@@ -41,7 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that before cluster is initialized, only a subset of endpoints are available. */
-@MicronautTest(rebuildContext = true)
+@MicronautTest
 public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 

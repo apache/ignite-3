@@ -180,7 +180,7 @@ public class SqlOutdatedPlanTest extends BaseIgniteAbstractTest {
         return AlterTableAddColumnCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName("T1")
-                .columns(List.of(columnParams(columnName, INT32)))
+                .columns(List.of(columnParams(columnName, INT32, true)))
                 .build();
     }
 
