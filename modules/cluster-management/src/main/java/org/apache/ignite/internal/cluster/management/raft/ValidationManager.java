@@ -131,7 +131,7 @@ public class ValidationManager {
     }
 
     private boolean isColocationEnabledMatched(boolean joiningNodeColocationEnabled) {
-        Set<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
+        Collection<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
 
         return logicalTopologyNodes.isEmpty()
                 || isColocationEnabled(logicalTopologyNodes.iterator().next()) == joiningNodeColocationEnabled;

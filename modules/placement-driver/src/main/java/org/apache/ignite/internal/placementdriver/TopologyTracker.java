@@ -25,7 +25,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -93,7 +92,7 @@ public class TopologyTracker {
     public @Nullable InternalClusterNode nodeByConsistentId(String consistentId) {
         LogicalTopologySnapshot logicalTopologySnap0 = topologySnapRef.get();
 
-        if (logicalTopologySnap0 == null || CollectionUtils.nullOrEmpty(logicalTopologySnap0.nodes())) {
+        if (logicalTopologySnap0 == null || logicalTopologySnap0.size() == 0) {
             return null;
         }
 

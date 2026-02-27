@@ -41,7 +41,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.deployunit.UnitStatuses.UnitStatusesBuilder;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
@@ -277,13 +276,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                     if (success) {
                         return cmgManager.logicalTopology()
                                 .thenCompose(logicalTopology -> {
-                                    Set<String> logicalNodes = logicalTopology.nodes().stream()
-                                            .map(LogicalNode::name)
-                                            .collect(Collectors.toSet());
                                     // Set OBSOLETE status only to nodes which are present in the topology
                                     return deploymentUnitStore.getAllNodes(id, version)
                                             .thenCompose(nodes -> allOf(nodes.stream()
-                                                    .filter(logicalNodes::contains)
+                                                    .filter(logicalTopology::hasNode)
                                                     .map(node -> deploymentUnitStore.updateNodeStatus(node, id, version, OBSOLETE))
                                                     .toArray(CompletableFuture[]::new)))
                                             .thenApply(v -> {

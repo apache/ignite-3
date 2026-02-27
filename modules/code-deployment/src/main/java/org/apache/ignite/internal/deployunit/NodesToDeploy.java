@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.deployunit;
 
-import static java.util.stream.Collectors.toUnmodifiableSet;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.deployunit.exception.InvalidNodesArgumentException;
-import org.apache.ignite.internal.network.InternalClusterNode;
 
 /**
  * Nodes for initial deploy.
@@ -63,10 +61,9 @@ public class NodesToDeploy {
     private CompletableFuture<Set<String>> extractNodesFromMode(ClusterManagementGroupManager cmgManager) {
         switch (deployMode) {
             case ALL:
-                return cmgManager.logicalTopology()
-                        .thenApply(snapshot -> snapshot.nodes().stream()
-                                .map(InternalClusterNode::name)
-                                .collect(toUnmodifiableSet()));
+                return cmgManager
+                        .logicalTopology()
+                        .thenApply(LogicalTopologySnapshot::nodeNames);
             case MAJORITY:
             default:
                 return cmgManager.majority();
@@ -84,11 +81,10 @@ public class NodesToDeploy {
         return cmgManager.majority()
                 .thenCompose(majority -> cmgManager.logicalTopology()
                         .thenApply(snapshot -> {
-                            Set<String> allNodes = snapshot.nodes().stream().map(InternalClusterNode::name).collect(toUnmodifiableSet());
                             Set<String> result = new HashSet<>(majority);
 
                             for (String node : nodesList) {
-                                if (!allNodes.contains(node)) {
+                                if (!snapshot.hasNode(node)) {
                                     throw new InvalidNodesArgumentException(
                                             "Node \"" + node + "\" is not present in the logical topology"
                                     );

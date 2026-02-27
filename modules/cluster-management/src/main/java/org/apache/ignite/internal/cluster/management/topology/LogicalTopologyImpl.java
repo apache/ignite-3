@@ -19,12 +19,11 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -99,8 +98,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     public void putNode(LogicalNode nodeToPut) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<String, LogicalNode> mapByName = snapshot.nodes().stream()
-                .collect(toMap(LogicalNode::name, identity()));
+        Map<String, LogicalNode> mapByName = new HashMap<>(snapshot.nodesByName());
 
         Runnable fireRemovalTask = null;
 
@@ -167,8 +165,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     public void removeNodes(Set<LogicalNode> nodesToRemove) {
         LogicalTopologySnapshot snapshot = readLogicalTopology();
 
-        Map<UUID, LogicalNode> mapById = snapshot.nodes().stream()
-                .collect(toMap(LogicalNode::id, identity()));
+        Map<UUID, LogicalNode> mapById = new HashMap<>(snapshot.nodesById());
 
         // Removing in a well-defined order to make sure that a command produces an identical sequence of events in each CMG listener.
         List<LogicalNode> sortedNodesToRemove = nodesToRemove.stream()
