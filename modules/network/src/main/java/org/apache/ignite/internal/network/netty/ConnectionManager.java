@@ -71,7 +71,6 @@ import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.jetbrains.annotations.Nullable;
@@ -222,8 +221,6 @@ public class ConnectionManager implements ChannelCreationListener {
             LOG.info("Server started [address={}]", server.address());
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-
-            ThreadUtils.dumpThreads(LOG, cause.getMessage(), true);
 
             throw new IgniteInternalException(
                     extractCodeFrom(cause),
