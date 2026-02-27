@@ -88,7 +88,7 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
         int activeCatalogVersion = node.catalogManager().activeCatalog(node.clock().now().longValue()).version();
 
-        node.sql().executeAsync(null, format("CREATE ZONE {} (PARTITIONS 1, AUTO SCALE DOWN 0) STORAGE PROFILES ['default']", ZONE_NAME));
+        node.sql().executeAsync(format("CREATE ZONE {} (PARTITIONS 1, AUTO SCALE DOWN 0) STORAGE PROFILES ['default']", ZONE_NAME));
 
         ByteArray catalogVersionKey = new ByteArray("catalog.version".getBytes(StandardCharsets.UTF_8));
         waitForCondition(() -> {
@@ -160,12 +160,8 @@ class ItEmptyDataNodesTest extends ClusterPerTestIntegrationTest {
         return nodeFut.join();
     }
 
-    private void sql(String sql) {
-        cluster.aliveNode().sql().execute(null, sql);
-    }
-
     private CompletableFuture<?> sqlAsync(String sql) {
-        return cluster.aliveNode().sql().executeAsync(null, sql);
+        return cluster.aliveNode().sql().executeAsync(sql);
     }
 
     private void setAdditionalNodeFilter(@Nullable Predicate<NodeWithAttributes> filter) {

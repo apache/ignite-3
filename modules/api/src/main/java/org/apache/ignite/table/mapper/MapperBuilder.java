@@ -22,9 +22,11 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.parseIdentifier;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.catalog.annotations.Column;
@@ -143,23 +145,31 @@ public final class MapperBuilder<T> {
     }
 
     /**
-     * Ensures a field name is valid and a field with the specified name exists.
+     * Ensures a field name is valid and a field with the specified name exists in the class hierarchy.
      *
      * @param fieldName Field name.
      * @return Field name for chaining.
      * @throws IllegalArgumentException If a field is {@code null} or if the class has no declared field with the given name.
      */
     private String requireValidField(String fieldName) {
-        try {
-            if (fieldName == null || targetType.getDeclaredField(fieldName) == null) {
-                throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
-            }
-        } catch (NoSuchFieldException e) {
-            throw new IllegalArgumentException(
-                    String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
+        if (fieldName == null) {
+            throw new IllegalArgumentException("Mapping for a column already exists: " + fieldName);
         }
 
-        return fieldName;
+        Class<?> currType = targetType;
+        do {
+            try {
+                currType.getDeclaredField(fieldName);
+                return fieldName;
+            } catch (NoSuchFieldException ignored) {
+                // Intentionally left blank.
+            }
+
+            currType = currType.getSuperclass();
+        } while (currType != Object.class && currType != null);
+
+        throw new IllegalArgumentException(
+                String.format("Field not found for class: field=%s, class=%s", fieldName, targetType.getName()));
     }
 
     /**
@@ -283,7 +293,7 @@ public final class MapperBuilder<T> {
         }
 
         if (automapFlag) {
-            Arrays.stream(targetType.getDeclaredFields())
+            getAllFields(targetType).stream()
                     .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
                     .map(MapperBuilder::getColumnToFieldMapping)
                     .filter(entry -> !fields.contains(entry.getValue()))
@@ -299,5 +309,16 @@ public final class MapperBuilder<T> {
         var column = fld.getAnnotation(Column.class);
         var columnName = column != null && !column.value().isEmpty() ? column.value() : fldName;
         return new SimpleEntry<>(parseIdentifier(columnName), fldName);
+    }
+
+    /**
+     * Gets all fields of the given class and its parents (if any).
+     */
+    private static List<Field> getAllFields(Class<?> clazz) {
+        var result = new ArrayList<Field>();
+        for (Class<?> current = clazz; current != Object.class; current = current.getSuperclass()) {
+            Collections.addAll(result, current.getDeclaredFields());
+        }
+        return result;
     }
 }

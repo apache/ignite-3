@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -33,7 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify validation of {@link AlterTableAddColumnCommand}.
  */
-@SuppressWarnings({"DataFlowIssue", "ThrowableNotThrown"})
+@SuppressWarnings("ThrowableNotThrown")
 public class AlterTableAddColumnCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
@@ -90,6 +92,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         ColumnParams column = ColumnParams.builder()
                 .name("C")
                 .type(INT32)
+                .nullable(true)
                 .build();
 
         builder = fillProperties(builder).columns(List.of(column, column));
@@ -109,6 +112,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                         ColumnParams.builder()
                                 .name("NEW_C")
                                 .type(INT32)
+                                .nullable(true)
                                 .build()
                 ));
     }
@@ -151,24 +155,45 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
     void exceptionIsThrownIfColumnWithGivenNameAlreadyExists() {
         String tableName = "TEST";
         String columnName = "TEST";
-        ColumnParams columnParams = ColumnParams.builder().name(columnName).type(INT32).build();
+
         Catalog catalog = catalogWithTable(builder -> builder
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
-                .columns(List.of(columnParams))
+                .columns(List.of(columnParams(columnName, INT32)))
                 .primaryKey(primaryKey(columnName))
         );
 
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
-                .columns(List.of(columnParams));
+                .columns(List.of(columnParams(columnName, INT32, true)));
 
         assertThrowsWithCause(
                 () -> builder.build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Column with name 'TEST' already exists"
         );
+    }
+
+    @Test
+    void exceptionNotThrownIfColumnWithGivenNameAlreadyExistsWithIfColumnNotExists() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams(columnName, INT32)))
+                .primaryKey(primaryKey(columnName))
+        );
+
+        AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams(columnName, INT32, true)))
+                .ifColumnNotExists(true);
+
+        assertDoesNotThrow(() -> builder.build().get(new UpdateContext(catalog)));
     }
 
     @Test
@@ -194,6 +219,36 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 () -> builder.build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Functional defaults are not supported for non-primary key columns"
+        );
+    }
+
+    @Test
+    void cannotAddNonNullableColumnWithoutDefault() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams("ID", INT32, false)))
+                .primaryKey(primaryKey("ID"))
+        );
+
+        ColumnParams columnParams = ColumnParams.builder()
+                .name(columnName)
+                .type(STRING)
+                .length(10)
+                .nullable(false)
+                .build();
+
+        AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams));
+
+        assertThrowsWithCause(
+                () -> builder.build().get(new UpdateContext(catalog)),
+                CatalogValidationException.class,
+                "Non-nullable column 'TEST' must have the default value"
         );
     }
 

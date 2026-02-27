@@ -100,10 +100,10 @@ class ItNodeRestartsTest {
         int idx1 = 2;
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        assertThat(services.get(idx0).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        stopClusterService(services.get(idx0));
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        assertThat(services.get(idx1).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        stopClusterService(services.get(idx1));
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), nodeFinder);
@@ -223,15 +223,21 @@ class ItNodeRestartsTest {
             }
         });
 
-        for (int i = 0; i < 10; i++) {
-            assertThat(services.get(1).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        int receiverIndex = 1;
 
-            ClusterService restartedReceiver = startNetwork(testInfo, addresses.get(1), nodeFinder);
-            services.set(1, restartedReceiver);
+        for (int i = 0; i < 10; i++) {
+            stopClusterService(services.get(receiverIndex));
+
+            ClusterService restartedReceiver = startNetwork(testInfo, addresses.get(receiverIndex), nodeFinder);
+            services.set(receiverIndex, restartedReceiver);
         }
 
         sending.set(false);
 
         assertThat(sendingFuture, willCompleteSuccessfully());
+    }
+
+    private static void stopClusterService(ClusterService clusterService) {
+        assertThat(stopAsync(new ComponentContext(), clusterService), willCompleteSuccessfully());
     }
 }

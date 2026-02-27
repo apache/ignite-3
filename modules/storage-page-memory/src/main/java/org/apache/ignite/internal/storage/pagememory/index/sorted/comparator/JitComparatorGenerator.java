@@ -454,15 +454,25 @@ public class JitComparatorGenerator {
             NativeType columnType = options.columnTypes().get(i);
 
             if (options.supportPartialComparison()) {
+                BytecodeExpression partialComparisonExpression = comparePartialTupleElement(
+                        collation, columnType,
+                        new ComparisonVariables(
+                                outerAccessor, outerEntryBaseStart, outerEntryBaseEnd,
+                                innerAccessor, innerEntryBaseStart, innerEntryBaseEnd
+                        )
+                );
+
+                if (options.nullableFlags().get(i)) {
+                    partialComparisonExpression = inlineIf(
+                            equal(outerEntryBaseStart, outerEntryBaseEnd),
+                            collation.nullsFirst() ? constantInt(-1) : constantInt(1),
+                            partialComparisonExpression
+                    );
+                }
+
                 body.append(new IfStatement()
                         .condition(greaterThan(innerEntryBaseEnd, innerSize))
-                        .ifTrue(comparePartialTupleElement(
-                                collation, columnType,
-                                new ComparisonVariables(
-                                        outerAccessor, outerEntryBaseStart, outerEntryBaseEnd,
-                                        innerAccessor, innerEntryBaseStart, innerEntryBaseEnd
-                                )
-                        ).ret())
+                        .ifTrue(partialComparisonExpression.ret())
                 );
             }
 
@@ -780,6 +790,7 @@ public class JitComparatorGenerator {
             begin += (int) (buf.getAddress() - GridUnsafe.BYTE_ARR_OFF);
         } else {
             bytes = GridUnsafe.getBytes(buf.getAddress(), begin, len);
+            begin = 0;
         }
         return new BigInteger(bytes, begin, len);
     }

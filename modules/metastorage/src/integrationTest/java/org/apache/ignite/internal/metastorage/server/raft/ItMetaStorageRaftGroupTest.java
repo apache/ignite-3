@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -73,8 +74,8 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -132,11 +133,11 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     /** Cluster. */
     private final ArrayList<ClusterService> cluster = new ArrayList<>();
 
-    private LogStorageFactory logStorageFactory1;
+    private LogStorageManager logStorageManager1;
 
-    private LogStorageFactory logStorageFactory2;
+    private LogStorageManager logStorageManager2;
 
-    private LogStorageFactory logStorageFactory3;
+    private LogStorageManager logStorageManager3;
 
     /** First meta storage raft server. */
     private RaftServer metaStorageRaftSrv1;
@@ -220,23 +221,11 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
             metaStorageRaftGrpSvc1.shutdown();
         }
 
-        if (logStorageFactory3 != null) {
-            assertThat(logStorageFactory3.stopAsync(componentContext), willCompleteSuccessfully());
-        }
-
-        if (logStorageFactory2 != null) {
-            assertThat(logStorageFactory2.stopAsync(componentContext), willCompleteSuccessfully());
-        }
-
-        if (logStorageFactory1 != null) {
-            assertThat(logStorageFactory1.stopAsync(componentContext), willCompleteSuccessfully());
-        }
+        assertThat(stopAsync(componentContext, logStorageManager3, logStorageManager2, logStorageManager1), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        for (ClusterService node : cluster) {
-            assertThat(node.stopAsync(componentContext), willCompleteSuccessfully());
-        }
+        assertThat(stopAsync(componentContext, cluster), willCompleteSuccessfully());
     }
 
 
@@ -312,49 +301,42 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                     @Override
                     public void onNext(Entry item) {
-                        try {
-                            if (state == 0) {
-                                assertEquals(EXPECTED_RESULT_ENTRY1, item);
+                        if (state == 0) {
+                            assertEquals(EXPECTED_RESULT_ENTRY1, item);
 
-                                // Stop leader.
-                                oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
-                                ComponentContext componentContext = new ComponentContext();
+                            // Stop leader.
+                            oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
 
-                                assertThat(oldLeaderServer.stopAsync(componentContext), willCompleteSuccessfully());
-                                CompletableFuture<Void> stopFuture = cluster.stream()
-                                        .filter(c -> localMemberName(c).equals(oldLeaderId))
-                                        .findFirst()
-                                        .orElseThrow()
-                                        .stopAsync(componentContext);
-                                assertThat(stopFuture, willCompleteSuccessfully());
+                            ComponentContext componentContext = new ComponentContext();
 
-                                CompletableFuture<LeaderWithTerm> newLeaderWithTermFut = raftGroupServiceOfLiveServer
-                                        .refreshAndGetLeaderWithTerm();
-                                assertThat(newLeaderWithTermFut, willCompleteSuccessfully());
-                                LeaderWithTerm newLeaderWithTerm = newLeaderWithTermFut.join();
+                            ClusterService oldLeaderClusterService = oldLeaderServer.clusterService();
 
-                                assertNotNull(newLeaderWithTerm.leader());
-                                assertNotSame(oldLeaderId, newLeaderWithTerm.leader().consistentId());
+                            assertThat(stopAsync(componentContext, oldLeaderServer, oldLeaderClusterService), willCompleteSuccessfully());
 
-                                // Check that the leader changed only once.
-                                assertEquals(oldLeaderTerm + 1, newLeaderWithTerm.term());
+                            CompletableFuture<LeaderWithTerm> newLeaderWithTermFut = raftGroupServiceOfLiveServer
+                                    .refreshAndGetLeaderWithTerm();
+                            assertThat(newLeaderWithTermFut, willCompleteSuccessfully());
+                            LeaderWithTerm newLeaderWithTerm = newLeaderWithTermFut.join();
 
-                                log.info("Test: new leader: " + raftGroupServiceOfLiveServer.leader().consistentId());
+                            assertNotNull(newLeaderWithTerm.leader());
+                            assertNotSame(oldLeaderId, newLeaderWithTerm.leader().consistentId());
 
-                                log.info("Test: Entry 1 processed.");
+                            // Check that the leader changed only once.
+                            assertEquals(oldLeaderTerm + 1, newLeaderWithTerm.term());
 
-                            } else if (state == 1) {
-                                assertEquals(EXPECTED_RESULT_ENTRY2, item);
+                            log.info("Test: new leader: " + raftGroupServiceOfLiveServer.leader().consistentId());
 
-                                log.info("Test: Entry 2 processed.");
-                            }
+                            log.info("Test: Entry 1 processed.");
 
-                            state++;
+                        } else if (state == 1) {
+                            assertEquals(EXPECTED_RESULT_ENTRY2, item);
 
-                            subscription.request(1);
-                        } catch (Exception e) {
-                            resultFuture.completeExceptionally(e);
+                            log.info("Test: Entry 2 processed.");
                         }
+
+                        state++;
+
+                        subscription.request(1);
                     }
 
                     @Override
@@ -393,7 +375,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir1 = new ComponentWorkingDir(workDir.resolve("node1"));
 
-        logStorageFactory1 = SharedLogStorageFactoryUtils.create(
+        logStorageManager1 = SharedLogStorageManagerUtils.create(
                 cluster.get(0).nodeName(),
                 workingDir1.raftLogPath()
         );
@@ -406,7 +388,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir2 = new ComponentWorkingDir(workDir.resolve("node2"));
 
-        logStorageFactory2 = SharedLogStorageFactoryUtils.create(
+        logStorageManager2 = SharedLogStorageManagerUtils.create(
                 cluster.get(1).nodeName(),
                 workingDir2.raftLogPath()
         );
@@ -419,7 +401,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         ComponentWorkingDir workingDir3 = new ComponentWorkingDir(workDir.resolve("node3"));
 
-        logStorageFactory3 = SharedLogStorageFactoryUtils.create(
+        logStorageManager3 = SharedLogStorageManagerUtils.create(
                 cluster.get(2).nodeName(),
                 workingDir3.raftLogPath()
         );
@@ -433,9 +415,9 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         assertThat(
                 startAsync(
                         new ComponentContext(),
-                        logStorageFactory1,
-                        logStorageFactory2,
-                        logStorageFactory3,
+                        logStorageManager1,
+                        logStorageManager2,
+                        logStorageManager3,
                         metaStorageRaftSrv1,
                         metaStorageRaftSrv2,
                         metaStorageRaftSrv3
@@ -447,7 +429,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         RaftGroupOptions groupOptions1 = defaults();
         groupOptions1.serverDataPath(workingDir1.metaPath());
-        groupOptions1.setLogStorageFactory(logStorageFactory1);
+        groupOptions1.setLogStorageManager(logStorageManager1);
 
         HybridClock clock = new HybridClockImpl();
 
@@ -462,7 +444,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         RaftGroupOptions groupOptions2 = defaults();
         groupOptions2.serverDataPath(workingDir2.metaPath());
-        groupOptions2.setLogStorageFactory(logStorageFactory2);
+        groupOptions2.setLogStorageManager(logStorageManager2);
 
         metaStorageRaftSrv2.startRaftNode(
                 raftNodeId2,
@@ -475,7 +457,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         RaftGroupOptions groupOptions3 = defaults();
         groupOptions3.serverDataPath(workingDir3.metaPath());
-        groupOptions3.setLogStorageFactory(logStorageFactory3);
+        groupOptions3.setLogStorageManager(logStorageManager3);
 
         metaStorageRaftSrv3.startRaftNode(
                 raftNodeId3,

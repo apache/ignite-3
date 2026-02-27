@@ -318,14 +318,6 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         storage.close();
     }
 
-    private Data getData() {
-        CompletableFuture<Data> dataFuture = storage.readDataOnRecovery();
-
-        assertThat(dataFuture, willCompleteSuccessfully());
-
-        return dataFuture.join();
-    }
-
     @ConfigurationRoot(rootName = "key", type = LOCAL)
     public static class RenamedTestOldConfigurationSchema {
         @ConfigValue

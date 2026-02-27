@@ -26,6 +26,12 @@ import org.apache.ignite.client.IgniteClient;
  */
 
 public class IgniteClientExample {
+    /**
+     * Runs the IgniteClientExample.
+     *
+     * @param args The command line arguments.
+     * @throws Exception if any error occurs.
+     */
     public static void main(String[] args) throws Exception {
         //--------------------------------------------------------------------------------------
         //
@@ -41,7 +47,7 @@ public class IgniteClientExample {
             // You can use the client here.
             //
             //--------------------------------------------------------------------------------------
-            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
+            client.sql().execute("CREATE TABLE IF NOT EXISTS Person (id int primary key, name varchar, age int);");
         }
     }
 }

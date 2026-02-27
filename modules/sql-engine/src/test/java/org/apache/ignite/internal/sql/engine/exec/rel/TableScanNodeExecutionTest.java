@@ -342,8 +342,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(TransactionInflights.class),
                     null,
                     mock(StreamerReceiverRunner.class),
-                    () -> 10_000L,
-                    () -> 10_000L,
                     new TableMetricSource(QualifiedName.fromSimple("test"))
             );
             this.dataAmount = dataAmount;

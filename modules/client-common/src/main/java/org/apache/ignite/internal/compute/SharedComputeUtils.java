@@ -138,20 +138,71 @@ public class SharedComputeUtils {
     }
 
     /**
-     * Unmarshals the job argument or result.
+     * Unmarshals the job argument.
      *
      * @param holder Data holder.
      * @param marshaller Optional marshaller.
-     * @param resultClass Optional result class.
+     * @param pojoType Optional pojo type. Required if holder contains POJO.
      * @param <T> Type of the object.
      * @return Unmarshalled object.
      */
-    public static <T> @Nullable T unmarshalArgOrResult(
+    public static <T> @Nullable T unmarshalArg(
             @Nullable ComputeJobDataHolder holder,
             @Nullable Marshaller<?, byte[]> marshaller,
-            @Nullable Class<?> resultClass
+            @Nullable Class<?> pojoType
     ) {
-        return unmarshalArgOrResult(holder, marshaller, resultClass, Thread.currentThread().getContextClassLoader());
+        return unmarshalArg(holder, marshaller, pojoType, Thread.currentThread().getContextClassLoader());
+    }
+
+    /**
+     * Unmarshals the job argument.
+     *
+     * @param holder Data holder.
+     * @param marshaller Optional marshaller.
+     * @param pojoType Optional pojo type. Required if holder contains POJO.
+     * @param classLoader Class loader to set before unmarshalling.
+     * @param <T> Type of the object.
+     * @return Unmarshalled object.
+     */
+    public static <T> @Nullable T unmarshalArg(
+            @Nullable ComputeJobDataHolder holder,
+            @Nullable Marshaller<?, byte[]> marshaller,
+            @Nullable Class<?> pojoType,
+            ClassLoader classLoader
+    ) {
+        return unmarshalArgOrResult(
+                holder,
+                marshaller,
+                pojoType,
+                classLoader,
+                "JobDescriptor.argumentMarshaller is defined, but the ComputeJob.inputMarshaller is not defined.",
+                "ComputeJob.inputMarshaller is defined, but the JobDescriptor.argumentMarshaller is not defined."
+        );
+    }
+
+    /**
+     * Unmarshals the job result.
+     *
+     * @param holder Data holder.
+     * @param marshaller Optional marshaller.
+     * @param pojoType Optional pojo type. Required if holder contains POJO.
+     * @param <T> Type of the object.
+     * @return Unmarshalled object.
+     */
+    public static <T> @Nullable T unmarshalResult(
+            @Nullable ComputeJobDataHolder holder,
+            @Nullable Marshaller<?, byte[]> marshaller,
+            @Nullable Class<?> pojoType
+    ) {
+        // No need to pass classloader when unmarshalling result because only the argument is unmarshalled in the isolated job classloader.
+        return unmarshalArgOrResult(
+                holder,
+                marshaller,
+                pojoType,
+                Thread.currentThread().getContextClassLoader(),
+                "ComputeJob.resultMarshaller is defined, but the JobDescriptor.resultMarshaller is not defined.",
+                "JobDescriptor.resultMarshaller is defined, but the ComputeJob.resultMarshaller is not defined."
+        );
     }
 
     /**
@@ -159,16 +210,20 @@ public class SharedComputeUtils {
      *
      * @param holder Data holder.
      * @param marshaller Optional marshaller.
-     * @param resultClass Optional result class.
+     * @param pojoType Optional pojo type. Required if holder contains POJO.
      * @param classLoader Class loader to set before unmarshalling.
+     * @param missingMarshallerErrorMessage Message to throw if marshaller is not defined and holder contains marshalled data.
+     * @param unexpectedMarshallerErrorMessage Message to throw if marshaller is defined but the holder doesn't contain marshalled data.
      * @param <T> Type of the object.
      * @return Unmarshalled object.
      */
-    public static <T> @Nullable T unmarshalArgOrResult(
+    private static <T> @Nullable T unmarshalArgOrResult(
             @Nullable ComputeJobDataHolder holder,
             @Nullable Marshaller<?, byte[]> marshaller,
-            @Nullable Class<?> resultClass,
-            ClassLoader classLoader
+            @Nullable Class<?> pojoType,
+            ClassLoader classLoader,
+            String missingMarshallerErrorMessage,
+            String unexpectedMarshallerErrorMessage
     ) {
         if (holder == null || holder.data() == null) {
             return null;
@@ -178,9 +233,9 @@ public class SharedComputeUtils {
         if (type != MARSHALLED_CUSTOM && marshaller != null) {
             throw new ComputeException(
                     MARSHALLING_TYPE_MISMATCH_ERR,
-                    "Marshaller is defined on the server, but the argument was not marshalled on the client. "
+                    unexpectedMarshallerErrorMessage + " "
                             + "If you want to use default marshalling strategy, "
-                            + "then you should not define your marshaller in the job. "
+                            + "then you should not define your marshaller only in one place. "
                             + "If you would like to use your own marshaller, then double-check "
                             + "that both of them are defined in the client and in the server."
             );
@@ -197,7 +252,7 @@ public class SharedComputeUtils {
                 return (T) TupleWithSchemaMarshalling.unmarshal(holder.data());
 
             case POJO:
-                if (resultClass == null) {
+                if (pojoType == null) {
                     throw new ComputeException(
                             MARSHALLING_TYPE_MISMATCH_ERR,
                             "JobDescriptor.resultClass is not defined, but the job result is packed as a POJO");
@@ -205,13 +260,13 @@ public class SharedComputeUtils {
 
                 Tuple tuple = TupleWithSchemaMarshalling.unmarshal(holder.data());
 
-                return resultClass == Tuple.class
+                return pojoType == Tuple.class
                         ? (T) tuple
-                        : (T) unmarshalPojo(resultClass, tuple);
+                        : (T) unmarshalPojo(pojoType, tuple);
 
             case MARSHALLED_CUSTOM:
                 if (marshaller == null) {
-                    throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Marshaller should be defined on the client");
+                    throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, missingMarshallerErrorMessage);
                 }
                 return unmarshalData(marshaller, classLoader, holder.data());
 

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.time.Clock;
@@ -362,17 +361,17 @@ public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     }
 
     @Override
-    public RowT correlatedVariable(int id) {
-        return cast(sharedState.correlatedVariable(id));
+    public @Nullable Object correlatedVariable(long id) {
+        return sharedState.correlatedVariable(id);
     }
 
     /**
      * Sets correlated value.
      *
-     * @param id Correlation ID.
+     * @param id Composite identifier consisting of the correlated variable ID and the field index.
      * @param value Correlated value.
      */
-    public void correlatedVariable(Object value, int id) {
+    public void correlatedVariable(long id, @Nullable Object value) {
         sharedState.correlatedVariable(id, value);
     }
 

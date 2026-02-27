@@ -89,7 +89,7 @@ bool linux_async_client::send_next_packet_locked() {
     auto &packet = m_send_packets.front();
     auto dataView = packet.get_bytes_view();
 
-    ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), 0);
+    ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), MSG_NOSIGNAL);
     if (ret < 0)
         return false;
 

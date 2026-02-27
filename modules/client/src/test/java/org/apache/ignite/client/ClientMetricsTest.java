@@ -227,7 +227,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Query failed",
-                () -> client.sql().execute(null, FakeIgniteQueryProcessor.FAILED_SQL));
+                () -> client.sql().execute(FakeIgniteQueryProcessor.FAILED_SQL));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());
@@ -263,14 +263,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
-        assertEquals(17, metrics().bytesSent());
+        assertEquals(18, metrics().bytesSent());
 
         long handshakeReceived = metrics().bytesReceived();
         assertThat(handshakeReceived, greaterThanOrEqualTo(77L));
 
         client.tables().tables();
 
-        assertEquals(23, metrics().bytesSent());
+        assertEquals(24, metrics().bytesSent());
         assertEquals(handshakeReceived + 21, metrics().bytesReceived());
     }
 

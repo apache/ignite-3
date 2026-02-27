@@ -36,12 +36,31 @@ public class TempStorageProviderImpl implements TempStorageProvider {
 
     private Path storageDir;
 
+    private boolean caseInsensitiveFileSystem;
+
     public TempStorageProviderImpl(Executor executor) {
         this.executor = executor;
     }
 
     public void init(Path storageDir) {
         this.storageDir = storageDir;
+        this.caseInsensitiveFileSystem = detectCaseInsensitivity(storageDir);
+    }
+
+    private static boolean detectCaseInsensitivity(Path storageDir) {
+        try {
+            Files.createDirectories(storageDir);
+            Path probeFile = storageDir.resolve("CaseSensitivityProbe");
+            Files.createFile(probeFile);
+            try {
+                return Files.exists(storageDir.resolve("casesensitivityprobe"));
+            } finally {
+                Files.deleteIfExists(probeFile);
+            }
+        } catch (IOException e) {
+            LOG.warn("Failed to detect file system case sensitivity, assuming case-insensitive", e);
+            return true;
+        }
     }
 
     @Override
@@ -49,10 +68,10 @@ public class TempStorageProviderImpl implements TempStorageProvider {
         try {
             Path storageDir = this.storageDir.resolve(id).resolve(version.render());
             Files.createDirectories(storageDir);
-            return new TempStorageImpl(storageDir, executor);
+            return new TempStorageImpl(storageDir, executor, caseInsensitiveFileSystem);
         } catch (IOException ex) {
             LOG.error("Failed to create temp storage {} with id {} and version {}", ex, storageDir, id, version);
-            throw new DeploymentUnitWriteException("Failed to create deployemnt unit temp storage.", ex);
+            throw new DeploymentUnitWriteException("Failed to create deployment unit temp storage.", ex);
         }
     }
 }

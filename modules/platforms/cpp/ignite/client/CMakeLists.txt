@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-project(ignite3-client)
-
-set(TARGET ${PROJECT_NAME})
+set(TARGET ${PROJECT_NAME}-client)
 
 set(SOURCES
     cancel_handle.cpp
@@ -115,7 +113,7 @@ foreach(_target_lib IN LISTS _target_libs)
     target_link_libraries(${_target_lib} PRIVATE ${LIBRARIES})
     target_include_directories(${_target_lib}
         PUBLIC $<BUILD_INTERFACE:${IGNITE_CMAKE_TOP_DIR}/>
-               $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/>
+               $<INSTALL_INTERFACE:${IGNITE_INSTALL_INCLUDE_DIR}/>
     )
 endforeach()
 unset(_target_libs)
@@ -125,10 +123,11 @@ add_library(ignite::client-static ALIAS ${TARGET}-static)
 
 install(TARGETS ${TARGET}
     EXPORT ignite-client-targets
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    COMPONENT client
+    ARCHIVE DESTINATION ${IGNITE_INSTALL_ARCHIVE_DIR}
+    LIBRARY DESTINATION ${IGNITE_INSTALL_LIBRARY_DIR}
+    RUNTIME DESTINATION ${IGNITE_INSTALL_RUNTIME_DIR}
+    INCLUDES DESTINATION ${IGNITE_INSTALL_INCLUDE_DIR}
 )
 
 export(
@@ -140,12 +139,12 @@ export(
 install(
     EXPORT ignite-client-targets
     NAMESPACE ignite::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+    DESTINATION "${IGNITE_INSTALL_LIBRARY_DIR}/cmake/ignite"
     COMPONENT client
     FILE "ignite-client-targets.cmake"
 )
 
-ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
+ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client COMPONENT client)
 
 ignite_test(utils_test DISCOVER SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(name_utils_test DISCOVER SOURCES detail/table/name_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})

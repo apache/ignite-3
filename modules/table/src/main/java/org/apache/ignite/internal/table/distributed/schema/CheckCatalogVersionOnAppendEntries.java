@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
-import static org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
+import static org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
+import static org.apache.ignite.internal.table.distributed.schema.MetadataSufficiency.isMetadataAvailableForCatalogVersion;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.marshaller.PartitionCommandsMarshaller;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.raft.jraft.Node;
@@ -66,19 +68,21 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         for (RaftOutter.EntryMeta entry : request.entriesList()) {
             int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().getCommandsMarshaller());
 
-            if (requiredCatalogVersion != NO_VERSION_REQUIRED && !isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
-                // TODO: IGNITE-20298 - throttle logging.
-                LOG.warn(
+            if (requiredCatalogVersion != NO_VERSION_REQUIRED
+                    && !isMetadataAvailableForCatalogVersion(requiredCatalogVersion, catalogService)) {
+                String message = IgniteStringFormatter.format(
                         "Metadata not yet available, rejecting AppendEntriesRequest with EBUSY [group={}, requiredLevel={}].",
                         request.groupId(), requiredCatalogVersion
                 );
+
+                // TODO: IGNITE-20298 - throttle logging.
+                LOG.warn(message);
 
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(
                             node.getRaftOptions().getRaftMessagesFactory(),
                             RaftError.EBUSY,
-                            "Metadata not yet available, rejecting AppendEntriesRequest with EBUSY [group=%s, requiredLevel=%d].",
-                            request.groupId(), requiredCatalogVersion
+                            message
                     );
             }
 

@@ -97,8 +97,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
         var pageMemory = new VolatilePageMemory(regionConfiguration, ioRegistry, new OffheapReadWriteLock(lockConcLvl));
 
-        pageMemory.start();
-
         try {
             this.freeList = createFreeList(pageMemory);
         } catch (IgniteInternalCheckedException e) {

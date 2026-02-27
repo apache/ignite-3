@@ -569,7 +569,7 @@ public class PlatformTestNodeRunner {
     private static class CreateTableJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
-            context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
+            context.ignite().sql().execute("CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
             return completedFuture(tableName);
         }
@@ -582,7 +582,7 @@ public class PlatformTestNodeRunner {
     private static class DropTableJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, String tableName) {
-            context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
+            context.ignite().sql().execute("DROP TABLE " + tableName + "");
 
             return completedFuture(tableName);
         }

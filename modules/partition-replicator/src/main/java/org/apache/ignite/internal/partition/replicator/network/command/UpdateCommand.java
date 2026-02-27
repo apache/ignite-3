@@ -19,10 +19,8 @@ package org.apache.ignite.internal.partition.replicator.network.command;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.PropertyName;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
-import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,18 +30,10 @@ import org.jetbrains.annotations.Nullable;
  * <p>This command is replaced with {@link UpdateCommandV2} and only exists in the source code for backward compatibility.</p>
  */
 @Transferable(Commands.UPDATE_V1)
-public interface UpdateCommand extends PartitionCommand {
-    @PropertyName("tablePartitionId")
-    ReplicationGroupIdMessage commitPartitionId();
-
+public interface UpdateCommand extends UpdateCommandBase {
     UUID rowUuid();
 
     @Nullable TimedBinaryRowMessage messageRowToUpdate();
-
-    UUID txCoordinatorId();
-
-    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
-    @Nullable Long leaseStartTime();
 
     /** Returns the row to update or {@code null} if the row should be removed. */
     default @Nullable BinaryRow rowToUpdate() {

@@ -94,7 +94,7 @@ public class AssignmentsTrackerTest extends BaseIgniteAbstractTest {
     @Test
     public void testInitialEmptyAssignmentsWithSuccessfulWaiting() {
         CompletableFuture<List<TokenizedAssignments>> assignmentsListFuture = assignmentsTracker
-                .awaitNonEmptyAssignments(List.of(groupId0), metaStorageManager.clusterTime().currentSafeTime(), 10_000);
+                .awaitNonEmptyAssignments(List.of(groupId0), 10_000);
 
         assertFalse(assignmentsListFuture.isDone());
 
@@ -108,7 +108,7 @@ public class AssignmentsTrackerTest extends BaseIgniteAbstractTest {
     @Test
     public void testChangeAssignmentsForOneGroupWhileWaitingForAnother() {
         CompletableFuture<List<TokenizedAssignments>> assignmentsListFuture = assignmentsTracker
-                .awaitNonEmptyAssignments(List.of(groupId0, groupId1), metaStorageManager.clusterTime().currentSafeTime(), 10_000);
+                .awaitNonEmptyAssignments(List.of(groupId0, groupId1), 10_000);
 
         assertFalse(assignmentsListFuture.isDone());
 

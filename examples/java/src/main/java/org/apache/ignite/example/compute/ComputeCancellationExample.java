@@ -18,6 +18,8 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -29,29 +31,15 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.lang.CancelHandle;
-import org.apache.ignite.lang.CancellationToken;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#executeAsync(JobTarget, JobDescriptor, Object, CancellationToken)} API.
+ * This example demonstrates the usage of the {@link IgniteCompute#executeAsync} API with cancellation support.
  *
- * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
- *
- * <p>The following steps related to code deployment should be additionally executed before running the current example:
- * <ol>
- *     <li>
- *         Build "ignite-examples-x.y.z.jar" using the next command:<br>
- *         {@code ./gradlew :ignite-examples:jar}
- *     </li>
- *     <li>
- *         Create a new deployment unit using the CLI tool:<br>
- *         {@code cluster unit deploy computeExampleUnit \
- *          --version 1.0.0 \
- *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
- *     </li>
- * </ol>
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
+
 public class ComputeCancellationExample {
     /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "computeExampleUnit";
@@ -63,8 +51,12 @@ public class ComputeCancellationExample {
      * Main method of the example.
      *
      * @param args The command line arguments.
+     * @throws Exception if any error occurs.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        DeployComputeUnit.processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -84,6 +76,9 @@ public class ComputeCancellationExample {
             //--------------------------------------------------------------------------------------
 
             System.out.println("\nConfiguring compute job...");
+
+
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
 
             JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
@@ -124,13 +119,18 @@ public class ComputeCancellationExample {
             } catch (CompletionException ex) {
                 System.out.println("\nThe compute job was cancelled: " + ex.getMessage());
             }
+        } finally {
+
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
         }
     }
 
     /**
      * The job to interrupt.
      */
-    private static class InfiniteJob implements ComputeJob<Object, Void> {
+    public static class InfiniteJob implements ComputeJob<Object, Void> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Object arg) {

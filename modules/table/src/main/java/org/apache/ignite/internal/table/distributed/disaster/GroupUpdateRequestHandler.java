@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneRecoveryTriggerRevisionKey;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -82,7 +84,7 @@ import org.jetbrains.annotations.Nullable;
  * A colocation-aware handler for {@link GroupUpdateRequest}.
  */
 class GroupUpdateRequestHandler {
-    private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
+    private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequestHandler.class);
 
     private final GroupUpdateRequest request;
 
@@ -306,7 +308,6 @@ class GroupUpdateRequestHandler {
             if (manualUpdate) {
                 enrichAssignments(partId, aliveDataNodes, partitions, replicas, consensusGroupSize, partAssignments);
             }
-
             // We need to recalculate assignments to ensure that we have a valid set of nodes with correct roles (peers/learners).
             partAssignments = calculateAssignmentForPartition(
                     partAssignments.stream().map(Assignment::consistentId).collect(toSet()),
@@ -333,7 +334,26 @@ class GroupUpdateRequestHandler {
                     .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
                     .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
                     .toQueue();
-
+            if (!manualUpdate) {
+                ByteArray pendingKey = ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId);
+                var entry = metaStorageMgr.getLocally(pendingKey);
+                if (entry != null) {
+                    AssignmentsQueue pendingQueue = AssignmentsQueue.fromBytes(entry.value());
+                    if (pendingQueue != null && !pendingQueue.isEmpty()) {
+                        ByteArray recoveryTriggerRevisionKey = zoneRecoveryTriggerRevisionKey(partId.zoneId());
+                        var recoveryTriggerRevisionEntry = metaStorageMgr.getLocally(recoveryTriggerRevisionKey, revision);
+                        long reductionRevision = (recoveryTriggerRevisionEntry != null && recoveryTriggerRevisionEntry.value() != null)
+                                ? ByteUtils.bytesToLongKeepingOrder(recoveryTriggerRevisionEntry.value())
+                                : -1L;
+                        if (entry.revision() > reductionRevision
+                                && pendingQueueIsViableForRecovery(pendingQueue, aliveNodesConsistentIds, replicas)) {
+                            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
+                        }
+                        AssignmentsQueue filteredPendingQueue = filterAliveNodesOnly(pendingQueue, aliveNodesConsistentIds);
+                        assignmentsQueue = new AssignmentsQueue(assignmentsQueue, filteredPendingQueue);
+                    }
+                }
+            }
             return invoke(
                     partId,
                     revision,
@@ -345,6 +365,47 @@ class GroupUpdateRequestHandler {
                     partAssignments
             );
         });
+    }
+
+    private static boolean pendingQueueIsViableForRecovery(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds, int replicas) {
+        // Lets assume we have nodes A, B, C, D, E.
+        // C, D, E restart.
+        // Reset timeout triggers.
+        // Node C, D, E get back online to logical topology and create pending=[A, B, C, D, E].
+        // Reset proceeds and sees A, B, C, D, E online at its revision.
+        // Then it overwrites existing pending from above with pending=[A]. planned=[A,B].
+        // To prevent this scenario we should skip such reset.
+
+        for (Assignments assignments : queue) {
+            if (assignments
+                    .nodes()
+                    .stream()
+                    .map(Assignment::consistentId).anyMatch(name -> !aliveNodesConsistentIds.contains(name))
+            ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static AssignmentsQueue filterAliveNodesOnly(AssignmentsQueue queue, Set<String> aliveNodesConsistentIds) {
+        List<Assignments> filteredAssignments = new ArrayList<>();
+
+        for (Assignments assignments : queue) {
+            Set<Assignment> aliveAssignments = assignments.nodes().stream()
+                    .filter(assignment -> aliveNodesConsistentIds.contains(assignment.consistentId()))
+                    .collect(toSet());
+
+            if (!aliveAssignments.isEmpty()) {
+                filteredAssignments.add(new Assignments(
+                        aliveAssignments,
+                        assignments.force(),
+                        assignments.timestamp(),
+                        assignments.fromReset())
+                );
+            }
+        }
+        return new AssignmentsQueue(filteredAssignments.toArray(Assignments[]::new));
     }
 
     /**

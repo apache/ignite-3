@@ -1,5 +1,5 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one or more
+ * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
@@ -18,10 +18,9 @@
 #include "fake_server.h"
 #include "ignite/protocol/protocol_version.h"
 
-#include <cstring>
 #include <ignite/common/ignite_error.h>
 #include <ignite/protocol/utils.h>
-#include <iostream>
+
 #include <queue>
 
 void fake_server::start() {
@@ -47,31 +46,25 @@ void fake_server::start() {
 }
 
 void fake_server::start_socket() {
-    m_srv_fd = socket(AF_INET, SOCK_STREAM, 6);
+    m_srv_sock.start();
 
-    if (m_srv_fd < 0) {
+    if (!m_srv_sock.is_valid()) {
         throw ignite_error("socket failed");
     }
 }
 
 void fake_server::bind_address_port() const {
-    sockaddr_in srv_addr{};
-
-    srv_addr.sin_family = AF_INET;
-    srv_addr.sin_addr.s_addr = INADDR_ANY;
-    srv_addr.sin_port = htons(m_srv_port);
-
-    int bind_res = bind(m_srv_fd, reinterpret_cast<sockaddr *>(&srv_addr), sizeof(srv_addr));
+    int bind_res = m_srv_sock.bind(m_srv_port);
 
     if (bind_res < 0) {
         std::stringstream ss;
-        ss << "bind failed" << strerror(errno);
+        ss << "bind failed: " << LAST_SOCKET_ERROR();
         throw std::runtime_error(ss.str());
     }
 }
 
 void fake_server::start_socket_listen() const {
-    int listen_res = listen(m_srv_fd, 1);
+    int listen_res = m_srv_sock.listen();
 
     if (listen_res < 0) {
         throw std::runtime_error("listen failed");
@@ -81,7 +74,7 @@ void fake_server::start_socket_listen() const {
 }
 
 void fake_server::accept_client_connection() {
-    m_client_channel = std::make_unique<tcp_client_channel>(m_srv_fd, m_logger);
+    m_client_channel = std::make_unique<tcp_client_channel>(m_srv_sock, m_logger);
     m_client_channel->start();
 }
 

@@ -63,7 +63,7 @@ public class Assignments {
     /**
      * Constructor.
      */
-    private Assignments(Collection<Assignment> nodes, boolean force, long timestamp, boolean fromReset) {
+    public Assignments(Collection<Assignment> nodes, boolean force, long timestamp, boolean fromReset) {
         // A set of nodes must be a HashSet in order for serialization to produce stable results,
         // that could be compared as byte arrays.
         this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);
@@ -155,6 +155,22 @@ public class Assignments {
      */
     public boolean isEmpty() {
         return nodes.isEmpty();
+    }
+
+    /**
+     * Checks whether the assignments contain an assignment for a node with the given consistent ID, either peer assignment or not.
+     *
+     * @param consistentId Consistent ID of the node.
+     * @return {@code true} if the assignments contain an assignment for a node with the given consistent ID.
+     */
+    public boolean contains(String consistentId) {
+        for (Assignment a : nodes) {
+            if (a.consistentId().equals(consistentId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.InvalidNodeConfigurationException;
@@ -59,7 +58,7 @@ import org.jetbrains.annotations.Nullable;
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
  */
 public class CmgRaftService implements ManuallyCloseable {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CmgRaftService.class);
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 

@@ -46,7 +46,6 @@ import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2Builder;
-import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValidationResult;
 import org.apache.ignite.internal.partition.replicator.schemacompat.SchemaCompatibilityValidator;
@@ -233,24 +232,7 @@ public class TxFinishReplicaRequestHandler {
 
     private static void throwIfSchemaValidationOnCommitFailed(CompatValidationResult validationResult, TransactionResult txResult) {
         if (!validationResult.isSuccessful()) {
-            if (validationResult.isTableDropped()) {
-                throw new IncompatibleSchemaAbortException(
-                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
-                        txResult
-                );
-            } else {
-                throw new IncompatibleSchemaAbortException(
-                        format(
-                                "Commit failed because schema is not forward-compatible "
-                                        + "[fromSchemaVersion={}, toSchemaVersion={}, table={}, details={}]",
-                                validationResult.fromSchemaVersion(),
-                                validationResult.toSchemaVersion(),
-                                validationResult.failedTableName(),
-                                validationResult.details()
-                        ),
-                        txResult
-                );
-            }
+            throw new IncompatibleSchemaAbortException(validationResult.validationFailedMessage(), txResult);
         }
     }
 
@@ -283,23 +265,22 @@ public class TxFinishReplicaRequestHandler {
                 ))
                 .handle((txOutcome, ex) -> {
                     if (ex != null) {
-                        // RAFT 'finish' command failed because the state has already been written by someone else.
-                        // In that case we throw a corresponding exception.
-                        if (ex instanceof UnexpectedTransactionStateException) {
-                            UnexpectedTransactionStateException utse = (UnexpectedTransactionStateException) ex;
-                            TransactionResult result = utse.transactionResult();
-
-                            replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
-
-                            throw new MismatchingTransactionOutcomeInternalException(utse.getMessage(), utse.transactionResult());
-                        }
-                        // Otherwise we convert from the internal exception to the client one.
+                        // Convert from the internal exception to the client one.
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
                     TransactionResult result = (TransactionResult) txOutcome;
 
                     replicaTxFinishMarker.markFinished(txId, result.transactionState(), result.commitTimestamp());
+
+                    if (commit != (result.transactionState() == COMMITTED)) {
+                        throw new MismatchingTransactionOutcomeInternalException(
+                                format("Failed to change the outcome of a finished transaction [{}, txState={}].",
+                                        formatTxInfo(txId, txManager, false),
+                                        result.transactionState()),
+                                result
+                        );
+                    }
 
                     return result;
                 });

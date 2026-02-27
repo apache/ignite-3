@@ -49,6 +49,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexMeta;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.jetbrains.annotations.Nullable;
 
@@ -107,13 +108,33 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
 
         if (indexMeta == null || indexMeta.isDropped()) {
             // Index has been dropped.
-
-            storage.runConsistently(locker -> {
+            return storage.runConsistently(locker -> {
                 storage.lastApplied(commandIndex, commandTerm);
-                return null;
-            });
 
-            return EMPTY_APPLIED_RESULT;
+                return EMPTY_APPLIED_RESULT;
+            });
+        }
+
+        IndexUpdateHandler indexUpdateHandler = storageUpdateHandler.getIndexUpdateHandler();
+
+        RowId previousNextRowIdToBuild = indexUpdateHandler.getNextRowIdToBuildIndex(command.indexId());
+        if (previousNextRowIdToBuild == null) {
+            // Index is already built. This command either repeats the final batch, or it is one of the previous commands that's been
+            // processed out of order for some reason.
+            if (command.finish()) {
+                logCommandDuplication(command);
+            } else {
+                logCommandReordering(command);
+            }
+
+            // It is safe to ignore such commands, because it is a duplicate of already applied command in both cases (duplication and
+            // out-of-order replication). We guarantee that because new command is only created when the previous one has been replicated
+            // at least once.
+            return storage.runConsistently(locker -> {
+                storage.lastApplied(commandIndex, commandTerm);
+
+                return EMPTY_APPLIED_RESULT;
+            });
         }
 
         Set<UUID> abortedTransactionIds = command instanceof BuildIndexCommandV3
@@ -136,7 +157,7 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
             finished = storage.runConsistently(locker -> {
                 if (rowIds.isEmpty()) {
                     // necessary to bump `nextRowIdToBuild` to null
-                    storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), Stream.of(), null);
+                    indexUpdateHandler.buildIndex(command.indexId(), Stream.of(), null);
                 } else {
                     int index = rowIdsIterationIndex.get();
                     while (index < rowIds.size()) {
@@ -153,7 +174,7 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
                             nextRowIdToBuild = requireNonNull(lastRowId).increment();
                         }
 
-                        storageUpdateHandler.getIndexUpdateHandler().buildIndex(command.indexId(), rowVersions, nextRowIdToBuild);
+                        indexUpdateHandler.buildIndex(command.indexId(), rowVersions, nextRowIdToBuild);
                         index = rowIdsIterationIndex.incrementAndGet();
 
                         if (locker.shouldRelease() && index < rowIds.size()) {
@@ -174,6 +195,22 @@ public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexC
         }
 
         return EMPTY_APPLIED_RESULT;
+    }
+
+    private void logCommandDuplication(BuildIndexCommand command) {
+        if (LOG.isInfoEnabled()) {
+            LOG.info(
+                    "Duplicated building the index command received [tableId={}, partitionId={}, indexId={}, finish={}]",
+                    storage.tableId(), storage.partitionId(), command.indexId(), command.finish()
+            );
+        }
+    }
+
+    private void logCommandReordering(BuildIndexCommand command) {
+        LOG.warn(
+                "Build index command reordering detected [tableId={}, partitionId={}, indexId={}, finish={}]",
+                storage.tableId(), storage.partitionId(), command.indexId(), command.finish()
+        );
     }
 
     private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(IndexMeta indexMeta, Set<UUID> abortedTransactionIds) {

@@ -73,13 +73,16 @@ dependencies {
     testImplementation testFixtures(project(':ignite-metrics'))
 
     testFixturesImplementation libs.awaitility
+    testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-runner')
+    testFixturesImplementation project(':ignite-partition-distribution')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-metastorage'))
 

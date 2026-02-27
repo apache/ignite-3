@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -40,12 +41,13 @@ public class ClientTransactionInflights {
     /**
      * Registers the inflight update for a transaction.
      *
-     * @param txId The transaction id.
+     * @param tx The transaction.
      */
-    public void addInflight(UUID txId) {
-        txCtxMap.compute(txId, (uuid, ctx) -> {
+    public void addInflight(ClientTransaction tx) {
+        txCtxMap.compute(tx.txId(), (uuid, ctx) -> {
             if (ctx == null) {
                 ctx = new TxContext();
+                ctx.tx = tx;
             }
 
             ctx.addInflight();
@@ -126,6 +128,23 @@ public class ClientTransactionInflights {
     }
 
     /**
+     * Returns tracked directly mapped transaction.
+     *
+     * @param id The id.
+     *
+     * @return The transaction or {@code null}.
+     */
+    public @Nullable ClientTransaction trackedTransaction(UUID id) {
+        TxContext txContext = txCtxMap.get(id);
+
+        if (txContext != null) {
+            return txContext.tx;
+        }
+
+        return null;
+    }
+
+    /**
      * Check if the inflights map contains a given transaction.
      *
      * @param txId Tx id.
@@ -142,6 +161,7 @@ public class ClientTransactionInflights {
         public CompletableFuture<Void> finishFut;
         public long inflights = 0;
         public Throwable err;
+        public ClientTransaction tx;
 
         void addInflight() {
             inflights++;

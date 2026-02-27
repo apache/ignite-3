@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
@@ -30,13 +34,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -48,22 +55,29 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -76,8 +90,11 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
@@ -391,15 +408,17 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx.rollback();
     }
 
-    @Test
-    void testKillTransaction() {
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    void testKillTransaction(KillTestContext ctx) {
         @SuppressWarnings("resource") IgniteClient client = client();
-        KeyValueView<Integer, String> kvView = kvView();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
 
         Transaction tx = client.transactions().begin();
-        kvView.put(tx, 1, "1");
+        Tuple key = key(0);
+        assertThat(ctx.put.apply(client, tx, key), willSucceedFast());
 
-        try (ResultSet<SqlRow> cursor = client.sql().execute(null, "SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
             cursor.forEachRemaining(r -> {
                 String txId = r.stringValue("TRANSACTION_ID");
                 client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
@@ -409,7 +428,152 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         TransactionException ex = assertThrows(TransactionException.class, tx::commit);
 
         assertThat(ex.getMessage(), startsWith("Transaction is killed"));
-        assertEquals("IGN-TX-13", ex.codeAsString());
+        assertEquals("IGN-TX-18", ex.codeAsString());
+
+        assertThat(kvView.removeAsync(key), willSucceedFast());
+    }
+
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    void testEnlistmentAfterKillTransaction(KillTestContext ctx) {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+
+        Transaction tx = client.transactions().begin();
+        Tuple key = tuples.get(0);
+        assertThat(ctx.put.apply(client, tx, key), willSucceedFast());
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        Tuple key2 = tuples.get(1);
+        assertThat(ctx.put.apply(client, tx, key2), willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
+
+        assertThat(tx.commitAsync(), willSucceedFast());
+
+        // Validate lock possibility.
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key, key2)), willSucceedFast());
+    }
+
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    void testKillTransactionAfterSecondEnlistment(KillTestContext ctx) {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+
+        Transaction tx = client.transactions().begin();
+        Tuple key = tuples.get(0);
+        assertThat(ctx.put.apply(client, tx, key), willSucceedFast());
+
+        Tuple key2 = tuples.get(1);
+        assertThat(ctx.put.apply(client, tx, key2), willSucceedFast());
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
+
+        // Validate lock possibility.
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key, key2)), willSucceedFast());
+    }
+
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    void testDirectEnlistmentAfterKillTransaction(KillTestContext ctx) {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        ClientSql sql = (ClientSql) client.sql();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+        List<Tuple> tuples2 = generateKeysForNode(100, 10, map, server1.cluster().localNode(), table());
+
+        // Init mappings.
+        Tuple key0 = tuples.get(0);
+        sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                key0.intValue(0), key0.intValue(0) + "");
+        await().atMost(2, TimeUnit.SECONDS)
+                .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
+
+        Transaction tx = client.transactions().begin();
+        Tuple key1 = tuples.get(1);
+        assertThat(ctx.put.apply(client, tx, key1), willSucceedFast());
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        // No direct enlistments exists at this point so put will succeed. This can be improved.
+        Tuple key2 = tuples2.get(0);
+        assertThat(ctx.put.apply(client, tx, key2), willSucceedFast());
+
+        assertThat(tx.commitAsync(), willThrowWithCauseOrSuppressed(TransactionException.class, "Transaction is killed"));
+
+        // Validate lock possibility.
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key1, key2)), willSucceedFast());
+    }
+
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    void testKillSqlTransactionAfterSecondDirectEnlistment(KillTestContext ctx) {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        ClientSql sql = (ClientSql) client.sql();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table().partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
+        List<Tuple> tuples = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table());
+        List<Tuple> tuples2 = generateKeysForNode(100, 10, map, server1.cluster().localNode(), table());
+
+        // Init mappings.
+        Tuple key0 = tuples.get(0);
+        sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                key0.intValue(0), key0.intValue(0) + "");
+        await().atMost(2, TimeUnit.SECONDS)
+                .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
+
+        ClientLazyTransaction tx = (ClientLazyTransaction) client.transactions().begin();
+        Tuple key1 = tuples.get(1);
+        assertThat(ctx.put.apply(client, tx, key1), willSucceedFast());
+
+        Tuple key2 = tuples2.get(0);
+        assertThat(ctx.put.apply(client, tx, key2), willSucceedFast());
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute("SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        await().atMost(3, TimeUnit.SECONDS).until(() -> tx.startedTx().killed());
+
+        assertThat(tx.commitAsync(), willSucceedFast());
+
+        // Validate lock possibility.
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key1, key2)), willSucceedFast());
     }
 
     @Test
@@ -423,7 +587,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         assertEquals(PARTITIONS, map.size());
 
-        int k = 111; // Avoid intersection with previous tests.
+        int k = 111111; // Avoid intersection with previous tests.
 
         Map<Tuple, Tuple> txMap = new HashMap<>();
 
@@ -833,7 +997,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         // Expecting each write operation to trigger add/remove events.
         int exp = 20 + partitions;
-        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx().txId());
+        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx());
         Mockito.verify(spyed, Mockito.times(exp)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
         // Check if all locks are released.
@@ -999,7 +1163,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertEquals(recsBatch.size(), view.getAll(tx1, keys).size());
         tx1.commit();
 
-        // Test if we don't stuck in locks in subsequent rw txn.
+        // Test if we don't stuck in locks in subsequent rw txns.
         CompletableFuture.runAsync(() -> {
             Transaction tx0 = client().transactions().begin();
             view.upsert(tx0, keys0.get(0));
@@ -1181,6 +1345,156 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertNull(val, "Read-only transaction should not see values committed after its start");
     }
 
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    public void testRollbackDoesNotBlockOnLockConflict(KillTestContext ctx) {
+        ClientTable table = (ClientTable) table();
+        ClientSql sql = (ClientSql) client().sql();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        Entry<Partition, ClusterNode> mapping = map.entrySet().iterator().next();
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, (int) mapping.getKey().id(), table);
+        Ignite server = server(mapping.getValue());
+
+        // Init SQL mappings.
+        Tuple key0 = tuples0.get(0);
+        sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                key0.intValue(0), key0.intValue(0) + "");
+        await().atMost(2, TimeUnit.SECONDS)
+                .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
+
+        ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
+        ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
+
+        Tuple key = tuples0.get(1);
+        Tuple key2 = tuples0.get(2);
+
+        assertThat(ctx.put.apply(client(), olderTxProxy, key), willSucceedFast());
+        ClientTransaction olderTx = olderTxProxy.startedTx();
+
+        assertThat(ctx.put.apply(client(), youngerTxProxy, key2), willSucceedFast());
+        ClientTransaction youngerTx = youngerTxProxy.startedTx();
+
+        assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
+
+        // Older is allowed to wait with wait-die.
+        CompletableFuture<?> fut = ctx.put.apply(client(), olderTxProxy, key2);
+        assertFalse(fut.isDone());
+
+        IgniteImpl ignite = unwrapIgniteImpl(server);
+
+        await().atMost(2, TimeUnit.SECONDS).until(() -> {
+            Iterator<Lock> locks = ignite.txManager().lockManager().locks(olderTx.txId());
+
+            return CollectionUtils.count(locks) == 2;
+        });
+
+        assertThat(olderTxProxy.rollbackAsync(), willSucceedFast());
+
+        // Operation future should be failed.
+        assertThat(fut, willThrowWithCauseOrSuppressed(ctx.expectedErr));
+
+        // Ensure inflights cleanup.
+        assertThat(youngerTxProxy.rollbackAsync(), willSucceedFast());
+
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2)), willSucceedFast());
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27947")
+    public void testRollbackDoesNotBlockOnLockConflictDuringFirstRequest() throws InterruptedException {
+        // Note: reversed tx priority is required for this test.
+        ClientTable table = (ClientTable) table();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, 0, table);
+
+        // We need a waiter for this scenario.
+        Tuple key = tuples0.get(0);
+        Tuple val = val("1");
+
+        ClientLazyTransaction tx1 = (ClientLazyTransaction) client().transactions().begin();
+        ClientLazyTransaction tx2 = (ClientLazyTransaction) client().transactions().begin();
+
+        kvView.put(tx1, key, val);
+
+        // Will wait for lock.
+        CompletableFuture<Void> fut2 = kvView.putAsync(tx2, key, val);
+        assertFalse(fut2.isDone());
+
+        Thread.sleep(500);
+
+        // Rollback should not be blocked.
+        assertThat(tx2.rollbackAsync(), willSucceedFast());
+        assertThat(tx1.rollbackAsync(), willSucceedFast());
+    }
+
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    public void testRollbackDoesNotBlockOnLockConflictWithDirectMapping(KillTestContext ctx) {
+        ClientTable table = (ClientTable) table();
+        ClientSql sql = (ClientSql) client().sql();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        Entry<Partition, ClusterNode> p0 = null;
+        Entry<Partition, ClusterNode> p1 = null;
+        for (Entry<Partition, ClusterNode> entry : map.entrySet()) {
+            if (p0 == null) {
+                p0 = entry;
+            } else if (!p0.getValue().equals(entry.getValue())) {
+                p1 = entry;
+                break;
+            }
+        }
+
+        // Expecting at least one partition on different node.
+        assertNotNull(p0);
+        assertNotNull(p1);
+
+        List<Tuple> tuples0 = generateKeysForPartition(100, 10, map, (int) p0.getKey().id(), table);
+        List<Tuple> tuples1 = generateKeysForPartition(100, 10, map, (int) p1.getKey().id(), table);
+
+        // Init SQL mappings.
+        Tuple key0 = tuples0.get(0);
+        sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                key0.intValue(0), key0.intValue(0) + "");
+        await().atMost(2, TimeUnit.SECONDS)
+                .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
+
+        ClientLazyTransaction olderTxProxy = (ClientLazyTransaction) client().transactions().begin();
+        ClientLazyTransaction youngerTxProxy = (ClientLazyTransaction) client().transactions().begin();
+
+        Tuple key = tuples0.get(1);
+        Tuple key2 = tuples0.get(2);
+        Tuple key3 = tuples1.get(0);
+        Tuple key4 = tuples1.get(1);
+
+        assertThat(ctx.put.apply(client(), olderTxProxy, key), willSucceedFast());
+
+        ClientTransaction olderTx = olderTxProxy.startedTx();
+
+        assertThat(ctx.put.apply(client(), youngerTxProxy, key2), willSucceedFast());
+
+        ClientTransaction youngerTx = youngerTxProxy.startedTx();
+
+        assertTrue(olderTx.txId().compareTo(youngerTx.txId()) < 0);
+
+        // Should be directly mapped
+        assertThat(ctx.put.apply(client(), youngerTxProxy, key3), willSucceedFast());
+
+        // Younger is not allowed to wait with wait-die.
+        // Next operation should invalidate the transaction.
+        assertThat(ctx.put.apply(client(), youngerTxProxy, key), willThrowWithCauseOrSuppressed(ctx.expectedErr));
+
+        olderTxProxy.commit();
+
+        // Ensure all enlisted keys are unlocked.
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2, key3, key4)), willSucceedFast());
+    }
+
     @AfterEach
     protected void validateInflights() throws NoSuchFieldException {
         System.out.println("DBG: validateInflights");
@@ -1239,6 +1553,34 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         @Override
         public int hashCode() {
             return Objects.hash(key, val);
+        }
+    }
+
+    private static Stream<Arguments> killTestContextFactory() {
+        return Stream.of(
+                argumentSet("kv", new KillTestContext(TransactionException.class, ItThinClientTransactionsTest::putKv)),
+                argumentSet("sql", new KillTestContext(SqlException.class, ItThinClientTransactionsTest::putSql))
+        );
+    }
+
+    private static CompletableFuture<?> putSql(IgniteClient client, Transaction tx, Tuple key) {
+        return client.sql()
+                .executeAsync(tx, format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL), key.intValue(0),
+                        key.intValue(0) + "");
+    }
+
+    private static CompletableFuture<?> putKv(IgniteClient client, Transaction tx, Tuple key) {
+        return client.tables().tables().get(0).keyValueView().putAsync(tx, key, val(key.intValue(0) + ""));
+    }
+
+    private static class KillTestContext {
+        final Class<? extends Exception> expectedErr;
+        final IgniteTriFunction<IgniteClient, Transaction, Tuple, CompletableFuture<?>> put;
+
+        public KillTestContext(Class<? extends Exception> expectedErr,
+                IgniteTriFunction<IgniteClient, Transaction, Tuple, CompletableFuture<?>> put) {
+            this.expectedErr = expectedErr;
+            this.put = put;
         }
     }
 }

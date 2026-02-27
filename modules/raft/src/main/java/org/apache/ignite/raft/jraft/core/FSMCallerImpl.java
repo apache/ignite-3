@@ -185,7 +185,7 @@ public class FSMCallerImpl implements FSMCaller {
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
-        LOG.info("Starts FSMCaller successfully [node={}].", node.getNodeId());
+        LOG.debug("Starts FSMCaller successfully [nodeId={}].", nodeId);
         return true;
     }
 
@@ -194,7 +194,8 @@ public class FSMCallerImpl implements FSMCaller {
         if (this.shutdownLatch != null) {
             return;
         }
-        LOG.info("Shutting down FSMCaller [node={}].", node.getNodeId());
+
+        LOG.debug("Shutting down FSMCaller [node={}].", node.getNodeId());
 
         this.shuttingDown = true;
 

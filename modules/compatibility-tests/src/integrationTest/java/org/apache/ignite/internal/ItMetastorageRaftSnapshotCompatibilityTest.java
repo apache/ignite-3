@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilization;
 import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.apache.ignite.internal.CompatibilityTestCommon.createDefaultTables;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.jobs.DeploymentUtils.runJob;
 import static org.awaitility.Awaitility.await;
 
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.compute.SendAllMetastorageCommandTypesJob;
 import org.apache.ignite.internal.compute.TruncateRaftLogCommand;
@@ -38,7 +36,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Compatibility tests for metastorage raft snapshot. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-@MicronautTest(rebuildContext = true)
 public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected boolean restartWithCurrentEmbeddedVersion() {
@@ -61,11 +58,10 @@ public class ItMetastorageRaftSnapshotCompatibilityTest extends CompatibilityTes
     }
 
     @Test
-    void testMetastorageRaftSnapshotCompatibility() throws InterruptedException {
+    void testMetastorageRaftSnapshotCompatibility() {
         cluster.stop();
-        cluster.startEmbedded(2);
 
-        awaitAssignmentsStabilization(node(0), TABLE_NAME_TEST);
+        startEmbeddedClusterAndAwaitRebalance(2);
 
         checkMetastorage();
 

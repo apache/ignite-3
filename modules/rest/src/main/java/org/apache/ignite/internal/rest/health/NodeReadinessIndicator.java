@@ -19,13 +19,16 @@ package org.apache.ignite.internal.rest.health;
 
 import static io.micronaut.health.HealthStatus.DOWN;
 import static io.micronaut.health.HealthStatus.UP;
-import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 
 import io.micronaut.health.HealthStatus;
 import io.micronaut.management.health.indicator.HealthIndicator;
 import io.micronaut.management.health.indicator.HealthResult;
 import io.micronaut.management.health.indicator.annotation.Readiness;
 import jakarta.inject.Singleton;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.cluster.JoinFutureProvider;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
@@ -36,6 +39,8 @@ import reactor.core.publisher.Flux;
 @Singleton
 @Readiness
 public class NodeReadinessIndicator implements HealthIndicator {
+    private static final IgniteLogger LOG = Loggers.forClass(NodeReadinessIndicator.class);
+
     private final JoinFutureProvider joinFutureProvider;
 
     public NodeReadinessIndicator(JoinFutureProvider joinFutureProvider) {
@@ -44,7 +49,24 @@ public class NodeReadinessIndicator implements HealthIndicator {
 
     @Override
     public Publisher<HealthResult> getResult() {
-        HealthStatus healthStatus = isCompletedSuccessfully(joinFutureProvider.joinFuture()) ? UP : DOWN;
-        return Flux.just(HealthResult.builder("node", healthStatus).build());
+        return Flux.just(HealthResult.builder("node", getHealthStatus()).build());
+    }
+
+    private HealthStatus getHealthStatus() {
+        CompletableFuture<Ignite> future = joinFutureProvider.joinFuture();
+        if (future.isDone()) {
+            if (future.isCancelled()) {
+                LOG.debug("Readiness check is DOWN. Join process was cancelled", future.handle((res, ex) -> ex).join());
+                return DOWN;
+            }
+            if (future.isCompletedExceptionally()) {
+                LOG.debug("Readiness check is DOWN. Node has not joined the cluster", future.handle((res, ex) -> ex).join());
+                return DOWN;
+            }
+            LOG.debug("Readiness check is UP.");
+            return UP;
+        }
+        LOG.debug("Readiness check is DOWN. Node has not yet finished joining the cluster.");
+        return DOWN;
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.client.proto.ResponseFlags.getErrorFlag;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
@@ -65,6 +66,9 @@ import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.client.proto.tx.ErrorFlags;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.client.tx.ClientTransactionKilledException;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -100,7 +104,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TX_CLIENT_GETALL_SUPPORTS_TX_OPTIONS,
             ProtocolBitmaskFeature.SQL_MULTISTATEMENT_SUPPORT,
             ProtocolBitmaskFeature.COMPUTE_OBSERVABLE_TS,
-            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_REMOTE_WRITES,
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -449,8 +454,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 throw sneakyThrow(t);
             }
 
-            log.warn("Failed to send request sync [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
-                    + t.getMessage(), t);
+            //noinspection InstanceofCatchParameter
+            if (t instanceof IgniteClientConnectionException) {
+                // Only log connection errors - consistent with async path.
+                log.warn("Failed to send request sync [id=" + id + ", op=" + opCode + ", remoteAddress=" + cfg.getAddress() + "]: "
+                        + t.getMessage(), t);
+            }
 
             // Close buffer manually on fail. Successful write closes the buffer automatically.
             payloadCh.close();
@@ -542,7 +551,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         handlePartitionAssignmentChange(flags, unpacker);
         handleObservableTimestamp(unpacker);
 
-        Throwable err = ResponseFlags.getErrorFlag(flags) ? readError(unpacker) : null;
+        Throwable err = getErrorFlag(flags) ? readError(unpacker) : null;
 
         if (ResponseFlags.getNotificationFlag(flags)) {
             handleNotification(resId, unpacker, err);
@@ -599,6 +608,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     ClientDelayedAckException err0 = (ClientDelayedAckException) err;
 
                     inflights.removeInflight(err0.txId(), new TransactionException(err0.code(), err0.getMessage(), err0.getCause()));
+                } else if (err instanceof ClientTransactionKilledException) {
+                    ClientTransactionKilledException err0 = (ClientTransactionKilledException) err;
+
+                    ClientTransaction tx = inflights.trackedTransaction(err0.txId());
+                    if (tx != null) {
+                        tx.discardDirectMappings(true);
+                    }
                 }
 
                 // Can't do anything to remove stuck inflight.
@@ -626,13 +642,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
+        boolean retriable = false;
 
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
         int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackInt();
         int expectedSchemaVersion = -1;
-        long[] sqlUpdateCounters = null;
-        UUID txId = null;
 
         for (int i = 0; i < extSize; i++) {
             String key = unpacker.unpackString();
@@ -640,22 +655,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
                 expectedSchemaVersion = unpacker.unpackInt();
             } else if (key.equals(ErrorExtensions.SQL_UPDATE_COUNTERS)) {
-                sqlUpdateCounters = unpacker.unpackLongArray();
+                return new SqlBatchException(traceId, code, unpacker.unpackLongArray(),
+                        errMsg != null ? errMsg : "SQL batch execution error", causeWithStackTrace);
             } else if (key.equals(ErrorExtensions.DELAYED_ACK)) {
-                txId = unpacker.unpackUuid();
+                return new ClientDelayedAckException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
+            } else if (key.equals(ErrorExtensions.TX_KILL)) {
+                return new ClientTransactionKilledException(traceId, code, errMsg, unpacker.unpackUuid(), causeWithStackTrace);
+            } else if (key.equals(ErrorExtensions.FLAGS)) {
+                EnumSet<ErrorFlags> flags = ErrorFlags.unpack(unpacker.unpackInt());
+                retriable = flags.contains(ErrorFlags.RETRIABLE);
             } else {
                 // Unknown extension - ignore.
                 unpacker.skipValues(1);
             }
-        }
-
-        if (txId != null) {
-            return new ClientDelayedAckException(traceId, code, errMsg, txId, causeWithStackTrace);
-        }
-
-        if (sqlUpdateCounters != null) {
-            errMsg = errMsg != null ? errMsg : "SQL batch execution error";
-            return new SqlBatchException(traceId, code, sqlUpdateCounters, errMsg, causeWithStackTrace);
         }
 
         if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
@@ -669,7 +681,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         try {
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
-            return copyExceptionWithCause(errCls, traceId, code, errMsg, causeWithStackTrace);
+            return copyExceptionWithCause(errCls, traceId, code, errMsg,
+                    retriable ? new ClientRetriableTransactionException(code, causeWithStackTrace) : causeWithStackTrace);
         } catch (ClassNotFoundException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }

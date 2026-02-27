@@ -18,6 +18,8 @@
 package org.apache.ignite.example.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -28,29 +30,16 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the
- * {@link IgniteCompute#execute(JobTarget, JobDescriptor, Object)} API with colocated JobTarget.
+ * This example demonstrates the usage of the {@link IgniteCompute#execute} API with colocated JobTarget.
  *
- * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
- *
- * <p>The following steps related to code deployment should be additionally executed before running the current example:
- * <ol>
- *     <li>
- *         Build "ignite-examples-x.y.z.jar" using the next command:<br>
- *         {@code ./gradlew :ignite-examples:jar}
- *     </li>
- *     <li>
- *         Create a new deployment unit using the CLI tool:<br>
- *         {@code cluster unit deploy computeExampleUnit \
- *          --version 1.0.0 \
- *          --path=$IGNITE_HOME/examples/build/libs/ignite-examples-x.y.z.jar}
- *     </li>
- * </ol>
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
+
 public class ComputeColocatedExample {
     /** Number of accounts to load. */
     private static final int ACCOUNTS_COUNT = 100;
@@ -65,8 +54,12 @@ public class ComputeColocatedExample {
      * Main method of the example.
      *
      * @param args The command line arguments.
+     * @throws Exception if any error occurs.
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+
+        DeployComputeUnit.processDeploymentUnit(args);
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -79,80 +72,85 @@ public class ComputeColocatedExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating table.
-            //
-            //--------------------------------------------------------------------------------------
 
-            client.sql().executeScript(
-                    "CREATE TABLE accounts ("
-                            + "accountNumber INT PRIMARY KEY,"
-                            + "name          VARCHAR)"
-            );
+            try {
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating table.
+                //
+                //--------------------------------------------------------------------------------------
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating a record view for the 'accounts' table.
-            //
-            //--------------------------------------------------------------------------------------
+                client.sql().executeScript(
+                        "CREATE TABLE accounts ("
+                                + "accountNumber INT PRIMARY KEY,"
+                                + "name          VARCHAR)"
+                );
 
-            RecordView<Tuple> view = client.tables().table("accounts").recordView();
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating a record view for the 'accounts' table.
+                //
+                //--------------------------------------------------------------------------------------
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Creating account records.
-            //
-            //--------------------------------------------------------------------------------------
+                RecordView<Tuple> view = client.tables().table("accounts").recordView();
 
-            System.out.println("\nCreating account records...");
+                //--------------------------------------------------------------------------------------
+                //
+                // Creating account records.
+                //
+                //--------------------------------------------------------------------------------------
 
-            for (int i = 0; i < ACCOUNTS_COUNT; i++) {
-                view.insert(null, account(i));
+                System.out.println("\nCreating account records...");
+
+                for (int i = 0; i < ACCOUNTS_COUNT; i++) {
+                    view.insert(null, account(i));
+                }
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Configuring compute job.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("\nConfiguring compute job...");
+
+                deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+
+                JobDescriptor<Integer, Void> job = JobDescriptor.builder(PrintAccountInfoJob.class)
+                        .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                        .build();
+
+                int accountNumber = ThreadLocalRandom.current().nextInt(ACCOUNTS_COUNT);
+
+                JobTarget jobTarget = JobTarget.colocated("accounts", accountKey(accountNumber));
+
+                //--------------------------------------------------------------------------------------
+                //
+                // Executing compute job for the specific accountNumber.
+                //
+                //--------------------------------------------------------------------------------------
+
+                System.out.println("\nExecuting compute job for the accountNumber '" + accountNumber + "'...");
+
+                client.compute().execute(jobTarget, job, accountNumber);
+            } finally {
+
+                System.out.println("Cleaning up resources");
+                undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
+
+                /* Drop table */
+                System.out.println("\nDropping the table...");
+
+                client.sql().executeScript("DROP TABLE IF EXISTS accounts");
             }
 
-            //--------------------------------------------------------------------------------------
-            //
-            // Configuring compute job.
-            //
-            //--------------------------------------------------------------------------------------
-
-            System.out.println("\nConfiguring compute job...");
-
-            JobDescriptor<Integer, Void> job = JobDescriptor.builder(PrintAccountInfoJob.class)
-                    .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
-                    .build();
-
-            int accountNumber = ThreadLocalRandom.current().nextInt(ACCOUNTS_COUNT);
-
-            JobTarget jobTarget = JobTarget.colocated("accounts", accountKey(accountNumber));
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Executing compute job for the specific accountNumber.
-            //
-            //--------------------------------------------------------------------------------------
-
-            System.out.println("\nExecuting compute job for the accountNumber '" + accountNumber + "'...");
-
-            client.compute().execute(jobTarget, job, accountNumber);
-
-            //--------------------------------------------------------------------------------------
-            //
-            // Dropping the table.
-            //
-            //--------------------------------------------------------------------------------------
-
-            System.out.println("\nDropping the table...");
-
-            client.sql().executeScript("DROP TABLE accounts");
         }
     }
 
     /**
      * Job that prints account info for the provided accountNumber.
      */
-    private static class PrintAccountInfoJob implements ComputeJob<Integer, Void> {
+    public static class PrintAccountInfoJob implements ComputeJob<Integer, Void> {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer arg) {

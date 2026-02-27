@@ -442,7 +442,7 @@ public class TableTestUtils {
         CatalogCommand command = AlterTableAddColumnCommand.builder()
                 .schemaName(schemaName)
                 .tableName(tableName)
-                .columns(List.of(ColumnParams.builder().name(columnName).type(columnType).build()))
+                .columns(List.of(ColumnParams.builder().name(columnName).type(columnType).nullable(true).build()))
                 .build();
 
         assertThat(catalogManager.execute(command), willCompleteSuccessfully());
