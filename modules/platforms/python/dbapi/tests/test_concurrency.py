@@ -111,29 +111,31 @@ def test_concurrent_inserts_no_lost_writes(table, connection, connection_level_t
     assert count == NUM_THREADS * rows_per_thread
 
 
-def test_concurrent_commit_and_rollback(table, connection, connection_level_threadsafety):
+def test_concurrent_commit_and_rollback(table, module_level_threadsafety):
     """Half the threads commit, half rollback. Only committed rows appear."""
     committed_ids = []
     lock = threading.Lock()
 
     def task(thread_id):
-        connection.autocommit = False
-        with connection.cursor() as cur:
-            cur.execute(f"INSERT INTO {table} (id, data) VALUES (?, ?)", (thread_id, "x"))
-        if thread_id % 2 == 0:
-            connection.commit()
-            with lock:
-                committed_ids.append(thread_id)
-        else:
-            connection.rollback()
+        with pyignite_dbapi.connect(**CONNECT_KWARGS) as conn:
+            conn.autocommit = False
+            with conn.cursor() as cur:
+                cur.execute(f"INSERT INTO {table} (id, data) VALUES (?, ?)", (thread_id, "x"))
+            if thread_id % 2 == 0:
+                conn.commit()
+                with lock:
+                    committed_ids.append(thread_id)
+            else:
+                conn.rollback()
 
     run_threads(task)
 
-    time.sleep(5.0)
+    time.sleep(3.0)
 
-    with connection.cursor() as cur:
-        cur.execute(f"SELECT id FROM {table} ORDER BY id")
-        found_ids = {row[0] for row in cur.fetchall()}
+    with pyignite_dbapi.connect(**CONNECT_KWARGS) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT id FROM {table} ORDER BY id")
+            found_ids = {row[0] for row in cur.fetchall()}
 
     assert found_ids == set(committed_ids)
 
