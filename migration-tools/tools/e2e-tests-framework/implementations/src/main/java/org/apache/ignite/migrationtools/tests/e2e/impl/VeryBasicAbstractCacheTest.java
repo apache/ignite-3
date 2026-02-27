@@ -135,13 +135,6 @@ public abstract class VeryBasicAbstractCacheTest<K, V> implements ExampleBasedCa
         );
     }
 
-    // TODO: Check if this is the actual AI2 table name.
-    private String getSqlTableName() {
-        // Get the tableName for the SQL Query. Why uppercase??
-        String tableName = (this.valueClass.isArray()) ? '"' + this.valueClass.getName() + '"' : this.valueClass.getSimpleName();
-        return "\"" + this.getTableName() + "\"." + tableName.toUpperCase();
-    }
-
     protected void assertValueFromIgnite2(V actualVal, V expected) {
         assertThat(actualVal).usingRecursiveComparison().isEqualTo(expected);
     }

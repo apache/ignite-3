@@ -20,6 +20,9 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasurementsCount;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMetric;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasValue;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
 import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
@@ -29,20 +32,16 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Arrays;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.MeteredFileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.metrics.DistributionMetric;
-import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
@@ -145,7 +144,7 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
             // Verify write metrics were recorded - 1 write of header + 1 write of page
             assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_WRITTEN,  PAGE_SIZE * 2);
-            assertDistributionMetricRecordsCount(metricSet, PageMemoryIoMetrics.WRITES_TIME, 2L);
+            assertDistributionMetricFromSet(metricSet, PageMemoryIoMetrics.WRITES_TIME, 2L);
 
             // Perform read operation
             long pageOff = filePageStoreIo.pageOffset(pageId);
@@ -154,7 +153,7 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
             // Verify read metrics were recorded
             assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_READ,  PAGE_SIZE);
-            assertDistributionMetricRecordsCount(metricSet, PageMemoryIoMetrics.READS_TIME, 1L);
+            assertDistributionMetricFromSet(metricSet, PageMemoryIoMetrics.READS_TIME, 1L);
         }
     }
 
@@ -176,28 +175,16 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
     }
 
     private static void assertMetricValue(MetricSet metrics, String metricName, long value) {
-        LongMetric metric = metrics.get(metricName);
-
-        assertNotNull(metric, "Metric not found: " + metricName);
-        assertEquals(value, metric.value(), metricName);
+        assertThat(metrics, hasMetric(
+                metricName,
+                hasValue(is(value))
+        ));
     }
 
-    /**
-     * Verifies that the specified distribution metric has recorded the expected total number of measurements.
-     *
-     * <p>
-     * Rather than checking individual histogram buckets, this method aggregates all recorded measurements across every bucket
-     * and confirms that the expected interaction was captured in at least one of them.
-     */
-    private static void assertDistributionMetricRecordsCount(MetricSet metrics, String metricName, long expectedMeasuresCount) {
-        DistributionMetric metric = metrics.get(metricName);
-        assertNotNull(metric, metricName);
-
-        long totalMeasuresCount = Arrays.stream(metric.value()).sum();
-        assertThat(
-                "Unexpected total measures count in distribution metric " + metric.name(),
-                totalMeasuresCount,
-                is(expectedMeasuresCount)
-        );
+    private static void assertDistributionMetricFromSet(MetricSet metrics, String metricName, long expectedMeasuresCount) {
+        assertThat(metrics, hasMetric(
+                metricName,
+                hasMeasurementsCount(expectedMeasuresCount)
+        ));
     }
 }

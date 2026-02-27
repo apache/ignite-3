@@ -113,7 +113,6 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -737,24 +736,6 @@ public class DistributionZoneManager extends
                         LOG.debug("Failed to update recoverable states for distribution zone manager [revision = {}]", revision);
                     }
                 }).thenCompose((ignored) -> nullCompletedFuture());
-    }
-
-    /**
-     * Returns metastore long view of {@link HybridTimestamp} by revision.
-     *
-     * @param revision Metastore revision.
-     * @return Appropriate metastore timestamp or -1 if revision is already compacted.
-     */
-    private long timestampByRevision(long revision) {
-        try {
-            return metaStorageManager.timestampByRevisionLocally(revision).longValue();
-        } catch (CompactedException e) {
-            if (revision > 1) {
-                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", revision);
-            }
-
-            return -1;
-        }
     }
 
     @TestOnly

@@ -35,7 +35,7 @@ import org.junit.jupiter.api.TestInfo;
  */
 public abstract class AbstractRestTestBase extends ClusterPerTestIntegrationTest {
     /** HTTP host and port url part. */
-    private static final String HTTP_HOST_PORT = "http://localhost:10300";
+    protected static final String HTTP_HOST_PORT = "http://localhost:10300";
 
     protected ObjectMapper objectMapper = new ObjectMapper();
 

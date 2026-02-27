@@ -48,9 +48,9 @@ public class ClientDelayedAckException extends IgniteInternalException {
     }
 
     /**
-     * Gets expected schema version.
+     * Returns a related transaction id.
      *
-     * @return Expected schema version.
+     * @return The id.
      */
     public UUID txId() {
         return txId;

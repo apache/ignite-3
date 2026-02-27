@@ -92,8 +92,8 @@ public class DirectTxUtils {
             IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> tuple = ClientLazyTransaction.ensureStarted(tx, ch,
                     piggybackSupported.test(ch0) ? null : () -> completedFuture(ch0));
 
-            // If this is the first direct request in transaction, it will also piggyback a transaction start.
             if (tuple.get2()) {
+                // If this is the first direct request in transaction, it will also piggyback a transaction start.
                 ctx.pm = pm;
                 ctx.readOnly = tx.isReadOnly();
                 ctx.channel = ch0;
@@ -186,12 +186,14 @@ public class DirectTxUtils {
      * ensuring the transaction state is correctly initialized or synchronized with the server.
      *
      * @param payloadChannel The {@link PayloadInputChannel} containing the server's response data.
+     * @param ch Channels repository.
      * @param ctx The {@link WriteContext} holding the transaction request state and response future.
      * @param tx The current {@link ClientTransaction}, or {@code null} if piggybacking a new transaction.
      * @param observableTimestamp A tracker for observable timestamps used for transaction visibility and causality.
      */
     public static void readTx(
             PayloadInputChannel payloadChannel,
+            ReliableChannel ch,
             WriteContext ctx,
             @Nullable ClientTransaction tx,
             HybridTimestampTracker observableTimestamp
@@ -206,7 +208,7 @@ public class DirectTxUtils {
             long timeout = in.unpackLong();
 
             ClientTransaction startedTx =
-                    new ClientTransaction(payloadChannel.clientChannel(), id, ctx.readOnly, txId, ctx.pm, coordId, observableTimestamp,
+                    new ClientTransaction(payloadChannel.clientChannel(), ch, id, ctx.readOnly, txId, ctx.pm, coordId, observableTimestamp,
                             timeout);
 
             ctx.firstReqFut.complete(startedTx);

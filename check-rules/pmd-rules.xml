@@ -127,14 +127,13 @@
     <rule ref="category/java/multithreading.xml/UseNotifyAllInsteadOfNotify" />
 
 
-    <!--
-        TODO: https://issues.apache.org/jira/browse/IGNITE-26174
-        UnusedPrivateMethod has a known bug which leads to false positive triggering if
-        method signature contains generic parameter and\or descendant class is passed as parameter.
-        See for details: https://github.com/pmd/pmd/issues/770
-        This was fixed in PMD 7.0.0 so should be returned when we upgrade the PMD
-    -->
-    <!--    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod" />-->
+    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod">
+        <properties>
+            <!-- Exclude methods called by frameworks via annotations (e.g. picocli @Option, @Parameters). -->
+            <property name="violationSuppressXPath"
+                      value=".[pmd-java:hasAnnotation('picocli.CommandLine.Option') or pmd-java:hasAnnotation('picocli.CommandLine.Parameters')]" />
+        </properties>
+    </rule>
 
     <rule name="Prohibited classes"
       language="java"

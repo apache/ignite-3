@@ -21,6 +21,7 @@ import static java.lang.Thread.currentThread;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasurementsCount;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
@@ -42,7 +43,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Arrays;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -53,7 +53,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -438,17 +437,26 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
 
         try {
             // Verify metrics start at zero
-            assertDistributionMetricRecordsCount(metrics.readLockAcquisitionTime(), 0L);
+            assertThat(
+                    metrics.readLockAcquisitionTime(),
+                    hasMeasurementsCount(0L)
+            );
 
             // Acquire and immediately release the lock
             timeoutLock.checkpointReadLock();
             timeoutLock.checkpointReadUnlock();
 
             // Verify acquisition was recorded
-            assertDistributionMetricRecordsCount(metrics.readLockAcquisitionTime(), 1L);
+            assertThat(
+                    metrics.readLockAcquisitionTime(),
+                    hasMeasurementsCount(1L)
+            );
 
             // Verify hold time distribution was recorded
-            assertDistributionMetricRecordsCount(metrics.readLockHoldTime(), 1L);
+            assertThat(
+                    metrics.readLockHoldTime(),
+                    hasMeasurementsCount(1L)
+            );
 
             readWriteLock.writeLock();
             runAsync(() -> {
@@ -461,21 +469,5 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
         } finally {
             timeoutLock.stop();
         }
-    }
-
-    /**
-     * Verifies that the specified distribution metric has recorded the expected total number of measurements.
-     *
-     * <p>
-     * Rather than checking individual histogram buckets, this method aggregates all recorded measurements across every bucket
-     * and confirms that the expected interaction was captured in at least one of them.
-     */
-    private static void assertDistributionMetricRecordsCount(DistributionMetric metric, long expectedMeasuresCount) {
-        long totalMeasuresCount = Arrays.stream(metric.value()).sum();
-        assertThat(
-                "Unexpected total measures count in distribution metric " + metric.name(),
-                totalMeasuresCount,
-                is(expectedMeasuresCount)
-        );
     }
 }

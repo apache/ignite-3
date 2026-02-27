@@ -121,6 +121,10 @@ public interface InternalTransaction extends Transaction {
         return false;
     }
 
+    default boolean remoteOnCoordinator() {
+        return false;
+    }
+
     /**
      * Finishes a read-only transaction with a specific execution timestamp.
      *

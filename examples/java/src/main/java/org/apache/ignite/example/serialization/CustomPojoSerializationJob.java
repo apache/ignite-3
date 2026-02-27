@@ -32,12 +32,12 @@ public class CustomPojoSerializationJob implements ComputeJob<JsonArg, JsonResul
             return null;
         }
 
-        String w = arg.word;
-        boolean upper = arg.isUpperCase;
+        String w = arg.getWord();
+        boolean upper = arg.isUpperCase();
         JsonResult r = new JsonResult();
-        r.originalWord = w;
-        r.resultWord = upper ? w.toUpperCase() : w.toLowerCase();
-        r.length = w.length();
+        r.setOriginalWord(w);
+        r.setResultWord(upper ? w.toUpperCase() : w.toLowerCase());
+        r.setLength(w.length());
         return completedFuture(r);
     }
 

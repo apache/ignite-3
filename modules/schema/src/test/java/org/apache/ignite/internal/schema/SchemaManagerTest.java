@@ -152,10 +152,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         return Objects.requireNonNull(tableAlteredListener.getValue(), "tableAlteredListener is not registered with CatalogService");
     }
 
-    private EventListener<CatalogEventParameters> tableDestroyedListener() {
-        return Objects.requireNonNull(tableDestroyedListener.getValue(), "tableDestroyedListener is not registered with CatalogService");
-    }
-
     private static CatalogTableDescriptor tableDescriptorAfterColumnAddition() {
         List<CatalogTableColumnDescriptor> columns = List.of(
                 new CatalogTableColumnDescriptor("k1", ColumnType.INT16, false, 0, 0, 0, null),

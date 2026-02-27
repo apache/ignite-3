@@ -61,6 +61,7 @@ class SegstoreLogStorageConcurrencyTest extends IgniteAbstractTest {
                 workDir,
                 1,
                 new NoOpFailureManager(),
+                GroupInfoProvider.NO_OP,
                 raftConfiguration,
                 storageConfiguration
         );

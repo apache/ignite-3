@@ -1256,18 +1256,6 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         });
     }
 
-    private void watchExact(
-            byte[] key,
-            CompletableFuture<Void> startHandleWatchEventFuture,
-            CompletableFuture<Void> finishHandleWatchEventFuture
-    ) {
-        storage.watchExact(key, storage.revision() + 1, event -> {
-            startHandleWatchEventFuture.complete(null);
-
-            return finishHandleWatchEventFuture;
-        });
-    }
-
     private static String toUtf8String(byte[]... keys) {
         return Arrays.stream(keys)
                 .map(KeyValueStorageUtils::toUtf8String)

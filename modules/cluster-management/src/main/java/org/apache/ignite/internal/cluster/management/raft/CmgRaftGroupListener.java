@@ -35,8 +35,10 @@ import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterIdStore;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.raft.commands.ChangeClusterNameCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ChangeMetaStorageInfoCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
@@ -217,6 +219,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                     changeMetastorageNodes((ChangeMetaStorageInfoCommand) command);
 
                     clo.result(null);
+                } else if (command instanceof ChangeClusterNameCommand) {
+                    changeClusterName((ChangeClusterNameCommand) command);
+
+                    clo.result(null);
                 }
             } catch (Throwable e) {
                 LOG.error(
@@ -320,6 +326,28 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         if (LOG.isInfoEnabled()) {
             LOG.info("Nodes removed from the logical topology [nodes={}]", nodes.stream().map(InternalClusterNode::name).collect(toList()));
         }
+    }
+
+    private void changeClusterName(ChangeClusterNameCommand command) {
+        ClusterState existingState = storageManager.getClusterState();
+
+        assert existingState != null : "Cluster state was not initialized when got " + command;
+
+        ClusterTag newTag = cmgMessagesFactory.clusterTag()
+                .clusterName(command.clusterName())
+                .clusterId(existingState.clusterTag().clusterId())
+                .build();
+
+        ClusterState newState = cmgMessagesFactory.clusterState()
+                .cmgNodes(Set.copyOf(existingState.cmgNodes()))
+                .metaStorageNodes(Set.copyOf(existingState.metaStorageNodes()))
+                .version(existingState.version())
+                .clusterTag(newTag)
+                .initialClusterConfiguration(existingState.initialClusterConfiguration())
+                .formerClusterIds(existingState.formerClusterIds())
+                .build();
+
+        storageManager.putClusterState(newState);
     }
 
     private void changeMetastorageNodes(ChangeMetaStorageInfoCommand command) {
