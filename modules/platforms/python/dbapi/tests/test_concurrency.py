@@ -15,7 +15,6 @@
 
 import threading
 import time
-from builtins import ExceptionGroup
 
 import pytest
 
@@ -61,7 +60,7 @@ def run_threads(fn, n=NUM_THREADS, *args):
         t.join()
 
     if errors:
-        raise ExceptionGroup("thread errors", errors)
+        raise errors[0]
 
 
 def test_concurrent_module_import(module_level_threadsafety):
@@ -160,7 +159,7 @@ def test_concurrent_fetchall_result_integrity(table, connection, connection_leve
 
     run_threads(task)
     if errors:
-        raise ExceptionGroup("result integrity errors", errors)
+        raise errors[0]
 
 
 def test_cursor_description_thread_safety(table, connection, connection_level_threadsafety):
