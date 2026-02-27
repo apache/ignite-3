@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageCollectionItemType;
@@ -73,6 +74,23 @@ import org.jetbrains.annotations.Nullable;
  * {@link DirectByteBufferStream} implementation.
  */
 public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
+    /**
+     * There's a binary incompatibility between Apache Ignite 3.0 and later versions due to the bug in 3.0. If someone wants to upgrade from
+     * 3.0 to any other version on AARCH64 architecture or other architecture that was considered "not unaligned" in Ignite 3.0, they need
+     * to set this system property to {@code true}.
+     *
+     * @see #writeUuidLong(long, long)
+     * @see #readUuidLong(long)
+     * @see #unaligned30()
+     */
+    private static final String IGNITE_30_3X_COMPATIBILITY_PROPERTY = "IGNITE_30_3X_UUIDS_SERIALIZATION_COMPATIBILITY";
+
+    private static final boolean IS_30_UNALIGNED = unaligned30();
+
+    /** Value of {@link #IGNITE_30_3X_COMPATIBILITY_PROPERTY} system property. {@code false} by default. */
+    private static final boolean IGNITE_30_3X_COMPATIBILITY
+            = IgniteSystemProperties.getBoolean(IGNITE_30_3X_COMPATIBILITY_PROPERTY, false);
+
     /** Poison object. */
     private static final Object NULL = new Object();
 
@@ -111,6 +129,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
+    }
+
+    private static boolean unaligned30() {
+        String arch = System.getProperty("os.arch");
+
+        return "i386".equals(arch) || "x86".equals(arch) || "amd64".equals(arch) || "x86_64".equals(arch);
     }
 
     /** Message serialization registry. */
@@ -321,6 +345,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
+            // Always write it in LE explicitly on all platforms.
             if (IS_BIG_ENDIAN) {
                 GridUnsafe.putIntLittleEndian(heapArr, baseOff + pos, val);
             } else {
@@ -341,6 +366,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
+            // Always write it in LE explicitly on all platforms.
             if (IS_BIG_ENDIAN) {
                 GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos, val);
             } else {
@@ -788,11 +814,31 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 int pos = buf.position();
 
                 GridUnsafe.putBoolean(heapArr, baseOff + pos, false);
-                GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos + 1, val.getMostSignificantBits());
-                GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos + 9, val.getLeastSignificantBits());
+                writeUuidLong(baseOff + pos + 1, val.getMostSignificantBits());
+                writeUuidLong(baseOff + pos + 9, val.getLeastSignificantBits());
 
                 setPosition(pos + 1 + 2 * Long.BYTES);
             }
+        }
+    }
+
+    /**
+     * Writes a single long value inside of UUID. We don't use the regular approach for compatibility reasons. Please consult method's
+     * implementation for details.
+     */
+    private void writeUuidLong(long pos, long val) {
+        if (IGNITE_30_3X_COMPATIBILITY && !IS_30_UNALIGNED) {
+            // This is a compatibility mode, a workaround for a bug in Ignite 3.0 that has been fixed by introducing this method.
+            // For not-unaligned architectures in Ignite 3.0 we were writing these values in native byte order.
+            GridUnsafe.putLong(heapArr, pos, val);
+        } else if (IS_BIG_ENDIAN) {
+            // Before the fix we used "putLongLittleEndian" to write this value. It resulted with BigEndian writes on UNALIGNED platforms
+            // and with LittleEndian writes on non-UNALIGNED platforms.
+            // We repeat the same behavior. here.
+            GridUnsafe.putLong(heapArr, pos, val);
+        } else {
+            // This it the reverse of "IS_BIG_ENDIAN" branch.
+            GridUnsafe.putLong(heapArr, pos, Long.reverseBytes(val));
         }
     }
 
@@ -1174,7 +1220,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
-            val = GridUnsafe.getInt(heapArr, baseOff + pos);
+            // Always read it in LE explicitly on all platforms.
+            if (IS_BIG_ENDIAN) {
+                val = GridUnsafe.getIntLittleEndian(heapArr, baseOff + pos);
+            } else {
+                val = GridUnsafe.getInt(heapArr, baseOff + pos);
+            }
 
             setPosition(pos + Integer.BYTES);
         }
@@ -1191,7 +1242,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
-            val = GridUnsafe.getLong(heapArr, baseOff + pos);
+            // Always read it in LE explicitly on all platforms.
+            if (IS_BIG_ENDIAN) {
+                val = GridUnsafe.getLongLittleEndian(heapArr, baseOff + pos);
+            } else {
+                val = GridUnsafe.getLong(heapArr, baseOff + pos);
+            }
 
             setPosition(pos + Long.BYTES);
         }
@@ -1487,8 +1543,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 if (lastFinished) {
                     int pos = buf.position();
 
-                    long msb = GridUnsafe.getLongLittleEndian(heapArr, baseOff + pos);
-                    long lsb = GridUnsafe.getLongLittleEndian(heapArr, baseOff + pos + Long.BYTES);
+                    long msb = readUuidLong(baseOff + pos);
+                    long lsb = readUuidLong(baseOff + pos + Long.BYTES);
 
                     setPosition(pos + 2 * Long.BYTES);
 
@@ -1503,6 +1559,26 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
 
         return null;
+    }
+
+    /**
+     * Reads a single long value to construct a UUID. We don't use the regular approach for compatibility reasons. Please consult method's
+     * implementation for details.
+     */
+    private long readUuidLong(long pos) {
+        if (IGNITE_30_3X_COMPATIBILITY && !IS_30_UNALIGNED) {
+            // This is a compatibility mode, a workaround for a bug in Ignite 3.0 that has been fixed by introducing this method.
+            // For not-unaligned architectures in Ignite 3.0 we were writing these values in native byte order.
+            return GridUnsafe.getLong(heapArr, pos);
+        } else if (IS_BIG_ENDIAN) {
+            // Before the fix we used "getLongLittleEndian" to read this value. It resulted with BigEndian reads on UNALIGNED platforms
+            // and with LittleEndian reads on non-UNALIGNED platforms.
+            // We repeat the same behavior.
+            return GridUnsafe.getLong(heapArr, pos);
+        } else {
+            // This it the reverse of "IS_BIG_ENDIAN" branch.
+            return Long.reverseBytes(GridUnsafe.getLong(heapArr, pos));
+        }
     }
 
     /** {@inheritDoc} */
