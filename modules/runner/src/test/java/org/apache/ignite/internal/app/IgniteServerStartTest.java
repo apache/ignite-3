@@ -110,7 +110,7 @@ public class IgniteServerStartTest extends BaseIgniteAbstractTest {
         NodeStartException exception = assertThrows(
                 NodeStartException.class,
                 server::start,
-                "Error occurred during node start, check .jar libraries and JVM execution arguments."
+                "Error occurred during node start, make sure that classpath and JVM execution arguments are correct."
         );
 
         Throwable cause = exception.getCause();
@@ -127,7 +127,8 @@ public class IgniteServerStartTest extends BaseIgniteAbstractTest {
         NodeStartException exception = assertThrows(
                 NodeStartException.class,
                 server::start,
-                "Error during static components initialization with unknown cause, check .jar libraries and JVM execution arguments."
+                "Error during static components initialization with unknown cause, "
+                        + "make sure that classpath and JVM execution arguments are correct."
         );
 
         Throwable cause = exception.getCause();
@@ -163,7 +164,7 @@ public class IgniteServerStartTest extends BaseIgniteAbstractTest {
         NodeStartException exception = assertThrows(
                 NodeStartException.class,
                 server::start,
-                "Error during static components initialization, check .jar libraries and JVM execution arguments."
+                "Error during static components initialization, make sure that classpath and JVM execution arguments are correct."
         );
 
         Throwable cause = exception.getCause();
