@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -38,6 +40,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
@@ -51,6 +54,7 @@ import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.QueryModifier;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.lang.IgniteException;
@@ -73,7 +77,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.awaitility.Awaitility;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -81,6 +84,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Thin client SQL integration test.
  */
+@WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "10")
 @SuppressWarnings("resource")
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @AfterEach
@@ -840,7 +844,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-26567")
     public void testBroadcastQueryTxInflightStateCleanup() {
         IgniteSql sql = client().sql();
 
@@ -858,7 +861,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             IgniteImpl server = TestWrappers.unwrapIgniteImpl(server(i));
             TxManager txManager = server.txManager();
             TransactionInflights transactionInflights = IgniteTestUtils.getFieldValue(txManager, "transactionInflights");
-            assertFalse(transactionInflights.hasActiveInflights(), "Expecting no active inflights");
+            Map<UUID, ?> txContexts = IgniteTestUtils.getFieldValue(transactionInflights, "txCtxMap");
+
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(10))
+                    .untilAsserted(() -> assertTrue(txContexts.isEmpty(), "Expecting no transaction inflight contexts"));
         }
     }
 
