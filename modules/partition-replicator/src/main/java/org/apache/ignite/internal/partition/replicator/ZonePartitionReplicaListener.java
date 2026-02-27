@@ -54,10 +54,10 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
@@ -120,7 +120,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             InternalClusterNode localNode,
             ZonePartitionId replicationGroupId,
             TransactionStateResolver transactionStateResolver,
-            TxMessageSender txMessageSender
+            TxMessageSender txMessageSender,
+            TxRecoveryEngine txRecoveryEngine
     ) {
         this.raftClient = raftClient;
         this.failureProcessor = failureProcessor;
@@ -142,13 +143,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         );
 
         ReplicationRaftCommandApplicator raftCommandApplicator = new ReplicationRaftCommandApplicator(raftClient, replicationGroupId);
-
-        TxRecoveryEngine txRecoveryEngine = new TxRecoveryEngine(
-                txManager,
-                clusterNodeResolver,
-                replicationGroupId,
-                ZonePartitionReplicaListener::createAbandonedTxRecoveryEnlistment
-        );
 
         // Request handlers initialization.
 
@@ -177,12 +171,19 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 txStatePartitionStorage,
                 txManager,
                 clusterNodeResolver,
-                localNode,
                 txRecoveryEngine,
-                txMessageSender
+                txMessageSender,
+                replicationGroupId,
+                localNode
         );
 
-        txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine, txManager);
+        txRecoveryMessageHandler = new TxRecoveryMessageHandler(
+                txStatePartitionStorage,
+                replicationGroupId,
+                txRecoveryEngine,
+                txManager,
+                localNode
+        );
 
         txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(
                 txStatePartitionStorage,
@@ -199,13 +200,6 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         vacuumTxStateReplicaRequestHandler = new VacuumTxStateReplicaRequestHandler(raftCommandApplicator);
 
         replicaSafeTimeSyncRequestHandler = new ReplicaSafeTimeSyncRequestHandler(clockService, raftCommandApplicator);
-    }
-
-    private static PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(InternalClusterNode node) {
-        // Enlistment consistency token is not required for the rollback, so it is 0L.
-        // Passing an empty set of table IDs as we don't know which tables were enlisted; this is ok as the corresponding write intents
-        // can still be resolved later when reads stumble upon them.
-        return new PendingTxPartitionEnlistment(node.name(), 0L);
     }
 
     @Override
@@ -237,7 +231,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
             return writeIntentSwitchRequestHandler.handle((WriteIntentSwitchReplicaRequest) request, senderId);
         } else if (request instanceof TxStateCommitPartitionRequest) {
-            return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
+            return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request, senderId);
         } else if (request instanceof TxRecoveryMessage) {
             return txRecoveryMessageHandler.handle((TxRecoveryMessage) request, senderId);
         } else if (request instanceof TxCleanupRecoveryRequest) {

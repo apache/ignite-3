@@ -48,4 +48,12 @@ public interface TxStateCoordinatorRequest extends NetworkMessage {
      * @return Group id of the sender partition, or {@code null} if the request is not caused by write intent resolution.
      */
     @Nullable ZonePartitionIdMessage senderGroupId();
+
+    /**
+     * It's needed to be able to abort transaction in case when commit partition id is lost on coordinator.
+     *
+     * @return Commit group id.
+     */
+    @SinceVersion(2)
+    @Nullable ZonePartitionIdMessage commitPartitionId();
 }

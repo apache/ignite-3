@@ -462,11 +462,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> builder(old, PENDING)
-                        .txCoordinatorId(req.coordinatorId())
-                        .commitPartitionId(req.commitPartitionId().asZonePartitionId())
-                        .txLabel(req.txLabel())
-                        .build());
+                replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
             }
         }
 
@@ -482,6 +478,91 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
         return completedFuture(mvDataStorage.estimatedSize());
+    }
+
+    private void replicaTouch(UUID txId, UUID coordinatorId, ZonePartitionId commitPartitionId, @Nullable String txLabel) {
+        txManager.updateTxMeta(txId, old -> builder(old, PENDING)
+                .txCoordinatorId(coordinatorId)
+                .commitPartitionId(commitPartitionId)
+                .txLabel(txLabel)
+                .build());
+    }
+
+    private CompletableFuture<ContinuousQueryScanResult<BinaryRow>> resolvePendingTransactionsForCq(
+            HybridTimestamp requestTime,
+            HybridTimestamp currentSafeTime,
+            Function<HybridTimestamp, CompletableFuture<ContinuousQueryScanResult<BinaryRow>>> action) {
+        return resolvePendingTransactions(requestTime, currentSafeTime, action);
+    }
+
+    private <T> CompletableFuture<T> resolvePendingTransactions(
+            HybridTimestamp requestTime,
+            HybridTimestamp currentSafeTime,
+            Function<HybridTimestamp, CompletableFuture<T>> action
+    ) {
+        // Wait for currentSafeTime >= requestTime to avoid out-of-order transactions arrival.
+        if (currentSafeTime.compareTo(requestTime) < 0) {
+            return safeTime.waitFor(requestTime)
+                    .thenComposeAsync(
+                            unused -> resolvePendingTransactions(requestTime, safeTime.current(), action),
+                            partitionOperationsExecutor);
+        }
+
+        assert currentSafeTime.compareTo(requestTime) >= 0 : "currentSafeTime < lowerBoundTimestamp";
+        assert currentSafeTime.compareTo(safeTime.current()) <= 0 : "currentSafeTime > safeTime";
+
+        // Stable committed snapshot is ensured after resolving pending transactions state.
+        UUID uppedBoundTxId = TransactionIds.transactionId(currentSafeTime, Integer.MAX_VALUE, TxPriority.NORMAL);
+        ConcurrentNavigableMap<UUID, PendingTxContext> txToWait = pendingTransactions.headMap(uppedBoundTxId, true);
+
+        if (!txToWait.isEmpty()) {
+            List<CompletableFuture<?>> futs = null;
+
+            for (Map.Entry<UUID, PendingTxContext> entry : txToWait.entrySet()) {
+                if (!entry.getValue().cleanupFut.isDone()) {
+                    futs = futs == null ? new ArrayList<>() : futs;
+                    futs.add(resolveTransactionState(entry.getKey(), entry.getValue(), currentSafeTime));
+                }
+            }
+
+            if (futs != null) {
+                return allOf(futs.toArray(CompletableFuture[]::new))
+                        .thenComposeAsync(unused -> action.apply(currentSafeTime), partitionOperationsExecutor);
+            }
+        }
+
+        return action.apply(currentSafeTime);
+    }
+
+    private CompletableFuture<Void> resolveTransactionState(UUID txId, PendingTxContext txCtx, HybridTimestamp observableTimestamp) {
+        CompletableFuture<Void> resFut = new CompletableFuture<>();
+
+        txCtx.cleanupFut.whenComplete(copyStateTo(resFut));
+
+        return resFut.orTimeout(WAIT_FOR_CLEANUP_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS).handle((ignored, e) -> {
+            if (e == null) {
+                return CompletableFutures.<Void>nullCompletedFuture();
+            }
+
+            if (e instanceof TimeoutException) {
+                // Transaction was not cleaned up in time.
+                // Send tx state request to coordinator to bump commit timestamp for active txn beyond safe timestamp.
+                return transactionStateResolver.resolveTxState(txId, txCtx.commitPartId, observableTimestamp, null, null)
+                        .thenCompose(r -> {
+                            if (r.txState() == PENDING) {
+                                // Safe to ignore this transaction, it will be committed with a higher timestamp.
+                                return nullCompletedFuture();
+                            }
+
+                            // Wait for original future relying on durable finish to do cleanup in case of failures.
+                            return txCtx.cleanupFut;
+                        });
+            }
+
+            sneakyThrow(e);
+
+            return null;
+        }).thenCompose(Function.identity());
     }
 
     private static void setDelayedAckProcessor(@Nullable ReplicaResult result, @Nullable BiConsumer<Object, Throwable> proc) {
@@ -563,11 +644,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             // We treat SCAN as 2pc and only switch to a 1pc mode if all table rows fit in the bucket and the transaction is implicit.
             // See `req.full() && (err != null || rows.size() < req.batchSize())` condition.
             // If they don't fit the bucket, the transaction is treated as 2pc.
-            txManager.updateTxMeta(req.transactionId(), old -> builder(old, PENDING)
-                    .txCoordinatorId(req.coordinatorId())
-                    .commitPartitionId(req.commitPartitionId().asZonePartitionId())
-                    .txLabel(req.txLabel())
-                    .build());
+            replicaTouch(req.transactionId(), req.coordinatorId(), req.commitPartitionId().asZonePartitionId(), req.txLabel());
 
             // Implicit RW scan can be committed locally on a last batch or error.
             return appendTxCommand(req.transactionId(), RW_SCAN, false, () -> processScanRetrieveBatchAction(req))

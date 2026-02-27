@@ -309,7 +309,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -376,7 +376,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -532,7 +532,18 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         return EMPTY_APPLIED_RESULT;
     }
 
-    private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
+            PendingComparableValuesTracker<T, Void> tracker,
+            T newValue
+    ) {
+        try {
+            tracker.update(newValue, null);
+        } catch (TrackerClosedException ignored) {
+            // No-op.
+        }
+    }
+
+    private void replicaTouch(UUID txId, UUID txCoordinatorId, boolean full) {
         // Saving state is not needed for full transactions.
         if (!full) {
             txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, PENDING)

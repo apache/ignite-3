@@ -139,6 +139,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
@@ -509,6 +510,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK_SERVICE
         );
 
+        var txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                mock(ClusterNodeResolver.class)
+        );
+
         ZonePartitionReplicaListener zoneReplicaListener = new ZonePartitionReplicaListener(
                 txStateStorage.getOrCreatePartitionStorage(PART_ID),
                 CLOCK_SERVICE,
@@ -523,7 +529,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 LOCAL_NODE,
                 zonePartitionId,
                 transactionStateResolver,
-                txMessageSender
+                txMessageSender,
+                txRecoveryEngine
         );
 
         zoneReplicaListener.addTableReplicaProcessor(tableId, (raftClient, txStateResolver) -> tableReplicaListener);
