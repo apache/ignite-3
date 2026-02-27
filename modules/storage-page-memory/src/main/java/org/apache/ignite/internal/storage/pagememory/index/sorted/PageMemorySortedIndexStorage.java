@@ -120,6 +120,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
                 tree.invoke(sortedIndexRow, null, insert);
 
+                modCount.incrementAndGet();
+
                 return null;
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Failed to put value into index", e);
@@ -138,6 +140,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                 var remove = new RemoveSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
 
                 indexTree.invoke(sortedIndexRow, null, remove);
+
+                modCount.incrementAndGet();
 
                 // Performs actual deletion from freeList if necessary.
                 remove.afterCompletion();
