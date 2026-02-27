@@ -94,7 +94,7 @@ TEST_F(connection_test, using_asio) {
     cfg.set_logger(get_logger());
     cfg.set_endpoints(get_endpoints());
 
-    auto cl = ignite_client::start(cfg, 500s);
+    auto cl = ignite_client::start(cfg, 5s);
 
     auto cluster_nodes = cl.get_cluster_nodes();
 
