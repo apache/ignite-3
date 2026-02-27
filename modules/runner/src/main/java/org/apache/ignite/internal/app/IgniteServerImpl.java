@@ -644,24 +644,24 @@ public class IgniteServerImpl implements IgniteServer {
     }
 
     private static void throwIfError(Throwable exception) {
-        Error error;
+        Error error = unwrapCause(exception, Error.class);
 
-        try {
-            error = unwrapCause(exception, Error.class);
-        } catch (Throwable originalException) {
+        if (error == null) {
             return;
         }
 
         throwIfExceptionInInitializerError(error);
 
-        throw new NodeStartException("Error occurred during node start, check .jar libraries and JVM execution arguments.", error);
+        throw new NodeStartException(
+                "Error occurred during node start, make sure that classpath and JVM execution arguments are correct.",
+                error
+        );
     }
 
     private static void throwIfExceptionInInitializerError(Error error) {
-        ExceptionInInitializerError initializerError;
-        try {
-            initializerError = unwrapCause(error, ExceptionInInitializerError.class);
-        } catch (Error otherError) {
+        ExceptionInInitializerError initializerError = unwrapCause(error, ExceptionInInitializerError.class);
+
+        if (initializerError == null) {
             return;
         }
 
@@ -669,7 +669,8 @@ public class IgniteServerImpl implements IgniteServer {
 
         if (initializerErrorCause == null) {
             throw new NodeStartException(
-                    "Error during static components initialization with unknown cause, check .jar libraries and JVM execution arguments.",
+                    "Error during static components initialization with unknown cause, "
+                            + "make sure that classpath and JVM execution arguments are correct.",
                     initializerError
             );
         }
@@ -682,7 +683,7 @@ public class IgniteServerImpl implements IgniteServer {
         }
 
         throw new NodeStartException(
-                "Error during static components initialization, check .jar libraries and JVM execution arguments.",
+                "Error during static components initialization, make sure that classpath and JVM execution arguments are correct.",
                 initializerErrorCause
         );
     }
