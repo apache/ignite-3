@@ -230,7 +230,7 @@ private:
                 throw std::runtime_error("Error accepting incoming connection " + ec.message());
             }
 
-            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped);
+            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped, entry.m_listener);
 
             m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
                 [ses](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
