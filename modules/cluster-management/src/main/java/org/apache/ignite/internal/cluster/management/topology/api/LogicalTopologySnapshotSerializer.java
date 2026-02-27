@@ -39,7 +39,7 @@ public class LogicalTopologySnapshotSerializer extends VersionedSerializer<Logic
     protected void writeExternalData(LogicalTopologySnapshot snapshot, IgniteDataOutput out) throws IOException {
         out.writeVarInt(snapshot.version());
 
-        out.writeVarInt(snapshot.nodes().size());
+        out.writeVarInt(snapshot.size());
         for (LogicalNode node : snapshot.nodes()) {
             logicalNodeSerializer.writeExternal(node, out);
         }

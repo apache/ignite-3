@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -191,9 +188,7 @@ public class LeaseAgreement {
 
             responseFut.complete(null);
         } else if (currentTopologySnapshot != null) {
-            Set<UUID> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
-
-            if (!nodeIds.contains(lease.getLeaseholderId())) {
+            if (lease.getLeaseholderId() == null || !currentTopologySnapshot.hasNode(lease.getLeaseholderId())) {
                 LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
                         lease.getLeaseholder(), lease.getLeaseholderId(), groupId);
 

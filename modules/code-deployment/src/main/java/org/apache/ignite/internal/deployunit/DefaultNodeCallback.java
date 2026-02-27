@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
@@ -91,10 +90,10 @@ public class DefaultNodeCallback extends NodeEventCallback {
     public void onRemoving(String id, Version version, List<UnitNodeStatus> holders) {
         cmgManager.logicalTopology()
                 .thenAccept(snapshot -> {
-                    Set<String> nodes = snapshot.nodes().stream().map(LogicalNode::name).collect(Collectors.toSet());
                     boolean allRemoved = holders.stream()
-                            .filter(nodeStatus -> nodes.contains(nodeStatus.nodeId()))
+                            .filter(nodeStatus -> snapshot.hasNode(nodeStatus.nodeId()))
                             .allMatch(nodeStatus -> nodeStatus.status() == REMOVING);
+
                     if (allRemoved) {
                         deploymentUnitStore.updateClusterStatus(id, version, REMOVING);
                     }

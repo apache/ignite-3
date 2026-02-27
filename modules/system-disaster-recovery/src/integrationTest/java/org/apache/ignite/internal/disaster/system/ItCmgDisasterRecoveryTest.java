@@ -124,8 +124,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         IgniteImpl node2 = unwrapIgniteImpl(cluster.startNode(2));
 
         assertTrue(waitForCondition(
-                () -> node2.logicalTopologyService().localLogicalTopology().nodes().stream()
-                        .anyMatch(n -> node2.name().equals(n.name())),
+                () -> node2.logicalTopologyService().localLogicalTopology().hasNode(node2.name()),
                 SECONDS.toMillis(10)
         ));
     }

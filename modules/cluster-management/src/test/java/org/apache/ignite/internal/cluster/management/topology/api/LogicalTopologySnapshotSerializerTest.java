@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 
 import static java.util.stream.Collectors.toList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -44,7 +45,7 @@ class LogicalTopologySnapshotSerializerTest {
         LogicalTopologySnapshot restoredSnapshot = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertThat(restoredSnapshot.version(), is(originalSnapshot.version()));
-        assertThat(restoredSnapshot.nodes(), equalTo(originalSnapshot.nodes()));
+        assertThat(restoredSnapshot.nodes(), containsInAnyOrder(originalSnapshot.nodes().toArray()));
         assertThat(restoredSnapshot.clusterId(), equalTo(originalSnapshot.clusterId()));
     }
 

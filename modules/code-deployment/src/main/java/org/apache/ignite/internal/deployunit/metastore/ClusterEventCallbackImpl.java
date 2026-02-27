@@ -19,15 +19,11 @@ package org.apache.ignite.internal.deployunit.metastore;
 
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
-import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 
 /** Listener of deployment unit cluster status changes. */
 public class ClusterEventCallbackImpl extends ClusterEventCallback {
@@ -85,15 +81,12 @@ public class ClusterEventCallbackImpl extends ClusterEventCallback {
 
     private void removeClusterStatus(String id, Version version, UUID opId) {
         cmgManager.logicalTopology().thenAccept(logicalTopology -> {
-            Set<String> logicalNodes = logicalTopology.nodes().stream()
-                    .map(LogicalNode::name)
-                    .collect(Collectors.toSet());
             deploymentUnitStore.getAllNodeStatuses(id, version).thenAccept(statuses -> {
                 boolean emptyTopology = statuses.stream()
-                        .map(UnitNodeStatus::nodeId)
-                        .filter(logicalNodes::contains)
+                        .filter(unitNodeStatus -> logicalTopology.hasNode(unitNodeStatus.nodeId()))
                         .findAny()
                         .isEmpty();
+
                 if (emptyTopology) {
                     deploymentUnitStore.removeClusterStatus(id, version, opId);
                 }

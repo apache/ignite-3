@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.Serializable;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -158,7 +159,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private HashSet<LogicalNode> getValidatedNodes() {
         List<LogicalNode> validatedNodes = storageManager.getValidatedNodes();
-        Set<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
+        Collection<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
 
         var result = new HashSet<LogicalNode>(capacity(validatedNodes.size() + logicalTopologyNodes.size()));
 
@@ -262,10 +263,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private ValidationResult validateNode(JoinRequestCommand command) {
-        Optional<LogicalNode> previousVersion = logicalTopology.getLogicalTopology().nodes()
-                .stream()
-                .filter(n -> n.name().equals(command.node().name()))
-                .findAny();
+        Optional<LogicalNode> previousVersion = logicalTopology.getLogicalTopology().node(command.node().name());
 
         if (previousVersion.isPresent()) {
             LogicalNode previousNode = previousVersion.get();
