@@ -15,7 +15,7 @@ class PythonDbApiToxTest(
         private val toxEnv: String,
         private val suiteName: String
 ) : BuildType({
-    id(Teamcity.getId(this::class, toxEnv, true))
+    id(Teamcity.getId(this::class, pythonVersion, true))
     name = suiteName
 
     params {
