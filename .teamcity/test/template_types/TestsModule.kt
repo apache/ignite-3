@@ -26,7 +26,7 @@ class TestsModule(
 
         hiddenText("IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS", "-DtestAllVersions=false")
         hiddenText("IGNITE_DEFAULT_STORAGE_ENGINE", "")
-        hiddenText("env.GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
+        hiddenText("EXTRA_GRADLE_OPTS", "-PextraJvmArgs=\"%IGNITE_COMPATIBILITY_TEST_ALL_VERSIONS% %IGNITE_DEFAULT_STORAGE_ENGINE%\"")
     }
 
     steps {
@@ -42,7 +42,7 @@ class TestsModule(
             name = "Run tests"
             tasks = module.buildTask(configuration.testTask)
             workingDir = "%VCSROOT__IGNITE3%"
-            gradleParams = "%env.GRADLE_OPTS%"
+            gradleParams = "%env.GRADLE_OPTS% %EXTRA_GRADLE_OPTS%"
             jvmArgs = """
                 -Xmx%XMX%
                 %JVM_ARGS%

@@ -12,7 +12,7 @@ import test.template_types.RunTestsList
 
 object RunAllTestsCustomJDK : BuildType({
     id(getId(this::class))
-    name = "--> Run :: All Tests [JDK 11/21]"
+    name = "--> Run :: All Tests [JDK 17/21/25]"
     description = "Run all tests on custom JDK at once"
     type = Type.COMPOSITE
 
