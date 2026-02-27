@@ -15,19 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.client.proto.tx;
+
+import java.util.EnumSet;
 
 /**
- * Error data extensions. When the server returns an error response, it may contain additional data in a map. Keys are defined here.
+ * Error flags.
  */
-public class ErrorExtensions {
-    public static final String EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
+public enum ErrorFlags {
+    RETRIABLE(1);
 
-    public static final String SQL_UPDATE_COUNTERS = "sql-update-counters";
+    private final int mask;
 
-    public static final String DELAYED_ACK = "delayed-ack";
+    ErrorFlags(int mask) {
+        this.mask = mask;
+    }
 
-    public static final String TX_KILL = "tx-kill";
+    public int mask() {
+        return mask;
+    }
 
-    public static final String FLAGS = "flags";
+    /**
+     * Unpack flags.
+     *
+     * @param mask Packed mask.
+     * @return Set of flags.
+     */
+    public static EnumSet<ErrorFlags> unpack(int mask) {
+        EnumSet<ErrorFlags> result = EnumSet.noneOf(
+                ErrorFlags.class);
+        for (ErrorFlags flag : values()) {
+            if ((mask & flag.mask()) != 0) {
+                result.add(flag);
+            }
+        }
+        return result;
+    }
 }

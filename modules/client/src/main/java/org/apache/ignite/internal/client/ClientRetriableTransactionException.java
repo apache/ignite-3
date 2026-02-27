@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.client;
+
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.tx.RetriableTransactionException;
 
 /**
- * Error data extensions. When the server returns an error response, it may contain additional data in a map. Keys are defined here.
+ * Wraps client exception cause for retry purposes, which is based on marker interface RetriableTransactionException.
  */
-public class ErrorExtensions {
-    public static final String EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
-
-    public static final String SQL_UPDATE_COUNTERS = "sql-update-counters";
-
-    public static final String DELAYED_ACK = "delayed-ack";
-
-    public static final String TX_KILL = "tx-kill";
-
-    public static final String FLAGS = "flags";
+class ClientRetriableTransactionException extends IgniteException implements RetriableTransactionException {
+    public ClientRetriableTransactionException(int code, Throwable cause) {
+        super(code, cause);
+    }
 }
