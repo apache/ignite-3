@@ -682,7 +682,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         try {
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
             return copyExceptionWithCause(errCls, traceId, code, errMsg,
-                    retriable ? new ClientRetriableTransactionException(causeWithStackTrace) : causeWithStackTrace);
+                    retriable ? new ClientRetriableTransactionException(code, causeWithStackTrace) : causeWithStackTrace);
         } catch (ClassNotFoundException ignored) {
             // Ignore: incompatible exception class. Fall back to generic exception.
         }
