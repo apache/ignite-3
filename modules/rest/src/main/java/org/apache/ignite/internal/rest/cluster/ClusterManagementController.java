@@ -99,6 +99,31 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
                 });
     }
 
+    @Override
+    public CompletableFuture<ClusterTag> rename(String newName) {
+        LOG.info("Received rename command with new name = '{}'", newName);
+
+        return clusterManagementGroupManager.renameCluster(newName)
+                .thenCompose(unused -> clusterManagementGroupManager.clusterState())
+                .thenApply(ClusterManagementController::mapClusterTag)
+                .exceptionally(ex -> {
+                    throw mapException(ex);
+                });
+    }
+
+    private static ClusterTag mapClusterTag(@Nullable org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
+        if (clusterState == null) {
+            throw new IgniteException(
+                    CLUSTER_NOT_INIT_ERR,
+                    "Cluster has not yet been initialized or the node is in the process of being stopped."
+            );
+        }
+
+        var clusterTag = clusterState.clusterTag();
+
+        return new ClusterTag(clusterTag.clusterName(), clusterTag.clusterId());
+    }
+
     private static ClusterState mapClusterState(@Nullable org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
         if (clusterState == null) {
             throw new IgniteException(
