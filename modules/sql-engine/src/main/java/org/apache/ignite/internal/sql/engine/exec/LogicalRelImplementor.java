@@ -575,6 +575,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         return new TableScanNode<>(
                 ctx,
                 rowFactory,
+                tbl,
                 scannableTable,
                 partitionProvider,
                 filters,

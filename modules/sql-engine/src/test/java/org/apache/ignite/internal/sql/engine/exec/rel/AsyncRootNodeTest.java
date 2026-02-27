@@ -80,7 +80,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
                 null
         );
 
-        var rootNode = new AsyncRootNode<>(dataSourceScanNode, Function.identity());
+        var rootNode = new AsyncRootNode<>(context, dataSourceScanNode, Function.identity());
 
         rootNode.requestNextAsync(1);
 
@@ -123,7 +123,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
                 null
         );
 
-        AsyncRootNode<RowWrapper, RowWrapper> rootNode = new AsyncRootNode<>(dataSourceScanNode, Function.identity());
+        AsyncRootNode<RowWrapper, RowWrapper> rootNode = new AsyncRootNode<>(context, dataSourceScanNode, Function.identity());
         dataSourceScanNode.onRegister(rootNode);
 
         // trigger prefetch
@@ -171,7 +171,7 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
             return IntStream.range(0, 76).mapToObj(factory::create).iterator();
         });
 
-        AsyncRootNode<RowWrapper, RowWrapper> rootNode = new AsyncRootNode<>(scanNode, Function.identity());
+        AsyncRootNode<RowWrapper, RowWrapper> rootNode = new AsyncRootNode<>(context, scanNode, Function.identity());
         scanNode.onRegister(rootNode);
 
         // trigger prefetch

@@ -531,7 +531,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         }
 
         RewindableAsyncRoot<Object[], Object[]> root = new RewindableAsyncRoot<>(
-                node, Function.identity()
+                targetCtx, node, Function.identity()
         );
 
         node.onRegister(root);
@@ -665,8 +665,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
          * @param source A source to requests rows from.
          * @param converter A converter to convert rows from an internal format to desired output format.
          */
-        RewindableAsyncRoot(AbstractNode<InT> source, Function<InT, OutT> converter) {
-            super(source, converter);
+        RewindableAsyncRoot(ExecutionContext<InT> ctx, AbstractNode<InT> source, Function<InT, OutT> converter) {
+            super(ctx, source, converter);
         }
 
         @Override
