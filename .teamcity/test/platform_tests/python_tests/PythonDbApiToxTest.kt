@@ -1,26 +1,30 @@
-package test.platform_tests
+package test.platform_tests.python_tests
 
+import jetbrains.buildServer.configs.kotlin.BuildStep
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.ParameterDisplay
-import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnMetric
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnMetricChange
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
-import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
+import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
 import org.apache.ignite.teamcity.Teamcity
+import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
-
-object PlatformPythonTestsLinux : BuildType({
-    id(Teamcity.getId(this::class))
-    name = "Platform Python Tests (Linux)"
+class PythonDbApiToxTest(
+        private val pythonVersion: String,
+        private val toxEnv: String,
+        private val suiteName: String
+) : BuildType({
+    id(Teamcity.getId(this::class, toxEnv, true))
+    name = suiteName
 
     params {
         text("PATH__WORKING_DIR", """%VCSROOT__IGNITE3%\modules\platforms\python\dbapi""", display = ParameterDisplay.HIDDEN, allowEmpty = true)
-        param("env.IGNITE_CPP_TESTS_USE_SINGLE_NODE", "")
-        param("env.CPP_STAGING", """%PATH__WORKING_DIR%\cpp_staging""")
-        param("TOX_ENV", "py310")
-        param("PYTHON_VERSION", "3.10")
+        param("TOX_ENV", toxEnv)
+        param("PYTHON_VERSION", pythonVersion)
+    }
+
+    requirements {
+        equals("env.DIND_ENABLED", "true")
     }
 
     steps {
@@ -29,7 +33,18 @@ object PlatformPythonTestsLinux : BuildType({
             tasks = ":ignite-runner:integrationTestClasses"
         }
         script {
-            name = "Python Client tests"
+            name = "Update pyenv"
+            workingDir = "%PATH__WORKING_DIR%"
+            scriptContent = """
+                set -x
+                eval "${'$'}(pyenv init - dash)"
+
+                cd "${'$'}(pyenv root)"
+                git pull
+            """.trimIndent()
+        }
+        script {
+            name = "Run tox"
             workingDir = "%PATH__WORKING_DIR%"
             scriptContent = """
                 #!/usr/bin/env bash
@@ -83,9 +98,5 @@ object PlatformPythonTestsLinux : BuildType({
             failureMessage = "CMake install failed"
             reverse = false
         }
-    }
-
-    requirements {
-        equals("env.DIND_ENABLED", "true")
     }
 })
