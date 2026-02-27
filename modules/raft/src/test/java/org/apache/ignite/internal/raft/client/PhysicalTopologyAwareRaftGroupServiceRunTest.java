@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -27,8 +26,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.raft.TestWriteCommand.testWriteCommand;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -47,6 +48,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -66,6 +68,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.ReplicationGroupUnavailableException;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
@@ -84,6 +87,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -207,7 +213,6 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                 eventsClientListener,
                 commandsMarshaller,
                 StoppingExceptionFactories.indicateNodeStop(),
-                throttlingContextHolder(),
                 NOOP_FAILURE_PROCESSOR
         );
 
@@ -294,20 +299,18 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
-     * Tests that with timeout=0, the command succeeds immediately when leader is available.
+     * Tests that command succeeds when leader is available, regardless of timeout value.
      */
-    @Test
-    void testZeroTimeoutSuccessWhenLeaderAvailable() {
+    @ParameterizedTest
+    @ValueSource(longs = {0, 5000, Long.MAX_VALUE, -1})
+    void testSuccessWhenLeaderAvailable(long timeout) {
         mockLeaderRequest();
         mockUserInputSuccess();
 
         PhysicalTopologyAwareRaftGroupService svc = startService();
-
-        // Simulate leader election and wait so the service knows about the leader.
         simulateLeaderElectionAndWait(NODES.get(0), CURRENT_TERM);
 
-        // With timeout=0, should succeed immediately since leader is available.
-        CompletableFuture<Object> result = svc.run(testWriteCommand(), 0);
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), timeout);
 
         assertThat(result, willBe(instanceOf(TestResponse.class)));
     }
@@ -328,24 +331,6 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         assertThat(result, willThrow(ReplicationGroupUnavailableException.class));
 
         verifyExact3PeersCalled();
-    }
-
-    /**
-     * Tests that with Long.MAX_VALUE timeout, the command succeeds when leader is available immediately.
-     */
-    @Test
-    void testInfiniteTimeoutSuccessWhenLeaderAvailable() {
-        mockLeaderRequest();
-        mockUserInputSuccess();
-
-        PhysicalTopologyAwareRaftGroupService svc = startService();
-
-        // Simulate leader election and wait for it to be processed.
-        simulateLeaderElectionAndWait(NODES.get(0), CURRENT_TERM);
-
-        CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
-
-        assertThat(result, willBe(instanceOf(TestResponse.class)));
     }
 
     /**
@@ -389,43 +374,6 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
 
         // Should eventually complete successfully.
         assertThat(result, willCompleteSuccessfully());
-    }
-
-    /**
-     * Tests that negative timeout is treated as infinite wait.
-     */
-    @Test
-    void testNegativeTimeoutTreatedAsInfinite() {
-        mockLeaderRequest();
-        mockUserInputSuccess();
-
-        PhysicalTopologyAwareRaftGroupService svc = startService();
-
-        // Simulate leader election and wait for it to be processed.
-        simulateLeaderElectionAndWait(NODES.get(0), CURRENT_TERM);
-
-        // Negative timeout should be treated as infinite.
-        CompletableFuture<Object> result = svc.run(testWriteCommand(), -1);
-
-        assertThat(result, willBe(instanceOf(TestResponse.class)));
-    }
-
-    /**
-     * Tests that with bounded timeout, the command succeeds within timeout when leader is available.
-     */
-    @Test
-    void testBoundedTimeoutSuccessWithinTimeout() {
-        mockLeaderRequest();
-        mockUserInputSuccess();
-
-        PhysicalTopologyAwareRaftGroupService svc = startService();
-
-        // Simulate leader election and wait for it to be processed.
-        simulateLeaderElectionAndWait(NODES.get(0), CURRENT_TERM);
-
-        CompletableFuture<Object> result = svc.run(testWriteCommand(), 5000);
-
-        assertThat(result, willBe(instanceOf(TestResponse.class)));
     }
 
     /**
@@ -880,49 +828,222 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         assertThat(triedPeers, equalTo(expectedPeers));
     }
 
-    private static class TestResponse {
+    // ==========================================================================================
+    // Tests for refreshLeader and refreshAndGetLeaderWithTerm (RANDOM strategy)
+    // ==========================================================================================
+
+    /**
+     * Tests that for GetLeaderRequest with UNKNOWN/EINTERNAL/ENOENT errors, the executor tries another peer
+     * instead of retrying the same peer. This matches RaftGroupServiceImpl behavior.
+     *
+     * <p>The test verifies that after receiving one of these errors from a peer, the next request goes to
+     * a DIFFERENT peer, not the same one.
+     */
+    @ParameterizedTest
+    @EnumSource(names = {"UNKNOWN", "EINTERNAL", "ENOENT"})
+    void testGetLeaderRequestTriesDifferentPeerOnTransientError(RaftError error) throws Exception {
+        Set<String> calledPeers = ConcurrentHashMap.newKeySet();
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                any(GetLeaderRequest.class),
+                anyLong())
+        ).thenAnswer(invocation -> {
+            InternalClusterNode target = invocation.getArgument(0);
+            calledPeers.add(target.name());
+            int count = callCount.incrementAndGet();
+
+            if (count == 1) {
+                // First call returns transient error.
+                return completedFuture(FACTORY.errorResponse()
+                        .errorCode(error.getNumber())
+                        .build());
+            }
+
+            // Second call succeeds.
+            return completedFuture(FACTORY.getLeaderResponse()
+                    .leaderId(PeerId.fromPeer(NODES.get(0)).toString())
+                    .currentTerm(CURRENT_TERM)
+                    .build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        CompletableFuture<LeaderWithTerm> result = svc.refreshAndGetLeaderWithTerm(TIMEOUT);
+
+        assertThat(result, willCompleteSuccessfully());
+
+        // Verify that at least 2 different peers were called.
+        // If the same peer was retried, calledPeers would have size 1.
+        assertThat("Should try different peers on " + error + " error, but called peers were: " + calledPeers,
+                calledPeers.size(), greaterThan(1));
     }
 
     /**
-     * Tests single-attempt mode (timeout=0) with 5 nodes: all return "no leader".
+     * Tests that RANDOM strategy with bounded timeout keeps cycling through peers until timeout.
      *
-     * <p>In single-attempt mode, "no leader" is treated same as unavailable.
-     * Each peer is tried exactly once, then fails with ReplicationGroupUnavailableException.
+     * <p>When all peers return EPERM (no leader), RaftGroupServiceImpl resets unavailable peers
+     * and keeps cycling until timeout. RaftCommandExecutor should do the same for RANDOM strategy.
      */
     @Test
-    void testSingleAttemptModeWithAllNoLeader() {
+    void testRandomStrategyWithBoundedTimeoutKeepsCyclingUntilTimeout() throws Exception {
         AtomicInteger callCount = new AtomicInteger(0);
-        Set<String> calledPeers = ConcurrentHashMap.newKeySet();
+        CountDownLatch sixCallsReached = new CountDownLatch(6);
 
-        // All peers return EPERM with no leader.
+        // All peers return EPERM (no leader) every time.
         when(messagingService.invoke(
                 any(InternalClusterNode.class),
-                argThat(this::isTestWriteCommand),
-                anyLong()
-        )).thenAnswer(invocation -> {
-            InternalClusterNode target = invocation.getArgument(0);
-            calledPeers.add(target.name());
+                any(GetLeaderRequest.class),
+                anyLong())
+        ).thenAnswer(invocation -> {
             callCount.incrementAndGet();
+            sixCallsReached.countDown();
             return completedFuture(FACTORY.errorResponse()
                     .errorCode(RaftError.EPERM.getNumber())
                     .leaderId(null)
                     .build());
         });
 
-        PhysicalTopologyAwareRaftGroupService svc = startService(FIVE_NODES);
+        PhysicalTopologyAwareRaftGroupService svc = startService();
 
-        // With timeout=0, should try each peer once and fail.
-        CompletableFuture<Object> result = svc.run(testWriteCommand(), 0);
+        // With bounded timeout (500ms), should keep cycling until timeout.
+        // With 3 peers and 50ms retry delay, we should get more than 3 calls before timeout.
+        CompletableFuture<Void> result = svc.refreshLeader(500);
 
-        assertThat(result, willThrow(ReplicationGroupUnavailableException.class));
+        // Wait for at least 6 calls (2 complete cycles through all 3 peers).
+        boolean sixCallsHappened = sixCallsReached.await(2, TimeUnit.SECONDS);
 
-        // Verify each peer was tried exactly once.
-        assertThat("Should call exactly 5 peers", callCount.get(), is(5));
-        assertThat("Should call all 5 unique peers", calledPeers.size(), is(5));
+        assertThat(result, willThrow(ReplicationGroupUnavailableException.class, 2, TimeUnit.SECONDS));
+
+        // Verify more than 3 calls were made (cycling through peers multiple times).
+        assertThat("Should cycle through peers multiple times before timeout, but only " + callCount.get() + " calls were made",
+                sixCallsHappened, is(true));
+        assertThat(callCount.get(), greaterThan(3));
     }
 
     /**
-     * Tests single-attempt mode (timeout=0) with 5 nodes: 3 return "no leader", 2 return EHOSTDOWN.
+     * Tests that the timeout parameter is respected for refreshLeader/refreshAndGetLeaderWithTerm.
+     * With a short timeout, the request should fail fast, not wait for the default response timeout.
+     */
+    @Test
+    void testTimeoutParameterIsRespectedForRefreshLeader() {
+        // All peers never respond (simulating network issue).
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                any(GetLeaderRequest.class),
+                anyLong())
+        ).thenReturn(new CompletableFuture<>()); // Never completes
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        long startTime = System.currentTimeMillis();
+
+        // With 200ms timeout, should fail within ~300ms, not the default 3000ms.
+        CompletableFuture<Void> result = svc.refreshLeader(200);
+
+        assertThat(result, willThrow(ReplicationGroupUnavailableException.class, 1, TimeUnit.SECONDS));
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        assertThat("Expected to fail within 1000ms but took " + elapsed + "ms", elapsed < 1000, is(true));
+    }
+
+    /**
+     * Tests that RANDOM strategy with timeout=0 (single attempt) tries all peers once and fails.
+     *
+     * <p>With timeout=0, each peer should be tried at most once, then fail with ReplicationGroupUnavailableException.
+     */
+    @Test
+    void testRandomStrategySingleAttemptTriesAllPeersOnce() throws Exception {
+        AtomicInteger callCount = new AtomicInteger(0);
+        Set<String> calledPeers = ConcurrentHashMap.newKeySet();
+        CountDownLatch constructorCallsDone = new CountDownLatch(3); // Constructor tries all 3 peers
+
+        // All peers return EPERM (no leader).
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                any(GetLeaderRequest.class),
+                anyLong())
+        ).thenAnswer(invocation -> {
+            InternalClusterNode target = invocation.getArgument(0);
+            calledPeers.add(target.name());
+            int count = callCount.incrementAndGet();
+            // Signal when constructor's calls complete (first 3 calls).
+            if (count <= 3) {
+                constructorCallsDone.countDown();
+            }
+            return completedFuture(FACTORY.errorResponse()
+                    .errorCode(RaftError.EPERM.getNumber())
+                    .leaderId(null)
+                    .build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Wait for constructor's refreshAndGetLeaderWithTerm() to try all peers.
+        assertTrue(constructorCallsDone.await(5, TimeUnit.SECONDS),
+                "Constructor's refreshAndGetLeaderWithTerm should try all peers");
+
+        // Reset counters to measure only the test call.
+        int callsBeforeTest = callCount.get();
+        calledPeers.clear();
+        callCount.set(0);
+
+        // With timeout=0, should try each peer once and fail.
+        CompletableFuture<Void> result = svc.refreshLeader(0);
+
+        assertThat(result, willThrow(ReplicationGroupUnavailableException.class, 1, TimeUnit.SECONDS));
+
+        // Verify each peer was tried exactly once for this call.
+        assertThat("Should call exactly 3 peers, but got " + callCount.get() + " (calls before test: " + callsBeforeTest + ")",
+                callCount.get(), is(3));
+        assertThat("Should call all 3 unique peers", calledPeers.size(), is(3));
+    }
+
+    /**
+     * Tests that RANDOM strategy succeeds when one peer returns the leader after other peers fail.
+     */
+    @Test
+    void testRandomStrategySucceedsWhenOnePeerReturnsLeader() {
+        AtomicInteger callCount = new AtomicInteger(0);
+
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                any(GetLeaderRequest.class),
+                anyLong())
+        ).thenAnswer(invocation -> {
+            int count = callCount.incrementAndGet();
+
+            // First 2 calls return EPERM (no leader), third succeeds.
+            if (count <= 2) {
+                return completedFuture(FACTORY.errorResponse()
+                        .errorCode(RaftError.EPERM.getNumber())
+                        .leaderId(null)
+                        .build());
+            }
+
+            return completedFuture(FACTORY.getLeaderResponse()
+                    .leaderId(PeerId.fromPeer(NODES.get(0)).toString())
+                    .currentTerm(CURRENT_TERM)
+                    .build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        CompletableFuture<LeaderWithTerm> result = svc.refreshAndGetLeaderWithTerm(TIMEOUT);
+
+        assertThat(result, willCompleteSuccessfully());
+
+        LeaderWithTerm leaderWithTerm = result.join();
+        assertThat(leaderWithTerm.leader().consistentId(), is(NODES.get(0).consistentId()));
+        assertThat(leaderWithTerm.term(), is(CURRENT_TERM));
+    }
+
+    private static class TestResponse {
+    }
+
+    /**
+     * Tests single-attempt mode (timeout=0) with 5 nodes and mixed errors.
      *
      * <p>In single-attempt mode, all errors are treated the same - each peer is tried once.
      * The request should fail after all 5 peers are tried.
@@ -1022,6 +1143,41 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
     }
 
     /**
+     * Tests that after leader election notification, the next request goes directly to the notified leader.
+     *
+     * <p>This verifies that the leader field is updated when leader election notification is received,
+     * so subsequent requests don't waste time trying random peers.
+     */
+    @Test
+    void testLeaderElectionNotificationUpdatesLeaderField() {
+        Peer expectedLeader = NODES.get(1); // Use node 1 as the leader (not node 0)
+        AtomicReference<String> firstCalledPeer = new AtomicReference<>();
+
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                argThat(this::isTestWriteCommand),
+                anyLong()
+        )).thenAnswer(invocation -> {
+            InternalClusterNode target = invocation.getArgument(0);
+            firstCalledPeer.compareAndSet(null, target.name());
+            return completedFuture(FACTORY.actionResponse().result(new TestResponse()).build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Simulate leader election notification for node 1.
+        simulateLeaderElectionAndWait(expectedLeader, CURRENT_TERM);
+
+        // Now run a command - it should go directly to the notified leader.
+        CompletableFuture<Object> result = svc.run(testWriteCommand(), Long.MAX_VALUE);
+        assertThat(result, willCompleteSuccessfully());
+
+        // Verify the first (and only) call went to the notified leader.
+        assertEquals(expectedLeader.consistentId(), firstCalledPeer.get(),
+                "After leader election notification, request should go directly to the notified leader");
+    }
+
+    /**
      * Tests single-attempt mode (timeout=0) with transient errors (EBUSY).
      *
      * <p>In single-attempt mode, each peer should be tried at most once, even for transient errors.
@@ -1056,5 +1212,77 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // Should have tried each peer at most once (3 peers).
         assertThat("Should call at most 3 peers, but got " + callCount.get(), callCount.get(), is(3));
         assertThat("Should call all 3 unique peers", calledPeers.size(), is(3));
+    }
+
+    /**
+     * Tests that refreshAndGetLeaderWithTerm correctly tracks term progression.
+     *
+     * <p>Scenario:
+     * <ol>
+     *     <li>Leader election sets term=2, leader=node0</li>
+     *     <li>refreshAndGetLeaderWithTerm returns term=5, leader=node1 → update cached leader</li>
+     *     <li>refreshAndGetLeaderWithTerm returns stale term=4, leader=node2 → should NOT update</li>
+     * </ol>
+     *
+     * <p>This tests that the fix tracks the highest term seen across all refreshAndGetLeaderWithTerm calls,
+     * not just the term from the last leader election notification.
+     */
+    @Test
+    void testRefreshAndGetLeaderWithTermTracksTermProgressionAcrossMultipleCalls() throws Exception {
+        Peer initialLeader = NODES.get(0);
+        Peer newerLeader = NODES.get(1);
+        Peer staleLeader = NODES.get(2);
+
+        // Track call count and signal when constructor's call completes.
+        AtomicInteger callCount = new AtomicInteger(0);
+        CountDownLatch constructorCallDone = new CountDownLatch(1);
+
+        when(messagingService.invoke(
+                any(InternalClusterNode.class),
+                any(GetLeaderRequest.class),
+                anyLong())
+        ).thenAnswer(invocation -> {
+            int count = callCount.incrementAndGet();
+            if (count == 1) {
+                // Constructor's call - return low term and signal completion.
+                return completedFuture(FACTORY.getLeaderResponse()
+                        .leaderId(PeerId.fromPeer(initialLeader).toString())
+                        .currentTerm(1)
+                        .build())
+                        .whenComplete((r, e) -> constructorCallDone.countDown());
+            } else if (count == 2) {
+                // First test call - term=5 (new leader)
+                return completedFuture(FACTORY.getLeaderResponse()
+                        .leaderId(PeerId.fromPeer(newerLeader).toString())
+                        .currentTerm(5)
+                        .build());
+            }
+            // Subsequent calls - stale term=4 (should NOT update)
+            return completedFuture(FACTORY.getLeaderResponse()
+                    .leaderId(PeerId.fromPeer(staleLeader).toString())
+                    .currentTerm(4)
+                    .build());
+        });
+
+        PhysicalTopologyAwareRaftGroupService svc = startService();
+
+        // Wait for constructor's call to complete.
+        assertTrue(constructorCallDone.await(5, TimeUnit.SECONDS),
+                "Constructor's refreshAndGetLeaderWithTerm should complete");
+
+        // Set initial leader via leader election to establish a known baseline.
+        // This sets term=2 in leaderAvailabilityState via leaderElectionListener.
+        simulateLeaderElectionAndWait(initialLeader, 2);
+        assertThat(svc.leader().consistentId(), is(initialLeader.consistentId()));
+
+        // First call: term=5, leader=node1 (new leader, newer term)
+        assertThat(svc.refreshAndGetLeaderWithTerm(TIMEOUT), willCompleteSuccessfully());
+        assertThat("After term=5, leader should be node1",
+                svc.leader().consistentId(), is(newerLeader.consistentId()));
+
+        // Second call: stale term=4, leader=node2 (should NOT update because 4 < 5)
+        assertThat(svc.refreshAndGetLeaderWithTerm(TIMEOUT), willCompleteSuccessfully());
+        assertThat("After stale term=4, leader should still be node1 (not overwritten with stale info)",
+                svc.leader().consistentId(), is(newerLeader.consistentId()));
     }
 }
