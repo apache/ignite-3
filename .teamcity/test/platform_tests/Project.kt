@@ -19,7 +19,7 @@ object Project : Project({
         PlatformCppOdbcTestsRpmLinux,
         PlatformCppOdbcTestsTgzLinux,
         PlatformDotnetTestsLinux,
-        PlatformPythonTestsLinux
+        RunPythonTests
     ).forEach {
         buildType(
             ApacheIgnite3CustomBuildType.Builder(it)

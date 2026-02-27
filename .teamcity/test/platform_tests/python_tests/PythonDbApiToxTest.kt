@@ -1,13 +1,14 @@
 package test.platform_tests.python_tests
 
-import jetbrains.buildServer.configs.kotlin.BuildStep
 import jetbrains.buildServer.configs.kotlin.BuildType
 import jetbrains.buildServer.configs.kotlin.ParameterDisplay
-import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.buildSteps.script
-import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customScript
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnMetric
+import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
+import jetbrains.buildServer.configs.kotlin.failureConditions.failOnMetricChange
+import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import org.apache.ignite.teamcity.CustomBuildSteps.Companion.customGradle
 import org.apache.ignite.teamcity.Teamcity
-import org.apache.ignite.teamcity.Teamcity.Companion.hiddenText
 
 class PythonDbApiToxTest(
         private val pythonVersion: String,
