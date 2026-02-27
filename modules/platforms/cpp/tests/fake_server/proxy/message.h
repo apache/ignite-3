@@ -19,6 +19,9 @@
 #pragma once
 
 #include <cstring>
+#include <utility>
+
+namespace ignite::proxy {
 
 struct message {
     char *m_arr{nullptr};
@@ -56,3 +59,4 @@ struct message {
 
     ~message() { delete[] m_arr; }
 };
+} // namespace ignite::proxy
