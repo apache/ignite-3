@@ -20,7 +20,7 @@ import pytest
 
 import pyignite_dbapi
 from tests.conftest import TEST_CONNECT_KWARGS
-
+from tests.util import wait_for_condition
 
 NUM_THREADS = 50
 
@@ -130,14 +130,15 @@ def test_concurrent_commit_and_rollback(table, module_level_threadsafety):
 
     run_threads(task)
 
-    time.sleep(3.0)
+    def get_ids():
+        with pyignite_dbapi.connect(**TEST_CONNECT_KWARGS) as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT id FROM {table} ORDER BY id")
+                return {row[0] for row in cur.fetchall()}
 
-    with pyignite_dbapi.connect(**TEST_CONNECT_KWARGS) as conn:
-        with conn.cursor() as cur:
-            cur.execute(f"SELECT id FROM {table} ORDER BY id")
-            found_ids = {row[0] for row in cur.fetchall()}
-
-    assert found_ids == set(committed_ids)
+    # There is currently no mechanism to synchronize the observable timestamp across
+    # multiple connections, so changes will eventually become visible, but not necessarily immediately.
+    wait_for_condition(lambda: get_ids() == set(committed_ids), interval=0.5)
 
 
 def test_concurrent_fetchall_result_integrity(table, connection, connection_level_threadsafety):
@@ -145,22 +146,16 @@ def test_concurrent_fetchall_result_integrity(table, connection, connection_leve
     with connection.cursor() as cur:
         cur.executemany(f"INSERT INTO {table} (id, data) VALUES (?, ?)", [(i, f"val-{i}") for i in range(rows_num)])
 
-    errors = []
-
     def task(_):
         with connection.cursor() as cur:
             cur.execute(f"SELECT id, data FROM {table} ORDER BY id")
             rows = cur.fetchall()
-        if len(rows) != rows_num:
-            errors.append(AssertionError(f"Expected {rows_num} rows, got {len(rows)}"))
-            return
+            assert len(rows) == rows_num, f"Expected {rows_num} rows, got {len(rows)}"
+
         for idx, (rid, val) in enumerate(rows):
-            if val != f"val-{rid}":
-                errors.append(AssertionError(f"Corrupted row: id={rid}, val={val!r}"))
+            assert val == f"val-{rid}", f"Corrupted row: id={rid}, val={val!r}"
 
     run_threads(task)
-    if errors:
-        raise errors[0]
 
 
 def test_cursor_description_thread_safety(table, connection, connection_level_threadsafety):

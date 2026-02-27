@@ -28,7 +28,7 @@ apilevel = '2.0'
 """PEP 249 is supported."""
 
 threadsafety = 2
-"""Threads may share the module, but not connections."""
+"""Threads may share the module and connections, but not cursors."""
 
 paramstyle = 'qmark'
 """Parameter style is a question mark, e.g. '...WHERE name=?'."""
