@@ -65,7 +65,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * start verifications listed above (while the delta files are still there). </li>
  * </ul>
  */
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @MethodSource("baseVersions")
 // In older versions ThreadAssertingStorageEngine doesn't implement wrapper interface, so it's not possible to cast it to
 // PersistentPageMemoryStorageEngine

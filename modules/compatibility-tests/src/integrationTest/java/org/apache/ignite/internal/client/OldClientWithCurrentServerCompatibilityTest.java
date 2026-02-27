@@ -55,7 +55,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @SuppressWarnings("ThrowableNotThrown")
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @MethodSource("clientVersions")
 public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstractTest implements ClientCompatibilityTests {
     @Parameter

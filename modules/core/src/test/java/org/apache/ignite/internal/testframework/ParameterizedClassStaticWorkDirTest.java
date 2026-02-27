@@ -38,7 +38,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * so that it doesn't initialized in the BeforeAllCallback.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@ParameterizedClass
+@ParameterizedClass(name = "{displayName}({argumentsWithNames})")
 @ValueSource(ints = {0, 1})
 class ParameterizedClassStaticWorkDirTest {
     @WorkDirectory(forcePerClassTemplate = true)
