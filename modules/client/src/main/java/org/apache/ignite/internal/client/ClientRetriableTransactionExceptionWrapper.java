@@ -22,8 +22,8 @@ import org.apache.ignite.tx.RetriableTransactionException;
 /**
  * Wraps client exception cause for retry purposes, which is based on marker interface RetriableTransactionException.
  */
-public class ClientRetriableTransactionExceptionWrapper extends Exception implements RetriableTransactionException {
-    public ClientRetriableTransactionExceptionWrapper(Throwable cause) {
+class ClientRetriableTransactionExceptionWrapper extends Exception implements RetriableTransactionException {
+    ClientRetriableTransactionExceptionWrapper(Throwable cause) {
         super(cause);
     }
 }
