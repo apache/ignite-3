@@ -45,13 +45,15 @@ def table(table_name, service_cursor, drop_table_cleanup):
 def run_threads(fn, n=NUM_THREADS, *args):
     barrier = threading.Barrier(n)
     errors = []
+    errors_lock = threading.Lock()
 
     def wrapper(tid):
         try:
             barrier.wait()
             fn(tid, *args)
         except Exception as e:
-            errors.append(e)
+            with errors_lock:
+                errors.append(e)
 
     threads = [threading.Thread(target=wrapper, args=(i,)) for i in range(n)]
     for t in threads:
