@@ -257,6 +257,7 @@ class GroupUpdateRequestHandler {
                         aliveNodesConsistentIds,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.quorumSize(),
                         zoneDescriptor.consensusGroupSize(),
                         revision,
                         timestamp,
@@ -283,6 +284,7 @@ class GroupUpdateRequestHandler {
             Set<String> aliveNodesConsistentIds,
             int partitions,
             int replicas,
+            int quorumSize,
             int consensusGroupSize,
             long revision,
             HybridTimestamp timestamp,
@@ -296,8 +298,9 @@ class GroupUpdateRequestHandler {
         return inBusyLock(disasterRecoveryManager.busyLock(), () -> {
             Set<Assignment> partAssignments = getAliveNodesWithData(aliveNodesConsistentIds, localPartitionStateMessageByNode);
             Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
+            long aliveStableVotingNodes = aliveStableNodes.stream().filter(Assignment::isPeer).count();
 
-            if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
+            if (aliveStableVotingNodes >= quorumSize) {
                 return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
             }
 
