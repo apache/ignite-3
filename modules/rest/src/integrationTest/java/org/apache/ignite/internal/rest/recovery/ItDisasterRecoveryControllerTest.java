@@ -70,6 +70,8 @@ import org.junit.jupiter.api.Test;
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
+    private static final int PARTITIONS_COUNT = 10;
+
     private static final String FIRST_ZONE = "first_ZONE";
 
     private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", "first_ZONE_table");
@@ -96,11 +98,21 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     @BeforeAll
     public static void setUp() {
         ZONES_CONTAINING_TABLES.forEach(name -> {
-            sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", name, DEFAULT_AIPERSIST_PROFILE_NAME));
+            sql(String.format(
+                    "CREATE ZONE \"%s\" (PARTITIONS %d) storage profiles ['%s']",
+                    name,
+                    PARTITIONS_COUNT,
+                    DEFAULT_AIPERSIST_PROFILE_NAME
+            ));
             sql(String.format("CREATE TABLE PUBLIC.\"%s_table\" (id INT PRIMARY KEY, val INT) ZONE \"%1$s\"", name));
         });
 
-        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format(
+                "CREATE ZONE \"%s\" (PARTITIONS %d) storage profiles ['%s']",
+                EMPTY_ZONE,
+                PARTITIONS_COUNT,
+                DEFAULT_AIPERSIST_PROFILE_NAME
+        ));
 
         nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }
@@ -156,15 +168,17 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testLocalPartitionStatesPartitionOutOfRange() {
         String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
 
+        int partitionCount = partitionsCount(zoneName);
+
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(
-                        String.format("%s?partitionIds=0,4,%d&zoneNames=%s", localStatePath(), DEFAULT_PARTITION_COUNT, zoneName)
+                        String.format("%s?partitionIds=0,4,%d&zoneNames=%s", localStatePath(), partitionCount, zoneName)
                 ),
                 isProblem().withStatus(BAD_REQUEST).withDetail(String.format(
                         "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                        DEFAULT_PARTITION_COUNT - 1,
+                        partitionCount - 1,
                         zoneName,
-                        DEFAULT_PARTITION_COUNT
+                        partitionCount
                 ))
         );
     }
@@ -302,17 +316,19 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testGlobalPartitionStatesPartitionsOutOfRange() {
         String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
 
+        int partitionCount = partitionsCount(zoneName);
+
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(
-                        String.format("%s?partitionIds=0,4,%d&zoneNames=%s", globalStatePath(), DEFAULT_PARTITION_COUNT, zoneName),
+                        String.format("%s?partitionIds=0,4,%d&zoneNames=%s", globalStatePath(), partitionCount, zoneName),
                         GlobalZonePartitionStatesResponse.class
                 ),
                 isProblem().withStatus(BAD_REQUEST)
                         .withDetail(String.format(
                                 "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                                DEFAULT_PARTITION_COUNT - 1,
+                                partitionCount - 1,
                                 zoneName,
-                                DEFAULT_PARTITION_COUNT
+                                partitionCount
                         ))
         );
     }
@@ -392,15 +408,17 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testResetPartitionsPartitionsOutOfRange() {
-        MutableHttpRequest<?> post = resetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT));
+        int partitionCount = partitionsCount(FIRST_ZONE);
+
+        MutableHttpRequest<?> post = resetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(partitionCount));
 
         assertThrowsProblem(
                 () -> client.toBlocking().exchange(post),
                 isProblem().withStatus(BAD_REQUEST).withDetail(String.format(
                         "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                        DEFAULT_PARTITION_COUNT - 1,
+                        partitionCount - 1,
                         FIRST_ZONE,
-                        DEFAULT_PARTITION_COUNT
+                        partitionCount
                 ))
         );
     }

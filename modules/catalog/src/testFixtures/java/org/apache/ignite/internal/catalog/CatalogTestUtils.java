@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.PartitionCountCalculator.staticPartitionCountCalculator;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -112,7 +114,7 @@ public class CatalogTestUtils {
                 clockService,
                 failureProcessor,
                 delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -164,7 +166,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -210,7 +212,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                defaultPartitionCountCalculator()
         );
     }
 
@@ -248,7 +250,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -320,7 +322,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -368,7 +370,7 @@ public class CatalogTestUtils {
                 new TestClockService(clock, clockWaiter),
                 new NoOpFailureManager(),
                 () -> TEST_DELAY_DURATION,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                defaultPartitionCountCalculator()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -501,6 +503,10 @@ public class CatalogTestUtils {
 
     public static AlterZoneCommandBuilder alterZoneBuilder(String zoneName) {
         return AlterZoneCommand.builder().zoneName(zoneName);
+    }
+
+    public static PartitionCountCalculator defaultPartitionCountCalculator() {
+        return staticPartitionCountCalculator(DEFAULT_PARTITION_COUNT);
     }
 
     private static class TestUpdateLog implements UpdateLog {

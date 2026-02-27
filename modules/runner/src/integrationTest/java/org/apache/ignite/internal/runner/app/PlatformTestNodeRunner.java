@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_TIME_PRECISION;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.table.TableTestUtils.createTable;
@@ -81,12 +82,14 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -299,6 +302,8 @@ public class PlatformTestNodeRunner {
                     return TestIgnitionManager.start(nodeName, config, basePath.resolve(nodeName));
                 })
                 .collect(toList());
+
+        nodes.forEach(server -> ((IgniteServerImpl) server).igniteImpl().useStaticPartitionCountCalculator(DEFAULT_PARTITION_COUNT));
 
         IgniteServer metaStorageNode = nodes.get(0);
 
@@ -529,6 +534,10 @@ public class PlatformTestNodeRunner {
                 List.of(keyColumnParams, valueColumnParams),
                 List.of(keyColumnParams.name())
         );
+    }
+
+    private static void createDefaultZone(IgniteImpl ignite) {
+        DistributionZonesTestUtil.createDefaultZone(ignite.catalogManager());
     }
 
     /**

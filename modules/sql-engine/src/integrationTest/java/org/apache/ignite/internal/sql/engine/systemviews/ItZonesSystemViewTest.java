@@ -28,10 +28,13 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
+import org.apache.ignite.internal.catalog.PartitionCountCalculator;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
@@ -62,11 +65,19 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
         );
 
+        PartitionCountCalculator partitionCountCalculator = node.partitionCountCalculator();
+        PartitionCountCalculationParameters partitionCountCalculationParameters = PartitionCountCalculationParameters.builder()
+                .replicaFactor(DEFAULT_REPLICA_COUNT)
+                .dataNodesFilter(DEFAULT_FILTER)
+                .storageProfiles(List.of(DEFAULT_STORAGE_PROFILE))
+                .build();
+        int defaultZoneExpectedPartitionCount = partitionCountCalculator.calculate(partitionCountCalculationParameters);
+
         assertQuery("SELECT ZONE_NAME, ZONE_PARTITIONS, ZONE_REPLICAS, ZONE_QUORUM_SIZE, DATA_NODES_AUTO_ADJUST_SCALE_UP,"
                 + " DATA_NODES_AUTO_ADJUST_SCALE_DOWN, DATA_NODES_FILTER, IS_DEFAULT_ZONE, ZONE_CONSISTENCY_MODE FROM SYSTEM.ZONES")
                 .returns(
                 catalog.defaultZone().name(),
-                DEFAULT_PARTITION_COUNT,
+                defaultZoneExpectedPartitionCount,
                 DEFAULT_REPLICA_COUNT,
                 DEFAULT_ZONE_QUORUM_SIZE,
                 IMMEDIATE_TIMER_VALUE,

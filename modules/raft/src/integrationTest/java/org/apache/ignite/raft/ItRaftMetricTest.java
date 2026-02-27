@@ -39,6 +39,11 @@ public class ItRaftMetricTest extends ClusterPerClassIntegrationTest {
     private static final int PARTITION_COUNT = 10;
 
     @Override
+    protected boolean shouldCreateDefaultZone() {
+        return false;
+    }
+
+    @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         // To trigger zone's raft partitions destruction.
         builder.clusterConfiguration(aggressiveLowWatermarkIncreaseClusterConfig());

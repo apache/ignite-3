@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -42,10 +43,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -71,7 +76,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
-    private static final int PARTITION_COUNT = 25;
+    private static final int PARTITION_COUNT = CatalogUtils.DEFAULT_PARTITION_COUNT;
 
     private Ignite node0;
 
@@ -80,6 +85,11 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
 
     @Override
     protected abstract int initialNodes();
+
+    @Override
+    protected boolean shouldCreateDefaultZone() {
+        return false;
+    }
 
     @BeforeEach
     void prepare() {
@@ -193,7 +203,11 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
         IgniteImpl ignite = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(requireNonNull(ignite.distributedTableManager().cachedTable(tableName)));
 
-        for (int partitionIndex = 0; partitionIndex < PARTITION_COUNT; partitionIndex++) {
+        int partitionCount = partitions(ignite.catalogManager(), tableName);
+
+        assertThat(partitionCount, is(PARTITION_COUNT));
+
+        for (int partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++) {
             collectRowsFromPartition(table, partitionIndex, readResults);
         }
 
@@ -206,6 +220,20 @@ abstract class ItSchemaForwardCompatibilityConsistencyTest extends ClusterPerTes
                 resultSet.next();
             }
         }
+    }
+
+    private static int partitions(CatalogManager catalogManager, String tableName) {
+        Catalog catalog = catalogManager.latestCatalog();
+
+        CatalogTableDescriptor tableDescriptor = catalog.table(Table.DEFAULT_SCHEMA,  tableName);
+
+        assertNotNull(tableDescriptor);
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
+
+        assertNotNull(zoneDescriptor);
+
+        return zoneDescriptor.partitions();
     }
 
     private static void collectRowsFromPartition(TableImpl table, int partitionIndex, List<ReadResult> readResults) {

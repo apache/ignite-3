@@ -114,9 +114,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final Object lastSaveUpdateFutureMutex = new Object();
 
     /**
-     * Partition count provider for command update contexts.
+     * Partition count calculator for command update contexts.
      */
-    private final PartitionCountProvider partitionCountProvider;
+    private final PartitionCountCalculator partitionCountCalculator;
 
     /**
      * Constructor.
@@ -126,14 +126,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             ClockService clockService,
             FailureProcessor failureProcessor,
             LongSupplier delayDurationMsSupplier,
-            PartitionCountProvider partitionCountProvider
+            PartitionCountCalculator partitionCountCalculator
     ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
-        this.partitionCountProvider = partitionCountProvider;
+        this.partitionCountCalculator = partitionCountCalculator;
     }
 
     @Override
@@ -267,7 +267,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         var initialEntries = new ArrayList<UpdateEntry>();
 
-        var context = new UpdateContext(emptyCatalog, partitionCountProvider);
+        var context = new UpdateContext(emptyCatalog, partitionCountCalculator);
 
         for (UpdateProducer producer : initCommands) {
             List<UpdateEntry> entries = producer.get(context);
@@ -420,7 +420,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             BitSet applyResults = new BitSet(updateProducers.size());
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
             try {
-                UpdateContext updateContext = new UpdateContext(catalog, partitionCountProvider);
+                UpdateContext updateContext = new UpdateContext(catalog, partitionCountCalculator);
                 for (int i = 0; i < updateProducers.size(); i++) {
                     UpdateProducer update = updateProducers.get(i);
                     List<UpdateEntry> entries = update.get(updateContext);
