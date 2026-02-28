@@ -128,7 +128,11 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
-                .clusterConfiguration("ignite.replication.idleSafeTimePropagationDurationMillis: " + idleSafeTimePropagationDuration())
+                .clusterConfiguration("ignite.replication.idleSafeTimePropagationDurationMillis: " + idleSafeTimePropagationDuration()
+                        + ", ignite.eventlog { "
+                        + "sinks.logSink.channel: testChannel, "
+                        + "channels.testChannel.events: [CLIENT_CONNECTION_ESTABLISHED, CLIENT_CONNECTION_CLOSED]"
+                        + "}")
                 .build();
         TestIgnitionManager.init(metaStorageNode, initParameters);
 
