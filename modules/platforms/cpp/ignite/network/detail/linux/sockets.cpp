@@ -16,9 +16,14 @@
  */
 
 #include "ignite/network/detail/linux/sockets.h"
+
+#include "ignite/common/detail/defer.h"
+#include "ignite/network/detail/utils.h"
 #include "ignite/network/socket_client.h"
+#include "ignite/common/ignite_error.h"
 
 #include <cerrno>
+#include <climits>
 #include <cstring>
 #include <sstream>
 
@@ -174,6 +179,25 @@ bool set_non_blocking_mode(int socket_fd, bool non_blocking) {
     int res = fcntl(socket_fd, F_SETFL, flags);
 
     return res != -1;
+}
+
+ssize_t send(int socket, const void* buf, size_t len) {
+    if (len > INT_MAX)
+        throw ignite_error("Socket send failed. Buffer size exceeds INT_MAX: " + std::to_string(len));
+#ifdef __APPLE__
+    return ::send(socket, buf, static_cast<int>(len), 0); // SIGPIPE is already handled via setsockopt SO_NOSIGPIPE
+#else
+    return ::send(socket, buf, static_cast<int>(len), MSG_NOSIGNAL);
+#endif
+}
+
+ssize_t recv(int socket, void* buf, int len) {
+    return ::recv(socket, buf, len, 0);
+}
+
+void close(int socket) {
+    if (socket != SOCKET_ERROR)
+        ::close(socket);
 }
 
 } // namespace ignite::network::detail

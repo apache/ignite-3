@@ -30,6 +30,8 @@
 
 namespace ignite::network::detail {
 
+std::once_flag wsa_init_flag;
+
 std::string get_socket_error_message(HRESULT error) {
     std::stringstream res;
 
@@ -129,21 +131,13 @@ bool set_non_blocking_mode(SOCKET socket_handle, bool non_blocking) {
 }
 
 void init_wsa() {
-    static std::mutex init_mutex;
-    static bool network_inited = false;
+    std::call_once(wsa_init_flag, [&] {
+        WSADATA wsa_data;
 
-    if (!network_inited) {
-        std::lock_guard<std::mutex> lock(init_mutex);
-        if (!network_inited) {
-            WSADATA wsaData;
-
-            network_inited = WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
-
-            if (!network_inited)
-                throw ignite_error(
-                    error::code::CONNECTION, "Networking initialisation failed: " + get_last_socket_error_message());
-        }
-    }
+        if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0)
+            throw ignite_error(
+                error::code::CONNECTION, "Networking initialisation failed: " + get_last_socket_error_message());
+    });
 }
 
 int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd) {
@@ -182,6 +176,43 @@ int wait_on_socket(SOCKET socket, std::int32_t timeout, bool rd) {
         return socket_client::wait_result::TIMEOUT;
 
     return socket_client::wait_result::SUCCESS;
+}
+
+/**
+ * Send data through the socket.
+ *
+ * @param socket Socket to send into.
+ * @param buf Pointer to the data buffer.
+ * @param len Length of the buffer.
+ * @return Size of the sent data, -1 in case of error.
+ */
+int send(SOCKET socket, const void *buf, size_t len) {
+    if (len > INT_MAX)
+        throw ignite_error("Socket send failed. Buffer size exceeds INT_MAX: " + std::to_string(len));
+
+    return ::send(socket, static_cast<const char*>(buf), static_cast<int>(len), 0);
+}
+
+/**
+ * Receive data from the socket.
+ *
+ * @param socket Socket to receive from.
+ * @param buf Buffer for received data.
+ * @param len Length of the buffer.
+ * @return Size of the received data, -1 in case of error.
+ */
+int recv(SOCKET socket, void* buf, int len) {
+    return ::recv(socket, static_cast<char*>(buf), len, 0);
+}
+
+/**
+ * Closes socket.
+ *
+ * @param socket Socket to close.
+ */
+void close(SOCKET socket) {
+    if (socket != SOCKET_ERROR)
+        ::closesocket(socket);
 }
 
 } // namespace ignite::network::detail

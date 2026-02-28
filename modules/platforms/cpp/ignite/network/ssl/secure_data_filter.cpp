@@ -16,11 +16,9 @@
  */
 
 #include <ignite/network/ssl/secure_data_filter.h>
-#include <ignite/network/ssl/ssl_gateway.h>
 #include <ignite/network/ssl/secure_utils.h>
 #include <ignite/network/network.h>
 
-#include <iostream>
 #include <sstream>
 #include <utility>
 
@@ -138,68 +136,24 @@ secure_data_filter::secure_connection_context::secure_connection_context(std::ui
     : m_id(id)
     , m_addr(std::move(addr))
     , m_filter(filter)
+    , m_ssl_conn(filter.m_ssl_context, nullptr)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    m_ssl = gateway.SSL_new_(static_cast<SSL_CTX*>(filter.m_ssl_context));
-    if (!m_ssl)
-        throw_last_secure_error("Can not create secure connection");
-
-    m_bio_in = gateway.BIO_new_(gateway.BIO_s_mem_());
-    if (!m_bio_in)
-        throw_last_secure_error("Can not create input BIO");
-
-    m_bio_out = gateway.BIO_new_(gateway.BIO_s_mem_());
-    if (!m_bio_out)
-        throw_last_secure_error("Can not create output BIO");
-
-    gateway.SSL_set_bio_(static_cast<SSL*>(m_ssl), static_cast<BIO*>(m_bio_in), static_cast<BIO*>(m_bio_out));
-    gateway.SSL_set_connect_state_(static_cast<SSL*>(m_ssl));
-}
-
-secure_data_filter::secure_connection_context::~secure_connection_context()
-{
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    if (m_ssl)
-        gateway.SSL_free_(static_cast<SSL*>(m_ssl));
-    else
-    {
-        if (m_bio_in)
-            gateway.BIO_free_all_(static_cast<BIO*>(m_bio_in));
-
-        if (m_bio_out)
-            gateway.BIO_free_all_(static_cast<BIO*>(m_bio_out));
-    }
 }
 
 bool secure_data_filter::secure_connection_context::do_connect()
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    SSL* ssl0 = static_cast<SSL*>(m_ssl);
-    int res = gateway.SSL_connect_(ssl0);
-
-    if (res != SSL_OPERATION_SUCCESS)
-    {
-        int sslError = gateway.SSL_get_error_(ssl0, res);
-        if (is_actual_error(sslError))
-            throw_last_secure_error("Can not establish secure connection");
-    }
-
+    bool done = m_ssl_conn.do_handshake();
     send_pending_data();
-
-    return res == SSL_OPERATION_SUCCESS;
+    return done;
 }
 
 bool secure_data_filter::secure_connection_context::send_pending_data()
 {
-    auto data = get_pending_data(m_bio_out);
-
+    auto data = m_ssl_conn.drain_output();
     if (data.empty())
         return false;
 
-    return m_filter.send_internal(m_id, data);
+    return m_filter.send_internal(m_id, std::move(data));
 }
 
 bool secure_data_filter::secure_connection_context::send(const std::vector<std::byte> &data)
@@ -207,9 +161,7 @@ bool secure_data_filter::secure_connection_context::send(const std::vector<std::
     if (!m_connected)
         return false;
 
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    int res = gateway.SSL_write_(static_cast<SSL*>(m_ssl), data.data(), int(data.size()));
+    int res = m_ssl_conn.write(data.data(), static_cast<int>(data.size()));
     if (res <= 0)
         return false;
 
@@ -218,13 +170,9 @@ bool secure_data_filter::secure_connection_context::send(const std::vector<std::
 
 bool secure_data_filter::secure_connection_context::process_data(data_buffer_ref &data)
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
     auto buf = data.get_bytes_view();
-    int res = gateway.BIO_write_(static_cast<BIO*>(m_bio_in), buf.data(), int(buf.size()));
-    if (res <= 0)
-        throw_last_secure_error("Failed to process SSL data");
-
-    data.skip(res);
+    m_ssl_conn.feed_input(buf.data(), static_cast<int>(buf.size()));
+    data.skip(buf.size());
 
     send_pending_data();
 
@@ -241,29 +189,9 @@ bool secure_data_filter::secure_connection_context::process_data(data_buffer_ref
     return true;
 }
 
-std::vector<std::byte> secure_data_filter::secure_connection_context::get_pending_data(void* bio)
-{
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    BIO *bio0 = static_cast<BIO*>(bio);
-    int available = gateway.BIO_pending_(bio0);
-    if (available <= 0)
-        return {};
-
-    std::vector<std::byte> buffer(available, {});
-    int res = gateway.BIO_read_(bio0, buffer.data(), int(buffer.size()));
-    if (res <= 0)
-        return {};
-
-    return buffer;
-}
-
 data_buffer_ref secure_data_filter::secure_connection_context::get_pending_decrypted_data()
 {
-    ssl_gateway &gateway = ssl_gateway::get_instance();
-
-    SSL *ssl0 = static_cast<SSL*>(m_ssl);
-    int res = gateway.SSL_read_(ssl0, m_recv_buffer.data(), int(m_recv_buffer.size()));
+    int res = m_ssl_conn.read(m_recv_buffer.data(), static_cast<int>(m_recv_buffer.size()));
     if (res <= 0)
         return {};
 

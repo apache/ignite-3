@@ -19,6 +19,7 @@
 
 #include <ignite/network/data_filter_adapter.h>
 #include <ignite/network/ssl/secure_configuration.h>
+#include <ignite/network/ssl/ssl_connection.h>
 
 #include <map>
 #include <memory>
@@ -88,7 +89,7 @@ private:
     {
     public:
         /**
-         * Default constructor.
+         * Constructor.
          *
          * @param id Connection ID.
          * @param addr Address.
@@ -97,14 +98,9 @@ private:
         secure_connection_context(std::uint64_t id, end_point addr, secure_data_filter &filter);
 
         /**
-         * Destructor.
-         */
-        ~secure_connection_context();
-
-        /**
          * Start connection procedure including handshake.
          *
-         * @return @c true, if connection complete.
+         * @return @c true if connection is complete.
          */
         bool do_connect();
 
@@ -154,16 +150,10 @@ private:
 
         /**
          * Send pending data.
+         *
+         * @return @c true if data was sent.
          */
         bool send_pending_data();
-
-        /**
-         * Get pending data.
-         *
-         * @param bio BIO to get data from.
-         * @return Data buffer.
-         */
-        static std::vector<std::byte> get_pending_data(void* bio);
 
         /** Flag indicating that secure connection is established. */
         bool m_connected{false};
@@ -180,14 +170,8 @@ private:
         /** Receive buffer. */
         std::vector<std::byte> m_recv_buffer{DEFAULT_BUFFER_SIZE, {}};
 
-        /** SSL instance. */
-        void* m_ssl{nullptr};
-
-        /** Input BIO. */
-        void* m_bio_in{nullptr};
-
-        /** Output BIO. */
-        void* m_bio_out{nullptr};
+        /** TLS state machine (SSL instance + memory BIOs). */
+        ssl_connection m_ssl_conn;
     };
 
     /** Context map. */
