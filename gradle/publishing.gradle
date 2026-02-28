@@ -1,0 +1,35 @@
+// Apply this script to modules that should be published to Artifactory
+
+def shouldPublish = [
+    'api',
+    'client',
+    'client-common',
+    'client-handler',
+    'cluster-management',
+    'compute',
+    'configuration',
+    'configuration-api',
+    'core',
+    'jdbc',
+    'metastorage',
+    'metastorage-api',
+    'network',
+    'network-api',
+    'raft',
+    'raft-api',
+    'rest',
+    'rest-api',
+    'runner',
+    'schema',
+    'security',
+    'security-api',
+    'sql-engine',
+    'sql-engine-api',
+    'storage-api',
+    'table',
+    'transactions'
+]
+
+if (shouldPublish.contains(project.name)) {
+    apply from: "$rootDir/gradle/java-publishing.gradle"
+}

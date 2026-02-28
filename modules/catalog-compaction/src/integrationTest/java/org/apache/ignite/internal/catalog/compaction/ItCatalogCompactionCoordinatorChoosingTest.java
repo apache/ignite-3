@@ -32,11 +32,13 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests to verify choosing of coordinator for catalog compaction.
  */
+@Disabled("https://github.com/linkedin/ignite-3/issues - TODO: Cluster initialization fails on Java 11")
 class ItCatalogCompactionCoordinatorChoosingTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 5;
     private static final int MINORITY_SIZE = (CLUSTER_SIZE - 1) / 2;

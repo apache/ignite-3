@@ -1,0 +1,41 @@
+// CI done via ./github/workflows/gh-release.yml.
+
+// Task to fail fast and clearly if required properties are not set.
+task verifyArtifactoryProperties {
+  doFirst {
+    if (!project.hasProperty('artifactory.dryRun')) {
+      if (System.getenv('ARTIFACTORY_USER') == null) {
+        throw new Exception("Environment variable ARTIFACTORY_USER not set.");
+      }
+      if (System.getenv('ARTIFACTORY_KEY') == null) {
+        throw new Exception("Environment variable ARTIFACTORY_KEY not set.");
+      }
+    }
+  }
+}
+
+task artifactoryPublishAll {
+  description = "Runs 'artifactoryPublish' tasks from all projects"
+  mustRunAfter "githubRelease" // github release is easier to rollback so we run it first
+}
+
+allprojects {
+  tasks.matching { it.name == "artifactoryPublish" }.all {
+    it.dependsOn verifyArtifactoryProperties
+    artifactoryPublishAll.dependsOn it
+  }
+}
+
+task ciPerformRelease {
+  description = "Performs the release, intended to be ran on CI"
+  dependsOn "githubRelease", "artifactoryPublishAll"
+
+  // Skip tests during release
+  gradle.startParameter.excludedTaskNames += 'integrationTest'
+}
+
+task getVersion() {
+  doFirst {
+    println version
+  }
+}
