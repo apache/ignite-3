@@ -17,7 +17,31 @@
 
 import com.github.spotbugs.snom.SpotBugsTask
 
-//This need for resolving plugins in buildscripts
+buildscript {
+    repositories {
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath "org.shipkit:shipkit-auto-version:1.1.1"
+        classpath "org.shipkit:shipkit-changelog:1.1.1"
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:5.2.3"
+    }
+    
+    // Force Jackson to use version compatible with the project
+    configurations.classpath {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'com.fasterxml.jackson.core') {
+                details.useVersion '2.17.0'
+                details.because 'Force Jackson version compatible with OpenAPI generator'
+            }
+            if (details.requested.group == 'com.fasterxml.jackson.dataformat') {
+                details.useVersion '2.17.0'
+                details.because 'Force Jackson version compatible with OpenAPI generator'
+            }
+        }
+    }
+}
+
 plugins {
     id('idea')
     alias(libs.plugins.ideaext)
@@ -30,6 +54,8 @@ plugins {
 }
 
 apply from: "$rootDir/buildscripts/javadoc.gradle"
+apply from: "$rootDir/gradle/java-publishing.gradle"
+apply from: "./gradle/release.gradle"
 
 repositories {
     mavenCentral()
@@ -161,6 +187,7 @@ allprojects {
     }
 }
 
+// Apply common configuration to all subprojects
 subprojects {
     apply plugin: 'base'
 

@@ -1,0 +1,28 @@
+name: Create GitHub & Artifactory Release
+on:
+  push:
+    branches:
+      - 'master'
+      - 'main'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          # Needed to get all tags
+          fetch-depth: 0
+
+      - name: Install lib
+        run: sudo apt-get install libncurses5
+
+      - name: Release
+        uses: ./.github/actions/release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_KEY: ${{ secrets.ARTIFACTORY_KEY }}
