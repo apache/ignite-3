@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-#include "tests/client-test/ignite_runner_suite.h"
-#include "ignite/client/ignite_client.h"
 #include "fake_server.h"
+#include "ignite/client/ignite_client.h"
+#include "proxy/asio_proxy.h"
+#include "tests/client-test/ignite_runner_suite.h"
 
 #include <gtest/gtest.h>
 #include <thread>
+
 
 using namespace ignite;
 using namespace std::chrono_literals;
@@ -75,4 +77,26 @@ TEST_F(connection_test, request_timeout) {
     } catch (ignite_error& err) {
         EXPECT_EQ(error::code::OPERATION_TIMEOUT, err.get_status_code());
     }
+}
+
+TEST_F(connection_test, using_asio) {
+    fake_server fs{50900, get_logger()};
+    fs.start();
+
+    proxy::message_listener listener;
+
+    proxy::asio_proxy proxy{
+        {proxy::configuration(50800, "127.0.0.1:50900", &listener)}
+    };
+
+
+    ignite_client_configuration cfg;
+    cfg.set_logger(get_logger());
+    cfg.set_endpoints(get_endpoints());
+
+    auto cl = ignite_client::start(cfg, 5s);
+
+    auto cluster_nodes = cl.get_cluster_nodes();
+
+    ASSERT_EQ(1, cluster_nodes.size());
 }
