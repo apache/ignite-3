@@ -27,8 +27,8 @@ __version__ = pkgutil.get_data(__name__, "_version.txt").decode
 apilevel = '2.0'
 """PEP 249 is supported."""
 
-threadsafety = 1
-"""Threads may share the module, but not connections."""
+threadsafety = 2
+"""Threads may share the module and connections, but not cursors."""
 
 paramstyle = 'qmark'
 """Parameter style is a question mark, e.g. '...WHERE name=?'."""
