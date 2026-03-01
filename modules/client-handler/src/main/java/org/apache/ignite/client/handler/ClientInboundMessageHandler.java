@@ -579,6 +579,8 @@ public class ClientInboundMessageHandler
     }
 
     private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures) {
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
@@ -588,8 +590,6 @@ public class ClientInboundMessageHandler
             packer.close();
             throw t;
         }
-
-        state = STATE_HANDSHAKE_RESPONSE_SENT;
 
         metrics.sessionsAcceptedIncrement();
         metrics.sessionsActiveIncrement();
