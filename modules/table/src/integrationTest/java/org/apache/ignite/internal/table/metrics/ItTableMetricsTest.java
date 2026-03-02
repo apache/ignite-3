@@ -19,23 +19,15 @@ package org.apache.ignite.internal.table.metrics;
 
 import static java.util.List.of;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RO_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.RW_READS;
 import static org.apache.ignite.internal.table.metrics.TableMetricSource.WRITES;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.metrics.LongMetric;
-import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.TestMetricUtils;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
@@ -580,60 +572,6 @@ public class ItTableMetricsTest extends ClusterPerClassIntegrationTest {
             List<Long> expectedValues,
             Runnable op
     ) {
-        assertThat(metricNames.size(), is(expectedValues.size()));
-
-        Map<String, Long> initialValues = metricValues(metricNames);
-
-        op.run();
-
-        Map<String, Long> actualValues = metricValues(metricNames);
-
-        for (int i = 0; i < metricNames.size(); ++i) {
-            String metricName = metricNames.get(i);
-            long expectedValue = expectedValues.get(i);
-
-            long initialValue = initialValues.get(metricName);
-            long actualValue = actualValues.get(metricName);
-
-            assertThat(
-                    "The actual metric value does not match the expected value "
-                            + "[metric=" + metricName + ", initial=" + initialValue + ", actual=" + actualValue
-                            + ", expected=" + (initialValue + expectedValue) + ']',
-                    actualValue,
-                    is(initialValue + expectedValue));
-        }
-    }
-
-    /**
-     * Returns the sum of the specified metrics on all nodes.
-     *
-     * @param metricNames Metric names.
-     * @return Map of metric names to their values.
-     */
-    private Map<String, Long> metricValues(List<String> metricNames) {
-        Map<String, Long> values = new HashMap<>(metricNames.size());
-
-        for (int i = 0; i < initialNodes(); ++i) {
-            MetricSet tableMetrics = unwrapIgniteImpl(node(i))
-                    .metricManager()
-                    .metricSnapshot()
-                    .metrics()
-                    .get(METRIC_SOURCE_NAME);
-
-            metricNames.forEach(metricName ->
-                    values.compute(metricName, (k, v) -> {
-                        Metric metric = tableMetrics.get(metricName);
-
-                        assertThat("Metric not found [name=" + metricName + ']', metric, is(notNullValue()));
-                        assertThat(
-                                "Metric is not a LongMetric [name=" + metricName + ", class=" + metric.getClass().getSimpleName() + ']',
-                                metric,
-                                instanceOf(LongMetric.class));
-
-                        return (v == null ? 0 : v) + ((LongMetric) metric).value();
-                    }));
-        }
-
-        return values;
+        TestMetricUtils.testMetricChangeAfterOperation(CLUSTER, METRIC_SOURCE_NAME, metricNames, expectedValues, op);
     }
 }

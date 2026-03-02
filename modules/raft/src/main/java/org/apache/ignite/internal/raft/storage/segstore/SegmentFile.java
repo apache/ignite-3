@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -77,9 +80,10 @@ class SegmentFile implements ManuallyCloseable {
     /** Lock used to atomically execute fsync. */
     private final Object syncLock = new Object();
 
-    private SegmentFile(RandomAccessFile file, Path path, boolean isSync) throws IOException {
-        //noinspection ChannelOpenedButNotSafelyClosed
-        buffer = file.getChannel().map(MapMode.READ_WRITE, 0, file.length());
+    private SegmentFile(FileChannel channel, Path path, boolean isSync) throws IOException {
+        buffer = channel.map(MapMode.READ_WRITE, 0, channel.size());
+
+        assert buffer.limit() > 0 : "File " + path + " is empty.";
 
         this.path = path;
         this.isSync = isSync;
@@ -97,20 +101,17 @@ class SegmentFile implements ManuallyCloseable {
             throw new IllegalArgumentException("File size is too big: " + fileSize);
         }
 
+        // Using the RandomAccessFile for its "setLength" method.
         try (var file = new RandomAccessFile(path.toFile(), "rw")) {
             file.setLength(fileSize);
 
-            return new SegmentFile(file, path, isSync);
+            return new SegmentFile(file.getChannel(), path, isSync);
         }
     }
 
     static SegmentFile openExisting(Path path, boolean isSync) throws IOException {
-        if (!Files.exists(path)) {
-            throw new IllegalArgumentException("File does not exist: " + path);
-        }
-
-        try (var file = new RandomAccessFile(path.toFile(), "rw")) {
-            return new SegmentFile(file, path, isSync);
+        try (var channel = FileChannel.open(path, READ, WRITE)) {
+            return new SegmentFile(channel, path, isSync);
         }
     }
 

@@ -310,8 +310,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionInflights,
                 null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
 
@@ -473,6 +471,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(ZONE_ID, PART_ID);
 
+        var validationSchemasSource = new DummyValidationSchemasSource(schemaManager);
+        var schemaSyncService = new AlwaysSyncedSchemaSyncService();
+
         var tableReplicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 svc,
@@ -488,9 +489,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 transactionStateResolver,
                 storageUpdateHandler,
-                new DummyValidationSchemasSource(schemaManager),
+                validationSchemasSource,
                 LOCAL_NODE,
-                new AlwaysSyncedSchemaSyncService(),
+                schemaSyncService,
                 catalogService,
                 placementDriver,
                 mock(ClusterNodeResolver.class),
@@ -512,8 +513,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txStateStorage.getOrCreatePartitionStorage(PART_ID),
                 CLOCK_SERVICE,
                 this.txManager,
-                new DummyValidationSchemasSource(schemaManager),
-                new AlwaysSyncedSchemaSyncService(),
+                validationSchemasSource,
+                schemaSyncService,
                 catalogService,
                 placementDriver,
                 mock(ClusterNodeResolver.class),

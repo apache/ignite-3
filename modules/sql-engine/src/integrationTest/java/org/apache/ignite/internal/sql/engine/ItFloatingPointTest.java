@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanIgnoreBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
@@ -25,10 +26,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -47,7 +48,8 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
 
     @BeforeEach
     void resetTableState() {
-        sqlScript("DELETE FROM test;"
+        // Updating data from node 0.
+        sqlScript(node(0), "DELETE FROM test;"
                 + "INSERT INTO test VALUES (0, NULL, NULL, 0.0::FLOAT, 0.0::DOUBLE);"
                 + "INSERT INTO test VALUES (1, '-Infinity'::FLOAT, '-Infinity'::DOUBLE, '-Infinity'::FLOAT, '-Infinity'::DOUBLE);"
                 + "INSERT INTO test VALUES (2, 'Infinity'::FLOAT, 'Infinity'::DOUBLE, 'Infinity'::FLOAT, 'Infinity'::DOUBLE);"
@@ -57,6 +59,11 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
                 + "INSERT INTO test VALUES (6, -1.0::FLOAT, -1.0::DOUBLE, -1.0::FLOAT, -1.0::DOUBLE);"
                 + "INSERT INTO test VALUES (7, 1.0::FLOAT, 1.0::DOUBLE, 1.0::FLOAT, 1.0::DOUBLE);"
         );
+
+        // Forcing an update of the observable time on node 1 to ensure that
+        // the tx on node 1 does not start in past and sees updates made by node 0.
+        IgniteImpl node1 = unwrapIgniteImpl(node(1));
+        node1.observableTimeTracker().update(node1.clockService().current());
     }
 
     @Override
@@ -441,7 +448,6 @@ public class ItFloatingPointTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27779")
     void testAggregations() {
         for (Ignite node : List.of(node(0), node(1))) {
             assertQuery(node, "SELECT MIN(f), MIN(d) FROM test").returns(Float.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY).check();

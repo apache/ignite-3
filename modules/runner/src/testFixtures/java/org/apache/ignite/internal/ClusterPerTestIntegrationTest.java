@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllResultSet;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -38,6 +39,8 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -184,6 +187,13 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     /**
+     * Returns nodes that are started and not stopped. This can include knocked out nodes.
+     */
+    protected final Iterable<IgniteImpl> runningNodesIter() {
+        return cluster.runningNodes().map(node -> unwrapIgniteImpl(node))::iterator;
+    }
+
+    /**
      * Restarts a node by index.
      *
      * @param nodeIndex Node index.
@@ -255,6 +265,16 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     protected final IgniteImpl anyNode() {
         return runningNodes().map(TestWrappers::unwrapIgniteImpl).findFirst().orElseThrow();
+    }
+
+    protected final List<List<Object>> sql(String sql) {
+        return sql(null, sql);
+    }
+
+    protected final List<List<Object>> sql(Transaction tx, String sql) {
+        try (ResultSet<SqlRow> rs = anyNode().sql().execute(tx, sql)) {
+            return getAllResultSet(rs);
+        }
     }
 
     /** Cluster configuration that aggressively increases low watermark to speed up data cleanup in tests. */

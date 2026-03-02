@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.testframework;
 
-import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.function.Function.identity;
@@ -61,8 +60,11 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -77,6 +79,8 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.awaitility.Awaitility;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.NotNull;
@@ -929,6 +933,15 @@ public final class IgniteTestUtils {
                 thread.interrupt();
             }
 
+            // Wait for all internal threads to complete before failing the execution.
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
             throw createAssertionError("Race operations took too long.", e, throwables);
         }
 
@@ -1095,6 +1108,44 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Sleep for a while.
+     *
+     * @param millis Time to sleep in milliseconds.
+     */
+    public static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Converts a result set to a list of rows.
+     *
+     * @param resultSet Result set to convert.
+     * @return List of rows.
+     */
+    public static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
+        List<List<Object>> res = new ArrayList<>();
+
+        while (resultSet.hasNext()) {
+            SqlRow sqlRow = resultSet.next();
+
+            ArrayList<Object> row = new ArrayList<>(sqlRow.columnCount());
+            for (int i = 0; i < sqlRow.columnCount(); i++) {
+                row.add(sqlRow.value(i));
+            }
+
+            res.add(row);
+        }
+
+        return res;
+    }
+
+    /**
      * Non-concurrent executor service for test purposes.
      *
      * @return Executor service.
@@ -1129,6 +1180,116 @@ public final class IgniteTestUtils {
             @Override
             public void execute(Runnable command) {
                 command.run();
+            }
+        };
+    }
+
+    /**
+     * Non-concurrent scheduled executor service for test purposes. Uses CompletableFuture#delayedExecutor.
+     *
+     * @return Executor service.
+     */
+    public static ScheduledExecutorService testSyncScheduledExecutorService() {
+        return new ScheduledExecutorService() {
+            private final ExecutorService delegate = testSyncExecutorService();
+
+            @Override
+            public void execute(@NotNull Runnable command) {
+                delegate.execute(command);
+            }
+
+            @Override
+            public void shutdown() {
+                delegate.shutdown();
+            }
+
+            @Override
+            public @NotNull List<Runnable> shutdownNow() {
+                return delegate.shutdownNow();
+            }
+
+            @Override
+            public boolean isShutdown() {
+                return delegate.isShutdown();
+            }
+
+            @Override
+            public boolean isTerminated() {
+                return delegate.isTerminated();
+            }
+
+            @Override
+            public boolean awaitTermination(long timeout, @NotNull TimeUnit unit) throws InterruptedException {
+                return delegate.awaitTermination(timeout, unit);
+            }
+
+            @Override
+            public @NotNull <T> Future<T> submit(@NotNull Callable<T> task) {
+                return delegate.submit(task);
+            }
+
+            @Override
+            public @NotNull <T> Future<T> submit(@NotNull Runnable task, T result) {
+                return delegate.submit(task, result);
+            }
+
+            @Override
+            public @NotNull Future<?> submit(@NotNull Runnable task) {
+                return delegate.submit(task);
+            }
+
+            @Override
+            public @NotNull <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> tasks) throws InterruptedException {
+                return delegate.invokeAll(tasks);
+            }
+
+            @Override
+            public @NotNull <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> tasks, long timeout,
+                    @NotNull TimeUnit unit) throws InterruptedException {
+                return delegate.invokeAll(tasks, timeout, unit);
+            }
+
+            @Override
+            public @NotNull <T> T invokeAny(@NotNull Collection<? extends Callable<T>> tasks)
+                    throws InterruptedException, ExecutionException {
+                return delegate.invokeAny(tasks);
+            }
+
+            @Override
+            public <T> T invokeAny(@NotNull Collection<? extends Callable<T>> tasks, long timeout, @NotNull TimeUnit unit)
+                    throws ExecutionException, InterruptedException, TimeoutException {
+                return delegate.invokeAny(tasks, timeout, unit);
+            }
+
+            @Override
+            public @NotNull ScheduledFuture<?> schedule(@NotNull Runnable command, long delay, @NotNull TimeUnit unit) {
+                CompletableFuture.delayedExecutor(delay, unit).execute(command);
+                return null;
+            }
+
+            @Override
+            public @NotNull <V> ScheduledFuture<V> schedule(@NotNull Callable<V> callable, long delay, @NotNull TimeUnit unit) {
+                CompletableFuture.delayedExecutor(delay, unit).execute(() -> {
+                    try {
+                        callable.call();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+                return null;
+            }
+
+            @Override
+            public @NotNull ScheduledFuture<?> scheduleAtFixedRate(@NotNull Runnable command, long initialDelay, long period,
+                    @NotNull TimeUnit unit) {
+                throw new UnsupportedOperationException("Not implemented.");
+            }
+
+            @Override
+            public @NotNull ScheduledFuture<?> scheduleWithFixedDelay(@NotNull Runnable command, long initialDelay, long delay,
+                    @NotNull TimeUnit unit) {
+                throw new UnsupportedOperationException("Not implemented.");
             }
         };
     }

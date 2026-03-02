@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ColocationUtils;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -357,7 +358,7 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < toHash.length; ++i) {
             hashes[i] = ColocationUtils.hash(toHash[i], NativeTypes.INT32);
         }
-        return new PartitionAwarenessMetadata(1, dynamicParams, hashes, mode);
+        return new PartitionAwarenessMetadata(1, dynamicParams, hashes, mode, QualifiedName.parse("PUBLIC.TBL"));
     }
 
     private static PartitionAwarenessMetadata metaTrackingRequired(int[] dynamicParams, int[] toHash) {

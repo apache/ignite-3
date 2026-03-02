@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
@@ -81,6 +82,8 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     /** {@inheritDoc} */
     @Override
     public void rewind() {
+        onRewind();
+
         rewindInternal();
     }
 
@@ -100,6 +103,8 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
+        onRequestReceived();
+
         if (!indexReady()) {
             requested = rowsCnt;
 
@@ -112,6 +117,8 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     /** {@inheritDoc} */
     @Override
     public void push(RowT row) throws Exception {
+        onRowReceived();
+
         idx.push(row);
 
         waiting--;
@@ -204,5 +211,14 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         );
 
         return new IndexSpoolNode<>(ctx, idx, scan);
+    }
+
+    @Override
+    public void dumpNodeMetrics(IgniteStringBuilder writer, String indent) {
+        writer.app(indent);
+        dumpMetrics0(writer);
+        writer.nl();
+
+        MetricsAwareNode.dumpChildNodesMetrics(writer, indent, List.of(scan));
     }
 }

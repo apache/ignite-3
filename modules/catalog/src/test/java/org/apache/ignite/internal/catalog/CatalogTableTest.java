@@ -515,7 +515,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     @Test
     public void testAddColumnWithNotExistingTable() {
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("key", INT32))),
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("key", INT32, true))),
                 willThrowFast(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
     }
 
@@ -523,7 +523,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void testAddColumnWithExistingName() {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("ID", INT32))),
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("ID", INT32, true))),
                 willThrowFast(CatalogValidationException.class, "Column with name 'ID' already exists."));
     }
 
@@ -693,7 +693,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams("val2", INT32)));
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams("val2", INT32, true)));
 
         CatalogTableDescriptor table = actualTable(TABLE_NAME);
 
@@ -751,7 +751,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
         // Try to add column without table.
-        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32))),
+        assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32, true))),
                 willThrow(CatalogValidationException.class, "Table with name 'PUBLIC.test_table' not found."));
         verifyNoInteractions(eventListener);
 
@@ -759,7 +759,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
         // Add column.
-        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32)));
+        tryApplyAndExpectApplied(addColumnParams(TABLE_NAME, columnParams(NEW_COLUMN_NAME, INT32, true)));
         verify(eventListener).notify(any(AddColumnEventParameters.class));
 
         // Drop column.

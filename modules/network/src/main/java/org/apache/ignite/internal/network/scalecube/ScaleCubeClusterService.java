@@ -46,6 +46,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -119,7 +120,8 @@ public class ScaleCubeClusterService implements ClusterService {
             CriticalWorkerRegistry criticalWorkerRegistry,
             FailureProcessor failureProcessor,
             ChannelTypeRegistry channelTypeRegistry,
-            IgniteProductVersionSource productVersionSource
+            IgniteProductVersionSource productVersionSource,
+            MetricManager metricManager
     ) {
         this.config = networkConfiguration;
         this.serializationRegistry = serializationRegistry;
@@ -167,6 +169,7 @@ public class ScaleCubeClusterService implements ClusterService {
                 criticalWorkerRegistry,
                 failureProcessor,
                 connectionMgr,
+                metricManager,
                 channelTypeRegistry
         );
 

@@ -76,7 +76,7 @@ object PlatformCppOdbcTestsTgzLinux : BuildType({
     }
 
     failureConditions {
-        executionTimeoutMin = 15
+        executionTimeoutMin = 30
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "CMake configuration failed"

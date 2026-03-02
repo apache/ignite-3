@@ -32,6 +32,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.TupleTypeCastUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnType;
@@ -204,27 +205,27 @@ public class ClientBinaryTupleUtils {
                     return;
 
                 case INT8:
-                    builder.appendByte((byte) v);
+                    builder.appendByte(TupleTypeCastUtils.castToByte(v));
                     return;
 
                 case INT16:
-                    builder.appendShort((short) v);
+                    builder.appendShort(TupleTypeCastUtils.castToShort(v));
                     return;
 
                 case INT32:
-                    builder.appendInt((int) v);
+                    builder.appendInt(TupleTypeCastUtils.castToInt(v));
                     return;
 
                 case INT64:
-                    builder.appendLong((long) v);
+                    builder.appendLong(TupleTypeCastUtils.castToLong(v));
                     return;
 
                 case FLOAT:
-                    builder.appendFloat((float) v);
+                    builder.appendFloat(TupleTypeCastUtils.castToFloat(v));
                     return;
 
                 case DOUBLE:
-                    builder.appendDouble((double) v);
+                    builder.appendDouble(TupleTypeCastUtils.castToDouble(v));
                     return;
 
                 case DECIMAL:
@@ -262,7 +263,7 @@ public class ClientBinaryTupleUtils {
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
-        } catch (ClassCastException e) {
+        } catch (ArithmeticException | ClassCastException e) {
             NativeType nativeType = NativeTypes.fromObject(v);
 
             if (nativeType == null) {

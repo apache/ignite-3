@@ -54,7 +54,7 @@ namespace Apache.Ignite
             Rest.GroupCode => Rest.GroupName,
             CommonConfiguration.GroupCode => CommonConfiguration.GroupName,
 
-            _ => UnknownGroupName
+            _ => UnknownGroupName + groupCode
         };
 
         /// <summary>
@@ -370,6 +370,9 @@ namespace Apache.Ignite
 
             /// <summary> TxDelayedAck error. </summary>
             public const int TxDelayedAck = (GroupCode << 16) | (17 & 0xFFFF);
+
+            /// <summary> TxKilled error. </summary>
+            public const int TxKilled = (GroupCode << 16) | (18 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

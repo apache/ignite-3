@@ -3,7 +3,10 @@
   <component name="CheckStyle-IDEA" serialisationVersion="2">
     <checkstyleVersion>10.26.1</checkstyleVersion>
     <scanScope>JavaOnlyWithTests</scanScope>
-    <option name="thirdPartyClasspath" />
+    <option name="thirdPartyClasspath">
+      <option value="$PROJECT_DIR$/modules/checkstyle-custom/build/classes/java/main" />
+      <option value="$PROJECT_DIR$/modules/checkstyle-custom/build/resources/main" />
+    </option>
     <option name="activeLocationIds">
       <option value="610eb513-51a7-4863-aaf8-feef91fd2055" />
     </option>

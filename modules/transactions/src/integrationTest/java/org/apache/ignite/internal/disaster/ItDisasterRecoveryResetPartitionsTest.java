@@ -80,7 +80,17 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
 
         assertTrue(waitForCondition(() -> !hasAssignmentsForNode(DEFAULT_ZONE_NAME, nodeToStop), 10000));
 
-        assertDoesNotThrow(() -> executeSql(selectSql));
+        // SQL engine reads assignments from AssignmentsTracker that is updated asynchronously
+        // via metastorage watch events. The waitForCondition above verifies metastorage state directly, but there is
+        // a propagation delay before the watch event updates the cache. Retry the query to tolerate this lag.
+        assertTrue(waitForCondition(() -> {
+            try {
+                executeSql(selectSql);
+                return true;
+            } catch (SqlException e) {
+                return false;
+            }
+        }, 10_000), "SQL query should succeed after partition reset");
     }
 
     private boolean hasAssignmentsForNode(String zoneName, String nodeName) {
