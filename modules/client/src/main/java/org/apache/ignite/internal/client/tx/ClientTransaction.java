@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.tx;
 
 import static java.util.function.Function.identity;
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING_SEND_DISCARD;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -245,7 +244,7 @@ public class ClientTransaction implements Transaction {
         CompletableFuture<Void> rollbackFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);
 
-            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
+            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_PIGGYBACK)) {
                 w.out().packInt(0); // Don't send direct enlistments.
             }
         }, r -> null);
