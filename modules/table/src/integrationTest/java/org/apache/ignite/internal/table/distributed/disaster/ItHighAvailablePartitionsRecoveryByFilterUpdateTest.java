@@ -202,7 +202,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         }
 
         String globalFilter = "$[?(@.zone == \"custom\")]";
-        createHaZoneWithTable(globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+        createHaZoneWithTables(HA_ZONE_NAME, PARTITIONS_NUMBER, globalFilter, 4, List.of(HA_TABLE_NAME), nodeNames(1, 2, 3, 4, 5, 6, 7));
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);
