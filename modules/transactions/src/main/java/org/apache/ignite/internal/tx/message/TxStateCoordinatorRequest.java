@@ -54,6 +54,5 @@ public interface TxStateCoordinatorRequest extends NetworkMessage {
      *
      * @return Commit group id.
      */
-    @SinceVersion(2)
     @Nullable ZonePartitionIdMessage commitPartitionId();
 }

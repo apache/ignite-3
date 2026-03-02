@@ -532,17 +532,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         return EMPTY_APPLIED_RESULT;
     }
 
-    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
-            PendingComparableValuesTracker<T, Void> tracker,
-            T newValue
-    ) {
-        try {
-            tracker.update(newValue, null);
-        } catch (TrackerClosedException ignored) {
-            // No-op.
-        }
-    }
-
     private void replicaTouch(UUID txId, UUID txCoordinatorId, boolean full) {
         // Saving state is not needed for full transactions.
         if (!full) {
