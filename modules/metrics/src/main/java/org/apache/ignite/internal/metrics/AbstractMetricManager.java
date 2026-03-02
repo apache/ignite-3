@@ -34,6 +34,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 
 /** Base implementation of {@link MetricManager}. */
 public abstract class AbstractMetricManager implements MetricManager {
@@ -149,12 +150,19 @@ public abstract class AbstractMetricManager implements MetricManager {
         });
     }
 
-    private MetricSet getMetricSet(String srcName) {
+    /**
+     * @param srcName Metric source name
+     * @return MetricSet that corresponds to provided source name or {@code null}
+     * if source is disabled (e.g. it can be registered, but disabled by default)
+     */
+    private @Nullable MetricSet getMetricSet(String srcName) {
         return registry.snapshot().metrics().get(srcName);
     }
 
-    private void removeMetricSet(MetricSet metricSet) {
-        enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
+    private void removeMetricSet(@Nullable MetricSet metricSet) {
+        if (metricSet != null) {
+            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
+        }
     }
 
     @Override
