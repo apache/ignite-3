@@ -773,7 +773,6 @@ public class Node {
                 name,
                 registry,
                 gcConfiguration,
-                transactionConfiguration,
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),

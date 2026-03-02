@@ -65,7 +65,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -112,7 +111,6 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
-import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -441,7 +439,7 @@ public class IgniteImpl implements Ignite {
     private final SchemaManager schemaManager;
 
     /** Metric manager. */
-    private final MetricManager metricManager;
+    private final MetricManagerImpl metricManager;
 
     /** Metric messaging. */
     private final MetricMessaging metricMessaging;
@@ -559,7 +557,7 @@ public class IgniteImpl implements Ignite {
 
         lifecycleManager = new LifecycleManager(name);
 
-        metricManager = new MetricManagerImpl();
+        metricManager = new MetricManagerImpl(name, () -> clusterState().clusterTag().clusterId());
 
         threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
@@ -569,7 +567,7 @@ public class IgniteImpl implements Ignite {
 
         CpuInformationProvider cpuInformationProvider = new JvmCpuInformationProvider();
 
-        ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
+        ConfigurationModules modules = ConfigurationModules.create(serviceProviderClassLoader);
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
@@ -821,6 +819,8 @@ public class IgniteImpl implements Ignite {
                 KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         );
 
+        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
+
         eventLog = new EventLogImpl(
                 clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
                 () -> clusterState().clusterTag().clusterId(),
@@ -968,12 +968,6 @@ public class IgniteImpl implements Ignite {
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                         .thenApply(entry -> new VersionedAssignments(entry.value(), entry.revision())),
                 threadPoolsManager.commonScheduler()
-        );
-
-        metricManager.configure(
-                clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics(),
-                () -> clusterState().clusterTag().clusterId(),
-                name
         );
 
         DataStorageModules dataStorageModules = new DataStorageModules(
@@ -1162,7 +1156,6 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 gcConfig,
-                txConfig,
                 replicationConfig,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
@@ -1346,6 +1339,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
+                eventLog,
                 lowWatermark,
                 threadPoolsManager.partitionOperationsExecutor(),
                 () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value()
@@ -1498,18 +1492,6 @@ public class IgniteImpl implements Ignite {
         serviceLoader.registerSerializationFactories(serializationRegistry);
 
         return serializationRegistry;
-    }
-
-    private static ConfigurationModules loadConfigurationModules(@Nullable ClassLoader classLoader) {
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
-
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        return new ConfigurationModules(modules);
     }
 
     /**

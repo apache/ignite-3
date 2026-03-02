@@ -700,8 +700,6 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 

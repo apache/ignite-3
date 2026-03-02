@@ -18,7 +18,6 @@
 package org.apache.ignite.migrationtools.config;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -31,7 +30,6 @@ import org.apache.ignite3.configuration.validation.Validator;
 import org.apache.ignite3.internal.configuration.ConfigurationModules;
 import org.apache.ignite3.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite3.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite3.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite3.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite3.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite3.internal.configuration.validation.ConfigurationValidatorImpl;
@@ -67,7 +65,7 @@ public class Ignite3ConfigurationUtils {
      * @param includeDefaults Include defaults.
      */
     public static ConfigurationRegistry loadNodeConfiguration(Path cfgPath, boolean includeDefaults) {
-        return loadConfigurations(cfgPath, loadConfigurationModules().local(), includeDefaults);
+        return loadConfigurations(cfgPath, ConfigurationModules.create(null).local(), includeDefaults);
     }
 
     /**
@@ -79,7 +77,7 @@ public class Ignite3ConfigurationUtils {
     public static ConfigurationRegistry loadClusterConfiguration(Path cfgPath, boolean includeDefaults) {
         // Hack so that it passes the validation
         // TODO: This is another hack that needs to be cleaned. We don't really need the ConfigurationRegistry.
-        var distributedModule = loadConfigurationModules().distributed();
+        var distributedModule = ConfigurationModules.create(null).distributed();
         for (RootKey<?, ?, ?> key : distributedModule.rootKeys()) {
             try {
                 FieldUtils.writeDeclaredField(key, "storageType", ConfigurationType.LOCAL, true);
@@ -121,21 +119,5 @@ public class Ignite3ConfigurationUtils {
 
         nodeConfigRegistry.startAsync(new ComponentContext()).join();
         return nodeConfigRegistry;
-    }
-
-    /**
-     * Loads all the configuration modules in the main classloader.
-     */
-    private static ConfigurationModules loadConfigurationModules() {
-        // TODO: Copied
-        var modulesProvider = new ServiceLoaderModulesProvider();
-        List<ConfigurationModule> modules = modulesProvider.modules(null);
-
-        if (modules.isEmpty()) {
-            throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                    + "Please make sure that the classloader for loading services is correct.");
-        }
-
-        return new ConfigurationModules(modules);
     }
 }
