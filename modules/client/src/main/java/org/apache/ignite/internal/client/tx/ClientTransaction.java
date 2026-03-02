@@ -221,14 +221,13 @@ public class ClientTransaction implements Transaction {
     }
 
     /**
-     * Discards the directly mapped transaction fragments in case of coordinator side transaction invalidation
-     * (either kill or implicit rollback due to mapping failure, see postEnlist).
+     * Rolls back a transaction and discards directly mapped transaction fragments in case of enlistment failure.
      *
      * @param killed Killed flag.
      *
      * @return The future.
      */
-    public CompletableFuture<Void> discardDirectMappings(boolean killed) {
+    public CompletableFuture<Void> rollbackAndDiscardDirectMappings(boolean killed) {
         enlistPartitionLock.writeLock().lock();
 
         try {
@@ -241,7 +240,18 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        return sendDiscardRequests().handle((r, e) -> {
+        // The transaction could not be yet rolled back on a coordinator. Make sure it's rolled back and client resource is cleaned up.
+        CompletableFuture<Void> rollbackFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
+            w.out().packLong(id);
+
+            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_PIGGYBACK)) {
+                w.out().packInt(0); // Don't send direct enlistments.
+            }
+        }, r -> null);
+
+        // It's safe to rollback proxy and direct parts of transactions concurrently.
+        // Write intent resolution will ignore WIs from PENDING transactions.
+        return CompletableFuture.allOf(rollbackFut, sendDiscardRequests()).handle((r, e) -> {
             setState(killed ? STATE_KILLED : STATE_ROLLED_BACK);
             ch.inflights().erase(txId());
             this.finishFut.complete(null);
