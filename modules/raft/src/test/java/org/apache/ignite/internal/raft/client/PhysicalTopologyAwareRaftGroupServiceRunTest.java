@@ -755,8 +755,10 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      */
     @Test
     void testInfiniteTimeoutWithPreviousLeaderTriesPeersOnceBeforeWaiting() throws Exception {
+        int peerCount = NODES.size();
+
         AtomicInteger callCount = new AtomicInteger(0);
-        CountDownLatch allPeersTried = new CountDownLatch(3);
+        CountDownLatch allPeersTried = new CountDownLatch(peerCount);
         // This latch will be counted down if more than 3 calls are made (indicating the bug).
         CountDownLatch extraCallsMade = new CountDownLatch(1);
 
@@ -767,7 +769,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                 anyLong()
         )).thenAnswer(invocation -> {
             int count = callCount.incrementAndGet();
-            if (count <= 3) {
+            if (count <= peerCount) {
                 allPeersTried.countDown();
             } else {
                 // More than 3 calls means the bug exists - extra retry cycle happened.
@@ -805,7 +807,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
                         + ". If 6+ calls were made, the term was incorrectly passed as -1 "
                         + "causing an extra retry cycle before proper waiting.",
                 extraCallsHappened, is(false));
-        assertThat(callCount.get(), is(3));
+        assertThat(callCount.get(), is(peerCount));
     }
 
     private void verifyExact3PeersCalled() {
@@ -827,10 +829,6 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
 
         assertThat(triedPeers, equalTo(expectedPeers));
     }
-
-    // ==========================================================================================
-    // Tests for refreshLeader and refreshAndGetLeaderWithTerm (RANDOM strategy)
-    // ==========================================================================================
 
     /**
      * Tests that for GetLeaderRequest with UNKNOWN/EINTERNAL/ENOENT errors, the executor tries another peer
@@ -888,8 +886,10 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      */
     @Test
     void testRandomStrategyWithBoundedTimeoutKeepsCyclingUntilTimeout() throws Exception {
+        int peerCount = NODES.size();
+
         AtomicInteger callCount = new AtomicInteger(0);
-        CountDownLatch sixCallsReached = new CountDownLatch(6);
+        CountDownLatch sixCallsReached = new CountDownLatch(2 * peerCount);
 
         // All peers return EPERM (no leader) every time.
         when(messagingService.invoke(
@@ -919,7 +919,8 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         // Verify more than 3 calls were made (cycling through peers multiple times).
         assertThat("Should cycle through peers multiple times before timeout, but only " + callCount.get() + " calls were made",
                 sixCallsHappened, is(true));
-        assertThat(callCount.get(), greaterThan(3));
+
+        assertThat(callCount.get(), greaterThan(peerCount));
     }
 
     /**
@@ -955,9 +956,12 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      */
     @Test
     void testRandomStrategySingleAttemptTriesAllPeersOnce() throws Exception {
+        int peerCount = NODES.size();
+
         AtomicInteger callCount = new AtomicInteger(0);
         Set<String> calledPeers = ConcurrentHashMap.newKeySet();
-        CountDownLatch constructorCallsDone = new CountDownLatch(3); // Constructor tries all 3 peers
+
+        CountDownLatch constructorCallsDone = new CountDownLatch(peerCount); // Constructor tries all 3 peers
 
         // All peers return EPERM (no leader).
         when(messagingService.invoke(
@@ -969,7 +973,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
             calledPeers.add(target.name());
             int count = callCount.incrementAndGet();
             // Signal when constructor's calls complete (first 3 calls).
-            if (count <= 3) {
+            if (count <= peerCount) {
                 constructorCallsDone.countDown();
             }
             return completedFuture(FACTORY.errorResponse()
@@ -996,8 +1000,8 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
 
         // Verify each peer was tried exactly once for this call.
         assertThat("Should call exactly 3 peers, but got " + callCount.get() + " (calls before test: " + callsBeforeTest + ")",
-                callCount.get(), is(3));
-        assertThat("Should call all 3 unique peers", calledPeers.size(), is(3));
+                callCount.get(), is(peerCount));
+        assertThat("Should call all 3 unique peers", calledPeers.size(), is(peerCount));
     }
 
     /**
@@ -1050,6 +1054,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      */
     @Test
     void testSingleAttemptModeWithMixedErrors() {
+        int peerCount = FIVE_NODES.size();
         AtomicInteger callCount = new AtomicInteger(0);
         Set<String> calledPeers = ConcurrentHashMap.newKeySet();
 
@@ -1082,8 +1087,8 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
         assertThat(result, willThrow(ReplicationGroupUnavailableException.class));
 
         // Verify each peer was tried exactly once.
-        assertThat("Should call exactly 5 peers", callCount.get(), is(5));
-        assertThat("Should call all 5 unique peers", calledPeers.size(), is(5));
+        assertThat("Should call exactly 5 peers", callCount.get(), is(peerCount));
+        assertThat("Should call all 5 unique peers", calledPeers.size(), is(peerCount));
     }
 
     /**
@@ -1094,9 +1099,11 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
      */
     @Test
     void testLeaderWaitModeRetriesNoLeaderPeersAfterLeaderElection() throws Exception {
+        int peerCount = NODES.size();
+
         List<String> calledPeers = new CopyOnWriteArrayList<>();
         AtomicInteger noLeaderResponseCount = new AtomicInteger(0);
-        CountDownLatch allPeersTriedOnce = new CountDownLatch(3);
+        CountDownLatch allPeersTriedOnce = new CountDownLatch(peerCount);
 
         when(messagingService.invoke(
                 any(InternalClusterNode.class),
@@ -1107,7 +1114,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
             calledPeers.add(target.name());
 
             // First round: all 3 peers return "no leader".
-            if (noLeaderResponseCount.get() < 3) {
+            if (noLeaderResponseCount.get() < peerCount) {
                 noLeaderResponseCount.incrementAndGet();
                 allPeersTriedOnce.countDown();
                 return completedFuture(FACTORY.errorResponse()
@@ -1139,7 +1146,7 @@ public class PhysicalTopologyAwareRaftGroupServiceRunTest extends BaseIgniteAbst
 
         // Verify that at least one peer was called twice (first with "no leader", then success).
         long totalCalls = calledPeers.size();
-        assertTrue(totalCalls > 3, "Should have more than 3 calls (some peers retried after leader election), got " + totalCalls);
+        assertTrue(totalCalls > peerCount, "Should have more than 3 calls (some peers retried after leader election), got " + totalCalls);
     }
 
     /**
