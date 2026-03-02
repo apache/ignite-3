@@ -31,7 +31,6 @@ import org.apache.ignite.internal.cli.decorators.TruncationConfig;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.cli.sql.PagedSqlResult;
 import org.apache.ignite.internal.cli.sql.SqlManager;
-import org.apache.ignite.internal.cli.sql.table.AlternateScreenTableRenderer;
 import org.apache.ignite.internal.cli.sql.table.StreamingTableRenderer;
 import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.internal.cli.util.TableTruncator;
@@ -194,36 +193,7 @@ class PagedSqlExecutionPipeline implements CallExecutionPipeline<StringCallInput
 
     private int streamBoxDrawing(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
             throws SQLException {
-        if (isRealTerminal() && !pagerSupport.isPagerEnabled()) {
-            return streamBoxDrawingAltScreen(out, pagedResult, firstPage);
-        } else {
-            return streamBoxDrawingBatch(out, pagedResult, firstPage);
-        }
-    }
-
-    private int streamBoxDrawingAltScreen(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
-            throws SQLException {
-        AlternateScreenTableRenderer alt = new AlternateScreenTableRenderer(terminal, truncationConfig);
-        try {
-            alt.enter(firstPage.header(), firstPage.content());
-            int totalRows = firstPage.content().length;
-
-            Table<String> page;
-            while ((page = pagedResult.fetchNextPage()) != null) {
-                alt.addPage(page.content());
-                totalRows += page.content().length;
-            }
-
-            alt.finish(totalRows, pagedResult.getDurationMs(), timed);
-
-            // Print final table to main buffer for terminal history.
-            out.print(alt.renderFinalTable());
-            out.flush();
-
-            return totalRows;
-        } finally {
-            alt.leave();
-        }
+        return streamBoxDrawingBatch(out, pagedResult, firstPage);
     }
 
     private int streamBoxDrawingBatch(PrintWriter out, PagedSqlResult pagedResult, Table<String> firstPage)
