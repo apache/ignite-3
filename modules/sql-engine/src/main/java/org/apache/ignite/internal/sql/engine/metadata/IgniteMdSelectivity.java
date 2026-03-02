@@ -41,10 +41,6 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
-import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
@@ -334,27 +330,4 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
         return mq.getSelectivity(rel.getInput(), rel.condition());
     }
 
-    /** Guess cost multiplier regarding search bounds only. */
-    private static double guessCostMultiplier(SearchBounds bounds) {
-        if (bounds instanceof ExactBounds) {
-            return .1;
-        } else if (bounds instanceof RangeBounds) {
-            RangeBounds rangeBounds = (RangeBounds) bounds;
-
-            if (rangeBounds.condition() != null) {
-                return ((RexCall) rangeBounds.condition()).op.kind == SqlKind.EQUALS ? .1 : .2;
-            } else {
-                return .35;
-            }
-        } else if (bounds instanceof MultiBounds) {
-            MultiBounds multiBounds = (MultiBounds) bounds;
-
-            return multiBounds.bounds().stream()
-                    .mapToDouble(IgniteMdSelectivity::guessCostMultiplier)
-                    .max()
-                    .orElseThrow(AssertionError::new);
-        }
-
-        return 1.0;
-    }
 }

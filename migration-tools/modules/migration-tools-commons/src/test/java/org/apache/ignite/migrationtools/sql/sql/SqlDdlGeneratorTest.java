@@ -62,6 +62,7 @@ import org.apache.ignite.migrationtools.sql.SqlDdlGenerator.GenerateTableResult;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeDescriptor;
 import org.apache.ignite.migrationtools.tablemanagement.TableTypeRegistryMapImpl;
 import org.apache.ignite.migrationtools.tests.models.ComplexKeyIntStr;
+import org.apache.ignite.migrationtools.tests.models.IdentifiedPojo;
 import org.apache.ignite.migrationtools.tests.models.InterceptingFieldsModel;
 import org.apache.ignite.migrationtools.tests.models.SimplePojo;
 import org.apache.ignite3.catalog.ColumnSorted;
@@ -495,6 +496,35 @@ class SqlDdlGeneratorTest {
                 entry(InterceptingFieldsModel.Key.class.getName(), InterceptingFieldsModel.Value.class.getName()),
                 expectedKeyFieldToColumnMappings,
                 expectedValFieldToColumnMappings
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideCacheConfigSupplier")
+    void testTableDefWithFieldsFromSuperClass(
+            BiFunction<Class<?>, Class<?>, CacheConfiguration<?, ?>> cacheConfigSupplier,
+            boolean allowExtraFields
+    ) {
+        var cacheCfg = cacheConfigSupplier.apply(UUID.class, IdentifiedPojo.class);
+
+        testCacheConfig(
+                cacheCfg,
+                allowExtraFields,
+                List.of(
+                        primaryKey("KEY", "UUID"),
+                        nonKey("name", "VARCHAR", true),
+                        nonKey("amount", "INT", false),
+                        nonKey("decimalAmount", "DOUBLE", true),
+                        nonKey("id", "UUID", true)
+                ),
+                entry(UUID.class.getName(), IdentifiedPojo.class.getName()),
+                Map.ofEntries(),
+                Map.ofEntries(
+                        entry("name", "name"),
+                        entry("amount", "amount"),
+                        entry("decimalAmount", "decimalAmount"),
+                        entry("id", "id")
+                )
         );
     }
 

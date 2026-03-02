@@ -212,6 +212,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     }
 
     // TODO IGNITE-24937 Leads to negative estimations in some cases. Should be fixed.
+    @SuppressWarnings("PMD.UnusedPrivateMethod") // Will be used after IGNITE-24937 is fixed
     private int notEvictedPagesTotal(int cpTotalPages) {
         return Math.max(cpTotalPages - cpEvictedPages(), 0);
     }

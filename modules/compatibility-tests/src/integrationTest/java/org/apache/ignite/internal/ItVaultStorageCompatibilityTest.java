@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.PutVaultEntriesJob;
@@ -42,7 +41,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Compatibility tests for vault storage. */
 @ParameterizedClass
 @MethodSource("baseVersions")
-@MicronautTest(rebuildContext = true)
 public class ItVaultStorageCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected int nodesCount() {

@@ -23,33 +23,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/** Resolves {@link LogStorageFactory} and server data path for given {@link StorageDestructionIntent}. */
+/** Resolves {@link LogStorageManager} and server data path for given {@link StorageDestructionIntent}. */
 public class GroupStoragesContextResolver {
     private final Function<ReplicationGroupId, String> groupNameResolver;
 
     private final Map<String, Path> serverDataPathByGroupName;
-    private final Map<String, LogStorageFactory> logStorageFactoryByGroupName;
+    private final Map<String, LogStorageManager> logStorageManagerByGroupName;
 
     /** Constructor. */
     public GroupStoragesContextResolver(
             Function<ReplicationGroupId, String> groupNameResolver,
             Map<String, Path> serverDataPathByGroupName,
-            Map<String, LogStorageFactory> logStorageFactoryByGroupName
+            Map<String, LogStorageManager> logStorageManagerByGroupName
     ) {
         this.groupNameResolver = groupNameResolver;
         this.serverDataPathByGroupName = Map.copyOf(serverDataPathByGroupName);
-        this.logStorageFactoryByGroupName = Map.copyOf(logStorageFactoryByGroupName);
+        this.logStorageManagerByGroupName = Map.copyOf(logStorageManagerByGroupName);
     }
 
     StoragesDestructionContext getContext(StorageDestructionIntent intent) {
-        LogStorageFactory logStorageFactory = intent.isVolatile() ? null : logStorageFactoryByGroupName.get(intent.groupName());
+        LogStorageManager logStorageManager = intent.isVolatile() ? null : logStorageManagerByGroupName.get(intent.groupName());
 
-        return new StoragesDestructionContext(intent, logStorageFactory, serverDataPathByGroupName.get(intent.groupName()));
+        return new StoragesDestructionContext(intent, logStorageManager, serverDataPathByGroupName.get(intent.groupName()));
     }
 
     StorageDestructionIntent getIntent(RaftNodeId nodeId, boolean isVolatile) {
@@ -60,7 +60,7 @@ public class GroupStoragesContextResolver {
         return List.copyOf(serverDataPathByGroupName.values());
     }
 
-    Collection<LogStorageFactory> logStorageFactories() {
-        return List.copyOf(logStorageFactoryByGroupName.values());
+    Collection<LogStorageManager> logStorageFactories() {
+        return List.copyOf(logStorageManagerByGroupName.values());
     }
 }

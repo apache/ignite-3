@@ -86,13 +86,13 @@ abstract class FieldAccessor {
             @Nullable TypeConverter<?, ?> typeConverter
     ) {
         try {
-            Field field = type.getDeclaredField(fldName);
+            Field field = getField(type, fldName);
 
             if (typeConverter == null) {
                 validateColumnType(col, field.getType());
             }
 
-            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(field.getDeclaringClass(), MethodHandles.lookup());
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
             // Optimization for primitive types to avoid boxing/unboxing.
@@ -133,6 +133,23 @@ abstract class FieldAccessor {
         } catch (NoSuchFieldException | SecurityException | IllegalAccessException ex) {
             throw new IllegalArgumentException(ex);
         }
+    }
+
+    /**
+     * Gets an accessible field by name of the given class and its parents (if any).
+     */
+    private static Field getField(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+        var current = clazz;
+        while (current != Object.class) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException ignored) {
+                // ignore
+            }
+
+            current = current.getSuperclass();
+        }
+        throw new NoSuchFieldException("Field '" + fieldName + "' not found in class hierarchy " + clazz);
     }
 
     /**

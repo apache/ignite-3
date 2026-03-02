@@ -104,7 +104,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -146,6 +148,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.CatalogVe
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandBase;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -250,6 +253,8 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
@@ -2027,7 +2032,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return null;
         }).when(txManager).updateTxMeta(any(), any());
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
+        Executor wise = Runnable::run;
+
+        doAnswer(invocation -> wise).when(txManager).writeIntentSwitchExecutor();
 
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());
@@ -2101,6 +2108,68 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return Arrays.stream(RequestType.values())
                 .filter(RequestTypes::isMultipleRowsWrite)
                 .map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("singleRowWriteRequestTypes")
+    public void singleRowWritesRespectFailedSchemaValidationResult(RequestType requestType) {
+        RwListenerInvocation invocation;
+
+        if (requestType == RW_DELETE || requestType == RW_GET_AND_DELETE) {
+            invocation = (targetTxId, key) -> doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, true);
+        } else {
+            invocation = (targetTxId, key) -> doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType, true);
+        }
+
+        testWritesRespectFailedSchemaValidationResult(requestType, invocation);
+    }
+
+    @Test
+    public void replaceRequestRespectsFailedSchemaValidationResult() {
+        RwListenerInvocation invocation = (targetTxId, key) -> doReplaceRequest(
+                targetTxId,
+                marshalKeyOrKeyValue(RW_REPLACE, key),
+                marshalKeyOrKeyValue(RW_REPLACE, key),
+                true
+        );
+
+        testWritesRespectFailedSchemaValidationResult(RW_REPLACE, invocation);
+    }
+
+    @ParameterizedTest
+    @MethodSource("multiRowsWriteRequestTypes")
+    public void multiRowWritesRespectFailedSchemaValidationResult(RequestType requestType) {
+        RwListenerInvocation invocation;
+
+        if (requestType == RW_DELETE_ALL) {
+            invocation = (targetTxId, key)
+                    -> doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, true);
+        } else {
+            invocation = (targetTxId, key)
+                    -> doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, true);
+        }
+
+        testWritesRespectFailedSchemaValidationResult(requestType, invocation);
+    }
+
+    private void testWritesRespectFailedSchemaValidationResult(RequestType requestType, RwListenerInvocation listenerInvocation) {
+        TestKey key = nextKey();
+
+        if (RequestTypes.looksUpFirst(requestType)) {
+            upsertInNewTxFor(key);
+
+            // While handling the upsert, our mocks were touched, let's reset them to prevent false-positives during verification.
+            Mockito.reset(schemaSyncService);
+        }
+
+        UUID targetTxId = newTxId();
+
+        when(mockRaftClient.run(any(UpdateCommandBase.class)))
+                .thenReturn(failedFuture(new CompletionException(new RaftException(RaftError.EREJECTED_BY_VALIDATOR))));
+
+        CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
+
+        assertThat(future, willThrow(IncompatibleSchemaVersionException.class));
     }
 
     @CartesianTest

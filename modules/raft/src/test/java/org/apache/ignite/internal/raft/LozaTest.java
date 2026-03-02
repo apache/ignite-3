@@ -34,8 +34,8 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -72,12 +72,12 @@ public class LozaTest extends IgniteAbstractTest {
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
+        LogStorageManager logStorageManager = SharedLogStorageManagerUtils.create(
                 clusterNetSvc.nodeName(),
                 workDir.resolve("partitions/log")
         );
 
-        assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(logStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Loza loza = TestLozaFactory.create(clusterNetSvc, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
 

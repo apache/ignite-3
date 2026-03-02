@@ -26,6 +26,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PageHeader;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
@@ -59,8 +60,7 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
                 10 * MiB,
                 new TestPageReadWriteManager(),
-                (fullPageId, buf, tag) -> {
-                },
+                (fullPageId, buf, tag) -> PageWriteTarget.NONE,
                 mockCheckpointTimeoutLock(true),
                 wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)),
                 new PartitionDestructionLockManager()

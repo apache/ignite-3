@@ -93,6 +93,7 @@ class QueryContext {
         return this;
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateMethod") // Part of incomplete indentation feature
     private String indentation() {
         return indent == 0 ? "" : " ".repeat(indent);
     }

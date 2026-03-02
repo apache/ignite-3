@@ -190,6 +190,20 @@ public class MapperTest {
             assertNull(mapper.fieldForColumn("STRINGCOL"));
             assertNull(mapper.fieldForColumn("VAL"));
         }
+
+        {
+            PojoMapper<TestObjectExt> mapper = (PojoMapper<TestObjectExt>) Mapper.of(
+                    TestObjectExt.class,
+                    "id", "col1",
+                    "ext", "col2"
+            );
+
+            assertEquals("id", mapper.fieldForColumn("COL1"));
+            assertEquals("ext", mapper.fieldForColumn("COL2"));
+            assertNull(mapper.fieldForColumn("STRINGCOL"));
+            assertNull(mapper.fieldForColumn("LONGCOL"));
+            assertNull(mapper.fieldForColumn("VAL"));
+        }
     }
 
     @Test
@@ -200,6 +214,7 @@ public class MapperTest {
 
         Function anonymous = (i) -> i;
 
+        Mapper.builder(TestObjectExt.class);
         Mapper.builder(TestOuterObject.class);
         Mapper.builder(NestedObject.class);
 
@@ -439,6 +454,11 @@ public class MapperTest {
         private long longCol;
 
         private String stringCol;
+    }
+
+    @SuppressWarnings({"InstanceVariableMayNotBeInitialized", "unused"})
+    static class TestObjectExt extends TestObject {
+        private int ext;
     }
 
     /**

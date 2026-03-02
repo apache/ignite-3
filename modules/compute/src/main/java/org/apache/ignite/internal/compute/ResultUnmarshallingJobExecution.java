@@ -54,7 +54,7 @@ public class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
                 r -> {
                     updateTimestamp(r);
 
-                    return SharedComputeUtils.unmarshalArgOrResult(r, resultUnmarshaller, resultClass);
+                    return SharedComputeUtils.unmarshalResult(r, resultUnmarshaller, resultClass);
                 });
     }
 
@@ -83,7 +83,7 @@ public class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
             updateTimestamp(r);
 
             return new IgniteBiTuple<>(
-                    SharedComputeUtils.unmarshalArgOrResult(r, resultUnmarshaller, resultClass),
+                    SharedComputeUtils.unmarshalResult(r, resultUnmarshaller, resultClass),
                     r.observableTimestamp());
         });
     }
