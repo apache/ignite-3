@@ -150,7 +150,7 @@ public class ItPartitionTableStatsMetricTest extends BasePartitionTableStatsMetr
             expectedMods += 3;
             expectModsCount(table, expectedMods);
 
-            sql(format("UPDATE {} SET val=20 WHERE val = 2", table));
+            sql(format("UPDATE {} SET val=20 WHERE val=2", table));
             expectedMods += 2;
             expectModsCount(table, expectedMods);
 
