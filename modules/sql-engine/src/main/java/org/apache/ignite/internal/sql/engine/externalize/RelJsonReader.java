@@ -203,7 +203,13 @@ public class RelJsonReader {
         /** {@inheritDoc} */
         @Override
         public ImmutableBitSet getBitSet(String tag) {
-            return ImmutableBitSet.of(getIntegerList(tag));
+            var list = getIntegerList(tag);
+
+            if (list == null) {
+                return ImmutableBitSet.of();
+            }
+
+            return ImmutableBitSet.of(list);
         }
 
         /** {@inheritDoc} */

@@ -522,6 +522,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void testBuildIndexCommand() {
         int indexId = pkStorage.id();
 
+        when(indexUpdateHandler.getNextRowIdToBuildIndex(anyInt())).thenReturn(RowId.lowestRowId(PARTITION_ID));
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
 
         RowId row0 = new RowId(PARTITION_ID);
@@ -564,6 +565,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         ClockService clockService = mock(ClockService.class);
         lenient().when(clockService.current()).thenReturn(hybridClock.current());
 
+        when(indexUpdateHandler.getNextRowIdToBuildIndex(anyInt())).thenReturn(RowId.lowestRowId(PARTITION_ID));
         doNothing().when(indexUpdateHandler).buildIndex(eq(indexId), any(Stream.class), any());
 
         RowId row0 = new RowId(PARTITION_ID);

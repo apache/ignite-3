@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest;
 
+import static org.apache.ignite.internal.rest.ItClusterStateHttpServerFilterNotInitializedTest.disabledEndpoints;
+import static org.apache.ignite.internal.rest.ItClusterStateHttpServerFilterNotInitializedTest.enabledEndpoints;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import io.micronaut.http.HttpRequest;
@@ -28,11 +30,10 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that after cluster is initialized, all endpoints are available. */
-@MicronautTest(rebuildContext = true)
+@MicronautTest
 public class ItClusterStateHttpServerFilterInitializedTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
@@ -40,23 +41,13 @@ public class ItClusterStateHttpServerFilterInitializedTest extends ClusterPerCla
     @Client(NODE_URL + "/management/v1")
     HttpClient client;
 
-    private static Stream<Arguments> endpoints() {
-        return Stream.of(
-                Arguments.of("deployment/cluster/units"),
-                Arguments.of("node/state"),
-                Arguments.of("configuration/cluster"),
-                Arguments.of("configuration/node"),
-                Arguments.of("configuration/node/ignite.rest"),
-                Arguments.of("cluster/topology/logical"),
-                Arguments.of("cluster/topology/physical")
-        );
+    private static Stream<HttpRequest<String>> endpoints() {
+        return Stream.concat(disabledEndpoints(), enabledEndpoints());
     }
 
     @ParameterizedTest
     @MethodSource("endpoints")
-    void clusterEndpointsEnabled(String path) {
-        assertDoesNotThrow(
-                () -> client.toBlocking().retrieve(HttpRequest.GET(path))
-        );
+    void clusterEndpointsEnabled(HttpRequest<String> request) {
+        assertDoesNotThrow(() -> client.toBlocking().exchange(request));
     }
 }

@@ -36,30 +36,50 @@ import org.jetbrains.annotations.Nullable;
  */
 @DdlBatchAware
 public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
-
     /** ALTER TABLE operator. */
     protected static class Operator extends IgniteDdlOperator {
+        private final boolean columnExistFlag;
 
         /** Constructor. */
-        protected Operator(boolean existFlag) {
+        protected Operator(boolean existFlag, boolean columnExistFlag) {
             super("ALTER TABLE", SqlKind.ALTER_TABLE, existFlag);
+
+            this.columnExistFlag = columnExistFlag;
         }
 
         /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
-            return new IgniteSqlAlterTableDropColumn(pos, existFlag(), (SqlIdentifier) operands[0], (SqlNodeList) operands[1]);
+            return new IgniteSqlAlterTableDropColumn(
+                    pos,
+                    existFlag(),
+                    (SqlIdentifier) operands[0],
+                    (SqlNodeList) operands[1],
+                    columnExistFlag()
+            );
+        }
+
+        boolean columnExistFlag() {
+            return columnExistFlag;
         }
     }
 
     /** Columns to drop. */
     private final SqlNodeList columns;
 
+    private final boolean ifColumnExists;
+
     /** Constructor. */
-    public IgniteSqlAlterTableDropColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName,
-            SqlNodeList columns) {
-        super(new Operator(ifExists), pos, tblName);
+    public IgniteSqlAlterTableDropColumn(
+            SqlParserPos pos,
+            boolean ifExists,
+            SqlIdentifier tblName,
+            SqlNodeList columns,
+            boolean ifColumnExists
+    ) {
+        super(new Operator(ifExists, ifColumnExists), pos, tblName);
         this.columns = Objects.requireNonNull(columns, "columns list");
+        this.ifColumnExists = ifColumnExists;
     }
 
     /** {@inheritDoc} */
@@ -74,11 +94,21 @@ public class IgniteSqlAlterTableDropColumn extends IgniteAbstractSqlAlterTable {
         writer.keyword("DROP");
         writer.keyword("COLUMN");
 
+        if (ifColumnExists) {
+            writer.keyword("IF");
+            writer.keyword("EXISTS");
+        }
+
         columns.unparse(writer, leftPrec, rightPrec);
     }
 
     /** Processing columns definition. */
     public SqlNodeList columns() {
         return columns;
+    }
+
+    /** If exists flag for column. */
+    public boolean ifColumnExists() {
+        return ifColumnExists;
     }
 }

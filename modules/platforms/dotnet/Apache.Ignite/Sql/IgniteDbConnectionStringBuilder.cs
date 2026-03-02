@@ -44,7 +44,8 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
         nameof(SslEnabled),
         nameof(Username),
         nameof(Password),
-        nameof(ReResolveAddressesInterval)
+        nameof(ReResolveAddressesInterval),
+        nameof(SqlPartitionAwarenessMetadataCacheSize)
     };
 
     /// <summary>
@@ -160,6 +161,17 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
         set => this[nameof(ReResolveAddressesInterval)] = value.ToString();
     }
 
+    /// <summary>
+    /// Gets or sets the SQL partition awareness metadata cache size. See <see cref="IgniteClientConfiguration.SqlPartitionAwarenessMetadataCacheSize"/> for more details.
+    /// </summary>
+    public int SqlPartitionAwarenessMetadataCacheSize
+    {
+        get => GetString(nameof(SqlPartitionAwarenessMetadataCacheSize)) is { } s
+            ? int.Parse(s, CultureInfo.InvariantCulture)
+            : IgniteClientConfiguration.DefaultSqlPartitionAwarenessMetadataCacheSize;
+        set => this[nameof(SqlPartitionAwarenessMetadataCacheSize)] = value.ToString(CultureInfo.InvariantCulture);
+    }
+
     /// <inheritdoc />
     [AllowNull]
     public override object this[string keyword]
@@ -194,7 +206,8 @@ public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
                 Username = Username ?? string.Empty,
                 Password = Password ?? string.Empty
             },
-            ReResolveAddressesInterval = ReResolveAddressesInterval
+            ReResolveAddressesInterval = ReResolveAddressesInterval,
+            SqlPartitionAwarenessMetadataCacheSize = SqlPartitionAwarenessMetadataCacheSize
         };
     }
 

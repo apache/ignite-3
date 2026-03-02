@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.placementdriver.metrics;
 
 import java.util.List;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
@@ -35,6 +37,7 @@ public class PlacementDriverMetricSource extends AbstractMetricSource<Holder> {
 
     private final LeaseTracker leaseTracker;
     private final AssignmentsTracker assignmentsTracker;
+    private final ClockService clockService;
 
     /**
      * Constructor.
@@ -44,12 +47,14 @@ public class PlacementDriverMetricSource extends AbstractMetricSource<Holder> {
      */
     public PlacementDriverMetricSource(
             LeaseTracker leaseTracker,
-            AssignmentsTracker assignmentsTracker
+            AssignmentsTracker assignmentsTracker,
+            ClockService clockService
     ) {
         super(SOURCE_NAME, "Placement driver metrics.");
 
         this.leaseTracker = leaseTracker;
         this.assignmentsTracker = assignmentsTracker;
+        this.clockService = clockService;
     }
 
     @Override
@@ -90,9 +95,11 @@ public class PlacementDriverMetricSource extends AbstractMetricSource<Holder> {
 
         private int numberOfLeases(boolean accepted) {
             int count = 0;
+            HybridTimestamp now = clockService.current();
 
-            for (Lease lease : leaseTracker.leasesCurrent().leaseByGroupId().values()) {
-                if (lease != null && accepted == lease.isAccepted()) {
+            for (Lease lease : leaseTracker.leasesLatest().leaseByGroupId().values()) {
+                // Expired leases can be ignored.
+                if (lease != null && accepted == lease.isAccepted() && clockService.before(lease.getExpirationTime(), now)) {
                     count++;
                 }
             }

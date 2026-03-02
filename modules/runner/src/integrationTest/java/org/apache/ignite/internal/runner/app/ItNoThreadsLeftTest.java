@@ -115,7 +115,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
      * @param tableName Table name.
      */
     private static Table createTable(Ignite node, String tableName) {
-        node.sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT,"
+        node.sql().execute("CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, valint INT,"
                 + " valstr VARCHAR NOT NULL DEFAULT 'default')");
 
         return node.tables().table(tableName);

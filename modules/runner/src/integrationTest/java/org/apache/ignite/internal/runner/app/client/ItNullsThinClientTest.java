@@ -55,11 +55,11 @@ public class ItNullsThinClientTest extends ItAbstractThinClientTest {
     public void setup() {
         IgniteSql sql = ignite().sql();
 
-        sql.execute(null, "CREATE TABLE t0 (ID INTEGER PRIMARY KEY, boolCol BOOLEAN, strCol VARCHAR)").close();
-        sql.execute(null, "INSERT INTO t0 VALUES (1, NULL, NULL)").close();
+        sql.execute("CREATE TABLE t0 (ID INTEGER PRIMARY KEY, boolCol BOOLEAN, strCol VARCHAR)").close();
+        sql.execute("INSERT INTO t0 VALUES (1, NULL, NULL)").close();
 
-        sql.execute(null, "CREATE TABLE t1 (ID INTEGER PRIMARY KEY, boolCol BOOLEAN)").close();
-        sql.execute(null, "INSERT INTO t1 VALUES (1, NULL)").close();
+        sql.execute("CREATE TABLE t1 (ID INTEGER PRIMARY KEY, boolCol BOOLEAN)").close();
+        sql.execute("INSERT INTO t1 VALUES (1, NULL)").close();
     }
 
     @Test

@@ -26,8 +26,6 @@ import java.util.function.Function;
  * the updated instance. The base catalog instance can be used by a command
  * to determine whether certain changes have been made to the catalog during
  * processing of the current batch of commands.
- *
- * @see BulkUpdateProducer
  */
 public class UpdateContext {
     /** The base catalog descriptor. */
@@ -36,10 +34,18 @@ public class UpdateContext {
     /** The updatable catalog descriptor. */
     private Catalog updatableCatalog;
 
+    private final PartitionCountProvider partitionCountProvider;
+
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
+        this(catalog, PartitionCountProvider.defaultPartitionCountProvider());
+    }
+
+    /** Constructor. */
+    public UpdateContext(Catalog catalog, PartitionCountProvider partitionCountProvider) {
         this.baseCatalog = catalog;
         this.updatableCatalog = catalog;
+        this.partitionCountProvider = partitionCountProvider;
     }
 
     /**
@@ -62,5 +68,10 @@ public class UpdateContext {
     /** Applies specified action to the catalog. */
     public void updateCatalog(Function<Catalog, Catalog> updater) {
         updatableCatalog = updater.apply(updatableCatalog);
+    }
+
+    /** Returns partition count provider. */
+    public PartitionCountProvider partitionCountProvider() {
+        return partitionCountProvider;
     }
 }

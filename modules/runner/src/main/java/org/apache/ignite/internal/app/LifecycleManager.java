@@ -171,14 +171,6 @@ class LifecycleManager implements StateProvider, Debuggable {
         List<IgniteComponent> components = new ArrayList<>(startedComponents);
         reverse(components);
 
-        for (IgniteComponent component : components) {
-            try {
-                component.beforeNodeStop();
-            } catch (Exception e) {
-                LOG.warn("Unable to execute before node stop [component={}, nodeName={}]", e, component, nodeName);
-            }
-        }
-
         stopAsync(componentContext, components)
                 .whenComplete(copyStateTo(stopFuture));
     }

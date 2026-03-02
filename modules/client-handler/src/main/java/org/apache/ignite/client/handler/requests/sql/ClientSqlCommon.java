@@ -272,6 +272,7 @@ class ClientSqlCommon {
             boolean includePartitionAwarenessMeta,
             boolean sqlDirectTxMappingSupported,
             boolean sqlMultiStatementSupported,
+            boolean sqlPartitionAwarenessQualifiedNameSupported,
             Executor executor
     ) {
         try {
@@ -292,13 +293,15 @@ class ClientSqlCommon {
 
                 return CompletableFuture.completedFuture(out ->
                         writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta,
-                                sqlDirectTxMappingSupported, sqlMultiStatementSupported, nextResultResourceId));
+                                sqlDirectTxMappingSupported, sqlMultiStatementSupported, sqlPartitionAwarenessQualifiedNameSupported,
+                                nextResultResourceId));
             }
 
             return asyncResultSet.closeAsync()
                     .thenApply(v -> (ResponseWriter) out ->
                             writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta,
-                                    sqlDirectTxMappingSupported, sqlMultiStatementSupported, nextResultResourceId));
+                                    sqlDirectTxMappingSupported, sqlMultiStatementSupported, sqlPartitionAwarenessQualifiedNameSupported,
+                                    nextResultResourceId));
 
         } catch (IgniteInternalCheckedException e) {
             // Resource registry was closed.
@@ -349,6 +352,7 @@ class ClientSqlCommon {
             boolean includePartitionAwarenessMeta,
             boolean sqlDirectTxMappingSupported,
             boolean sqlMultiStatementsSupported,
+            boolean sqlPartitionAwarenessQualifiedNameSupported,
             @Nullable Long nextResultResourceId
     ) {
         out.packLongNullable(resourceId);
@@ -361,7 +365,8 @@ class ClientSqlCommon {
         packMeta(out, res.metadata());
 
         if (includePartitionAwarenessMeta) {
-            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata(), sqlDirectTxMappingSupported);
+            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata(), sqlDirectTxMappingSupported,
+                    sqlPartitionAwarenessQualifiedNameSupported);
         }
 
         if (sqlMultiStatementsSupported) {
@@ -386,7 +391,8 @@ class ClientSqlCommon {
     private static void packPartitionAwarenessMeta(
             ClientMessagePacker out,
             @Nullable PartitionAwarenessMetadata meta,
-            boolean sqlDirectTxMappingSupported
+            boolean sqlDirectTxMappingSupported,
+            boolean sqlPartitionAwarenessQualifiedNameSupported
     ) {
         if (meta == null) {
             out.packNil();
@@ -394,6 +400,12 @@ class ClientSqlCommon {
         }
 
         out.packInt(meta.tableId());
+
+        if (sqlPartitionAwarenessQualifiedNameSupported) {
+            out.packString(meta.tableName().schemaName());
+            out.packString(meta.tableName().objectName());
+        }
+
         out.packIntArray(meta.indexes());
         out.packIntArray(meta.hash());
 

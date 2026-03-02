@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 
 @MicronautTest
 @Property(name = "ignite.endpoints.filter-non-initialized", value = "false")
+@Property(name = "ignite.endpoints.rest-events", value = "false")
 @Property(name = "micronaut.security.enabled", value = "false")
 class NodeMetricsControllerTest extends BaseIgniteAbstractTest {
     @Inject

@@ -35,6 +35,7 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.HashMap;
@@ -68,6 +69,8 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.raft.handlers.BuildIndexCommandHandler;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -117,6 +120,38 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    void testRaftCommandsDuplicationOnPrimaryNotColocatedWithLeader() throws Exception {
+        // Usage of 2 replicas is a minimal possible configuration where it's possible to have a follower node.
+        // Cluster with 2 nodes would be enough, but it would require more complex test class modifications.
+        int replicas = 2;
+        int partitions = 1;
+
+        LogInspector logInspector = new LogInspector(
+                BuildIndexCommandHandler.class.getName(),
+                evt -> evt.getMessage().getFormattedMessage().contains("Duplicated building the index command received")
+        );
+
+        logInspector.start();
+        try {
+            createAndPopulateTable(replicas, partitions);
+
+            ZonePartitionId tableGroupId = replicationGroupId(TABLE_NAME, 0);
+
+            IgniteImpl currentPrimary = primaryReplica(tableGroupId);
+
+            unColocateLeaderFromPrimaryReplica(tableGroupId, currentPrimary);
+
+            createIndex(INDEX_NAME);
+
+            checkIndexBuild(partitions, replicas, INDEX_NAME);
+
+            assertFalse(logInspector.isMatched());
+        } finally {
+            logInspector.stop();
+        }
+    }
+
+    @Test
     void testChangePrimaryReplicaOnMiddleBuildIndex() throws Exception {
         IgniteImpl currentPrimary = prepareBuildIndexToChangePrimaryReplica();
 
@@ -153,7 +188,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      *     <li>Drop send {@link BuildIndexCommand} from the primary replica.</li>
      * </ul>
      */
-    private IgniteImpl prepareBuildIndexToChangePrimaryReplica() throws Exception {
+    private IgniteImpl prepareBuildIndexToChangePrimaryReplica() {
         int nodes = initialNodes();
         assertThat(nodes, greaterThanOrEqualTo(2));
 
@@ -242,7 +277,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         // stuck with timeouts. We don't need to wait for the operation to complete, as we wait for the necessary invariants further
         // below.
         CLUSTER.aliveNode().sql()
-                .executeAsync(null, format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME))
+                .executeAsync(format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME))
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         log.error("Failed to create index", ex);
@@ -417,5 +452,15 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         HybridClock clock = node.clock();
         CatalogManager catalogManager = node.catalogManager();
         return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
+    }
+
+    private static void unColocateLeaderFromPrimaryReplica(ZonePartitionId groupId, IgniteImpl currentPrimary) throws Exception {
+        String newLeaderNodeName = collectAssignments(TABLE_NAME).get(groupId.partitionId())
+                .stream()
+                .filter(name -> !Objects.equals(name, currentPrimary.name()))
+                .findAny()
+                .orElseThrow();
+
+        CLUSTER.transferLeadershipTo(CLUSTER.nodeIndex(newLeaderNodeName), groupId);
     }
 }

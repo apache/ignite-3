@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
 import java.util.Arrays;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Partition awareness metadata.
@@ -49,6 +50,8 @@ public final class PartitionAwarenessMetadata {
 
     private final DirectTxMode directTxMode;
 
+    private final QualifiedName tableName;
+
     /**
      * Constructor.
      *
@@ -56,22 +59,30 @@ public final class PartitionAwarenessMetadata {
      * @param indexes Mapping between positions in colocation key and dynamic parameters.
      * @param hash Array of computed hashes.
      * @param directTxMode The level of support for direct transaction.
+     * @param tableName Table name.
      */
     public PartitionAwarenessMetadata(
             int tableId,
             int[] indexes,
             int[] hash,
-            DirectTxMode directTxMode
+            DirectTxMode directTxMode,
+            QualifiedName tableName
     ) {
         this.tableId = tableId;
         this.indexes = indexes;
         this.hash = hash;
         this.directTxMode = directTxMode;
+        this.tableName = tableName;
     }
 
     /** Return table id. */
     public int tableId() {
         return tableId;
+    }
+
+    /** Return table name. */
+    public QualifiedName tableName() {
+        return tableName;
     }
 
     /** Returns the number of colocation key columns. */

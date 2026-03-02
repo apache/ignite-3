@@ -20,21 +20,31 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMeasurementsCount;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMetric;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasValue;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStore.VERSION_1;
+import static org.apache.ignite.internal.pagememory.persistence.store.TestPageStoreUtils.createPageByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.MeteredFileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -113,6 +123,40 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
         }
     }
 
+    @Test
+    void testIoMetricsRecordedDuringActualFileOperations() throws Exception {
+        Path testFilePath = workDir.resolve("test");
+
+        CollectionMetricSource ioMetricSource = new CollectionMetricSource("testPageStoreIo", "storage", "Page memory I/O metrics");
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+        MetricSet metricSet = ioMetricSource.enable();
+
+        long pageId = pageId(0, FLAG_DATA, 0);
+
+        try (FilePageStoreIo filePageStoreIo = createFilePageStoreIo(testFilePath, ioMetrics)) {
+            // Verify metrics start at zero
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_READ,  0L);
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_WRITTEN,  0L);
+
+            // Perform write operation
+            ByteBuffer writeBuffer = createPageByteBuffer(pageId, PAGE_SIZE);
+            filePageStoreIo.write(pageId, writeBuffer);
+
+            // Verify write metrics were recorded - 1 write of header + 1 write of page
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_WRITTEN,  PAGE_SIZE * 2);
+            assertDistributionMetricFromSet(metricSet, PageMemoryIoMetrics.WRITES_TIME, 2L);
+
+            // Perform read operation
+            long pageOff = filePageStoreIo.pageOffset(pageId);
+            ByteBuffer readBuffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(java.nio.ByteOrder.nativeOrder());
+            filePageStoreIo.read(pageId, pageOff, readBuffer, false);
+
+            // Verify read metrics were recorded
+            assertMetricValue(metricSet, PageMemoryIoMetrics.TOTAL_BYTES_READ,  PAGE_SIZE);
+            assertDistributionMetricFromSet(metricSet, PageMemoryIoMetrics.READS_TIME, 1L);
+        }
+    }
+
     @Override
     protected FilePageStoreIo createFilePageStoreIo(Path filePath, FileIoFactory ioFactory) {
         return new FilePageStoreIo(ioFactory, filePath, new FilePageStoreHeader(VERSION_1, PAGE_SIZE));
@@ -120,5 +164,27 @@ public class FilePageStoreIoTest extends AbstractFilePageStoreIoTest {
 
     private static FilePageStoreIo createFilePageStoreIo(Path filePath, FilePageStoreHeader header) {
         return new FilePageStoreIo(new RandomAccessFileIoFactory(), filePath, header);
+    }
+
+    private static FilePageStoreIo createFilePageStoreIo(Path filePath, PageMemoryIoMetrics ioMetrics) {
+        return new FilePageStoreIo(
+                new MeteredFileIoFactory(new RandomAccessFileIoFactory(), ioMetrics),
+                filePath,
+                new FilePageStoreHeader(VERSION_1, PAGE_SIZE)
+        );
+    }
+
+    private static void assertMetricValue(MetricSet metrics, String metricName, long value) {
+        assertThat(metrics, hasMetric(
+                metricName,
+                hasValue(is(value))
+        ));
+    }
+
+    private static void assertDistributionMetricFromSet(MetricSet metrics, String metricName, long expectedMeasuresCount) {
+        assertThat(metrics, hasMetric(
+                metricName,
+                hasMeasurementsCount(expectedMeasuresCount)
+        ));
     }
 }

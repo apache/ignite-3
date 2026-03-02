@@ -180,54 +180,43 @@ public class VolatilePageMemory implements PageMemory {
         totalPages = (int) (this.dataRegionConfiguration.maxSizeBytes() / sysPageSize);
 
         this.rwLock = rwLock;
-    }
 
-    @Override
-    public void start() throws IgniteInternalException {
-        synchronized (segmentsLock) {
-            if (started) {
-                return;
+        long startSize = dataRegionConfiguration.initSizeBytes();
+        long maxSize = dataRegionConfiguration.maxSizeBytes();
+
+        long[] chunks = new long[SEG_CNT];
+
+        chunks[0] = startSize;
+
+        long total = startSize;
+
+        long allocChunkSize = Math.max((maxSize - startSize) / (SEG_CNT - 1), 256L * 1024 * 1024);
+
+        int lastIdx = 0;
+
+        for (int i = 1; i < SEG_CNT; i++) {
+            long allocSize = Math.min(allocChunkSize, maxSize - total);
+
+            if (allocSize <= 0) {
+                break;
             }
 
-            started = true;
+            chunks[i] = allocSize;
 
-            long startSize = dataRegionConfiguration.initSizeBytes();
-            long maxSize = dataRegionConfiguration.maxSizeBytes();
+            total += allocSize;
 
-            long[] chunks = new long[SEG_CNT];
-
-            chunks[0] = startSize;
-
-            long total = startSize;
-
-            long allocChunkSize = Math.max((maxSize - startSize) / (SEG_CNT - 1), 256L * 1024 * 1024);
-
-            int lastIdx = 0;
-
-            for (int i = 1; i < SEG_CNT; i++) {
-                long allocSize = Math.min(allocChunkSize, maxSize - total);
-
-                if (allocSize <= 0) {
-                    break;
-                }
-
-                chunks[i] = allocSize;
-
-                total += allocSize;
-
-                lastIdx = i;
-            }
-
-            if (lastIdx != SEG_CNT - 1) {
-                chunks = Arrays.copyOf(chunks, lastIdx + 1);
-            }
-
-            if (segments == null) {
-                directMemoryProvider.initialize(chunks);
-            }
-
-            addSegment(null);
+            lastIdx = i;
         }
+
+        if (lastIdx != SEG_CNT - 1) {
+            chunks = Arrays.copyOf(chunks, lastIdx + 1);
+        }
+
+        directMemoryProvider.initialize(chunks);
+
+        addSegment(null);
+
+        started = true;
     }
 
     @Override

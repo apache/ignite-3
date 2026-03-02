@@ -29,4 +29,7 @@ import java.util.Set;
 public interface AlterTableDropColumnCommandBuilder extends AbstractTableCommandBuilder<AlterTableDropColumnCommandBuilder> {
     /** Set of the columns to delete. There must be at least one column. */
     AlterTableDropColumnCommandBuilder columns(Set<String> columns);
+
+    /** The flag indicating that the command should not fail if a column with the specified name does not exist. */
+    AlterTableDropColumnCommandBuilder ifColumnExists(boolean ifColumnExists);
 }

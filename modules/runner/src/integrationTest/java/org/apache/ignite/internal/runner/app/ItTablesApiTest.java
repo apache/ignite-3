@@ -404,7 +404,7 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void sql(Ignite node, String sql) {
-        try (ResultSet<SqlRow> ignored = node.sql().execute(null, sql)) {
+        try (ResultSet<SqlRow> ignored = node.sql().execute(sql)) {
             // ignored
         }
     }

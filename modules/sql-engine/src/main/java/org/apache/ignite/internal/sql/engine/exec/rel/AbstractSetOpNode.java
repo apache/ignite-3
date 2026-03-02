@@ -65,6 +65,8 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
+        onRequestReceived();
+
         requested = rowsCnt;
 
         if (waiting == 0) {
@@ -132,6 +134,8 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         return new Downstream<>() {
             @Override
             public void push(RowT row) throws Exception {
+                onRowReceived();
+
                 AbstractSetOpNode.this.push(row, idx);
             }
 

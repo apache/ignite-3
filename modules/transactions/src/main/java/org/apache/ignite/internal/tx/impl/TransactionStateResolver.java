@@ -32,6 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -58,6 +60,8 @@ import org.jetbrains.annotations.Nullable;
  * Helper class that allows to resolve transaction state mainly for the purpose of write intent resolution.
  */
 public class TransactionStateResolver {
+    private static final IgniteLogger LOG = Loggers.forClass(TransactionStateResolver.class);
+
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -463,9 +467,20 @@ public class TransactionStateResolver {
 
                 if (tx != null && !tx.isReadOnly() && currentConsistencyToken != null && groupId != null) {
                     return txManager.checkEnlistedPartitionsAndAbortIfNeeded(txStateMeta, tx, currentConsistencyToken, groupId);
+                } else {
+                    LOG.info("Failed to abort on coordinator a transaction that lost its primary replica's volatile state "
+                            + "[txId={}, internalTx={}, readOnly={}, senderCurrentConsistencyToken={}, senderGroupId={}].",
+                            txId,
+                            tx,
+                            (tx == null ? null : tx.isReadOnly()),
+                            currentConsistencyToken,
+                            groupId
+                    );
                 }
             }
         }
+
+        LOG.info("Transaction meta is absent on coordinator [txId={}].", txId);
 
         return completedFuture(txStateMeta);
     }

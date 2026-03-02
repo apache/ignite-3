@@ -32,13 +32,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.AwaitReplicaTimeoutException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
@@ -57,6 +57,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PersistentTxStateVacuumizer {
     private static final IgniteLogger LOG = Loggers.forClass(PersistentTxStateVacuumizer.class);
+
+    private static final String VACUUM_THROTTLE_KEY = "vacuum-failed";
 
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -70,7 +72,7 @@ public class PersistentTxStateVacuumizer {
 
     private final PlacementDriver placementDriver;
 
-    private final FailureProcessor failureProcessor;
+    private final IgniteThrottledLogger throttledLogger = Loggers.toThrottledLogger(LOG);
 
     /**
      * Constructor.
@@ -79,20 +81,17 @@ public class PersistentTxStateVacuumizer {
      * @param localNode Local node.
      * @param clockService Clock service.
      * @param placementDriver Placement driver.
-     * @param failureProcessor Failure processor.
      */
     public PersistentTxStateVacuumizer(
             ReplicaService replicaService,
             InternalClusterNode localNode,
             ClockService clockService,
-            PlacementDriver placementDriver,
-            FailureProcessor failureProcessor
+            PlacementDriver placementDriver
     ) {
         this.replicaService = replicaService;
         this.localNode = localNode;
         this.clockService = clockService;
         this.placementDriver = placementDriver;
-        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -152,10 +151,11 @@ public class PersistentTxStateVacuumizer {
                                     // vacuumization will be retried after restart.
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
-                                    failureProcessor.process(new FailureContext(
-                                            e,
-                                            "Failed to vacuum tx states from the persistent storage."
-                                    ));
+                                    // In general, even though this vacuum round has completed unsuccessfully,
+                                    // due to ReplicationTimeoutException for instance,
+                                    // it does not mean that correctness is violated, and we need to shutdown the node.
+                                    // Perhaps the next attempt will be successful.
+                                    throttledLogger.warn(VACUUM_THROTTLE_KEY, "Failed to vacuum tx states from the persistent storage.", e);
                                 }
                             });
                         } else {
@@ -186,7 +186,8 @@ public class PersistentTxStateVacuumizer {
                 // the persistent tx state.
                 // Also, replica calls from PersistentTxStateVacuumizer are local, so retry with new primary replica most likely will
                 // happen on another node.
-                AwaitReplicaTimeoutException.class
+                AwaitReplicaTimeoutException.class,
+                ReplicaUnavailableException.class
         );
     }
 

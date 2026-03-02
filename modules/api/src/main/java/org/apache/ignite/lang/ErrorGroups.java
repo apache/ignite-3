@@ -35,7 +35,12 @@ import org.jetbrains.annotations.Nullable;
 public class ErrorGroups {
     /** Additional prefix that is used in a human-readable format of ignite errors. */
     public static final String IGNITE_ERR_PREFIX = "IGN";
+
+    /** Prefix for unknown error groups (e.g., old client gets an unknown code from a new server). */
+    private static final String ERR_GROUP_PREFIX_UNKNOWN = "UNKNOWN";
+
     private static final String PLACEHOLDER = "${ERROR_PREFIX}";
+
     private static final String EXCEPTION_MESSAGE_STRING_PATTERN =
             "(.*)(" + PLACEHOLDER + ")-([A-Z]+)-(\\d+)(\\s?)(.*)( TraceId:)([a-f0-9]{8})";
 
@@ -161,9 +166,13 @@ public class ErrorGroups {
      * @return Error Group.
      */
     public static ErrorGroup errorGroupByCode(int code) {
-        ErrorGroup grp = registeredGroups.get(extractGroupCode(code));
-        assert grp != null : "group not found, code=" + code;
-        return grp;
+        short groupCode = extractGroupCode(code);
+        ErrorGroup grp = registeredGroups.get(groupCode);
+
+        // Newer versions of Ignite may contain error codes that are not known to the older versions.
+        return grp == null
+                ? new ErrorGroup(ERR_GROUP_PREFIX_UNKNOWN, ERR_GROUP_PREFIX_UNKNOWN + groupCode, groupCode)
+                : grp;
     }
 
     /** Common error group. */
@@ -459,6 +468,9 @@ public class ErrorGroups {
 
         /** Operation failed due to replication delayed ack failure. */
         public static final int TX_DELAYED_ACK_ERR = TX_ERR_GROUP.registerErrorCode((short) 17);
+
+        /** Transaction was internally killed. This is retriable state. */
+        public static final int TX_KILLED_ERR = TX_ERR_GROUP.registerErrorCode((short) 18);
     }
 
     /** Replicator error group. */
@@ -496,6 +508,9 @@ public class ErrorGroups {
 
         /** Replication group unavailable exception code. */
         public static final int GROUP_UNAVAILABLE_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 10);
+
+        /** Replica is absent on the node and the node is not in assignments for this replica. */
+        public static final int REPLICA_ABSENT_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** Storage error group. */

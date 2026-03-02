@@ -31,9 +31,9 @@ class IndexFileMeta {
 
     private final int indexFilePayloadOffset;
 
-    private final int indexFileOrdinal;
+    private final FileProperties indexFileProperties;
 
-    IndexFileMeta(long firstLogIndexInclusive, long lastLogIndexExclusive, int indexFilePayloadOffset, int indexFileOrdinal) {
+    IndexFileMeta(long firstLogIndexInclusive, long lastLogIndexExclusive, int indexFilePayloadOffset, FileProperties indexFileProperties) {
         assert firstLogIndexInclusive >= 0 : "Invalid first log index: " + firstLogIndexInclusive;
         assert lastLogIndexExclusive >= 0 : "Invalid first log index: " + firstLogIndexInclusive;
 
@@ -41,14 +41,10 @@ class IndexFileMeta {
             throw new IllegalArgumentException("Invalid log index range: [" + firstLogIndexInclusive + ", " + lastLogIndexExclusive + ").");
         }
 
-        if (indexFileOrdinal < 0) {
-            throw new IllegalArgumentException("Invalid index file ordinal: " + indexFileOrdinal);
-        }
-
         this.firstLogIndexInclusive = firstLogIndexInclusive;
         this.lastLogIndexExclusive = lastLogIndexExclusive;
         this.indexFilePayloadOffset = indexFilePayloadOffset;
-        this.indexFileOrdinal = indexFileOrdinal;
+        this.indexFileProperties = indexFileProperties;
     }
 
     /**
@@ -72,11 +68,8 @@ class IndexFileMeta {
         return indexFilePayloadOffset;
     }
 
-    /**
-     * Returns the ordinal of the index file.
-     */
-    int indexFileOrdinal() {
-        return indexFileOrdinal;
+    FileProperties indexFileProperties() {
+        return indexFileProperties;
     }
 
     /**
@@ -95,8 +88,7 @@ class IndexFileMeta {
 
         IndexFileMeta that = (IndexFileMeta) o;
         return firstLogIndexInclusive == that.firstLogIndexInclusive && lastLogIndexExclusive == that.lastLogIndexExclusive
-                && indexFilePayloadOffset == that.indexFilePayloadOffset
-                && indexFileOrdinal == that.indexFileOrdinal;
+                && indexFilePayloadOffset == that.indexFilePayloadOffset && indexFileProperties.equals(that.indexFileProperties);
     }
 
     @Override
@@ -104,7 +96,7 @@ class IndexFileMeta {
         int result = Long.hashCode(firstLogIndexInclusive);
         result = 31 * result + Long.hashCode(lastLogIndexExclusive);
         result = 31 * result + indexFilePayloadOffset;
-        result = 31 * result + indexFileOrdinal;
+        result = 31 * result + indexFileProperties.hashCode();
         return result;
     }
 

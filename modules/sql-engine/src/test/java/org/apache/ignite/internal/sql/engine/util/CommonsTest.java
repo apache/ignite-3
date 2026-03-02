@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -41,7 +42,9 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 /**
@@ -183,6 +186,18 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("packIntsToLongTestCases")
+    void packIntsToLong(int num1, int num2) {
+        long packed = Commons.packIntsToLong(num1, num2);
+
+        int unpackedNum1 = (int) (packed >>> 32);
+        int unpackedNum2 = (int) packed;
+
+        assertThat(unpackedNum1, is(num1));
+        assertThat(unpackedNum2, is(num2));
+    }
+
     private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {
         assertEquals(expected, Mappings.apply(mapping, bitSet), "direct mapping");
 
@@ -194,6 +209,20 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         Mapping mapping = Commons.projectedMapping(source.size(), projection);
 
         assertEquals(expected, Mappings.apply(mapping, source));
+    }
+
+    private static Stream<Arguments> packIntsToLongTestCases() {
+        return Stream.of(
+                Arguments.of(123, 456),
+                Arguments.of(0, 0),
+                Arguments.of(1, 0),
+                Arguments.of(0, 1),
+                Arguments.of(-1, -1),
+                Arguments.of(100, -200),
+                Arguments.of(-100, 200),
+                Arguments.of(Integer.MAX_VALUE, Integer.MIN_VALUE),
+                Arguments.of(Integer.MIN_VALUE, Integer.MAX_VALUE)
+        );
     }
 
     /** For test purposes. */

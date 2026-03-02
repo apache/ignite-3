@@ -98,7 +98,7 @@ public class TpchBenchmark extends AbstractTpcBenchmark {
     /** Benchmark that measures performance of queries from TPC-H suite. */
     @Benchmark
     public void run(Blackhole bh) {
-        try (var rs = sql.execute(null, queryString)) {
+        try (var rs = sql.execute(queryString)) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }

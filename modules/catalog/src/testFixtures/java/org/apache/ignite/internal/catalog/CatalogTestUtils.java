@@ -106,7 +106,14 @@ public class CatalogTestUtils {
 
         FailureProcessor failureProcessor = new NoOpFailureManager();
         UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor);
-        return new CatalogManagerImpl(updateLog, clockService, failureProcessor, delayDurationMsSupplier) {
+
+        return new CatalogManagerImpl(
+                updateLog,
+                clockService,
+                failureProcessor,
+                delayDurationMsSupplier,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
@@ -151,11 +158,13 @@ public class CatalogTestUtils {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
         FailureProcessor failureProcessor = mock(FailureProcessor.class);
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -195,11 +204,13 @@ public class CatalogTestUtils {
             HybridClock clock
     ) {
         var failureProcessor = new NoOpFailureManager();
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         );
     }
 
@@ -231,11 +242,13 @@ public class CatalogTestUtils {
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
         var failureProcessor = new NoOpFailureManager();
+
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                delayDurationMsSupplier
+                delayDurationMsSupplier,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -306,7 +319,8 @@ public class CatalogTestUtils {
                 updateLog,
                 new TestClockService(clock, clockWaiter),
                 failureProcessor,
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
@@ -353,7 +367,8 @@ public class CatalogTestUtils {
                 new TestUpdateLog(clock),
                 new TestClockService(clock, clockWaiter),
                 new NoOpFailureManager(),
-                () -> TEST_DELAY_DURATION
+                () -> TEST_DELAY_DURATION,
+                PartitionCountProvider.defaultPartitionCountProvider()
         ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {

@@ -21,9 +21,12 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
+import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,6 +57,12 @@ public class FakeTxManager implements TxManager {
 
     public FakeTxManager(HybridClock clock) {
         this.clock = clock;
+    }
+
+    @Override
+    public @Nullable TransactionMetricsSource transactionMetricsSource() {
+        // No-op
+        return null;
     }
 
     @Override
@@ -223,8 +233,8 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
-        return CompletableFuture.runAsync(runnable);
+    public Executor writeIntentSwitchExecutor() {
+        return ForkJoinPool.commonPool();
     }
 
     @Override
@@ -244,7 +254,7 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             ZonePartitionId commitPartitionId,
-            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -275,6 +285,11 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Boolean> kill(UUID txId) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
         return nullCompletedFuture();
     }
 

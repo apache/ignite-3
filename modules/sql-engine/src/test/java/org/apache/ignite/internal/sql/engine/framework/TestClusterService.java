@@ -67,12 +67,6 @@ class TestClusterService implements ClusterService {
 
     /** {@inheritDoc} */
     @Override
-    public boolean isStopped() {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void updateMetadata(NodeMetadata metadata) {
         throw new AssertionError("Should not be called");
     }

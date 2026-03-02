@@ -176,17 +176,10 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     @Override
     public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
             List<? extends ReplicationGroupId> replicationGroupIds,
-            HybridTimestamp clusterTimeToAwait,
             long timeoutMillis
     ) {
-        return msManager
-                .clusterTime()
-                .waitFor(clusterTimeToAwait)
-                .thenCompose(ignored -> inBusyLock(busyLock, () -> {
-                    long now = coarseCurrentTimeMillis();
-                    return awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, now, timeoutMillis);
-                }))
-                .thenApply(identity());
+        long now = coarseCurrentTimeMillis();
+        return awaitNonEmptyAssignmentsWithCheckMostRecent(replicationGroupIds, now, timeoutMillis);
     }
 
     private CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignmentsWithCheckMostRecent(

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparingLong;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -118,6 +119,7 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 failureManager,
+                GroupInfoProvider.NO_OP,
                 raftConfiguration,
                 storageConfiguration
         );
@@ -489,22 +491,18 @@ class SegmentFileManagerTest extends IgniteAbstractTest {
         // Use a mock memtable that throws an exception to force the index manager to create a temporary index file, but not rename it.
         ReadModeIndexMemTable mockMemTable = mock(ReadModeIndexMemTable.class);
 
-        when(mockMemTable.iterator()).thenThrow(new RuntimeException("Test exception"));
+        when(mockMemTable.iterator())
+                .thenReturn(emptyIterator())
+                .thenThrow(new RuntimeException("Test exception"));
 
-        // Create two tmp index files: one for the complete segment file and one the incomplete segment file.
+        // Create a tmp file for the incomplete segment file.
         try {
-            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 0);
+            fileManager.indexFileManager().recoverIndexFile(mockMemTable, new FileProperties(1));
         } catch (RuntimeException ignored) {
             // Ignore.
         }
 
-        try {
-            fileManager.indexFileManager().recoverIndexFile(mockMemTable, 1);
-        } catch (RuntimeException ignored) {
-            // Ignore.
-        }
-
-        assertThat(tmpIndexFiles(), hasSize(2));
+        assertThat(tmpIndexFiles(), hasSize(1));
 
         fileManager.close();
 

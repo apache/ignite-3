@@ -39,27 +39,48 @@ public class IgniteSqlAlterTableAddColumn extends IgniteAbstractSqlAlterTable {
 
     /** ALTER TABLE ... ADD COLUMN operator. */
     protected static class Operator extends IgniteDdlOperator {
+        private final boolean columnNotExistFlag;
 
         /** Constructor. */
-        protected Operator(boolean existFlag) {
+        protected Operator(boolean existFlag, boolean columnNotExistFlag) {
             super("ALTER TABLE", SqlKind.ALTER_TABLE, existFlag);
+
+            this.columnNotExistFlag = columnNotExistFlag;
         }
 
         /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
-            return new IgniteSqlAlterTableAddColumn(pos, existFlag(), (SqlIdentifier) operands[0], (SqlNodeList) operands[1]);
+            return new IgniteSqlAlterTableAddColumn(
+                    pos,
+                    existFlag(),
+                    (SqlIdentifier) operands[0],
+                    (SqlNodeList) operands[1],
+                    columnNotExistFlag()
+            );
+        }
+
+        boolean columnNotExistFlag() {
+            return columnNotExistFlag;
         }
     }
 
     /** Introduced columns. */
     private final SqlNodeList columns;
 
+    private final boolean ifColumnNotExists;
+
     /** Constructor. */
-    public IgniteSqlAlterTableAddColumn(SqlParserPos pos, boolean ifExists, SqlIdentifier tblName,
-            SqlNodeList columns) {
-        super(new Operator(ifExists), pos, tblName);
+    public IgniteSqlAlterTableAddColumn(
+            SqlParserPos pos,
+            boolean ifExists,
+            SqlIdentifier tblName,
+            SqlNodeList columns,
+            boolean ifColumnNotExists
+    ) {
+        super(new Operator(ifExists, ifColumnNotExists), pos, tblName);
         this.columns = Objects.requireNonNull(columns, "columns list");
+        this.ifColumnNotExists = ifColumnNotExists;
     }
 
     /** {@inheritDoc} */
@@ -74,11 +95,22 @@ public class IgniteSqlAlterTableAddColumn extends IgniteAbstractSqlAlterTable {
         writer.keyword("ADD");
         writer.keyword("COLUMN");
 
+        if (ifColumnNotExists) {
+            writer.keyword("IF");
+            writer.keyword("NOT");
+            writer.keyword("EXISTS");
+        }
+
         columns.unparse(writer, leftPrec, rightPrec);
     }
 
     /** Processing columns definition. */
     public SqlNodeList columns() {
         return columns;
+    }
+
+    /** If not exists flag for the column. */
+    public boolean ifColumnNotExists() {
+        return ifColumnNotExists;
     }
 }

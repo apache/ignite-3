@@ -39,6 +39,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -67,6 +69,9 @@ import org.jetbrains.annotations.TestOnly;
  * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
+    /** Ignite logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(PlacementDriverManager.class);
+
     private static final String PLACEMENTDRIVER_LEASES_KEY_STRING = "placementdriver.leases";
 
     public static final ByteArray PLACEMENTDRIVER_LEASES_KEY = ByteArray.fromString(PLACEMENTDRIVER_LEASES_KEY_STRING);
@@ -183,7 +188,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.placementDriver = createPlacementDriver();
         this.metricManager = metricManager;
-        this.metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker);
+        this.metricSource = new PlacementDriverMetricSource(leaseTracker, assignmentsTracker, clockService);
     }
 
     @Override
@@ -208,6 +213,8 @@ public class PlacementDriverManager implements IgniteComponent {
                                     StoppingExceptionFactories.indicateNodeStop(),
                                     true
                             );
+
+                            LOG.info("Placement driver raft client has started [group={}, node={}].", replicationGroupId, thisNodeName);
 
                             return raftClient.subscribeLeader(this::onLeaderChange).thenApply(v -> raftClient);
                         } catch (NodeStoppingException e) {
@@ -277,6 +284,10 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private void onLeaderChange(InternalClusterNode leader, long term) {
         inBusyLock(busyLock, () -> {
+            String thisNodeName = clusterService.topologyService().localMember().name();
+
+            LOG.info("Placement driver received leader changed event [leader={}, term={}, nodeName={}]", leader, term, thisNodeName);
+
             if (leader.equals(clusterService.topologyService().localMember())) {
                 takeOverActiveActorBusy();
             } else {
@@ -334,8 +345,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
             @Override
             public CompletableFuture<List<TokenizedAssignments>> awaitNonEmptyAssignments(
-                    List<? extends ReplicationGroupId> replicationGroupIds, HybridTimestamp clusterTimeToAwait, long timeoutMillis) {
-                return assignmentsTracker.awaitNonEmptyAssignments(replicationGroupIds, clusterTimeToAwait, timeoutMillis);
+                    List<? extends ReplicationGroupId> replicationGroupIds, long timeoutMillis) {
+                return assignmentsTracker.awaitNonEmptyAssignments(replicationGroupIds, timeoutMillis);
             }
 
             @Override

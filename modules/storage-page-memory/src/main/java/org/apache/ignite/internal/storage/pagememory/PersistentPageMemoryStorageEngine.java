@@ -36,6 +36,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.fileio.MeteredFileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -44,10 +45,11 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryIoMetrics;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
+import org.apache.ignite.internal.storage.pagememory.mv.RunConsistentlyMetrics;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
@@ -93,9 +96,13 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
-    private final StorageConfiguration storageConfig;
+    private CollectionMetricSource ioMetricSource;
 
-    private final @Nullable SystemLocalConfiguration systemLocalConfig;
+    private CollectionMetricSource checkpointMetricSource;
+
+    private CollectionMetricSource storageMetricSource;
+
+    private final StorageConfiguration storageConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -124,6 +131,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     /** For unspecified tasks, i.e. throttling log. */
     private final ExecutorService commonExecutorService;
 
+    private RunConsistentlyMetrics runConsistentlyMetrics;
+
     /**
      * Constructor.
      *
@@ -142,7 +151,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             String igniteInstanceName,
             MetricManager metricManager,
             StorageConfiguration storageConfig,
-            @Nullable SystemLocalConfiguration systemLocalConfig,
+            SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -151,13 +160,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             ExecutorService commonExecutorService,
             HybridClock clock
     ) {
-        super(clock);
+        super(systemLocalConfig, clock);
 
         this.igniteInstanceName = igniteInstanceName;
         this.metricManager = metricManager;
         this.storageConfig = storageConfig;
         this.engineConfig = ((PersistentPageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aipersist();
-        this.systemLocalConfig = systemLocalConfig;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -180,10 +188,15 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     @Override
     public void start() throws StorageException {
+        super.start();
+
         int pageSize = engineConfig.pageSizeBytes().value();
 
+        ioMetricSource = new CollectionMetricSource("storage." + ENGINE_NAME + ".io", "storage", "Page memory I/O metrics");
+        PageMemoryIoMetrics ioMetrics = new PageMemoryIoMetrics(ioMetricSource);
+
         try {
-            var fileIoFactory = new RandomAccessFileIoFactory();
+            var fileIoFactory = new MeteredFileIoFactory(new RandomAccessFileIoFactory(), ioMetrics);
 
             filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureManager);
 
@@ -194,7 +207,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         partitionMetaManager = new PartitionMetaManager(ioRegistry, pageSize, StoragePartitionMeta.FACTORY);
 
-        var checkpointMetricSource = new CheckpointMetricSource("storage." + ENGINE_NAME + ".checkpoint");
+        checkpointMetricSource = new CollectionMetricSource("storage." + ENGINE_NAME + ".checkpoint", "storage", null);
 
         try {
             checkpointManager = new CheckpointManager(
@@ -243,15 +256,19 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         destructionExecutor = executor;
 
-        var storageMetricSource = new PersistentPageMemoryStorageMetricSource("storage." + ENGINE_NAME);
+        storageMetricSource = new CollectionMetricSource("storage." + ENGINE_NAME, "storage", null);
 
         PersistentPageMemoryStorageMetrics.initMetrics(storageMetricSource, filePageStoreManager);
 
+        runConsistentlyMetrics = new RunConsistentlyMetrics(storageMetricSource);
+
         metricManager.registerSource(checkpointMetricSource);
         metricManager.registerSource(storageMetricSource);
+        metricManager.registerSource(ioMetricSource);
 
         metricManager.enable(checkpointMetricSource);
         metricManager.enable(storageMetricSource);
+        metricManager.enable(ioMetricSource);
     }
 
     /** Creates a checkpoint configuration based on the provided {@link PageMemoryCheckpointConfiguration}. */
@@ -269,6 +286,17 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     @Override
     public void stop() throws StorageException {
         try {
+            // Disable and unregister metric sources to prevent leaks
+            if (ioMetricSource != null) {
+                metricManager.unregisterSource(ioMetricSource);
+            }
+            if (checkpointMetricSource != null) {
+                metricManager.unregisterSource(checkpointMetricSource);
+            }
+            if (storageMetricSource != null) {
+                metricManager.unregisterSource(storageMetricSource);
+            }
+
             Stream<AutoCloseable> closeRegions = regions.values().stream().map(region -> region::stop);
 
             ExecutorService destructionExecutor = this.destructionExecutor;
@@ -309,7 +337,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 this,
                 dataRegion,
                 destructionExecutor,
-                failureManager
+                failureManager,
+                runConsistentlyMetrics
         );
 
         dataRegion.addTableStorage(tableStorage);

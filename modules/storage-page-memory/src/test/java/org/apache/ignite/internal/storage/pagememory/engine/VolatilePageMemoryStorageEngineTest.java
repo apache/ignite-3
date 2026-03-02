@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -40,6 +41,9 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
     @InjectConfiguration("mock.profiles.default.engine = aimem")
     private StorageConfiguration storageConfig;
 
+    @InjectConfiguration
+    SystemLocalConfiguration systemConfig;
+
     @Override
     protected StorageEngine createEngine() {
         return createEngine(storageConfig);
@@ -53,6 +57,7 @@ public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorage
         return new VolatilePageMemoryStorageEngine(
                 "test",
                 configuration,
+                systemConfig,
                 ioRegistry,
                 mock(FailureManager.class),
                 clock

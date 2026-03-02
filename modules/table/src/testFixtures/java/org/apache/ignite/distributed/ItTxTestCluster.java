@@ -107,6 +107,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDa
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionsSnapshots;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -120,9 +121,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -155,6 +156,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
@@ -245,7 +247,7 @@ public class ItTxTestCluster {
 
     protected Map<String, RaftGroupOptionsConfigurer> raftConfigurers;
 
-    protected Map<String, LogStorageFactory> logStorageFactories;
+    protected Map<String, LogStorageManager> logStorageFactories;
 
     protected Map<String, ReplicaService> replicaServices;
 
@@ -282,6 +284,10 @@ public class ItTxTestCluster {
     protected IgniteTransactions igniteTransactions;
 
     protected String localNodeName;
+
+    private SchemaSyncService schemaSyncService;
+
+    private final CompoundValidationSchemasSource validationSchemasSource = new CompoundValidationSchemasSource();
 
     private final Map<String, Map<ZonePartitionId, ZonePartitionRaftListener>> zonePartitionRaftGroupListeners = new HashMap<>();
 
@@ -444,19 +450,19 @@ public class ItTxTestCluster {
 
             Path partitionsWorkDir = workDir.resolve("node" + i);
 
-            LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+            LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                     "test",
                     clusterService.nodeName(),
                     partitionsWorkDir.resolve("log"),
                     raftConfig.fsync().value()
             );
 
-            logStorageFactories.put(nodeName, partitionsLogStorageFactory);
+            logStorageFactories.put(nodeName, partitionsLogStorageManager);
 
-            assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             RaftGroupOptionsConfigurer partitionRaftConfigurer =
-                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.resolve("meta"));
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageManager, partitionsWorkDir.resolve("meta"));
 
             raftConfigurers.put(nodeName, partitionRaftConfigurer);
 
@@ -486,10 +492,13 @@ public class ItTxTestCluster {
                     new RaftGroupEventsClientListener()
             );
 
+            schemaSyncService = new AlwaysSyncedSchemaSyncService();
+
             ReplicaManager replicaMgr = new ReplicaManager(
                     nodeName,
                     clusterService,
                     cmgManager,
+                    groupId -> completedFuture(Assignments.EMPTY),
                     clockService,
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
@@ -497,10 +506,11 @@ public class ItTxTestCluster {
                     this::getSafeTimePropagationTimeout,
                     new NoOpFailureManager(),
                     commandMarshaller,
+                    new PartitionSafeTimeValidator(validationSchemasSource, catalogService, schemaSyncService),
                     raftClientFactory,
                     raftSrv,
                     partitionRaftConfigurer,
-                    new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
+                    new VolatileLogStorageManagerCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     executor,
                     replicaGrpId -> nullCompletedFuture(),
                     ForkJoinPool.commonPool()
@@ -690,8 +700,6 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
@@ -770,7 +778,10 @@ public class ItTxTestCluster {
                         TableTestUtils.NOOP_PARTITION_MODIFICATION_COUNTER
                 );
 
-                DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+                var tableValidationSchemasSource = new DummyValidationSchemasSource(schemaManager);
+
+                validationSchemasSource.registerSource(tableId, tableValidationSchemasSource);
 
                 RaftGroupListener raftGroupListener = getOrCreateAndPopulateRaftGroupListener(
                         assignment,
@@ -802,9 +813,9 @@ public class ItTxTestCluster {
                                 txStateStorage,
                                 transactionStateResolver,
                                 storageUpdateHandler,
-                                new DummyValidationSchemasSource(schemaManager),
+                                validationSchemasSource,
                                 nodeResolver.getByConsistentId(assignment),
-                                new AlwaysSyncedSchemaSyncService(),
+                                schemaSyncService,
                                 catalogService,
                                 placementDriver,
                                 nodeResolver,
@@ -1149,10 +1160,7 @@ public class ItTxTestCluster {
      */
     public void shutdownCluster() {
         assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
-
-        if (client != null) {
-            assertThat(client.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-        }
+        assertThat(stopAsync(new ComponentContext(), client), willCompleteSuccessfully());
 
         for (Entry<String, Loza> entry : raftServers.entrySet()) {
             Loza rs = entry.getValue();
@@ -1184,8 +1192,8 @@ public class ItTxTestCluster {
         }
 
         if (logStorageFactories != null) {
-            for (LogStorageFactory logStorageFactory : logStorageFactories.values()) {
-                assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+            for (LogStorageManager logStorageManager : logStorageFactories.values()) {
+                assertThat(logStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
 

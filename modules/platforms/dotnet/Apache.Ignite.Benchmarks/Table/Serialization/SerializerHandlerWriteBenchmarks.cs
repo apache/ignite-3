@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Benchmarks.Table.Serialization
 {
+    using System;
     using System.Diagnostics.CodeAnalysis;
     using BenchmarkDotNet.Attributes;
     using Internal.Buffers;
@@ -97,6 +98,17 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             var writer = pooledWriter.MessageWriter;
 
             TupleSerializerHandler.Instance.Write(ref writer, Schema, Tuple);
+
+            VerifyWritten(pooledWriter);
+        }
+
+        [Benchmark]
+        public void WriteKeyValuePair()
+        {
+            using var pooledWriter = new PooledArrayBuffer();
+            var writer = pooledWriter.MessageWriter;
+
+            MapperPairSerializerHandler.Write(ref writer, Schema, new KvPair<Guid, string>(Object.Id, Object.BodyType));
 
             VerifyWritten(pooledWriter);
         }

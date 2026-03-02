@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Aot.Table;
 
+using System.Diagnostics.CodeAnalysis;
 using Common.Table;
 using Ignite.Table;
 using JetBrains.Annotations;
@@ -105,6 +106,76 @@ public class TableTests(IIgniteClient client)
         Assert.AreEqual(poco.Int64, res.Int64);
         Assert.AreEqual(poco.Str, res.Str);
         Assert.AreEqual(poco.Uuid, res.Uuid);
+    }
+
+    [UsedImplicitly]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Test.")]
+    [SuppressMessage("ReSharper", "RedundantTypeArgumentsOfMethod", Justification = "Consistency.")]
+    public async Task TestRecordViewPrimitiveMapping()
+    {
+        await Test<sbyte>(TableInt8Name, 42);
+        await Test<short>(TableInt16Name, 42);
+        await Test<int>(TableInt32Name, 42);
+        await Test<long>(TableInt64Name, 42);
+        await Test<float>(TableFloatName, 3.14f);
+        await Test<double>(TableDoubleName, 3.14);
+        await Test<string>(TableStringName, "Hello, Ignite!");
+        await Test<Guid>(TableUuidName, Guid.NewGuid());
+        await Test<bool>(TableBoolName, true);
+        await Test<decimal>(TableDecimalName, 123.456m);
+        await Test<BigDecimal>(TableDecimalName, new BigDecimal(12345.67m));
+        await Test<LocalDate>(TableDateName, new LocalDate(2024, 6, 30));
+        await Test<LocalTime>(TableTimeName, new LocalTime(14, 30, 0));
+        await Test<LocalDateTime>(TableDateTimeName, new LocalDateTime(2024, 6, 30, 14, 30, 0));
+        await Test<Instant>(TableTimestampName, Instant.FromUtc(2024, 6, 30, 14, 30, 0));
+        await Test<byte[]>(TableBytesName, [1, 2, 3, 4, 5]);
+
+        async Task Test<T>(string tableName, T value)
+            where T : notnull
+        {
+            var tbl = await client.Tables.GetTableAsync(tableName);
+            var view = tbl!.GetRecordView<T>();
+
+            await view.UpsertAsync(null, value);
+            var res = await view.GetAsync(null, value);
+
+            Assert.AreEqual(value, res.Value);
+        }
+    }
+
+    [UsedImplicitly]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Test.")]
+    [SuppressMessage("ReSharper", "RedundantTypeArgumentsOfMethod", Justification = "Consistency.")]
+    public async Task TestKeyValueViewPrimitiveMapping()
+    {
+        await Test<sbyte>(TableInt8Name, 42);
+        await Test<short>(TableInt16Name, 42);
+        await Test<int>(TableInt32Name, 42);
+        await Test<long>(TableInt64Name, 42);
+        await Test<float>(TableFloatName, 3.14f);
+        await Test<double>(TableDoubleName, 3.14);
+        await Test<string>(TableStringName, "key");
+        await Test<Guid>(TableUuidName, Guid.NewGuid());
+        await Test<bool>(TableBoolName, true);
+        await Test<decimal>(TableDecimalName, 123.456m);
+        await Test<BigDecimal>(TableDecimalName, new BigDecimal(123.45m));
+        await Test<LocalDate>(TableDateName, new LocalDate(2024, 6, 30));
+        await Test<LocalTime>(TableTimeName, new LocalTime(14, 30, 0));
+        await Test<LocalDateTime>(TableDateTimeName, new LocalDateTime(2024, 6, 30, 14, 30, 0));
+        await Test<Instant>(TableTimestampName, Instant.FromUtc(2024, 6, 30, 14, 30, 0));
+        await Test<byte[]>(TableBytesName, [1, 2, 3]);
+
+        async Task Test<T>(string tableName, T key)
+            where T : notnull
+        {
+            var tbl = await client.Tables.GetTableAsync(tableName);
+            var view = tbl!.GetKeyValueView<T, T>();
+
+            await view.PutAsync(null, key, key);
+            var res = await view.GetAsync(null, key);
+
+            Assert.AreEqual(key, res.Value);
+        }
     }
 
     [UsedImplicitly]

@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.option;
 
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.util.Copiable;
 
 /**
@@ -137,6 +138,27 @@ public class RaftOptions implements Copiable<RaftOptions> {
      * Candidate steps down when election reaching timeout, default is true(enabled).
      */
     private boolean stepDownWhenVoteTimedout = true;
+
+  /**
+   * Maximum total byte size of tasks in the apply queue.
+   *
+   * <p>Controls memory consumption by rejecting new {@link org.apache.ignite.raft.jraft.core.NodeImpl#apply( Task)} operations
+   * when the total queued task size exceeds this threshold, preventing OOM when replication cannot keep up.
+   *
+   * <p>This is a soft limit, not a hard guarantee. The actual queue size may temporarily
+   * exceed this value due to concurrent {@code apply()}
+   *
+   * <p> The soft limit provides high throughput by using
+   * {@link java.util.concurrent.atomic.LongAdder} without locks in the critical
+   * {@code apply()} path. A hard limit would require synchronization, significantly reducing performance.
+   * Since the goal is preventing unbounded growth (not exact byte precision), bounded overshoot is acceptable.
+   *
+   * <p>Note: This limits queue occupancy, not heap usage. Memory remains allocated until
+   * garbage collection occurs after tasks are processed.
+   *
+   * <p>Default: {@code -1} (unlimited, throttling disabled).
+   */
+    private long maxApplyQueueByteSize = -1;
 
     public boolean isStepDownWhenVoteTimedout() {
         return this.stepDownWhenVoteTimedout;
@@ -304,6 +326,14 @@ public class RaftOptions implements Copiable<RaftOptions> {
         this.raftMessagesFactory = raftMessagesFactory;
     }
 
+    public long getMaxApplyQueueByteSize() {
+        return this.maxApplyQueueByteSize;
+    }
+
+    public void setMaxApplyQueueByteSize(long maxApplyQueueByteSize) {
+        this.maxApplyQueueByteSize = maxApplyQueueByteSize;
+    }
+
     /** {@inheritDoc} */
     @Override
     public RaftOptions copy() {
@@ -326,6 +356,7 @@ public class RaftOptions implements Copiable<RaftOptions> {
         raftOptions.setEnableLogEntryChecksum(this.enableLogEntryChecksum);
         raftOptions.setReadOnlyOptions(this.readOnlyOptions);
         raftOptions.setRaftMessagesFactory(this.raftMessagesFactory);
+        raftOptions.setMaxApplyQueueByteSize(this.maxApplyQueueByteSize);
         return raftOptions;
     }
 
@@ -341,6 +372,6 @@ public class RaftOptions implements Copiable<RaftOptions> {
             + ", maxReplicatorInflightMsgs=" + this.maxReplicatorInflightMsgs + ", disruptorBufferSize="
             + this.disruptorBufferSize + ", disruptorPublishEventWaitTimeoutSecs="
             + this.disruptorPublishEventWaitTimeoutSecs + ", enableLogEntryChecksum=" + this.enableLogEntryChecksum
-            + ", readOnlyOptions=" + this.readOnlyOptions + '}';
+            + ", readOnlyOptions=" + this.readOnlyOptions + ", maxApplyQueueByteSize=" + this.maxApplyQueueByteSize + '}';
     }
 }

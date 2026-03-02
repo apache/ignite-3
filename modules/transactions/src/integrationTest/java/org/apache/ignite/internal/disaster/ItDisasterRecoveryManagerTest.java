@@ -23,10 +23,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.ClusterPerClassIntegrationTest.awaitPartitionsToBeHealthy;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil.blockStableKeySwitch;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -537,7 +536,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 0, 0);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(1L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(1L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         } else {
             tx.commit();
@@ -546,7 +545,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
             assertValueOnSpecificNodes(tableName, runningNodes, 2, 2);
 
             for (IgniteImpl igniteImpl : runningNodes) {
-                assertEquals(2L, igniteImpl.sql().execute(null, "SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
+                assertEquals(2L, igniteImpl.sql().execute("SELECT count(*) as cnt FROM TABLE_NAME").next().longValue("cnt"));
             }
         }
     }
@@ -647,8 +646,12 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId(node.catalogManager(), testZone), 0);
 
-        blockMessage(cluster, (nodeName, msg) ->
-                blocked.get() && stableKeySwitchMessage(msg, replicationGroupId, assignmentsPending, reached)
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                replicationGroupId,
+                assignmentsPending,
+                (nodeName, message) -> blocked.get(),
+                reached
         );
     }
 }

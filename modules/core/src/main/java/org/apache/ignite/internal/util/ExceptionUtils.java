@@ -754,6 +754,25 @@ public final class ExceptionUtils {
         return false;
     }
 
+    /**
+     * Determine if a particular error matches any of passed error codes.
+     *
+     * @param t Unwrapped throwable.
+     * @param codes The codes list.
+     * @return {@code True} if exception allows retry.
+     */
+    public static boolean matchAny(Throwable t, List<Integer> codes) {
+        int errCode = extractCodeFrom(t);
+
+        for (int c0 : codes) {
+            if (c0 == errCode) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19870
     // This method should be removed or re-worked and usages should be changed to IgniteExceptionMapperUtil.mapToPublicException.
     /**

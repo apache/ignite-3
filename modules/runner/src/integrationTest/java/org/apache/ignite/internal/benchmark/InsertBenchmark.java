@@ -33,6 +33,7 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -178,13 +179,13 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         private int id = 0;
 
         void executeQuery() {
-            try (ResultSet<?> rs = sql.execute(null, statement, id++)) {
+            try (ResultSet<?> rs = sql.execute((Transaction) null, statement, id++)) {
                 // NO-OP
             }
         }
 
         void executeInlinedQuery() {
-            try (ResultSet<?> rs = sql.execute(null, createInsertStatement(id++))) {
+            try (ResultSet<?> rs = sql.execute(createInsertStatement(id++))) {
                 // NO-OP
             }
         }
@@ -218,7 +219,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         private int id = 0;
 
         void executeQuery() {
-            try (ResultSet<?> rs = sql.execute(null, statement, id + 1, id + 2);) {
+            try (ResultSet<?> rs = sql.execute((Transaction) null, statement, id + 1, id + 2);) {
                 id += 2;
             }
         }
@@ -262,7 +263,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         private int id = 0;
 
         void executeQuery() {
-            sql.execute(null, statement, id++);
+            sql.execute((Transaction) null, statement, id++);
         }
     }
 

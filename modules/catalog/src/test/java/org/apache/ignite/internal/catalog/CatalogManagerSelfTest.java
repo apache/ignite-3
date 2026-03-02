@@ -181,7 +181,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         when(updateLogMock.startAsync(componentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(trueCompletedFuture());
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
+        CatalogManagerImpl manager = new CatalogManagerImpl(
+                updateLogMock,
+                clockService,
+                new NoOpFailureManager(),
+                delayDuration::get,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        );
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
         reset(updateLogMock);
@@ -320,7 +326,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         when(updateLogMock.stopAsync(stopComponentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(trueCompletedFuture());
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
+        CatalogManagerImpl manager = new CatalogManagerImpl(
+                updateLogMock,
+                clockService,
+                new NoOpFailureManager(),
+                delayDuration::get,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        );
 
         assertThat(manager.startAsync(startComponentContext), willCompleteSuccessfully());
 

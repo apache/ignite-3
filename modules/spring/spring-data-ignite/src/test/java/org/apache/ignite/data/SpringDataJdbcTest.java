@@ -21,6 +21,7 @@ import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
+import static org.springframework.data.domain.Sort.Direction.ASC;
 
 import java.nio.file.Path;
 import java.util.Collections;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,6 +72,7 @@ import org.springframework.data.util.Streamable;
  */
 @SpringBootTest(classes = TestApplication.class)
 @ExtendWith(WorkDirectoryExtension.class)
+@DisplayNameGeneration(SpringDataVersionDisplayNameGenerator.class)
 public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @WorkDirectory
@@ -89,7 +92,7 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
         cluster = new Cluster(clusterConfiguration);
         cluster.startAndInit(1);
 
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS Person ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS Person ("
                 + "    id INT,"
                 + "    name VARCHAR,"
                 + "    flag BOOLEAN,"
@@ -98,18 +101,18 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
                 + "    Primary key(id)"
                 + ");");
 
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS ROOT ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS ROOT ("
                 + "    ID   BIGINT PRIMARY KEY,"
                 + "    NAME VARCHAR(100)"
                 + ");");
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS INTERMEDIATE ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS INTERMEDIATE ("
                 + "    ID       BIGINT  PRIMARY KEY,"
                 + "    NAME     VARCHAR(100),"
                 + "    ROOT     BIGINT,"
                 + "    ROOT_ID  BIGINT,"
                 + "    ROOT_KEY INTEGER"
                 + ");");
-        cluster.aliveNode().sql().execute(null, "CREATE TABLE IF NOT EXISTS LEAF ("
+        cluster.aliveNode().sql().execute("CREATE TABLE IF NOT EXISTS LEAF ("
                 + "    ID               BIGINT PRIMARY KEY,"
                 + "    NAME             VARCHAR(100),"
                 + "    INTERMEDIATE     BIGINT,"
@@ -675,13 +678,13 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> findAllByExamplePageableSource() {
         return Stream.of(
-                Arguments.of(PageRequest.of(0, 3), 3, 34, asList("3", "4", "100")),
-                Arguments.of(PageRequest.of(1, 10), 10, 10, asList("9", "20", "30")),
-                Arguments.of(PageRequest.of(2, 10), 10, 10, asList("1", "2", "3")),
-                Arguments.of(PageRequest.of(33, 3), 1, 34, Collections.emptyList()),
-                Arguments.of(PageRequest.of(36, 3), 0, 34, Collections.emptyList()),
-                Arguments.of(PageRequest.of(0, 10000), 100, 1, Collections.emptyList()),
-                Arguments.of(PageRequest.of(100, 10000), 0, 1, Collections.emptyList())
+                Arguments.of(PageRequest.of(0, 3, ASC, "id"), 3, 34, asList("3", "4", "100")),
+                Arguments.of(PageRequest.of(1, 10, ASC, "id"), 10, 10, asList("9", "20", "30")),
+                Arguments.of(PageRequest.of(2, 10, ASC, "id"), 10, 10, asList("1", "2", "3")),
+                Arguments.of(PageRequest.of(33, 3, ASC, "id"), 1, 34, Collections.emptyList()),
+                Arguments.of(PageRequest.of(36, 3, ASC, "id"), 0, 34, Collections.emptyList()),
+                Arguments.of(PageRequest.of(0, 10000, ASC, "id"), 100, 1, Collections.emptyList()),
+                Arguments.of(PageRequest.of(100, 10000, ASC, "id"), 0, 1, Collections.emptyList())
         );
     }
 

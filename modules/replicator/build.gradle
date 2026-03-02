@@ -49,6 +49,7 @@ dependencies {
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-configuration-system')
+    integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

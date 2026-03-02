@@ -28,7 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
@@ -48,13 +48,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
 public class LogitLogStorageTest extends BaseLogStorageTest {
-    private LogitLogStorageFactory logStorageFactory;
+    private LogitLogStorageManager logStorageManager;
 
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), path);
-        assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        logStorageManager = new LogitLogStorageManager("test", testStoreOptions(), path);
+        assertThat(logStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.setup();
     }
@@ -72,14 +72,14 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @AfterEach
     @Override
     public void teardown() {
-        assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(logStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.teardown();
     }
 
     @Override
     protected LogStorage newLogStorage() {
-        return logStorageFactory.createLogStorage(uri(), new RaftOptions());
+        return logStorageManager.createLogStorage(uri(), new RaftOptions());
     }
 
     private String uri() {
@@ -144,10 +144,10 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
         logStorage.appendEntries(TestUtils.mockEntries(15));
         logStorage.shutdown();
 
-        Path storagePath = logStorageFactory.resolveLogStoragePath(uri());
+        Path storagePath = logStorageManager.resolveLogStoragePath(uri());
         assertTrue(Files.isDirectory(storagePath));
 
-        logStorageFactory.destroyLogStorage(uri());
+        logStorageManager.destroyLogStorage(uri());
 
         assertFalse(Files.exists(storagePath));
     }

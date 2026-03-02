@@ -114,19 +114,26 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final Object lastSaveUpdateFutureMutex = new Object();
 
     /**
+     * Partition count provider for command update contexts.
+     */
+    private final PartitionCountProvider partitionCountProvider;
+
+    /**
      * Constructor.
      */
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
             FailureProcessor failureProcessor,
-            LongSupplier delayDurationMsSupplier
+            LongSupplier delayDurationMsSupplier,
+            PartitionCountProvider partitionCountProvider
     ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
+        this.partitionCountProvider = partitionCountProvider;
     }
 
     @Override
@@ -258,9 +265,21 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 CreateSchemaCommand.systemSchemaBuilder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
-        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(new UpdateContext(emptyCatalog));
+        var initialEntries = new ArrayList<UpdateEntry>();
 
-        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
+        var context = new UpdateContext(emptyCatalog, partitionCountProvider);
+
+        for (UpdateProducer producer : initCommands) {
+            List<UpdateEntry> entries = producer.get(context);
+
+            for (UpdateEntry entry : entries) {
+                context.updateCatalog(catalog -> entry.applyUpdate(catalog, INITIAL_TIMESTAMP));
+            }
+
+            initialEntries.addAll(entries);
+        }
+
+        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, initialEntries))
                 .handle((result, error) -> {
                     if (error != null && !hasCause(error, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(error, "Unable to create default zone."));
@@ -401,7 +420,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             BitSet applyResults = new BitSet(updateProducers.size());
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
             try {
-                UpdateContext updateContext = new UpdateContext(catalog);
+                UpdateContext updateContext = new UpdateContext(catalog, partitionCountProvider);
                 for (int i = 0; i < updateProducers.size(); i++) {
                     UpdateProducer update = updateProducers.get(i);
                     List<UpdateEntry> entries = update.get(updateContext);
@@ -587,5 +606,4 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 defaultZoneIdOpt(catalog)
         );
     }
-
 }

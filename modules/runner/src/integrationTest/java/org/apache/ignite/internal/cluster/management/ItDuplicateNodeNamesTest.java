@@ -144,8 +144,8 @@ class ItDuplicateNodeNamesTest extends BaseIgniteAbstractTest {
 
         // And the cluster is operational
 
-        metaStorageAndCmgNode.api().sql().execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
-        metaStorageAndCmgNode.api().sql().execute(null, "INSERT INTO TEST VALUES (1, 'foo')");
+        metaStorageAndCmgNode.api().sql().execute("CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
+        metaStorageAndCmgNode.api().sql().execute("INSERT INTO TEST VALUES (1, 'foo')");
         KeyValueView<Integer, String> kvView = secondNode.api().tables().table("TEST").keyValueView(Integer.class, String.class);
         assertThat(kvView.get(null, 1), is("foo"));
     }

@@ -198,6 +198,15 @@ public interface IgniteRelWriter {
     IgniteRelWriter addCorrelatedVariables(Set<CorrelationId> variablesSet);
 
     /**
+     * Adds correlation field names which are set by {@link IgniteCorrelatedNestedLoopJoin}.
+     *
+     * @param correlationColumns Set of columns that are used by correlation.
+     * @param rowType The row type against which field indexes in the correlation columns should be resolved.
+     * @return This writer instance for chaining.
+     */
+    IgniteRelWriter addCorrelationFieldNames(ImmutableBitSet correlationColumns, RelDataType rowType);
+
+    /**
      * Adds search bounds used for index look ups.
      *
      * @param searchBounds List of {@link SearchBounds} representing boundaries of the range scan or point look up.

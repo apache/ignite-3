@@ -16,10 +16,41 @@
  */
 
 package org.apache.ignite.example.serialization;
-
 public class JsonResult {
+    private String originalWord;
+    private String resultWord;
+    private int length;
 
-    String originalWord;
-    String resultWord;
-    int length;
+    public JsonResult() {}
+
+    public JsonResult(String originalWord, String resultWord, int length) {
+        this.originalWord = originalWord;
+        this.resultWord = resultWord;
+        this.length = length;
+    }
+
+    public String getOriginalWord() {
+        return originalWord;
+    }
+
+    public void setOriginalWord(String originalWord) {
+        this.originalWord = originalWord;
+    }
+
+    public String getResultWord() {
+        return resultWord;
+    }
+
+    public void setResultWord(String resultWord) {
+        this.resultWord = resultWord;
+    }
+
+    public int getLength() {
+        return length;
+    }
+
+    public void setLength(int length) {
+        this.length = length;
+    }
 }
+
