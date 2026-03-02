@@ -212,23 +212,23 @@ public class ItPartitionTableStatsMetricTest extends BasePartitionTableStatsMetr
     @Test
     void reachMilestoneUpdateTest() {
         String tableWithReplicas = "test_table";
-        String tableWithoutReplicas = "test_table_no_replicas";
+        String tableNoReplicas = "test_table_no_replicas";
 
         int replicas = initialNodes();
 
         sqlScript(
                 format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tableWithReplicas, ZONE_1_PART_REPLICAS),
-                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tableWithoutReplicas, ZONE_1_PART_NO_REPLICAS),
+                format("CREATE TABLE {}(id INT PRIMARY KEY, val INT) ZONE {};", tableNoReplicas, ZONE_1_PART_NO_REPLICAS),
                 format("INSERT INTO {} VALUES(0, 0);", tableWithReplicas),
-                format("INSERT INTO {} VALUES(0, 0);", tableWithoutReplicas)
+                format("INSERT INTO {} VALUES(0, 0);", tableNoReplicas)
         );
         enableStats(tableWithReplicas);
-        enableStats(tableWithoutReplicas);
+        enableStats(tableNoReplicas);
 
-        expectModsCount(tableWithoutReplicas, 1);
+        expectModsCount(tableNoReplicas, 1);
         expectModsCount(tableWithReplicas, replicas);
 
-        long initTsNoReplicas = metricFromAnyNode(tableWithoutReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP);
+        long initTsNoReplicas = metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP);
         long initTsWithReplicas = metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP);
 
         long modsCount = DEFAULT_MIN_STALE_ROWS_COUNT / 2;
@@ -237,19 +237,19 @@ public class ItPartitionTableStatsMetricTest extends BasePartitionTableStatsMetr
         {
             for (int i = 0; i < modsCount; i++) {
                 sql(format("UPDATE  {} SET VAL=?", tableWithReplicas), i);
-                sql(format("UPDATE  {} SET VAL=?", tableWithoutReplicas), i);
+                sql(format("UPDATE  {} SET VAL=?", tableNoReplicas), i);
             }
 
             long expectedModsCount = 1 + modsCount;
 
-            expectModsCount(tableWithoutReplicas, expectedModsCount);
+            expectModsCount(tableNoReplicas, expectedModsCount);
             expectModsCount(tableWithReplicas, expectedModsCount * replicas);
 
             // Timestamp should not change as we did not reach the threshold.
-            assertThat(metricFromAnyNode(tableWithoutReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), is(initTsNoReplicas));
+            assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), is(initTsNoReplicas));
             assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), is(initTsWithReplicas));
 
-            assertThat(metricFromAnyNode(tableWithoutReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT));
+            assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT));
             assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT));
         }
 
@@ -257,17 +257,17 @@ public class ItPartitionTableStatsMetricTest extends BasePartitionTableStatsMetr
         {
             for (int i = 0; i < modsCount; i++) {
                 sql(format("UPDATE  {} SET VAL=?", tableWithReplicas), i);
-                sql(format("UPDATE  {} SET VAL=?", tableWithoutReplicas), i);
+                sql(format("UPDATE  {} SET VAL=?", tableNoReplicas), i);
             }
 
             long expectedModsCount = 1 + modsCount + modsCount;
 
-            expectModsCount(tableWithoutReplicas, expectedModsCount);
+            expectModsCount(tableNoReplicas, expectedModsCount);
             expectModsCount(tableWithReplicas, expectedModsCount * replicas);
 
             // Timestamp should change because we reached the threshold.
             Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableWithoutReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), greaterThan(initTsNoReplicas))
+                    assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP), greaterThan(initTsNoReplicas))
             );
             Awaitility.await().untilAsserted(() ->
                     assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_LAST_MILESTONE_TIMESTAMP),
@@ -275,7 +275,7 @@ public class ItPartitionTableStatsMetricTest extends BasePartitionTableStatsMetr
             );
 
             Awaitility.await().untilAsserted(() ->
-                    assertThat(metricFromAnyNode(tableWithoutReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2))
+                    assertThat(metricFromAnyNode(tableNoReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2))
             );
             Awaitility.await().untilAsserted(() ->
                     assertThat(metricFromAnyNode(tableWithReplicas, 0, METRIC_NEXT_MILESTONE), is(DEFAULT_MIN_STALE_ROWS_COUNT * 2))
