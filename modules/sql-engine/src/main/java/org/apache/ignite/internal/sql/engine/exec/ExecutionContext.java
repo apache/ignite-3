@@ -36,6 +36,7 @@ import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -63,6 +64,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ExecutionContext<RowT> implements SqlEvaluationContext<RowT> {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
+
+    public static final boolean DUMP_METRICS = IgniteSystemProperties.getBoolean("IGNITE_DUMP_QUERY_METRICS_TO_LOGS", false);
 
     /**
      * TODO: https://issues.apache.org/jira/browse/IGNITE-15276 Support other locales.

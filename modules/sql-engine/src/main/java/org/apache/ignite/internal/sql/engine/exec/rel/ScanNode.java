@@ -66,6 +66,8 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
 
+        onRequestReceived();
+
         requested = rowsCnt;
 
         if (!inLoop) {

@@ -63,6 +63,7 @@ import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for persistent case.
@@ -99,6 +100,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private final Object leaseInfoLock = new Object();
 
+    /** RunConsistently metrics. */
+    private final RunConsistentlyMetrics runConsistentlyMetrics;
+
     /**
      * Constructor.
      *
@@ -110,6 +114,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
      * @param failureProcessor Failure processor.
+     * @param runConsistentlyMetrics Metric source for runConsistently operations.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -120,7 +125,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
             ExecutorService destructionExecutor,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            RunConsistentlyMetrics runConsistentlyMetrics
     ) {
         super(
                 partitionId,
@@ -166,6 +172,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+
+        this.runConsistentlyMetrics = runConsistentlyMetrics;
     }
 
     /**
@@ -193,23 +201,41 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             return busy(() -> {
                 throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-                LocalLocker locker0 = new PersistentPageMemoryLocker();
+                boolean metricsEnabled = runConsistentlyMetrics.enabled();
+                long startTime = metricsEnabled ? System.nanoTime() : 0;
 
-                checkpointTimeoutLock.checkpointReadLock();
-
-                THREAD_LOCAL_LOCKER.set(locker0);
+                if (metricsEnabled) {
+                    runConsistentlyMetrics.onRunConsistentlyStarted();
+                }
 
                 try {
-                    return closure.execute(locker0);
+                    return executeRunConsistently(closure);
                 } finally {
-                    THREAD_LOCAL_LOCKER.set(null);
-
-                    // Can't throw any exception, it's safe to do it without try/finally.
-                    locker0.unlockAll();
-
-                    checkpointTimeoutLock.checkpointReadUnlock();
+                    if (metricsEnabled) {
+                        runConsistentlyMetrics.recordRunConsistentlyDuration(System.nanoTime() - startTime);
+                        runConsistentlyMetrics.onRunConsistentlyFinished();
+                    }
                 }
             });
+        }
+    }
+
+    private <V> V executeRunConsistently(WriteClosure<V> closure) {
+        LocalLocker locker0 = new PersistentPageMemoryLocker();
+
+        checkpointTimeoutLock.checkpointReadLock();
+
+        THREAD_LOCAL_LOCKER.set(locker0);
+
+        try {
+            return closure.execute(locker0);
+        } finally {
+            THREAD_LOCAL_LOCKER.set(null);
+
+            // Can't throw any exception, it's safe to do it without try/finally.
+            locker0.unlockAll();
+
+            checkpointTimeoutLock.checkpointReadUnlock();
         }
     }
 
@@ -435,6 +461,12 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     boolean writeIntentHeadIsLockedByCurrentThread() {
         return wiHeadLock.isHeldByCurrentThread();
+    }
+
+    /** Returns the runConsistently metrics for testing. */
+    @TestOnly
+    RunConsistentlyMetrics runConsistentlyMetrics() {
+        return runConsistentlyMetrics;
     }
 
     @Override
