@@ -165,9 +165,9 @@ class LeaderAvailabilityState {
      * <p>This is an optimistic cache update used when a response or redirect provides leader information
      * without a term change. Has no effect after stop.
      *
-     * @param leader The leader peer hint (may be {@code null} to clear).
+     * @param leader The cached leader peer (may be {@code null} to clear).
      */
-    void setLeaderHint(@Nullable Peer leader) {
+    void setCachedLeader(@Nullable Peer leader) {
         synchronized (mutex) {
             if (stopped) {
                 return;
@@ -289,7 +289,7 @@ class LeaderAvailabilityState {
      * <ul>
      *     <li>{@link #awaitLeader()} returns a failed future</li>
      *     <li>{@link #updateKnownLeaderAndTerm} is ignored</li>
-     *     <li>{@link #setLeaderHint} is ignored</li>
+     *     <li>{@link #setCachedLeader} is ignored</li>
      *     <li>{@link #onGroupUnavailable} is ignored</li>
      * </ul>
      *

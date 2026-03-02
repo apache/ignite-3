@@ -169,7 +169,7 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         state.onGroupUnavailable(expectedTerm);
         assertEquals(State.WAITING_FOR_LEADER, state.currentState());
         assertEquals(expectedTerm, state.currentTerm());
-        // Leader hint is intentionally preserved for retry to old leader as a first guess.
+        // Cached leader is intentionally preserved for retry to old leader as a first guess.
         assertEquals(peer, state.leader());
     }
 
@@ -462,15 +462,15 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertTrue(state.stopped());
     }
 
-    /** {@link LeaderAvailabilityState#setLeaderHint(Peer)} updates the cached leader without changing term or state. */
+    /** {@link LeaderAvailabilityState#setCachedLeader(Peer)} updates the cached leader without changing term or state. */
     @Test
-    void testSetLeaderHint() {
+    void testSetCachedLeader() {
         LeaderAvailabilityState state = new LeaderAvailabilityState();
         Peer peerA = new Peer("peer-a");
         Peer peerB = new Peer("peer-b");
 
         // setLeaderHint works even before any updateKnownLeaderAndTerm call.
-        state.setLeaderHint(peerB);
+        state.setCachedLeader(peerB);
         assertEquals(peerB, state.leader());
 
         // updateKnownLeaderAndTerm overwrites hint.
@@ -478,19 +478,19 @@ public class LeaderAvailabilityStateTest extends BaseIgniteAbstractTest {
         assertEquals(peerA, state.leader());
 
         // setLeaderHint overwrites updateKnownLeaderAndTerm's peer.
-        state.setLeaderHint(peerB);
+        state.setCachedLeader(peerB);
         assertEquals(peerB, state.leader());
 
         // null clears the leader.
-        state.setLeaderHint(null);
+        state.setCachedLeader(null);
         assertNull(state.leader());
 
         // No-op after stop.
-        state.setLeaderHint(peerA);
+        state.setCachedLeader(peerA);
         assertEquals(peerA, state.leader());
         state.stop(new RuntimeException("Test shutdown"));
 
-        state.setLeaderHint(peerB);
+        state.setCachedLeader(peerB);
         assertEquals(peerA, state.leader());
     }
 

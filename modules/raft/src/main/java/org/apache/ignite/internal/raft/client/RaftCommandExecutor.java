@@ -275,12 +275,12 @@ class RaftCommandExecutor {
     }
 
     /**
-     * Sets the current leader hint. Used by PhysicalTopologyAwareRaftGroupService to update state from response.
+     * Sets the current cached leader. Used by PhysicalTopologyAwareRaftGroupService to update state from response.
      *
      * @param leader New leader.
      */
     void setLeader(@Nullable Peer leader) {
-        leaderAvailabilityState.setLeaderHint(leader);
+        leaderAvailabilityState.setCachedLeader(leader);
     }
 
     /**
@@ -641,7 +641,7 @@ class RaftCommandExecutor {
                 // response means the target peer is the leader. For RANDOM/SPECIFIC strategies,
                 // the target peer is not necessarily the leader.
                 if (strategy.targetSelectionStrategy() == TargetPeerStrategy.LEADER) {
-                    leaderAvailabilityState.setLeaderHint(retryContext.targetPeer());
+                    leaderAvailabilityState.setCachedLeader(retryContext.targetPeer());
                 }
                 fut.complete((R) resp);
             }
@@ -1093,7 +1093,7 @@ class RaftCommandExecutor {
 
         switch (error) {
             case SUCCESS:
-                leaderAvailabilityState.setLeaderHint(retryContext.targetPeer());
+                leaderAvailabilityState.setCachedLeader(retryContext.targetPeer());
                 fut.complete(null);
                 break;
 
@@ -1146,7 +1146,7 @@ class RaftCommandExecutor {
                         throw new IllegalStateException("parsePeer returned null for non-null leaderId: " + resp.leaderId());
                     }
 
-                    leaderAvailabilityState.setLeaderHint(leaderPeer);
+                    leaderAvailabilityState.setCachedLeader(leaderPeer);
                     strategy.executeRetry(retryContext, leaderPeer, PeerTracking.COMMON, reason);
                 }
                 break;
