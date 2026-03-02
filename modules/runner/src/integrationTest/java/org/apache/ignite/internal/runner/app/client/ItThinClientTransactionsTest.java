@@ -1519,20 +1519,17 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         ClientLazyTransaction txProxy = (ClientLazyTransaction) client().transactions().begin();
 
         Tuple key = tuples0.get(1);
-        Tuple key2 = tuples0.get(2);
         Tuple key3 = tuples1.get(0);
 
         assertThat(ctx.put.apply(client(), txProxy, key), willSucceedFast()); // Proxy mode.
 
         assertThat(ctx.put.apply(client(), txProxy, key3), willSucceedFast()); // Direct mode.
 
-        ClientTransaction tx = txProxy.startedTx();
-        tx.channel().close();
-
+        Tuple key2 = Tuple.create().set("id1", "1"); // Intentionally use wrong schema.
         assertThat(ctx.put.apply(client(), txProxy, key2), willThrowWithCauseOrSuppressed(IgniteException.class));
 
         // Ensure all enlisted keys are unlocked.
-        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2, key3)), willSucceedFast());
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key3)), willSucceedFast());
     }
 
     @AfterEach
@@ -1605,12 +1602,12 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     private static CompletableFuture<?> putSql(IgniteClient client, Transaction tx, Tuple key) {
         return client.sql()
-                .executeAsync(tx, format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL), key.intValue(0),
-                        key.intValue(0) + "");
+                .executeAsync(tx, format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL), key.value(0),
+                        key.value(0) + "");
     }
 
     private static CompletableFuture<?> putKv(IgniteClient client, Transaction tx, Tuple key) {
-        return client.tables().tables().get(0).keyValueView().putAsync(tx, key, val(key.intValue(0) + ""));
+        return client.tables().tables().get(0).keyValueView().putAsync(tx, key, val(key.value(0) + ""));
     }
 
     private static class KillTestContext {
