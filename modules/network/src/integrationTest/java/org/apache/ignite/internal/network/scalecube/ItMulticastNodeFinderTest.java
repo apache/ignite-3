@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.scalecube;
 
 import static org.apache.ignite.internal.network.MulticastNodeFinder.MAX_TTL;
 import static org.apache.ignite.internal.network.MulticastNodeFinder.UNSPECIFIED_TTL;
+import static org.apache.ignite.internal.network.MulticastNodeFinder.isReservedMacOsInterface;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -85,10 +86,10 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         int nodeCount = 5;
         List<NetworkAddress> addresses = findLocalAddresses(INIT_PORT, INIT_PORT + nodeCount);
 
-        for (int i = 0; i < addresses.size(); i++) {
-            NodeFinder finder = startMulticastNodeFinder(addresses.get(i), ttl);
+        for (NetworkAddress address : addresses) {
+            NodeFinder finder = startMulticastNodeFinder(address, ttl);
             finders.add(finder);
-            services.add(startNetwork(addresses.get(i), finder));
+            services.add(startNetwork(address, finder));
         }
 
         for (ClusterService service : services) {
@@ -99,10 +100,10 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
         int idx0 = 0;
         int idx2 = 2;
 
-        assertThat(services.get(idx0).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), services.get(idx0)), willCompleteSuccessfully());
         finders.get(idx0).close();
 
-        assertThat(services.get(idx2).stopAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), services.get(idx2)), willCompleteSuccessfully());
         finders.get(idx2).close();
 
         NodeFinder nodeFinder0 = startMulticastNodeFinder(addresses.get(idx0), ttl);
@@ -123,6 +124,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
 
     private static NodeFinder startMulticastNodeFinder(NetworkAddress addr, int ttl) throws SocketException {
         Set<NetworkAddress> addressesToAdvertise = NetworkInterface.networkInterfaces()
+                .filter(itf -> !isReservedMacOsInterface(itf))
                 .flatMap(NetworkInterface::inetAddresses)
                 .map(address -> new NetworkAddress(address.getHostName(), addr.port()))
                 .collect(Collectors.toUnmodifiableSet());

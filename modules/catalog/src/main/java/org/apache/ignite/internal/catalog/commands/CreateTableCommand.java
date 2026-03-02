@@ -143,7 +143,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         List<UpdateEntry> updateEntries = new ArrayList<>(5);
 
         CatalogZoneDescriptor zone = shouldCreateNewDefaultZone(catalog, zoneName)
-                ? createDefaultZoneDescriptor(catalog, id++, updateEntries)
+                ? createDefaultZoneDescriptor(catalog, updateContext.partitionCountProvider(), id++, updateEntries)
                 : zoneByNameOrDefaultOrThrow(catalog, zoneName);
 
         assert zone != null;

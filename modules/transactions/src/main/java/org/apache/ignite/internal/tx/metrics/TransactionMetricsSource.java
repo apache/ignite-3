@@ -21,18 +21,23 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
+import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.Holder;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Transaction metric source, that contains a set of transaction metrics.
  **/
-public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
+public class TransactionMetricsSource extends AbstractMetricSource<TransactionMetricsSource.Holder> {
+    /** Metric name for unresolved write intents. */
+    public static final String METRIC_PENDING_WRITE_INTENTS = "PendingWriteIntents";
+
     /** Histogram buckets for duration metrics in milliseconds. */
     private static final long[] HISTOGRAM_BUCKETS =
             {1, 2, 4, 8, 16, 25, 50, 75, 100, 250, 500, 750, 1000, 3000, 5000, 10000, 25000, 60000};
@@ -43,6 +48,8 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     /** Clock service to calculate a timestamp for rolled back transactions. */
     private final ClockService clockService;
 
+    private volatile LongSupplier pendingWriteIntentsSupplier = () -> 0L;
+
     /**
      * Creates a new instance of {@link TransactionMetricsSource}.
      */
@@ -50,6 +57,15 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
         super(SOURCE_NAME, "Transaction metrics.");
 
         this.clockService = clockService;
+    }
+
+    /**
+     * Sets a supplier of the total number of unresolved (uncommitted) write intents local to this node.
+     *
+     * @param supplier Supplier, or {@code null} to reset to default (always returns {@code 0}).
+     */
+    public void setPendingWriteIntentsSupplier(@Nullable LongSupplier supplier) {
+        pendingWriteIntentsSupplier = supplier == null ? () -> 0L : supplier;
     }
 
     /**
@@ -145,7 +161,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
 
     @Override
     protected Holder createHolder() {
-        return new Holder();
+        return new Holder(() -> pendingWriteIntentsSupplier.getAsLong());
     }
 
     private long calculateTransactionDuration(UUID transactionId) {
@@ -193,15 +209,29 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
                 "Active",
                 "Number of running transactions.");
 
-        private final List<Metric> metrics = List.of(
-                totalCommits,
-                rwCommits,
-                roCommits,
-                totalRollbacks,
-                rwRollbacks,
-                roRollbacks,
-                rwDuration,
-                roDuration);
+        private final LongGauge pendingWriteIntents;
+
+        private final List<Metric> metrics;
+
+        private Holder(LongSupplier pendingWriteIntentsSupplier) {
+            pendingWriteIntents = new LongGauge(
+                    METRIC_PENDING_WRITE_INTENTS,
+                    "Total number of unresolved write intents across all local partitions on this node.",
+                    pendingWriteIntentsSupplier
+            );
+
+            metrics = List.of(
+                    totalCommits,
+                    rwCommits,
+                    roCommits,
+                    totalRollbacks,
+                    rwRollbacks,
+                    roRollbacks,
+                    rwDuration,
+                    roDuration,
+                    pendingWriteIntents
+            );
+        }
 
         @Override
         public Iterable<Metric> metrics() {

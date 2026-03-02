@@ -535,6 +535,15 @@ public class StorageUpdateHandler {
     }
 
     /**
+     * Returns the total number of unresolved write intents across all transactions.
+     *
+     * @return Total number of pending row IDs.
+     */
+    public long getPendingRowCount() {
+        return pendingRows.getPendingRowCount();
+    }
+
+    /**
      * Performs add of the committed row version. If a write intent is detected on the first attempt and {@code lastCommitTs} is not
      * {@code null}, it will be cleared before the second attempt. Otherwise, {@link StorageException} will be thrown.
      */

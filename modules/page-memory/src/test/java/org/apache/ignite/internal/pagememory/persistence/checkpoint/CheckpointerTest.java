@@ -70,9 +70,11 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.DirtyFullPageId;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PageWriteTarget;
 import org.apache.ignite.internal.pagememory.persistence.PartitionDestructionLockManager;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -138,7 +140,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointConfig,
                 mock(LogSyncer.class),
                 partitionDestructionLockManager,
-                new CheckpointMetricSource("test")
+                new CollectionMetricSource("test", "storage", null)
         );
 
         assertNull(checkpointer.runner());
@@ -181,7 +183,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointConfig,
                 mock(LogSyncer.class),
                 new PartitionDestructionLockManager(),
-                new CheckpointMetricSource("test")
+                new CollectionMetricSource("test", "storage", null)
         ));
 
         assertNull(checkpointer.lastCheckpointProgress());
@@ -289,7 +291,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointConfig,
                 mock(LogSyncer.class),
                 new PartitionDestructionLockManager(),
-                new CheckpointMetricSource("test")
+                new CollectionMetricSource("test", "storage", null)
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -324,7 +326,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointConfig,
                 mock(LogSyncer.class),
                 partitionDestructionLockManager,
-                new CheckpointMetricSource("test")
+                new CollectionMetricSource("test", "storage", null)
         ));
 
         checkpointer.scheduledProgress()
@@ -427,7 +429,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointConfig,
                 mockLogSyncer,
                 partitionDestructionLockManager,
-                new CheckpointMetricSource("test")
+                new CollectionMetricSource("test", "storage", null)
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -466,7 +468,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointConfig,
                 mock(LogSyncer.class),
                 partitionDestructionLockManager,
-                new CheckpointMetricSource("test")
+                new CollectionMetricSource("test", "storage", null)
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -495,7 +497,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointConfig,
                 mock(LogSyncer.class),
                 new PartitionDestructionLockManager(),
-                new CheckpointMetricSource("test")
+                new CollectionMetricSource("test", "storage", null)
         );
 
         // Checks case 0 deviation.
@@ -566,9 +568,12 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
     private static CheckpointPagesWriterFactory createCheckpointPagesWriterFactory(
             PartitionMetaManager partitionMetaManager,
             PartitionDestructionLockManager partitionDestructionLockManager
-    ) {
+    ) throws Exception {
+        WriteDirtyPage writeDirtyPage = mock(WriteDirtyPage.class);
+        when(writeDirtyPage.write(any(), any(), any())).thenReturn(PageWriteTarget.MAIN_FILE);
+
         return new CheckpointPagesWriterFactory(
-                mock(WriteDirtyPage.class),
+                writeDirtyPage,
                 ioRegistry,
                 partitionMetaManager,
                 PAGE_SIZE,

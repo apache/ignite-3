@@ -21,6 +21,7 @@ import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.core.ItNodeTest.waitForTopologyOnEveryNode;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -150,7 +151,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(clientSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(stopAsync(new ComponentContext(), clientSvc), willCompleteSuccessfully());
             }
         };
 

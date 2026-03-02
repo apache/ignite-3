@@ -325,7 +325,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         IgniteInternalException exception = (IgniteInternalException) assertThrows(
                 IgniteInternalException.class,
                 () -> startManager(4000),
-                "Failed to start the connection manager: Cannot start server at address=, port=4000"
+                "Failed to start the connection manager: Cannot start server at address=0.0.0.0, port=4000"
         );
 
         assertEquals("IGN-NETWORK-2", exception.codeAsString());
@@ -557,11 +557,19 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
+            var localBindAddress = new InetSocketAddress(port);
+
+            var localNode = new ClusterNodeImpl(
+                    launchId,
+                    consistentId,
+                    new NetworkAddress(localBindAddress.getHostName(), port)
+            );
+
             var manager = new ConnectionManager(
                     cfg,
                     new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                    consistentId,
-                    launchId,
+                    localBindAddress,
+                    localNode,
                     bootstrapFactory,
                     new AllIdsAreFresh(),
                     withoutClusterId(),
@@ -572,11 +580,6 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             );
 
             manager.start();
-            manager.setLocalNode(new ClusterNodeImpl(
-                    launchId,
-                    consistentId,
-                    new NetworkAddress(manager.localBindAddress().getHostName(), port)
-            ));
 
             var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory, launchId);
 

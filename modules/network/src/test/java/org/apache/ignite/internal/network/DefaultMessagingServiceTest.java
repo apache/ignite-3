@@ -41,6 +41,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -601,18 +603,6 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         ClassDescriptorFactory classDescriptorFactory = new ClassDescriptorFactory(classDescriptorRegistry);
         UserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(classDescriptorRegistry, classDescriptorFactory);
 
-        DefaultMessagingService messagingService = new DefaultMessagingService(
-                node.name(),
-                networkMessagesFactory,
-                topologyService,
-                staleIdDetector,
-                classDescriptorRegistry,
-                marshaller,
-                criticalWorkerRegistry,
-                failureProcessor,
-                channelTypeRegistry
-        );
-
         SerializationService serializationService = new SerializationService(
                 registry,
                 new UserObjectSerializationContext(classDescriptorRegistry, classDescriptorFactory, marshaller)
@@ -621,6 +611,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         String eventLoopGroupNamePrefix = node.name() + "-event-loop";
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
+
         assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConnectionManager connectionManager = new TestConnectionManager(
@@ -632,10 +623,22 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 beforeHandshake
         );
-        connectionManager.start();
-        connectionManager.setLocalNode(node);
 
-        messagingService.setConnectionManager(connectionManager);
+        DefaultMessagingService messagingService = new DefaultMessagingService(
+                node.name(),
+                networkMessagesFactory,
+                topologyService,
+                staleIdDetector,
+                classDescriptorRegistry,
+                marshaller,
+                criticalWorkerRegistry,
+                failureProcessor,
+                connectionManager,
+                new NoOpMetricManager(),
+                channelTypeRegistry
+        );
+
+        connectionManager.start();
 
         messagingService.start();
 
@@ -657,8 +660,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             super(
                     networkConfig.value(),
                     serializationService,
-                    node.name(),
-                    node.id(),
+                    new InetSocketAddress(node.address().host(), node.address().port()),
+                    node,
                     bootstrapFactory,
                     staleIdDetector,
                     clusterIdSupplier,

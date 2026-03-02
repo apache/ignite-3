@@ -89,7 +89,7 @@ Create a `docker-compose.yml` file in your working directory:
 name: ignite3
 
 x-ignite-def: &ignite-def
-  image: apacheignite/ignite:3.0.0
+  image: apacheignite/ignite:3.1.0
   environment:
     JVM_MAX_MEM: "4g"
     JVM_MIN_MEM: "4g"
@@ -146,7 +146,7 @@ configs:
 
 The `node_config` configuration in the Docker Compose file:
 
-- Adds a storage profile named `rocksDbProfile` that uses the RocksDB engine;
+- Adds a storage profile named `rocksDbProfile` that uses the RocksDB engine.
 - Sets the storage size to 256MB (268435456 bytes) by default.
 - Stores persistent data in the `data` directory where Docker was run.
 

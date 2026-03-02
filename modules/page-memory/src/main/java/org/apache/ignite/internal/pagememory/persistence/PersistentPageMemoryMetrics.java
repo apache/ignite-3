@@ -33,7 +33,7 @@ import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 
 /** Persistent page memory metrics. */
-class PersistentPageMemoryMetrics implements PageCacheMetrics {
+public class PersistentPageMemoryMetrics implements PageCacheMetrics {
     private static final long[] PAGE_ACQUISITIONS_BOUNDS_NANOS = {
             1_000,         // 1µs   - cache hit
             100_000,       // 100µs - page cache miss, fast SSD
@@ -152,5 +152,50 @@ class PersistentPageMemoryMetrics implements PageCacheMetrics {
     @Override
     public void incrementPageReplacement() {
         pageReplacements.increment();
+    }
+
+    /**
+     * Returns the total number of page cache hits since the last restart.
+     *
+     * @return Number of page cache hits.
+     */
+    public long cacheHits() {
+        return pageCacheHitsTotal.value();
+    }
+
+    /**
+     * Returns the total number of page cache misses since the last restart.
+     *
+     * @return Number of page cache misses.
+     */
+    public long cacheMisses() {
+        return pageCacheMisses.value();
+    }
+
+    /**
+     * Returns the total number of page replacements since the last restart.
+     *
+     * @return Number of page replacements.
+     */
+    public long replacements() {
+        return pageReplacements.value();
+    }
+
+    /**
+     * Returns the total number of pages read from disk since the last restart.
+     *
+     * @return Number of pages read from disk.
+     */
+    public long pagesRead() {
+        return readPagesFromDisk.value();
+    }
+
+    /**
+     * Returns the total number of pages written to disk since the last restart.
+     *
+     * @return Number of pages written to disk.
+     */
+    public long pagesWritten() {
+        return writePagesToDisk.value();
     }
 }

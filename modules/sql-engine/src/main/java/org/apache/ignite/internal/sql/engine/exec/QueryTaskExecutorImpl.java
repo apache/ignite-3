@@ -88,7 +88,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
                 0
         );
 
-        metricManager.registerSource(new StripedThreadPoolMetricSource(QUERY_EXECUTOR_SOURCE_NAME, null, stripedThreadPoolExecutor));
+        metricManager.registerSource(new StripedThreadPoolMetricSource<>(QUERY_EXECUTOR_SOURCE_NAME, null, stripedThreadPoolExecutor));
         metricManager.enable(QUERY_EXECUTOR_SOURCE_NAME);
     }
 

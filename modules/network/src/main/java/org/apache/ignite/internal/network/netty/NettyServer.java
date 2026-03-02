@@ -31,6 +31,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,7 +45,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
-import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
@@ -64,8 +64,8 @@ public class NettyServer {
     /** Bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
 
-    /** Server socket configuration. */
-    private final NetworkView configuration;
+    /** Server socket address. */
+    private final InetSocketAddress bindAddress;
 
     /** Serialization service. */
     private final SerializationService serializationService;
@@ -99,7 +99,7 @@ public class NettyServer {
     /**
      * Constructor.
      *
-     * @param configuration Server configuration.
+     * @param bindAddress Server socket address.
      * @param handshakeManager Handshake manager supplier.
      * @param messageListener Message listener.
      * @param serializationService Serialization service.
@@ -107,14 +107,14 @@ public class NettyServer {
      * @param sslContext Server SSL context, {@code null} if SSL is not {@link SslConfigurationSchema#enabled}.
      */
     public NettyServer(
-            NetworkView configuration,
+            InetSocketAddress bindAddress,
             Supplier<HandshakeManager> handshakeManager,
             Consumer<InNetworkObject> messageListener,
             SerializationService serializationService,
             NettyBootstrapFactory bootstrapFactory,
             @Nullable SslContext sslContext
     ) {
-        this.configuration = configuration;
+        this.bindAddress = bindAddress;
         this.handshakeManager = handshakeManager;
         this.messageListener = messageListener;
         this.serializationService = serializationService;
@@ -157,31 +157,19 @@ public class NettyServer {
                 }
             });
 
-            int port = configuration.port();
-            String[] addresses = configuration.listenAddresses();
-
             var bindFuture = new CompletableFuture<Channel>();
 
-            ChannelFuture channelFuture;
-            if (addresses.length == 0) {
-                channelFuture = bootstrap.bind(port);
-            } else {
-                if (addresses.length > 1) {
-                    // TODO: IGNITE-22369 - support more than one listen address.
-                    throw new IgniteException(INTERNAL_ERR, "Only one listen address is allowed for now, but got " + List.of(addresses));
-                }
-
-                channelFuture = bootstrap.bind(addresses[0], port);
-            }
-
-            channelFuture.addListener((ChannelFuture future) -> {
+            bootstrap.bind(bindAddress).addListener((ChannelFuture future) -> {
                 if (future.isSuccess()) {
                     bindFuture.complete(future.channel());
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    String address = addresses.length == 0 ? "" : addresses[0];
-                    String errorMessage = "Cannot start server at address=" + address + ", port=" + port;
+                    String errorMessage = String.format(
+                            "Cannot start server at address=%s, port=%d",
+                            bindAddress.getHostString(), bindAddress.getPort()
+                    );
+
                     bindFuture.completeExceptionally(new IgniteException(BIND_ERR, errorMessage, future.cause()));
                 }
             });

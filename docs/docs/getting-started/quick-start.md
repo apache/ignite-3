@@ -53,7 +53,7 @@ unzip -xf ignite3-3.0.0.zip
 </TabItem>
 </Tabs>
 
-Now you should have the `ignite3-db-3.0.0` and `ignite3-cli-3.0.0` directories that we will be using in this tutorial, and the license file provided via e-mail.
+Now you should have the `ignite3-db-3.1.0` and `ignite3-cli-3.1.0` directories that we will be using in this tutorial.
 
 ## Start Ignite Node
 

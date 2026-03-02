@@ -155,7 +155,7 @@ class RaftLogCheckpointer {
 
                     segmentFile.sync();
 
-                    indexFileManager.saveIndexMemtable(entry.memTable());
+                    indexFileManager.saveNewIndexMemtable(entry.memTable());
 
                     queue.removeHead();
                 } catch (InterruptedException | ClosedByInterruptException e) {

@@ -50,9 +50,15 @@ internal static class ComputePacker
     /// <param name="w">Packer.</param>
     /// <param name="obj">Arg.</param>
     /// <param name="marshaller">Marshaller.</param>
+    /// <param name="observableTimestamp">Observable timestamp. Not packed when null.</param>
     /// <typeparam name="T">Arg type.</typeparam>
-    internal static void PackArgOrResult<T>(ref MsgPackWriter w, T obj, IMarshaller<T>? marshaller)
+    internal static void PackArgOrResult<T>(ref MsgPackWriter w, T obj, IMarshaller<T>? marshaller, long? observableTimestamp = null)
     {
+        if (observableTimestamp != null)
+        {
+            w.Write(observableTimestamp.Value);
+        }
+
         if (obj == null)
         {
             w.WriteNil();

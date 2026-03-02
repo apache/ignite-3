@@ -32,9 +32,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -129,6 +132,7 @@ class IndexFileManager {
     /**
      * Index file metadata grouped by Raft Group ID.
      */
+    // FIXME: This map is never cleaned up, see https://issues.apache.org/jira/browse/IGNITE-27926.
     private final Map<Long, GroupIndexMeta> groupIndexMetas = new ConcurrentHashMap<>();
 
     IndexFileManager(Path baseDir) throws IOException {
@@ -151,7 +155,7 @@ class IndexFileManager {
         return indexFilesDir;
     }
 
-    void cleanupTmpFiles() throws IOException {
+    void cleanupLeftoverFiles() throws IOException {
         try (Stream<Path> indexFiles = Files.list(indexFilesDir)) {
             Iterator<Path> it = indexFiles.iterator();
 
@@ -172,19 +176,34 @@ class IndexFileManager {
      *
      * <p>Must only be called by the checkpoint thread.
      */
-    Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
-        return saveIndexMemtable(indexMemTable, ++curFileOrdinal, false);
+    Path saveNewIndexMemtable(ReadModeIndexMemTable indexMemTable) throws IOException {
+        var newFileProperties = new FileProperties(++curFileOrdinal);
+
+        Path indexFilePath = indexFilePath(newFileProperties);
+
+        List<IndexMetaSpec> metaSpecs = saveIndexMemtable(indexFilePath, indexMemTable, newFileProperties);
+
+        metaSpecs.forEach(this::putIndexFileMeta);
+
+        return indexFilePath;
     }
 
-    private Path saveIndexMemtable(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) throws IOException {
-        String fileName = indexFileName(fileOrdinal, 0);
+    private List<IndexMetaSpec> saveIndexMemtable(
+            Path indexFilePath,
+            ReadModeIndexMemTable indexMemTable,
+            FileProperties fileProperties
+    ) throws IOException {
+        String fileName = indexFilePath.getFileName().toString();
 
         Path tmpFilePath = indexFilesDir.resolve(fileName + TMP_FILE_SUFFIX);
 
-        try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
-            byte[] headerBytes = serializeHeaderAndFillMetadata(indexMemTable, fileOrdinal, onRecovery);
+        assert !Files.exists(indexFilesDir.resolve(fileName)) : "Index file already exists: " + fileName;
+        assert !Files.exists(tmpFilePath) : "Temporary index file already exists: " + tmpFilePath;
 
-            os.write(headerBytes);
+        FileHeaderWithIndexMetas fileHeaderWithIndexMetas = serializeHeaderAndFillMetadata(indexMemTable, fileProperties);
+
+        try (var os = new BufferedOutputStream(Files.newOutputStream(tmpFilePath, CREATE_NEW, WRITE))) {
+            os.write(fileHeaderWithIndexMetas.header());
 
             Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
 
@@ -198,15 +217,43 @@ class IndexFileManager {
             }
         }
 
-        return syncAndRename(tmpFilePath, tmpFilePath.resolveSibling(fileName));
+        syncAndRename(tmpFilePath, tmpFilePath.resolveSibling(fileName));
+
+        return fileHeaderWithIndexMetas.indexMetas();
     }
 
     /**
      * This method is intended to be called during {@link SegmentFileManager} recovery in order to create index files that may have been
      * lost due to a component stop before a checkpoint was able to complete.
      */
-    void recoverIndexFile(ReadModeIndexMemTable indexMemTable, int fileOrdinal) throws IOException {
-        saveIndexMemtable(indexMemTable, fileOrdinal, true);
+    void recoverIndexFile(ReadModeIndexMemTable indexMemTable, FileProperties fileProperties) throws IOException {
+        // On recovery we are only creating missing index files, in-memory meta will be created on Index File Manager start.
+        // (see recoverIndexFileMetas).
+        saveIndexMemtable(indexFilePath(fileProperties), indexMemTable, fileProperties);
+    }
+
+    Path onIndexFileCompacted(
+            ReadModeIndexMemTable indexMemTable,
+            FileProperties oldIndexFileProperties,
+            FileProperties newIndexFileProperties
+    ) throws IOException {
+        Path newIndexFilePath = indexFilePath(newIndexFileProperties);
+
+        List<IndexMetaSpec> metaSpecs = saveIndexMemtable(newIndexFilePath, indexMemTable, newIndexFileProperties);
+
+        metaSpecs.forEach(metaSpec -> {
+            GroupIndexMeta groupIndexMeta = groupIndexMetas.get(metaSpec.groupId);
+
+            IndexFileMeta meta = metaSpec.indexFileMeta();
+
+            if (groupIndexMeta != null && meta != null) {
+                groupIndexMeta.onIndexCompacted(oldIndexFileProperties, meta);
+            }
+        });
+
+        LOG.info("New index file created after compaction [path={}].", newIndexFilePath);
+
+        return newIndexFilePath;
     }
 
     /**
@@ -215,43 +262,51 @@ class IndexFileManager {
      */
     @Nullable
     SegmentFilePointer getSegmentFilePointer(long groupId, long logIndex) throws IOException {
-        GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
+        while (true) {
+            GroupIndexMeta groupIndexMeta = groupIndexMetas.get(groupId);
 
-        if (groupIndexMeta == null) {
-            return null;
-        }
-
-        IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
-
-        if (indexFileMeta == null) {
-            return null;
-        }
-
-        Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileOrdinal(), 0));
-
-        // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex) range.
-        long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
-
-        assert payloadArrayIndex >= 0 : payloadArrayIndex;
-
-        long payloadOffset = indexFileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
-
-        try (SeekableByteChannel channel = Files.newByteChannel(indexFile, StandardOpenOption.READ)) {
-            channel.position(payloadOffset);
-
-            ByteBuffer segmentPayloadOffsetBuffer = ByteBuffer.allocate(Integer.BYTES).order(BYTE_ORDER);
-
-            while (segmentPayloadOffsetBuffer.hasRemaining()) {
-                int bytesRead = channel.read(segmentPayloadOffsetBuffer);
-
-                if (bytesRead == -1) {
-                    throw new EOFException("EOF reached while reading index file: " + indexFile);
-                }
+            if (groupIndexMeta == null) {
+                return null;
             }
 
-            int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
+            IndexFileMeta indexFileMeta = groupIndexMeta.indexMeta(logIndex);
 
-            return new SegmentFilePointer(indexFileMeta.indexFileOrdinal(), segmentPayloadOffset);
+            if (indexFileMeta == null) {
+                return null;
+            }
+
+            Path indexFile = indexFilesDir.resolve(indexFileName(indexFileMeta.indexFileProperties()));
+
+            // TODO: Consider caching the opened channels for index files: https://issues.apache.org/jira/browse/IGNITE-26622.
+            try (SeekableByteChannel channel = Files.newByteChannel(indexFile, StandardOpenOption.READ)) {
+                // Index file payload is a 0-based array, which indices correspond to the [fileMeta.firstLogIndex, fileMeta.lastLogIndex)
+                // range.
+                long payloadArrayIndex = logIndex - indexFileMeta.firstLogIndexInclusive();
+
+                assert payloadArrayIndex >= 0 : payloadArrayIndex;
+
+                long payloadOffset = indexFileMeta.indexFilePayloadOffset() + payloadArrayIndex * Integer.BYTES;
+
+                channel.position(payloadOffset);
+
+                ByteBuffer segmentPayloadOffsetBuffer = ByteBuffer.allocate(Integer.BYTES).order(BYTE_ORDER);
+
+                while (segmentPayloadOffsetBuffer.hasRemaining()) {
+                    int bytesRead = channel.read(segmentPayloadOffsetBuffer);
+
+                    if (bytesRead == -1) {
+                        throw new EOFException("EOF reached while reading index file: " + indexFile);
+                    }
+                }
+
+                int segmentPayloadOffset = segmentPayloadOffsetBuffer.getInt(0);
+
+                return new SegmentFilePointer(indexFileMeta.indexFileProperties(), segmentPayloadOffset);
+            } catch (NoSuchFileException e) {
+                // There exists a race between the Garbage Collection process and "groupIndexMetas.get" call. It is possible that
+                // groupIndexMetas returned stale information, we should simply retry in this case.
+                LOG.info("Index file not found, retrying [path={}].", indexFile);
+            }
         }
     }
 
@@ -273,11 +328,14 @@ class IndexFileManager {
         return groupIndexMeta == null ? -1 : groupIndexMeta.lastLogIndexExclusive();
     }
 
-    boolean indexFileExists(int fileOrdinal) {
-        return Files.exists(indexFilesDir.resolve(indexFileName(fileOrdinal, 0)));
+    Path indexFilePath(FileProperties fileProperties) {
+        return indexFilesDir.resolve(indexFileName(fileProperties));
     }
 
-    private byte[] serializeHeaderAndFillMetadata(ReadModeIndexMemTable indexMemTable, int fileOrdinal, boolean onRecovery) {
+    private static FileHeaderWithIndexMetas serializeHeaderAndFillMetadata(
+            ReadModeIndexMemTable indexMemTable,
+            FileProperties fileProperties
+    ) {
         int numGroups = indexMemTable.numGroups();
 
         int headerSize = headerSize(numGroups);
@@ -289,6 +347,8 @@ class IndexFileManager {
                 .putInt(numGroups);
 
         int payloadOffset = headerSize;
+
+        var metaSpecs = new ArrayList<IndexMetaSpec>(numGroups);
 
         Iterator<Entry<Long, SegmentInfo>> it = indexMemTable.iterator();
 
@@ -306,15 +366,11 @@ class IndexFileManager {
 
             long firstIndexKept = segmentInfo.firstIndexKept();
 
-            // On recovery we are only creating missing index files, in-memory meta will be created on Index File Manager start.
-            // (see recoverIndexFileMetas).
-            if (!onRecovery) {
-                IndexFileMeta indexFileMeta = createIndexFileMeta(
-                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileOrdinal
-                );
+            IndexFileMeta indexFileMeta = createIndexFileMeta(
+                    firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileProperties
+            );
 
-                putIndexFileMeta(groupId, indexFileMeta, firstIndexKept);
-            }
+            metaSpecs.add(new IndexMetaSpec(groupId, indexFileMeta, firstIndexKept));
 
             headerBuffer
                     .putLong(groupId)
@@ -327,7 +383,7 @@ class IndexFileManager {
             payloadOffset += payloadSize(segmentInfo);
         }
 
-        return headerBuffer.array();
+        return new FileHeaderWithIndexMetas(headerBuffer.array(), metaSpecs);
     }
 
     private static @Nullable IndexFileMeta createIndexFileMeta(
@@ -335,7 +391,7 @@ class IndexFileManager {
             long lastLogIndexExclusive,
             long firstIndexKept,
             int payloadOffset,
-            int fileOrdinal
+            FileProperties fileProperties
     ) {
         if (firstLogIndexInclusive == -1) {
             assert firstIndexKept != -1 : "Expected a prefix tombstone, but firstIndexKept is not set.";
@@ -346,7 +402,7 @@ class IndexFileManager {
 
         if (firstIndexKept == -1 || firstIndexKept <= firstLogIndexInclusive) {
             // No prefix truncation required, simply create a new meta.
-            return new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileOrdinal);
+            return new IndexFileMeta(firstLogIndexInclusive, lastLogIndexExclusive, payloadOffset, fileProperties);
         }
 
         // Create a meta with a truncated prefix.
@@ -354,10 +410,17 @@ class IndexFileManager {
 
         int adjustedPayloadOffset = payloadOffset + numEntriesToSkip * SEGMENT_FILE_OFFSET_SIZE;
 
-        return new IndexFileMeta(firstIndexKept, lastLogIndexExclusive, adjustedPayloadOffset, fileOrdinal);
+        return new IndexFileMeta(firstIndexKept, lastLogIndexExclusive, adjustedPayloadOffset, fileProperties);
     }
 
-    private void putIndexFileMeta(Long groupId, @Nullable IndexFileMeta indexFileMeta, long firstIndexKept) {
+    private void putIndexFileMeta(IndexMetaSpec metaSpec) {
+        IndexFileMeta indexFileMeta = metaSpec.indexFileMeta();
+
+        // Using boxed value to avoid unnecessary autoboxing later.
+        Long groupId = metaSpec.groupId();
+
+        long firstIndexKept = metaSpec.firstIndexKept();
+
         GroupIndexMeta existingGroupIndexMeta = groupIndexMetas.get(groupId);
 
         if (existingGroupIndexMeta == null) {
@@ -400,47 +463,50 @@ class IndexFileManager {
         return segmentInfo.size() * Integer.BYTES;
     }
 
-    private static String indexFileName(int fileOrdinal, int generation) {
-        return String.format(INDEX_FILE_NAME_FORMAT, fileOrdinal, generation);
+    private static String indexFileName(FileProperties fileProperties) {
+        return String.format(INDEX_FILE_NAME_FORMAT, fileProperties.ordinal(), fileProperties.generation());
     }
 
-    private void recoverIndexFileMetas(Path indexFile) throws IOException {
-        int fileOrdinal = indexFileOrdinal(indexFile);
+    private void recoverIndexFileMetas(Path indexFilePath) throws IOException {
+        FileProperties fileProperties = indexFileProperties(indexFilePath);
 
-        if (curFileOrdinal >= 0 && fileOrdinal != curFileOrdinal + 1) {
+        if (curFileOrdinal >= 0 && fileProperties.ordinal() != curFileOrdinal + 1) {
             throw new IllegalStateException(String.format(
                     "Unexpected index file ordinal. Expected %d, actual %d (%s).",
-                    curFileOrdinal + 1, fileOrdinal, indexFile
+                    curFileOrdinal + 1, fileProperties.ordinal(), indexFilePath
             ));
         }
 
-        curFileOrdinal = fileOrdinal;
+        curFileOrdinal = fileProperties.ordinal();
 
-        try (InputStream is = new BufferedInputStream(Files.newInputStream(indexFile, StandardOpenOption.READ))) {
-            ByteBuffer commonMetaBuffer = readBytes(is, COMMON_META_SIZE, indexFile);
+        try (InputStream is = new BufferedInputStream(Files.newInputStream(indexFilePath, StandardOpenOption.READ))) {
+            ByteBuffer commonMetaBuffer = readBytes(is, COMMON_META_SIZE, indexFilePath);
 
             int magicNumber = commonMetaBuffer.getInt();
 
             if (magicNumber != MAGIC_NUMBER) {
-                throw new IllegalStateException(String.format("Invalid magic number in index file %s: %d.", indexFile, magicNumber));
+                throw new IllegalStateException(String.format("Invalid magic number in index file %s: %d.", indexFilePath, magicNumber));
             }
 
             int formatVersion = commonMetaBuffer.getInt();
 
             if (formatVersion > FORMAT_VERSION) {
                 throw new IllegalStateException(String.format(
-                        "Unsupported format version in index file %s: %d.", indexFile, formatVersion
+                        "Unsupported format version in index file %s: %d.", indexFilePath, formatVersion
                 ));
             }
 
             int numGroups = commonMetaBuffer.getInt();
 
             if (numGroups <= 0) {
-                throw new IllegalStateException(String.format("Unexpected number of groups in index file %s: %d.", indexFile, numGroups));
+                throw new IllegalStateException(String.format(
+                        "Unexpected number of groups in index file %s: %d.",
+                        indexFilePath, numGroups
+                ));
             }
 
             for (int i = 0; i < numGroups; i++) {
-                ByteBuffer groupMetaBuffer = readBytes(is, GROUP_META_SIZE, indexFile);
+                ByteBuffer groupMetaBuffer = readBytes(is, GROUP_META_SIZE, indexFilePath);
 
                 long groupId = groupMetaBuffer.getLong();
                 groupMetaBuffer.getInt(); // Skip flags.
@@ -450,15 +516,17 @@ class IndexFileManager {
                 long firstIndexKept = groupMetaBuffer.getLong();
 
                 IndexFileMeta indexFileMeta = createIndexFileMeta(
-                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileOrdinal
+                        firstLogIndexInclusive, lastLogIndexExclusive, firstIndexKept, payloadOffset, fileProperties
                 );
 
-                putIndexFileMeta(groupId, indexFileMeta, firstIndexKept);
+                var metaSpec = new IndexMetaSpec(groupId, indexFileMeta, firstIndexKept);
+
+                putIndexFileMeta(metaSpec);
             }
         }
     }
 
-    private static int indexFileOrdinal(Path indexFile) {
+    static FileProperties indexFileProperties(Path indexFile) {
         String fileName = indexFile.getFileName().toString();
 
         Matcher matcher = INDEX_FILE_NAME_PATTERN.matcher(fileName);
@@ -467,7 +535,10 @@ class IndexFileManager {
             throw new IllegalArgumentException(String.format("Invalid index file name format: %s.", indexFile));
         }
 
-        return Integer.parseInt(matcher.group("ordinal"));
+        return new FileProperties(
+                Integer.parseInt(matcher.group("ordinal")),
+                Integer.parseInt(matcher.group("generation"))
+        );
     }
 
     private static ByteBuffer readBytes(InputStream is, int size, Path indexFile) throws IOException {
@@ -478,5 +549,50 @@ class IndexFileManager {
         }
 
         return result;
+    }
+
+    private static class FileHeaderWithIndexMetas {
+        private final byte[] header;
+
+        private final List<IndexMetaSpec> indexMetas;
+
+        FileHeaderWithIndexMetas(byte[] header, List<IndexMetaSpec> indexMetas) {
+            this.header = header;
+            this.indexMetas = indexMetas;
+        }
+
+        byte[] header() {
+            return header;
+        }
+
+        List<IndexMetaSpec> indexMetas() {
+            return indexMetas;
+        }
+    }
+
+    private static class IndexMetaSpec {
+        private final Long groupId;
+
+        private final @Nullable IndexFileMeta indexFileMeta;
+
+        private final long firstIndexKept;
+
+        IndexMetaSpec(Long groupId, @Nullable IndexFileMeta indexFileMeta, long firstIndexKept) {
+            this.groupId = groupId;
+            this.indexFileMeta = indexFileMeta;
+            this.firstIndexKept = firstIndexKept;
+        }
+
+        Long groupId() {
+            return groupId;
+        }
+
+        @Nullable IndexFileMeta indexFileMeta() {
+            return indexFileMeta;
+        }
+
+        long firstIndexKept() {
+            return firstIndexKept;
+        }
     }
 }

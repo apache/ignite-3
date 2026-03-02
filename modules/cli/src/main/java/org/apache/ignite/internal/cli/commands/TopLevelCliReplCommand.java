@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNO
 import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
 
-import org.apache.ignite.internal.cli.commands.cliconfig.CliReplCommand;
+import org.apache.ignite.internal.cli.commands.cliconfig.CliCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.DisconnectCommand;
@@ -52,7 +52,7 @@ import picocli.shell.jline3.PicocliCommands;
                 CommandLine.HelpCommand.class,
                 ExitCommand.class,
                 VersionCommand.class,
-                CliReplCommand.class,
+                CliCommand.class,
                 ConnectReplCommand.class,
                 DisconnectCommand.class,
                 NodeReplCommand.class,

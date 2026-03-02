@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
@@ -35,8 +35,8 @@ import org.jetbrains.annotations.TestOnly;
  * The default factory for JRaft services for Ignite.
  */
 public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
-    /** Log storage factory .*/
-    private final LogStorageFactory logStorageFactory;
+    /** Log storage manager .*/
+    private final LogStorageManager logStorageManager;
 
     /** Snapshot storage factory. */
     private volatile SnapshotStorageFactory snapshotStorageFactory = LocalSnapshotStorage::new;
@@ -44,8 +44,8 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
     /** Raft meta storage factory. */
     private volatile RaftMetaStorageFactory raftMetaStorageFactory = LocalRaftMetaStorage::new;
 
-    public IgniteJraftServiceFactory(LogStorageFactory factory) {
-        logStorageFactory = factory;
+    public IgniteJraftServiceFactory(LogStorageManager factory) {
+        logStorageManager = factory;
     }
 
     /**
@@ -70,7 +70,7 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
     public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
         Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank group id.");
 
-        return logStorageFactory.createLogStorage(groupId, raftOptions);
+        return logStorageManager.createLogStorage(groupId, raftOptions);
     }
 
     @Override
@@ -87,9 +87,9 @@ public class IgniteJraftServiceFactory extends DefaultJRaftServiceFactory {
         return raftMetaStorageFactory.createRaftMetaStorage(uri, raftOptions);
     }
 
-    /** Returns {@link LogStorageFactory}. */
+    /** Returns {@link LogStorageManager}. */
     @TestOnly
-    public LogStorageFactory logStorageFactory() {
-        return logStorageFactory;
+    public LogStorageManager logStorageManager() {
+        return logStorageManager;
     }
 }

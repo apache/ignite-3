@@ -811,7 +811,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         waitForScale(node0, 2);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
 
@@ -859,7 +859,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNodesInParallel(1);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -932,7 +932,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockRebalanceStableSwitch(partId, assignmentToBlock);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<Void> resetFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<Void> resetFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         // force == true, fromReset == false.
@@ -1215,7 +1215,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockRebalanceStableSwitch(partId, assignmentsToBlock);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
         assertThat(updateFuture, willCompleteSuccessfully());
 
         // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index

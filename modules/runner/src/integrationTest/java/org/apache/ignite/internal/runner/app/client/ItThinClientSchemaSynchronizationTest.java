@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.client.IgniteClient;
@@ -89,7 +88,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
     }
 
     @Test
-    void testClientUsesLatestSchemaOnReadWithNotNullColumn() {
+    void testClientUsesLatestSchemaOnReadWithNotNullColumnWithDefault() {
         IgniteClient client = client();
         IgniteSql sql = client.sql();
 
@@ -103,9 +102,8 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         recordView.insert(null, rec);
 
         // Modify table and get old row.
-        // It still has null value in the old column, even though it is not allowed by the new schema.
-        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
-        assertNull(recordView.get(null, rec).stringValue(1));
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT '1'");
+        assertEquals("1", recordView.get(null, rec).stringValue(1));
     }
 
     @Test
@@ -151,7 +149,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT '1'");
         action.run();
 
         assertEquals("name", recordView.get(null, rec).stringValue(1));
@@ -181,7 +179,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT '1'");
         action.run();
 
         assertEquals("name", kvView.get(null, key).stringValue(0));
@@ -210,7 +208,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT '1'");
         action.run();
 
         assertEquals("name", recordView.get(null, rec).name);
@@ -242,7 +240,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
-        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        sql.execute("ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT '1'");
         action.run();
 
         assertEquals("name", kvView.get(null, key).name);

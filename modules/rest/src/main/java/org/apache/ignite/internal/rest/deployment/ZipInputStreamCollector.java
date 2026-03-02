@@ -119,13 +119,11 @@ public class ZipInputStreamCollector implements InputStreamCollector {
         try (ZipFile zf = new ZipFile(zipPath.toFile())) {
             Enumeration<? extends ZipEntry> entries = zf.entries();
             while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                if (!entry.isDirectory()) {
-                    String lowerName = entry.getName().toLowerCase(Locale.ROOT);
-                    if (!seenLowercase.add(lowerName)) {
-                        throw new DuplicateFilenamesException(
-                                "ZIP contains case-insensitive duplicate: " + entry.getName());
-                    }
+                String entryName = entries.nextElement().getName();
+                String lowerName = entryName.toLowerCase(Locale.ROOT);
+                if (!seenLowercase.add(lowerName)) {
+                    throw new DuplicateFilenamesException(
+                            "ZIP contains case-insensitive duplicate: " + entryName);
                 }
             }
         } catch (IOException e) {

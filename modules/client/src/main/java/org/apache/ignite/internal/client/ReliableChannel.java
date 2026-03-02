@@ -399,7 +399,24 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Get the channel.
+     * Gets the existing channel.
+     *
+     * @param nodeName Node name.
+     *
+     * @return The channel or {@code null} if connection is not available.
+     */
+    public @Nullable ClientChannel getNodeChannel(String nodeName) {
+        ClientChannelHolder holder = nodeChannelsByName.get(nodeName);
+
+        if (holder == null || holder.close) {
+            return null;
+        }
+
+        return holder.getNow();
+    }
+
+    /**
+     * Gets the channel.
      *
      * @param preferredNodeName Preferred node name.
      *

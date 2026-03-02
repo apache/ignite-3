@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.FOOTER_HEADING;
 import static org.apache.ignite.internal.cli.commands.CommandConstants.VERSION_OPTION_ORDER;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION_DESC;
@@ -39,8 +40,24 @@ import picocli.CommandLine.Option;
 @Command(name = "ignite",
         versionProvider = VersionProvider.class,
         description = {
-                "Welcome to Ignite Shell alpha.",
-                "Run without command to enter interactive mode.",
+                "Apache Ignite CLI tool.",
+                "",
+                "Run without arguments to enter interactive mode.",
+                "Use subcommands to execute operations non-interactively.",
+                ""},
+        footerHeading = FOOTER_HEADING,
+        footer = {
+                "  Connect to a node and enter interactive mode:",
+                "    ignite3 connect http://localhost:10300",
+                "",
+                "  Execute a SQL query non-interactively:",
+                "    ignite3 sql --jdbc-url jdbc:ignite:thin://127.0.0.1:10800 \"SELECT * FROM t\"",
+                "",
+                "  Execute SQL from a file:",
+                "    ignite3 sql --jdbc-url jdbc:ignite:thin://127.0.0.1:10800 --file=script.sql",
+                "",
+                "  Set default JDBC URL to avoid passing --jdbc-url every time:",
+                "    ignite3 cli config set ignite.jdbc-url=jdbc:ignite:thin://127.0.0.1:10800",
                 ""},
         subcommands = {
                 SqlCommand.class,

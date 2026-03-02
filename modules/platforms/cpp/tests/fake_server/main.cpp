@@ -59,6 +59,10 @@ void set_process_abort_handler(std::function<void(int)> handler) {
     signal(SIGABRT, signal_handler);
     signal(SIGINT, signal_handler);
     signal(SIGSEGV, signal_handler);
+
+#ifndef _WIN32
+    signal(SIGPIPE, signal_handler);
+#endif
 }
 
 int main(int argc, char **argv) {

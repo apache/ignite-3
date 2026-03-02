@@ -148,29 +148,6 @@ public class TransactionInflights {
     }
 
     /**
-     * Track the given RO transaction until finish.
-     * Currently RO tracking is used to prevent unclosed cursors.
-     *
-     * @param txId The transaction id.
-     * @return {@code True} if the was registered and is in active state.
-     */
-    public boolean trackReadOnly(UUID txId) {
-        boolean[] res = {true};
-
-        txCtxMap.compute(txId, (uuid, ctx) -> {
-            if (ctx == null) {
-                ctx = new ReadOnlyTxContext();
-            }
-
-            res[0] = !ctx.isTxFinishing();
-
-            return ctx;
-        });
-
-        return res[0];
-    }
-
-    /**
      * Unregisters the inflight for a transaction.
      *
      * @param txId The transaction id.

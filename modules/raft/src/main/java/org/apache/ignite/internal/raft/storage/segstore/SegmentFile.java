@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.raft.storage.segstore;
 
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,10 +52,18 @@ class SegmentFile implements ManuallyCloseable {
 
     private static final MappedByteBufferSyncer SYNCER = MappedByteBufferSyncer.createSyncer();
 
+    private static final String SEGMENT_FILE_NAME_FORMAT = "segment-%010d-%010d.bin";
+
+    private static final Pattern SEGMENT_FILE_NAME_PATTERN = Pattern.compile("segment-(?<ordinal>\\d{10})-(?<generation>\\d{10})\\.bin");
+
     private final MappedByteBuffer buffer;
 
     /** Flag indicating if an fsync call should follow every write to the buffer. */
     private final boolean isSync;
+
+    private final Path path;
+
+    private final FileProperties fileProperties;
 
     /** Position of the first non-reserved byte in the buffer. */
     private final AtomicInteger bufferPosition = new AtomicInteger();
@@ -67,11 +80,14 @@ class SegmentFile implements ManuallyCloseable {
     /** Lock used to atomically execute fsync. */
     private final Object syncLock = new Object();
 
-    private SegmentFile(RandomAccessFile file, boolean isSync) throws IOException {
-        //noinspection ChannelOpenedButNotSafelyClosed
-        buffer = file.getChannel().map(MapMode.READ_WRITE, 0, file.length());
+    private SegmentFile(FileChannel channel, Path path, boolean isSync) throws IOException {
+        buffer = channel.map(MapMode.READ_WRITE, 0, channel.size());
 
+        assert buffer.limit() > 0 : "File " + path + " is empty.";
+
+        this.path = path;
         this.isSync = isSync;
+        this.fileProperties = fileProperties(path);
     }
 
     static SegmentFile createNew(Path path, long fileSize, boolean isSync) throws IOException {
@@ -85,21 +101,43 @@ class SegmentFile implements ManuallyCloseable {
             throw new IllegalArgumentException("File size is too big: " + fileSize);
         }
 
+        // Using the RandomAccessFile for its "setLength" method.
         try (var file = new RandomAccessFile(path.toFile(), "rw")) {
             file.setLength(fileSize);
 
-            return new SegmentFile(file, isSync);
+            return new SegmentFile(file.getChannel(), path, isSync);
         }
     }
 
     static SegmentFile openExisting(Path path, boolean isSync) throws IOException {
-        if (!Files.exists(path)) {
-            throw new IllegalArgumentException("File does not exist: " + path);
+        try (var channel = FileChannel.open(path, READ, WRITE)) {
+            return new SegmentFile(channel, path, isSync);
+        }
+    }
+
+    static String fileName(FileProperties fileProperties) {
+        return String.format(SEGMENT_FILE_NAME_FORMAT, fileProperties.ordinal(), fileProperties.generation());
+    }
+
+    static FileProperties fileProperties(Path path) {
+        Matcher matcher = SEGMENT_FILE_NAME_PATTERN.matcher(path.getFileName().toString());
+
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException(String.format("Invalid segment file name format: %s.", path));
         }
 
-        try (var file = new RandomAccessFile(path.toFile(), "rw")) {
-            return new SegmentFile(file, isSync);
-        }
+        return new FileProperties(
+                Integer.parseInt(matcher.group("ordinal")),
+                Integer.parseInt(matcher.group("generation"))
+        );
+    }
+
+    FileProperties fileProperties() {
+        return fileProperties;
+    }
+
+    Path path() {
+        return path;
     }
 
     ByteBuffer buffer() {
