@@ -35,7 +35,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -67,7 +66,6 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.metrics.StorageEngineTablesMetricSource;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
-import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -117,6 +115,8 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
 
     private final PersistentPageMemoryMetricSource metricSource;
 
+    private final PersistentDataRegionMetricsCalculator metricsCalculator;
+
     private final ConcurrentMap<Integer, PersistentPageMemoryTableStorage> tableStorages = new ConcurrentHashMap<>();
 
     /**
@@ -152,6 +152,7 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         this.checkpointManager = checkpointManager;
 
         metricSource = new PersistentPageMemoryMetricSource("storage." + ENGINE_NAME + "." + cfg.value().name());
+        metricsCalculator = new PersistentDataRegionMetricsCalculator(pageSize);
     }
 
     /**
@@ -459,31 +460,31 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         metricSource.addMetric(new LongGauge(
                 "TotalAllocatedSize",
                 String.format("Total size of all pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
-                () -> totalAllocatedPagesCount() * pageSize
+                () -> metricsCalculator.totalAllocatedSize(tableStorages.values())
         ));
 
         metricSource.addMetric(new LongGauge(
                 "TotalUsedSize",
                 String.format("Total size of all non-empty pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
-                () -> totalNonEmptyAllocatedPagesCount() * pageSize
+                () -> metricsCalculator.totalUsedSize(tableStorages.values())
         ));
 
         metricSource.addMetric(new LongGauge(
                 "TotalEmptySize",
                 String.format("Total size of all empty pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
-                () -> emptyPagesCount() * pageSize
+                () -> metricsCalculator.totalEmptySize(tableStorages.values())
         ));
 
         metricSource.addMetric(new LongGauge(
                 "TotalDataSize",
                 String.format("Total space occupied by data contained in pages allocated by \"%s\" storage engine, in bytes.", ENGINE_NAME),
-                this::nonEmptySpaceBytes
+                () -> metricsCalculator.totalDataSize(tableStorages.values())
         ));
 
         metricSource.addMetric(new DoubleGauge(
                 "PagesFillFactor",
                 "Ratio of number of bytes occupied by data to the total number of bytes occupied by pages that contain this data.",
-                this::pagesFillFactor
+                () -> metricsCalculator.pagesFillFactor(tableStorages.values())
         ));
     }
 
@@ -501,75 +502,37 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         metricSource.addMetric(new LongGauge(
                 "TotalAllocatedSize",
                 String.format("Total size of all pages allocated by \"%s\" storage engine for a given table, in bytes.", ENGINE_NAME),
-                () -> tableAllocatedPagesCount(tableStorage) * pageSize
+                () -> metricsCalculator.totalAllocatedSize(tableStorage)
         ));
-    }
 
-    private long totalAllocatedPagesCount() {
-        return tableStorages.values().stream()
-                .mapToLong(PersistentPageMemoryDataRegion::tableAllocatedPagesCount)
-                .sum();
-    }
+        metricSource.addMetric(new LongGauge(
+                "TotalUsedSize",
+                String.format("Total size of all non-empty pages allocated by \"%s\" storage engine for a given table, in bytes.",
+                        ENGINE_NAME),
+                () -> metricsCalculator.totalUsedSize(tableStorage)
+        ));
 
-    private static long tableAllocatedPagesCount(PersistentPageMemoryTableStorage tableStorage) {
-        return tableStorage.mvPartitionStorages.getAll().stream()
-                .mapToLong(PersistentPageMemoryMvPartitionStorage::pageCount)
-                .sum();
-    }
+        metricSource.addMetric(new LongGauge(
+                "TotalEmptySize",
+                String.format("Total size of all empty pages allocated by \"%s\" storage engine for a given table, in bytes.", ENGINE_NAME),
+                () -> metricsCalculator.totalEmptySize(tableStorage)
+        ));
 
-    private long totalNonEmptyAllocatedPagesCount() {
-        return allPartitions()
-                .mapToLong(partitionStorage -> partitionStorage.pageCount() - partitionStorage.emptyDataPageCountInFreeList())
-                .sum();
-    }
+        metricSource.addMetric(new LongGauge(
+                "TotalDataSize",
+                String.format(
+                        "Total space occupied by data contained in pages allocated by \"%s\" storage engine for a given table, in bytes.",
+                        ENGINE_NAME
+                ),
+                () -> metricsCalculator.totalDataSize(tableStorage)
+        ));
 
-    private long emptyPagesCount() {
-        return allPartitions()
-                .mapToLong(PersistentPageMemoryMvPartitionStorage::emptyDataPageCountInFreeList)
-                .sum();
-    }
-
-    private long nonEmptySpaceBytes() {
-        return allPartitions()
-                .mapToLong(partitionStorage -> {
-                    int pagesCount = partitionStorage.pageCount();
-
-                    int emptyPagesCount = partitionStorage.emptyDataPageCountInFreeList();
-
-                    long pagesWithData = (long) pagesCount - emptyPagesCount;
-
-                    return pagesWithData * pageSize - partitionStorage.freeSpaceInFreeList();
-                })
-                .sum();
-    }
-
-    /**
-     * Returns the ratio of space occupied by user and system data to the size of all pages that contain this data.
-     *
-     * <p>This metric can help to determine how much space of a data page is occupied on average. Low fill factor can
-     * indicate that data pages are very fragmented (i.e. there is a lot of empty space across all data pages).
-     */
-    private double pagesFillFactor() {
-        // Number of bytes used by pages that contain at least some data.
-        long totalUsedSpaceBytes = totalNonEmptyAllocatedPagesCount() * pageSize;
-
-        if (totalUsedSpaceBytes == 0) {
-            return 0;
-        }
-
-        // Amount of free space in these pages.
-        long freeSpaceBytes = allPartitions()
-                .mapToLong(PersistentPageMemoryMvPartitionStorage::freeSpaceInFreeList)
-                .sum();
-
-        // Number of bytes that contain useful data.
-        long nonEmptySpaceBytes = totalUsedSpaceBytes - freeSpaceBytes;
-
-        return (double) nonEmptySpaceBytes / totalUsedSpaceBytes;
-    }
-
-    private Stream<PersistentPageMemoryMvPartitionStorage> allPartitions() {
-        return tableStorages.values().stream().flatMap(tableStorage -> tableStorage.mvPartitionStorages.getAll().stream());
+        metricSource.addMetric(new DoubleGauge(
+                "PagesFillFactor",
+                "Ratio of number of bytes occupied by data in a given table to the total number of bytes occupied by pages that "
+                        + "contain this data.",
+                () -> metricsCalculator.pagesFillFactor(tableStorage)
+        ));
     }
 
     @Override
