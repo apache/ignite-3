@@ -412,6 +412,12 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
+    @Override
+    public long getPersistedAppliedIndex() {
+        // Clamp to 0 because lastAppliedIndex() returns -1 during rebalance.
+        return max(0, txStateStorage.lastAppliedIndex());
+    }
+
     /**
      * Adds a given Table Partition-level Raft processor to the set of managed processors.
      *
