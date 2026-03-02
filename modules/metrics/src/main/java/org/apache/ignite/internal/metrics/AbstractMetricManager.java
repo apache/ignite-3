@@ -151,9 +151,10 @@ public abstract class AbstractMetricManager implements MetricManager {
     }
 
     /**
-     * @param srcName Metric source name
-     * @return MetricSet that corresponds to provided source name or {@code null}
-     * if source is disabled (e.g. it can be registered, but disabled by default)
+     * Get metric set that corresponds to provided source name.
+     *
+     * @param srcName Metric source name.
+     * @return MetricSet or {@code null} if source is disabled (e.g. it can be registered, but disabled by default).
      */
     private @Nullable MetricSet getMetricSet(String srcName) {
         return registry.snapshot().metrics().get(srcName);
