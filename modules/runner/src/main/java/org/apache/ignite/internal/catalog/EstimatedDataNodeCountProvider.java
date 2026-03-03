@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import java.util.List;
 
 /**
- * Default partition count provider.
+ * Provides an estimated count of data nodes.
  */
 @FunctionalInterface
-public interface PartitionCountProvider {
-    int calculate(PartitionCountCalculationParameters params);
-
-    static PartitionCountProvider defaultPartitionCountProvider() {
-        return params -> DEFAULT_PARTITION_COUNT;
-    }
+public interface EstimatedDataNodeCountProvider {
+    /**
+     * Provides an estimated count of data nodes.
+     *
+     * @return Estimated count of data nodes.
+     */
+    int estimatedDataNodeCount(String dataNodesFilter, List<String> storageProfiles);
 }
