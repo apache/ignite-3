@@ -279,6 +279,7 @@ public final class ExceptionUtils {
     public static List<Throwable> getThrowableList(Throwable throwable) {
         List<Throwable> list = new ArrayList<>();
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
         while (throwable != null && !list.contains(throwable)) {
             list.add(throwable);
             throwable = getCause(throwable);
@@ -300,6 +301,7 @@ public final class ExceptionUtils {
             return result;
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
         do {
             for (Throwable suppressed : t.getSuppressed()) {
                 result.add(suppressed);
@@ -464,11 +466,35 @@ public final class ExceptionUtils {
      * @return Unwrapped throwable.
      */
     public static Throwable unwrapCause(Throwable e) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
         while ((e instanceof CompletionException || e instanceof ExecutionException) && e.getCause() != null) {
             e = e.getCause();
         }
 
         return e;
+    }
+
+    /**
+     * Unwraps exception cause until the given cause type from the given wrapper exception. If there is no any cause of the expected type
+     * then {@code null} will be returned.
+     *
+     * @param e The exception to unwrap.
+     * @param causeType Expected type of a cause to look up.
+     * @return The desired cause of the exception or {@code null} if it wasn't found.
+     */
+    public static @Nullable <T extends Throwable> T unwrapCause(Throwable e, Class<T> causeType) {
+        Throwable cause = e;
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
+        while (!causeType.isAssignableFrom(cause.getClass()) && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
+        if (!causeType.isInstance(cause)) {
+            return null;
+        }
+
+        return (T) cause;
     }
 
     /**
@@ -484,6 +510,7 @@ public final class ExceptionUtils {
             return e;
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-28026
         while (th != e) {
             Throwable t = th;
             th = t.getCause();

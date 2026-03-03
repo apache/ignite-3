@@ -34,6 +34,7 @@ set(SOURCES
     ssl/secure_data_filter.cpp
     ssl/secure_socket_client.cpp
     ssl/secure_utils.cpp
+    ssl/ssl_connection.cpp
     ssl/ssl_gateway.cpp
 )
 

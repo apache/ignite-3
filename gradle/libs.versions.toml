@@ -99,7 +99,7 @@ japicmp = "0.25.4"
 
 # JDBC connection pools (for testing purposes)
 hikariCP = "7.0.2"
-c3p0 = "0.11.2"
+c3p0 = "0.12.0"
 
 #Tools
 pmdTool = "7.13.0"

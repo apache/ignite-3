@@ -41,7 +41,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.PartitionCountCalculator;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
@@ -134,7 +134,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             throw duplicateDistributionZoneNameCatalogValidationException(zoneName);
         }
 
-        CatalogZoneDescriptor zoneDesc = descriptor(updateContext.partitionCountProvider(), catalog.objectIdGenState());
+        CatalogZoneDescriptor zoneDesc = descriptor(updateContext.partitionCountCalculator(), catalog.objectIdGenState());
 
         return List.of(
                 new NewZoneEntry(zoneDesc),
@@ -142,7 +142,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         );
     }
 
-    private CatalogZoneDescriptor descriptor(PartitionCountProvider partitionCountProvider, int objectId) {
+    private CatalogZoneDescriptor descriptor(PartitionCountCalculator partitionCountCalculator, int objectId) {
         String filter = requireNonNullElse(this.filter, DEFAULT_FILTER);
 
         int replicas = requireNonNullElse(this.replicas, DEFAULT_REPLICA_COUNT);
@@ -163,7 +163,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         return new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
-                requireNonNullElse(partitions, partitionCountProvider.calculate(partitionCountCalculationParameters)),
+                requireNonNullElse(partitions, partitionCountCalculator.calculate(partitionCountCalculationParameters)),
                 replicas,
                 requireNonNullElse(quorumSize, defaultQuorumSize(replicas)),
                 requireNonNullElse(

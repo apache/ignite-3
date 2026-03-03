@@ -26,7 +26,7 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -40,7 +40,7 @@ public class ClusterInitCommand extends BaseCommand implements Callable<Integer>
 
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
     private ClusterInitCallFactory callFactory;

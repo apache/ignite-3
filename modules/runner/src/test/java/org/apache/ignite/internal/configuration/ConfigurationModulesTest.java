@@ -21,15 +21,21 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTR
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -79,5 +85,21 @@ class ConfigurationModulesTest extends BaseIgniteAbstractTest {
         var modules = new ConfigurationModules(List.of(moduleA, moduleB, moduleC, moduleD));
 
         assertThat(modules.distributed().rootKeys(), containsInAnyOrder(rootKeyC, rootKeyD));
+    }
+
+    @ParameterizedTest
+    @MethodSource("classLoaderSource")
+    void createdUsingClassLoader(ClassLoader classLoader) {
+        ConfigurationModules modules = ConfigurationModules.create(classLoader);
+
+        assertThat(modules.local().schemaExtensions().size(), is(greaterThan(0)));
+        assertThat(modules.distributed().schemaExtensions().size(), is(greaterThan(0)));
+    }
+
+    private static Stream<Arguments> classLoaderSource() {
+        return Stream.of(
+                Arguments.of((ClassLoader) null),
+                Arguments.of(ConfigurationModulesTest.class.getClassLoader())
+        );
     }
 }

@@ -28,4 +28,6 @@ public class ErrorExtensions {
     public static final String DELAYED_ACK = "delayed-ack";
 
     public static final String TX_KILL = "tx-kill";
+
+    public static final String FLAGS = "flags";
 }

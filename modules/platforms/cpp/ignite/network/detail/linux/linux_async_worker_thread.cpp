@@ -66,6 +66,7 @@ void linux_async_worker_thread::start(size_t limit, std::vector<tcp_range> addrs
     if (m_stop_event < 0) {
         std::string msg = get_last_system_error("Failed to create stop event instance", "");
         close(m_stop_event);
+        m_stop_event = SOCKET_ERROR;
         throw ignite_error(error::code::INTERNAL, msg);
     }
 
@@ -78,7 +79,9 @@ void linux_async_worker_thread::start(size_t limit, std::vector<tcp_range> addrs
     if (res < 0) {
         std::string msg = get_last_system_error("Failed to create stop event instance", "");
         close(m_stop_event);
+        m_stop_event = SOCKET_ERROR;
         close(m_epoll);
+        m_epoll = SOCKET_ERROR;
         throw ignite_error(error::code::INTERNAL, msg);
     }
 
@@ -114,7 +117,9 @@ void linux_async_worker_thread::stop() {
     m_thread.join();
 
     close(m_stop_event);
+    m_stop_event = SOCKET_ERROR;
     close(m_epoll);
+    m_epoll = SOCKET_ERROR;
 
     m_non_connected.clear();
     m_current_connection.reset();

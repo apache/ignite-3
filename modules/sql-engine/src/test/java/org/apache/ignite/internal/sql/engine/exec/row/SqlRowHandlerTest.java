@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory;
 import org.apache.ignite.internal.sql.engine.api.expressions.RowFactory.RowBuilder;
@@ -50,10 +49,8 @@ import org.apache.ignite.internal.type.StructNativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -163,15 +160,6 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         BinaryTuple mappedBinaryTuple = handler.toBinaryTuple(reverseMapping);
         assertEquals("2", mappedBinaryTuple.stringValue(0));
         assertEquals(1, mappedBinaryTuple.intValue(1));
-    }
-
-    private static Stream<Arguments> concatTestArguments() {
-        return Stream.of(
-                Arguments.of(Named.of("array", false), Named.of("array", false)),
-                Arguments.of(Named.of("array", false), Named.of("tuple", true)),
-                Arguments.of(Named.of("tuple", true), Named.of("array", false)),
-                Arguments.of(Named.of("tuple", true), Named.of("tuple", true))
-        );
     }
 
     @ParameterizedTest

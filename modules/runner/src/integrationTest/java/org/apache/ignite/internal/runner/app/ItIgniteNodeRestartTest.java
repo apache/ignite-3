@@ -89,7 +89,7 @@ import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -155,6 +155,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricExtensionConfiguration;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
@@ -383,7 +384,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         NetworkConfiguration networkConfiguration = nodeConfigRegistry
                 .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
-        var metricManager = new MetricManagerImpl();
+        var metricManager = new MetricManagerImpl(name, clusterIdService::clusterId);
 
         var threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
@@ -556,6 +557,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
+        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
+
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
@@ -612,7 +615,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService,
                 failureProcessor,
                 delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);
@@ -728,7 +731,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 () -> clusterSvc.topologyService().localMember().id(),
-                registry,
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
@@ -791,7 +793,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 registry,
                 gcConfig,
-                txConfiguration,
                 replicationConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
@@ -837,7 +838,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 tableManager,
                 schemaManager,
-                dataStorageManager,
                 replicaService,
                 clockService,
                 schemaSyncService,

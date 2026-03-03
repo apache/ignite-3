@@ -22,9 +22,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCall;
 import org.apache.ignite.internal.cli.call.recovery.states.PartitionStatesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -34,7 +33,7 @@ import picocli.CommandLine.Mixin;
 public class PartitionStatesCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Mixin
     private PartitionStatesMixin options;
@@ -47,7 +46,7 @@ public class PartitionStatesCommand extends BaseCommand implements Callable<Inte
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> PartitionStatesCallInput.of(options, clusterUrl.getClusterUrl()))
                 .decorator(new TableDecorator(options.plain()))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list partition states"))
+                .exceptionHandler(createHandler("Cannot list partition states"))
         );
     }
 }

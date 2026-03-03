@@ -362,6 +362,34 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Tests saving and reading a cluster name.
+     */
+    @Test
+    void testClusterName() {
+        Node node1 = cluster.get(0);
+        Node node2 = cluster.get(1);
+
+        assertThat(node1.raftService.readClusterState(), willCompleteSuccessfully());
+        assertThat(node2.raftService.readClusterState(), willCompleteSuccessfully());
+
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
+        ClusterState state = msgFactory.clusterState()
+                .cmgNodes(Set.copyOf(List.of("foo")))
+                .metaStorageNodes(Set.copyOf(List.of("bar")))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag)
+                .build();
+
+        assertThat(node1.raftService.initClusterState(state), willCompleteSuccessfully());
+
+        assertThat(node1.raftService.changeClusterName("cluster2"), willCompleteSuccessfully());
+
+        ClusterTag clusterTag2 = ClusterTag.clusterTag(msgFactory, "cluster2", clusterTag.clusterId());
+        assertThat(node1.raftService.readClusterState().thenApply(ClusterState::clusterTag), willBe(clusterTag2));
+        assertThat(node2.raftService.readClusterState().thenApply(ClusterState::clusterTag), willBe(clusterTag2));
+    }
+
+    /**
      * Tests saving and reading a {@link ClusterState}.
      */
     @Test
