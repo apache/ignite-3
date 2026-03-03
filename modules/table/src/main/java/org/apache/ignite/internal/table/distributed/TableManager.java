@@ -109,7 +109,6 @@ import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.LocalBeforeReplicaStartEventParameters;
@@ -120,13 +119,12 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlacementDriver;
-import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
-import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -148,17 +146,11 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory.SizeSupplier;
-import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.TablePartitionProcessor;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionMvStorageAccessImpl;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -170,14 +162,11 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.LongPriorityQueue;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.QualifiedName;
@@ -266,8 +255,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final ClockService clockService;
 
-    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
-
     private final SchemaSyncService executorInclinedSchemaSyncService;
 
     private final CatalogService catalogService;
@@ -288,27 +275,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final SchemaVersions schemaVersions;
 
-    private final ValidationSchemasSource validationSchemasSource;
-
     private final PartitionReplicatorNodeRecovery partitionReplicatorNodeRecovery;
 
     /** Ends at the {@link IgniteComponent#stopAsync(ComponentContext)} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
-
-    private final ReplicationConfiguration replicationConfiguration;
-
-    /**
-     * Executes partition operations (that might cause I/O and/or be blocked on locks).
-     */
-    private final Executor partitionOperationsExecutor;
 
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     /** Index chooser for full state transfer. */
     private final FullStateTransferIndexChooser fullStateTransferIndexChooser;
-
-    private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
     private final TransactionInflights transactionInflights;
 
@@ -318,8 +294,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
-
-    private final IndexMetaStorage indexMetaStorage;
 
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
@@ -349,9 +323,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final MetricManager metricManager;
 
-    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionTableStatsMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
     private final Map<TablePartitionId, LongSupplier> pendingWriteIntentsSuppliers = new ConcurrentHashMap<>();
+
+    private final TablePartitionResourcesFactory partitionResourcesFactory;
 
     /**
      * Creates a new table manager.
@@ -421,25 +396,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
-        this.validationSchemasSource = validationSchemasSource;
         this.ioExecutor = ioExecutor;
-        this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clockService = clockService;
-        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.catalogService = catalogService;
         this.failureProcessor = failureProcessor;
         this.observableTimestampTracker = observableTimestampTracker;
         this.sql = sql;
-        this.replicationConfiguration = replicationConfiguration;
-        this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
         this.nodeName = nodeName;
-        this.indexMetaStorage = indexMetaStorage;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
         this.minTimeCollectorService = minTimeCollectorService;
         this.metricManager = metricManager;
-        this.partitionModificationCounterFactory = partitionModificationCounterFactory;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -464,6 +432,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
+
+        partitionResourcesFactory = new TablePartitionResourcesFactory(
+                txManager,
+                lockMgr,
+                scanRequestExecutor,
+                clockService,
+                catalogService,
+                partitionModificationCounterFactory,
+                outgoingSnapshotsManager,
+                lowWatermark,
+                validationSchemasSource,
+                this.executorInclinedSchemaSyncService,
+                this.executorInclinedPlacementDriver,
+                topologyService,
+                remotelyTriggeredResourceRegistry,
+                failureProcessor,
+                schemaManager,
+                replicationConfiguration,
+                partitionOperationsExecutor,
+                indexMetaStorage,
+                minTimeCollectorService,
+                mvGc,
+                fullStateTransferIndexChooser
+        );
 
         rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
@@ -860,65 +852,49 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return;
         }
 
-        PartitionDataStorage partitionDataStorage = partitionDataStorage(
+        PartitionDataStorage partitionDataStorage = partitionResourcesFactory.createPartitionDataStorage(
                 new PartitionKey(zonePartitionId.zoneId(), partId),
                 tableId,
                 mvPartitionStorage
         );
 
-        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+        PartitionResources partitionResources = partitionResourcesFactory.createPartitionResources(
                 partId,
                 partitionDataStorage,
                 table,
-                resources.safeTimeTracker(),
-                replicationConfiguration,
-                onNodeRecovery
+                resources.safeTimeTracker()
         );
 
-        mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
+        partitionResources.storageUpdateHandler.start(onNodeRecovery);
+
+        registerPartitionTableStatsMetrics(table, partId, partitionResources);
+
+        mvGc.addStorage(tablePartitionId, partitionResources.gcUpdateHandler);
 
         minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
-        TablePartitionReplicaProcessorFactory createListener = (raftClient, transactionStateResolver) -> createReplicaListener(
-                zonePartitionId,
-                table,
-                resources.safeTimeTracker(),
-                mvPartitionStorage,
-                partitionUpdateHandlers,
-                raftClient,
-                transactionStateResolver
-        );
+        TablePartitionReplicaProcessorFactory createListener = (raftClient, transactionStateResolver) ->
+                partitionResourcesFactory.createReplicaListener(
+                        zonePartitionId,
+                        table,
+                        resources.safeTimeTracker(),
+                        mvPartitionStorage,
+                        partitionResources,
+                        raftClient,
+                        transactionStateResolver
+                );
 
-        var tablePartitionRaftListener = new TablePartitionProcessor(
-                txManager,
-                partitionDataStorage,
-                partitionUpdateHandlers.storageUpdateHandler,
-                catalogService,
-                table.schemaView(),
-                indexMetaStorage,
-                topologyService.localMember().id(),
-                minTimeCollectorService,
-                executorInclinedPlacementDriver,
-                clockService,
-                zonePartitionId
-        );
+        TablePartitionProcessor tablePartitionProcessor = partitionResourcesFactory.createTablePartitionProcessor(
+                zonePartitionId, table, partitionDataStorage, partitionResources);
 
-        var partitionStorageAccess = new PartitionMvStorageAccessImpl(
-                partId,
-                table.internalTable().storage(),
-                mvGc,
-                partitionUpdateHandlers.indexUpdateHandler,
-                partitionUpdateHandlers.gcUpdateHandler,
-                fullStateTransferIndexChooser,
-                schemaManager.schemaRegistry(tableId),
-                lowWatermark
-        );
+        PartitionMvStorageAccess partitionStorageAccess = partitionResourcesFactory.createPartitionMvStorageAccess(
+                partId, table, partitionResources);
 
         partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
                 zonePartitionId,
                 tableId,
                 createListener,
-                tablePartitionRaftListener,
+                tablePartitionProcessor,
                 partitionStorageAccess,
                 onNodeRecovery
         );
@@ -995,56 +971,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     return nullCompletedFuture();
                 })
-        );
-    }
-
-    private PartitionReplicaListener createReplicaListener(
-            ZonePartitionId replicationGroupId,
-            TableViewInternal table,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            MvPartitionStorage mvPartitionStorage,
-            PartitionUpdateHandlers partitionUpdateHandlers,
-            RaftCommandRunner raftClient,
-            TransactionStateResolver transactionStateResolver
-    ) {
-        int partitionIndex = replicationGroupId.partitionId();
-
-        return new PartitionReplicaListener(
-                mvPartitionStorage,
-                new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
-                txManager,
-                lockMgr,
-                scanRequestExecutor,
-                replicationGroupId,
-                table.tableId(),
-                table.indexesLockers(partitionIndex),
-                new Lazy<>(() -> table.indexStorageAdapters(partitionIndex).get().get(table.pkId())),
-                () -> table.indexStorageAdapters(partitionIndex).get(),
-                clockService,
-                safeTimeTracker,
-                transactionStateResolver,
-                partitionUpdateHandlers.storageUpdateHandler,
-                validationSchemasSource,
-                localNode(),
-                executorInclinedSchemaSyncService,
-                catalogService,
-                executorInclinedPlacementDriver,
-                topologyService,
-                remotelyTriggeredResourceRegistry,
-                schemaManager.schemaRegistry(table.tableId()),
-                indexMetaStorage,
-                lowWatermark,
-                failureProcessor,
-                table.metrics()
-        );
-    }
-
-    private PartitionDataStorage partitionDataStorage(PartitionKey partitionKey, int tableId, MvPartitionStorage partitionStorage) {
-        return new SnapshotAwarePartitionDataStorage(
-                tableId,
-                partitionStorage,
-                outgoingSnapshotsManager,
-                partitionKey
         );
     }
 
@@ -1569,6 +1495,37 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // In case of colocation there shouldn't be any table replica and thus it shouldn't be stopped.
         minTimeCollectorService.removePartition(tablePartitionId);
 
+        unregisterPartitionMetrics(tablePartitionId, table.name());
+
+        return mvGc.removeStorage(tablePartitionId);
+    }
+
+    private void registerPartitionTableStatsMetrics(
+            TableViewInternal table,
+            int partitionId,
+            PartitionResources partitionResources
+    ) {
+        PartitionTableStatsMetricSource metricSource =
+                new PartitionTableStatsMetricSource(table.tableId(), partitionId, partitionResources.modificationCounter);
+
+        try {
+            metricManager.registerSource(metricSource);
+            metricManager.enable(metricSource);
+
+            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionId);
+
+            partModCounterMetricSources.put(tablePartitionId, metricSource);
+        } catch (Exception e) {
+            LOG.warn("Failed to register metrics source for table [name={}, partitionId={}].", e, table.name(), partitionId);
+        }
+
+        pendingWriteIntentsSuppliers.put(
+                new TablePartitionId(table.tableId(), partitionId),
+                partitionResources.storageUpdateHandler::getPendingRowCount
+        );
+    }
+
+    private void unregisterPartitionMetrics(TablePartitionId tablePartitionId, String tableName) {
         PartitionTableStatsMetricSource metricSource = partModCounterMetricSources.remove(tablePartitionId);
         pendingWriteIntentsSuppliers.remove(tablePartitionId);
         if (metricSource != null) {
@@ -1576,11 +1533,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 metricManager.unregisterSource(metricSource);
             } catch (Exception e) {
                 String message = "Failed to unregister metrics source for table [name={}, partitionId={}].";
-                LOG.warn(message, e, table.name(), tablePartitionId.partitionId());
+                LOG.warn(message, e, tableName, tablePartitionId.partitionId());
             }
         }
+    }
 
-        return mvGc.removeStorage(tablePartitionId);
+    private long totalPendingWriteIntents() {
+        long sum = 0;
+
+        for (LongSupplier supplier : pendingWriteIntentsSuppliers.values()) {
+            sum += supplier.getAsLong();
+        }
+
+        return sum;
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(
@@ -1605,78 +1570,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // TODO: IGNITE-24926 - reduce set in localPartsByTableId after storages destruction.
         return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
-    }
-
-    private InternalClusterNode localNode() {
-        return topologyService.localMember();
-    }
-
-    private PartitionUpdateHandlers createPartitionUpdateHandlers(
-            int partitionId,
-            PartitionDataStorage partitionDataStorage,
-            TableViewInternal table,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            ReplicationConfiguration replicationConfiguration,
-            boolean onNodeRecovery
-    ) {
-        TableIndexStoragesSupplier indexes = table.indexStorageAdapters(partitionId);
-
-        IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
-
-        GcUpdateHandler gcUpdateHandler = new GcUpdateHandler(partitionDataStorage, safeTimeTracker, indexUpdateHandler);
-
-        SizeSupplier partSizeSupplier = () -> partitionDataStorage.getStorage().estimatedSize();
-
-        PartitionModificationCounter modificationCounter =
-                partitionModificationCounterFactory.create(partSizeSupplier, table::stalenessConfiguration, table.tableId(), partitionId);
-
-        StorageUpdateHandler storageUpdateHandler = new StorageUpdateHandler(
-                partitionId,
-                partitionDataStorage,
-                indexUpdateHandler,
-                replicationConfiguration,
-                modificationCounter,
-                txManager
-        );
-
-        storageUpdateHandler.start(onNodeRecovery);
-
-        registerPartitionTableStatsMetrics(table, partitionId, modificationCounter);
-
-        pendingWriteIntentsSuppliers.put(new TablePartitionId(table.tableId(), partitionId), storageUpdateHandler::getPendingRowCount);
-
-        return new PartitionUpdateHandlers(storageUpdateHandler, indexUpdateHandler, gcUpdateHandler);
-    }
-
-    private void registerPartitionTableStatsMetrics(
-            TableViewInternal table,
-            int partitionId,
-            PartitionModificationCounter counter
-    ) {
-        PartitionTableStatsMetricSource metricSource =
-                new PartitionTableStatsMetricSource(table.tableId(), partitionId, counter);
-
-        try {
-            // Only register this Metrics Source and do not enable it by default
-            // as it is intended for online troubleshooting purposes only.
-            metricManager.registerSource(metricSource);
-
-            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionId);
-
-            partModCounterMetricSources.put(tablePartitionId, metricSource);
-        } catch (Exception e) {
-            LOG.warn("Failed to register metrics source for table [name={}, partitionId={}].", e, table.name(), partitionId);
-        }
-    }
-
-    private long totalPendingWriteIntents() {
-        long sum = 0;
-
-        for (LongSupplier supplier : pendingWriteIntentsSuppliers.values()) {
-            sum += supplier.getAsLong();
-        }
-
-        return sum;
     }
 
     /**
