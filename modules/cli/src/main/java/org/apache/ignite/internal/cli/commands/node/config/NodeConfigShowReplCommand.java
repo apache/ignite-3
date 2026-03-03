@@ -51,7 +51,7 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Callable<I
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(this::nodeConfigShowCallInput)
+                .input(nodeConfigShowCallInput())
                 .decorator(format.decorator())
         );
     }

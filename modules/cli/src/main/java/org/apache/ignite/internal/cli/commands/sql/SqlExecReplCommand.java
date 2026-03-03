@@ -243,7 +243,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
         // not the outer command's writer. This ensures SQL output goes through
         // the nested REPL's output capture for proper pager support.
         return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
-                .inputProvider(() -> new StringCallInput(line))
+                .input(new StringCallInput(line))
                 .output(CommandLineContextProvider.getContext().out())
                 .errOutput(CommandLineContextProvider.getContext().err())
                 .decorator(new SqlQueryResultDecorator(plain, timed, truncationConfig))
@@ -256,7 +256,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
             ExceptionHandlers exceptionHandlers,
             String line) {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(dropSemicolon(line)))
+                .input(new StringCallInput(dropSemicolon(line)))
                 .output(CommandLineContextProvider.getContext().out())
                 .errOutput(CommandLineContextProvider.getContext().err())
                 .exceptionHandlers(exceptionHandlers)

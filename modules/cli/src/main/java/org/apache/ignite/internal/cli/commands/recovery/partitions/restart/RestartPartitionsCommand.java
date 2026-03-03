@@ -43,7 +43,7 @@ public class RestartPartitionsCommand extends BaseCommand implements Callable<In
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> RestartPartitionsCallInput.of(options, clusterUrl.getClusterUrl()))
+                .input(RestartPartitionsCallInput.of(options, clusterUrl.getClusterUrl()))
                 .exceptionHandler(createHandler("Cannot restart partitions"))
         );
     }

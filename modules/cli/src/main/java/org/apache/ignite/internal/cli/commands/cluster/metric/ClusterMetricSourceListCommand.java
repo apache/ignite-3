@@ -47,7 +47,7 @@ public class ClusterMetricSourceListCommand extends BaseCommand implements Calla
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(clusterUrl.getClusterUrl()))
+                .input(new UrlCallInput(clusterUrl.getClusterUrl()))
                 .decorator(new ClusterMetricSourceListDecorator(plain))
                 .exceptionHandler(createHandler("Cannot list metric sources"))
         );
