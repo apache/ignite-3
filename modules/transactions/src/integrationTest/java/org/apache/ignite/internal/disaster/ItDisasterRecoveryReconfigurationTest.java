@@ -196,9 +196,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
         executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
-                        + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
+                        + "auto scale down %d, auto scale up %d, consistency mode '%s', quorum size %d) storage profiles ['%s']",
                 zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1,
-                zoneParams.consistencyMode().name(), DEFAULT_STORAGE_PROFILE
+                zoneParams.consistencyMode().name(),
+                zoneParams.quorumSize() == -1 ? zoneParams.replicas() / 2 + 1 : zoneParams.quorumSize(),
+                DEFAULT_STORAGE_PROFILE
         ));
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
@@ -1695,6 +1697,53 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
+     * Tests that reset is not triggered when we still have quorum with custom quorum size.
+     * Verifies IGNITE-27835: quorum check uses zoneDescriptor.quorumSize() instead of replicas/2+1.
+     *
+     * <p>With 7 replicas and custom quorum size of 2:
+     * <ul>
+     * <li>Stop 4 nodes, leaving 3 alive</li>
+     * <li>With custom quorum of 2: 3 &gt;= 2, still have quorum, reset should NOT trigger</li>
+     * <li>With default quorum of 4: 2 &lt; 4, would have lost quorum, reset would trigger</li>
+     * </ul>
+     */
+    @Test
+    @ZoneParams(nodes = 7, replicas = 7, partitions = 1, quorumSize = 2)
+    void testCustomQuorumSizeRespectedInManualReset() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+        CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
+
+        assertThat(zone.quorumSize(), is(2));
+
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        stopNodesInParallel(3, 4, 5, 6);
+        awaitStableContainsNodes(node0, 0, 0, 1, 2);
+        Assignments assignmentsBeforeReset = getStableAssignments(node0, partId);
+
+        // Trigger reset - should return ASSIGNMENT_NOT_UPDATED because 2 >= 2 (still have quorum).
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                emptySet(),
+                true,
+                -1
+        );
+
+        assertThat(resetFuture, willCompleteSuccessfully());
+
+        // Verify stable assignments were NOT changed (reset was skipped).
+        Assignments finalStable = getStableAssignments(node0, partId);
+        assertThat(finalStable, is(assignmentsBeforeReset));
+    }
+
+    /**
      * Lease agreement message should be the first message sent after reset.
      */
     @Test
@@ -2137,6 +2186,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partitions();
 
         int nodes() default INITIAL_NODES;
+
+        int quorumSize() default -1;
 
         ConsistencyMode consistencyMode() default ConsistencyMode.STRONG_CONSISTENCY;
     }
