@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -113,6 +114,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -527,7 +529,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     /**
      * Tests uncaught exception in the closure.
      */
-    @Test
+    @RepeatedTest(30)
     public void testTxClosureUncaughtExceptionAsync() {
         double balance = 10.;
         double delta = 50.;
@@ -554,13 +556,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                 new TransactionOptions().timeoutMillis(1000)
         );
 
-        var err = assertThrows(CompletionException.class, fut0::join);
-
-        try {
-            assertInstanceOf(IllegalArgumentException.class, err.getCause());
-        } catch (AssertionError e) {
-            throw new AssertionError("Unexpected exception type", err);
-        }
+        assertThat(fut0, willThrow(IllegalArgumentException.class));
 
         assertEquals(balance, view.get(null, makeKey(1)).doubleValue("balance"));
     }
@@ -582,13 +578,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                         new TransactionOptions().timeoutMillis(1000)
                 );
 
-        var err = assertThrows(CompletionException.class, fut0::join);
-
-        try {
-            assertInstanceOf(NullPointerException.class, err.getCause());
-        } catch (AssertionError e) {
-            throw new AssertionError("Unexpected exception type", err);
-        }
+        assertThat(fut0, willThrow(NullPointerException.class));
     }
 
     @Test

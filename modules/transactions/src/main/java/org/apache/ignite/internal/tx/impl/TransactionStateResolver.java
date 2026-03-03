@@ -18,13 +18,16 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.impl.PlacementDriverHelper.AWAIT_PRIMARY_REPLICA_TIMEOUT;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.Map;
@@ -144,7 +147,15 @@ public class TransactionStateResolver {
                 TxStateCoordinatorRequest req = (TxStateCoordinatorRequest) msg;
 
                 processTxStateRequest(req, sender)
-                        .thenAccept(txStateMeta -> {
+                        .whenComplete((txStateMeta, e) -> {
+                            if (e != null) {
+                                Throwable cause = unwrapCause(e);
+                                throttledLogger.info(cause.getMessage());
+
+                                // Will cause fallback to commit partition path.
+                                txStateMeta = TxStateMeta.builder(UNKNOWN).build();
+                            }
+
                             NetworkMessage response = TX_MESSAGES_FACTORY.txStateResponse()
                                     .txStateMeta(toTransactionMetaMessage(txStateMeta))
                                     .timestamp(clockService.now())
@@ -335,7 +346,7 @@ public class TransactionStateResolver {
                             senderGroupId
                     )
                     .whenComplete((response, e) -> {
-                        if (e == null && response.txStateMeta() != null) {
+                        if (e == null && response.txStateMeta() != null && response.txStateMeta().txState() != UNKNOWN) {
                             txMetaFuture.complete(response.txStateMeta().asTransactionMeta());
                         } else {
                             if (e != null && e.getCause() instanceof RecipientLeftException) {
@@ -505,8 +516,11 @@ public class TransactionStateResolver {
                         commitPartitionId = request.commitPartitionId().asZonePartitionId();
 
                         if (commitPartitionId == null) {
-                            throw new IgniteInternalException(INTERNAL_ERR, format("Commit partition id is absent in transaction meta "
-                                    + "on coordinator [txId={}, txMeta={}, req={}].", txId, txStateMeta));
+                            return failedFuture(new IgniteInternalException(
+                                    INTERNAL_ERR,
+                                    format("Commit partition id is absent in transaction meta "
+                                            + "on coordinator [txId={}, txMeta={}, req={}].", txId, txStateMeta)
+                            ));
                         }
                     }
 
@@ -514,33 +528,23 @@ public class TransactionStateResolver {
 
                     return txRecoveryEngine.triggerTxRecovery(txId, commitPartitionId, commitPartitionNode, groupId, sender.id());
                 } else {
-                    String errMsg = format("Failed to abort on coordinator a transaction that lost its primary replica's volatile state "
-                            + "[txId={}, senderCurrentConsistencyToken={}, senderGroupId={}].",
-                            txId,
-                            currentConsistencyToken,
-                            groupId);
-
-                    throttledLogger.info(
-                            "Failed to abort on coordinator a transaction that lost its primary replica's volatile state",
-                            errMsg,
-                            txId,
-                            currentConsistencyToken,
-                            groupId
-                    );
-
-                    throw new IgniteInternalException(INTERNAL_ERR, errMsg);
+                    return failedFuture(new IgniteInternalException(
+                            INTERNAL_ERR,
+                            format("Failed to abort on coordinator a transaction that lost its primary replica's volatile state "
+                                    + "[txId={}, senderCurrentConsistencyToken={}, senderGroupId={}].",
+                                txId,
+                                currentConsistencyToken,
+                                groupId
+                            )
+                    ));
                 }
             } else {
                 return completedFuture(txStateMeta);
             }
         } else {
-            throttledLogger.info(
-                    "Transaction meta is absent on coordinator",
-                    "Transaction meta is absent on coordinator [txId={}].",
-                    txId
+            return failedFuture(
+                    new IgniteInternalException(INTERNAL_ERR, format("Transaction meta is absent on coordinator [txId={}].", txId))
             );
-
-            throw new IgniteInternalException(INTERNAL_ERR, format("Transaction meta is absent on coordinator [txId={}].", txId));
         }
     }
 
