@@ -65,9 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -276,9 +274,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final FailureProcessor failureProcessor;
 
-    /** Incoming RAFT snapshots executor. */
-    private final ThreadPoolExecutor incomingSnapshotsExecutor;
-
     private final MvGc mvGc;
 
     private final LowWatermark lowWatermark;
@@ -459,18 +454,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
-
-        int cpus = Runtime.getRuntime().availableProcessors();
-
-        incomingSnapshotsExecutor = new ThreadPoolExecutor(
-                cpus,
-                cpus,
-                30,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
-        );
-        incomingSnapshotsExecutor.allowCoreThreadTimeOut(true);
 
         mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
 
@@ -1108,7 +1091,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     mvGc,
                     fullStateTransferIndexChooser,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> {
                         ScheduledExecutorService streamerFlushExecutor;
 
