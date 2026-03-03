@@ -19,83 +19,30 @@ package org.apache.ignite.internal.metrics;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.exporters.MetricExporter;
-import org.jetbrains.annotations.Nullable;
 
 /** Test implementation without exporters. */
-public class TestMetricManager implements MetricManager {
-    private final MetricRegistry registry = new MetricRegistry();
-
+public class TestMetricManager extends AbstractMetricManager {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
-    @Override
-    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        return nullCompletedFuture();
-    }
+    /** Returns the metric for the arguments. */
+    public <T extends Metric> T metric(String sourceName, String metricName) {
+        MetricSet metrics = metricSnapshot().metrics().get(sourceName);
 
-    @Override
-    public void registerSource(MetricSource src) {
-        registry.registerSource(src);
-    }
+        if (metrics == null) {
+            throw new IllegalArgumentException("Metric source not found: " + sourceName);
+        }
 
-    @Override
-    public void unregisterSource(MetricSource src) {
-        registry.unregisterSource(src);
-    }
+        T metric = metrics.get(metricName);
 
-    @Override
-    public void unregisterSource(String srcName) {
-        registry.unregisterSource(srcName);
-    }
+        if (metric == null) {
+            throw new IllegalArgumentException("Metric not found: " + metricName);
+        }
 
-    @Override
-    public MetricSet enable(MetricSource src) {
-        return registry.enable(src);
-    }
-
-    @Override
-    public MetricSet enable(String srcName) {
-        return registry.enable(srcName);
-    }
-
-    @Override
-    public void disable(MetricSource src) {
-        registry.disable(src);
-    }
-
-    @Override
-    public void disable(String srcName) {
-        registry.disable(srcName);
-    }
-
-    @Override
-    public MetricSnapshot metricSnapshot() {
-        return registry.snapshot();
-    }
-
-    @Override
-    public Collection<MetricSource> metricSources() {
-        return registry.metricSources();
-    }
-
-    @Override
-    public Collection<MetricExporter> enabledExporters() {
-        return List.of();
-    }
-
-    /** Returns the metric for the arguments if it exists. */
-    public @Nullable Metric metric(String sourceName, String metricName) {
-        MetricSnapshot snapshot = metricSnapshot();
-
-        MetricSet metrics = snapshot.metrics().get(sourceName);
-
-        return metrics == null ? null : metrics.get(metricName);
+        return metric;
     }
 }
