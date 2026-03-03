@@ -21,13 +21,12 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OP
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.unit.NodeListUnitCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.UnitListOptionsMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.decorators.UnitListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -35,7 +34,7 @@ import picocli.CommandLine.Option;
 
 /** Command to list deployed units in REPL mode. */
 @Command(name = "list", description = "Shows a list of deployed units")
-public class NodeUnitListReplCommand extends BaseCommand implements Runnable {
+public class NodeUnitListReplCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
     private UnitListOptionsMixin listOptions;
 
@@ -48,16 +47,12 @@ public class NodeUnitListReplCommand extends BaseCommand implements Runnable {
     @Inject
     private NodeListUnitCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(listOptions::toListUnitCallInput)
-                .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot list units"))
-                .print(new UnitListDecorator(plain))
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(() -> listOptions.toListUnitCallInput(nodeUrl.getNodeUrl()))
+                .exceptionHandler(createHandler("Cannot list units"))
+                .decorator(new UnitListDecorator(plain))
         );
     }
 }

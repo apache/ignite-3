@@ -17,20 +17,19 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.unit;
 
+import static org.apache.ignite.internal.cli.core.call.CallExecutionPipeline.asyncBuilder;
+
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitReplCallFactory;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Command to deploy a unit in REPL mode. */
 @Command(name = "deploy", description = "Deploys a unit from file or a directory (use --recursive for subdirectories)")
-public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnable {
+public class ClusterUnitDeployReplCommand extends BaseCommand implements Callable<Integer> {
 
     @Mixin
     private ClusterUrlMixin clusterUrl;
@@ -41,19 +40,11 @@ public class ClusterUnitDeployReplCommand extends BaseCommand implements Runnabl
     @Inject
     private DeployUnitReplCallFactory callFactory;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
     @Override
-    public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
-                .map(options::toDeployUnitCallInput)
-                .then(Flows.mono(input ->
-                    runPipeline(CallExecutionPipeline.asyncBuilder(callFactory::create)
-                            .inputProvider(() -> input)
-                            .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot deploy unit"))
-                    )
-                ))
-                .start();
+    public Integer call() throws Exception {
+        return runPipeline(asyncBuilder(callFactory)
+                .inputProvider(() -> options.toDeployUnitCallInput(clusterUrl.getClusterUrl()))
+                .exceptionHandler(createHandler("Cannot deploy unit"))
+        );
     }
 }
