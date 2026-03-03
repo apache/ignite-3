@@ -25,6 +25,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.typesafe.config.parser.ConfigDocument;
+import com.typesafe.config.parser.ConfigDocumentFactory;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -44,8 +46,9 @@ public class ItDeletedPrefixConfigurationTest extends ClusterPerClassIntegration
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return NODE_BOOTSTRAP_CFG_TEMPLATE.substring(0, NODE_BOOTSTRAP_CFG_TEMPLATE.lastIndexOf('}'))
-                + "  testDeletedLocalProp = \"old_value\"\n}";
+        ConfigDocument document = ConfigDocumentFactory.parseString(super.getNodeBootstrapConfigTemplate())
+                .withValueText("ignite.testDeletedLocalProp", "old_value");
+        return document.render();
     }
 
     /**

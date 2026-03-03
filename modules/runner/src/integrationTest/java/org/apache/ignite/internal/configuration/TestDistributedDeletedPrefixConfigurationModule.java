@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -25,6 +26,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 /**
  * Test {@link ConfigurationModule} with a DISTRIBUTED deleted prefix.
  */
+@AutoService(ConfigurationModule.class)
 public class TestDistributedDeletedPrefixConfigurationModule implements ConfigurationModule {
     static final String DELETED_DISTRIBUTED_PREFIX = "ignite.testDeletedDistribProp";
 
