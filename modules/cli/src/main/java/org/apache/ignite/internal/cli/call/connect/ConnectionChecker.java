@@ -170,10 +170,9 @@ public class ConnectionChecker {
     /**
      * Save settings in cli config.
      *
-     * @param callInput input parameters
      * @param sslConfig ssl config
      */
-    public void saveSettings(ConnectCallInput callInput, SslConfig sslConfig) {
+    public void saveSettings(SslConfig sslConfig) {
         ConfigManager manager = configManagerProvider.get();
         if (sslConfig != null) {
             manager.setProperty(REST_TRUST_STORE_PATH.value(), sslConfig.trustStorePath());

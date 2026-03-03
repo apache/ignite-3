@@ -78,7 +78,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
-import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -200,7 +199,6 @@ public class DistributionZoneManager extends
     public DistributionZoneManager(
             String nodeName,
             Supplier<UUID> nodeIdSupplier,
-            RevisionListenerRegistry registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             CatalogManager catalogManager,
@@ -212,7 +210,6 @@ public class DistributionZoneManager extends
         this(
                 nodeName,
                 nodeIdSupplier,
-                registry,
                 metaStorageManager,
                 logicalTopologyService,
                 new FailureManager(new NoOpFailureHandler()),
@@ -229,7 +226,6 @@ public class DistributionZoneManager extends
      *
      * @param nodeName Node name.
      * @param nodeIdSupplier Node id supplier.
-     * @param registry Registry for versioned values.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param failureProcessor Failure processor.
@@ -242,7 +238,6 @@ public class DistributionZoneManager extends
     public DistributionZoneManager(
             String nodeName,
             Supplier<UUID> nodeIdSupplier,
-            RevisionListenerRegistry registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             FailureProcessor failureProcessor,

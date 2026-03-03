@@ -544,7 +544,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                mock(Executor.class),
                 placementDriver,
                 clockService,
                 zonePartitionId

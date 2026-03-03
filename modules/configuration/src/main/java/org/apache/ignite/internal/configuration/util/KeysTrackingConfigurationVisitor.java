@@ -50,7 +50,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     @Override
     public final T visitLeafNode(Field field, String key, Serializable val) {
         for (String legacyKey : getLegacyNames(field)) {
-            int prevPos = startVisit(field, legacyKey, false, true);
+            int prevPos = startVisit(legacyKey, false, true);
 
             try {
                 doVisitLegacyLeafNode(field, legacyKey, val, false);
@@ -59,7 +59,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
             }
         }
 
-        int prevPos = startVisit(field, key, false, true);
+        int prevPos = startVisit(key, false, true);
 
         try {
             return isDeprecated(field) ? doVisitLegacyLeafNode(field, key, val, true) : doVisitLeafNode(field, key, val);
@@ -72,7 +72,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     @Override
     public final T visitInnerNode(Field field, String key, InnerNode node) {
         for (String legacyKey : getLegacyNames(field)) {
-            int prevPos = startVisit(field, legacyKey, false, false);
+            int prevPos = startVisit(legacyKey, false, false);
 
             try {
                 doVisitLegacyInnerNode(field, legacyKey, node, false);
@@ -81,7 +81,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
             }
         }
 
-        int prevPos = startVisit(field, key, false, false);
+        int prevPos = startVisit(key, false, false);
 
         try {
             return isDeprecated(field) ? doVisitLegacyInnerNode(field, key, node, true) : doVisitInnerNode(field, key, node);
@@ -94,7 +94,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     @Override
     public final T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
         for (String legacyKey : getLegacyNames(field)) {
-            int prevPos = startVisit(field, legacyKey, false, false);
+            int prevPos = startVisit(legacyKey, false, false);
 
             try {
                 doVisitLegacyNamedListNode(field, legacyKey, node, false);
@@ -103,7 +103,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
             }
         }
 
-        int prevPos = startVisit(field, key, false, false);
+        int prevPos = startVisit(key, false, false);
 
         try {
             return isDeprecated(field) ? doVisitLegacyNamedListNode(field, key, node, true) : doVisitNamedListNode(field, key, node);
@@ -119,6 +119,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param val Configuration value.
      * @return Anything that implementation decides to return.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitLeafNode(Field field, String key, Serializable val) {
         return null;
     }
@@ -126,6 +127,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /**
      * Almost the same as {@link #doVisitLeafNode(Field, String, Serializable)}, but used for legacy fields.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitLegacyLeafNode(Field field, String key, Serializable val, boolean isDeprecated) {
         return null;
     }
@@ -137,6 +139,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param node Inner configuration node.
      * @return Anything that implementation decides to return.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitInnerNode(Field field, String key, InnerNode node) {
         node.traverseChildren(this, true);
 
@@ -146,6 +149,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /**
      * Almost the same as {@link #doVisitInnerNode(Field, String, InnerNode)}, but used for legacy fields.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitLegacyInnerNode(Field field, String key, InnerNode node, boolean isDeprecated) {
         return null;
     }
@@ -157,9 +161,10 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param node Named list inner configuration node.
      * @return Anything that implementation decides to return.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
         for (String namedListKey : node.namedListKeys()) {
-            int prevPos = startVisit(field, namedListKey, true, false);
+            int prevPos = startVisit(namedListKey, true, false);
 
             try {
                 doVisitInnerNode(field, namedListKey, node.getInnerNode(namedListKey));
@@ -174,6 +179,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /**
      * Almost the same as {@link #doVisitNamedListNode(Field, String, NamedListNode)}, but used for legacy fields.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected T doVisitLegacyNamedListNode(Field field, String key, NamedListNode<?> node, boolean isDeprecated) {
         return null;
     }
@@ -188,8 +194,9 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      * @param closure Closure to execute when {@link #currentKey()} and {@link #currentPath()} have updated values.
      * @return Closure result.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected final T withTracking(Field field, String key, boolean escape, boolean leaf, Supplier<T> closure) {
-        int prevPos = startVisit(field, key, escape, leaf);
+        int prevPos = startVisit(key, escape, leaf);
 
         try {
             return closure.get();
@@ -219,12 +226,12 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /**
      * Prepares values of {@link #currentKey} and {@link #currentPath} for further processing.
      *
-     * @param field Field.
      * @param key Key.
      * @param escape Whether we need to escape the key before appending it to {@link #currentKey}.
+     * @param leaf Add dot at the end of {@link #currentKey()} if {@code leaf} is {@code false}.
      * @return Previous length of {@link #currentKey} so it can be passed to {@link #endVisit(int)} later.
      */
-    private int startVisit(Field field, String key, boolean escape, boolean leaf) {
+    private int startVisit(String key, boolean escape, boolean leaf) {
         final int previousKeyLength = currentKey.length();
 
         currentKey.append(escape ? ConfigurationUtil.escape(key) : key);

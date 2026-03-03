@@ -204,6 +204,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param schema Schema.
      * @return Conversion function (if {@code null} conversions isn't required).
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // Parameters used by subclass overrides
     protected @Nullable Function<SqlRow, R> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         return null;
     }

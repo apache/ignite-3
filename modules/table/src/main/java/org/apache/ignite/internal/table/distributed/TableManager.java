@@ -898,7 +898,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 indexMetaStorage,
                 topologyService.localMember().id(),
                 minTimeCollectorService,
-                partitionOperationsExecutor,
                 executorInclinedPlacementDriver,
                 clockService,
                 zonePartitionId

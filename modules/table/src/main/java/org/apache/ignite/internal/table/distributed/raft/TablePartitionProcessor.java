@@ -33,7 +33,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -114,7 +113,6 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
-            Executor partitionOperationsExecutor,
             LeasePlacementDriver placementDriver,
             ClockService clockService,
             ZonePartitionId realReplicationGroupId
@@ -309,7 +307,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -376,7 +374,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full());
 
         return new CommandResult(
                 new UpdateCommandResult(true, isPrimaryInGroupTopology(storageLeaseInfo), safeTimestamp.longValue()),
@@ -532,7 +530,7 @@ public class TablePartitionProcessor implements RaftTableProcessor {
         return EMPTY_APPLIED_RESULT;
     }
 
-    private void replicaTouch(UUID txId, UUID txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+    private void replicaTouch(UUID txId, UUID txCoordinatorId, boolean full) {
         // Saving state is not needed for full transactions.
         if (!full) {
             txManager.updateTxMeta(txId, old -> TxStateMeta.builder(old, PENDING)
