@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions.restart;
+package org.apache.ignite.internal.system;
 
-/** Test class for {@link RestartPartitionsReplCommand}. */
-public class ItRestartPartitionsReplCommandTest extends ItRestartPartitionsTest {
-    @Override
-    protected Class<?> getCommandClass() {
-        return RestartPartitionsReplCommand.class;
-    }
+/**
+ * Provides information about local node CPU hardware.
+ */
+public interface CpuInformationProvider {
+    /**
+     * Calculates and returns available number of hardware CPU cores of the local node machine.
+     *
+     * @return CPU count of the local node.
+     */
+    int availableProcessors();
 }

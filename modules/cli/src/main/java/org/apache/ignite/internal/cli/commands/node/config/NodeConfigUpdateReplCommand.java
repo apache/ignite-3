@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.cli.commands.node.config;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -32,7 +32,8 @@ import picocli.CommandLine.Mixin;
  * Command that updates configuration in REPL mode.
  */
 @Command(name = "update", description = "Updates node configuration")
-public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable {
+public class NodeConfigUpdateReplCommand extends BaseCommand implements Callable<Integer> {
+
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
@@ -44,23 +45,17 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable
     @Inject
     NodeConfigUpdateCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
-    /** {@inheritDoc} */
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(this::nodeConfigUpdateCallInput)
-                .then(Flows.fromCall(call))
-                .print()
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(this::nodeConfigUpdateCallInput)
         );
     }
 
-    private NodeConfigUpdateCallInput nodeConfigUpdateCallInput(String nodeUrl) {
+    private NodeConfigUpdateCallInput nodeConfigUpdateCallInput() {
         return NodeConfigUpdateCallInput.builder()
                 .config(configFromArgsAndFile.formUpdateConfig())
-                .nodeUrl(nodeUrl)
+                .nodeUrl(nodeUrl.getNodeUrl())
                 .build();
     }
 }

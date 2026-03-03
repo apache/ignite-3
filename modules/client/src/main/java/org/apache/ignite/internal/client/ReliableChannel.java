@@ -393,7 +393,7 @@ public final class ReliableChannel implements AutoCloseable {
             ClientChannel ch) {
         return ch.serviceAsync(opCode, payloadWriter, payloadReader, expectNotifications).whenComplete((res, err) -> {
             if (err != null && unwrapConnectionException(err) != null) {
-                onChannelFailure(ch);
+                onChannelFailure();
             }
         });
     }
@@ -514,17 +514,17 @@ public final class ReliableChannel implements AutoCloseable {
     /**
      * On current channel failure.
      */
-    private void onChannelFailure(ClientChannel ch) {
+    private void onChannelFailure() {
         // There is nothing wrong if defaultChIdx was concurrently changed, since channel was closed by another thread
         // when current index was changed and no other wrong channel will be closed by current thread because
         // onChannelFailure checks channel binded to the holder before closing it.
-        onChannelFailure(channels.get(defaultChIdx), ch);
+        onChannelFailure(channels.get(defaultChIdx));
     }
 
     /**
      * On channel of the specified holder failure.
      */
-    private void onChannelFailure(ClientChannelHolder hld, @Nullable ClientChannel ch) {
+    private void onChannelFailure(ClientChannelHolder hld) {
         chFailLsnrs.forEach(Runnable::run);
 
         // Roll current channel even if a topology changes. To help find working channel faster.
@@ -978,7 +978,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                 chFut0.exceptionally(err -> {
                     closeChannel();
-                    onChannelFailure(this, null);
+                    onChannelFailure(this);
 
                     logFailedEstablishConnection(this, err);
 

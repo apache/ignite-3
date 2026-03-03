@@ -15,19 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.metric;
+package org.apache.ignite.internal.raft.client;
 
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
+/**
+ * Strategy for selecting the target peer for a request.
+ */
+enum TargetPeerStrategy {
+    /**
+     * Most operations - targets the leader, waits for leader if not available.
+     * On all peers exhausted, waits for leader notification.
+     */
+    LEADER,
 
-/** Tests for cluster metric REPL commands. */
-class ItClusterMetricCommandReplTest extends ItClusterMetricCommandTest {
-    @Override
-    protected Class<?> getCommandClass() {
-        return TopLevelCliReplCommand.class;
-    }
+    /**
+     * Operations that don't need a leader (e.g., refreshLeader).
+     * Any peer works, fails immediately when all peers exhausted.
+     */
+    RANDOM,
 
-    @Override
-    protected int errorExitCode() {
-        return 0;
-    }
+    /**
+     * Operations that must go to a specific peer (e.g., snapshot).
+     * Never retries to other peers, only retries to the same peer on transient errors.
+     */
+    SPECIFIC
 }

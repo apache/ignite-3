@@ -284,7 +284,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                         return res;
                     } finally {
-                        readUnlock(pageId, page, pageAddr);
+                        readUnlock(pageId, page);
                     }
                 } finally {
                     releasePage(pageId, page);
@@ -317,7 +317,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                         return printPage(io, pageAddr, true);
                     } finally {
-                        readUnlock(pageId, page, pageAddr);
+                        readUnlock(pageId, page);
                     }
                 } finally {
                     releasePage(pageId, page);
@@ -1077,7 +1077,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 treeMeta = meta0;
             } finally {
                 if (metaPageAddr == 0L) {
-                    readUnlock(metaPageId, metaPage, pageAddr);
+                    readUnlock(metaPageId, metaPage);
                 }
             }
         } finally {
@@ -1150,7 +1150,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return io.getFirstPageId(pageAddr, lvl, partId);
         } finally {
             if (metaPageAddr == 0L) {
-                readUnlock(metaId, metaPage, pageAddr);
+                readUnlock(metaId, metaPage);
             }
         }
     }
@@ -1191,7 +1191,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 try {
                     cursor.init(pageAddr, io(pageAddr), -1);
                 } finally {
-                    readUnlock(firstPageId, firstPage, pageAddr);
+                    readUnlock(firstPageId, firstPage);
                 }
             } finally {
                 releasePage(firstPageId, firstPage);
@@ -1420,10 +1420,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                                 assert nextPageAddr != 0 : nextPageAddr;
 
                                 try {
-                                    long pa = curPageAddr;
                                     curPageAddr = 0; // Set to zero to avoid double unlocking in finalizer.
 
-                                    readUnlock(curPageId, curPage, pa);
+                                    readUnlock(curPageId, curPage);
 
                                     long p = curPage;
                                     curPage = 0; // Set to zero to avoid double release in finalizer.
@@ -1438,7 +1437,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                                     nextPageAddr = 0;
                                 } finally {
                                     if (nextPageAddr != 0) {
-                                        readUnlock(nextPageId, nextPage, nextPageAddr);
+                                        readUnlock(nextPageId, nextPage);
                                     }
                                 }
                             } finally {
@@ -1449,7 +1448,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         }
                     } finally {
                         if (curPageAddr != 0) {
-                            readUnlock(curPageId, curPage, curPageAddr);
+                            readUnlock(curPageId, curPage);
                         }
                     }
                 } finally {
@@ -1777,7 +1776,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                 validateDownKeys(rightId, minRow, lvl - 1);
             } finally {
-                readUnlock(pageId, page, pageAddr);
+                readUnlock(pageId, page);
             }
         } finally {
             releasePage(pageId, page);
@@ -1814,7 +1813,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                 return getGreatestRowInSubTree(rightId);
             } finally {
-                readUnlock(pageId, page, pageAddr);
+                readUnlock(pageId, page);
             }
         } finally {
             releasePage(pageId, page);
@@ -1858,7 +1857,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                 leftmostChildId = inner(io).getLeft(pageAddr, 0, partId);
             } finally {
-                readUnlock(pageId, page, pageAddr);
+                readUnlock(pageId, page);
             }
         } finally {
             releasePage(pageId, page);
@@ -1930,7 +1929,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                                 fwdId = inner(io).getLeft(fwdPageAddr, 0, partId);
                             } finally {
-                                readUnlock(fwdId0, fwdPage, fwdPageAddr);
+                                readUnlock(fwdId0, fwdPage);
                             }
                         } finally {
                             releasePage(fwdId0, fwdPage);
@@ -1943,7 +1942,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     validateDownPages(leftId, fwdId, lvl - 1);
                 }
             } finally {
-                readUnlock(pageId, page, pageAddr);
+                readUnlock(pageId, page);
             }
         } finally {
             releasePage(pageId, page);
@@ -2413,7 +2412,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                     return io.getCount(rootAddr) == 0;
                 } finally {
-                    readUnlock(rootId, rootPage, rootAddr);
+                    readUnlock(rootId, rootPage);
                 }
             } finally {
                 releasePage(rootId, rootPage);
@@ -2501,10 +2500,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                             assert nextPageAddr != 0 : nextPageAddr;
 
                             try {
-                                long pa = curPageAddr;
                                 curPageAddr = 0; // Set to zero to avoid double unlocking in finalizer.
 
-                                readUnlock(curPageId, curPage, pa);
+                                readUnlock(curPageId, curPage);
 
                                 long p = curPage;
                                 curPage = 0; // Set to zero to avoid double release in finalizer.
@@ -2519,7 +2517,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                                 nextPageAddr = 0;
                             } finally {
                                 if (nextPageAddr != 0) {
-                                    readUnlock(nextPageId, nextPage, nextPageAddr);
+                                    readUnlock(nextPageId, nextPage);
                                 }
                             }
                         } finally {
@@ -2530,7 +2528,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     }
                 } finally {
                     if (curPageAddr != 0) {
-                        readUnlock(curPageId, curPage, curPageAddr);
+                        readUnlock(curPageId, curPage);
                     }
                 }
             } finally {
@@ -2631,7 +2629,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      *      that order as they were locked by destroy method. We unlock them in reverse order and unlock in direct order.
      */
     private void temporaryReleaseLock(Deque<IgniteTuple3<Long, Long, Long>> lockedPages) {
-        lockedPages.iterator().forEachRemaining(t -> writeUnlock(t.get1(), t.get2(), t.get3(), true));
+        lockedPages.iterator().forEachRemaining(t -> writeUnlock(t.get1(), t.get2(), true));
 
         temporaryReleaseLock();
 
@@ -2717,7 +2715,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                 pagesCnt++;
             } finally {
-                writeUnlock(metaPageId, metaPage, metaPageAddr, true);
+                writeUnlock(metaPageId, metaPage, true);
 
                 lockedPages.pop();
             }
@@ -2817,7 +2815,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                 pagesCnt++;
             } finally {
-                writeUnlock(pageId, page, pageAddr, true);
+                writeUnlock(pageId, page, true);
 
                 lockedPages.pop();
             }
@@ -2895,7 +2893,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                 return new RootPageIdAndLevel(rootPageId, rootLvl);
             } finally {
-                writeUnlock(metaPageId, metaPage, metaPageAddr, true);
+                writeUnlock(metaPageId, metaPage, true);
             }
         } finally {
             releasePage(metaPageId, metaPage);
@@ -2967,9 +2965,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         return res;
     }
 
-    private void writeUnlockAndClose(long pageId, long page, long pageAddr) {
+    private void writeUnlockAndClose(long pageId, long page) {
         try {
-            writeUnlock(pageId, page, pageAddr, true);
+            writeUnlock(pageId, page, true);
         } finally {
             releasePage(pageId, page);
         }
@@ -3240,6 +3238,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param lvl Level.
          * @throws IgniteInternalCheckedException If failed.
          */
+        @SuppressWarnings("PMD.UnusedFormalParameter")
         boolean found(BplusIo<L> io, long pageAddr, int idx, int lvl) throws IgniteInternalCheckedException {
             assert lvl >= 0;
 
@@ -3255,6 +3254,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param lvl Level.
          * @throws IgniteInternalCheckedException If failed.
          */
+        @SuppressWarnings("PMD.UnusedFormalParameter")
         boolean notFound(BplusIo<L> io, long pageAddr, int idx, int lvl) throws IgniteInternalCheckedException {
             assert lvl >= 0;
 
@@ -3267,6 +3267,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @param pageId Page.
          * @param lvl Level.
          */
+        @SuppressWarnings("PMD.UnusedFormalParameter")
         public boolean canRelease(long pageId, int lvl) {
             return pageId != 0L;
         }
@@ -3493,7 +3494,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                     init(pageAddr, io, -1);
                 } finally {
-                    unlock(pageId, page, pageAddr);
+                    unlock(pageId, page);
                 }
             }
 
@@ -3644,7 +3645,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                         visit(pageAddr, io, -1, io.getCount(pageAddr));
                     } finally {
-                        unlock(pageId, page, pageAddr);
+                        unlock(pageId, page);
                     }
                 } finally {
                     releasePage(pageId, page);
@@ -3654,13 +3655,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             doVisit(this); // restart from last read row
         }
 
-        private void unlock(long pageId, long page, long pageAddr) {
+        private void unlock(long pageId, long page) {
             if (writing) {
-                writeUnlock(pageId, page, pageAddr, dirty);
+                writeUnlock(pageId, page, dirty);
 
                 dirty = false; // reset dirty flag
             } else {
-                readUnlock(pageId, page, pageAddr);
+                readUnlock(pageId, page);
             }
         }
 
@@ -3895,7 +3896,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             // Unlock everything until the leaf, there's no need to hold these locks anymore.
             while (tail.lvl != 0) {
-                writeUnlockAndClose(tail.pageId, tail.page, tail.buf);
+                writeUnlockAndClose(tail.pageId, tail.page);
 
                 tail = tail.down;
             }
@@ -4060,7 +4061,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                                         false
                                 );
                             } finally {
-                                writeUnlock(newRootId, newRootPage, newRootAddr, true);
+                                writeUnlock(newRootId, newRootPage, true);
                             }
                         } finally {
                             releasePage(newRootId, newRootPage);
@@ -4076,7 +4077,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // Regular split.
                     return moveUpRow;
                 } finally {
-                    writeUnlock(fwdId, fwdPage, fwdPageAddr, true);
+                    writeUnlock(fwdId, fwdPage, true);
                 }
             } finally {
                 releasePage(fwdId, fwdPage);
@@ -4506,12 +4507,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          */
         protected final void doReleaseTail(@Nullable Tail<L> t) {
             while (t != null) {
-                writeUnlockAndClose(t.pageId, t.page, t.buf);
+                writeUnlockAndClose(t.pageId, t.page);
 
                 Tail<L> s = t.sibling;
 
                 if (s != null) {
-                    writeUnlockAndClose(s.pageId, s.page, s.buf);
+                    writeUnlockAndClose(s.pageId, s.page);
                 }
 
                 t = t.down;
@@ -5359,7 +5360,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
 
             if (release) {
-                writeUnlockAndClose(pageId, page, pageAddr);
+                writeUnlockAndClose(pageId, page);
             }
 
             addFreePage(recycled);
@@ -5748,6 +5749,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param row Lookup row.
      * @throws IgniteInternalCheckedException If failed.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     protected int compare(int lvl, BplusIo<L> io, long pageAddr, int idx, @Nullable L row) throws IgniteInternalCheckedException {
         return compare(io, pageAddr, idx, row);
     }
@@ -6014,7 +6016,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                         // Continue fetching forward.
                     } finally {
-                        readUnlock(pageId, page, pageAddr);
+                        readUnlock(pageId, page);
                     }
                 } catch (CorruptedDataStructureException e) {
                     throw e;
@@ -6740,7 +6742,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         bag.addFreePage(recyclePage(pageId, pageAddr));
 
                     } finally {
-                        writeUnlock(pageId, page, pageAddr, true);
+                        writeUnlock(pageId, page, true);
                     }
                 } finally {
                     releasePage(pageId, page);

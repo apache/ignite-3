@@ -26,6 +26,7 @@ public class ThrowableAccessorsPojo {
         throw new RuntimeException();
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public void setI(int i) {
         throw new RuntimeException();
     }

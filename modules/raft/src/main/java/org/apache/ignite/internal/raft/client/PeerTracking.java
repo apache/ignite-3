@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.recovery.partitions.states;
+package org.apache.ignite.internal.raft.client;
 
-/** Test class for {@link PartitionStatesReplCommand}. */
-public class ItPartitionStatesReplCommandTest extends ItPartitionStatesTest {
-    @Override
-    protected Class<?> getCommandClass() {
-        return PartitionStatesReplCommand.class;
-    }
+/**
+ * How to track the current peer when moving to a new one.
+ */
+enum PeerTracking {
+    /** Don't mark the current peer (transient errors, leader redirects). */
+    COMMON,
+    /** Mark as unavailable (down, shutting down). */
+    UNAVAILABLE,
+    /** Mark as "no leader" (working but doesn't know leader). */
+    NO_LEADER
 }
