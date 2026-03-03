@@ -34,7 +34,7 @@ import reactor.core.publisher.Flux;
 @Singleton
 @Liveness
 public class NodeLivenessIndicator implements HealthIndicator {
-    private static final IgniteLogger LOG = Loggers.forClass(HealthIndicator.class);
+    private static final IgniteLogger LOG = Loggers.forClass(NodeLivenessIndicator.class);
 
     @Override
     public Publisher<HealthResult> getResult() {

@@ -23,9 +23,8 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.sql.InvalidateCacheCallInput;
 import org.apache.ignite.internal.cli.call.sql.InvalidatePlannerCacheCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -37,7 +36,7 @@ import picocli.CommandLine.Option;
 public class InvalidateCacheCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Inject
     private InvalidatePlannerCacheCall call;
@@ -45,12 +44,11 @@ public class InvalidateCacheCommand extends BaseCommand implements Callable<Inte
     @Option(names = "--tables", description = "Tables filter", split = ",")
     private List<String> tables;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> InvalidateCacheCallInput.of(clusterUrl.getClusterUrl(), tables, List.of()))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Failed to invalidate SQL planner cache"))
+                .exceptionHandler(createHandler("Failed to invalidate SQL planner cache"))
         );
     }
 }

@@ -133,6 +133,11 @@ public class VolatileLogStorageManager implements LogStorageManager {
         return Set.of();
     }
 
+    @Override
+    public long totalBytesOnDisk() {
+        return 0;
+    }
+
     private LogStorageBudget createLogStorageBudget() {
         return newBudget(logStorageBudgetConfig);
     }

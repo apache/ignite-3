@@ -56,4 +56,10 @@ public class LocalLogStorageManager implements LogStorageManager {
         // This creates on-heap storages, there is nothing on disk.
         return Set.of();
     }
+
+    @Override
+    public long totalBytesOnDisk() {
+        // This creates on-heap storages, there is nothing on disk.
+        return 0;
+    }
 }

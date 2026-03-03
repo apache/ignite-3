@@ -91,6 +91,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -163,6 +164,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureManager(),
                 marshaller,
+                new PermissiveSafeTimeValidator(),
                 raftGroupServiceFactory,
                 raftManager,
                 partitionsConfigurer,

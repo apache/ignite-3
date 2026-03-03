@@ -87,10 +87,11 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("index.builder").enabled(true),
             new MetricSource().name("raft.snapshots").enabled(true),
             new MetricSource().name("messaging").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.default").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.deploymentunits").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".striped.messaging.inbound.scalecube").enabled(true),
-            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + ".messaging.outbound").enabled(true),
+            new MetricSource().name("log.storage").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.deploymentunits").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.scalecube").enabled(true),
+            new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "messaging.outbound").enabled(true),
     };
 
     /** Correct ignite jdbc url. */
@@ -197,12 +198,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected void assertExitCodeIsError() {
-        assertExitCodeIs(errorExitCode());
-    }
-
-    // REPL mode has no exit code for error, override this method in tests for repl commands.
-    protected int errorExitCode() {
-        return 1;
+        assertExitCodeIs(1);
     }
 
     protected void assertOutputIsNotEmpty() {

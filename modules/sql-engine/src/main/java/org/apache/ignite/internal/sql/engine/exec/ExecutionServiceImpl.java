@@ -1054,6 +1054,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, LogicalTopo
                 );
 
                 AsyncRootNode<RowT, InternalSqlRow> rootNode = new AsyncRootNode<>(
+                        ectx,
                         node,
                         inRow -> new InternalSqlRowImpl<>(inRow, ectx.rowAccessor(), internalTypeConverter));
                 node.onRegister(rootNode);

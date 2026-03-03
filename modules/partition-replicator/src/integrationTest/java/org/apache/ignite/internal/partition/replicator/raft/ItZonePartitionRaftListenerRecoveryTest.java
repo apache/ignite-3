@@ -573,7 +573,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 .txCoordinatorId(id)
                 .requiredCatalogVersion(0)
                 .leaseStartTime(0L)
-                .safeTime(now)
+                .safeTime(clock.now())
                 .build();
     }
 

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.option.SafeTimeValidator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,6 +64,8 @@ public class RaftGroupOptions {
      * If the group is declared as a system group, certain threads are dedicated specifically for that one.
      */
     private boolean isSystemGroup = false;
+
+    private @Nullable SafeTimeValidator safeTimeValidator;
 
     /**
      * Gets a system group flag.
@@ -266,5 +269,14 @@ public class RaftGroupOptions {
      */
     public int maxClockSkew() {
         return maxClockSkewMs;
+    }
+
+    public @Nullable SafeTimeValidator safeTimeValidator() {
+        return safeTimeValidator;
+    }
+
+    public RaftGroupOptions safeTimeValidator(@Nullable SafeTimeValidator safeTimeValidator) {
+        this.safeTimeValidator = safeTimeValidator;
+        return this;
     }
 }

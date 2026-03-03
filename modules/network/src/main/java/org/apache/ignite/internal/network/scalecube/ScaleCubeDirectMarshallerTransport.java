@@ -48,7 +48,7 @@ import reactor.core.publisher.MonoProcessor;
  */
 class ScaleCubeDirectMarshallerTransport implements Transport {
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(Transport.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ScaleCubeDirectMarshallerTransport.class);
 
     /** Channel type for Scale Cube. */
     static final ChannelType SCALE_CUBE_CHANNEL_TYPE = new ChannelType((short) 1, "ScaleCube");

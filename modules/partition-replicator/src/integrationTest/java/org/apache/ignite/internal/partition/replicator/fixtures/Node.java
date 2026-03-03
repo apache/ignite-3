@@ -71,7 +71,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
@@ -124,6 +123,8 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -173,6 +174,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
+import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
@@ -244,9 +246,9 @@ public class Node {
 
     public final DistributionZoneManager distributionZoneManager;
 
-    private final ConfigurationManager nodeCfgMgr;
+    private final ConfigurationRegistry nodeConfigRegistry;
 
-    private final ConfigurationManager clusterCfgMgr;
+    private final ConfigurationRegistry clusterConfigRegistry;
 
     public final ClusterManagementGroupManager cmgManager;
 
@@ -368,7 +370,7 @@ public class Node {
         Path configPath = dir.resolve("config");
         TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
-        nodeCfgMgr = new ConfigurationManager(
+        nodeConfigRegistry = new ConfigurationRegistry(
                 List.of(NodeConfiguration.KEY),
                 new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                 nodeCfgGenerator,
@@ -575,14 +577,12 @@ public class Node {
                 List.of()
         );
 
-        clusterCfgMgr = new ConfigurationManager(
+        clusterConfigRegistry = new ConfigurationRegistry(
                 List.of(ClusterConfiguration.KEY),
                 cfgStorage,
                 clusterCfgGenerator,
                 new TestConfigurationValidator()
         );
-
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
@@ -598,7 +598,7 @@ public class Node {
                 dataStorageModules.createStorageEngines(
                         name,
                         new NoOpMetricManager(),
-                        nodeCfgMgr.configurationRegistry(),
+                        nodeConfigRegistry,
                         dir.resolve("storage"),
                         null,
                         failureManager,
@@ -639,6 +639,25 @@ public class Node {
 
         volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(name, workDir.resolve("volatile-log-spillout-" + name));
 
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
+        metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
+
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
+
+        catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageManager, failureManager),
+                clockService,
+                failureManager,
+                delayDurationMsSupplier,
+                PartitionCountProvider.defaultPartitionCountProvider()
+        );
+
+        schemaManager = new SchemaManager(registry, catalogManager);
+
+        ValidationSchemasSource validationSchemasSource = new CatalogValidationSchemasSource(catalogManager, schemaManager);
+
         replicaManager = new ReplicaManager(
                 name,
                 clusterService,
@@ -651,6 +670,7 @@ public class Node {
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new NoOpFailureManager(),
                 new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
+                new PartitionSafeTimeValidator(validationSchemasSource, catalogManager, schemaSyncService),
                 topologyAwareRaftGroupServiceFactory,
                 raftManager,
                 partitionRaftConfigurer,
@@ -661,27 +681,10 @@ public class Node {
                 threadPoolsManager.commonScheduler()
         );
 
-        LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
-
-        catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageManager, failureManager),
-                clockService,
-                failureManager,
-                delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
-        );
-
         raftManager.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftManager.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
-
-        schemaManager = new SchemaManager(registry, catalogManager);
-
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
-        metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
-
-        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
@@ -770,22 +773,18 @@ public class Node {
                 name,
                 registry,
                 gcConfiguration,
-                transactionConfiguration,
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
-                clusterService.serializationRegistry(),
-                replicaManager,
                 lockManager,
                 replicaSvc,
                 txManager,
                 dataStorageMgr,
-                sharedTxStateStorage,
                 metaStorageManager,
                 schemaManager,
+                validationSchemasSource,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
                 schemaSyncService,
@@ -798,7 +797,6 @@ public class Node {
                 lowWatermark,
                 transactionInflights,
                 indexMetaStorage,
-                partitionsLogSyncer,
                 partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration,
@@ -908,7 +906,7 @@ public class Node {
                 threadPoolsManager,
                 vaultManager,
                 nodeProperties,
-                nodeCfgMgr,
+                nodeConfigRegistry,
                 failureManager,
                 clusterService,
                 partitionsLogStorageManager,
@@ -921,7 +919,7 @@ public class Node {
 
         IgniteComponent[] componentsToStartAfterJoin = {
                 metaStorageManager,
-                clusterCfgMgr,
+                clusterConfigRegistry,
                 placementDriverManager,
                 clockWaiter,
                 catalogManager,

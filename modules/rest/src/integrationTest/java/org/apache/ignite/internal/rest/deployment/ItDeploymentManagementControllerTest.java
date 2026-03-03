@@ -81,7 +81,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration test for REST controller {@link DeploymentManagementController}.
  */
-@MicronautTest(rebuildContext = true)
+@MicronautTest
 public class ItDeploymentManagementControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 

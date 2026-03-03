@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.rocksdb.RocksUtils.closeAll;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -41,6 +41,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
+import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -52,6 +53,7 @@ import org.rocksdb.Options;
 import org.rocksdb.Priority;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.SstFileManager;
 import org.rocksdb.util.SizeUnit;
 
 /**
@@ -63,8 +65,14 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
     /** Database path. */
     private final Path spillOutPath;
 
+    private Env env;
+
+    private SstFileManager sstFileManager;
+
     /** Database options. */
     private DBOptions dbOptions;
+
+    private ColumnFamilyOptions cfOption;
 
     /** Shared db instance. */
     private RocksDB db;
@@ -74,6 +82,8 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
 
     /** Executor for spill-out RocksDB tasks. */
     private final ExecutorService executorService;
+
+    private RocksDbSizeCalculator sizeCalculator;
 
     /**
      * Create a new instance.
@@ -99,8 +109,10 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
 
         wipeOutDb();
 
+        env = createEnv();
+
         dbOptions = createDbOptions();
-        ColumnFamilyOptions cfOption = createColumnFamilyOptions();
+        cfOption = createColumnFamilyOptions();
 
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
 
@@ -109,23 +121,36 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
         );
 
         try {
+            sstFileManager = new SstFileManager(env);
+
+            dbOptions.setEnv(env);
+            dbOptions.setSstFileManager(sstFileManager);
+
             db = RocksDB.open(this.dbOptions, this.spillOutPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
-            Env env = db.getEnv();
+            Env dbEnv = db.getEnv();
             // Setup background flushes pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
+            dbEnv.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.HIGH);
             // Setup background compactions pool
-            env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
+            dbEnv.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
             assert (columnFamilyHandles.size() == 1);
             this.columnFamily = columnFamilyHandles.get(0);
         } catch (Exception e) {
+            closeRocksResources();
+
             throw new RuntimeException(e);
         }
 
+        sizeCalculator = new RocksDbSizeCalculator(db, sstFileManager);
+
         return nullCompletedFuture();
+    }
+
+    protected Env createEnv() {
+        return Env.getDefault();
     }
 
     private void wipeOutDb() {
@@ -183,7 +208,7 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
         try {
-            closeAll(columnFamily, db, dbOptions);
+            closeRocksResources();
         } catch (Exception e) {
             return failedFuture(e);
         }
@@ -191,8 +216,26 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
         return nullCompletedFuture();
     }
 
+    private void closeRocksResources() {
+        // This class obtains a default env which is not necessary to be closed, but the closure call is tolerated.
+        // But future subclasses might override how they create env, so we still close it explicitly.
+        closeAll(columnFamily, db, dbOptions, cfOption, sstFileManager, env);
+    }
+
     @Override
     public LogStorageManager manager(LogStorageBudgetView budgetView) {
         return new VolatileLogStorageManager(budgetView, db, columnFamily, executorService);
+    }
+
+    @TestOnly
+    RocksDB db() {
+        return db;
+    }
+
+    /**
+     * Returns total number of bytes occupied on disk by the log storages managed by this object.
+     */
+    public long totalBytesOnDisk() {
+        return sizeCalculator.totalBytesOnDisk();
     }
 }

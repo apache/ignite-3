@@ -312,6 +312,7 @@ namespace Apache.Ignite.Tests
                     case ClientOp.TupleDelete:
                     case ClientOp.TupleDeleteExact:
                     case ClientOp.TupleContainsKey:
+                    case ClientOp.TupleContainsAllKeys:
                         Send(handler, requestId, new byte[] { 1, MessagePackCode.True }.AsMemory());
                         continue;
 

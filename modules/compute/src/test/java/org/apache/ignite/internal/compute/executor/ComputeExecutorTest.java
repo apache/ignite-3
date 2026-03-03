@@ -236,7 +236,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
 
-        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalArgOrResult(h, null, null)), willBe(1));
+        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalResult(h, null, null)), willBe(1));
         assertThat(JobSuccess.runTimes.get(), is(1));
     }
 

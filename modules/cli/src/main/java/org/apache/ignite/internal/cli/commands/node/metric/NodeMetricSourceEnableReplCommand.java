@@ -18,19 +18,18 @@
 package org.apache.ignite.internal.cli.commands.node.metric;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Command that enables node metric source in REPL mode. */
 @Command(name = "enable", description = "Enables node metric source")
-public class NodeMetricSourceEnableReplCommand extends BaseCommand implements Runnable {
+public class NodeMetricSourceEnableReplCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
@@ -41,16 +40,11 @@ public class NodeMetricSourceEnableReplCommand extends BaseCommand implements Ru
     @Inject
     private NodeMetricSourceEnableCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(metricSource::buildEnableCallInput)
-                .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot enable metrics"))
-                .print()
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(() -> metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
+                .exceptionHandler(createHandler("Cannot enable metrics"))
         );
     }
 }

@@ -135,6 +135,7 @@ import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.option.SafeTimeValidator;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -200,6 +201,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
 
+    /** Raft safe time validator for partition groups. */
+    private final SafeTimeValidator partitionSafeTimeValidator;
+
     /** Message handler for placement driver messages. */
     private final NetworkMessageHandler placementDriverMessageHandler;
 
@@ -251,6 +255,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param failureProcessor Failure processor.
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
+     * @param partitionSafeTimeValidator Partition safe time validator.
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
@@ -272,6 +277,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
             @Nullable Marshaller raftCommandsMarshaller,
+            SafeTimeValidator partitionSafeTimeValidator,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
@@ -293,6 +299,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
         this.failureProcessor = failureProcessor;
         this.raftCommandsMarshaller = raftCommandsMarshaller;
+        this.partitionSafeTimeValidator = partitionSafeTimeValidator;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
@@ -873,6 +880,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         raftGroupOptions.snapshotStorageFactory(snapshotFactory);
         raftGroupOptions.maxClockSkew((int) clockService.maxClockSkewMillis());
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
+        raftGroupOptions.safeTimeValidator(partitionSafeTimeValidator);
 
         // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273
         partitionRaftConfigurer.configure(raftGroupOptions);

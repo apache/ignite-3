@@ -306,9 +306,8 @@ public class CurrentClientWithOldServerCompatibilityTest
         Assert.IsFalse(await view.ContainsKeyAsync(null, new IgniteTuple { ["ID"] = -id }));
 
         // Contains all.
-        // TODO IGNITE-25940 .NET: Add ContainsAll to table views
-        // Assert.IsTrue(await view.ContainsAllAsync(null, new[] { key, key2 }));
-        // Assert.IsFalse(await view.ContainsAllAsync(null, new[] { key, new IgniteTuple { ["ID"] = -id } }));
+        Assert.IsTrue(await view.ContainsAllKeysAsync(null, new[] { key, key2 }));
+        Assert.IsFalse(await view.ContainsAllKeysAsync(null, new[] { key, new IgniteTuple { ["ID"] = -id } }));
 
         // Get.
         Assert.IsTrue((await view.GetAsync(null, key)).HasValue);

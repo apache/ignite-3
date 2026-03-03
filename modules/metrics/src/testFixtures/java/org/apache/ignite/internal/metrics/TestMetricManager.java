@@ -21,12 +21,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,21 +38,6 @@ public class TestMetricManager implements MetricManager {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
-    }
-
-    @Override
-    public void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void start(Map<String, MetricExporter> availableExporters) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void start(Iterable<MetricExporter> exporters) {
-        throw new UnsupportedOperationException();
     }
 
     @Override

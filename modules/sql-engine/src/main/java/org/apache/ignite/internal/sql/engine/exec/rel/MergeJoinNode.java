@@ -53,6 +53,10 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
     protected boolean inLoop;
 
+    // Metrics
+    private long receivedRowsFromLeft = 0L;
+    private long receiveRowsFromRight = 0L;
+
     /**
      * Creates MergeJoinNode.
      *
@@ -70,6 +74,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 2;
         assert rowsCnt > 0 && requested == 0;
+
+        onRequestReceived();
 
         requested = rowsCnt;
 
@@ -149,6 +155,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         assert downstream() != null;
         assert waitingLeft > 0;
 
+        onRowReceivedFromLeft();
+
         waitingLeft--;
 
         leftInBuf.add(row);
@@ -161,6 +169,8 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
     private void pushRight(RowT row) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
+
+        onRowReceivedFromRight();
 
         waitingRight--;
 
@@ -1259,5 +1269,23 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 leftSource().request(waitingLeft = inBufSize);
             }
         }
+    }
+
+    @Override
+    protected void dumpMetrics0(IgniteStringBuilder writer) {
+        // Calculate aggregated statistics.
+        onRowsReceived(receivedRowsFromLeft + receiveRowsFromRight);
+
+        super.dumpMetrics0(writer);
+        writer.app(", leftRows=").app(receivedRowsFromLeft)
+                .app(", rightRows=").app(receiveRowsFromRight);
+    }
+
+    private void onRowReceivedFromLeft() {
+        receivedRowsFromLeft++;
+    }
+
+    private void onRowReceivedFromRight() {
+        receiveRowsFromRight++;
     }
 }

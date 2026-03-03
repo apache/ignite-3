@@ -115,6 +115,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
@@ -163,6 +164,7 @@ import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.option.PermissiveSafeTimeValidator;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -448,6 +450,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 failureProcessor,
                 null,
+                new PermissiveSafeTimeValidator(),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 rm,
                 RaftGroupOptionsConfigurer.EMPTY,
@@ -560,22 +563,18 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
-                txConfig,
                 replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
-                clusterService.serializationRegistry(),
-                replicaMgr,
                 null,
                 null,
                 txManager,
                 dsm,
-                sharedTxStateStorage,
                 metaStorageManager,
                 sm,
+                mock(ValidationSchemasSource.class),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
-                scheduledExecutor,
                 clockService,
                 outgoingSnapshotManager,
                 schemaSyncService,
@@ -588,7 +587,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 lowWatermark,
                 new TransactionInflights(placementDriver, clockService, txStateVolatileStorage),
                 indexMetaStorage,
-                logSyncer,
                 partitionReplicaLifecycleManager,
                 minTimeCollectorService,
                 systemDistributedConfiguration,
