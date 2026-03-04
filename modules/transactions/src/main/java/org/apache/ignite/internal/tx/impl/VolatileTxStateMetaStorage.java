@@ -153,7 +153,7 @@ public class VolatileTxStateMetaStorage {
         if (!Objects.equals(oldMeta.txState(), newMeta.txState())
                 || !Objects.equals(oldMeta.txCoordinatorId(), newMeta.txCoordinatorId())
                 || !Objects.equals(oldMeta.commitPartitionId(), newMeta.commitPartitionId())
-                || !Objects.equals(oldMeta.commitTimestamp(), newMeta.commitTimestamp())
+                || !Objects.equals(commitTimestampForComparison(oldMeta), commitTimestampForComparison(newMeta))
                 || !Objects.equals(oldMeta.initialVacuumObservationTimestamp(), newMeta.initialVacuumObservationTimestamp())
                 || !Objects.equals(oldMeta.cleanupCompletionTimestamp(), newMeta.cleanupCompletionTimestamp())
                 || !Objects.equals(oldMeta.isFinishedDueToTimeout(), newMeta.isFinishedDueToTimeout())
@@ -165,6 +165,10 @@ public class VolatileTxStateMetaStorage {
                     "enrichMeta must not change transaction state-correlated fields [txId=" + txId + ']'
             );
         }
+    }
+
+    private static @Nullable Object commitTimestampForComparison(TxStateMeta meta) {
+        return meta.txState() == TxState.FINISHING ? null : meta.commitTimestamp();
     }
 
     /**
