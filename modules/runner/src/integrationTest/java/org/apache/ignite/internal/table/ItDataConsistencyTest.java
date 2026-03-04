@@ -53,7 +53,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     private static final int ACCOUNTS_COUNT = WRITE_PARALLELISM * 10;
     private static final double INITIAL = 1000;
     private static final double TOTAL = ACCOUNTS_COUNT * INITIAL;
-    private static final int DURATION_MILLIS = 10000;
+    private static final int DURATION_MILLIS = 20000;
 
     private CyclicBarrier startBar = new CyclicBarrier(WRITE_PARALLELISM + READ_PARALLELISM, () -> log.info("Before test"));
     private LongAdder ops = new LongAdder();
@@ -119,7 +119,7 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
         while (cur + DURATION_MILLIS > System.currentTimeMillis()) {
             Thread.sleep(1000);
 
-            log.info("Waiting...");
+            log.info("Running... ops={} fails={} readOps={} readFails={}", ops.sum(), fails.sum(), readOps.sum(), readFails.sum());
 
             if (firstErr.get() != null) {
                 throw new IgniteException(INTERNAL_ERR, firstErr.get());

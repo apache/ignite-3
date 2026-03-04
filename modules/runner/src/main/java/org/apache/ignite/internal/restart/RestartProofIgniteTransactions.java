@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.restart;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,5 +57,16 @@ class RestartProofIgniteTransactions implements IgniteTransactions, Wrapper {
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return attachmentLock.attached(ignite -> Wrappers.unwrap(ignite.transactions(), classToUnwrap));
+    }
+
+    @Override
+    public <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
+        return attachmentLock.attached(ignite -> ignite.transactions().runInTransaction(clo, options));
+    }
+
+    @Override
+    public <T> CompletableFuture<T> runInTransactionAsync(Function<Transaction, CompletableFuture<T>> clo,
+            @Nullable TransactionOptions options) {
+        return attachmentLock.attachedAsync(ignite -> ignite.transactions().runInTransactionAsync(clo, options));
     }
 }

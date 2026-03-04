@@ -26,6 +26,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * Collection of utils to generate and pick apart transaction IDs.
  */
 public class TransactionIds {
+    public static final int MASK = (int) (~0L >>> 32);
+
     /**
      * Creates a transaction ID from the given begin timestamp and nodeId.
      *
@@ -35,7 +37,7 @@ public class TransactionIds {
      * @return Transaction ID corresponding to the provided values.
      */
     public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId, TxPriority priority) {
-        return transactionId(beginTimestamp.longValue(), nodeId, priority);
+        return transactionId(beginTimestamp.longValue(), 0, nodeId, priority);
     }
 
     /**
@@ -46,19 +48,24 @@ public class TransactionIds {
      * @return Transaction ID corresponding to the provided values.
      */
     public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId) {
-        return transactionId(beginTimestamp.longValue(), nodeId, TxPriority.NORMAL);
+        return transactionId(beginTimestamp.longValue(), 0, nodeId, TxPriority.NORMAL);
+    }
+
+    public static UUID transactionId(HybridTimestamp beginTimestamp, int retryCnt, int nodeId, TxPriority priority) {
+        return transactionId(beginTimestamp.longValue(), retryCnt, nodeId, priority);
     }
 
     /**
      * Creates a transaction ID from the given begin timestamp and nodeId.
      *
      * @param beginTimestamp Transaction begin timestamp.
+     * @param retryCnt Retry count.
      * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
      * @param priority Transaction priority.
      * @return Transaction ID corresponding to the provided values.
      */
-    public static UUID transactionId(long beginTimestamp, int nodeId, TxPriority priority) {
-        return new UUID(beginTimestamp, combine(nodeId, priority));
+    public static UUID transactionId(long beginTimestamp, int retryCnt, int nodeId, TxPriority priority) {
+        return new UUID(beginTimestamp, combine(nodeId, retryCnt, priority));
     }
 
     /**
@@ -80,10 +87,14 @@ public class TransactionIds {
         return TxPriority.fromOrdinal(ordinal);
     }
 
-    private static long combine(int nodeId, TxPriority priority) {
+    public static int retryCnt(UUID txId) {
+        return (int) (txId.getLeastSignificantBits() & MASK) >> 1;
+    }
+
+    private static long combine(int nodeId, int retryCnt, TxPriority priority) {
         int priorityAsInt = priority.ordinal();
 
         // Shift the int 32 bits and combine with the boolean
-        return ((long) nodeId << 32) | priorityAsInt;
+        return ((long) nodeId << 32) | ((long) retryCnt << 1) | priorityAsInt;
     }
 }

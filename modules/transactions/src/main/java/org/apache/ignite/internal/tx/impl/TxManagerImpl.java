@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.tx.RunInTransactionInternalImpl.runInTransactionInternal;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -104,9 +105,11 @@ import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalExcept
 import org.apache.ignite.internal.tx.OutdatedReadOnlyTransactionInternalException;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
@@ -121,8 +124,12 @@ import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -487,7 +494,8 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
             boolean implicit,
             InternalTxOptions options
     ) {
-        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
+        UUID txId = options.retryId() != null ? options.retryId()
+                : transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
         long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
 
@@ -1234,6 +1242,46 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
             updateTxMeta(txId, old -> null);
             return null;
         });
+    }
+
+    @Override
+    public <T> T runInTransaction(Function<Transaction, T> clo, HybridTimestampTracker observableTimestampTracker,
+            @Nullable TransactionOptions options) {
+        boolean readOnly = options != null && options.readOnly();
+
+        InternalTxOptions internalTxOptions = options == null
+                ? InternalTxOptions.defaults()
+                : InternalTxOptions.builder()
+                        .timeoutMillis(options.timeoutMillis())
+                        .txLabel(options.label())
+                        .build();
+
+        long startTimestamp = IgniteUtils.monotonicMs();
+        long timeout = getTimeoutOrDefault(internalTxOptions, txConfig.readWriteTimeoutMillis().value());
+        long initialTimeout = startTimestamp + timeout;
+
+        return runInTransactionInternal(old -> {
+            InternalTxOptions opts;
+            if (old != null) {
+                InternalTransaction oldInt = (InternalTransaction) old;
+//                UUID id = oldInt.id();
+//
+//                int cnt = TransactionIds.retryCnt(id);
+//                int nodeId = TransactionIds.nodeId(id);
+//                TxPriority priority = TransactionIds.priority(id);
+//                UUID retryId = TransactionIds.transactionId(id.getMostSignificantBits(), cnt + 1, nodeId, priority);
+
+                opts = InternalTxOptions.builder().priority(internalTxOptions.priority())
+                        //.retryId(retryId)
+                        .timeoutMillis(timeout) // TODO
+                        .txLabel(internalTxOptions.txLabel()).build();
+
+                //LOG.info("Restarting the transaction [oldId=" + id + ", newId=" + retryId + ", remaining=" + opts.timeoutMillis());
+            } else {
+                opts = internalTxOptions;
+            }
+            return beginExplicit(observableTimestampTracker, readOnly, opts);
+        }, clo, startTimestamp, initialTimeout);
     }
 
     @Override
