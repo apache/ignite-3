@@ -39,7 +39,7 @@ public class ListCachesCmd extends BaseCommand implements Callable<Integer> {
         var call = new ListCachesCall();
         return runPipeline(CallExecutionPipeline.builder(call)
                 .exceptionHandlers(ErrorLoadingInputConfigurationHandlers.create())
-                .inputProvider(() -> new ListCachesCall.Input(parent.params()))
+                .input(new ListCachesCall.Input(parent.params()))
                 .decorator(data -> () -> PlainTableRenderer.render(new String[] {"id", "name"},
                         data.stream().map(o -> new String[] {String.valueOf(o.cacheId()), o.cacheName()}).toArray(Object[][]::new)))
         );

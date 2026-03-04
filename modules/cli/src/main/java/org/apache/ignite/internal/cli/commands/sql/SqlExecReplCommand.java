@@ -276,7 +276,7 @@ public class SqlExecReplCommand extends BaseCommand implements Runnable {
             ExceptionHandlers exceptionHandlers,
             String line) {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(dropSemicolon(line)))
+                .input(new StringCallInput(dropSemicolon(line)))
                 .output(CommandLineContextProvider.getContext().out())
                 .errOutput(CommandLineContextProvider.getContext().err())
                 .exceptionHandlers(exceptionHandlers)

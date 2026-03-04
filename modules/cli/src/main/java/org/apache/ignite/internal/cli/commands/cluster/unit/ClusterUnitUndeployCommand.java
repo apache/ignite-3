@@ -53,7 +53,7 @@ public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<
     @Override
     public Integer call() throws Exception {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> UndeployUnitCallInput.builder()
+                .input(UndeployUnitCallInput.builder()
                         .id(id)
                         .version(version)
                         .clusterUrl(clusterUrl.getClusterUrl())

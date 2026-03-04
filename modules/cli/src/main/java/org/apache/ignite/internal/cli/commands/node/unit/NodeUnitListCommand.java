@@ -51,7 +51,7 @@ public class NodeUnitListCommand extends BaseCommand implements Callable<Integer
     @Override
     public Integer call() throws Exception {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> listOptions.toListUnitCallInput(nodeUrl.getNodeUrl()))
+                .input(listOptions.toListUnitCallInput(nodeUrl.getNodeUrl()))
                 .decorator(new UnitListDecorator(plain))
                 .exceptionHandler(createHandler("Cannot list units"))
         );

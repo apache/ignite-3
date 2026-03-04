@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.core.call;
 
 import java.io.PrintWriter;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
@@ -39,18 +38,16 @@ public class SingleCallExecutionPipeline<I extends CallInput, T> extends Abstrac
             PrintWriter errOutput,
             ExceptionHandlers exceptionHandlers,
             Decorator<T, TerminalOutput> decorator,
-            Supplier<I> inputProvider,
+            I input,
             boolean[] verbose
     ) {
-        super(output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
+        super(output, errOutput, exceptionHandlers, decorator, input, verbose);
         this.call = call;
     }
 
     @Override
     public int runPipelineInternal() {
-        I callInput = inputProvider.get();
-
-        CallOutput<T> callOutput = call.execute(callInput);
+        CallOutput<T> callOutput = call.execute(input);
 
         return handleResult(callOutput);
     }

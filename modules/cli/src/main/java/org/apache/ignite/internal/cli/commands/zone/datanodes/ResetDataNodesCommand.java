@@ -44,7 +44,7 @@ public class ResetDataNodesCommand extends BaseCommand implements Callable<Integ
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> ResetDataNodesCallInput.of(options, clusterUrl.getClusterUrl()))
+                .input(ResetDataNodesCallInput.of(options, clusterUrl.getClusterUrl()))
                 .exceptionHandler(createHandler("Cannot reset data nodes"))
         );
     }

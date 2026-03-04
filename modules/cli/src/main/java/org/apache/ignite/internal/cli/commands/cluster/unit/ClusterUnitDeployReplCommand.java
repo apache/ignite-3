@@ -43,7 +43,7 @@ public class ClusterUnitDeployReplCommand extends BaseCommand implements Callabl
     @Override
     public Integer call() throws Exception {
         return runPipeline(asyncBuilder(callFactory)
-                .inputProvider(() -> options.toDeployUnitCallInput(clusterUrl.getClusterUrl()))
+                .input(options.toDeployUnitCallInput(clusterUrl.getClusterUrl()))
                 .exceptionHandler(createHandler("Cannot deploy unit"))
         );
     }
