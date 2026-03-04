@@ -25,6 +25,8 @@ import picocli.CommandLine.IFactory;
 @FunctionalInterface
 public interface ReplExecutorProvider {
     /**
+     * Creates REPL executor.
+     *
      * @param factory Commands factory.
      * @return New instance of {@link ReplExecutor}.
      */
