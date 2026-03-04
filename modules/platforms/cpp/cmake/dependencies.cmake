@@ -99,7 +99,7 @@ else()
     fetch_dependency(uni-algo https://github.com/uni-algo/uni-algo/archive/v1.2.0.tar.gz 6e0cce94a6b45ebee7b904316df9f87f)
     if (${ENABLE_TESTS})
         fetch_dependency(googletest https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz c8340a482851ef6a3fe618a082304cfc)
-        add_asio_dependency(https://github.com/chriskohlhoff/asio/archive/refs/tags/asio-1-36-0.tar.gz 6699ac1dea111c20d024f25e06e573db)
+        add_asio_dependency()
     endif()
 endif()
 
