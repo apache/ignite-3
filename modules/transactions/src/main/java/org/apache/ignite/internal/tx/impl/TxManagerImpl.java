@@ -39,14 +39,15 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.scheduleRetry;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.retry.RetryUtil.scheduleRetry;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -119,7 +120,8 @@ import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.util.TimeoutStrategy;
+import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
+import org.apache.ignite.internal.util.retry.TimeoutStrategy;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -241,7 +243,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
-    private final TimeoutStrategy timeoutStrategy;
+    private final KeyBasedRetryContext retryContext;
 
     /**
      * Test-only constructor.
@@ -418,7 +420,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         txMetrics = new TransactionMetricsSource(clockService);
 
-        this.timeoutStrategy = timeoutStrategy;
+        retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
     }
 
     @Override
@@ -868,8 +870,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                 txFinishFuture
                         ))
                 .handle((res, ex) -> {
-                    String timeoutKey = commitPartition == null ? txId.toString() : commitPartition.toString();
-
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapRootCause(ex);
 
@@ -894,6 +894,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             LOG.debug("Failed to finish Tx. The operation will be retried {}.", ex,
                                     formatTxInfo(txId, txStateVolatileStorage));
 
+                            String timeoutKey = commitPartition == null ? txId.toString() : commitPartition.toString();
+
                             return supplyAsync(() -> scheduleRetry(
                                     () -> durableFinish(
                                             observableTimestampTracker,
@@ -904,9 +906,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                             commitTimestamp,
                                             txFinishFuture
                                     ),
-                                    timeoutStrategy.next(timeoutKey),
+                                    retryContext.updateAndGetState(timeoutKey).getTimeout(),
                                     MILLISECONDS,
-                                    commonScheduler
+                                    commonScheduler,
+                                    Optional.of(() -> retryContext.resetState(timeoutKey))
                             ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx {}.", ex,
@@ -915,8 +918,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             return CompletableFuture.<Void>failedFuture(cause);
                         }
                     }
-
-                    timeoutStrategy.reset(timeoutKey);
 
                     return CompletableFutures.<Void>nullCompletedFuture();
                 })

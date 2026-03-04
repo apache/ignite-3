@@ -120,7 +120,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.KeyBasedExponentialBackoffTimeoutStrategy;
+import org.apache.ignite.internal.util.retry.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.QualifiedName;
@@ -226,7 +226,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TestLowWatermark(),
                 commonExecutor,
                 new NoOpMetricManager(),
-                new KeyBasedExponentialBackoffTimeoutStrategy(20)
+                new ExponentialBackoffTimeoutStrategy(20)
         ) {
             @Override
             public CompletableFuture<Void> finish(

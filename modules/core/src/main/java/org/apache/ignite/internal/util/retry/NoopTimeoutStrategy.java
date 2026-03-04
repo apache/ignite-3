@@ -15,43 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.util.retry;
 
 /**
  * a.
  */
 public class NoopTimeoutStrategy implements TimeoutStrategy {
-    /**
-     * a.
-     */
-    private final TimeoutState timeoutState;
 
-    /**
-     * a.
-     *
-     * @param initTimeout a.
-     */
-    public NoopTimeoutStrategy(int initTimeout) {
-        this.timeoutState = new TimeoutState(initTimeout, 0);
+    @Override
+    public int next(int currentTimeout) {
+        return currentTimeout;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public TimeoutState getCurrent(String key) {
-        return timeoutState;
+    public int maxTimeout() {
+        return DEFAULT_TIMEOUT_MS_MAX;
     }
-
-    /** {@inheritDoc} */
-    @Override
-    public int next(String key) {
-        return timeoutState.getCurrentTimeout();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void reset(String key) {}
-
-    /** {@inheritDoc} */
-    @Override
-    public void resetAll() {}
 }

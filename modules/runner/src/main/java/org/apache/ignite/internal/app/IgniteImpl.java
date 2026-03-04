@@ -296,7 +296,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.internal.util.KeyBasedExponentialBackoffTimeoutStrategy;
+import org.apache.ignite.internal.util.retry.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
@@ -1099,7 +1099,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler(),
                 failureManager,
                 metricManager,
-                new KeyBasedExponentialBackoffTimeoutStrategy(20)
+                new ExponentialBackoffTimeoutStrategy(20)
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
