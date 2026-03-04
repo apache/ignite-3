@@ -109,3 +109,26 @@ Each task event has the following fields:
 | taskId | ID of a map reduce task. |
 | targetNode | Name of the node where a task is executed. |
 | clientAddress | **Optional** A socket address of a thin client that submitted a task. |
+
+## REST API Events
+
+These events are fired on REST API calls and can be used for audit purposes. Each event contains information about the call, including the client address and user login.
+
+| Event Type | Description |
+|------------|-------------|
+| REST_API_REQUEST_STARTED | Triggered when a REST API request is received. |
+| REST_API_REQUEST_FINISHED | Triggered when a REST API request is completed. |
+
+### REST API Event Structure
+
+Each REST API event has the following fields:
+
+| Field Name | Description |
+|------------|-------------|
+| method | HTTP method of the request (e.g., `GET`, `POST`). |
+| endpoint | API endpoint path (e.g., `/management/v1/license`). |
+| requestId | Unique identifier of the request. |
+| clientAddress | IP address of the client that made the request. |
+| userLogin | Login of the user who made the request. |
+| status | HTTP response status code. Applicable only to `REST_API_REQUEST_FINISHED` events. |
+| durationMs | Request duration in milliseconds. Applicable only to `REST_API_REQUEST_FINISHED` events. |
