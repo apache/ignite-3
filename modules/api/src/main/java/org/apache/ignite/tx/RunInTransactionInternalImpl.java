@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import javax.swing.InternalFrameFocusTraversalPolicy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,6 +69,8 @@ class RunInTransactionInternalImpl {
 
                 break;
             } catch (Exception ex) {
+                System.out.println("DBG: got exception tx=" + tx.toString() + ", cls=" + ex.getClass().getName());
+
                 addSuppressedToList(suppressed, ex);
 
                 long remainingTime = calcRemainingTime(initialTimeout, startTimestamp);
@@ -75,7 +78,7 @@ class RunInTransactionInternalImpl {
                 if (remainingTime > 0 && isRetriable(ex)) {
                     // Rollback on user exception, should be retried until success or timeout to ensure the lock release
                     // before the next attempt.
-                    rollbackWithRetry(tx, ex, startTimestamp, initialTimeout, suppressed);
+                    //rollbackWithRetry(tx, ex, startTimestamp, initialTimeout, suppressed);
 
                     long remaining = calcRemainingTime(initialTimeout, startTimestamp);
 

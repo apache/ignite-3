@@ -135,4 +135,9 @@ public class TxMessageGroup {
 
     /** Message type for {@link TxStateMetaUnknownMessage}. */
     public static final short TX_STATE_META_UNKNOWN_MESSAGE = 24;
+
+    /**
+     * Message type for {@link TxKillMessage}.
+     */
+    public static final short TX_KILL_MESSAGE = 25;
 }
