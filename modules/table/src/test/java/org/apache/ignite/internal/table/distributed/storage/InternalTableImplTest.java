@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.*;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.*;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -33,11 +35,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
@@ -487,9 +489,9 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
 
     @Nested
     class ScanWithIndexAndRangeCriteriaTest {
-        private static final int VALID_INDEX_ID = 1;
-        private static final int VALID_PARTITION = 0;
-        private static final int PARTITION_COUNT = 3;
+        static final int VALID_INDEX_ID = 1;
+        static final int VALID_PARTITION = 0;
+        static final int PARTITION_COUNT = 3;
 
         private Supplier<CompletableFuture<Void>> buildAction(InternalTable table, int partition,
                 InternalTransaction tx, int index, Range range) {
@@ -851,7 +853,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     TestTransactionIds.newTransactionId(),
                     randomUUID(),
                     false,
-                    1
+                    1,
+                    null
             );
 
             UUID txId = tx.id();
@@ -881,8 +884,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 Throwable unwrapped = unwrapCause(e);
                 assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
                 TransactionException txEx = (TransactionException) unwrapped;
-                assertThat("Error code should be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR or TX_ALREADY_FINISHED_ERR",
-                        txEx.code(), anyOf(is(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR), is(TX_ALREADY_FINISHED_ERR)));
+                assertThat("Error code should be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR",
+                        txEx.code(), is(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR));
                 Throwable rootCause = unwrapRootCause(e);
                 assertThat("Cause should be the last recorded exception", rootCause,
                         is(instanceOf(IllegalStateException.class)));
@@ -907,6 +910,49 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 assertThat("Error code should be TX_FAILED_READ_WRITE_OPERATION_ERR",
                         e.code(), is(TX_FAILED_READ_WRITE_OPERATION_ERR));
             }
+        }
+    }
+
+    @Test
+    void testScanAfterExceptionalAbortThrowsFinishedWithErrCode() {
+        InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
+
+        InternalTransaction tx = new ReadWriteTransactionImpl(
+                txManager,
+                mock(HybridTimestampTracker.class),
+                TestTransactionIds.newTransactionId(),
+                randomUUID(),
+                false,
+                1,
+                null
+        );
+
+        UUID txId = tx.id();
+        IllegalStateException failure = new IllegalStateException("boom");
+
+        TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
+                .finishedDueToError(true)
+                .lastException(failure)
+                .build();
+
+        when(txManager.stateMeta(txId)).thenReturn(meta);
+        tx.rollback();
+
+        Publisher<BinaryRow> publisher = internalTable.scan(VALID_PARTITION, tx, VALID_INDEX_ID, IndexScanCriteria.unbounded());
+
+        CompletableFuture<Void> completed = new CompletableFuture<>();
+
+        publisher.subscribe(new BlackholeSubscriber(completed));
+
+        try {
+            completed.get(10, TimeUnit.SECONDS);
+            fail("Expected TransactionException but scan completed successfully");
+        } catch (Exception e) {
+            Throwable unwrapped = unwrapCause(e);
+            assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
+            TransactionException txEx = (TransactionException) unwrapped;
+            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_ERR", txEx.code(), is(TX_ALREADY_FINISHED_WITH_ERR));
+            assertThat("Cause should be the recorded exception", txEx.getCause(), is(failure));
         }
     }
 

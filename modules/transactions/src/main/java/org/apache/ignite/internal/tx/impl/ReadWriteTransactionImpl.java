@@ -20,9 +20,10 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
@@ -154,21 +155,20 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * Fails the operation.
      */
     private RuntimeException enlistFailedException() {
+        TxStateMeta meta = txManager.stateMeta(id());
+        Throwable cause = meta == null ? null : meta.lastException();
+        boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();
+        boolean isFinishedDueToError = meta != null && meta.isFinishedDueToErrorOrFalse();
+        Throwable publicCause = isFinishedDueToError ? cause : null;
+
         return killed ? new TransactionKilledException(id(), txManager) :
                 new TransactionException(
-                        TX_ALREADY_FINISHED_ERR,
-                        format("Transaction is already finished [{}, txState={}].",
-                                formatTxInfo(id(), txManager, false), state()), lastException());
-    }
-
-    @Nullable
-    private Throwable lastException() {
-        TxStateMeta meta = txManager.stateMeta(id());
-        if (meta == null || meta.lastException() == null) {
-            return null;
-        }
-
-        return meta.lastException();
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format("{} [{}, txState={}].",
+                                finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError),
+                                formatTxInfo(id(), txManager, false),
+                                state()),
+                        publicCause);
     }
 
     /**

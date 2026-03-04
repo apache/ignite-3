@@ -59,10 +59,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-import static org.apache.ignite.internal.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED;
-import static org.apache.ignite.internal.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -75,6 +73,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -1419,13 +1418,20 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
 
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
+            Throwable cause = txStateMeta.lastException();
+            boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
+            boolean isFinishedDueToError = txStateMeta.isFinishedDueToErrorOrFalse();
+            Throwable publicCause = isFinishedDueToError ? cause : null;
+
             // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
             // Safe to invalidate waiters, which otherwise will block the cleanup process.
             // Using non-retriable exception intentionally to prevent unnecessary retries.
             lockManager.failAllWaiters(request.txId(), new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
-                    format("Can't acquire a lock because the transaction is already finished [{}].",
-                            formatTxInfo(request.txId(), txManager))
+                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                    format("Can't acquire a lock because {} [{}].",
+                            finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError).toLowerCase(Locale.ROOT),
+                            formatTxInfo(request.txId(), txManager)),
+                    publicCause
             ));
         }
 
@@ -1601,20 +1607,20 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
-            boolean isFinishedDueToTimeout = txStateMeta != null
-                    && txStateMeta.isFinishedDueToTimeout() != null
-                    && txStateMeta.isFinishedDueToTimeout();
+            boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
+            boolean isFinishedDueToError = txStateMeta != null && txStateMeta.isFinishedDueToErrorOrFalse();
 
             Throwable cause = null;
             if (txStateMeta != null) {
                 cause = txStateMeta.lastException();
             }
+            Throwable publicCause = isFinishedDueToError ? cause : null;
 
             return failedFuture(new TransactionException(
-                    isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format((isFinishedDueToTimeout ? MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : MESSAGE_TX_ALREADY_FINISHED)
+                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                    format(finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError)
                             + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
-                    cause
+                    publicCause
             ));
         }
 
@@ -3873,14 +3879,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
 
         TxState txState = txStateMeta.txState();
-        boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeout() != null && txStateMeta.isFinishedDueToTimeout();
+        boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
+        boolean isFinishedDueToError = txStateMeta.isFinishedDueToErrorOrFalse();
         Throwable cause = txStateMeta.lastException();
+        Throwable publicCause = isFinishedDueToError ? cause : null;
 
         return new TransactionException(
-                isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                format((isFinishedDueToTimeout ? MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : MESSAGE_TX_ALREADY_FINISHED)
+                finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                format(finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError)
                         + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
-                cause
+                publicCause
         );
     }
 

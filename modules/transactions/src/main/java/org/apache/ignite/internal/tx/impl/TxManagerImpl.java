@@ -667,6 +667,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         updateTxMeta(txId, old -> builder(old, finalState)
                 .commitTimestamp(ts)
                 .finishedDueToTimeout(isFinishedDueToTimeout(finishReason))
+                .finishedDueToError(isFinishedDueToError(finishReason))
                 .cleanupCompletionTimestamp(coarseCurrentTimeMillis())
                 .build()
         );
@@ -680,6 +681,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
         return commit ? clockService.now() : null;
+    }
+
+    private static boolean isFinishedDueToError(@Nullable Throwable finishReason) {
+        return finishReason != null && !isFinishedDueToTimeout(finishReason);
     }
 
     @Override
@@ -699,6 +704,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         assert enlistedGroups != null;
 
         boolean isTimeout = isFinishedDueToTimeout(finishReason);
+        boolean isError = isFinishedDueToError(finishReason);
 
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
@@ -707,6 +713,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     .commitPartitionId(commitPartition)
                     .commitTimestamp(commitTimestamp(commitIntent))
                     .finishedDueToTimeout(isTimeout)
+                    .finishedDueToError(isError)
                     .lastException(finishReason)
                     .build()
             );

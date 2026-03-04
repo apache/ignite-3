@@ -124,6 +124,7 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
         assertThat("Wrong error code: " + ex.codeAsString(), ex.code(),
                 either(is(Transactions.TX_STALE_READ_ONLY_OPERATION_ERR))
                         .or(is(Transactions.TX_ALREADY_FINISHED_ERR))
+                        .or(is(Transactions.TX_ALREADY_FINISHED_WITH_ERR))
         );
     }
 

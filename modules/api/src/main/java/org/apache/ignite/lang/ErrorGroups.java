@@ -471,6 +471,9 @@ public class ErrorGroups {
 
         /** Transaction was internally killed. This is retriable state. */
         public static final int TX_KILLED_ERR = TX_ERR_GROUP.registerErrorCode((short) 18);
+
+        /** Operation failed because the transaction is already finished due to an error. */
+        public static final int TX_ALREADY_FINISHED_WITH_ERR = TX_ERR_GROUP.registerErrorCode((short) 19);
     }
 
     /** Replicator error group. */

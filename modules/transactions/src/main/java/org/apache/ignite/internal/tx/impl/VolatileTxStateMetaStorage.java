@@ -157,6 +157,7 @@ public class VolatileTxStateMetaStorage {
                 || !Objects.equals(oldMeta.initialVacuumObservationTimestamp(), newMeta.initialVacuumObservationTimestamp())
                 || !Objects.equals(oldMeta.cleanupCompletionTimestamp(), newMeta.cleanupCompletionTimestamp())
                 || !Objects.equals(oldMeta.isFinishedDueToTimeout(), newMeta.isFinishedDueToTimeout())
+                || !Objects.equals(oldMeta.isFinishedDueToError(), newMeta.isFinishedDueToError())
                 || !Objects.equals(oldMeta.tx(), newMeta.tx())
                 || oldMeta.getClass() != newMeta.getClass()) {
             throw new IgniteInternalException(

@@ -41,6 +41,8 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
 
     @Nullable Boolean isFinishedDueToTimeout();
 
+    @Nullable Boolean isFinishedDueToError();
+
     @Nullable String txLabel();
 
     /** Converts to {@link TxStateMeta}. */
@@ -56,6 +58,7 @@ public interface TxStateMetaMessage extends TransactionMetaMessage {
                 initialVacuumObservationTimestamp(),
                 cleanupCompletionTimestamp(),
                 isFinishedDueToTimeout(),
+                isFinishedDueToError(),
                 txLabel()
         );
     }

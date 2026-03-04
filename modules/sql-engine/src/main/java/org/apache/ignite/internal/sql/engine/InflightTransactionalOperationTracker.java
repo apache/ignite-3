@@ -19,12 +19,13 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.internal.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
 
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.tx.TransactionException;
 
@@ -46,8 +47,18 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
             boolean result = tx.isReadOnly() ? delegate.addScanInflight(tx.id()) : delegate.track(tx.id());
 
             if (!result) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(MESSAGE_TX_ALREADY_FINISHED + " [tx={}, {}]",
-                        tx, formatTxInfo(tx.id(), txManager, false)));
+                TxStateMeta meta = txManager.stateMeta(tx.id());
+                Throwable cause = meta == null ? null : meta.lastException();
+                boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();
+                boolean isFinishedDueToError = meta != null && meta.isFinishedDueToErrorOrFalse();
+                Throwable publicCause = isFinishedDueToError ? cause : null;
+
+                throw new TransactionException(
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format(finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError) + " [tx={}, {}]",
+                                tx, formatTxInfo(tx.id(), txManager, false)),
+                        publicCause
+                );
             }
         }
     }

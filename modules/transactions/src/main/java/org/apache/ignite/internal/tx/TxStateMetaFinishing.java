@@ -51,8 +51,14 @@ public class TxStateMetaFinishing extends TxStateMeta {
             @Nullable String txLabel,
             @Nullable Throwable finishReason
     ) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
-                null, null, ExceptionUtils.isFinishedDueToTimeout(finishReason), txLabel, finishReason);
+        this(
+                txCoordinatorId,
+                commitPartitionId,
+                ExceptionUtils.isFinishedDueToTimeout(finishReason),
+                finishReason != null && !ExceptionUtils.isFinishedDueToTimeout(finishReason),
+                txLabel,
+                finishReason
+        );
     }
 
     /**
@@ -67,9 +73,22 @@ public class TxStateMetaFinishing extends TxStateMeta {
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
+            @Nullable Boolean isFinishingDueToError,
             @Nullable String txLabel
     ) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, null, null, isFinishingDueToTimeout, txLabel);
+        this(txCoordinatorId, commitPartitionId, isFinishingDueToTimeout, isFinishingDueToError, txLabel, null);
+    }
+
+    public TxStateMetaFinishing(
+            @Nullable UUID txCoordinatorId,
+            @Nullable ZonePartitionId commitPartitionId,
+            @Nullable Boolean isFinishingDueToTimeout,
+            @Nullable Boolean isFinishingDueToError,
+            @Nullable String txLabel,
+            @Nullable Throwable finishReason
+    ) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
+                null, null, isFinishingDueToTimeout, isFinishingDueToError, txLabel, finishReason);
     }
 
     /**
@@ -136,7 +155,14 @@ public class TxStateMetaFinishing extends TxStateMeta {
         @Override
         public TxStateMeta build() {
             if (txState == TxState.FINISHING) {
-                return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, txLabel, lastException);
+                return new TxStateMetaFinishing(
+                        txCoordinatorId,
+                        commitPartitionId,
+                        isFinishedDueToTimeout,
+                        isFinishedDueToError,
+                        txLabel,
+                        lastException
+                );
             } else {
                 return super.build();
             }

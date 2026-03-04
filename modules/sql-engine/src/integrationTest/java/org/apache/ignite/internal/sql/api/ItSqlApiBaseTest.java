@@ -705,9 +705,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished due to an error");
     }
 
     @ParameterizedTest
@@ -731,9 +731,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_ERR,
                 () -> executeForRead(sql, tx, query, 2),
-                "Transaction is already finished");
+                "Transaction is already finished due to an error");
     }
 
     @Test
@@ -753,8 +753,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             tx.rollback();
 
             assertThrowsSqlException(
-                    Transactions.TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished",
+                    Transactions.TX_ALREADY_FINISHED_WITH_ERR,
+                    "Transaction is already finished due to an error",
                     () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );
         }
