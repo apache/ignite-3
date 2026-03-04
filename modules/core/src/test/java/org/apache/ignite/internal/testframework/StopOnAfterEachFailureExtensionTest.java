@@ -66,7 +66,7 @@ class StopOnAfterEachFailureExtensionTest {
     /**
      * Test class where @AfterEach always succeeds.
      */
-    @Disabled("Only for EngineTestKit execution")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28031 Only for EngineTestKit execution")
     @ExtendWith(StopOnAfterEachFailureExtension.class)
     static class TestClassWithSuccessfulAfterEach {
         @AfterEach
@@ -90,7 +90,7 @@ class StopOnAfterEachFailureExtensionTest {
     /**
      * Test class where @AfterEach times out.
      */
-    @Disabled("Only for EngineTestKit execution")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28031 Only for EngineTestKit execution")
     @ExtendWith(StopOnAfterEachFailureExtension.class)
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     static class TestClassWithTimeoutInAfterEach {
