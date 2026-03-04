@@ -33,6 +33,8 @@ import org.apache.ignite.internal.tx.impl.EnlistedPartitionGroup;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.metrics.ResourceVacuumMetrics;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -299,6 +301,9 @@ public interface TxManager extends IgniteComponent {
      * @param abortTx If {@code true}, the transaction will be aborted.
      */
     CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId, boolean abortTx);
+
+    <T> T runInTransaction(Function<Transaction, T> clo, HybridTimestampTracker observableTimestampTracker,
+            @Nullable TransactionOptions options);
 
     /**
      * Returns lock retry count.

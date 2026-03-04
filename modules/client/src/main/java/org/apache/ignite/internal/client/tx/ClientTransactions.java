@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.client.tx.ClientTransaction.EMPTY;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -107,5 +109,16 @@ public class ClientTransactions implements IgniteTransactions {
         long id = in.unpackLong();
 
         return new ClientTransaction(r.clientChannel(), ch, id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
+    }
+
+    @Override
+    public <T> T runInTransaction(Function<Transaction, T> clo, @Nullable TransactionOptions options) throws TransactionException {
+        throw new IllegalArgumentException();
+    }
+
+    @Override
+    public <T> CompletableFuture<T> runInTransactionAsync(Function<Transaction, CompletableFuture<T>> clo,
+            @Nullable TransactionOptions options) {
+        throw new IllegalArgumentException();
     }
 }

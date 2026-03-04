@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,58 +40,43 @@ import org.jetbrains.annotations.Nullable;
  * {@link IgniteTransactions#runInTransactionAsync}, moved from the separate class to avoid the interface overloading. This
  * implementation is common for both client and embedded {@link IgniteTransactions}.
  */
-class RunInTransactionInternalImpl {
+public class RunInTransactionInternalImpl {
     private static final int MAX_SUPPRESSED = 100;
+    private static final long BEGINNING_OF_TIME = System.nanoTime();
 
-    static <T> T runInTransactionInternal(
-            IgniteTransactions igniteTransactions,
+    public static <T> T runInTransactionInternal(
+            Function<Transaction, Transaction> fac,
             Function<Transaction, T> clo,
-            @Nullable TransactionOptions options,
             long startTimestamp,
             long initialTimeout
     ) throws TransactionException {
         Objects.requireNonNull(clo);
 
-        TransactionOptions txOptions = options == null
-                ? new TransactionOptions().timeoutMillis(TimeUnit.SECONDS.toMillis(DEFAULT_RW_TX_TIMEOUT_SECONDS))
-                : options;
-
         List<Throwable> suppressed = new ArrayList<>();
 
-        Transaction tx;
+        Transaction tx0 = fac.apply(null);
+
         T ret;
 
         while (true) {
-            tx = igniteTransactions.begin(txOptions);
-
             try {
-                ret = clo.apply(tx);
+                ret = clo.apply(tx0);
 
-                tx.commit();
+                tx0.commit();
 
                 break;
             } catch (Exception ex) {
                 addSuppressedToList(suppressed, ex);
 
-                long remainingTime = calcRemainingTime(initialTimeout, startTimestamp);
+                long remaining = calcRemainingTime(initialTimeout);
 
-                if (remainingTime > 0 && isRetriable(ex)) {
-                    // Rollback on user exception, should be retried until success or timeout to ensure the lock release
-                    // before the next attempt.
-                    //rollbackWithRetry(tx, ex, startTimestamp, initialTimeout, suppressed);
-
-                    long remaining = calcRemainingTime(initialTimeout, startTimestamp);
-
-                    if (remaining > 0) {
-                        // Will go on retry iteration.
-                        txOptions = txOptions.timeoutMillis(remainingTime);
-                    } else {
-                        throwExceptionWithSuppressed(ex, suppressed);
-                    }
+                if (remaining > 0 && isRetriable(ex)) {
+                    // Rollback is already performed on enlistment failure.
+                    tx0 = fac.apply(tx0);
                 } else {
                     try {
                         // No retries here, rely on the durable finish.
-                        tx.rollback();
+                        tx0.rollback();
                     } catch (Exception e) {
                         addSuppressedToList(suppressed, e);
                     }
@@ -101,28 +87,6 @@ class RunInTransactionInternalImpl {
         }
 
         return ret;
-    }
-
-    private static void rollbackWithRetry(
-            Transaction tx,
-            Exception closureException,
-            long startTimestamp,
-            long initialTimeout,
-            List<Throwable> suppressed
-    ) {
-        while (true) {
-            try {
-                tx.rollback();
-
-                break;
-            } catch (Exception re) {
-                addSuppressedToList(suppressed, re);
-
-                if (calcRemainingTime(initialTimeout, startTimestamp) <= 0) {
-                    throwExceptionWithSuppressed(closureException, suppressed);
-                }
-            }
-        }
     }
 
     static <T> CompletableFuture<T> runInTransactionAsyncInternal(
@@ -200,14 +164,14 @@ class RunInTransactionInternalImpl {
     ) {
         addSuppressedToList(suppressed, e);
 
-        long remainingTime = calcRemainingTime(initialTimeout, startTimestamp);
+        long remainingTime = calcRemainingTime(initialTimeout);
 
         if (remainingTime > 0 && isRetriable(e)) {
             // Rollback on user exception, should be retried until success or timeout to ensure the lock release
             // before the next attempt.
             return rollbackWithRetryAsync(currentTx, startTimestamp, initialTimeout, suppressed, e)
                     .thenCompose(ignored -> {
-                        long remaining = calcRemainingTime(initialTimeout, startTimestamp);
+                        long remaining = calcRemainingTime(initialTimeout);
 
                         if (remaining > 0) {
                             TransactionOptions opt = txOptions.timeoutMillis(remaining);
@@ -255,7 +219,7 @@ class RunInTransactionInternalImpl {
                     } else {
                         addSuppressedToList(suppressed, re);
 
-                        if (calcRemainingTime(initialTimeout, startTimestamp) <= 0) {
+                        if (calcRemainingTime(initialTimeout) <= 0) {
                             for (Throwable s : suppressed) {
                                 addSuppressed(e, s);
                             }
@@ -327,10 +291,8 @@ class RunInTransactionInternalImpl {
         return false;
     }
 
-    private static long calcRemainingTime(long initialTimeout, long startTimestamp) {
-        long now = System.currentTimeMillis();
-        long remainingTime = initialTimeout - (now - startTimestamp);
-        return remainingTime;
+    private static long calcRemainingTime(long initialTimeout) {
+        return initialTimeout - monotonicMs();
     }
 
     private static <E extends Throwable> E sneakyThrow(Throwable e) throws E {
@@ -345,5 +307,9 @@ class RunInTransactionInternalImpl {
             this.tx = tx;
             this.val = val;
         }
+    }
+
+    public static long monotonicMs() {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - BEGINNING_OF_TIME);
     }
 }
