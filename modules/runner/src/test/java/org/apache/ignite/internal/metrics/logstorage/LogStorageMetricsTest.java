@@ -25,8 +25,6 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.isA;
-import static org.hamcrest.Matchers.notNullValue;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -34,7 +32,6 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.LongGauge;
-import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
@@ -148,13 +145,9 @@ class LogStorageMetricsTest {
     }
 
     private void waitForLongGaugeValue(String metricName, Matcher<Long> valueMatcher) {
-        Metric metric = metricManager.metric(LogStorageMetricSource.NAME, metricName);
-        assertThat(metric, isA(LongGauge.class));
-        LongGauge gauge = (LongGauge) metric;
+        LongGauge metric = metricManager.metric(LogStorageMetricSource.NAME, metricName);
 
-        assertThat(gauge, is(notNullValue()));
-
-        await().until(gauge::value, valueMatcher);
+        await().until(metric::value, valueMatcher);
     }
 
     @Test
