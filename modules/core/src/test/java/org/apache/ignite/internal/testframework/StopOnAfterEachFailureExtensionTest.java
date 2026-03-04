@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.testframework;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ class StopOnAfterEachFailureExtensionTest {
                 .engine("junit-jupiter")
                 .selectors(DiscoverySelectors.selectClass(
                         TestClassWithSuccessfulAfterEach.class))
+                .configurationParameter("junit.jupiter.conditions.deactivate", "org.junit.*DisabledCondition")
                 .execute();
 
         results.testEvents()
@@ -54,6 +56,7 @@ class StopOnAfterEachFailureExtensionTest {
                 .engine("junit-jupiter")
                 .selectors(DiscoverySelectors.selectClass(
                         TestClassWithTimeoutInAfterEach.class))
+                .configurationParameter("junit.jupiter.conditions.deactivate", "org.junit.*DisabledCondition")
                 .execute();
 
         results.testEvents()
@@ -63,6 +66,7 @@ class StopOnAfterEachFailureExtensionTest {
     /**
      * Test class where @AfterEach always succeeds.
      */
+    @Disabled("Only for EngineTestKit execution")
     @ExtendWith(StopOnAfterEachFailureExtension.class)
     static class TestClassWithSuccessfulAfterEach {
         @AfterEach
@@ -86,6 +90,7 @@ class StopOnAfterEachFailureExtensionTest {
     /**
      * Test class where @AfterEach times out.
      */
+    @Disabled("Only for EngineTestKit execution")
     @ExtendWith(StopOnAfterEachFailureExtension.class)
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     static class TestClassWithTimeoutInAfterEach {
