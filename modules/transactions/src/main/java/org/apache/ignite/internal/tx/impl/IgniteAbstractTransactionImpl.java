@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -172,7 +174,17 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
                 finish(false, null, false, throwable),
-                isFinishedDueToTimeout(throwable) ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ROLLBACK_ERR
+                rollbackExceptionCode(throwable)
         );
+    }
+
+    private static int rollbackExceptionCode(Throwable throwable) {
+        if (isFinishedDueToTimeout(throwable)) {
+            return TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+        }
+
+        Throwable unwrapped = unwrapCause(throwable);
+
+        return unwrapped instanceof IgniteException ? ((IgniteException) unwrapped).code() : INTERNAL_ERR;
     }
 }

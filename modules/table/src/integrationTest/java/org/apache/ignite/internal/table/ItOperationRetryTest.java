@@ -297,12 +297,6 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         return findNodeByFilter(ignite -> !leaseholderNodeName.equals(ignite.name()));
     }
 
-    private static void assertTransactionLockException(Exception e) {
-        assertInstanceOf(SqlException.class, e);
-        assertThat(e.getMessage(), containsString("Failed to acquire a lock during request handling"));
-        assertTrue(hasCause(e, LockException.class, null), "Expected lock exception as a cause");
-    }
-
     private IgniteImpl findLeaseholderNode(ZonePartitionId replicationGroupId) {
         return findNodeByName(waitAndGetPrimaryReplica(replicationGroupId));
     }

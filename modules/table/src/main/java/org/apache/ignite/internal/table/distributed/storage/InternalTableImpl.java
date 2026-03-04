@@ -64,8 +64,8 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
-import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
-import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
+import static org.apache.ignite.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED;
+import static org.apache.ignite.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -665,8 +665,8 @@ public class InternalTableImpl implements InternalTable {
                     return failedFuture(
                             new TransactionException(code, format(
                                     (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR
-                                            ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT
-                                            : TX_ALREADY_FINISHED)
+                                            ? MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT
+                                            : MESSAGE_TX_ALREADY_FINISHED)
                                             + " [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
@@ -2129,7 +2129,7 @@ public class InternalTableImpl implements InternalTable {
             // Track read only requests which are able to create cursors.
             if (!transactionInflights.addScanInflight(txId)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                        TX_ALREADY_FINISHED + " [{}, readOnly=true].",
+                        MESSAGE_TX_ALREADY_FINISHED + " [{}, readOnly=true].",
                         formatTxInfo(txId, txManager, false)
                 ));
             }
@@ -2340,7 +2340,7 @@ public class InternalTableImpl implements InternalTable {
             Throwable cause = lastException(transaction.id());
             throw new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format((isFinishedDueToTimeout ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : TX_ALREADY_FINISHED)
+                    format((isFinishedDueToTimeout ? MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : MESSAGE_TX_ALREADY_FINISHED)
                             + " [{}, readOnly={}].",
                             formatTxInfo(transaction.id(), txManager, false),
                             transaction.isReadOnly()

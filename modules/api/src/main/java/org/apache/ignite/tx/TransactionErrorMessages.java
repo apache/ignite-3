@@ -22,10 +22,10 @@ package org.apache.ignite.tx;
  */
 public final class TransactionErrorMessages {
     /** Transaction is already finished. */
-    public static final String TX_ALREADY_FINISHED = "Transaction is already finished";
+    public static final String MESSAGE_TX_ALREADY_FINISHED = "Transaction is already finished";
 
     /** Transaction is already finished due to timeout. */
-    public static final String TX_ALREADY_FINISHED_DUE_TO_TIMEOUT = "Transaction is already finished due to timeout";
+    public static final String MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT = "Transaction is already finished due to timeout";
 
     private TransactionErrorMessages() {
         // No-op.

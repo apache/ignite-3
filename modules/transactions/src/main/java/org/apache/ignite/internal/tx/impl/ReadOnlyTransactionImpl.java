@@ -141,7 +141,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             @Nullable Throwable finishReason
     ) {
         assert !full : "Read-only transactions cannot be full.";
-        assert !(commitIntent && finishReason != null) : "Transaction cannot commit with a finish reason.";
+        assert !(commitIntent && finishReason != null) : "Transaction cannot be committed with an error.";
 
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();

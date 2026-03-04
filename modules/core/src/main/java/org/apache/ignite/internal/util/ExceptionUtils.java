@@ -850,7 +850,7 @@ public final class ExceptionUtils {
 
     /**
      * Returns {@code true} if the given throwable (or its cause) is a {@link TransactionException}
-     * with {@link org.apache.ignite.lang.ErrorGroups.Transactions#TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR}.
+     * with {@link ErrorGroups.Transactions#TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR}.
      *
      * @param e Throwable to inspect.
      * @return {@code true} when the transaction was finished due to timeout, {@code false} otherwise.

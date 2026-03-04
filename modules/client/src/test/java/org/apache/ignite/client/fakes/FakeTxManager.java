@@ -200,7 +200,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public CompletableFuture<Void> rollbackWithExceptionAsync(Throwable throwable) {
-                return null;
+                return nullCompletedFuture();
             }
 
             @Override

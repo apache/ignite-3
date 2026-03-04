@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTime
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
-import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
 
 import java.util.Map;
 import java.util.UUID;
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -205,7 +203,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean full,
             @Nullable Throwable finishReason
     ) {
-        assert !(commit && finishReason != null) : "Transaction cannot commit with a finish reason.";
+        assert !(commit && finishReason != null) : "Transaction cannot be committed with an error.";
 
         if (finishFuture != null) {
             return finishFuture;

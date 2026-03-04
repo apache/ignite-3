@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
 
 import java.util.ArrayList;

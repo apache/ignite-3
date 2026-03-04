@@ -61,8 +61,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED;
-import static org.apache.ignite.tx.TransactionErrorMessages.TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
+import static org.apache.ignite.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED;
+import static org.apache.ignite.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -1612,7 +1612,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             return failedFuture(new TransactionException(
                     isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format((isFinishedDueToTimeout ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : TX_ALREADY_FINISHED)
+                    format((isFinishedDueToTimeout ? MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : MESSAGE_TX_ALREADY_FINISHED)
                             + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
                     cause
             ));
@@ -3878,7 +3878,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         return new TransactionException(
                 isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                format((isFinishedDueToTimeout ? TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : TX_ALREADY_FINISHED)
+                format((isFinishedDueToTimeout ? MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT : MESSAGE_TX_ALREADY_FINISHED)
                         + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
                 cause
         );
