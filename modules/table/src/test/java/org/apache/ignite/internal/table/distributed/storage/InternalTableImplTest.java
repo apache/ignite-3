@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATE
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.*;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.*;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.VALID_INDEX_ID;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImplTest.ScanWithIndexAndRangeCriteriaTest.VALID_PARTITION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -47,6 +47,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -844,7 +845,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         }
 
         @Test
-        void testScanAfterTimeoutExposesExceptionInfosFromMeta() {
+        void testScanAfterTimeoutDoesNotExposeCauseFromMeta() {
             InternalTableImpl internalTable = newInternalTable(TABLE_ID, 1);
 
             InternalTransaction tx = new ReadWriteTransactionImpl(
@@ -886,15 +887,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TransactionException txEx = (TransactionException) unwrapped;
                 assertThat("Error code should be TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR",
                         txEx.code(), is(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR));
-                Throwable rootCause = unwrapRootCause(e);
-                assertThat("Cause should be the last recorded exception", rootCause,
-                        is(instanceOf(IllegalStateException.class)));
-                assertThat(rootCause.getMessage(), is(secondFailure.getMessage()));
-                Throwable[] suppressed = rootCause.getSuppressed();
-                assertThat("Expected exactly one suppressed exception", suppressed.length, is(1));
-                assertThat("Suppressed should be the 1st recorded exception", suppressed[0],
-                        is(instanceOf(RuntimeException.class)));
-                assertThat(suppressed[0].getMessage(), is(firstFailure.getMessage()));
+                assertThat("Timeout should not expose nested cause", txEx.getCause(), is(nullValue()));
             }
         }
 
