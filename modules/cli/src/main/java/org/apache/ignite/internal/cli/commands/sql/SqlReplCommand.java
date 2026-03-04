@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.sql.planner.SqlPlannerReplCommand;
+import org.apache.ignite.internal.cli.commands.sql.planner.SqlPlannerCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.IFactory;
@@ -54,7 +54,7 @@ import picocli.CommandLine.Unmatched;
  */
 @Command(name = "sql",
         subcommands = {
-                SqlPlannerReplCommand.class,
+                SqlPlannerCommand.class,
         },
         description = {
                 "Executes SQL queries against the connected Ignite cluster.",

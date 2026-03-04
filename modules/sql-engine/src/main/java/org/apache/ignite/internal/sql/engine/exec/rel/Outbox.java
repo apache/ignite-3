@@ -159,6 +159,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void push(RowT row) throws Exception {
         assert waiting > 0 : waiting;
 
+        onRowReceived();
+
         waiting--;
 
         if (currentNode == null || dest.targets(row).contains(currentNode)) {
@@ -176,6 +178,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         waiting = NOT_WAITING;
 
         flush();
+
+        if (ExecutionContext.DUMP_METRICS) {
+            dumpFragmentMetrics();
+        }
     }
 
     /** {@inheritDoc} */
@@ -189,6 +195,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     /** {@inheritDoc} */
     @Override
     public void closeInternal() {
+        if (waiting != NOT_WAITING && ExecutionContext.DUMP_METRICS) {
+            dumpFragmentMetrics();
+        }
+
         super.closeInternal();
 
         registry.unregister(this);
@@ -496,6 +506,11 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         private @Nullable List<RowT> curr;
         private int pendingCount;
 
+        // Metrics
+        long batchesRequested = 0L;
+        long rowsReceived = 0L;
+        long rowsSent = 0L;
+
         private RemoteDownstream(String nodeName, BatchSender<RowT> sender) {
             this.nodeName = nodeName;
             this.sender = sender;
@@ -519,6 +534,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         void onBatchRequested(int amountOfBatches) throws Exception {
             assert amountOfBatches > 0 : amountOfBatches;
 
+            batchesRequested += amountOfBatches;
+
             this.pendingCount += amountOfBatches;
 
             // if there is a batch which is ready to be sent, then just sent it
@@ -541,6 +558,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             assert ready() : state;
             assert curr != null;
 
+            rowsReceived++;
+
             curr.add(row);
 
             if (curr.size() == IO_BATCH_SIZE) {
@@ -559,6 +578,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             assert curr != null;
 
             boolean lastBatch = state == State.LAST_BATCH;
+
+            rowsSent += curr.size();
 
             sender.send(nodeName, ++lastSentBatchId, lastBatch, curr);
 
@@ -611,5 +632,38 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             this.state = state;
             this.amountOfBatches = amountOfBatches;
         }
+    }
+
+    private void dumpFragmentMetrics() {
+        IgniteStringBuilder sb = new IgniteStringBuilder("Dump metrics for executed query:")
+                .app(" queryId=").app(context().queryId())
+                .app(", fragmentId=").app(context().fragmentId())
+                .app(" nodeName=").app(context().localNode().name())
+                .nl();
+
+        dumpNodeMetrics(sb, "");
+
+        LOG.info(sb.toString());
+    }
+
+    @Override
+    public void dumpNodeMetrics(IgniteStringBuilder writer, String indent) {
+        writer.app(indent);
+        dumpMetrics0(writer);
+        writer.nl();
+
+        String childIndent = Debuggable.childIndentation("");
+        String childIndent2 = Debuggable.childIndentation(childIndent);
+
+        for (Entry<String, RemoteDownstream<RowT>> entry : this.nodeBuffers.entrySet()) {
+            RemoteDownstream<RowT> downstream = entry.getValue();
+            writer.app(childIndent2)
+                    .app("Node: nodeName=").app(entry.getKey())
+                    .app(", rowsSent=").app(downstream.rowsSent)
+                    .app(", batchesRequested=").app(downstream.batchesRequested);
+            writer.nl();
+        }
+
+        MetricsAwareNode.dumpChildNodesMetrics(writer, childIndent, sources());
     }
 }

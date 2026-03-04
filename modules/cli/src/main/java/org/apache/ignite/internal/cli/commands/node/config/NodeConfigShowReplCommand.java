@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.cli.commands.node.config;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.FormatMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -33,7 +33,7 @@ import picocli.CommandLine.Parameters;
  * Command that shows node configuration from the cluster in REPL mode.
  */
 @Command(name = "show", description = "Shows node configuration")
-public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
+public class NodeConfigShowReplCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
     private NodeUrlMixin nodeUrl;
@@ -45,23 +45,18 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
     @Inject
     private NodeConfigShowCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
     @Mixin
     private FormatMixin format;
 
-    /** {@inheritDoc} */
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(this::nodeConfigShowCallInput)
-                .then(Flows.fromCall(call))
-                .print(format.decorator())
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(this::nodeConfigShowCallInput)
+                .decorator(format.decorator())
         );
     }
 
-    private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {
-        return NodeConfigShowCallInput.builder().selector(selector).nodeUrl(nodeUrl).build();
+    private NodeConfigShowCallInput nodeConfigShowCallInput() {
+        return NodeConfigShowCallInput.builder().selector(selector).nodeUrl(nodeUrl.getNodeUrl()).build();
     }
 }

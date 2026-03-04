@@ -23,11 +23,13 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class IndexFileManagerTest extends IgniteAbstractTest {
@@ -379,8 +381,8 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
     @Test
     void testExists() throws IOException {
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(false));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(false));
 
         var memtable = new StripedMemTable(STRIPES);
 
@@ -388,13 +390,13 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         indexFileManager.saveNewIndexMemtable(memtable);
 
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(true));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(false));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(false));
 
         indexFileManager.saveNewIndexMemtable(memtable);
 
-        assertThat(indexFileManager.indexFileExists(new FileProperties(0)), is(true));
-        assertThat(indexFileManager.indexFileExists(new FileProperties(1)), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(0))), is(true));
+        assertThat(Files.exists(indexFileManager.indexFilePath(new FileProperties(1))), is(true));
     }
 
     @Test
@@ -555,5 +557,57 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         assertThat(indexFileManager.firstLogIndexInclusive(0), is(2L));
         assertThat(indexFileManager.lastLogIndexExclusive(0), is(3L));
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27980")
+    @Test
+    void testCompactionWithMissingGroups() throws IOException {
+        var memtable = new SingleThreadMemTable();
+
+        // First file contains entries from two groups.
+        memtable.appendSegmentFileOffset(0, 1, 1);
+        memtable.appendSegmentFileOffset(1, 1, 1);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+
+        // Second file contains entries only from the first group.
+        memtable.appendSegmentFileOffset(0, 2, 2);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+
+        // Third file contains entries from two groups again.
+        memtable.appendSegmentFileOffset(0, 3, 3);
+        memtable.appendSegmentFileOffset(0, 4, 4);
+        memtable.appendSegmentFileOffset(1, 2, 2);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        // Truncate prefix of the group 0 so that one of the entries from the third file are removed.
+        memtable = new SingleThreadMemTable();
+
+        memtable.truncatePrefix(0, 4);
+
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        var compactedMemtable = new SingleThreadMemTable();
+
+        // We are removing an entry for group 0 from the third file.
+        compactedMemtable.appendSegmentFileOffset(1, 2, 2);
+
+        indexFileManager.onIndexFileCompacted(compactedMemtable, new FileProperties(2, 0), new FileProperties(2, 1));
+
+        assertThat(
+                indexFileManager.getSegmentFilePointer(0, 3),
+                is(nullValue())
+        );
+
+        assertThat(
+                indexFileManager.getSegmentFilePointer(1, 2),
+                is(new SegmentFilePointer(new FileProperties(2, 1), 2))
+        );
     }
 }

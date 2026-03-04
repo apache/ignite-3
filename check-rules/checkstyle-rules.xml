@@ -397,6 +397,15 @@
     <module name="SuppressionCommentFilter"/>
     <!-- https://checkstyle.org/checks/coding/packagedeclaration.html -->
     <module name="PackageDeclaration"/>
+    <!-- Custom check: logger class argument must match enclosing class -->
+    <module name="org.apache.ignite.internal.checkstyle.LoggerClassMismatchCheck">
+      <!-- default: LOG|log|LOGGER|logger -->
+      <!-- <property name="fieldNamePattern" value="LOG|log|LOGGER|logger"/> -->
+      <!-- default: getLogger,forClass -->
+      <!-- <property name="factoryMethods" value="getLogger,forClass"/> -->
+      <!-- Comma-separated fully qualified class names to exclude from the check -->
+      <!-- <property name="excludeClasses" value=""/> -->
+    </module>
   </module>
   <module name="Header">
     <property name="headerFile" value="${checkstyle.header.file}" default="LICENSE.txt"/>

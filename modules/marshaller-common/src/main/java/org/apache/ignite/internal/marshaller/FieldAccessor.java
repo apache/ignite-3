@@ -92,7 +92,7 @@ abstract class FieldAccessor {
                 validateColumnType(col, field.getType());
             }
 
-            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(field.getDeclaringClass(), MethodHandles.lookup());
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
             // Optimization for primitive types to avoid boxing/unboxing.

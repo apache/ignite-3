@@ -816,15 +816,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 ));
     }
 
-    private void checkGroupWithNoAggregateUseIndexSingle(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
-                        .and(not(hasAggregate()))
-                        .and(hasGroups())
-                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
-                ));
-    }
-
     private void checkGroupWithNoAggregateUseIndexHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
@@ -836,17 +827,6 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                                         .and(hasGroups())
                                         .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                                 ))
-                        ))
-                ));
-    }
-
-    private void checkColocatedGroupWithNoAggregateUseIndexHash(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
-                        .and(input(isInstanceOf(IgniteColocatedSortAggregate.class)
-                                .and(not(hasAggregate()))
-                                .and(hasGroups())
-                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ));
     }

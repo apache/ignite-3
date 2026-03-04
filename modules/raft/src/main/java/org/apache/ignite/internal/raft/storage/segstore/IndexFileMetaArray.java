@@ -163,4 +163,53 @@ class IndexFileMetaArray {
 
         return new IndexFileMetaArray(newArray, newSize);
     }
+
+    IndexFileMetaArray onIndexCompacted(FileProperties oldProperties, IndexFileMeta newMeta) {
+        // Find index meta associated with the file being compacted.
+        int smallestOrdinal = array[0].indexFileProperties().ordinal();
+
+        assert oldProperties.ordinal() >= smallestOrdinal;
+
+        int updateIndex = oldProperties.ordinal() - smallestOrdinal;
+
+        if (updateIndex >= size) {
+            return this;
+        }
+
+        IndexFileMeta oldMeta = array[updateIndex];
+
+        assert oldMeta.indexFileProperties().equals(oldProperties)
+                : String.format("File properties mismatch [expected=%s, actual=%s].", oldMeta.indexFileProperties(), oldProperties);
+
+        if (updateIndex > 0) {
+            IndexFileMeta prevOldMeta = array[updateIndex - 1];
+
+            assert newMeta.firstLogIndexInclusive() == prevOldMeta.lastLogIndexExclusive() :
+                    String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+                            prevOldMeta.lastLogIndexExclusive(),
+                            newMeta.firstLogIndexInclusive()
+                    );
+        }
+
+        if (updateIndex < size - 1) {
+            IndexFileMeta nextOldMeta = array[updateIndex + 1];
+
+            assert newMeta.lastLogIndexExclusive() == nextOldMeta.firstLogIndexInclusive() :
+                    String.format("Index File Metas must be contiguous. Expected log index: %d, actual log index: %d",
+                            nextOldMeta.firstLogIndexInclusive(),
+                            newMeta.lastLogIndexExclusive()
+                    );
+        }
+
+        IndexFileMeta[] newArray = array.clone();
+
+        newArray[updateIndex] = newMeta;
+
+        return new IndexFileMetaArray(newArray, size);
+    }
+
+    @Override
+    public String toString() {
+        return Arrays.toString(array);
+    }
 }

@@ -33,12 +33,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -74,6 +78,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private boolean noRemoteWrites = true;
 
     /**
+     * A closure which is called then a transaction is externally killed (not by direct user call).
+     * Not-null only for a client's transaction.
+     */
+    private final @Nullable Consumer<InternalTransaction> killClosure;
+
+    /**
      * Constructs an explicit read-write transaction.
      *
      * @param txManager The tx manager.
@@ -82,6 +92,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout The timeout.
+     * @param killClosure Kill closure.
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
@@ -89,9 +100,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID id,
             UUID txCoordinatorId,
             boolean implicit,
-            long timeout
+            long timeout,
+            @Nullable Consumer<InternalTransaction> killClosure
     ) {
         super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+        this.killClosure = killClosure;
     }
 
     /** {@inheritDoc} */
@@ -122,8 +135,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     ) {
         // No need to wait for lock if commit is in progress.
         if (!enlistPartitionLock.readLock().tryLock()) {
-            failEnlist();
-            assert false; // Not reachable.
+            throw enlistFailedException();
         }
 
         try {
@@ -143,13 +155,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /**
      * Fails the operation.
      */
-    private void failEnlist() {
-        Throwable cause = lastException();
-        throw new TransactionException(
-                TX_ALREADY_FINISHED_ERR,
-                format(TX_ALREADY_FINISHED + " [{}, txState={}].",
-                        formatTxInfo(id(), txManager, false), state()),
-                cause);
+    private RuntimeException enlistFailedException() {
+        return killed ? new TransactionKilledException(id(), txManager) :
+                new TransactionException(
+                        TX_ALREADY_FINISHED_ERR,
+                        format("Transaction is already finished [{}, txState={}].",
+                                formatTxInfo(id(), txManager, false), state()), lastException());
     }
 
     @Nullable
@@ -166,9 +177,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * Checks that this transaction was not finished and will be able to enlist another partition.
      */
     private void checkEnlistPossibility() {
-        if (isFinishingOrFinished()) {
-            // This means that the transaction is either in final or FINISHING state.
-            failEnlist();
+        if (isFinishingOrFinished() || killed) {
+            throw enlistFailedException();
         }
     }
 
@@ -227,14 +237,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             if (finishFuture == null) {
                 if (killed) {
                     if (isComplete) {
+                        // An attempt to finish a killed transaction.
                         finishFuture = nullCompletedFuture();
 
-                        return failedFuture(new TransactionException(
-                                TX_ALREADY_FINISHED_ERR,
-                                format("Transaction is killed [{}, txState={}].",
-                                        formatTxInfo(id(), txManager, false), state())
-                        ));
+                        return failedFuture(new TransactionKilledException(id(), txManager));
                     } else {
+                        // Kill is called twice.
                         return nullCompletedFuture();
                     }
                 }
@@ -247,6 +255,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
                         this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
+                        if (killClosure == null) {
+                            throw new AssertionError("Invalid kill state for a full transaction");
+                        }
                         killed = true;
                     }
 
@@ -268,6 +279,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
                         killed = true;
+
+                        return finishFutureInternal.handle((unused, throwable) -> {
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-25825 move before finish after async cleanup
+                            if (killClosure != null) {
+                                // Notify the client about the kill.
+                                killClosure.accept(this);
+                            }
+
+                            return null;
+                        });
                     }
 
                     // Return the real future first time.

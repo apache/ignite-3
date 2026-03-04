@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -78,15 +79,15 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly, String txLabel) {
-        return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
+        return begin(timestampTracker, true, readOnly);
     }
 
     @Override
     public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
-        return begin(timestampTracker, false, readOnly, txOptions);
+        return begin(timestampTracker, false, readOnly);
     }
 
-    private InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly, InternalTxOptions options) {
+    private InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 
@@ -262,7 +263,7 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> cleanup(
             ZonePartitionId commitPartitionId,
-            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -293,6 +294,11 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Boolean> kill(UUID txId) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
         return nullCompletedFuture();
     }
 

@@ -22,15 +22,17 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.fromThrowable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -260,17 +262,8 @@ class FileSenderTest extends BaseIgniteAbstractTest {
 
         // Setup rate limiter to count tryAcquire and release calls.
         Semaphore rateLimiter = spy(new Semaphore(4));
-        AtomicInteger tryAcquireCount = new AtomicInteger();
-        doAnswer(invocation -> {
-            tryAcquireCount.incrementAndGet();
-            return true;
-        }).when(rateLimiter).tryAcquire();
 
-        AtomicInteger releaseCount = new AtomicInteger();
-        doAnswer(invocation -> {
-            releaseCount.incrementAndGet();
-            return null;
-        }).when(rateLimiter).release();
+        int initialPermits = rateLimiter.availablePermits();
 
         // When.
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
@@ -290,7 +283,7 @@ class FileSenderTest extends BaseIgniteAbstractTest {
         );
 
         // And - rate limiter is released the same number of times as it was acquired.
-        assertThat(tryAcquireCount.get(), greaterThan(0));
-        assertThat(releaseCount.get(), equalTo(tryAcquireCount.get()));
+        verify(rateLimiter, atLeast(1)).tryAcquire();
+        await().until(rateLimiter::availablePermits, is(initialPermits));
     }
 }

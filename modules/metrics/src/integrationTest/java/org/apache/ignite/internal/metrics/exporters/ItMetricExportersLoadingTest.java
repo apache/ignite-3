@@ -55,9 +55,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
     @Test
     public void test() throws Exception {
-        MetricManager metricManager = new MetricManagerImpl();
-
-        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
+        MetricManager metricManager = new MetricManagerImpl("test-node", UUID::randomUUID, metricConfiguration);
 
         TestMetricsSource src = new TestMetricsSource("TestMetricsSource");
 
@@ -93,9 +91,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
     @Test
     public void shouldChangePeriod() throws Exception {
-        MetricManager metricManager = new MetricManagerImpl();
-
-        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
+        MetricManager metricManager = new MetricManagerImpl("test-node", UUID::randomUUID, metricConfiguration);
 
         TestMetricsSource src = new TestMetricsSource("TestMetricsSource");
 

@@ -23,13 +23,12 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VER
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.unit.NodeUnitInspectCall;
 import org.apache.ignite.internal.cli.call.unit.UnitInspectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.decorators.UnitInspectDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -38,7 +37,7 @@ import picocli.CommandLine.Parameters;
 
 /** Command to inspect deployment unit in REPL mode. */
 @Command(name = "inspect", description = "Inspects the structure of a deployed unit")
-public class NodeUnitInspectReplCommand extends BaseCommand implements Runnable {
+public class NodeUnitInspectReplCommand extends BaseCommand implements Callable<Integer> {
 
     @Parameters(index = "0", description = "Deployment unit id")
     private String unitId;
@@ -55,20 +54,16 @@ public class NodeUnitInspectReplCommand extends BaseCommand implements Runnable 
     @Inject
     private NodeUnitInspectCall call;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(url -> UnitInspectCallInput.builder()
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(call)
+                .inputProvider(() -> UnitInspectCallInput.builder()
                         .unitId(unitId)
                         .version(version)
-                        .url(url)
+                        .url(nodeUrl.getNodeUrl())
                         .build())
-                .then(Flows.fromCall(call))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot inspect unit"))
-                .print(new UnitInspectDecorator(plain))
+                .exceptionHandler(createHandler("Cannot inspect unit"))
+                .decorator(new UnitInspectDecorator(plain))
         );
     }
 }

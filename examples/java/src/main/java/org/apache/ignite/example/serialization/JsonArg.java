@@ -18,14 +18,30 @@
 package org.apache.ignite.example.serialization;
 
 public class JsonArg {
-    String word;
-    boolean isUpperCase;
+    private String word;
+    private boolean isUpperCase;
 
-    public JsonArg() {
-    }
+    public JsonArg() {}
 
-    JsonArg(String word, boolean isUpperCase) {
+    public JsonArg(String word, boolean isUpperCase) {
         this.word = word;
         this.isUpperCase = isUpperCase;
     }
+
+    public String getWord() {
+        return word;
+    }
+
+    public void setWord(String word) {
+        this.word = word;
+    }
+
+    public boolean isUpperCase() {
+        return isUpperCase;
+    }
+
+    public void setUpperCase(boolean upperCase) {
+        isUpperCase = upperCase;
+    }
 }
+
