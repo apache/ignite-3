@@ -184,13 +184,12 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         for (List<RexNode> items : expressions) {
             List<RexNode> andNodes = new ArrayList<>(keysList.size());
             for (int key : keysList) {
-                RexLocalRef ref;
-                ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
-                RexNode lit = items.get(key);
-                if (!isValueExpr(lit)) {
+                RexLocalRef ref = rexBuilder.makeLocalRef(rowTypes.getFieldList().get(key).getType(), key);
+                RexNode expr = items.get(key);
+                if (expr == ModifyNodeVisitor.NO_VALUE || !isValueExpr(expr)) {
                     return;
                 }
-                RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, lit);
+                RexNode eq = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, ref, expr);
                 andNodes.add(eq);
             }
             if (andNodes.size() > 1) {
