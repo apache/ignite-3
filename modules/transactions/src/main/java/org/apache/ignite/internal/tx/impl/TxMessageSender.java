@@ -29,6 +29,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -53,6 +55,8 @@ import org.jetbrains.annotations.Nullable;
  * This class is responsible for interacting with the messaging layer. Sends transaction messages.
  */
 public class TxMessageSender {
+    private static final IgniteLogger LOG = Loggers.forClass(TxMessageSender.class);
+
     private static final int RPC_TIMEOUT_MILLIS = 60 * 1000;
 
     /** Tx messages factory. */
@@ -133,6 +137,8 @@ public class TxMessageSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
     ) {
+        LOG.info("DBG: send cleanup " + txId);
+
         return messagingService.invoke(
                 primaryConsistentId,
                 TX_MESSAGES_FACTORY.txCleanupMessage()

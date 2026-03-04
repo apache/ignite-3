@@ -295,6 +295,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
+    /** Used to handle race between concurrent rollback and enlist. */
     private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     /** Cleanup futures. */
@@ -1412,6 +1413,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
         TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
+
+        // LOG.info("DBG: processTableWriteIntentSwitchAction " + request.txId() + " " + request.groupId().asReplicationGroupId().toString() + " " + txStateMeta);
 
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
             Throwable cause = txStateMeta.lastException();

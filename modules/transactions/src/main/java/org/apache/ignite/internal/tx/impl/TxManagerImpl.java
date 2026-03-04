@@ -1263,7 +1263,7 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
         return runInTransactionInternal(old -> {
             InternalTxOptions opts;
             if (old != null) {
-                InternalTransaction oldInt = (InternalTransaction) old;
+//                InternalTransaction oldInt = (InternalTransaction) old;
 //                UUID id = oldInt.id();
 //
 //                int cnt = TransactionIds.retryCnt(id);
