@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.configuration.TestDistributedDeletedPrefixConfigurationModule.DELETED_DISTRIBUTED_PREFIX;
 import static org.apache.ignite.internal.configuration.TestLocalDeletedPrefixConfigurationModule.DELETED_LOCAL_PREFIX;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
