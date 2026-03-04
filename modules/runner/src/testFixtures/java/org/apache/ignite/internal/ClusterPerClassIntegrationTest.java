@@ -19,7 +19,6 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.ConfigTemplates.NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getAllResultSet;
@@ -27,6 +26,11 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -44,13 +48,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -115,8 +122,14 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
         CLUSTER = new Cluster(clusterConfiguration.build());
 
-        if (initialNodes() > 0 && needInitializeCluster()) {
-            CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
+        if (!shouldStartAndInitializeCluster()) {
+            return;
+        }
+
+        CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
+
+        if (shouldCreateDefaultZone()) {
+            createDefaultZone();
         }
     }
 
@@ -156,6 +169,21 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     protected String getNodeBootstrapConfigTemplate() {
         return NODE_BOOTSTRAP_CFG_TEMPLATE;
+    }
+
+    private boolean shouldStartAndInitializeCluster() {
+        return initialNodes() > 0 && needInitializeCluster();
+    }
+
+    protected boolean shouldCreateDefaultZone() {
+        return true;
+    }
+
+    private static void createDefaultZone() {
+        assertThat(CLUSTER, is(notNullValue()));
+        assertThat(CLUSTER.nodes(), is(not(empty())));
+
+        DistributionZonesTestUtil.createDefaultZone(igniteImpl(0).catalogManager());
     }
 
     /**
@@ -348,7 +376,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * @param partitions Partitions count.
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, DEFAULT_STORAGE_PROFILE);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, CatalogService.DEFAULT_STORAGE_PROFILE);
 
         return createTableOnly(tableName, zoneName);
     }
@@ -702,6 +730,20 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     protected static ClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node().toPublicNode();
+    }
+
+    /**
+     * Returns partition count by given zone name.
+     *
+     * @param zoneName Zone to get partition count for.
+     * @return Partition count for given zone name assumed the zone exists.
+     */
+    protected static int partitionsCount(String zoneName) {
+        ZoneDefinition zoneDescriptor = CLUSTER.aliveNode().catalog().zoneDefinition(zoneName);
+
+        assertNotNull(zoneDescriptor);
+
+        return zoneDescriptor.partitions();
     }
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */

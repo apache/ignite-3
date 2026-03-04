@@ -18,34 +18,28 @@
 package org.apache.ignite.internal.cli.commands.node.version;
 
 import jakarta.inject.Inject;
+import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.node.version.NodeVersionCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
-import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 /** Display the node version in REPL. */
 @Command(name = "version", description = "Prints the node build version")
-public class NodeVersionReplCommand extends BaseCommand implements Runnable {
+public class NodeVersionReplCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
     private NodeUrlMixin nodeUrl;
 
     @Inject
     private NodeVersionCall nodeVersionCall;
 
-    @Inject
-    private ConnectToClusterQuestion question;
-
-    /** {@inheritDoc} */
     @Override
-    public void run() {
-        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
-                .map(UrlCallInput::new)
-                .then(Flows.fromCall(nodeVersionCall))
-                .print()
+    public Integer call() {
+        return runPipeline(CallExecutionPipeline.builder(nodeVersionCall)
+                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
         );
     }
 }

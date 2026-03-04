@@ -579,6 +579,8 @@ public class ClientInboundMessageHandler
     }
 
     private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures) {
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
@@ -588,8 +590,6 @@ public class ClientInboundMessageHandler
             packer.close();
             throw t;
         }
-
-        state = STATE_HANDSHAKE_RESPONSE_SENT;
 
         metrics.sessionsAcceptedIncrement();
         metrics.sessionsActiveIncrement();
@@ -1008,7 +1008,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1018,7 +1017,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1090,7 +1088,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
                         resolveCurrentUsername()
                 );
 

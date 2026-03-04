@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.zone.datanodes;
+package org.apache.ignite.internal.catalog;
 
-/** Test class for {@link ResetDataNodesReplCommand}. */
-public class ItResetDataNodesReplCommandTest extends ItResetDataNodesTest {
-    @Override
-    protected Class<?> getCommandClass() {
-        return ResetDataNodesReplCommand.class;
-    }
+import java.util.List;
+
+/**
+ * Provides an estimated count of data nodes.
+ */
+@FunctionalInterface
+public interface EstimatedDataNodeCountProvider {
+    /**
+     * Provides an estimated count of data nodes.
+     *
+     * @return Estimated count of data nodes.
+     */
+    int estimatedDataNodeCount(String dataNodesFilter, List<String> storageProfiles);
 }

@@ -402,7 +402,6 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 minimumRequiredTimeCollectorService,
-                executor,
                 placementDriver,
                 clockService,
                 new ZonePartitionId(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())

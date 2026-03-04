@@ -92,7 +92,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
             try {
                 // Try to connect with ssl settings, create SessionInfo on success
                 SessionInfo sessionInfo = connectionChecker.checkConnection(input, result.value());
-                connectionChecker.saveSettings(input, result.value());
+                connectionChecker.saveSettings(result.value());
 
                 askQuestionToStoreCredentials(configManagerProvider.get(), input.username(), input.password());
                 return connectSuccessCall.execute(sessionInfo, input.checkClusterInit());
@@ -104,7 +104,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                     return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.url()));
                 } else {
                     // SSL params are correct but auth params not provided
-                    connectionChecker.saveSettings(input, result.value());
+                    connectionChecker.saveSettings(result.value());
 
                     // Try to connect with ssl and basic auth settings
                     return configureAuth(input, output);
@@ -128,7 +128,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                     .build();
             try {
                 SessionInfo sessionInfo = connectionChecker.checkConnection(connectCallInput);
-                connectionChecker.saveSettings(connectCallInput, null);
+                connectionChecker.saveSettings(null);
                 askQuestionToStoreCredentials(configManagerProvider.get(), username, password);
                 return connectSuccessCall.execute(sessionInfo, input.checkClusterInit());
             } catch (ApiException e) {

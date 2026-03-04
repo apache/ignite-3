@@ -269,7 +269,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            aggRow.update(accs, grpSet, context().rowAccessor(), row);
+            aggRow.update(accs, grpSet, row);
         }
 
         private RowT row() {

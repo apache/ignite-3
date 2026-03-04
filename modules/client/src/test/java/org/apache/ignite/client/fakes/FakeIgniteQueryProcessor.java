@@ -93,7 +93,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             lastScript = sb.toString();
         }
 
-        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params, this));
+        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, this));
     }
 
     @Override

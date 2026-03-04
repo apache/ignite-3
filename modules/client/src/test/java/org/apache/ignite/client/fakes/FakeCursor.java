@@ -55,7 +55,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     private final List<ColumnMetadata> columns = new ArrayList<>();
     private final List<InternalSqlRow> rows = new ArrayList<>();
 
-    FakeCursor(String qry, SqlProperties properties, Object[] params, FakeIgniteQueryProcessor proc) {
+    FakeCursor(String qry, SqlProperties properties, FakeIgniteQueryProcessor proc) {
         this.qry = qry;
 
         if ("SELECT PROPS".equals(qry)) {

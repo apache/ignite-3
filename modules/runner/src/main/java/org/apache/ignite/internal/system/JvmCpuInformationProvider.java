@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster.config;
-
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import picocli.CommandLine.Command;
+package org.apache.ignite.internal.system;
 
 /**
- * Cluster config command in REPL.
+ * Provides CPU information based on JVM {@link Runtime} instance.
  */
-@Command(name = "config",
-        subcommands = {ClusterConfigShowReplCommand.class, ClusterConfigUpdateReplCommand.class},
-        description = "Cluster config operations")
-public class ClusterConfigReplCommand extends BaseCommand {
+public class JvmCpuInformationProvider implements CpuInformationProvider {
+    @Override
+    public int availableProcessors() {
+        return Runtime.getRuntime().availableProcessors();
+    }
 }
