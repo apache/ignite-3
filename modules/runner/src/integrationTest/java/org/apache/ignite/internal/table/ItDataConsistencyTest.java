@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Test;
 public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "test_zone";
     private static final String TABLE_NAME = "accounts";
-    private static final int WRITE_PARALLELISM = 4; // Runtime.getRuntime().availableProcessors();
+    private static final int WRITE_PARALLELISM = 8; // Runtime.getRuntime().availableProcessors();
     private static final int READ_PARALLELISM = 0;
     private static final int ACCOUNTS_COUNT = WRITE_PARALLELISM * 10;
     private static final double INITIAL = 1000;

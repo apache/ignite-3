@@ -66,6 +66,8 @@ class RunInTransactionInternalImpl {
             try {
                 ret = clo.apply(tx);
 
+                tx.commit();
+
                 break;
             } catch (Exception ex) {
                 addSuppressedToList(suppressed, ex);
@@ -96,19 +98,6 @@ class RunInTransactionInternalImpl {
                     throwExceptionWithSuppressed(ex, suppressed);
                 }
             }
-        }
-
-        try {
-            tx.commit();
-        } catch (Exception e) {
-            try {
-                // Try to rollback tx in case if it's not finished. Retry is not needed here due to the durable finish.
-                tx.rollback();
-            } catch (Exception re) {
-                e.addSuppressed(re);
-            }
-
-            throw e;
         }
 
         return ret;

@@ -1056,7 +1056,12 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
             }
         };
 
-        //var deadlockPreventionPolicy = new WaitDieDeadlockPreventionPolicy();
+//        var deadlockPreventionPolicy = new WaitDieDeadlockPreventionPolicy() {
+//            @Override
+//            public long waitTimeout() {
+//                return DEFAULT_LOCK_TIMEOUT;
+//            }
+//        };
 
         txStateVolatileStorage.start();
 
