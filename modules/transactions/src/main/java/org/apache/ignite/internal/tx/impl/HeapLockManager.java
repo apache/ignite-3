@@ -230,6 +230,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public void releaseAll(UUID txId) {
+        LOG.info("DBG: releaseAll {}", txId);
+
         ConcurrentLinkedQueue<Releasable> states = this.txMap.remove(txId);
 
         if (states != null) {
@@ -819,6 +821,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             WaiterImpl waiter0 = null;
 
             synchronized (waiters) {
+                // LOG.info("DBG: tryFail " + txId + " " + waiters);
+
                 WaiterImpl waiter = waiters.get(txId);
 
                 // Waiter can be null if it was invalidated by order conflict resolution logic.
@@ -890,7 +894,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             List<Runnable> failed = new ArrayList<>();
             boolean[] needWait = {false};
 
-            //LOG.info("DBG: tryAcquireInternal before key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
+            LOG.info("DBG: tryAcquireInternal before key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
 
             findConflicts(waiter, owner -> {
                 assert !waiter.txId.equals(owner.txId);
@@ -941,7 +945,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             if (!failed.isEmpty() || needWait[0]) {
                 // Grant not allowed.
-                //LOG.info("DBG: tryAcquireInternal wait key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
+                LOG.info("DBG: tryAcquireInternal wait key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
                 return failed;
             }
 
@@ -954,7 +958,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             failed.add(waiter::notifyLocked);
 
-            //LOG.info("DBG: tryAcquireInternal grant key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
+            LOG.info("DBG: tryAcquireInternal grant key=" + key + ", unlock=" + unlock + ", waiters=" + waiters);
 
             return failed;
         }

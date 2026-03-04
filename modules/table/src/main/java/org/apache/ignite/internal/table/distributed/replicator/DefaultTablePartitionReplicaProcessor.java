@@ -305,6 +305,7 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     private final Supplier<Int2ObjectMap<IndexLocker>> indexesLockers;
 
+    /** Used to handle race between concurrent rollback and enlist. */
     private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
 
     /** Cleanup futures. */
@@ -1529,6 +1530,8 @@ public class DefaultTablePartitionReplicaProcessor implements TablePartitionRepl
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
         TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
+
+        // LOG.info("DBG: processTableWriteIntentSwitchAction " + request.txId() + " " + request.groupId().asReplicationGroupId().toString() + " " + txStateMeta);
 
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
             Throwable cause = txStateMeta.lastException();
