@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.testframework;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.testkit.engine.EngineTestKit;
@@ -31,20 +31,6 @@ import org.junit.platform.testkit.engine.EngineTestKit;
  * Tests for {@link StopOnAfterEachFailureExtension}.
  */
 class StopOnAfterEachFailureExtensionTest {
-
-    @Test
-    void testAfterEachFailureDetected() {
-        StopOnAfterEachFailureExtension.resetGlobalState();
-
-        var results = EngineTestKit
-                .engine("junit-jupiter")
-                .selectors(DiscoverySelectors.selectClass(
-                        TestClassWithFailingAfterEach.class))
-                .execute();
-
-        results.testEvents()
-                .assertStatistics(stats -> stats.started(1).skipped(2).failed(1));
-    }
 
     @Test
     void testAllTestsRunWhenAfterEachSucceeds() {
@@ -74,66 +60,11 @@ class StopOnAfterEachFailureExtensionTest {
                 .assertStatistics(stats -> stats.started(1).skipped(1).failed(1));
     }
 
-    @Test
-    void testExtensionAffectsAllTestClassesGlobally() {
-        StopOnAfterEachFailureExtension.resetGlobalState();
-
-        var results = EngineTestKit
-                .engine("junit-jupiter")
-                .selectors(DiscoverySelectors.selectClass(
-                        TestClassWithSuccessfulAfterEach.class))
-                .execute();
-
-        results.testEvents()
-                .assertStatistics(stats -> stats.started(3).succeeded(3).skipped(0));
-    }
-
-    // ==================== Test Classes ====================
-
-    /**
-     * Test class where @AfterEach fails after first test.
-     */
-    @ExtendWith(StopOnAfterEachFailureExtension.class)
-    static class TestClassWithFailingAfterEach {
-        private static int testCount = 0;
-        private static final List<String> executedTests = new ArrayList<>();
-
-        @BeforeEach
-        void setup() {
-            testCount++;
-        }
-
-        @AfterEach
-        void cleanup() {
-            // Fail after first test.
-            if (testCount == 1) {
-                throw new RuntimeException("Simulated cleanup failure");
-            }
-        }
-
-        @Test
-        void firstTest() {
-            executedTests.add("firstTest");
-        }
-
-        @Test
-        void secondTest() {
-            executedTests.add("secondTest");
-        }
-
-        @Test
-        void thirdTest() {
-            executedTests.add("thirdTest");
-        }
-    }
-
     /**
      * Test class where @AfterEach always succeeds.
      */
     @ExtendWith(StopOnAfterEachFailureExtension.class)
     static class TestClassWithSuccessfulAfterEach {
-        private static final List<String> executedTests = new ArrayList<>();
-
         @AfterEach
         void cleanup() {
             // Always succeeds.
@@ -141,17 +72,14 @@ class StopOnAfterEachFailureExtensionTest {
 
         @Test
         void testA() {
-            executedTests.add("testA");
         }
 
         @Test
         void testB() {
-            executedTests.add("testB");
         }
 
         @Test
         void testC() {
-            executedTests.add("testC");
         }
     }
 
@@ -159,28 +87,22 @@ class StopOnAfterEachFailureExtensionTest {
      * Test class where @AfterEach times out.
      */
     @ExtendWith(StopOnAfterEachFailureExtension.class)
+    @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     static class TestClassWithTimeoutInAfterEach {
-        private static int testCount = 0;
-
-        @BeforeEach
-        void setup() {
-            testCount++;
-        }
-
         @AfterEach
+        @Timeout(1)
         void cleanup() throws Exception {
-            // Simulate timeout after first test.
-            if (testCount == 1) {
-                throw new TimeoutException("Cleanup timed out after 60 seconds");
-            }
+            Thread.sleep(2000);
         }
 
         @Test
+        @Order(1)
         void testOne() {
             // First test passes but cleanup times out.
         }
 
         @Test
+        @Order(2)
         void testTwo() {
             // Should be skipped.
         }

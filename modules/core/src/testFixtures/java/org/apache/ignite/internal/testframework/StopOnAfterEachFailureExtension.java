@@ -21,9 +21,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.TestOnly;
 import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.opentest4j.TestAbortedException;
 
 /**
  * JUnit 5 extension that stops all subsequent tests if an {@code @AfterEach} method fails.
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * can cause cascading failures in subsequent tests due to resource leaks (e.g., ports still in use).
  */
 public class StopOnAfterEachFailureExtension implements
+        BeforeEachCallback,
         AfterEachCallback,
         ExecutionCondition {
 
@@ -49,6 +52,17 @@ public class StopOnAfterEachFailureExtension implements
     static void resetGlobalState() {
         globalAfterEachFailed = false;
         globalFailureMessage = null;
+    }
+
+    @Override
+    public void beforeEach(ExtensionContext context) throws Exception {
+        if (globalAfterEachFailed) {
+            String msg = "Test skipped because a previous test's @AfterEach cleanup failed. "
+                    + "This prevents cascading failures across all integration tests. "
+                    + "Original failure: " + globalFailureMessage;
+            LOG.warn("Skipping test '{}': {}", context.getDisplayName(), msg);
+            throw new TestAbortedException(msg);
+        }
     }
 
     @Override
