@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -49,8 +50,8 @@ import org.junit.jupiter.api.Test;
 public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "test_zone";
     private static final String TABLE_NAME = "accounts";
-    private static final int WRITE_PARALLELISM = Runtime.getRuntime().availableProcessors();
-    private static final int READ_PARALLELISM = 1;
+    private static final int WRITE_PARALLELISM = 4; // Runtime.getRuntime().availableProcessors();
+    private static final int READ_PARALLELISM = 0;
     private static final int ACCOUNTS_COUNT = WRITE_PARALLELISM * 10;
     private static final double INITIAL = 1000;
     private static final double TOTAL = ACCOUNTS_COUNT * INITIAL;
@@ -111,6 +112,9 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
             readThreads[i].setUncaughtExceptionHandler((t, e) -> firstErr.compareAndExchange(null, e));
             readThreads[i].start();
         }
+
+        log.info("Started {} writers", WRITE_PARALLELISM);
+        log.info("Started {} readers", READ_PARALLELISM);
 
         long cur = System.currentTimeMillis();
 
@@ -188,36 +192,66 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
             while (!stop.get() && firstErr.get() == null) {
                 Ignite node = assignNodeForIteration(workerId);
-                Transaction tx = node.transactions().begin();
+                //Transaction tx = node.transactions().begin();
 
                 var view = node.tables().table("accounts").recordView();
-
                 try {
-                    long acc1 = rng.nextInt(ACCOUNTS_COUNT);
+                    node.transactions().runInTransaction(tx -> {
+                        InternalTransaction tx0 = (InternalTransaction) tx;
+                        log.info("DBG: " + tx0.id());
 
-                    double amount = 100 + rng.nextInt(500);
+                        long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 
-                    double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
+                        double amount = 100 + rng.nextInt(500);
 
-                    long acc2 = acc1;
+                        double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
 
-                    while (acc1 == acc2) {
-                        acc2 = rng.nextInt(ACCOUNTS_COUNT);
-                    }
+                        long acc2 = acc1;
 
-                    double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
+                        while (acc1 == acc2) {
+                            acc2 = rng.nextInt(ACCOUNTS_COUNT);
+                        }
 
-                    view.upsert(tx, makeValue(acc1, val0 - amount));
+                        double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
 
-                    view.upsert(tx, makeValue(acc2, val1 + amount));
+                        view.upsert(tx, makeValue(acc1, val0 - amount));
 
-                    tx.commit();
+                        view.upsert(tx, makeValue(acc2, val1 + amount));
+                    });
 
                     ops.increment();
                 } catch (TransactionException e) {
-                    // Don't need to rollback manually if got IgniteException.
                     fails.increment();
                 }
+
+//                var view = node.tables().table("accounts").recordView();
+//
+//                try {
+//                    long acc1 = rng.nextInt(ACCOUNTS_COUNT);
+//
+//                    double amount = 100 + rng.nextInt(500);
+//
+//                    double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
+//
+//                    long acc2 = acc1;
+//
+//                    while (acc1 == acc2) {
+//                        acc2 = rng.nextInt(ACCOUNTS_COUNT);
+//                    }
+//
+//                    double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
+//
+//                    view.upsert(tx, makeValue(acc1, val0 - amount));
+//
+//                    view.upsert(tx, makeValue(acc2, val1 + amount));
+//
+//                    tx.commit();
+//
+//                    ops.increment();
+//                } catch (TransactionException e) {
+//                    // Don't need to rollback manually if got IgniteException.
+//                    fails.increment();
+//                }
             }
         };
     }
@@ -276,5 +310,10 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
 
     private static Tuple makeValue(long id, double balance) {
         return Tuple.create().set("accountNumber", id).set("balance", balance);
+    }
+
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 }

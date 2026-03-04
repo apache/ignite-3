@@ -42,6 +42,7 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
+import org.apache.ignite.internal.tx.message.TxKillMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
@@ -307,5 +308,17 @@ public class TxMessageSender {
         }
 
         return messages;
+    }
+
+    /**
+     * Sends a message to kill a transaction to it's coordinator.
+     *
+     * @param coordinator The coordinator.
+     * @param txId The id.
+     */
+    public void kill(InternalClusterNode coordinator, UUID txId) {
+        TxKillMessage message = TX_MESSAGES_FACTORY.txKillMessage().txId(txId).build();
+
+        messagingService.send(coordinator, message);
     }
 }
