@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.tx;
+package org.apache.ignite.internal.tx;
 
 /**
  * Common transaction error messages.

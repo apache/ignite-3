@@ -172,14 +172,13 @@ public class TxCleanupRequestSender {
         }
 
         commitTimestampFuture.thenAccept(commitTimestamp -> {
-                    /* We are updating tx meta in the 2 phases,
-                     because the state transition might be rejected and all changes won't be apply
-                     * 1) Update only state, it might be rejected
-                     * 2) Apply changes to commit timestamp, these changes will be applied no matter what.
+                    /* We update tx meta in two phases:
+                     * 1) Update state first, because that transition may be rejected.
+                     * 2) Apply state-correlated metadata only when the tx is already in the same final state.
                      */
                     txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
                             .build());
-                    txStateVolatileStorage.enrichMeta(txId, oldMeta -> builder(oldMeta, state)
+                    txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
                             .commitPartitionId(commitPartitionId)
                             .commitTimestamp(commitTimestamp)
                             .cleanupCompletionTimestamp(cleanupCompletionTimestamp)

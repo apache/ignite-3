@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
@@ -32,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -117,7 +119,8 @@ public class VolatileTxStateMetaStorage {
 
     /**
      * Atomically updates transaction metadata (TxStateMeta) without validating TxState transitions.
-     * Use this only for metadata-only changes (for example, exception info or labels) and never to update TxState itself.
+     * Use this only for metadata-only changes that do not affect state-derived fields
+     * (currently exception info or labels), and never to update TxState itself.
      *
      * @param txId Transaction id.
      * @param updater Transaction meta updater.
@@ -129,11 +132,38 @@ public class VolatileTxStateMetaStorage {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
-                return null;
+                if (oldMeta == null) {
+                    return null;
+                }
+
+                throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not remove transaction state [txId=" + txId + ']');
             }
+
+            ensureMetadataOnlyChange(txId, oldMeta, newMeta);
 
             return newMeta;
         });
+    }
+
+    private static void ensureMetadataOnlyChange(UUID txId, @Nullable TxStateMeta oldMeta, TxStateMeta newMeta) {
+        if (oldMeta == null) {
+            throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not create transaction state [txId=" + txId + ']');
+        }
+
+        if (!Objects.equals(oldMeta.txState(), newMeta.txState())
+                || !Objects.equals(oldMeta.txCoordinatorId(), newMeta.txCoordinatorId())
+                || !Objects.equals(oldMeta.commitPartitionId(), newMeta.commitPartitionId())
+                || !Objects.equals(oldMeta.commitTimestamp(), newMeta.commitTimestamp())
+                || !Objects.equals(oldMeta.initialVacuumObservationTimestamp(), newMeta.initialVacuumObservationTimestamp())
+                || !Objects.equals(oldMeta.cleanupCompletionTimestamp(), newMeta.cleanupCompletionTimestamp())
+                || !Objects.equals(oldMeta.isFinishedDueToTimeout(), newMeta.isFinishedDueToTimeout())
+                || !Objects.equals(oldMeta.tx(), newMeta.tx())
+                || oldMeta.getClass() != newMeta.getClass()) {
+            throw new IgniteInternalException(
+                    INTERNAL_ERR,
+                    "enrichMeta must not change transaction state-correlated fields [txId=" + txId + ']'
+            );
+        }
     }
 
     /**

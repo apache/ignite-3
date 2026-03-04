@@ -61,8 +61,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
-import static org.apache.ignite.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED;
-import static org.apache.ignite.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
+import static org.apache.ignite.internal.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED;
+import static org.apache.ignite.internal.tx.TransactionErrorMessages.MESSAGE_TX_ALREADY_FINISHED_DUE_TO_TIMEOUT;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
