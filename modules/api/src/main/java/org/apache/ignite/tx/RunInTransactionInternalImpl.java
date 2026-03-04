@@ -32,7 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-import javax.swing.InternalFrameFocusTraversalPolicy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,8 +68,6 @@ class RunInTransactionInternalImpl {
 
                 break;
             } catch (Exception ex) {
-                System.out.println("DBG: got exception tx=" + tx.toString() + ", cls=" + ex.getClass().getName());
-
                 addSuppressedToList(suppressed, ex);
 
                 long remainingTime = calcRemainingTime(initialTimeout, startTimestamp);

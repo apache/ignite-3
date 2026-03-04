@@ -1210,8 +1210,6 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
     public CompletableFuture<Boolean> kill(UUID txId) {
         TxStateMeta state = txStateVolatileStorage.state(txId);
 
-        LOG.info("DBG: killed " + txId + ", state=" + state);
-
         if (state != null && state.tx() != null) {
             // TODO: IGNITE-24382 Kill implicit read-write transaction.
             if (!state.tx().isReadOnly() && state.tx().implicit()) {

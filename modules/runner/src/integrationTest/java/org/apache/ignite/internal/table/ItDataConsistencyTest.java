@@ -33,11 +33,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -197,9 +195,6 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 var view = node.tables().table("accounts").recordView();
                 try {
                     node.transactions().runInTransaction(tx -> {
-                        InternalTransaction tx0 = (InternalTransaction) tx;
-                        log.info("DBG: " + tx0.id());
-
                         long acc1 = rng.nextInt(ACCOUNTS_COUNT);
 
                         double amount = 100 + rng.nextInt(500);
@@ -223,35 +218,6 @@ public class ItDataConsistencyTest extends ClusterPerClassIntegrationTest {
                 } catch (TransactionException e) {
                     fails.increment();
                 }
-
-//                var view = node.tables().table("accounts").recordView();
-//
-//                try {
-//                    long acc1 = rng.nextInt(ACCOUNTS_COUNT);
-//
-//                    double amount = 100 + rng.nextInt(500);
-//
-//                    double val0 = view.get(tx, makeKey(acc1)).doubleValue("balance");
-//
-//                    long acc2 = acc1;
-//
-//                    while (acc1 == acc2) {
-//                        acc2 = rng.nextInt(ACCOUNTS_COUNT);
-//                    }
-//
-//                    double val1 = view.get(tx, makeKey(acc2)).doubleValue("balance");
-//
-//                    view.upsert(tx, makeValue(acc1, val0 - amount));
-//
-//                    view.upsert(tx, makeValue(acc2, val1 + amount));
-//
-//                    tx.commit();
-//
-//                    ops.increment();
-//                } catch (TransactionException e) {
-//                    // Don't need to rollback manually if got IgniteException.
-//                    fails.increment();
-//                }
             }
         };
     }
