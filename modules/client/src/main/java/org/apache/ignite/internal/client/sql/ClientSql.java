@@ -373,6 +373,10 @@ public class ClientSql implements IgniteSql {
                 false
         ).handle((BiFunction<AsyncResultSet<T>, Throwable, CompletableFuture<AsyncResultSet<T>>>) (r, err) -> {
             if (err != null) {
+                if (tx != null) {
+                    tx.recordOperationFailure(err);
+                }
+
                 if (tx == null || !shouldTrackOperation) {
                     return failedFuture(err);
                 }

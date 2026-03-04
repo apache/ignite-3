@@ -286,7 +286,7 @@ public class TxStateMeta implements TransactionMeta {
     }
 
     public boolean isFinishedDueToErrorOrFalse() {
-        return Boolean.TRUE.equals(isFinishedDueToError);
+        return Boolean.TRUE.equals(isFinishedDueToError) || (lastException != null && !isFinishedDueToTimeoutOrFalse());
     }
 
     public @Nullable String txLabel() {

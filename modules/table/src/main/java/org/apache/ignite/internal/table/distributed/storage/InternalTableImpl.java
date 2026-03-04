@@ -658,7 +658,9 @@ public class InternalTableImpl implements InternalTable {
                     boolean isFinishedDueToTimeout = txStateMeta == null
                             ? tx.isRolledBackWithTimeoutExceeded()
                             : txStateMeta.isFinishedDueToTimeoutOrFalse();
-                    boolean isFinishedDueToError = txStateMeta != null && txStateMeta.isFinishedDueToErrorOrFalse();
+                    boolean isFinishedDueToError = !isFinishedDueToTimeout
+                            && txStateMeta != null
+                            && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
                     Throwable publicCause = isFinishedDueToError ? cause : null;
                     int code = finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError);
 
@@ -2129,7 +2131,9 @@ public class InternalTableImpl implements InternalTable {
                 TxStateMeta txStateMeta = txManager.stateMeta(txId);
                 Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
                 boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
-                boolean isFinishedDueToError = txStateMeta != null && txStateMeta.isFinishedDueToErrorOrFalse();
+                boolean isFinishedDueToError = !isFinishedDueToTimeout
+                        && txStateMeta != null
+                        && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
                 Throwable publicCause = isFinishedDueToError ? cause : null;
 
                 throw new TransactionException(
@@ -2348,8 +2352,10 @@ public class InternalTableImpl implements InternalTable {
             boolean isFinishedDueToTimeout = txStateMeta == null
                     ? transaction.isRolledBackWithTimeoutExceeded()
                     : txStateMeta.isFinishedDueToTimeoutOrFalse();
-            boolean isFinishedDueToError = txStateMeta != null && txStateMeta.isFinishedDueToErrorOrFalse();
             Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
+            boolean isFinishedDueToError = !isFinishedDueToTimeout
+                    && txStateMeta != null
+                    && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
             Throwable publicCause = isFinishedDueToError ? cause : null;
             throw new TransactionException(
                     finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),

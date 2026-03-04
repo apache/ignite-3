@@ -17,12 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
+import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -65,6 +73,23 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         } else {
             transaction = tx.unwrap();
             result = tx;
+
+            TxStateMeta meta = txManager.stateMeta(transaction.id());
+
+            if (meta != null && (meta.txState() == TxState.FINISHING || TxState.isFinalState(meta.txState()))) {
+                Throwable cause = meta.lastException();
+                boolean isFinishedDueToTimeout = meta.isFinishedDueToTimeoutOrFalse();
+                boolean isFinishedDueToError = meta.isFinishedDueToErrorOrFalse();
+
+                throw new TransactionException(
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format("{} [tx={}, {}].",
+                                finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError),
+                                transaction,
+                                formatTxInfo(transaction.id(), txManager, false)),
+                        isFinishedDueToError ? cause : null
+                );
+            }
         }
 
         txTracker.registerOperationStart(transaction);

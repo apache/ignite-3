@@ -1420,7 +1420,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
             Throwable cause = txStateMeta.lastException();
             boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
-            boolean isFinishedDueToError = txStateMeta.isFinishedDueToErrorOrFalse();
+            boolean isFinishedDueToError = !isFinishedDueToTimeout
+                    && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
             Throwable publicCause = isFinishedDueToError ? cause : null;
 
             // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
@@ -1608,12 +1609,13 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
             boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
-            boolean isFinishedDueToError = txStateMeta != null && txStateMeta.isFinishedDueToErrorOrFalse();
 
             Throwable cause = null;
             if (txStateMeta != null) {
                 cause = txStateMeta.lastException();
             }
+            boolean isFinishedDueToError = !isFinishedDueToTimeout && (txStateMeta != null
+                    && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null));
             Throwable publicCause = isFinishedDueToError ? cause : null;
 
             return failedFuture(new TransactionException(
@@ -3880,8 +3882,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
         TxState txState = txStateMeta.txState();
         boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
-        boolean isFinishedDueToError = txStateMeta.isFinishedDueToErrorOrFalse();
         Throwable cause = txStateMeta.lastException();
+        boolean isFinishedDueToError = !isFinishedDueToTimeout && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
         Throwable publicCause = isFinishedDueToError ? cause : null;
 
         return new TransactionException(

@@ -666,8 +666,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         // TODO https://issues.apache.org/jira/browse/IGNITE-27867
         updateTxMeta(txId, old -> builder(old, finalState)
                 .commitTimestamp(ts)
-                .finishedDueToTimeout(isFinishedDueToTimeout(finishReason))
-                .finishedDueToError(isFinishedDueToError(finishReason))
+                .finishedDueToTimeout(finishedDueToTimeout(old, finishReason))
+                .finishedDueToError(finishedDueToError(old, finishReason))
                 .cleanupCompletionTimestamp(coarseCurrentTimeMillis())
                 .build()
         );
@@ -687,6 +687,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return finishReason != null && !isFinishedDueToTimeout(finishReason);
     }
 
+    private static boolean finishedDueToTimeout(@Nullable TxStateMeta old, @Nullable Throwable finishReason) {
+        return (old != null && old.isFinishedDueToTimeoutOrFalse()) || isFinishedDueToTimeout(finishReason);
+    }
+
+    private static boolean finishedDueToError(@Nullable TxStateMeta old, @Nullable Throwable finishReason) {
+        return (old != null && old.isFinishedDueToErrorOrFalse()) || isFinishedDueToError(finishReason);
+    }
+
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
@@ -703,17 +711,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         assert enlistedGroups != null;
 
-        boolean isTimeout = isFinishedDueToTimeout(finishReason);
-        boolean isError = isFinishedDueToError(finishReason);
-
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
             updateTxMeta(txId, old -> builder(old, commitIntent ? COMMITTED : ABORTED)
                     .txCoordinatorId(localNodeId)
                     .commitPartitionId(commitPartition)
                     .commitTimestamp(commitTimestamp(commitIntent))
-                    .finishedDueToTimeout(isTimeout)
-                    .finishedDueToError(isError)
+                    .finishedDueToTimeout(finishedDueToTimeout(old, finishReason))
+                    .finishedDueToError(finishedDueToError(old, finishReason))
                     .lastException(finishReason)
                     .build()
             );
