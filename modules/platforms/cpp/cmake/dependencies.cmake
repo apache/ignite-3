@@ -45,11 +45,6 @@ endfunction()
 
 function(add_asio_dependency)
     message(STATUS "Download dependency: asio")
-#    FetchContent_Declare(
-#            asio
-#            GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-#            GIT_TAG asio-1-36-0
-#    )
 
     FetchContent_Declare(
             asio
