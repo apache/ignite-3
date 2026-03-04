@@ -2363,16 +2363,6 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
-    @Nullable
-    private Throwable lastException(UUID txId) {
-        TxStateMeta txStateMeta = txManager.stateMeta(txId);
-        if (txStateMeta == null) {
-            return null;
-        }
-
-        return txStateMeta.lastException();
-    }
-
     @FunctionalInterface
     private interface ReplicaRequestFactory {
         ReplicaRequest create(
