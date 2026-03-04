@@ -774,7 +774,8 @@ public class TxManagerImpl implements TxManager, SystemViewProvider {
                             Map<ZonePartitionId, PartitionEnlistment> groups = enlistedGroups.entrySet().stream()
                                     .collect(toMap(Entry::getKey, Entry::getValue));
 
-                            if (unlockOnly) {
+                            if (unlockOnly && commit) {
+                                // Go with waitCleanupFuture path to avoid a race with inflight operations.
                                 return txCleanupRequestSender.cleanup(null, groups, verifiedCommit, commitTimestamp, txId)
                                         .thenAccept(ignored -> {
                                             // Don't keep useless state.

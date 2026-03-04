@@ -819,7 +819,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             WaiterImpl waiter0 = null;
 
             synchronized (waiters) {
-                LOG.info("DBG: fail key=" + key + ", id=" + txId + ", waiters=" + waiters);
                 WaiterImpl waiter = waiters.get(txId);
 
                 // Waiter can be null if it was invalidated by order conflict resolution logic.
