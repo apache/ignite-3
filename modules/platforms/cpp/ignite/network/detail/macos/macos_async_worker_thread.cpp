@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include <ignite/network/detail/linux/linux_async_client_pool.h>
-#include <ignite/network/detail/linux/linux_async_worker_thread.h>
+#include "ignite/network/detail/linux/linux_async_client_pool.h"
+#include "ignite/network/detail/linux/linux_async_worker_thread.h"
 
 #include "ignite/network/detail/utils.h"
 
