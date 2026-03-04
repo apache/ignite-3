@@ -89,7 +89,6 @@ public class ItPartitionTableStatsMetricTest extends BasePartitionTableStatsMetr
         expectModsCount(t1, 2L);
     }
 
-
     /**
      * Tests that dropping and creating a table with the same name resets the counter value.
      */
