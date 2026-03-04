@@ -51,12 +51,7 @@ public:
         : m_in_sock(std::move(in_sock))
         , m_out_sock(std::move(out_sock))
         , m_stopped(stopped)
-        , m_listener(listener)
-    { }
-
-    ~session() {
-        std::cout << "Session destructed " << this <<  std::endl;
-    }
+        , m_listener(listener) { }
 
     void start() { do_serve(); }
 
@@ -172,7 +167,6 @@ class asio_proxy {
 public:
     asio_proxy(std::vector<configuration> configurations)
         : m_resolver(m_io_context)
-        , m_in_sock(m_io_context)
     {
         for (auto &cfg : configurations) {
             m_conn_map.emplace(
@@ -229,12 +223,12 @@ private:
             return;
         }
 
-        entry.m_in_acceptor.async_accept(m_in_sock, [this, &entry](asio::error_code ec) {
+        entry.m_in_acceptor.async_accept([this, &entry](asio::error_code ec, tcp::socket in_sock) {
             if (ec) {
                 throw std::runtime_error("Error accepting incoming connection " + ec.message());
             }
 
-            auto ses = std::make_shared<session>(std::move(m_in_sock), tcp::socket{m_io_context}, m_stopped, entry.m_listener);
+            auto ses = std::make_shared<session>(std::move(in_sock), tcp::socket{m_io_context}, m_stopped, entry.m_listener);
 
             m_resolver.async_resolve(entry.m_out_host, entry.m_out_port,
                 [ses](asio::error_code ec, tcp::resolver::results_type endpoints) { // NOLINT(*-unnecessary-value-param)
@@ -245,8 +239,10 @@ private:
                     asio::async_connect(
                         ses->get_out_sock(), endpoints, [ses](const asio::error_code &ec, const tcp::endpoint &e) {
                             if (ec) {
-                                std::cout << e.port();
-                                throw std::runtime_error("Error connecting to server " + ec.message());
+                                throw std::runtime_error(
+                                    "Error connecting to server " + ec.message()
+                                    + " port=" + std::to_string(e.port())
+                                );
                             }
 
                             ses->set_writable(true);
@@ -264,7 +260,6 @@ private:
     std::unique_ptr<std::thread> m_executor{};
 
     tcp::resolver m_resolver;
-    tcp::socket m_in_sock;
 
     std::atomic_bool m_stopped{false};
 };

@@ -33,7 +33,7 @@ struct message {
         swap(lhs.m_size, rhs.m_size);
     }
 
-    message(char *arr, size_t size)
+    message(const char *arr, size_t size)
         : m_size(size)
     {
         m_arr = new char[m_size];

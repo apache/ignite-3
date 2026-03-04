@@ -52,13 +52,17 @@ function(add_asio_dependency)
             URL_HASH MD5=6699ac1dea111c20d024f25e06e573db
     )
 
-    FetchContent_Populate(asio)
+    FetchContent_GetProperties(asio)
 
-    add_library(asio INTERFACE)
+    if (NOT asio_POPULATED)
+        FetchContent_Populate(asio)
+    endif()
 
-    target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
-
-    target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
+    if (NOT TARGET asio)
+        add_library(asio INTERFACE)
+        target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
+        target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
+    endif()
 endfunction()
 
 if (${USE_LOCAL_DEPS})
