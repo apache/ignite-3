@@ -171,19 +171,12 @@ public class TxCleanupRequestSender {
             commitTimestampFuture = CompletableFuture.completedFuture(existingCommitTs);
         }
 
-        commitTimestampFuture.thenAccept(commitTimestamp -> {
-                    /* We update tx meta in two phases:
-                     * 1) Update state first, because that transition may be rejected.
-                     * 2) Apply state-correlated metadata only when the tx is already in the same final state.
-                     */
-                    txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
-                            .build());
-                    txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
-                            .commitPartitionId(commitPartitionId)
-                            .commitTimestamp(commitTimestamp)
-                            .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
-                            .build());
-                }
+        commitTimestampFuture.thenAccept(commitTimestamp ->
+                txStateVolatileStorage.updateMeta(txId, oldMeta -> builder(oldMeta, state)
+                        .commitPartitionId(commitPartitionId)
+                        .commitTimestamp(commitTimestamp)
+                        .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                        .build())
         );
     }
 

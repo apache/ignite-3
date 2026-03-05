@@ -373,7 +373,7 @@ public class ClientSql implements IgniteSql {
                 false
         ).handle((BiFunction<AsyncResultSet<T>, Throwable, CompletableFuture<AsyncResultSet<T>>>) (r, err) -> {
             if (err != null) {
-                if (tx != null) {
+                if (tx != null && shouldRecordTransactionFailure(err)) {
                     tx.recordOperationFailure(err);
                 }
 
@@ -405,6 +405,12 @@ public class ClientSql implements IgniteSql {
 
             return completedFuture(r);
         })).thenCompose(identity()).exceptionally(ClientSql::handleException);
+    }
+
+    private static boolean shouldRecordTransactionFailure(Throwable err) {
+        Throwable cause = unwrapCause(err);
+
+        return !(cause instanceof SqlException && ((SqlException) cause).code() == Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR);
     }
 
     private static @Nullable PartitionMapping resolveMapping(
