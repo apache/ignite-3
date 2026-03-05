@@ -66,7 +66,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -80,7 +79,9 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
+import org.apache.ignite.internal.di.IgniteComponentLifecycleManager;
 import org.apache.ignite.internal.di.IgniteDiContext;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.ServerRestarter;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
@@ -90,12 +91,8 @@ import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
-import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.index.IndexBuildingManager;
-import org.apache.ignite.internal.index.IndexManager;
-import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -104,32 +101,23 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
-import org.apache.ignite.internal.metrics.logstorage.LogStorageMetrics;
 import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
-import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource;
-import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
-import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.IgniteClusterImpl;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
-import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.PublicApiThreadingIgniteCluster;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
@@ -150,7 +138,6 @@ import org.apache.ignite.internal.rest.node.NodePropertiesFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.sql.SqlQueryRestFactory;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -158,25 +145,20 @@ import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
-import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
-import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.threading.PublicApiThreadingIgniteCatalog;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.PublicApiThreadingIgniteTransactions;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.network.NetworkAddress;
@@ -205,7 +187,8 @@ public class IgniteImpl implements Ignite {
     /** Micronaut DI context for component construction and dependency injection. */
     private final ApplicationContext diContext;
 
-    private final ThreadPoolsManager threadPoolsManager;
+    /** Lifecycle manager for DI-managed components. */
+    private final IgniteComponentLifecycleManager componentLifecycleManager;
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
@@ -228,15 +211,11 @@ public class IgniteImpl implements Ignite {
 
     private final ComputeComponentImpl computeComponent;
 
-    private final CriticalWorkerWatchdog criticalWorkerRegistry;
-
     /** Failure processor. */
     private final FailureManager failureManager;
 
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
-
-    private final NettyWorkersRegistrar nettyWorkersRegistrar;
 
     /** Raft manager. */
     private final Loza raftMgr;
@@ -244,17 +223,11 @@ public class IgniteImpl implements Ignite {
     /** Meta storage manager. */
     private final MetaStorageManagerImpl metaStorageMgr;
 
-    /** Metastorage compaction trigger. */
-    private final MetaStorageCompactionTrigger metaStorageCompactionTrigger;
-
     /** Placement driver manager. */
     private final PlacementDriverManager placementDriverMgr;
 
     /** Configuration registry that handles cluster (distributed) configuration. */
     private final ConfigurationRegistry clusterConfigRegistry;
-
-    /** Idempotent cache vacuumizer. */
-    private final IdempotentCacheVacuumizer idempotentCacheVacuumizer;
 
     /** Cluster initializer. */
     private final ClusterInitializer clusterInitializer;
@@ -272,8 +245,6 @@ public class IgniteImpl implements Ignite {
 
     /** Disaster recovery manager. */
     private final DisasterRecoveryManager disasterRecoveryManager;
-
-    private final IndexManager indexManager;
 
     /** Rest module. */
     private final RestComponent restComponent;
@@ -297,16 +268,7 @@ public class IgniteImpl implements Ignite {
     /** Compute. */
     private final IgniteComputeInternal compute;
 
-    /** JVM pause detector. */
-    private final LongJvmPauseDetector longJvmPauseDetector;
-
-    /** Data storage manager. */
-    private final DataStorageManager dataStorageMgr;
-
     private final SchemaSafeTimeTrackerImpl schemaSafeTimeTracker;
-
-    /** Schema manager. */
-    private final SchemaManager schemaManager;
 
     /** Metric manager. */
     private final MetricManagerImpl metricManager;
@@ -320,23 +282,12 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
-    /** Creator for volatile {@link LogStorageManager} instances. */
-    private final VolatileLogStorageManagerCreator volatileLogStorageManagerCreator;
-
-    private final LogStorageMetrics logStorageMetrics;
-
-    private final SystemPropertiesComponent systemPropertiesComponent;
-
     /** A hybrid logical clock. */
     private final HybridClock clock;
-
-    private final ClockWaiter clockWaiter;
 
     private final ClockService clockService;
 
     private final LowWatermarkImpl lowWatermark;
-
-    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     private final CatalogManager catalogManager;
 
@@ -349,15 +300,6 @@ public class IgniteImpl implements Ignite {
 
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
-
-    /** Index building manager. */
-    private final IndexBuildingManager indexBuildingManager;
-
-    /** Local node RW transaction completion checker for indexes. */
-    private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
-
-    /** Cleanup manager for tx resources. */
-    private final ResourceVacuumManager resourceVacuumManager;
 
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
@@ -374,12 +316,6 @@ public class IgniteImpl implements Ignite {
     /** Partitions log storage manager for raft. */
     private final LogStorageManager partitionsLogStorageManager;
 
-    private final LogStorageManager msLogStorageManager;
-
-    private final LogStorageManager cmgLogStorageManager;
-
-    private final IndexMetaStorage indexMetaStorage;
-
     private final EventLogImpl eventLog;
 
     private final KillCommandHandler killCommandHandler;
@@ -390,10 +326,6 @@ public class IgniteImpl implements Ignite {
 
     @Nullable
     private volatile ClusterState clusterState;
-
-    private final ClockServiceMetricSource clockServiceMetricSource;
-
-    private final PartitionModificationCounterFactory partitionModificationCounterFactory;
 
     private final PartitionCountCalculatorWrapper partitionCountCalculatorWrapper;
 
@@ -453,25 +385,18 @@ public class IgniteImpl implements Ignite {
         // Resolve all DI-managed components. Bean creation is lazy — requesting the first bean triggers
         // its construction plus all transitive dependencies. By the time we're done, all beans are created.
 
-        // Phase 1 components (pre-join).
-        longJvmPauseDetector = diContext.getBean(LongJvmPauseDetector.class);
+        // Phase 1 components (pre-join). Only fields still used outside the constructor are resolved.
         metricManager = diContext.getBean(MetricManagerImpl.class);
-        threadPoolsManager = diContext.getBean(ThreadPoolsManager.class);
         vaultMgr = diContext.getBean(VaultManager.class);
         nodeProperties = diContext.getBean(NodePropertiesImpl.class);
         failureManager = diContext.getBean(FailureManager.class);
         clusterIdService = diContext.getBean(ClusterIdService.class);
-        criticalWorkerRegistry = diContext.getBean(CriticalWorkerWatchdog.class);
         nettyBootstrapFactory = diContext.getBean(NettyBootstrapFactory.class);
-        nettyWorkersRegistrar = diContext.getBean(NettyWorkersRegistrar.class);
         clusterSvc = diContext.getBean(ClusterService.class);
         clock = diContext.getBean(HybridClock.class);
-        clockWaiter = diContext.getBean(ClockWaiter.class);
         clusterStateStorage = diContext.getBean(ClusterStateStorage.class);
         systemDisasterRecoveryManager = diContext.getBean(SystemDisasterRecoveryManagerImpl.class);
         partitionsLogStorageManager = diContext.getBean(LogStorageManager.class, Qualifiers.byName("partitions"));
-        msLogStorageManager = diContext.getBean(LogStorageManager.class, Qualifiers.byName("metastorage"));
-        cmgLogStorageManager = diContext.getBean(LogStorageManager.class, Qualifiers.byName("cmg"));
         partitionsWorkDir = diContext.getBean(ComponentWorkingDir.class, Qualifiers.byName("partitions"));
         metastorageWorkDir = diContext.getBean(ComponentWorkingDir.class, Qualifiers.byName("metastorage"));
         raftMgr = diContext.getBean(Loza.class);
@@ -485,27 +410,18 @@ public class IgniteImpl implements Ignite {
         clusterConfigRegistry = diContext.getBean(ConfigurationRegistry.class, Qualifiers.byName("clusterConfig"));
         cfgStorage = diContext.getBean(DistributedConfigurationStorage.class);
         eventLog = diContext.getBean(EventLogImpl.class);
-        metaStorageCompactionTrigger = diContext.getBean(MetaStorageCompactionTrigger.class);
-        clockServiceMetricSource = diContext.getBean(ClockServiceMetricSource.class);
         clockService = diContext.getBean(ClockServiceImpl.class);
-        idempotentCacheVacuumizer = diContext.getBean(IdempotentCacheVacuumizer.class);
         catalogManager = diContext.getBean(CatalogManagerImpl.class);
         catalogCompactionRunner = diContext.getBean(CatalogCompactionRunner.class);
         placementDriverMgr = diContext.getBean(PlacementDriverManager.class);
         schemaSafeTimeTracker = diContext.getBean(SchemaSafeTimeTrackerImpl.class);
-        schemaManager = diContext.getBean(SchemaManager.class);
         replicaMgr = diContext.getBean(ReplicaManager.class);
         txManager = diContext.getBean(TxManagerImpl.class);
-        dataStorageMgr = diContext.getBean(DataStorageManager.class);
         distributionZoneManager = diContext.getBean(DistributionZoneManager.class);
-        indexNodeFinishedRwTransactionsChecker = diContext.getBean(IndexNodeFinishedRwTransactionsChecker.class);
-        outgoingSnapshotsManager = diContext.getBean(OutgoingSnapshotsManager.class);
         sharedTxStateStorage = diContext.getBean(TxStateRocksDbSharedStorage.class);
         partitionReplicaLifecycleManager = diContext.getBean(PartitionReplicaLifecycleManager.class);
         distributedTblMgr = diContext.getBean(TableManager.class);
         disasterRecoveryManager = diContext.getBean(DisasterRecoveryManager.class);
-        indexManager = diContext.getBean(IndexManager.class);
-        indexBuildingManager = diContext.getBean(IndexBuildingManager.class);
         qryEngine = diContext.getBean(SqlQueryProcessor.class);
         sql = diContext.getBean(IgniteSqlImpl.class);
         killCommandHandler = diContext.getBean(KillCommandHandler.class);
@@ -515,16 +431,17 @@ public class IgniteImpl implements Ignite {
         authenticationManager = diContext.getBean(AuthenticationManager.class);
         clientHandlerModule = diContext.getBean(ClientHandlerModule.class);
         resourcesRegistry = diContext.getBean(RemotelyTriggeredResourceRegistry.class);
-        resourceVacuumManager = diContext.getBean(ResourceVacuumManager.class);
-        volatileLogStorageManagerCreator = diContext.getBean(VolatileLogStorageManagerCreator.class);
-        logStorageMetrics = diContext.getBean(LogStorageMetrics.class);
         metricMessaging = diContext.getBean(MetricMessaging.class);
-        systemPropertiesComponent = diContext.getBean(SystemPropertiesComponent.class);
-        partitionModificationCounterFactory = diContext.getBean(PartitionModificationCounterFactory.class);
         partitionCountCalculatorWrapper = diContext.getBean(PartitionCountCalculatorWrapper.class);
         systemViewManager = diContext.getBean(SystemViewManagerImpl.class);
         observableTimestampTracker = diContext.getBean(HybridTimestampTracker.class);
-        indexMetaStorage = diContext.getBean(IndexMetaStorage.class);
+
+        // Initialize the DI component lifecycle manager. Exclude components with special startup ordering:
+        // nodeConfigRegistry — started early in constructor, before other beans are created
+        // metaStorageMgr — started manually in joinClusterAsync() (must start before cluster config init)
+        // systemViewManager — must start last, after all system view registrations
+        componentLifecycleManager = new IgniteComponentLifecycleManager(diContext);
+        componentLifecycleManager.exclude(nodeConfigRegistry, metaStorageMgr, systemViewManager);
 
         // Post-construction wiring: cross-component hookups that cannot be expressed as constructor injection.
         PostConstructionWiring wiring = diContext.getBean(PostConstructionWiring.class);
@@ -614,46 +531,17 @@ public class IgniteImpl implements Ignite {
         ComponentContext componentContext = new ComponentContext(startupExecutor);
 
         try {
-            JvmMetricSource jvmMetrics = new JvmMetricSource();
-            metricManager.registerSource(jvmMetrics);
-            metricManager.enable(jvmMetrics);
+            // Pre-start wiring: register metric sources and start partition modification counters.
+            PostConstructionWiring wiring = diContext.getBean(PostConstructionWiring.class);
+            wiring.wirePhase1();
 
-            OsMetricSource osMetrics = new OsMetricSource();
-            metricManager.registerSource(osMetrics);
-            metricManager.enable(osMetrics);
+            // Start REST component separately (not DI-managed, depends on joinFuture).
+            CompletableFuture<Void> restStartFuture = lifecycleManager.startComponentAsync(restComponent, componentContext);
 
-            metricManager.registerSource(clockServiceMetricSource);
-            metricManager.enable(clockServiceMetricSource);
+            // Start all PHASE_1 DI-managed components.
+            CompletableFuture<Void> phase1Future = componentLifecycleManager.startPhase(StartupPhase.PHASE_1, componentContext);
 
-            partitionModificationCounterFactory.start();
-
-            // Start the components that are required to join the cluster.
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22570
-            CompletableFuture<Void> componentsStartFuture = lifecycleManager.startComponentsAsync(
-                    componentContext,
-                    longJvmPauseDetector,
-                    vaultMgr,
-                    nodeProperties,
-                    threadPoolsManager,
-                    clockWaiter,
-                    failureManager,
-                    clusterStateStorage,
-                    clusterIdService,
-                    systemDisasterRecoveryManager,
-                    criticalWorkerRegistry,
-                    nettyBootstrapFactory,
-                    nettyWorkersRegistrar,
-                    clusterSvc,
-                    restComponent,
-                    partitionsLogStorageManager,
-                    msLogStorageManager,
-                    cmgLogStorageManager,
-                    raftMgr,
-                    cmgMgr,
-                    lowWatermark
-            );
-
-            return componentsStartFuture
+            return CompletableFuture.allOf(restStartFuture, phase1Future)
                     .thenRunAsync(() -> {
                         vaultMgr.putName(name);
 
@@ -712,63 +600,30 @@ public class IgniteImpl implements Ignite {
                     return metaStorageMgr.recoveryFinishedFuture();
                 }, joinExecutor)
                 .thenComposeAsync(unused -> initializeClusterConfiguration(joinExecutor), joinExecutor)
-                .thenRunAsync(() -> {
+                .thenComposeAsync(unused -> {
                     LOG.info("MetaStorage started, starting the remaining components");
 
-                    // Start all other components after the join request has completed and the node has been validated.
-                    try {
-                        lifecycleManager.startComponentsAsync(
-                                componentContext,
-                                catalogManager,
-                                new LowWatermarkRectifier(lowWatermark, catalogManager),
-                                catalogCompactionRunner,
-                                indexMetaStorage,
-                                clusterConfigRegistry,
-                                idempotentCacheVacuumizer,
-                                authenticationManager,
-                                placementDriverMgr,
-                                metricManager,
-                                metricMessaging,
-                                distributionZoneManager,
-                                computeComponent,
-                                volatileLogStorageManagerCreator,
-                                logStorageMetrics,
-                                replicaMgr,
-                                indexNodeFinishedRwTransactionsChecker,
-                                txManager,
-                                dataStorageMgr,
-                                schemaSafeTimeTracker,
-                                schemaManager,
-                                outgoingSnapshotsManager,
-                                sharedTxStateStorage,
-                                partitionReplicaLifecycleManager,
-                                distributedTblMgr,
-                                disasterRecoveryManager,
-                                indexManager,
-                                indexBuildingManager,
-                                qryEngine,
-                                clientHandlerModule,
-                                deploymentManager,
-                                sql,
-                                systemPropertiesComponent,
-                                resourceVacuumManager,
-                                metaStorageCompactionTrigger,
-                                eventLog
-                        );
+                    // Start all PHASE_2 DI-managed components.
+                    CompletableFuture<Void> phase2Future = componentLifecycleManager.startPhase(
+                            StartupPhase.PHASE_2, componentContext
+                    );
 
-                        // The system view manager comes last because other components
-                        // must register system views before it starts.
-                        lifecycleManager.startComponentAsync(systemViewManager, componentContext);
-                    } catch (NodeStoppingException e) {
-                        throw new CompletionException(e);
-                    }
+                    // The system view manager comes last because other components
+                    // must register system views before it starts.
+                    return phase2Future.thenRunAsync(() -> {
+                        try {
+                            lifecycleManager.startComponentAsync(systemViewManager, componentContext);
+                        } catch (NodeStoppingException e) {
+                            throw new CompletionException(e);
+                        }
+                    }, joinExecutor);
                 }, joinExecutor)
                 .thenComposeAsync(v -> {
                     LOG.info("Components started, performing recovery");
 
                     LOG.info("Cluster configuration: {}", convertToHoconString(clusterConfigRegistry));
 
-                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture(joinExecutor));
+                    return recoverComponentsStateOnStart(joinExecutor);
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterConfigRegistry.onDefaultsPersisted(), joinExecutor)
                 // Signal that local recovery is complete and the node is ready to join the cluster.
@@ -898,12 +753,15 @@ public class IgniteImpl implements Ignite {
         }
 
         ExecutorService lifecycleExecutor = stopExecutor();
+        ComponentContext componentContext = new ComponentContext(lifecycleExecutor);
 
         cmgMgr.markAsStopping();
         metaStorageMgr.markAsStopping();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22570
-        lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor))
+        // Stop DI-managed components first (reverse of start order: PHASE_2, then PHASE_1),
+        // then stop manually-started components (systemViewManager, metaStorageMgr, restComponent, nodeConfigRegistry).
+        componentLifecycleManager.stopAll(componentContext)
+                .thenCompose(v -> lifecycleManager.stopNode(componentContext))
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow())
                 .whenCompleteAsync(copyStateTo(stopFuture));
@@ -1126,10 +984,8 @@ public class IgniteImpl implements Ignite {
                 .thenRunAsync(systemDisasterRecoveryManager::markInitConfigApplied, startupExecutor);
     }
 
-    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
-        CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
-
-        return CompletableFuture.allOf(startupRevisionUpdate, startFuture)
+    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor) {
+        return metaStorageMgr.notifyRevisionUpdateListenerOnStart()
                 .thenComposeAsync(unused -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();

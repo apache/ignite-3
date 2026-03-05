@@ -26,11 +26,14 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.inject.BeanDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -65,6 +68,40 @@ public class IgniteComponentLifecycleManager {
             StartupPhase phase = resolvePhase(context, component);
             componentsByPhase.get(phase).add(component);
         }
+    }
+
+    /**
+     * Excludes specific component instances from being started by {@link #startPhase}.
+     * Excluded components are also removed from the stop list unless explicitly added via {@link #markAsStarted}.
+     *
+     * <p>Use this for components that are started manually due to special ordering requirements
+     * (e.g., nodeConfigRegistry must start before other beans are created).
+     *
+     * @param components Components to exclude (identity-based comparison).
+     */
+    public void exclude(IgniteComponent... components) {
+        Set<IgniteComponent> excludeSet = newIdentitySet(components);
+
+        for (List<IgniteComponent> phaseList : componentsByPhase.values()) {
+            phaseList.removeIf(excludeSet::contains);
+        }
+    }
+
+    /**
+     * Marks components as started externally, so they will be stopped during {@link #stopAll}.
+     *
+     * <p>Use this for components that are excluded from {@link #startPhase} but still need lifecycle management.
+     *
+     * @param components Components that were started externally.
+     */
+    public void markAsStarted(IgniteComponent... components) {
+        Collections.addAll(startedComponents, components);
+    }
+
+    private static Set<IgniteComponent> newIdentitySet(IgniteComponent... components) {
+        Set<IgniteComponent> set = Collections.newSetFromMap(new IdentityHashMap<>());
+        Collections.addAll(set, components);
+        return set;
     }
 
     /**
