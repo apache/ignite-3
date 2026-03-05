@@ -44,6 +44,13 @@ public:
      * @param timestamp Timestamp.
      */
     virtual void on_observable_timestamp_changed(std::int64_t timestamp) = 0;
+
+    /**
+     * Handle partition assignment change.
+     *
+     * @param timestamp Assignment timestamp.
+     */
+    virtual void on_partition_assignment_changed(std::int64_t timestamp) = 0;
 };
 
 } // namespace ignite::detail

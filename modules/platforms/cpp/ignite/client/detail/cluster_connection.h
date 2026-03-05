@@ -274,6 +274,20 @@ public:
     std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
 
     /**
+     * Get assignment timestamp.
+     *
+     * @return Assignment timestamp.
+     */
+    std::int64_t get_assignment_timestamp() const { return m_assignment_timestamp.load(); }
+
+    /**
+     * Get logger.
+     *
+     * @return Logger.
+     */
+    [[nodiscard]] std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
+
+    /**
      * @param op Operation code to return.
      * @return A function that always returns the same operation.
      */
@@ -343,6 +357,13 @@ private:
     void on_observable_timestamp_changed(std::int64_t timestamp) override;
 
     /**
+     * Handle partition assignment change.
+     *
+     * @param timestamp Assignment timestamp.
+     */
+    void on_partition_assignment_changed(std::int64_t timestamp) override;
+
+    /**
      * Remove client.
      *
      * @param id Connection ID.
@@ -403,6 +424,9 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** Partition assignment timestamp. */
+    std::atomic_int64_t m_assignment_timestamp{0};
 
     /** Timer thread. */
     std::shared_ptr<thread_timer> m_timer_thread;

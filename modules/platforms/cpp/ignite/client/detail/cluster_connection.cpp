@@ -214,6 +214,16 @@ void cluster_connection::on_observable_timestamp_changed(std::int64_t timestamp)
     }
 }
 
+void cluster_connection::on_partition_assignment_changed(std::int64_t timestamp) {
+    auto expected = m_assignment_timestamp.load();
+    while (expected < timestamp) {
+        auto success = m_assignment_timestamp.compare_exchange_weak(expected, timestamp);
+        if (success)
+            return;
+        expected = m_assignment_timestamp.load();
+    }
+}
+
 void cluster_connection::remove_client(uint64_t id) {
     [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 

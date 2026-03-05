@@ -472,4 +472,34 @@ std::shared_ptr<table_impl> table_impl::from_facade(table &tb) {
     return tb.m_impl;
 }
 
+void table_impl::load_partition_assignment_async(ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback) {
+    std::int64_t timestamp = m_connection->get_assignment_timestamp();
+
+    {
+        std::unique_lock<std::recursive_mutex> guard(m_partitions_mutex);
+        auto pa = m_partition_assignment;
+        if (pa && !pa->is_outdated(timestamp)) {
+            m_connection->get_logger()->log_debug("Partition assignment for table " + get_name() + " is up to date.");
+
+            callback(std::move(pa));
+            return;
+        }
+    }
+
+    auto writer_func = [id = m_id, timestamp](protocol::writer &writer, auto&) {
+        protocol::write_partition_assignment_request(writer, id, timestamp);
+    };
+
+    auto reader_func = [timestamp](protocol::reader &reader) -> std::shared_ptr<protocol::partition_assignment> {
+        return protocol::read_partition_assignment_response(reader, timestamp);
+    };
+
+    m_connection->perform_request<std::shared_ptr<protocol::partition_assignment>>(
+        protocol::client_operation::PARTITION_ASSIGNMENT_GET,
+        nullptr,
+        writer_func,
+        std::move(reader_func),
+        std::move(callback));
+}
+
 } // namespace ignite::detail

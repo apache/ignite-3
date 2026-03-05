@@ -69,9 +69,12 @@ void node_connection::process_message(bytes_view msg) {
 
     auto req_id = reader.read_int64();
     auto flags = reader.read_int32();
+    auto event_handler = m_event_handler.lock();
     if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED)) {
         auto assignment_ts = reader.read_int64();
-        UNUSED_VALUE assignment_ts;
+        if (event_handler) {
+            event_handler->on_partition_assignment_changed(assignment_ts);
+        }
     }
 
     auto observable_timestamp = reader.read_int64();

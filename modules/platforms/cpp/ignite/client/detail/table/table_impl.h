@@ -23,6 +23,8 @@
 #include "ignite/client/table/qualified_name.h"
 #include "ignite/client/transaction/transaction.h"
 
+#include "ignite/protocol/partition_assignment.h"
+
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -410,6 +412,24 @@ private:
     }
 
     /**
+     * Get partition assignment.
+     *
+     * @return Partition assignment.
+     */
+    std::shared_ptr<protocol::partition_assignment> get_partition_assignment() {
+        std::lock_guard<std::recursive_mutex> lock(m_partitions_mutex);
+        auto assignment = m_partition_assignment;
+        return assignment;
+    }
+
+    /**
+     * Load partition assignment.
+     *
+     * @param callback Callback to call with the actual assignment.
+     */
+    void load_partition_assignment_async(ignite_callback<std::shared_ptr<protocol::partition_assignment>> callback);
+
+    /**
      * Get impl of transaction.
      * @param tx Transaction.
      * @return Implementation pointer.
@@ -433,6 +453,12 @@ private:
 
     /** Schemas. */
     std::unordered_map<int32_t, std::shared_ptr<schema>> m_schemas;
+
+    /** Partitions mutex. */
+    std::recursive_mutex m_partitions_mutex;
+
+    /** Partition assignment. */
+    std::shared_ptr<protocol::partition_assignment> m_partition_assignment;
 };
 
 } // namespace ignite::detail
