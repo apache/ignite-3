@@ -19,11 +19,11 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tx.TxState.FINISHING;
-import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
 import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;

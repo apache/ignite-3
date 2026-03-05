@@ -52,6 +52,7 @@ import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -512,6 +513,7 @@ public class ClientTransaction implements Transaction {
      *
      * <p>Preserves known transaction finish codes ({@code TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR},
      * {@code TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR}, {@code TX_KILLED_ERR}) from the given exception.
+     * SQL operation failures are treated as {@code TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR}.
      * Any other failure is treated as {@code TX_ALREADY_FINISHED_ERR}.</p>
      *
      * @param cause Operation failure.
@@ -530,6 +532,11 @@ public class ClientTransaction implements Transaction {
                 finishCode = code;
                 return;
             }
+        }
+
+        if (unwrapped instanceof SqlException) {
+            finishCode = TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+            return;
         }
 
         finishCode = TX_ALREADY_FINISHED_ERR;
