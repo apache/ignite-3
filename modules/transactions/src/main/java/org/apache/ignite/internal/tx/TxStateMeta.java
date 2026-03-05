@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -315,11 +317,15 @@ public class TxStateMeta implements TransactionMeta {
 
         Throwable normalized = normalizeThrowable(throwable);
 
+        if (normalized == null) {
+            return null;
+        }
+
         if (normalized instanceof TraceableException) {
             return ((TraceableException) normalized).code();
         }
 
-        return null;
+        return TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
     }
 
     @Override
