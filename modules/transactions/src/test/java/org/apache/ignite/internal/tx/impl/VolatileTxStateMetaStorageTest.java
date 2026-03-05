@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.junit.jupiter.api.Test;
@@ -47,19 +47,31 @@ class VolatileTxStateMetaStorageTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void enrichMetaRejectsStateCorrelatedFieldChanges() {
+    void enrichMetaAllowsNonStateChanges() {
         VolatileTxStateMetaStorage storage = VolatileTxStateMetaStorage.createStarted();
         UUID txId = UUID.randomUUID();
 
         storage.updateMeta(txId, old -> TxStateMeta.builder(PENDING).build());
 
-        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> storage.enrichMeta(txId, old -> old.mutate()
+        TxStateMeta meta = storage.enrichMeta(txId, old -> old.mutate()
                 .commitTimestamp(HybridTimestamp.hybridTimestamp(1L))
-                .build()));
+                .build());
 
-        assertEquals(
-                "enrichMeta must not change transaction state-correlated fields [txId=" + txId + ']',
-                ex.getMessage()
-        );
+        assertNotNull(meta);
+        assertEquals(HybridTimestamp.hybridTimestamp(1L), meta.commitTimestamp());
+    }
+
+    @Test
+    void enrichMetaSkipsStateChanges() {
+        VolatileTxStateMetaStorage storage = VolatileTxStateMetaStorage.createStarted();
+        UUID txId = UUID.randomUUID();
+
+        storage.updateMeta(txId, old -> TxStateMeta.builder(PENDING).build());
+
+        TxStateMeta old = storage.state(txId);
+        TxStateMeta meta = storage.enrichMeta(txId, ignored -> TxStateMeta.builder(ABORTED).build());
+
+        assertSame(old, meta);
+        assertEquals(PENDING, meta.txState());
     }
 }

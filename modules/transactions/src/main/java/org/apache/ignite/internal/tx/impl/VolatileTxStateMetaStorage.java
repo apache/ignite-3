@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -33,7 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -48,6 +48,8 @@ import org.jetbrains.annotations.TestOnly;
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
+
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
 
@@ -132,43 +134,36 @@ public class VolatileTxStateMetaStorage {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
-                if (oldMeta == null) {
-                    return null;
+                if (oldMeta != null) {
+                    LOG.info("Skipped removing transaction state in enrichMeta [txId={}].", txId);
                 }
 
-                throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not remove transaction state [txId=" + txId + ']'); // TODO ignite-27386 do not fail
+                return oldMeta;
             }
 
-            ensureMetadataOnlyChange(txId, oldMeta, newMeta);
+            if (!isEnrichAllowed(txId, oldMeta, newMeta)) {
+                return oldMeta;
+            }
 
             return newMeta;
         });
     }
 
-    private static void ensureMetadataOnlyChange(UUID txId, @Nullable TxStateMeta oldMeta, TxStateMeta newMeta) {
+    private static boolean isEnrichAllowed(UUID txId, @Nullable TxStateMeta oldMeta, TxStateMeta newMeta) {
         if (oldMeta == null) {
-            throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not create transaction state [txId=" + txId + ']'); // TODO ignite-27386 do not fail
+            LOG.info("Skipped creating transaction state in enrichMeta [txId={}].", txId);
+
+            return false;
         }
 
-        if (!Objects.equals(oldMeta.txState(), newMeta.txState())// TODO ignite-27386 only state
-                || !Objects.equals(oldMeta.txCoordinatorId(), newMeta.txCoordinatorId())
-                || !Objects.equals(oldMeta.commitPartitionId(), newMeta.commitPartitionId())
-                || !Objects.equals(commitTimestampForComparison(oldMeta), commitTimestampForComparison(newMeta))
-                || !Objects.equals(oldMeta.initialVacuumObservationTimestamp(), newMeta.initialVacuumObservationTimestamp())
-                || !Objects.equals(oldMeta.cleanupCompletionTimestamp(), newMeta.cleanupCompletionTimestamp())
-                || !Objects.equals(oldMeta.isFinishedDueToTimeout(), newMeta.isFinishedDueToTimeout())
-                || !Objects.equals(oldMeta.isFinishedDueToError(), newMeta.isFinishedDueToError())
-                || !Objects.equals(oldMeta.tx(), newMeta.tx())
-                || oldMeta.getClass() != newMeta.getClass()) {
-            throw new IgniteInternalException(
-                    INTERNAL_ERR,
-                    "enrichMeta must not change transaction state-correlated fields [txId=" + txId + ']'
-            );
-        }
-    }
+        if (!Objects.equals(oldMeta.txState(), newMeta.txState())) {
+            LOG.info("Skipped changing transaction state in enrichMeta [txId={}, oldState={}, newState={}].",
+                    txId, oldMeta.txState(), newMeta.txState());
 
-    private static @Nullable Object commitTimestampForComparison(TxStateMeta meta) {
-        return meta.txState() == TxState.FINISHING ? null : meta.commitTimestamp();
+            return false;
+        }
+
+        return true;
     }
 
     /**

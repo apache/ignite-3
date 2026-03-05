@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -679,8 +680,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         Throwable lastException = lastExceptionInfo(meta);
         assertNotNull(lastException);
-        assertEquals(IgniteInternalException.class, lastException.getClass());
-        assertEquals(RuntimeException.class, lastException.getSuppressed()[0].getClass());
+        assertEquals(RuntimeException.class, lastException.getClass());
+        assertEquals("abort", lastException.getMessage());
     }
 
     @Test
@@ -728,7 +729,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testDurableFinishRecordsRecoverableException() {
+    public void testDurableFinishDoesNotRecordRecoverableException() {
         preparePrimaryReplica();
 
         AtomicInteger calls = new AtomicInteger();
@@ -747,12 +748,11 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.commit();
 
         TxStateMeta meta = txManager.stateMeta(tx.id());
-        assertNotNull(meta.lastException());
-        assertEquals(ReplicationTimeoutException.class, meta.lastException().getClass());
+        assertNull(meta.lastException());
     }
 
     @Test
-    public void testDurableFinishRecordsUnrecoverableException() {
+    public void testDurableFinishDoesNotRecordUnrecoverableException() {
         preparePrimaryReplica();
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
@@ -763,13 +763,11 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertThrowsWithCause(tx::commit, RuntimeException.class);
 
         TxStateMeta meta = txManager.stateMeta(tx.id());
-        assertNotNull(meta.lastException());
-        assertEquals(RuntimeException.class, meta.lastException().getClass());
-        assertEquals("boom", meta.lastException().getMessage());
+        assertNull(meta.lastException());
     }
 
     @Test
-    public void testDurableFinishDoesNotDuplicateRecoverableException() {
+    public void testDurableFinishDoesNotStoreDuplicateRecoverableException() {
         preparePrimaryReplica();
 
         AtomicInteger calls = new AtomicInteger();
@@ -788,9 +786,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.commit();
 
         TxStateMeta meta = txManager.stateMeta(tx.id());
-        assertNotNull(meta.lastException());
-        assertEquals(ReplicationTimeoutException.class, meta.lastException().getClass());
-        assertEquals(0, meta.lastException().getSuppressed().length);
+        assertNull(meta.lastException());
     }
 
     @Test
