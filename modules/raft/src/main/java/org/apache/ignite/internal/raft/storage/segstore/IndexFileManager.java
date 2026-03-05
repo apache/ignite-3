@@ -451,7 +451,7 @@ class IndexFileManager {
 
     /**
      * Adds empty index file metas for Raft groups that are not present in a particular index file (but exist in one of the previous files).
-     * This is needed because we rely on the invariant that IndexFileMeta array for every group has monotonically increasing file ordinals.
+     * This is needed because we rely on the invariant that IndexFileMeta array for every group has continuous file ordinals.
      */
     private void putIndexFileMetasForMissingGroups(LongSet groupIdsInFile, FileProperties indexFileProperties) {
         groupIndexMetas.forEach((groupId, groupIndexMeta) -> {
