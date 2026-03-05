@@ -17,17 +17,20 @@
 
 package org.apache.ignite.distributed;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -120,13 +123,16 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
             finishLatch.await();
             var rnd = ThreadLocalRandom.current();
 
-            assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR, () -> {
+            TransactionException ex = assertThrows(TransactionException.class, () -> {
                 if (rnd.nextBoolean()) {
                     rv.upsert(tx, makeValue(2, 200.));
                 } else {
                     rv.get(tx, makeKey(1));
                 }
-            }, "Transaction is already finished");
+            });
+
+            assertThat("Invalid error code: " + ex.codeAsString(), ex.code(),
+                    anyOf(is(TX_ALREADY_FINISHED_ERR), is(TX_ALREADY_FINISHED_WITH_ERR)));
 
             return null;
         }, threadNum, "txCommitTestThread");

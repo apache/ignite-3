@@ -926,7 +926,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                         .lastException(updatedException)
                                         .build();
                             });
-                            return supplyAsync(() -> durableFinish(
+                            return supplyAsync(() -> durableFinish(//TODO ignite-27386 remove
                                     observableTimestampTracker,
                                     commitPartition,
                                     commit,

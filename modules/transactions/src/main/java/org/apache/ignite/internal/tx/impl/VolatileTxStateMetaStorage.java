@@ -136,7 +136,7 @@ public class VolatileTxStateMetaStorage {
                     return null;
                 }
 
-                throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not remove transaction state [txId=" + txId + ']');
+                throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not remove transaction state [txId=" + txId + ']'); // TODO ignite-27386 do not fail
             }
 
             ensureMetadataOnlyChange(txId, oldMeta, newMeta);
@@ -147,10 +147,10 @@ public class VolatileTxStateMetaStorage {
 
     private static void ensureMetadataOnlyChange(UUID txId, @Nullable TxStateMeta oldMeta, TxStateMeta newMeta) {
         if (oldMeta == null) {
-            throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not create transaction state [txId=" + txId + ']');
+            throw new IgniteInternalException(INTERNAL_ERR, "enrichMeta must not create transaction state [txId=" + txId + ']'); // TODO ignite-27386 do not fail
         }
 
-        if (!Objects.equals(oldMeta.txState(), newMeta.txState())
+        if (!Objects.equals(oldMeta.txState(), newMeta.txState())// TODO ignite-27386 only state
                 || !Objects.equals(oldMeta.txCoordinatorId(), newMeta.txCoordinatorId())
                 || !Objects.equals(oldMeta.commitPartitionId(), newMeta.commitPartitionId())
                 || !Objects.equals(commitTimestampForComparison(oldMeta), commitTimestampForComparison(newMeta))

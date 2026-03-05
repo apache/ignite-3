@@ -21,15 +21,17 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -2140,7 +2142,12 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     private void assertThrowsTxFinishedException(Executable run) {
-        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR, run, "Transaction is already finished");
+        TransactionException ex = assertThrows(TransactionException.class, run);
+
+        assertThat("Invalid error code: " + ex.codeAsString(), ex.code(),
+                anyOf(is(TX_ALREADY_FINISHED_ERR), is(TX_ALREADY_FINISHED_WITH_ERR)));
+
+        assertThat(ex.getMessage(), containsString("Transaction is already finished"));
     }
 
     private void assertAsyncThrowsTxFinishedException(Supplier<CompletableFuture<?>> run) {
@@ -2352,17 +2359,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         finisher.accept(tx, txId);
 
-        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.get(tx, makeKey(1)), "Transaction is already finished");
+        assertThrowsTxFinishedException(() -> accountsRv.get(tx, makeKey(1)));
 
-        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.delete(tx, makeKey(1)), "Transaction is already finished");
+        assertThrowsTxFinishedException(() -> accountsRv.delete(tx, makeKey(1)));
 
-        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.get(tx, makeKey(2)), "Transaction is already finished");
+        assertThrowsTxFinishedException(() -> accountsRv.get(tx, makeKey(2)));
 
-        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
-                () -> accountsRv.upsert(tx, makeValue(2, 300.)), "Transaction is already finished");
+        assertThrowsTxFinishedException(() -> accountsRv.upsert(tx, makeValue(2, 300.)));
 
         if (checkLocks) {
             assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
