@@ -22,8 +22,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class TimeoutState {
     private final AtomicLong state = new AtomicLong();
 
-    public TimeoutState(int initialTimeout, int initialAttempt) {
-        state.set(pack(initialTimeout, initialAttempt));
+    public TimeoutState(int timeout, int initialAttempt) {
+        state.set(pack(timeout, initialAttempt));
     }
 
     public long getRawState() {
@@ -42,7 +42,7 @@ public class TimeoutState {
         return state.compareAndSet(currentState, pack(newTimeout, newAttempt));
     }
 
-    private static long pack(int timeout, int attempt) {
+    static long pack(int timeout, int attempt) {
         return ((long) timeout << 32) | (attempt & 0xFFFFFFFFL);
     }
 

@@ -682,7 +682,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.commonScheduler(),
                 failureProcessor,
                 metricManager,
-                new ExponentialBackoffTimeoutStrategy(20)
+                new ExponentialBackoffTimeoutStrategy()
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(

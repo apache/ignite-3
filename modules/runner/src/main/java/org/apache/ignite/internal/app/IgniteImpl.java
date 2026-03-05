@@ -1099,7 +1099,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler(),
                 failureManager,
                 metricManager,
-                new ExponentialBackoffTimeoutStrategy(20)
+                new ExponentialBackoffTimeoutStrategy()
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

@@ -17,43 +17,55 @@
 
 package org.apache.ignite.internal.util.retry;
 
+import static java.util.Optional.ofNullable;
 import static org.apache.ignite.internal.util.retry.TimeoutState.attempt;
 import static org.apache.ignite.internal.util.retry.TimeoutState.timeout;
 
-public class CommonRetryContext {
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+
+public class SharedRetryContext {
 
     private final int initialTimeout;
 
     private final TimeoutStrategy timeoutStrategy;
 
-    private final TimeoutState timeoutState;
+    private final AtomicReference<TimeoutState> timeoutState = new AtomicReference<>();
 
-    public CommonRetryContext(int initialTimeout, TimeoutStrategy timeoutStrategy) {
+    public SharedRetryContext(int initialTimeout, TimeoutStrategy timeoutStrategy) {
         this.initialTimeout = initialTimeout;
         this.timeoutStrategy = timeoutStrategy;
-
-        timeoutState = new TimeoutState(initialTimeout, 1);
     }
 
-    public TimeoutState getState() {
-        return timeoutState;
+    public Optional<TimeoutState> getState() {
+        return ofNullable(timeoutState.get());
     }
 
     public TimeoutState updateAndGetState() {
-        long currentState;
-        int next;
-        do {
-            currentState = timeoutState.getRawState();
-            next = timeoutStrategy.next(timeout(currentState));
-        } while (!timeoutState.update(currentState, next, attempt(currentState) + 1));
+        while (true) {
+            if (timeoutState.get() == null) {
+                timeoutState.compareAndSet(null, new TimeoutState(initialTimeout, 0));
+            }
 
-        return timeoutState;
+            TimeoutState state = timeoutState.get();
+            if (state == null) {
+                continue; // reset raced us, retry
+            }
+
+            long raw;
+            int nextTimeout;
+            do {
+                raw = state.getRawState();
+                nextTimeout = attempt(raw) == 0
+                        ? initialTimeout
+                        : timeoutStrategy.next(timeout(raw));
+            } while (!state.update(raw, nextTimeout, attempt(raw) + 1));
+
+            return state;
+        }
     }
 
     public void resetState() {
-        long currentState;
-        do {
-            currentState = timeoutState.getRawState();
-        } while (!timeoutState.update(currentState, initialTimeout, 1));
+        timeoutState.set(null);
     }
 }

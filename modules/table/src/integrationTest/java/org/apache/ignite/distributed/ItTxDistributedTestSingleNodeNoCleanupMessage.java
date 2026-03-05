@@ -78,9 +78,9 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.internal.tx.message.TableWriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.retry.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.retry.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
@@ -159,7 +159,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         lowWatermark,
                         commonExecutor,
                         new NoOpMetricManager(),
-                        new ExponentialBackoffTimeoutStrategy(20)
+                        new ExponentialBackoffTimeoutStrategy()
                 ) {
                     @Override
                     public Executor writeIntentSwitchExecutor() {

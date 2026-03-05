@@ -150,7 +150,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 mock(VolatileTxStateMetaStorage.class),
                 testSyncExecutorService(),
                 testSyncScheduledExecutorService(),
-                new NoopTimeoutStrategy(20)
+                new NoopTimeoutStrategy()
         );
     }
 

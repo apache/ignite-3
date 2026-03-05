@@ -636,7 +636,7 @@ public class Node {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 metricManager,
-                new ExponentialBackoffTimeoutStrategy(20)
+                new ExponentialBackoffTimeoutStrategy()
         );
 
         volatileLogStorageManagerCreator = new VolatileLogStorageManagerCreator(name, workDir.resolve("volatile-log-spillout-" + name));
