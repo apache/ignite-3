@@ -919,7 +919,6 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                partitionOperationsExecutor,
                 placementDriver,
                 clockServices.get(assignment),
                 zonePartitionId

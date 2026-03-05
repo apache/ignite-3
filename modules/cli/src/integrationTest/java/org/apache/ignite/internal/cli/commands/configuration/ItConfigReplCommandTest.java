@@ -23,10 +23,6 @@ import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
  * Tests for cluster/node repl config commands.
  */
 public class ItConfigReplCommandTest extends ItConfigCommandTest {
-    @Override
-    protected int errorExitCode() {
-        return 0;
-    }
 
     @Override
     protected Class<?> getCommandClass() {

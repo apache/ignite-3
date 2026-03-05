@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.cluster.management.topology.api;
 
 import static java.util.Collections.emptySet;
+import static java.util.function.Function.identity;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.TestOnly;
 
@@ -41,16 +44,18 @@ public class LogicalTopologySnapshot {
 
     private final long version;
 
-    @IgniteToStringInclude
-    private final Set<LogicalNode> nodes;
+    private final Map<String, LogicalNode> nodesByName;
+    private final Map<UUID, LogicalNode> nodesById;
 
     private final UUID clusterId;
 
     /** Constructor. */
     public LogicalTopologySnapshot(long version, Collection<LogicalNode> nodes, UUID clusterId) {
         this.version = version;
-        this.nodes = Set.copyOf(nodes);
         this.clusterId = clusterId;
+
+        this.nodesByName = nodes.stream().collect(Collectors.toUnmodifiableMap(LogicalNode::name, identity()));
+        this.nodesById = nodes.stream().collect(Collectors.toUnmodifiableMap(LogicalNode::id, identity()));
     }
 
     /**
@@ -71,8 +76,76 @@ public class LogicalTopologySnapshot {
     /**
      * Returns the nodes that comprise the logical topology.
      */
-    public Set<LogicalNode> nodes() {
-        return nodes;
+    public Collection<LogicalNode> nodes() {
+        return nodesById.values();
+    }
+
+    /**
+     * Returns the mapping of node names to the nodes that comprise the logical topology.
+     */
+    public Map<String, LogicalNode> nodesByName() {
+        return nodesByName;
+    }
+
+    /**
+     * Returns the mapping of node identifiers to the nodes that comprise the logical topology.
+     */
+    public Map<UUID, LogicalNode> nodesById() {
+        return nodesById;
+    }
+
+    /**
+     * Returns the node names that comprise the logical topology.
+     */
+    public Set<String> nodeNames() {
+        return nodesByName.keySet();
+    }
+
+    /**
+     * Returns the node identifiers that comprise the logical topology.
+     */
+    public Set<UUID> nodeIds() {
+        return nodesById.keySet();
+    }
+
+    /**
+     * Returns {@code true} if this topology snapshot contains a node with the given {@code id}, and {@code false} otherwise.
+     *
+     * @param nodeId Node id.
+     * @return {@code true} if this topology snapshot contains a node with the given {@code id}, and {@code false} otherwise.
+     */
+    public boolean hasNode(UUID nodeId) {
+        return nodesById.containsKey(nodeId);
+    }
+
+    /**
+     * Returns {@code true} if this topology snapshot contains a node with the given {@code nodeName}, and {@code false} otherwise.
+     *
+     * @param nodeName Node name, aka consistent id.
+     * @return {@code true} if this topology snapshot contains a node with the given {@code nodeName}, and {@code false} otherwise.
+     */
+    public boolean hasNode(String nodeName) {
+        return nodesByName.containsKey(nodeName);
+    }
+
+    /**
+     * Returns a node with the given {@code nodeId} in this topology snapshot.
+     *
+     * @param nodeId Node id to find.
+     * @return Node with the given {@code nodeId} in this topology snapshot.
+     */
+    public Optional<LogicalNode> node(UUID nodeId) {
+        return Optional.ofNullable(nodesById.get(nodeId));
+    }
+
+    /**
+     * Returns a node with the given {@code nodeId} in this topology snapshot.
+     *
+     * @param nodeName Node name to find.
+     * @return Node with the given {@code nodeName} in this topology snapshot.
+     */
+    public Optional<LogicalNode> node(String nodeName) {
+        return Optional.ofNullable(nodesByName.get(nodeName));
     }
 
     /**
@@ -82,8 +155,17 @@ public class LogicalTopologySnapshot {
         return clusterId;
     }
 
+    /**
+     * Returns the number of nodes in this snapshot.
+     *
+     * @return Number of nodes in this snapshot.
+     */
+    public int size() {
+        return nodesById.size();
+    }
+
     @Override
     public String toString() {
-        return S.toString(LogicalTopologySnapshot.class, this);
+        return S.toString(LogicalTopologySnapshot.class, this, "nodes", nodesById.values());
     }
 }

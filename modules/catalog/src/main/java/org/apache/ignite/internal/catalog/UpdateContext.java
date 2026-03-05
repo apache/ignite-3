@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
 /**
  * Context contains two instances of the catalog: the base one and the updated one.
@@ -28,24 +29,29 @@ import java.util.function.Function;
  * processing of the current batch of commands.
  */
 public class UpdateContext {
+    /** Static calculator to use in case if the calculation function wasn't specified on construction. */
+    private static final PartitionCountCalculator STATIC_PARTITION_CALCULATOR = PartitionCountCalculator.staticPartitionCountCalculator(
+            CatalogUtils.DEFAULT_PARTITION_COUNT
+    );
+
     /** The base catalog descriptor. */
     private final Catalog baseCatalog;
 
     /** The updatable catalog descriptor. */
     private Catalog updatableCatalog;
 
-    private final PartitionCountProvider partitionCountProvider;
+    private final PartitionCountCalculator partitionCountCalculator;
 
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
-        this(catalog, PartitionCountProvider.defaultPartitionCountProvider());
+        this(catalog, STATIC_PARTITION_CALCULATOR);
     }
 
     /** Constructor. */
-    public UpdateContext(Catalog catalog, PartitionCountProvider partitionCountProvider) {
+    public UpdateContext(Catalog catalog, PartitionCountCalculator partitionCountCalculator) {
         this.baseCatalog = catalog;
         this.updatableCatalog = catalog;
-        this.partitionCountProvider = partitionCountProvider;
+        this.partitionCountCalculator = partitionCountCalculator;
     }
 
     /**
@@ -70,8 +76,8 @@ public class UpdateContext {
         updatableCatalog = updater.apply(updatableCatalog);
     }
 
-    /** Returns partition count provider. */
-    public PartitionCountProvider partitionCountProvider() {
-        return partitionCountProvider;
+    /** Returns partition count calculator. */
+    public PartitionCountCalculator partitionCountCalculator() {
+        return partitionCountCalculator;
     }
 }

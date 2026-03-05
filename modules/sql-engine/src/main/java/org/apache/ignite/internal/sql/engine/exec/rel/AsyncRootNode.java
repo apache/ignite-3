@@ -24,12 +24,18 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.lang.CursorClosedException;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
  * An async iterator over the execution tree.
  */
 public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, AsyncCursor<OutRowT> {
+    public static final IgniteLogger LOGGER = Loggers.forClass(AsyncRootNode.class);
     private final CompletableFuture<Void> cancelFut = new CompletableFuture<>();
 
     /**
@@ -69,21 +76,33 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      */
     private int waiting;
 
+    // Metrics
+    private long rowsReceived;
+    private long queryStartTime = -1L;
+    private long prefetchTime = -1L;
+    private long queryTime = -1L;
+    private final long fragmentId;
+    private final UUID queryId;
+
     /**
      * Constructor.
      *
      * @param source A source to requests rows from.
      * @param converter A converter to convert rows from an internal format to desired output format.
      */
-    public AsyncRootNode(AbstractNode<InRowT> source, Function<InRowT, OutRowT> converter) {
+    public AsyncRootNode(ExecutionContext<InRowT> ctx, AbstractNode<InRowT> source, Function<InRowT, OutRowT> converter) {
         this.source = source;
         this.converter = converter;
+        queryId = ctx.queryId();
+        fragmentId = ctx.description().fragmentId();
     }
 
     /** {@inheritDoc} */
     @Override
     public void push(InRowT row) throws Exception {
         assert waiting > 0 : waiting;
+
+        onRowReceived();
 
         buff.add(converter.apply(row));
 
@@ -104,6 +123,10 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         completePrefetchFuture(null);
 
         flush();
+
+        if (ExecutionContext.DUMP_METRICS) {
+            dumpQueryMetrics();
+        }
     }
 
     /** {@inheritDoc} */
@@ -199,6 +222,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public CompletableFuture<Void> startPrefetch() {
         assert source.context().description().prefetch();
 
+        onQueryStarted();
+
         if (waiting == 0) {
             try {
                 source.checkState();
@@ -259,6 +284,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             } else if (waiting == NOT_WAITING) {
                 assert hasMore == HasMore.NO : hasMore;
 
+                onQueryFinish();
                 closeAsync();
             }
         } else if (!pendingRequests.isEmpty()) {
@@ -272,6 +298,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
             source.execute(() -> {
+                onQueryStarted();
+
                 taskScheduled.set(false);
 
                 flush();
@@ -286,6 +314,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      */
     private void completePrefetchFuture(@Nullable Throwable ex) {
         if (!prefetchFut.isDone()) {
+            onPrefetchFinished();
+
             if (ex != null) {
                 prefetchFut.completeExceptionally(ex);
             } else {
@@ -319,5 +349,43 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     private enum HasMore {
         YES, NO, UNCERTAIN
+    }
+
+    private void dumpQueryMetrics() {
+        IgniteStringBuilder sb = new IgniteStringBuilder();
+        sb.app("Dump metrics for executed query: queryId=").app(queryId).app(", fragmentId=").app(fragmentId).nl();
+        sb.app("RootNode: rows=").app(rowsReceived)
+                .app(", prefetch=").app(MetricsAwareNode.beautifyNanoTime(prefetchTime))
+                .app(", totalTime=").app(MetricsAwareNode.beautifyNanoTime((queryTime)))
+                .nl();
+
+        MetricsAwareNode.dumpChildNodesMetrics(sb, Debuggable.childIndentation(""), List.of(source));
+
+        LOGGER.info(sb.toString());
+    }
+
+    private void onRowReceived() {
+        rowsReceived++;
+    }
+
+    private void onQueryStarted() {
+        if (queryStartTime == -1) {
+            queryStartTime = System.nanoTime();
+        }
+    }
+
+    private void onPrefetchFinished() {
+        if (prefetchTime == -1) {
+            prefetchTime = System.nanoTime() - queryStartTime;
+        }
+    }
+
+    private void onQueryFinish() {
+        if (queryStartTime != -1) {
+            onPrefetchFinished();
+
+            queryTime += System.nanoTime() - queryStartTime;
+            queryStartTime = -1;
+        }
     }
 }

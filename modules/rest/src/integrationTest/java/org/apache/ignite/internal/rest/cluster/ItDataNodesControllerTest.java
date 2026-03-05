@@ -244,7 +244,7 @@ public class ItDataNodesControllerTest extends ClusterPerTestIntegrationTest {
         LogicalTopologyService logicalTopologyService = node.logicalTopologyService();
 
         Awaitility.waitAtMost(1, TimeUnit.SECONDS).untilAsserted(() ->
-                assertEquals(expectedTopologySize, logicalTopologyService.localLogicalTopology().nodes().size())
+                assertEquals(expectedTopologySize, logicalTopologyService.localLogicalTopology().size())
         );
     }
 

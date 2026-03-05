@@ -104,7 +104,7 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
     }
 
     private static Set<String> extractStorageProfileNamesFromLogicalTopologySnapshot(LogicalTopologySnapshot snapshot) {
-        Set<LogicalNode> logicalNodes = snapshot.nodes();
+        Collection<LogicalNode> logicalNodes = snapshot.nodes();
 
         // Assume default persistent + rocks + aimem profiles on each node in average.
         Set<String> topologyWideProfiles = new HashSet<>(logicalNodes.size() * 3);
