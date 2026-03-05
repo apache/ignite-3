@@ -388,9 +388,7 @@ public class ClientSql implements IgniteSql {
                         return null;
                     });
                 } else {
-                    // In case of unrecoverable error the tx is already rolled back on coordinator.
-                    // Need to additionally cleanup directly mapped parts.
-                    return tx.discardDirectMappings(false).handle((ignored, err0) -> {
+                    return tx.rollbackAndDiscardDirectMappings(false).handle((ignored, err0) -> {
                         if (err0 != null) {
                             err.addSuppressed(err0);
                         }

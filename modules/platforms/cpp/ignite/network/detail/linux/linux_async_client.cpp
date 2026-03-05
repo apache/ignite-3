@@ -89,7 +89,7 @@ bool linux_async_client::send_next_packet_locked() {
     auto &packet = m_send_packets.front();
     auto dataView = packet.get_bytes_view();
 
-    ssize_t ret = ::send(m_fd, dataView.data(), dataView.size(), MSG_NOSIGNAL);
+    ssize_t ret = detail::send(m_fd, dataView.data(), dataView.size());
     if (ret < 0)
         return false;
 
@@ -101,7 +101,7 @@ bool linux_async_client::send_next_packet_locked() {
 }
 
 bytes_view linux_async_client::receive() {
-    ssize_t res = recv(m_fd, m_recv_packet.data(), m_recv_packet.size(), 0);
+    ssize_t res = detail::recv(m_fd, m_recv_packet.data(), m_recv_packet.size());
     if (res < 0)
         return {};
 

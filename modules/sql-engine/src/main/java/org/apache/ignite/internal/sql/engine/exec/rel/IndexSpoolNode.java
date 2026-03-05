@@ -182,7 +182,6 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         ScanNode<RowT> scan = new ScanNode<>(
                 ctx,
                 idx.scan(
-                        ctx,
                         rowType,
                         filter,
                         ranges

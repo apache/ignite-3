@@ -196,6 +196,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28013")
     void testSeveralHaResetsAndSomeNodeRestart() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -258,7 +259,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         }
 
         String globalFilter = "$[?(@.zone == \"custom\")]";
-        createHaZoneWithTable(globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+        // Explicit quorumSize=4 to match majority semantics (replicas/2+1) so that stopping 4 of 7 nodes triggers HA recovery.
+        createHaZoneWithTables(HA_ZONE_NAME, PARTITIONS_NUMBER, globalFilter, 4, List.of(HA_TABLE_NAME), nodeNames(1, 2, 3, 4, 5, 6, 7));
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);
@@ -318,7 +320,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         }
 
         String globalFilter = "$[?(@.zone == \"custom\")]";
-        createHaZoneWithTable(globalFilter, nodeNames(1, 2, 3, 4, 5, 6, 7));
+        // Explicit quorumSize=4 to match majority semantics (replicas/2+1) so that stopping 4 of 7 nodes triggers HA recovery.
+        createHaZoneWithTables(HA_ZONE_NAME, PARTITIONS_NUMBER, globalFilter, 4, List.of(HA_TABLE_NAME), nodeNames(1, 2, 3, 4, 5, 6, 7));
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);
@@ -553,10 +556,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     private static LogicalNode getLogicalNode(IgniteImpl ignite) {
-
-        return ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
-                .filter(n -> n.name().equals(ignite.name()))
-                .findFirst()
+        return ignite.logicalTopologyService().localLogicalTopology().node(ignite.name())
                 .orElseThrow(() -> new IllegalStateException("Node not found in logical topology: " + ignite.name()));
     }
 }

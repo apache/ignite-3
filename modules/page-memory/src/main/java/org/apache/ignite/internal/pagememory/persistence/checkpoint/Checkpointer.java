@@ -362,7 +362,6 @@ public class Checkpointer extends IgniteWorker {
 
             try {
                 chp = checkpointWorkflow.markCheckpointBegin(
-                        lastCheckpointTimestamp,
                         currentCheckpointProgress,
                         tracker,
                         this::updateHeartbeat,

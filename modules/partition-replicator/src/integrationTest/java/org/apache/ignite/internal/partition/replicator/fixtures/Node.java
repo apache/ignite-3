@@ -55,7 +55,7 @@ import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -651,7 +651,7 @@ public class Node {
                 clockService,
                 failureManager,
                 delayDurationMsSupplier,
-                PartitionCountProvider.defaultPartitionCountProvider()
+                CatalogTestUtils.defaultPartitionCountCalculator()
         );
 
         schemaManager = new SchemaManager(registry, catalogManager);
@@ -711,7 +711,6 @@ public class Node {
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 () -> clusterService.topologyService().localMember().id(),
-                registry,
                 metaStorageManager,
                 logicalTopologyService,
                 catalogManager,
@@ -863,7 +862,6 @@ public class Node {
                 logicalTopologyService,
                 tableManager,
                 schemaManager,
-                dataStorageMgr,
                 replicaSvc,
                 clockService,
                 schemaSyncService,

@@ -61,7 +61,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.partition.replicator.TableTxRwOperationTracker;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -104,7 +104,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
             new NoOpFailureManager(),
             new CommittedFinalTransactionStateResolver(),
             indexMetaStorage,
-            new TestMetricManager()
+            new NoOpMetricManager()
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(

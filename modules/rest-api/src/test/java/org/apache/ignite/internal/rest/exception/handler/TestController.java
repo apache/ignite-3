@@ -44,6 +44,7 @@ public class TestController {
     }
 
     @Get("/list")
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public List<EchoMessage> list(@QueryValue @Min(0) int greatThan, @QueryValue(defaultValue = "10") @Max(10) int lessThan) {
         return List.of();
     }

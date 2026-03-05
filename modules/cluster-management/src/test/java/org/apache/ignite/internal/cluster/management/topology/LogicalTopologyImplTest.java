@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -217,9 +216,8 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
         storage.restoreSnapshot(snapshotDir);
 
-        List<String> namesInTopology = topology.getLogicalTopology().nodes().stream()
-                .map(InternalClusterNode::name)
-                .collect(toList());
+        Set<String> namesInTopology = topology.getLogicalTopology().nodeNames();
+
         assertThat(namesInTopology, contains("node"));
     }
 

@@ -110,7 +110,6 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
-import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
@@ -157,8 +156,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private final TableManager tableManager;
 
     private final SchemaManager schemaManager;
-
-    private final DataStorageManager dataStorageManager;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -218,7 +215,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
             SchemaManager schemaManager,
-            DataStorageManager dataStorageManager,
             ReplicaService replicaService,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
@@ -240,7 +236,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.logicalTopologyService = logicalTopologyService;
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
-        this.dataStorageManager = dataStorageManager;
+
         this.replicaService = replicaService;
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
@@ -318,7 +314,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
                 CACHE_FACTORY,
-                dataStorageManager,
                 metricManager,
                 clusterCfg,
                 nodeCfg,
