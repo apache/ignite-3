@@ -377,6 +377,12 @@ public class DefaultLogStorageManager implements LogStorageManager {
     private static ColumnFamilyOptions createColumnFamilyOptions() {
         var opts = new ColumnFamilyOptions();
 
+        if (!Platform.isWindows()) {
+            opts.setCompressionType(CompressionType.LZ4_COMPRESSION)
+                    .setCompactionStyle(CompactionStyle.LEVEL)
+                    .optimizeLevelStyleCompaction();
+        }
+
         opts.setWriteBufferSize(64 * SizeUnit.MB);
         opts.setMaxWriteBufferNumber(5);
         opts.setMinWriteBufferNumberToMerge(1);
@@ -387,12 +393,6 @@ public class DefaultLogStorageManager implements LogStorageManager {
         // WriteBufferSize * MinWriteBufferNumberToMerge * Level0FileNumCompactionTrigger
         opts.setMaxBytesForLevelBase(3200 * SizeUnit.MB);
         opts.setTargetFileSizeBase(320 * SizeUnit.MB);
-
-        if (!Platform.isWindows()) {
-            opts.setCompressionType(CompressionType.LZ4_COMPRESSION)
-                    .setCompactionStyle(CompactionStyle.LEVEL)
-                    .optimizeLevelStyleCompaction();
-        }
 
         return opts;
     }

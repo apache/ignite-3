@@ -183,6 +183,12 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
 
         // TODO: IGNITE-17560 - parameterize via configuration
 
+        if (!Platform.isWindows()) {
+            opts.setCompressionType(CompressionType.LZ4_COMPRESSION)
+                    .setCompactionStyle(CompactionStyle.LEVEL)
+                    .optimizeLevelStyleCompaction();
+        }
+
         opts.setWriteBufferSize(64 * SizeUnit.MB);
         opts.setMaxWriteBufferNumber(5);
         opts.setMinWriteBufferNumberToMerge(1);
@@ -193,12 +199,6 @@ public class VolatileLogStorageManagerCreator implements LogStorageManagerCreato
         // WriteBufferSize * MinWriteBufferNumberToMerge * Level0FileNumCompactionTrigger
         opts.setMaxBytesForLevelBase(3200 * SizeUnit.MB);
         opts.setTargetFileSizeBase(320 * SizeUnit.MB);
-
-        if (!Platform.isWindows()) {
-            opts.setCompressionType(CompressionType.LZ4_COMPRESSION)
-                    .setCompactionStyle(CompactionStyle.LEVEL)
-                    .optimizeLevelStyleCompaction();
-        }
 
         return opts;
     }
