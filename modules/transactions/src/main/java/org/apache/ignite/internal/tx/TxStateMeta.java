@@ -509,7 +509,7 @@ public class TxStateMeta implements TransactionMeta {
                 if (this.lastException == null) {
                     this.lastException = normalized;
                 } else {
-                    if (suppressedChainLength(this.lastException) < MAX_SUPPRESSED_CHAIN) {
+                    if (normalized != this.lastException && suppressedChainLength(this.lastException) < MAX_SUPPRESSED_CHAIN) {
                         normalized.addSuppressed(this.lastException);
                     }
                     this.lastException = normalized;
