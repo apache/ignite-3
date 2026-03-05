@@ -78,6 +78,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private LogicalTopologySnapshot readLogicalTopology() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-28066
         byte[] bytes = storage.get(LOGICAL_TOPOLOGY_KEY);
 
         return bytes == null ? LogicalTopologySnapshot.INITIAL

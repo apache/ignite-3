@@ -83,9 +83,7 @@ public class ClusterEventCallbackImpl extends ClusterEventCallback {
         cmgManager.logicalTopology().thenAccept(logicalTopology -> {
             deploymentUnitStore.getAllNodeStatuses(id, version).thenAccept(statuses -> {
                 boolean emptyTopology = statuses.stream()
-                        .filter(unitNodeStatus -> logicalTopology.hasNode(unitNodeStatus.nodeId()))
-                        .findAny()
-                        .isEmpty();
+                        .noneMatch(unitNodeStatus -> logicalTopology.hasNode(unitNodeStatus.nodeId()));
 
                 if (emptyTopology) {
                     deploymentUnitStore.removeClusterStatus(id, version, opId);
