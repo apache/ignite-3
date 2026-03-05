@@ -507,6 +507,15 @@ public class ClientTransaction implements Transaction {
         }
     }
 
+    /**
+     * Records a failed transactional operation as the transaction finish reason.
+     *
+     * <p>Preserves known transaction finish codes ({@code TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR},
+     * {@code TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR}, {@code TX_KILLED_ERR}) from the given exception.
+     * Any other failure is treated as {@code TX_ALREADY_FINISHED_ERR}.</p>
+     *
+     * @param cause Operation failure.
+     */
     public void recordOperationFailure(Throwable cause) {
         Throwable unwrapped = ExceptionUtils.unwrapCause(cause);
 
@@ -515,13 +524,15 @@ public class ClientTransaction implements Transaction {
         if (unwrapped instanceof TransactionException) {
             int code = ((TransactionException) unwrapped).code();
 
-            if (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR || code == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR) {
+            if (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR
+                    || code == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR
+                    || code == TX_KILLED_ERR) {
                 finishCode = code;
                 return;
             }
         }
 
-        finishCode = TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+        finishCode = TX_ALREADY_FINISHED_ERR;
     }
 
     private static String finishedMessage(int code) {
@@ -531,6 +542,10 @@ public class ClientTransaction implements Transaction {
 
         if (code == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR) {
             return "Transaction is already finished due to an error";
+        }
+
+        if (code == TX_KILLED_ERR) {
+            return "Transaction is killed";
         }
 
         return "Transaction is already finished";
