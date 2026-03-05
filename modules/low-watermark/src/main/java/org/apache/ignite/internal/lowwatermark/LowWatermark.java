@@ -56,7 +56,8 @@ public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWaterm
     }
 
     /**
-     * Updates the low watermark asynchronously if it is higher than the current one.
+     * Updates the low watermark asynchronously if it is higher than the current one. If no updates required the resulting future
+     * will complete immediately.
      *
      * @param newLowWatermark Candidate for update.
      * @return Future that completes when the low watermark update is finished.
