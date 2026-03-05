@@ -924,8 +924,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         IllegalStateException failure = new IllegalStateException("boom");
 
         TxStateMeta meta = TxStateMeta.builder(TxState.ABORTED)
-                .finishedDueToError(true)
                 .lastException(failure)
+                .lastExceptionErrorCode(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR)
                 .build();
 
         when(txManager.stateMeta(txId)).thenReturn(meta);
@@ -944,7 +944,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
             Throwable unwrapped = unwrapCause(e);
             assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
             TransactionException txEx = (TransactionException) unwrapped;
-            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR", txEx.code(), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR));
+            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR",
+                    txEx.code(), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR));
             assertThat("Cause should be the recorded exception", txEx.getCause(), is(failure));
         }
     }

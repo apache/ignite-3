@@ -666,8 +666,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         updateTxMeta(txId, old -> builder(old, finalState)
                 .commitTimestamp(ts)
                 .finishedDueToTimeout(finishedDueToTimeout(old, finishReason))
-                .finishedDueToError(finishedDueToError(old, finishReason))
                 .cleanupCompletionTimestamp(coarseCurrentTimeMillis())
+                .lastException(finishReason)
                 .build()
         );
 
@@ -682,16 +682,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return commit ? clockService.now() : null;
     }
 
-    private static boolean isFinishedDueToError(@Nullable Throwable finishReason) {
-        return finishReason != null && !isFinishedDueToTimeout(finishReason);
-    }
-
     private static boolean finishedDueToTimeout(@Nullable TxStateMeta old, @Nullable Throwable finishReason) {
         return (old != null && old.isFinishedDueToTimeoutOrFalse()) || isFinishedDueToTimeout(finishReason);
-    }
-
-    private static boolean finishedDueToError(@Nullable TxStateMeta old, @Nullable Throwable finishReason) {
-        return (old != null && old.isFinishedDueToErrorOrFalse()) || isFinishedDueToError(finishReason);
     }
 
     @Override
@@ -717,7 +709,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     .commitPartitionId(commitPartition)
                     .commitTimestamp(commitTimestamp(commitIntent))
                     .finishedDueToTimeout(finishedDueToTimeout(old, finishReason))
-                    .finishedDueToError(finishedDueToError(old, finishReason))
                     .lastException(finishReason)
                     .build()
             );

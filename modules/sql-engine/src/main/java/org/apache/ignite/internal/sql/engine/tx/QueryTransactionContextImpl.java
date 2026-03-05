@@ -81,7 +81,7 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
             if (meta != null && (meta.txState() == TxState.FINISHING || TxState.isFinalState(meta.txState()))) {
                 Throwable cause = meta.lastException();
                 boolean isFinishedDueToTimeout = meta.isFinishedDueToTimeoutOrFalse();
-                boolean isFinishedDueToError = meta.isFinishedDueToErrorOrFalse();
+                boolean isFinishedDueToError = !isFinishedDueToTimeout && meta.lastExceptionErrorCode() != null;
 
                 if (cause instanceof TraceableException) {
                     TraceableException traceableCause = (TraceableException) cause;
@@ -99,7 +99,12 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
                 throw new TransactionException(
                         finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
                         format("{} [tx={}, {}].",
-                                finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError),
+                                finishedTransactionErrorMessage(
+                                        isFinishedDueToTimeout,
+                                        isFinishedDueToError,
+                                        meta.lastExceptionErrorCode(),
+                                        cause != null
+                                ),
                                 transaction,
                                 formatTxInfo(transaction.id(), txManager, false)),
                         isFinishedDueToError ? cause : null

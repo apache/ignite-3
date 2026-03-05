@@ -1421,8 +1421,9 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             Throwable cause = txStateMeta.lastException();
             boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
             boolean isFinishedDueToError = !isFinishedDueToTimeout
-                    && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
+                    && txStateMeta.lastExceptionErrorCode() != null;
             Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
 
             // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
             // Safe to invalidate waiters, which otherwise will block the cleanup process.
@@ -1430,7 +1431,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             lockManager.failAllWaiters(request.txId(), new TransactionException(
                     finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
                     format("Can't acquire a lock because {} [{}].",
-                            finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError).toLowerCase(Locale.ROOT),
+                            finishedTransactionErrorMessage(
+                                    isFinishedDueToTimeout,
+                                    isFinishedDueToError,
+                                    causeErrorCode,
+                                    publicCause != null
+                            ).toLowerCase(Locale.ROOT),
                             formatTxInfo(request.txId(), txManager)),
                     publicCause
             ));
@@ -1615,12 +1621,18 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 cause = txStateMeta.lastException();
             }
             boolean isFinishedDueToError = !isFinishedDueToTimeout && (txStateMeta != null
-                    && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null));
+                    && txStateMeta.lastExceptionErrorCode() != null);
             Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
 
             return failedFuture(new TransactionException(
                     finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                    format(finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError)
+                    format(finishedTransactionErrorMessage(
+                            isFinishedDueToTimeout,
+                            isFinishedDueToError,
+                            causeErrorCode,
+                            publicCause != null
+                    )
                             + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
                     publicCause
             ));
@@ -3883,12 +3895,18 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         TxState txState = txStateMeta.txState();
         boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
         Throwable cause = txStateMeta.lastException();
-        boolean isFinishedDueToError = !isFinishedDueToTimeout && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
+        boolean isFinishedDueToError = !isFinishedDueToTimeout && txStateMeta.lastExceptionErrorCode() != null;
         Throwable publicCause = isFinishedDueToError ? cause : null;
+        Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
 
         return new TransactionException(
                 finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                format(finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError)
+                format(finishedTransactionErrorMessage(
+                        isFinishedDueToTimeout,
+                        isFinishedDueToError,
+                        causeErrorCode,
+                        publicCause != null
+                )
                         + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
                 publicCause
         );

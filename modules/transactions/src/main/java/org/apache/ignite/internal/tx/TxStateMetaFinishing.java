@@ -55,7 +55,6 @@ public class TxStateMetaFinishing extends TxStateMeta {
                 txCoordinatorId,
                 commitPartitionId,
                 ExceptionUtils.isFinishedDueToTimeout(finishReason),
-                finishReason != null && !ExceptionUtils.isFinishedDueToTimeout(finishReason),
                 txLabel,
                 finishReason
         );
@@ -73,22 +72,57 @@ public class TxStateMetaFinishing extends TxStateMeta {
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable Boolean isFinishingDueToError,
             @Nullable String txLabel
     ) {
-        this(txCoordinatorId, commitPartitionId, isFinishingDueToTimeout, isFinishingDueToError, txLabel, null);
+        this(txCoordinatorId, commitPartitionId, isFinishingDueToTimeout, txLabel, null);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition id.
+     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
+     * @param txLabel Transaction label.
+     * @param finishReason Exception which caused tx abortion.
+     */
     public TxStateMetaFinishing(
             @Nullable UUID txCoordinatorId,
             @Nullable ZonePartitionId commitPartitionId,
             @Nullable Boolean isFinishingDueToTimeout,
-            @Nullable Boolean isFinishingDueToError,
             @Nullable String txLabel,
             @Nullable Throwable finishReason
     ) {
+        this(
+                txCoordinatorId,
+                commitPartitionId,
+                isFinishingDueToTimeout,
+                txLabel,
+                finishReason,
+                null
+        );
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition id.
+     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
+     * @param txLabel Transaction label.
+     * @param finishReason Exception which caused tx abortion.
+     * @param lastExceptionErrorCode Error code of the last exception.
+     */
+    public TxStateMetaFinishing(
+            @Nullable UUID txCoordinatorId,
+            @Nullable ZonePartitionId commitPartitionId,
+            @Nullable Boolean isFinishingDueToTimeout,
+            @Nullable String txLabel,
+            @Nullable Throwable finishReason,
+            @Nullable Integer lastExceptionErrorCode
+    ) {
         super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null,
-                null, null, isFinishingDueToTimeout, isFinishingDueToError, txLabel, finishReason);
+                null, null, isFinishingDueToTimeout, txLabel, finishReason, lastExceptionErrorCode);
     }
 
     /**
@@ -159,7 +193,6 @@ public class TxStateMetaFinishing extends TxStateMeta {
                         txCoordinatorId,
                         commitPartitionId,
                         isFinishedDueToTimeout,
-                        isFinishedDueToError,
                         txLabel,
                         lastException
                 );

@@ -169,14 +169,21 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         boolean isFinishedDueToTimeout =
                 finishCode == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR || (meta != null && meta.isFinishedDueToTimeoutOrFalse());
         boolean isFinishedDueToError =
-                finishCode == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR || (meta != null && meta.isFinishedDueToErrorOrFalse());
+                finishCode == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR
+                        || (meta != null && !isFinishedDueToTimeout && meta.lastExceptionErrorCode() != null);
         Throwable publicCause = isFinishedDueToError ? cause : null;
+        Integer causeErrorCode = meta == null ? null : meta.lastExceptionErrorCode();
 
         return killed ? new TransactionKilledException(id(), txManager) :
                 new TransactionException(
                         finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
                         format("{} [{}, txState={}].",
-                                finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError),
+                                finishedTransactionErrorMessage(
+                                        isFinishedDueToTimeout,
+                                        isFinishedDueToError,
+                                        causeErrorCode,
+                                        publicCause != null
+                                ),
                                 formatTxInfo(id(), txManager, false),
                                 state()),
                         publicCause);

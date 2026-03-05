@@ -50,12 +50,18 @@ class InflightTransactionalOperationTracker implements TransactionalOperationTra
                 TxStateMeta meta = txManager.stateMeta(tx.id());
                 Throwable cause = meta == null ? null : meta.lastException();
                 boolean isFinishedDueToTimeout = meta != null && meta.isFinishedDueToTimeoutOrFalse();
-                boolean isFinishedDueToError = meta != null && meta.isFinishedDueToErrorOrFalse();
+                boolean isFinishedDueToError = meta != null && !isFinishedDueToTimeout && meta.lastExceptionErrorCode() != null;
                 Throwable publicCause = isFinishedDueToError ? cause : null;
+                Integer causeErrorCode = meta == null ? null : meta.lastExceptionErrorCode();
 
                 throw new TransactionException(
                         finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                        format(finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError) + " [tx={}, {}]",
+                        format(finishedTransactionErrorMessage(
+                                isFinishedDueToTimeout,
+                                isFinishedDueToError,
+                                causeErrorCode,
+                                publicCause != null
+                        ) + " [tx={}, {}]",
                                 tx, formatTxInfo(tx.id(), txManager, false)),
                         publicCause
                 );

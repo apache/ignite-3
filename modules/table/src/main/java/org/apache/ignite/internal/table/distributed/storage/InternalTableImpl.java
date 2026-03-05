@@ -660,13 +660,19 @@ public class InternalTableImpl implements InternalTable {
                             : txStateMeta.isFinishedDueToTimeoutOrFalse();
                     boolean isFinishedDueToError = !isFinishedDueToTimeout
                             && txStateMeta != null
-                            && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
+                            && txStateMeta.lastExceptionErrorCode() != null;
                     Throwable publicCause = isFinishedDueToError ? cause : null;
+                    Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
                     int code = finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError);
 
                     return failedFuture(
                             new TransactionException(code, format(
-                                    finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError)
+                                    finishedTransactionErrorMessage(
+                                            isFinishedDueToTimeout,
+                                            isFinishedDueToError,
+                                            causeErrorCode,
+                                            publicCause != null
+                                    )
                                             + " [tableName={}, partId={}, txState={}, timeoutExceeded={}].",
                                     tableName,
                                     partId,
@@ -2133,13 +2139,19 @@ public class InternalTableImpl implements InternalTable {
                 boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
                 boolean isFinishedDueToError = !isFinishedDueToTimeout
                         && txStateMeta != null
-                        && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
+                        && txStateMeta.lastExceptionErrorCode() != null;
                 Throwable publicCause = isFinishedDueToError ? cause : null;
+                Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
 
                 throw new TransactionException(
                         finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
                         format(
-                                finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError) + " [{}, readOnly=true].",
+                                finishedTransactionErrorMessage(
+                                        isFinishedDueToTimeout,
+                                        isFinishedDueToError,
+                                        causeErrorCode,
+                                        publicCause != null
+                                ) + " [{}, readOnly=true].",
                                 formatTxInfo(txId, txManager, false)
                         ),
                         publicCause
@@ -2355,11 +2367,17 @@ public class InternalTableImpl implements InternalTable {
             Throwable cause = txStateMeta == null ? null : txStateMeta.lastException();
             boolean isFinishedDueToError = !isFinishedDueToTimeout
                     && txStateMeta != null
-                    && (txStateMeta.isFinishedDueToErrorOrFalse() || cause != null);
+                    && txStateMeta.lastExceptionErrorCode() != null;
             Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
             throw new TransactionException(
                     finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
-                    format(finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError)
+                    format(finishedTransactionErrorMessage(
+                            isFinishedDueToTimeout,
+                            isFinishedDueToError,
+                            causeErrorCode,
+                            publicCause != null
+                    )
                             + " [{}, readOnly={}].",
                             formatTxInfo(transaction.id(), txManager, false),
                             transaction.isReadOnly()

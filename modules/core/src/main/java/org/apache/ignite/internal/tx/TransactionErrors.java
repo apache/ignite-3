@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
+
+import org.apache.ignite.lang.ErrorGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Common transaction error messages.
@@ -60,6 +65,33 @@ public final class TransactionErrors {
         }
 
         return isFinishedDueToError ? MESSAGE_TX_ALREADY_FINISHED_DUE_TO_ERR : MESSAGE_TX_ALREADY_FINISHED;
+    }
+
+    /**
+     * Returns an error message for the "transaction already finished" family and appends cause code when cause is absent.
+     *
+     * @param isFinishedDueToTimeout Whether the transaction was finished due to timeout.
+     * @param isFinishedDueToError Whether the transaction was finished due to an error.
+     * @param causeErrorCode Error code of the failure cause, if known.
+     * @param causePresent Whether the failure cause is present.
+     */
+    public static String finishedTransactionErrorMessage(
+            boolean isFinishedDueToTimeout,
+            boolean isFinishedDueToError,
+            @Nullable Integer causeErrorCode,
+            boolean causePresent
+    ) {
+        String message = finishedTransactionErrorMessage(isFinishedDueToTimeout, isFinishedDueToError);
+
+        if (!isFinishedDueToTimeout && isFinishedDueToError && !causePresent && causeErrorCode != null) {
+            ErrorGroup errorGroup = errorGroupByCode(causeErrorCode);
+
+            message += " [causeCode="
+                    + errorGroup.errorPrefix() + '-' + errorGroup.name() + '-' + Short.toUnsignedInt(extractErrorCode(causeErrorCode))
+                    + ']';
+        }
+
+        return message;
     }
 
     private TransactionErrors() {

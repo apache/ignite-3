@@ -37,7 +37,8 @@ public interface TxStateMetaAbandonedMessage extends TxStateMetaMessage {
                 commitPartitionId == null ? null : commitPartitionId.asReplicationGroupId(),
                 null,
                 txLabel(),
-                null
+                null,
+                lastExceptionErrorCode()
         );
     }
 
