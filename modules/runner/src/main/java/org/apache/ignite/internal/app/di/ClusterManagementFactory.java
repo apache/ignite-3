@@ -53,6 +53,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -66,10 +67,13 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
  */
 @Factory
 public class ClusterManagementFactory {
-    /** Creates the message serialization registry. */
+    /** Creates the message serialization registry, loading all serializers from the classpath. */
     @Singleton
-    public MessageSerializationRegistry messageSerializationRegistry() {
-        return new MessageSerializationRegistryImpl();
+    public MessageSerializationRegistry messageSerializationRegistry(NodeSeedParams seedParams) {
+        var serviceLoader = new SerializationRegistryServiceLoader(seedParams.serviceProviderClassLoader());
+        var registry = new MessageSerializationRegistryImpl();
+        serviceLoader.registerSerializationFactories(registry);
+        return registry;
     }
 
     /** Creates the cluster service. */

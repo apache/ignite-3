@@ -108,25 +108,19 @@ public class CatalogFactory {
         return new PartitionCountCalculatorWrapper();
     }
 
-    /** Creates the catalog update log. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(90)
-    public UpdateLogImpl updateLog(MetaStorageManagerImpl metaStorageManager, FailureManager failureManager) {
-        return new UpdateLogImpl(metaStorageManager, failureManager);
-    }
-
-    /** Creates the catalog manager. */
+    /** Creates the catalog manager. UpdateLogImpl is created inline because its lifecycle is managed by CatalogManagerImpl. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(100)
     public CatalogManagerImpl catalogManager(
-            UpdateLogImpl updateLog,
+            MetaStorageManagerImpl metaStorageManager,
             ClockServiceImpl clockService,
             FailureManager failureManager,
             SchemaSynchronizationConfiguration schemaSyncConfig,
             PartitionCountCalculatorWrapper partitionCountCalculatorWrapper
     ) {
+        UpdateLogImpl updateLog = new UpdateLogImpl(metaStorageManager, failureManager);
+
         return new CatalogManagerImpl(
                 updateLog,
                 clockService,

@@ -444,7 +444,12 @@ public class IgniteImpl implements Ignite {
         componentLifecycleManager = new IgniteComponentLifecycleManager(diContext);
         componentLifecycleManager.exclude(nodeConfigRegistry, clusterConfigRegistry, metaStorageMgr, systemViewManager);
 
+        // nodeConfigRegistry was already started above; register it for proper reverse-order shutdown.
+        componentLifecycleManager.markAsStarted(nodeConfigRegistry);
+
         // Post-construction wiring: cross-component hookups that cannot be expressed as constructor injection.
+        // These are all listener/callback registrations that just store references; they don't require
+        // components to be started yet.
         PostConstructionWiring wiring = diContext.getBean(PostConstructionWiring.class);
         wiring.wirePhase2();
 
@@ -537,7 +542,9 @@ public class IgniteImpl implements Ignite {
             wiring.wirePhase1();
 
             // Start REST component separately (not DI-managed, depends on joinFuture).
+            // Register before PHASE_1 so it's stopped after PHASE_1 components during reverse-order shutdown.
             CompletableFuture<Void> restStartFuture = lifecycleManager.startComponentAsync(restComponent, componentContext);
+            componentLifecycleManager.markAsStarted(restComponent);
 
             // Start all PHASE_1 DI-managed components.
             CompletableFuture<Void> phase1Future = componentLifecycleManager.startPhase(StartupPhase.PHASE_1, componentContext);
@@ -597,6 +604,7 @@ public class IgniteImpl implements Ignite {
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
+                    componentLifecycleManager.markAsStarted(metaStorageMgr);
 
                     return metaStorageMgr.recoveryFinishedFuture();
                 }, joinExecutor)
@@ -608,6 +616,7 @@ public class IgniteImpl implements Ignite {
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
+                    componentLifecycleManager.markAsStarted(clusterConfigRegistry);
                 }, joinExecutor)
                 .thenComposeAsync(unused -> {
                     LOG.info("MetaStorage started, starting the remaining components");
@@ -625,6 +634,7 @@ public class IgniteImpl implements Ignite {
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
+                        componentLifecycleManager.markAsStarted(systemViewManager);
                     }, joinExecutor);
                 }, joinExecutor)
                 .thenComposeAsync(v -> {
@@ -764,13 +774,13 @@ public class IgniteImpl implements Ignite {
         ExecutorService lifecycleExecutor = stopExecutor();
         ComponentContext componentContext = new ComponentContext(lifecycleExecutor);
 
+        lifecycleManager.markAsStopping();
         cmgMgr.markAsStopping();
         metaStorageMgr.markAsStopping();
 
-        // Stop DI-managed components first (reverse of start order: PHASE_2, then PHASE_1),
-        // then stop manually-started components (systemViewManager, metaStorageMgr, restComponent, nodeConfigRegistry).
+        // Stop ALL components in reverse start order. The componentLifecycleManager tracks both
+        // DI-managed and manually-started components (via markAsStarted) in the correct order.
         componentLifecycleManager.stopAll(componentContext)
-                .thenCompose(v -> lifecycleManager.stopNode(componentContext))
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow())
                 .whenCompleteAsync(copyStateTo(stopFuture));

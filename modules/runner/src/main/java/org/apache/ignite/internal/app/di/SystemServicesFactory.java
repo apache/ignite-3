@@ -154,6 +154,7 @@ public class SystemServicesFactory {
     /** Creates the MetaStorage compaction trigger. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(3400)
     public MetaStorageCompactionTrigger metaStorageCompactionTrigger(
             NodeSeedParams seedParams,
             RocksDbKeyValueStorage storage,
@@ -175,6 +176,7 @@ public class SystemServicesFactory {
     /** Creates the catalog compaction runner. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(300)
     public CatalogCompactionRunner catalogCompactionRunner(
             NodeSeedParams seedParams,
             CatalogManagerImpl catalogManager,
@@ -292,6 +294,7 @@ public class SystemServicesFactory {
     /** Creates the disaster recovery manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2500)
     public DisasterRecoveryManager disasterRecoveryManager(
             ThreadPoolsManager threadPoolsManager,
             @Named("storageOperations") MessagingService messagingService,
