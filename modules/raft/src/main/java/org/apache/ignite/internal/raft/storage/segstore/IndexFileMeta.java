@@ -25,6 +25,8 @@ import org.apache.ignite.internal.tostring.S;
  * @see IndexFileManager
  */
 class IndexFileMeta {
+    private static final int NO_PAYLOAD_OFFSET = -1;
+
     private final long firstLogIndexInclusive;
 
     private final long lastLogIndexExclusive;
@@ -47,6 +49,10 @@ class IndexFileMeta {
         this.indexFileProperties = indexFileProperties;
     }
 
+    static IndexFileMeta empty(long logIndex, FileProperties indexFileProperties) {
+        return new IndexFileMeta(logIndex, logIndex, NO_PAYLOAD_OFFSET, indexFileProperties);
+    }
+
     /**
      * Returns the inclusive lower bound of log indices stored in the index file for the Raft Group.
      */
@@ -65,19 +71,13 @@ class IndexFileMeta {
      * Returns the offset of the payload for the Raft Group in the index file.
      */
     int indexFilePayloadOffset() {
+        assert indexFilePayloadOffset != NO_PAYLOAD_OFFSET : "Must not be called for empty metas.";
+
         return indexFilePayloadOffset;
     }
 
     FileProperties indexFileProperties() {
         return indexFileProperties;
-    }
-
-    /**
-     * Returns {@code true} if the index meta is empty. This happens if some data was inserted but then the log suffix got truncated,
-     * completely wiping it out.
-     */
-    boolean isEmpty() {
-        return firstLogIndexInclusive == lastLogIndexExclusive;
     }
 
     @Override
