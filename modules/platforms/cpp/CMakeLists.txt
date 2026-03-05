@@ -64,6 +64,8 @@ option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 option(ENABLE_IWYU "Enable include-what-you-use tool" OFF)
 option(ENABLE_CLANG_TIDY "Enable clang-tidy static analyzer" OFF)
 option(ENABLE_CPPCHECK "Enable cppcheck static analyzer" OFF)
+option(ENABLE_LIBABIGAIL "Enable ABI compatibility check with libabigail (abidw/abidiff)" OFF)
+option(ENABLE_ABI_COMPLIANCE_CHECKER "Enable ABI compatibility check with abi-compliance-checker" OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
@@ -239,6 +241,11 @@ if (${ENABLE_TESTS})
     if (${ENABLE_COMPATIBILITY_TESTS})
         add_subdirectory(tests/compatibility-tests)
     endif()
+endif()
+
+# ABI compatibility checks (must come after all library subdirectories are added).
+if (ENABLE_LIBABIGAIL OR ENABLE_ABI_COMPLIANCE_CHECKER)
+    include(abi_check)
 endif()
 
 # Source code formatting with clang-format.
