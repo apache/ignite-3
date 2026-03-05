@@ -138,6 +138,6 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
     }
 
     final void assertTopologyContainsNode(int nodeIndex, LogicalTopologySnapshot topologySnapshot) {
-        assertTrue(topologySnapshot.nodes().stream().anyMatch(node -> node.name().equals(cluster.nodeName(nodeIndex))));
+        assertTrue(topologySnapshot.hasNode(cluster.nodeName(nodeIndex)));
     }
 }

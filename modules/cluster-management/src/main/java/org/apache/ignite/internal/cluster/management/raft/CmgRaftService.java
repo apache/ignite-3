@@ -325,8 +325,7 @@ public class CmgRaftService implements ManuallyCloseable {
 
         Set<String> currentPeers = nodeNames();
 
-        Set<String> newLearners = logicalTopology.getLogicalTopology().nodes().stream()
-                .map(InternalClusterNode::name)
+        Set<String> newLearners = logicalTopology.getLogicalTopology().nodeNames().stream()
                 .filter(name -> !currentPeers.contains(name))
                 .collect(toSet());
 

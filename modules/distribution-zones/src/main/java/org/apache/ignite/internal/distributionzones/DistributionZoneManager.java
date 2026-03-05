@@ -521,7 +521,7 @@ public class DistributionZoneManager extends
         }
 
         try {
-            Set<LogicalNode> logicalTopology = newTopology.nodes();
+            Collection<LogicalNode> logicalTopology = newTopology.nodes();
 
             Condition condition;
             Update update;
