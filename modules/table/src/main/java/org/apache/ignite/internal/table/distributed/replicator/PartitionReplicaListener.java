@@ -34,6 +34,8 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds.cursorId;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -53,22 +55,25 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -202,7 +207,6 @@ import org.apache.ignite.internal.tx.message.TxStatePrimaryReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequestBase;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -995,8 +999,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * with the given ID does not exist in the partition's index storage map.
      *
      * @param indexId Index identifier. May be {@code null}.
-     * @param indexStorage Index storage retrieved from the partition's index storage map. May be {@code null}
-     *         if the index does not exist.
+     * @param indexStorage Index storage retrieved from the partition's index storage map. May be {@code null} if the index does not
+     *         exist.
      * @throws IllegalStateException If the index storage is {@code null}, indicating the index was not found.
      */
     private void throwsIfIndexNotFound(@Nullable Integer indexId, TableSchemaAwareIndexStorage indexStorage) {
@@ -1009,16 +1013,16 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * Validates that the index storage is a sorted index, not a hash index.
      *
      * <p>This method ensures that range scan operations are only performed on sorted indexes.
-     * Hash indexes do not support range scans because they are designed for exact key lookups only.
-     * Range scans require ordered traversal, which is only available with sorted indexes.
+     * Hash indexes do not support range scans because they are designed for exact key lookups only. Range scans require ordered traversal,
+     * which is only available with sorted indexes.
      *
      * <p>If the underlying storage is not a {@link SortedIndexStorage} (e.g., it's a {@link HashIndexStorage}),
      * an exception is thrown to prevent invalid scan operations.
      *
      * @param indexStorage Index storage to validate. Must not be {@code null} (should be validated by
      *         {@link #throwsIfIndexNotFound(Integer, TableSchemaAwareIndexStorage)} first).
-     * @throws IllegalStateException If the index storage is not a sorted index. The exception message
-     *         indicates that scans work only with sorted indexes.
+     * @throws IllegalStateException If the index storage is not a sorted index. The exception message indicates that scans work
+     *         only with sorted indexes.
      */
     private void throwsIfIndexIsNotSorted(TableSchemaAwareIndexStorage indexStorage) {
         if (!(indexStorage.storage() instanceof SortedIndexStorage)) {
@@ -1414,13 +1418,27 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
 
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
+            Throwable cause = txStateMeta.lastException();
+            boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
+            boolean isFinishedDueToError = !isFinishedDueToTimeout
+                    && txStateMeta.lastExceptionErrorCode() != null;
+            Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
+
             // At this point the transaction is marked as finished by ReplicaTxFinishMarker#markFinished, preventing new locks to appear.
             // Safe to invalidate waiters, which otherwise will block the cleanup process.
             // Using non-retriable exception intentionally to prevent unnecessary retries.
             lockManager.failAllWaiters(request.txId(), new TransactionException(
-                    TX_ALREADY_FINISHED_ERR,
-                    format("Can't acquire a lock because the transaction is already finished [{}].",
-                            formatTxInfo(request.txId(), txManager))
+                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                    format("Can't acquire a lock because {} [{}].",
+                            finishedTransactionErrorMessage(
+                                    isFinishedDueToTimeout,
+                                    isFinishedDueToError,
+                                    causeErrorCode,
+                                    publicCause != null
+                            ).toLowerCase(Locale.ROOT),
+                            formatTxInfo(request.txId(), txManager)),
+                    publicCause
             ));
         }
 
@@ -1596,13 +1614,27 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
-            boolean isFinishedDueToTimeout = txStateMeta != null
-                    && txStateMeta.isFinishedDueToTimeout() != null
-                    && txStateMeta.isFinishedDueToTimeout();
+            boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
+
+            Throwable cause = null;
+            if (txStateMeta != null) {
+                cause = txStateMeta.lastException();
+            }
+            boolean isFinishedDueToError = !isFinishedDueToTimeout && (txStateMeta != null
+                    && txStateMeta.lastExceptionErrorCode() != null);
+            Throwable publicCause = isFinishedDueToError ? cause : null;
+            Integer causeErrorCode = txStateMeta == null ? null : txStateMeta.lastExceptionErrorCode();
 
             return failedFuture(new TransactionException(
-                    isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
-                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txState)
+                    finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                    format(finishedTransactionErrorMessage(
+                            isFinishedDueToTimeout,
+                            isFinishedDueToError,
+                            causeErrorCode,
+                            publicCause != null
+                    )
+                            + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                    publicCause
             ));
         }
 
@@ -2218,10 +2250,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     /**
-     * On primary replica, we can determine transaction state by checking the storage state having row id, transaction id,
-     * newest commit timestamp known to requesting replica and read timestamp.
-     * Non-primary replica must wait for safe time that is equal to or greater than the read timestamp it provides in the request.
-     * Given this, we can see in the storage doing read with the given read timestamp, and the return result:
+     * On primary replica, we can determine transaction state by checking the storage state having row id, transaction id, newest commit
+     * timestamp known to requesting replica and read timestamp. Non-primary replica must wait for safe time that is equal to or greater
+     * than the read timestamp it provides in the request. Given this, we can see in the storage doing read with the given read timestamp,
+     * and the return result:
      *
      * <ul>
      *   <li>Short path (using {@link MvPartitionStorage#read(RowId, HybridTimestamp)}):
@@ -2313,7 +2345,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private boolean isReadTimestampOutdated(HybridTimestamp readTimestamp, @Nullable HybridTimestamp newestCommitTimestamp) {
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
-        HybridTimestamp earliestDataAvailableTimestamp =  lwm == null ? HybridTimestamp.MIN_VALUE : lwm;
+        HybridTimestamp earliestDataAvailableTimestamp = lwm == null ? HybridTimestamp.MIN_VALUE : lwm;
 
         return !clockService.after(readTimestamp, earliestDataAvailableTimestamp)
                 || (newestCommitTimestamp != null && !clockService.after(newestCommitTimestamp, earliestDataAvailableTimestamp));
@@ -2409,7 +2441,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             Throwable ex
     ) {
         if (ex != null) {
-            Throwable rootCause = ExceptionUtils.unwrapRootCause(ex);
+            Throwable rootCause = unwrapRootCause(ex);
             if (rootCause instanceof RaftException && ((RaftException) rootCause).raftError() == RaftError.EREJECTED_BY_VALIDATOR) {
                 throw new IncompatibleSchemaVersionException(rootCause.getMessage());
             }
@@ -3794,10 +3826,18 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                         indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);
 
                         if (ex != null) {
+                            storeFailureInTxMeta(request, ex);
+
                             if (hasCause(ex, LockException.class)) {
                                 RequestType failedRequestType = getRequestOperationType(request);
 
-                                sneakyThrow(new OperationLockException(failedRequestType, (LockException) unwrapCause(ex)));
+                                TransactionException alreadyFinished = transactionAlreadyFinishedException(request);
+                                if (alreadyFinished != null) {
+                                    sneakyThrow(alreadyFinished);
+                                }
+                                LockException lockException = findLockException(ex);
+
+                                sneakyThrow(new OperationLockException(failedRequestType, lockException));
                             }
 
                             sneakyThrow(ex);
@@ -3819,6 +3859,57 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             }
             throw e;
         }
+    }
+
+    private void storeFailureInTxMeta(ReplicaRequest request, Throwable throwable) {
+        if (!(request instanceof ReadWriteReplicaRequest)) {
+            return;
+        }
+
+        UUID txId = ((ReadWriteReplicaRequest) request).transactionId();
+        Throwable toStore = unwrapRootCause(throwable);
+
+        txManager.enrichTxMeta(txId, old -> {
+            if (old == null || old.lastException() != null) {
+                return old;
+            }
+
+            return old.mutate()
+                    .lastException(toStore)
+                    .build();
+        });
+    }
+
+    private @Nullable TransactionException transactionAlreadyFinishedException(ReplicaRequest request) {
+        if (!(request instanceof ReadWriteReplicaRequest)) {
+            return null;
+        }
+
+        UUID txId = ((ReadWriteReplicaRequest) request).transactionId();
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+        if (txStateMeta == null || !(isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING)) {
+            return null;
+        }
+
+        TxState txState = txStateMeta.txState();
+        boolean isFinishedDueToTimeout = txStateMeta.isFinishedDueToTimeoutOrFalse();
+        Throwable cause = txStateMeta.lastException();
+        boolean isFinishedDueToError = !isFinishedDueToTimeout && txStateMeta.lastExceptionErrorCode() != null;
+        Throwable publicCause = isFinishedDueToError ? cause : null;
+        Integer causeErrorCode = txStateMeta.lastExceptionErrorCode();
+
+        return new TransactionException(
+                finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                format(finishedTransactionErrorMessage(
+                        isFinishedDueToTimeout,
+                        isFinishedDueToError,
+                        causeErrorCode,
+                        publicCause != null
+                )
+                        + " [{}, txState={}].", formatTxInfo(txId, txManager), txState),
+                publicCause
+        );
     }
 
     private static RequestType getRequestOperationType(ReplicaRequest request) {
@@ -3880,8 +3971,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      *
      * @param request Request that is being handled.
      * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
-     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that should be used to lock LWM, or
-     *         {@code null} if LWM doesn't need to be locked..
+     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that should be used to lock LWM, or {@code null}
+     *         if LWM doesn't need to be locked..
      */
     private @Nullable UUID tryToLockLwmIfNeeded(ReplicaRequest request, @Nullable HybridTimestamp opStartTsIfDirectRo) {
         UUID txIdToLockLwm;
@@ -3960,6 +4051,38 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     @TestOnly
     public void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
         storageUpdateHandler.switchWriteIntents(txId, commit, commitTimestamp, null);
+    }
+
+    /**
+     * Trying to find LockException in exception chain.
+     */
+    @Nullable
+    private static LockException findLockException(Throwable throwable) {
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        ArrayDeque<Throwable> stack = new ArrayDeque<>();
+        stack.push(throwable);
+
+        while (!stack.isEmpty()) {
+            Throwable current = stack.pop();
+            if (current == null || !seen.add(current)) {
+                continue;
+            }
+
+            if (current instanceof LockException) {
+                return (LockException) current;
+            }
+
+            Throwable cause = current.getCause();
+            if (cause != null) {
+                stack.push(cause);
+            }
+
+            for (Throwable suppressed : current.getSuppressed()) {
+                stack.push(suppressed);
+            }
+        }
+
+        return null;
     }
 
     private static class WriteIntentResolutionResult {

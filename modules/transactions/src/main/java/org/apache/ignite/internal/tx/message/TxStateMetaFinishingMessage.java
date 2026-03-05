@@ -37,8 +37,9 @@ public interface TxStateMetaFinishingMessage extends TxStateMetaMessage {
                 txCoordinatorId(),
                 commitPartitionId == null ? null : commitPartitionId.asReplicationGroupId(),
                 isFinishedDueToTimeout(),
-                null
-        );
+                null,
+                null,
+                lastExceptionErrorCode());
     }
 
     @Override

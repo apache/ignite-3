@@ -32,6 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -46,6 +48,8 @@ import org.jetbrains.annotations.TestOnly;
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
+
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
 
@@ -113,6 +117,53 @@ public class VolatileTxStateMetaStorage {
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
+    }
+
+    /**
+     * Atomically updates transaction metadata (TxStateMeta) without validating TxState transitions.
+     * Use this only for metadata-only changes that do not affect state-derived fields
+     * (currently exception info or labels), and never to update TxState itself.
+     *
+     * @param txId Transaction id.
+     * @param updater Transaction meta updater.
+     * @return Updated transaction state.
+     */
+    public @Nullable <T extends TxStateMeta> T enrichMeta(UUID txId,
+            Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+        return (T) txStateMap.compute(txId, (k, oldMeta) -> {
+            TxStateMeta newMeta = updater.apply(oldMeta);
+
+            if (newMeta == null) {
+                if (oldMeta != null) {
+                    LOG.info("Skipped removing transaction state in enrichMeta [txId={}].", txId);
+                }
+
+                return oldMeta;
+            }
+
+            if (!isEnrichAllowed(txId, oldMeta, newMeta)) {
+                return oldMeta;
+            }
+
+            return newMeta;
+        });
+    }
+
+    private static boolean isEnrichAllowed(UUID txId, @Nullable TxStateMeta oldMeta, TxStateMeta newMeta) {
+        if (oldMeta == null) {
+            LOG.info("Skipped creating transaction state in enrichMeta [txId={}].", txId);
+
+            return false;
+        }
+
+        if (!Objects.equals(oldMeta.txState(), newMeta.txState())) {
+            LOG.info("Skipped changing transaction state in enrichMeta [txId={}, oldState={}, newState={}].",
+                    txId, oldMeta.txState(), newMeta.txState());
+
+            return false;
+        }
+
+        return true;
     }
 
     /**

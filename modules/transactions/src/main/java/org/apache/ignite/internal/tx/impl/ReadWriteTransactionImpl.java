@@ -19,9 +19,16 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorCode;
+import static org.apache.ignite.internal.tx.TransactionErrors.finishedTransactionErrorMessage;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
@@ -40,6 +47,7 @@ import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -62,6 +70,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** The future is initialized when this transaction starts committing or rolling back and is finished together with the transaction. */
     private volatile CompletableFuture<Void> finishFuture;
+
+    private volatile @Nullable Throwable finishCause;
+
+    private volatile int finishCode = TX_ALREADY_FINISHED_ERR;
 
     /**
      * {@code True} if a transaction is externally killed.
@@ -152,11 +164,29 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * Fails the operation.
      */
     private RuntimeException enlistFailedException() {
+        TxStateMeta meta = txManager.stateMeta(id());
+        Throwable cause = meta == null ? finishCause : firstNonNull(meta.lastException(), finishCause);
+        boolean isFinishedDueToTimeout =
+                finishCode == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR || (meta != null && meta.isFinishedDueToTimeoutOrFalse());
+        boolean isFinishedDueToError =
+                finishCode == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR
+                        || (meta != null && !isFinishedDueToTimeout && meta.lastExceptionErrorCode() != null);
+        Throwable publicCause = isFinishedDueToError ? cause : null;
+        Integer causeErrorCode = meta == null ? null : meta.lastExceptionErrorCode();
+
         return killed ? new TransactionKilledException(id(), txManager) :
                 new TransactionException(
-                        TX_ALREADY_FINISHED_ERR,
-                        format("Transaction is already finished [{}, txState={}].",
-                                formatTxInfo(id(), txManager, false), state()));
+                        finishedTransactionErrorCode(isFinishedDueToTimeout, isFinishedDueToError),
+                        format("{} [{}, txState={}].",
+                                finishedTransactionErrorMessage(
+                                        isFinishedDueToTimeout,
+                                        isFinishedDueToError,
+                                        causeErrorCode,
+                                        publicCause != null
+                                ),
+                                formatTxInfo(id(), txManager, false),
+                                state()),
+                        publicCause);
     }
 
     /**
@@ -166,12 +196,18 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         if (isFinishingOrFinished() || killed) {
             throw enlistFailedException();
         }
+
+        TxStateMeta meta = txManager.stateMeta(id());
+
+        if (meta != null && (meta.txState() == FINISHING || isFinalState(meta.txState()))) {
+            throw enlistFailedException();
+        }
     }
 
     @Override
     public CompletableFuture<Void> commitAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(true, null, false, false),
+                finish(true, null, false, null),
                 TX_COMMIT_ERR
         );
     }
@@ -179,15 +215,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public CompletableFuture<Void> rollbackAsync() {
         return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, null, false, false),
-                TX_ROLLBACK_ERR
-        );
-    }
-
-    @Override
-    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return TransactionsExceptionMapperUtil.convertToPublicFuture(
-                finish(false, null, false, true),
+                finish(false, null, false, null),
                 TX_ROLLBACK_ERR
         );
     }
@@ -197,15 +225,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             boolean commit,
             @Nullable HybridTimestamp executionTimestamp,
             boolean full,
-            boolean timeoutExceeded
+            @Nullable Throwable finishReason
     ) {
-        assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
+        assert !(commit && finishReason != null) : "Transaction cannot be committed with an error.";
 
         if (finishFuture != null) {
             return finishFuture;
         }
 
-        return finishInternal(commit, executionTimestamp, full, true, timeoutExceeded);
+        return finishInternal(commit, executionTimestamp, full, true, finishReason);
     }
 
     /**
@@ -215,7 +243,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param executionTimestamp The timestamp is the time when the transaction is applied to the remote node.
      * @param full Full state transaction marker.
      * @param isComplete The flag is true if the transaction is completed through the public API, false for {@link this#kill()} invocation.
-     * @param timeoutExceeded {@code True} if rollback reason is the timeout.
+     * @param finishReason Optional finish reason (for example, timeout). Must be {@code null} for commit.
      * @return The future.
      */
     private CompletableFuture<Void> finishInternal(
@@ -223,12 +251,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             @Nullable HybridTimestamp executionTimestamp,
             boolean full,
             boolean isComplete,
-            boolean timeoutExceeded
+            @Nullable Throwable finishReason
     ) {
         enlistPartitionLock.writeLock().lock();
 
         try {
             if (finishFuture == null) {
+                recordFinishReason(finishReason);
+
                 if (killed) {
                     if (isComplete) {
                         // An attempt to finish a killed transaction.
@@ -242,23 +272,26 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 }
 
                 if (full) {
-                    txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit, timeoutExceeded);
+                    CompletableFuture<Void> finishFutureInternal =
+                            txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit, finishReason);
 
                     if (isComplete) {
-                        finishFuture = nullCompletedFuture();
-                        this.timeoutExceeded = timeoutExceeded;
+                        finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+                        this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
                         if (killClosure == null) {
                             throw new AssertionError("Invalid kill state for a full transaction");
                         }
                         killed = true;
                     }
+
+                    return finishFutureInternal;
                 } else {
                     CompletableFuture<Void> finishFutureInternal = txManager.finish(
                             observableTsTracker,
                             commitPart,
                             commit,
-                            timeoutExceeded,
+                            finishReason,
                             false,
                             noRemoteWrites,
                             enlisted,
@@ -267,7 +300,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
-                        this.timeoutExceeded = timeoutExceeded;
+                        this.timeoutExceeded = isFinishedDueToTimeout(finishReason);
                     } else {
                         killed = true;
 
@@ -317,7 +350,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     @Override
     public CompletableFuture<Void> kill() {
-        return finishInternal(false, null, false, false, false);
+        return finishInternal(false, null, false, false, new TransactionKilledException(id(), txManager));
     }
 
     @Override
@@ -339,7 +372,21 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      */
     public void fail(TransactionException e) {
         // Thread safety is not needed.
+        recordFinishReason(e);
         finishFuture = failedFuture(e);
+    }
+
+    private void recordFinishReason(@Nullable Throwable finishReason) {
+        if (finishReason == null) {
+            return;
+        }
+
+        finishCause = finishReason;
+        finishCode = isFinishedDueToTimeout(finishReason) ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
+    }
+
+    private static @Nullable Throwable firstNonNull(@Nullable Throwable first, @Nullable Throwable second) {
+        return first != null ? first : second;
     }
 
     /**

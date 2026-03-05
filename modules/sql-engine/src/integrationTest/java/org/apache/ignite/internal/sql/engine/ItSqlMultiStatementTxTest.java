@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQuer
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -261,7 +262,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         {
             InternalTransaction tx = (InternalTransaction) igniteTx().begin();
 
-            assertThrowsSqlException(RUNTIME_ERR, "DDL doesn't support transactions.",
+            assertThrowsSqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.",
                     () -> runScript(tx, null, ddlStatement));
 
             assertEquals(1, txManager().pending());
@@ -271,7 +272,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         }
 
         {
-            assertThrowsSqlException(RUNTIME_ERR, "DDL doesn't support transactions.",
+            assertThrowsSqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.",
                     () -> fetchAllCursors(runScript("START TRANSACTION;" + ddlStatement + "COMMIT;")));
 
             verifyFinishedTxCount(2);
@@ -300,7 +301,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         AsyncSqlCursor<InternalSqlRow> insCur = await(cursor.nextResult());
         assertNotNull(insCur);
 
-        assertThrowsSqlException(RUNTIME_ERR, "DML cannot be started by using read only transactions.",
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "DML cannot be started by using read only transactions.",
                 () -> await(insCur.nextResult()));
 
         expectQueryCancelled(new DrainCursor(insCur));

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.tx.TransactionErrors.MESSAGE_TX_ALREADY_FINISHED;
 import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
@@ -253,7 +254,7 @@ public class TransactionInflights {
             }
 
             assert !tuple0.isTxFinishing()
-                    : format("Transaction is already finished {}.", formatTxInfo(uuid, txStateVolatileStorage));
+                    : format(MESSAGE_TX_ALREADY_FINISHED + " {}.", formatTxInfo(uuid, txStateVolatileStorage));
 
             tuple0.finishTx(enlistedGroups);
 
