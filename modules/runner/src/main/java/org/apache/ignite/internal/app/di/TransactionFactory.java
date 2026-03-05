@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -98,6 +99,7 @@ public class TransactionFactory {
     /** Creates the replica service. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1600)
     public ReplicaService replicaService(
             @Named("storageOperations") MessagingService messagingService,
             ClockServiceImpl clockService,
@@ -136,6 +138,7 @@ public class TransactionFactory {
     /** Creates the lock manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1650)
     public LockManager lockManager(
             SystemLocalConfiguration systemConfiguration,
             VolatileTxStateMetaStorage txStateVolatileStorage
@@ -158,6 +161,7 @@ public class TransactionFactory {
     /** Creates the transaction manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1700)
     public TxManagerImpl txManager(
             NodeSeedParams seedParams,
             TransactionConfiguration txConfig,
@@ -206,6 +210,7 @@ public class TransactionFactory {
     /** Creates the shared RocksDB transaction state storage. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1800)
     public TxStateRocksDbSharedStorage txStateRocksDbSharedStorage(
             NodeSeedParams seedParams,
             @Named("partitions") ComponentWorkingDir partitionsWorkDir,

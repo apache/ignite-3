@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +62,7 @@ public class CatalogFactory {
     /** Creates the clock service. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(50)
     public ClockServiceImpl clockService(
             HybridClock clock,
             ClockWaiter clockWaiter,
@@ -78,6 +80,7 @@ public class CatalogFactory {
     /** Creates the idempotent cache vacuumizer. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(600)
     public IdempotentCacheVacuumizer idempotentCacheVacuumizer(
             NodeSeedParams seedParams,
             ThreadPoolsManager threadPoolsManager,
@@ -108,6 +111,7 @@ public class CatalogFactory {
     /** Creates the catalog update log. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(90)
     public UpdateLogImpl updateLog(MetaStorageManagerImpl metaStorageManager, FailureManager failureManager) {
         return new UpdateLogImpl(metaStorageManager, failureManager);
     }
@@ -115,6 +119,7 @@ public class CatalogFactory {
     /** Creates the catalog manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(100)
     public CatalogManagerImpl catalogManager(
             UpdateLogImpl updateLog,
             ClockServiceImpl clockService,
@@ -134,6 +139,7 @@ public class CatalogFactory {
     /** Creates the placement driver manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(800)
     public PlacementDriverManager placementDriverManager(
             NodeSeedParams seedParams,
             MetaStorageManagerImpl metaStorageManager,

@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Named;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Singleton;
-import java.util.UUID;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -43,6 +41,7 @@ public class CoreComponentsFactory {
     /** Creates the JVM pause detector. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(100)
     public LongJvmPauseDetector longJvmPauseDetector(NodeSeedParams seedParams) {
         return new LongJvmPauseDetector(seedParams.nodeName());
     }
@@ -50,6 +49,7 @@ public class CoreComponentsFactory {
     /** Creates the vault manager backed by persistent storage. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(200)
     public VaultManager vaultManager(VaultService vaultService) {
         return new VaultManager(vaultService);
     }
@@ -58,20 +58,18 @@ public class CoreComponentsFactory {
      * Creates the metric manager.
      *
      * @param seedParams Node seed parameters.
-     * @param clusterIdSupplier Supplier of the cluster ID; resolved lazily after cluster initialization.
      */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
-    public MetricManagerImpl metricManager(
-            NodeSeedParams seedParams,
-            @Named("clusterIdSupplier") Supplier<UUID> clusterIdSupplier
-    ) {
-        return new MetricManagerImpl(seedParams.nodeName(), clusterIdSupplier);
+    @Order(900)
+    public MetricManagerImpl metricManager(NodeSeedParams seedParams) {
+        return new MetricManagerImpl(seedParams.nodeName(), seedParams.clusterIdSupplier());
     }
 
     /** Creates the thread pools manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(400)
     public ThreadPoolsManager threadPoolsManager(NodeSeedParams seedParams, MetricManager metricManager) {
         return new ThreadPoolsManager(seedParams.nodeName(), metricManager);
     }
@@ -85,6 +83,7 @@ public class CoreComponentsFactory {
     /** Creates the node properties component. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(300)
     public NodePropertiesImpl nodeProperties(VaultManager vaultManager) {
         return new NodePropertiesImpl(vaultManager);
     }

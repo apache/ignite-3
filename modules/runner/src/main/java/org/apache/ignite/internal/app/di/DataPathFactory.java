@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionStableAssignments;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
@@ -100,6 +101,8 @@ import org.apache.ignite.sql.IgniteSql;
 public class DataPathFactory {
     /** Creates the volatile log storage manager creator. */
     @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1300)
     public VolatileLogStorageManagerCreator volatileLogStorageManagerCreator(NodeSeedParams seedParams) {
         return new VolatileLogStorageManagerCreator(
                 seedParams.nodeName(),
@@ -115,6 +118,8 @@ public class DataPathFactory {
 
     /** Creates the schema safe time tracker. */
     @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1900)
     public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker(MetaStorageManagerImpl metaStorageManager) {
         return new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
     }
@@ -132,6 +137,7 @@ public class DataPathFactory {
     /** Creates the schema manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2000)
     public SchemaManager schemaManager(
             MetaStorageRevisionListenerRegistry revisionListenerRegistry,
             CatalogManagerImpl catalogManager
@@ -150,6 +156,8 @@ public class DataPathFactory {
 
     /** Creates the index node finished rw transactions checker. */
     @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1600)
     public IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker(
             CatalogManagerImpl catalogManager,
             ClusterService clusterService,
@@ -167,6 +175,7 @@ public class DataPathFactory {
     /** Creates the replica manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1500)
     public ReplicaManager replicaManager(
             NodeSeedParams seedParams,
             ClusterService clusterService,
@@ -220,6 +229,7 @@ public class DataPathFactory {
     /** Creates the data storage manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1800)
     public DataStorageManager dataStorageManager(
             NodeSeedParams seedParams,
             MetricManager metricManager,
@@ -256,6 +266,7 @@ public class DataPathFactory {
     /** Creates the outgoing snapshots manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2100)
     public OutgoingSnapshotsManager outgoingSnapshotsManager(
             NodeSeedParams seedParams,
             ClusterService clusterService,
@@ -267,6 +278,7 @@ public class DataPathFactory {
     /** Creates the low watermark. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(2000)
     public LowWatermarkImpl lowWatermark(
             NodeSeedParams seedParams,
             GcConfiguration gcConfiguration,
@@ -287,6 +299,8 @@ public class DataPathFactory {
 
     /** Creates the index meta storage. */
     @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(400)
     public IndexMetaStorage indexMetaStorage(
             CatalogManagerImpl catalogManager,
             LowWatermarkImpl lowWatermark,
@@ -298,6 +312,7 @@ public class DataPathFactory {
     /** Creates the distribution zone manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1100)
     public DistributionZoneManager distributionZoneManager(
             NodeSeedParams seedParams,
             ClusterService clusterService,
@@ -327,6 +342,7 @@ public class DataPathFactory {
     /** Creates the partition replica lifecycle manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2300)
     public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager(
             CatalogManagerImpl catalogManager,
             ReplicaManager replicaManager,
@@ -378,6 +394,7 @@ public class DataPathFactory {
     /** Creates the table manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2400)
     public TableManager tableManager(
             NodeSeedParams seedParams,
             MetaStorageRevisionListenerRegistry revisionListenerRegistry,
@@ -458,6 +475,7 @@ public class DataPathFactory {
     /** Creates the index manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2600)
     public IndexManager indexManager(
             SchemaManager schemaManager,
             TableManager tableManager,
@@ -479,6 +497,7 @@ public class DataPathFactory {
     /** Creates the index building manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2700)
     public IndexBuildingManager indexBuildingManager(
             NodeSeedParams seedParams,
             ReplicaService replicaService,

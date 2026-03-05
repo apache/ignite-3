@@ -356,18 +356,18 @@ public class IgniteImpl implements Ignite {
         lifecycleManager = new LifecycleManager(name);
 
         // Build the Micronaut DI context with seed singletons.
-        NodeSeedParams seedParams = new NodeSeedParams(
-                node, restarter, configPath, workDir, serviceProviderClassLoader, asyncContinuationExecutor
-        );
-
-        @SuppressWarnings("unchecked")
         Supplier<UUID> clusterIdSupplier = () -> clusterState().clusterTag().clusterId();
+
+        NodeSeedParams seedParams = new NodeSeedParams(
+                node, restarter, configPath, workDir, serviceProviderClassLoader, asyncContinuationExecutor,
+                clusterIdSupplier
+        );
 
         diContext = IgniteDiContext.builder()
                 .withSingleton(seedParams)
                 .withSingleton(this)
-                .withNamedSingleton("clusterIdSupplier", Supplier.class, clusterIdSupplier)
                 .withPackages("org.apache.ignite.internal.app.di")
+                .withExcludedPackages("org.apache.ignite.internal.rest")
                 .build();
 
         // Start local configuration early — factory methods read config values during bean construction.
@@ -438,10 +438,11 @@ public class IgniteImpl implements Ignite {
 
         // Initialize the DI component lifecycle manager. Exclude components with special startup ordering:
         // nodeConfigRegistry — started early in constructor, before other beans are created
+        // clusterConfigRegistry — started manually in joinClusterAsync() (after MetaStorage recovery)
         // metaStorageMgr — started manually in joinClusterAsync() (must start before cluster config init)
         // systemViewManager — must start last, after all system view registrations
         componentLifecycleManager = new IgniteComponentLifecycleManager(diContext);
-        componentLifecycleManager.exclude(nodeConfigRegistry, metaStorageMgr, systemViewManager);
+        componentLifecycleManager.exclude(nodeConfigRegistry, clusterConfigRegistry, metaStorageMgr, systemViewManager);
 
         // Post-construction wiring: cross-component hookups that cannot be expressed as constructor injection.
         PostConstructionWiring wiring = diContext.getBean(PostConstructionWiring.class);
@@ -600,6 +601,14 @@ public class IgniteImpl implements Ignite {
                     return metaStorageMgr.recoveryFinishedFuture();
                 }, joinExecutor)
                 .thenComposeAsync(unused -> initializeClusterConfiguration(joinExecutor), joinExecutor)
+                .thenRunAsync(() -> {
+                    // Start cluster config registry after MetaStorage recovery (it depends on DistributedConfigurationStorage).
+                    try {
+                        lifecycleManager.startComponentAsync(clusterConfigRegistry, componentContext);
+                    } catch (NodeStoppingException e) {
+                        throw new CompletionException(e);
+                    }
+                }, joinExecutor)
                 .thenComposeAsync(unused -> {
                     LOG.info("MetaStorage started, starting the remaining components");
 

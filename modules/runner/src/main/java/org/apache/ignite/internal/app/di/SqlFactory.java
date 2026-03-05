@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -83,6 +84,7 @@ public class SqlFactory {
     /** Creates the SQL query processor. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2800)
     public SqlQueryProcessor sqlQueryProcessor(
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
@@ -132,6 +134,7 @@ public class SqlFactory {
     /** Creates the IgniteSql implementation. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(3100)
     public IgniteSqlImpl igniteSql(
             SqlQueryProcessor sqlQueryProcessor,
             HybridTimestampTracker observableTimestampTracker,

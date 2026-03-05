@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -68,6 +69,7 @@ public class NetworkComponentsFactory {
     /** Creates the failure manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(600)
     public FailureManager failureManager(
             NodeSeedParams seedParams,
             FailureProcessorConfiguration failureProcessorConfiguration
@@ -78,6 +80,7 @@ public class NetworkComponentsFactory {
     /** Creates the critical worker watchdog. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1000)
     public CriticalWorkerWatchdog criticalWorkerWatchdog(
             SystemLocalConfiguration systemConfiguration,
             ThreadPoolsManager threadPoolsManager,
@@ -93,6 +96,7 @@ public class NetworkComponentsFactory {
     /** Creates the netty bootstrap factory. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1100)
     public NettyBootstrapFactory nettyBootstrapFactory(NodeSeedParams seedParams, NetworkConfiguration networkConfiguration) {
         return new NettyBootstrapFactory(networkConfiguration, seedParams.nodeName());
     }
@@ -100,6 +104,7 @@ public class NetworkComponentsFactory {
     /** Creates the netty workers registrar. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1200)
     public NettyWorkersRegistrar nettyWorkersRegistrar(
             CriticalWorkerRegistry criticalWorkerRegistry,
             ThreadPoolsManager threadPoolsManager,
@@ -119,6 +124,7 @@ public class NetworkComponentsFactory {
     /** Creates the clock waiter. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(500)
     public ClockWaiter clockWaiter(NodeSeedParams seedParams, HybridClock clock, ThreadPoolsManager threadPoolsManager) {
         return new ClockWaiter(seedParams.nodeName(), clock, threadPoolsManager.commonScheduler());
     }
@@ -126,6 +132,7 @@ public class NetworkComponentsFactory {
     /** Creates the cluster ID service. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(800)
     public ClusterIdService clusterIdService(VaultManager vaultManager) {
         return new ClusterIdService(vaultManager);
     }

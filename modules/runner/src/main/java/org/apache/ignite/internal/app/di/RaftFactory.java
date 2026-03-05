@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePa
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.nio.file.Path;
@@ -96,6 +97,7 @@ public class RaftFactory {
     @Singleton
     @Named("partitions")
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1500)
     public LogStorageManager partitionsLogStorageManager(
             NodeSeedParams seedParams,
             RaftConfiguration raftConfiguration,
@@ -113,6 +115,7 @@ public class RaftFactory {
     @Singleton
     @Named("metastorage")
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1600)
     public LogStorageManager msLogStorageManager(
             NodeSeedParams seedParams,
             @Named("metastorage") ComponentWorkingDir metastorageWorkDir
@@ -129,6 +132,7 @@ public class RaftFactory {
     @Singleton
     @Named("cmg")
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1700)
     public LogStorageManager cmgLogStorageManager(
             NodeSeedParams seedParams,
             @Named("cmg") ComponentWorkingDir cmgWorkDir
@@ -210,6 +214,7 @@ public class RaftFactory {
     /** Creates the Raft manager (Loza). */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1800)
     public Loza loza(
             ClusterService clusterService,
             MetricManager metricManager,

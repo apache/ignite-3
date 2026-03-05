@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
@@ -82,6 +83,7 @@ public class ComputeFactory {
     /** Creates the compute executor. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1100)
     public ComputeExecutorImpl computeExecutor(
             Provider<Ignite> igniteProvider,
             InMemoryComputeStateMachine stateMachine,
@@ -103,6 +105,7 @@ public class ComputeFactory {
     /** Creates the deployment manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(3000)
     public DeploymentManagerImpl deploymentManager(
             ClusterService clusterService,
             MetaStorageManagerImpl metaStorageManager,
@@ -127,6 +130,7 @@ public class ComputeFactory {
     /** Creates the compute component. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1200)
     public ComputeComponentImpl computeComponent(
             NodeSeedParams seedParams,
             ClusterService clusterService,
@@ -157,6 +161,7 @@ public class ComputeFactory {
     /** Creates the internal compute implementation. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1300)
     public IgniteComputeInternal igniteCompute(
             NodeSeedParams seedParams,
             PlacementDriverManager placementDriverManager,

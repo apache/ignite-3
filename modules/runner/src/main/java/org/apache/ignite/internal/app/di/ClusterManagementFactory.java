@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
@@ -74,6 +75,7 @@ public class ClusterManagementFactory {
     /** Creates the cluster service. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1300)
     public ClusterService clusterService(
             NodeSeedParams seedParams,
             NetworkConfiguration networkConfiguration,
@@ -116,6 +118,7 @@ public class ClusterManagementFactory {
     /** Creates the cluster state storage backed by RocksDB. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(700)
     public RocksDbClusterStateStorage clusterStateStorage(@Named("cmg") ComponentWorkingDir cmgWorkDir, NodeSeedParams seedParams) {
         return new RocksDbClusterStateStorage(cmgWorkDir.dbPath(), seedParams.nodeName());
     }
@@ -123,6 +126,7 @@ public class ClusterManagementFactory {
     /** Creates the cluster state storage manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(710)
     public ClusterStateStorageManager clusterStateStorageManager(RocksDbClusterStateStorage clusterStateStorage) {
         return new ClusterStateStorageManager(clusterStateStorage);
     }
@@ -136,6 +140,7 @@ public class ClusterManagementFactory {
     /** Creates the validation manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(720)
     public ValidationManager validationManager(
             ClusterStateStorageManager clusterStateStorageManager,
             LogicalTopologyImpl logicalTopology
@@ -176,6 +181,7 @@ public class ClusterManagementFactory {
     /** Creates the cluster initializer. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1310)
     public ClusterInitializer clusterInitializer(
             ClusterService clusterService,
             ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
@@ -202,6 +208,7 @@ public class ClusterManagementFactory {
     /** Creates the cluster management group manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1900)
     public ClusterManagementGroupManager clusterManagementGroupManager(
             VaultManager vaultManager,
             SystemDisasterRecoveryStorage systemDisasterRecoveryStorage,
@@ -237,6 +244,7 @@ public class ClusterManagementFactory {
     /** Creates the logical topology service. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(1910)
     public LogicalTopologyServiceImpl logicalTopologyService(
             LogicalTopologyImpl logicalTopology,
             ClusterManagementGroupManager cmgManager

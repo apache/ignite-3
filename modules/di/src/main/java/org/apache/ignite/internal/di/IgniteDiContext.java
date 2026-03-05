@@ -19,6 +19,9 @@ package org.apache.ignite.internal.di;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.ApplicationContextBuilder;
+import io.micronaut.context.ApplicationContextConfiguration;
+import io.micronaut.context.DefaultApplicationContext;
+import io.micronaut.inject.BeanDefinitionReference;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -57,6 +60,8 @@ public final class IgniteDiContext {
 
         private final List<String> packages = new ArrayList<>();
 
+        private final List<String> excludedPackages = new ArrayList<>();
+
         /**
          * Registers a seed singleton that will be available for injection in the context.
          *
@@ -93,6 +98,21 @@ public final class IgniteDiContext {
         }
 
         /**
+         * Excludes bean definitions from the specified packages. Bean definitions whose generated class name
+         * starts with any of the given package prefixes will not be loaded into the context.
+         *
+         * <p>This is needed to prevent compile-time discovered beans from other Micronaut contexts
+         * (e.g., REST module factories) from being loaded into this core DI context.
+         *
+         * @param packagePrefixes Package prefixes to exclude (e.g., {@code "org.apache.ignite.internal.rest"}).
+         * @return This builder for chaining.
+         */
+        public Builder withExcludedPackages(String... packagePrefixes) {
+            Collections.addAll(excludedPackages, packagePrefixes);
+            return this;
+        }
+
+        /**
          * Builds and starts the Micronaut {@link ApplicationContext}.
          *
          * @return The started application context.
@@ -110,7 +130,44 @@ public final class IgniteDiContext {
                 contextBuilder.singletons(singletons.toArray());
             }
 
-            ApplicationContext context = contextBuilder.start();
+            ApplicationContext context;
+
+            if (excludedPackages.isEmpty()) {
+                context = contextBuilder.start();
+            } else {
+                // Build the context manually so we can override bean discovery to exclude
+                // unwanted packages (e.g., REST module beans that conflict with core DI beans).
+                // We replicate the singleton registration that ApplicationContextBuilder.build() does,
+                // because DefaultApplicationContext(configuration) doesn't auto-register them.
+                List<String> excluded = List.copyOf(excludedPackages);
+
+                context = new DefaultApplicationContext((ApplicationContextConfiguration) contextBuilder) {
+                    @Override
+                    protected List<BeanDefinitionReference> resolveBeanDefinitionReferences() {
+                        List<BeanDefinitionReference> refs = super.resolveBeanDefinitionReferences();
+
+                        refs.removeIf(ref -> {
+                            String name = ref.getBeanDefinitionName();
+
+                            for (String pkg : excluded) {
+                                if (name.startsWith(pkg + ".")) {
+                                    return true;
+                                }
+                            }
+
+                            return false;
+                        });
+
+                        return refs;
+                    }
+                };
+
+                for (Object singleton : singletons) {
+                    context.registerSingleton(singleton);
+                }
+
+                context.start();
+            }
 
             for (NamedSingletonEntry entry : namedSingletons) {
                 registerNamedSingleton(context, entry);

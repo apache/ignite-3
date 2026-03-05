@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.BeanRegistration;
 import io.micronaut.inject.BeanDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -176,15 +177,17 @@ public class IgniteComponentLifecycleManager {
         return List.copyOf(startedComponents);
     }
 
-    @SuppressWarnings("unchecked")
     private static StartupPhase resolvePhase(ApplicationContext context, IgniteComponent component) {
-        // First, try to get the phase from the BeanDefinition (works for compile-time and factory beans).
-        Optional<BeanDefinition<IgniteComponent>> definition =
-                (Optional<BeanDefinition<IgniteComponent>>) (Optional<?>)
-                        context.findBeanDefinition(component.getClass());
+        // First, try to get the phase from the BeanRegistration for this specific instance.
+        // Using findBeanRegistration(instance) instead of findBeanDefinition(class) avoids
+        // NonUniqueBeanException when multiple beans of the same type exist (e.g., two ConfigurationRegistry
+        // beans with different @Named qualifiers).
+        Optional<? extends BeanRegistration<? extends IgniteComponent>> registration =
+                context.findBeanRegistration(component);
 
-        if (definition.isPresent()) {
-            Optional<StartupPhase> phase = definition.get()
+        if (registration.isPresent()) {
+            BeanDefinition<? extends IgniteComponent> definition = registration.get().getBeanDefinition();
+            Optional<StartupPhase> phase = definition
                     .findAnnotation(IgniteStartupPhase.class)
                     .flatMap(av -> av.enumValue(StartupPhase.class));
             if (phase.isPresent()) {

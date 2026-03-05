@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
@@ -68,6 +69,7 @@ public class ClientHandlerFactory {
     /** Creates the authentication manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2850)
     public AuthenticationManager authenticationManager(
             SecurityConfiguration securityConfiguration,
             EventLogImpl eventLog
@@ -94,6 +96,7 @@ public class ClientHandlerFactory {
     /** Creates the client handler module. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(2900)
     public ClientHandlerModule clientHandlerModule(
             SqlQueryProcessor sqlQueryProcessor,
             TableManager tableManager,

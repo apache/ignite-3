@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
@@ -80,6 +81,7 @@ public class SystemServicesFactory {
     /** Creates the event log. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(3500)
     public EventLogImpl eventLog(
             @Named("clusterConfig") ConfigurationRegistry clusterConfigRegistry,
             Provider<ClusterManagementGroupManager> cmgManagerProvider,
@@ -128,6 +130,7 @@ public class SystemServicesFactory {
     /** Creates the system disaster recovery manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @Order(900)
     public SystemDisasterRecoveryManagerImpl systemDisasterRecoveryManager(
             NodeSeedParams seedParams,
             ClusterService clusterService,
@@ -207,6 +210,7 @@ public class SystemServicesFactory {
     /** Creates the log storage metrics. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1400)
     public LogStorageMetrics logStorageMetrics(
             NodeSeedParams seedParams,
             MetricManager metricManager,
@@ -228,6 +232,7 @@ public class SystemServicesFactory {
     /** Creates the metric messaging. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(1000)
     public MetricMessaging metricMessaging(
             MetricManager metricManager,
             ClusterService clusterService
@@ -238,6 +243,7 @@ public class SystemServicesFactory {
     /** Creates the resource vacuum manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(3300)
     public ResourceVacuumManager resourceVacuumManager(
             NodeSeedParams seedParams,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
@@ -265,6 +271,7 @@ public class SystemServicesFactory {
     /** Creates the system properties component. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(3200)
     public SystemPropertiesComponent systemPropertiesComponent(
             SystemDistributedConfiguration systemDistributedConfiguration
     ) {
@@ -274,6 +281,7 @@ public class SystemServicesFactory {
     /** Creates the low watermark rectifier. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(200)
     public LowWatermarkRectifier lowWatermarkRectifier(
             LowWatermarkImpl lowWatermark,
             CatalogManagerImpl catalogManager

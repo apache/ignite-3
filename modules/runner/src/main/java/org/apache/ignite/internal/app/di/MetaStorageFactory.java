@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -112,6 +113,7 @@ public class MetaStorageFactory {
     /** Creates the MetaStorage manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(200)
     public MetaStorageManagerImpl metaStorageManager(
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,

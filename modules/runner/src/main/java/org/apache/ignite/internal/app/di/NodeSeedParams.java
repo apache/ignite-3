@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.app.di;
 
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.disaster.system.ServerRestarter;
 import org.jetbrains.annotations.Nullable;
@@ -42,6 +44,8 @@ public class NodeSeedParams {
 
     private final Executor asyncContinuationExecutor;
 
+    private final Supplier<UUID> clusterIdSupplier;
+
     /** Constructor. */
     public NodeSeedParams(
             IgniteServer node,
@@ -49,7 +53,8 @@ public class NodeSeedParams {
             Path configPath,
             Path workDir,
             @Nullable ClassLoader serviceProviderClassLoader,
-            Executor asyncContinuationExecutor
+            Executor asyncContinuationExecutor,
+            Supplier<UUID> clusterIdSupplier
     ) {
         this.node = node;
         this.restarter = restarter;
@@ -57,6 +62,7 @@ public class NodeSeedParams {
         this.workDir = workDir;
         this.serviceProviderClassLoader = serviceProviderClassLoader;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
+        this.clusterIdSupplier = clusterIdSupplier;
     }
 
     /** Node name. */
@@ -93,5 +99,10 @@ public class NodeSeedParams {
     /** Executor in which user-facing futures will be completed. */
     public Executor asyncContinuationExecutor() {
         return asyncContinuationExecutor;
+    }
+
+    /** Supplier of the cluster ID; resolved lazily after cluster initialization. */
+    public Supplier<UUID> clusterIdSupplier() {
+        return clusterIdSupplier;
     }
 }
