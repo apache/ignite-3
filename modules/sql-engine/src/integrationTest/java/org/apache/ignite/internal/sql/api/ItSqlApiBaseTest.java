@@ -386,7 +386,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "DML cannot be started by using read only transactions.",
                     () -> execute(outerTx, sql, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, sql, queryRw);
@@ -705,7 +705,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_WITH_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                 () -> executeForRead(sql, tx, query, 2),
                 "Transaction is already finished due to an error");
     }
@@ -731,7 +731,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThrowsWithCode(
                 IgniteException.class,
-                Transactions.TX_ALREADY_FINISHED_WITH_ERR,
+                Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                 () -> executeForRead(sql, tx, query, 2),
                 "Transaction is already finished due to an error");
     }
@@ -753,7 +753,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             tx.rollback();
 
             assertThrowsSqlException(
-                    Transactions.TX_ALREADY_FINISHED_WITH_ERR,
+                    Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR,
                     "Transaction is already finished due to an error",
                     () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );
@@ -794,7 +794,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Transaction tx = igniteTx().begin();
             try {
                 assertThrowsSqlException(
-                        Sql.RUNTIME_ERR,
+                        Sql.STMT_VALIDATION_ERR,
                         "DDL doesn't support transactions.",
                         () -> execute(tx, sql, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
                 );
@@ -808,7 +808,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             assertEquals(1, result.affectedRows());
 
             assertThrowsSqlException(
-                    Sql.RUNTIME_ERR,
+                    Sql.STMT_VALIDATION_ERR,
                     "DDL doesn't support transactions.",
                     () -> sql.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
             );

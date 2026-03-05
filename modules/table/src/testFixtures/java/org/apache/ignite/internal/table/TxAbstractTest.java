@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
@@ -2145,7 +2145,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         TransactionException ex = assertThrows(TransactionException.class, run);
 
         assertThat("Invalid error code: " + ex.codeAsString(), ex.code(),
-                anyOf(is(TX_ALREADY_FINISHED_ERR), is(TX_ALREADY_FINISHED_WITH_ERR)));
+                anyOf(is(TX_ALREADY_FINISHED_ERR), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR)));
 
         assertThat(ex.getMessage(), containsString("Transaction is already finished"));
     }

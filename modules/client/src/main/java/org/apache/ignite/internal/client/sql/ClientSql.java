@@ -410,7 +410,15 @@ public class ClientSql implements IgniteSql {
     private static boolean shouldRecordTransactionFailure(Throwable err) {
         Throwable cause = unwrapCause(err);
 
-        return !(cause instanceof SqlException && ((SqlException) cause).code() == Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR);
+        if (!(cause instanceof SqlException)) {
+            return true;
+        }
+
+        SqlException sqlEx = (SqlException) cause;
+
+        return sqlEx.code() != Sql.STMT_PARSE_ERR
+                && sqlEx.code() != Sql.STMT_VALIDATION_ERR
+                && sqlEx.code() != Sql.TX_CONTROL_INSIDE_EXTERNAL_TX_ERR;
     }
 
     private static @Nullable PartitionMapping resolveMapping(

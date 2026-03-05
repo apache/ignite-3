@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 /**
@@ -45,7 +45,7 @@ public final class TransactionErrors {
             return TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
         }
 
-        return isFinishedDueToError ? TX_ALREADY_FINISHED_WITH_ERR : TX_ALREADY_FINISHED_ERR;
+        return isFinishedDueToError ? TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR : TX_ALREADY_FINISHED_ERR;
     }
 
     /**

@@ -35,7 +35,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -944,7 +944,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
             Throwable unwrapped = unwrapCause(e);
             assertThat("Error should be TransactionException", unwrapped, is(instanceOf(TransactionException.class)));
             TransactionException txEx = (TransactionException) unwrapped;
-            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_ERR", txEx.code(), is(TX_ALREADY_FINISHED_WITH_ERR));
+            assertThat("Error code should be TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR", txEx.code(), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR));
             assertThat("Cause should be the recorded exception", txEx.getCause(), is(failure));
         }
     }

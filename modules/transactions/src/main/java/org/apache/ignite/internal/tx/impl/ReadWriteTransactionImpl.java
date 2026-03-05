@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.tx.TransactionLogUtils.formatTxInfo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.isFinishedDueToTimeout;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -169,7 +169,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         boolean isFinishedDueToTimeout =
                 finishCode == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR || (meta != null && meta.isFinishedDueToTimeoutOrFalse());
         boolean isFinishedDueToError =
-                finishCode == TX_ALREADY_FINISHED_WITH_ERR || (meta != null && meta.isFinishedDueToErrorOrFalse());
+                finishCode == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR || (meta != null && meta.isFinishedDueToErrorOrFalse());
         Throwable publicCause = isFinishedDueToError ? cause : null;
 
         return killed ? new TransactionKilledException(id(), txManager) :
@@ -375,7 +375,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         }
 
         finishCause = finishReason;
-        finishCode = isFinishedDueToTimeout(finishReason) ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_WITH_ERR;
+        finishCode = isFinishedDueToTimeout(finishReason) ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
     }
 
     private static @Nullable Throwable firstNonNull(@Nullable Throwable first, @Nullable Throwable second) {

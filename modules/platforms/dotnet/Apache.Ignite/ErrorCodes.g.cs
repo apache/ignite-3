@@ -374,8 +374,8 @@ namespace Apache.Ignite
             /// <summary> TxKilled error. </summary>
             public const int TxKilled = (GroupCode << 16) | (18 & 0xFFFF);
 
-            /// <summary> TxAlreadyFinishedWith error. </summary>
-            public const int TxAlreadyFinishedWithErr = (GroupCode << 16) | (19 & 0xFFFF);
+            /// <summary> TxAlreadyFinishedWithException error. </summary>
+            public const int TxAlreadyFinishedWithException = (GroupCode << 16) | (19 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

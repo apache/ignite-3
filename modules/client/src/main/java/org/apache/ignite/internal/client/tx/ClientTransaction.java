@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_KILLED_ERR;
 
@@ -515,13 +515,13 @@ public class ClientTransaction implements Transaction {
         if (unwrapped instanceof TransactionException) {
             int code = ((TransactionException) unwrapped).code();
 
-            if (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR || code == TX_ALREADY_FINISHED_WITH_ERR) {
+            if (code == TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR || code == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR) {
                 finishCode = code;
                 return;
             }
         }
 
-        finishCode = TX_ALREADY_FINISHED_WITH_ERR;
+        finishCode = TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
     }
 
     private static String finishedMessage(int code) {
@@ -529,7 +529,7 @@ public class ClientTransaction implements Transaction {
             return "Transaction is already finished due to timeout";
         }
 
-        if (code == TX_ALREADY_FINISHED_WITH_ERR) {
+        if (code == TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR) {
             return "Transaction is already finished due to an error";
         }
 

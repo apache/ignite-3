@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.is;
@@ -132,7 +132,7 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
             });
 
             assertThat("Invalid error code: " + ex.codeAsString(), ex.code(),
-                    anyOf(is(TX_ALREADY_FINISHED_ERR), is(TX_ALREADY_FINISHED_WITH_ERR)));
+                    anyOf(is(TX_ALREADY_FINISHED_ERR), is(TX_ALREADY_FINISHED_WITH_EXCEPTION_ERR)));
 
             return null;
         }, threadNum, "txCommitTestThread");
