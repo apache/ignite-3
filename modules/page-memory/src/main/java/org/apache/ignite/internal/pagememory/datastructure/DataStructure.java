@@ -221,9 +221,8 @@ public abstract class DataStructure implements ManuallyCloseable {
      *
      * @param pageId Page ID
      * @param page Page pointer.
-     * @param pageAddr Page address.
      */
-    protected final void readUnlock(long pageId, long page, long pageAddr) {
+    protected final void readUnlock(long pageId, long page) {
         pageMem.readUnlock(grpId, pageId, page);
     }
 
@@ -232,10 +231,9 @@ public abstract class DataStructure implements ManuallyCloseable {
      *
      * @param pageId Page ID
      * @param page Page pointer.
-     * @param pageAddr Page address.
      * @param dirty Dirty flag.
      */
-    protected final void writeUnlock(long pageId, long page, long pageAddr, boolean dirty) {
+    protected final void writeUnlock(long pageId, long page, boolean dirty) {
         pageMem.writeUnlock(grpId, pageId, page, dirty);
     }
 

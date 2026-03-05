@@ -139,6 +139,7 @@ public class TestServer {
                 mock(CatalogService.class),
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
+                EventLog.NOOP,
                 new TestLowWatermark(),
                 Runnable::run,
                 () -> true

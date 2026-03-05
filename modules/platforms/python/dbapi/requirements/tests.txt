@@ -1,8 +1,6 @@
 # these packages are used for testing
 
-pytest==6.2.5
-pytest-cov==2.11.1
-teamcity-messages==1.28
+pytest==8.2.2
+teamcity-messages==1.33
 psutil==5.8.0
-flake8==3.8.4
 dbapi-compliance==1.15.0

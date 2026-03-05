@@ -1495,6 +1495,43 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key2, key3, key4)), willSucceedFast());
     }
 
+    @ParameterizedTest
+    @MethodSource("killTestContextFactory")
+    public void testRollbackOnLocalError(KillTestContext ctx) throws Exception {
+        ClientTable table = (ClientTable) table();
+        ClientSql sql = (ClientSql) client().sql();
+        KeyValueView<Tuple, Tuple> kvView = table().keyValueView();
+
+        Map<Partition, ClusterNode> map = table.partitionDistribution().primaryReplicasAsync().join();
+        IgniteImpl server0 = unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(100, 10, map, server0.cluster().localNode(), table);
+        List<Tuple> tuples1 = generateKeysForNode(100, 10, map, server1.cluster().localNode(), table);
+
+        // Init SQL mappings.
+        Tuple key0 = tuples0.get(0);
+        sql.execute(format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL),
+                key0.intValue(0), key0.intValue(0) + "");
+        await().atMost(2, TimeUnit.SECONDS)
+                .until(() -> sql.partitionAwarenessCachedMetas().stream().allMatch(PartitionMappingProvider::ready));
+
+        ClientLazyTransaction txProxy = (ClientLazyTransaction) client().transactions().begin();
+
+        Tuple key = tuples0.get(1);
+        Tuple key3 = tuples1.get(0);
+
+        assertThat(ctx.put.apply(client(), txProxy, key), willSucceedFast()); // Proxy mode.
+
+        assertThat(ctx.put.apply(client(), txProxy, key3), willSucceedFast()); // Direct mode.
+
+        Tuple key2 = Tuple.create().set("id1", "1"); // Intentionally use wrong schema.
+        assertThat(ctx.put.apply(client(), txProxy, key2), willThrowWithCauseOrSuppressed(IgniteException.class));
+
+        // Ensure all enlisted keys are unlocked.
+        assertThat(kvView.removeAllAsync(null, Arrays.asList(key0, key, key3)), willSucceedFast());
+    }
+
     @AfterEach
     protected void validateInflights() throws NoSuchFieldException {
         System.out.println("DBG: validateInflights");
@@ -1565,12 +1602,12 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     private static CompletableFuture<?> putSql(IgniteClient client, Transaction tx, Tuple key) {
         return client.sql()
-                .executeAsync(tx, format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL), key.intValue(0),
-                        key.intValue(0) + "");
+                .executeAsync(tx, format("INSERT INTO %s (%s, %s) VALUES (?, ?)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL), key.value(0),
+                        key.value(0) + "");
     }
 
     private static CompletableFuture<?> putKv(IgniteClient client, Transaction tx, Tuple key) {
-        return client.tables().tables().get(0).keyValueView().putAsync(tx, key, val(key.intValue(0) + ""));
+        return client.tables().tables().get(0).keyValueView().putAsync(tx, key, val(key.value(0) + ""));
     }
 
     private static class KillTestContext {

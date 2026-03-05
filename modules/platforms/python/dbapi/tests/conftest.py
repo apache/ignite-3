@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import time
 
 import pyignite_dbapi
 import pytest
@@ -24,20 +25,26 @@ logger.setLevel(logging.DEBUG)
 
 TEST_PAGE_SIZE = 32
 
+TEST_CONNECT_KWARGS = {
+    "address": server_addresses_basic,
+    "page_size": TEST_PAGE_SIZE,
+    "heartbeat_interval": 2,
+}
+
 @pytest.fixture()
 def table_name(request):
-    return request.node.originalname
+    return f"{request.node.originalname}_{int(time.monotonic_ns())}"
 
 
 @pytest.fixture()
 def connection():
-    conn = pyignite_dbapi.connect(address=server_addresses_basic, page_size=TEST_PAGE_SIZE, heartbeat_interval=2)
+    conn = pyignite_dbapi.connect(**TEST_CONNECT_KWARGS)
     yield conn
     conn.close()
 
 @pytest.fixture()
 def service_connection():
-    conn = pyignite_dbapi.connect(address=server_addresses_basic, page_size=TEST_PAGE_SIZE, heartbeat_interval=2)
+    conn = pyignite_dbapi.connect(**TEST_CONNECT_KWARGS)
     yield conn
     conn.close()
 

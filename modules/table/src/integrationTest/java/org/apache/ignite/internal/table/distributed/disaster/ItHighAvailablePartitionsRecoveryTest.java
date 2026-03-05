@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import static java.lang.String.format;
 import static org.apache.ignite.internal.ConfigTemplates.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
@@ -397,7 +398,10 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         startNode(5);
         startNode(6);
 
-        createHaZoneWithTable();
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        // Explicit quorumSize=4 to match majority semantics (replicas/2+1) so that stopping 4 of 7 nodes triggers HA recovery.
+        createHaZoneWithTables(HA_ZONE_NAME, PARTITIONS_NUMBER, DEFAULT_FILTER, 4, List.of(HA_TABLE_NAME), allNodes);
 
         IgniteImpl node = igniteImpl(0);
         Table table = node.tables().table(HA_TABLE_NAME);
@@ -406,8 +410,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         assertThat(errors, is(empty()));
 
         changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
-
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
 
@@ -499,7 +501,9 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         startNode(5);
         startNode(6);
 
-        createHaZoneWithTable();
+        // Explicit quorumSize=4 to match majority semantics (replicas/2+1) so that stopping 4 of 7 nodes triggers HA recovery.
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+        createHaZoneWithTables(HA_ZONE_NAME, PARTITIONS_NUMBER, DEFAULT_FILTER, 4, List.of(HA_TABLE_NAME), allNodes);
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(HA_TABLE_NAME);

@@ -189,7 +189,6 @@ class CheckpointWorkflow {
     /**
      * First stage of checkpoint which collects demanded information (dirty pages mostly).
      *
-     * @param startCheckpointTimestamp Checkpoint start timestamp.
      * @param curr Current checkpoint event info.
      * @param tracker Checkpoint metrics tracker.
      * @param updateHeartbeat Update heartbeat callback.
@@ -198,7 +197,6 @@ class CheckpointWorkflow {
      * @throws IgniteInternalCheckedException If failed.
      */
     public Checkpoint markCheckpointBegin(
-            long startCheckpointTimestamp,
             CheckpointProgressImpl curr,
             CheckpointMetricsTracker tracker,
             Runnable updateHeartbeat,

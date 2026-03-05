@@ -32,6 +32,7 @@ public class ConfigurationApplyException extends IgniteException {
         super(CONFIGURATION_APPLY_ERR, message);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     public ConfigurationApplyException(String message, @Nullable Throwable cause) {
         super(CONFIGURATION_APPLY_ERR, cause);
     }

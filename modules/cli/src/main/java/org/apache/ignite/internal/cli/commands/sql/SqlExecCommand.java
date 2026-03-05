@@ -80,13 +80,12 @@ public class SqlExecCommand extends BaseCommand implements Callable<Integer> {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
             return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
-                    .inputProvider(() -> new StringCallInput(executeCommand))
+                    .input(new StringCallInput(executeCommand))
                     .exceptionHandler(SqlExceptionHandler.INSTANCE)
                     .decorator(new SqlQueryResultDecorator(plain, timed))
             );
