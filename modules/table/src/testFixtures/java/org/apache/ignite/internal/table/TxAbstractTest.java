@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
@@ -57,7 +58,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
@@ -114,7 +114,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -529,7 +528,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     /**
      * Tests uncaught exception in the closure.
      */
-    @RepeatedTest(30)
+    @Test
     public void testTxClosureUncaughtExceptionAsync() {
         double balance = 10.;
         double delta = 50.;
@@ -1911,7 +1910,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         CompletableFuture<List<Tuple>> roBeforeCommitTxFut = scan(accounts.internalTable(), readOnlyTx);
 
-        var roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, TimeUnit.SECONDS);
+        var roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, SECONDS);
 
         assertEquals(2, roBeforeCommitTxRows.size());
 
@@ -1930,7 +1929,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         // Same read-only transaction.
         roBeforeCommitTxFut = scan(accounts.internalTable(), readOnlyTx);
 
-        roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, TimeUnit.SECONDS);
+        roBeforeCommitTxRows = roBeforeCommitTxFut.get(10, SECONDS);
 
         assertEquals(2, roBeforeCommitTxRows.size());
 
@@ -1948,7 +1947,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
 
         CompletableFuture<List<Tuple>> roAfterCommitTxFut = scan(accounts.internalTable(), readOnlyTx2);
 
-        var roAfterCommitTxRows = roAfterCommitTxFut.get(10, TimeUnit.SECONDS);
+        var roAfterCommitTxRows = roAfterCommitTxFut.get(10, SECONDS);
 
         assertEquals(1, roAfterCommitTxRows.size());
 

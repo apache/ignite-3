@@ -3497,7 +3497,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
-                    } else {
+                    } else if (timestamp == null) {
+                        // If it's resolution by RW txn.
                         LOG.info(
                                 "Received non-final transaction state after tx state resolution [txId={}, groupId={}, txMeta={}, "
                                     + "timestamp={}, commitPartId={}, currentConsistencyToken={}, writeIntentReadable={}].",

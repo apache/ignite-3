@@ -1174,6 +1174,8 @@ public class ItTxTestCluster {
      * Shutdowns all cluster nodes after each test.
      */
     public void shutdownCluster() {
+        LOG.info("Cluster shutdown begin");
+
         assertThat(stopAsync(new ComponentContext(), cluster), willCompleteSuccessfully());
         assertThat(stopAsync(new ComponentContext(), client), willCompleteSuccessfully());
 
@@ -1249,6 +1251,8 @@ public class ItTxTestCluster {
         if (partitionOperationsExecutor != null) {
             IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS);
         }
+
+        LOG.info("Cluster shutdown end");
     }
 
     /**
