@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.failOrConsume;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Rest.CLUSTER_NOT_INIT_ERR;
 
 import java.util.Collection;
 import java.util.List;
@@ -103,6 +104,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -560,6 +562,21 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     /**
+     * Renames the cluster with the provided name.
+     *
+     * @param newName the new name for the cluster.
+     * @return Completable future that will be completed when cluster is initialized.
+     */
+    public CompletableFuture<Void> renameCluster(String newName) {
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+
+        return serviceFuture == null
+                ? failedFuture(new IgniteException(CLUSTER_NOT_INIT_ERR,
+                "Cluster has not yet been initialized or the node is in the process of being stopped."))
+                : serviceFuture.thenCompose(cmgRaftService -> cmgRaftService.changeClusterName(newName));
+    }
+
+    /**
      * Extracts the local state (if any) and starts the CMG.
      *
      * @return Future, that resolves into the CMG Raft service, or {@code null} if the local state is empty.
@@ -713,13 +730,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      *     <li>Broadcasts the current CMG state to all nodes in the physical topology.</li>
      * </ol>
      */
-    private void onElectedAsLeader(
-            long term,
-            long configurationTerm,
-            long configurationIndex,
-            PeersAndLearners configuration,
-            long sequenceToken
-    ) {
+    private void onElectedAsLeader(long term) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping onLeaderElected callback, because the node is stopping");
 
@@ -988,7 +999,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             failureProcessor,
                             onConfigurationCommittedListener
                     ),
-                    this::onElectedAsLeader,
+                    (term, configurationTerm, configurationIndex, configuration, sequenceToken) -> {
+                        onElectedAsLeader(term);
+                    },
                     null,
                     raftGroupOptionsConfigurer
             );

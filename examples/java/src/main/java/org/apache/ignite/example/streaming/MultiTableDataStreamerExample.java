@@ -17,6 +17,9 @@
 
 package org.apache.ignite.example.streaming;
 
+import static org.apache.ignite.example.util.DeployComputeUnit.deployIfNotExist;
+import static org.apache.ignite.example.util.DeployComputeUnit.undeployUnit;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
@@ -25,28 +28,66 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.example.util.DeployComputeUnit;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates how to use the streaming API to how to implement a receiver that processes data containing customer and address information,
- * and updates two separate tables on the server.
+ * This example demonstrates how to use the streaming API to implement a receiver that processes data containing customer and address
+ * information, and updates two separate tables on the server.
+ *
+ * <p>See {@code README.md} in the {@code examples} directory for execution instructions.</p>
  */
+
 
 public class MultiTableDataStreamerExample {
 
-    /** Deployment unit name. */
     private static final String DEPLOYMENT_UNIT_NAME = "streamerReceiverExampleUnit";
 
     /** Deployment unit version. */
     private static final String DEPLOYMENT_UNIT_VERSION = "1.0.0";
 
-    public static void main(String[] arg) {
+    /**
+     * Runs the MultiTableDataStreamerExample.
+     *
+     * @param arg The command line arguments.
+     * @throws Exception if any error occurs.
+     */
+    public static void main(String[] arg) throws Exception {
+
+        DeployComputeUnit.processDeploymentUnit(arg);
 
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()) {
+
+            deployIfNotExist(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION, DeployComputeUnit.getJarPath());
+
+            /* Create tables using client SQL API */
+            client.sql().executeScript(
+                    "CREATE TABLE IF NOT EXISTS Customers ("
+                            + "id INT PRIMARY KEY,"
+                            + "name VARCHAR(255),"
+                            + "addressId INT"
+                            + ")"
+            );
+
+            client.sql().executeScript(
+                    "CREATE TABLE IF NOT EXISTS Addresses ("
+                            + "id INT PRIMARY KEY,"
+                            + "street VARCHAR(255),"
+                            + "city VARCHAR(255)"
+                            + ")"
+            );
+
+            client.sql().executeScript("INSERT INTO Addresses (id, street, city) VALUES (1, '123 Elm Street', 'Springfield')");
+            client.sql().executeScript("INSERT INTO Addresses (id, street, city) VALUES (2, '456 Oak Avenue', 'Shelbyville')");
+            client.sql().executeScript("INSERT INTO Addresses (id, street, city) VALUES (3, '789 Pine Road', 'Capitol City')");
+
+            client.sql().executeScript("INSERT INTO Customers (id, name, addressId) VALUES (1, 'John Doe', 1)");
+            client.sql().executeScript("INSERT INTO Customers (id, name, addressId) VALUES (2, 'Jane Smith', 2)");
+            client.sql().executeScript("INSERT INTO Customers (id, name, addressId) VALUES (3, 'Robert Johnson', 3)");
 
             DataStreamerReceiverDescriptor<Tuple, Void, Tuple> desc = DataStreamerReceiverDescriptor
                     .builder(TwoTableReceiver.class)
@@ -91,6 +132,14 @@ public class MultiTableDataStreamerExample {
             }
 
             streamerFut.join();
+
+            // Drop tables
+            System.out.println("\nDropping the tables...");
+            client.sql().executeScript("DROP TABLE IF EXISTS Customers");
+            client.sql().executeScript("DROP TABLE IF EXISTS Addresses");
+        } finally {
+            System.out.println("Cleaning up resources");
+            undeployUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION);
         }
     }
 }

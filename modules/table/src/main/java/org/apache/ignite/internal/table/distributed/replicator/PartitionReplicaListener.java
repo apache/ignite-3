@@ -361,6 +361,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @param indexMetaStorage Index meta storage.
      * @param metrics Table metric source.
      */
+    @SuppressWarnings("PMD.UnusedFormalParameter") // clusterNodeResolver and failureProcessor kept for API compatibility
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
             RaftCommandRunner raftCommandRunner,
@@ -433,12 +434,13 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         return processRequestInContext(request, replicaPrimacy, senderId);
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter") // senderId provided by interface contract
     private CompletableFuture<ReplicaResult> processRequestInContext(
             ReplicaRequest request,
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        return processRequest(request, replicaPrimacy, senderId)
+        return processRequest(request, replicaPrimacy)
                 .thenApply(PartitionReplicaListener::wrapInReplicaResultIfNeeded);
     }
 
@@ -450,7 +452,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         }
     }
 
-    private CompletableFuture<?> processRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy, UUID senderId) {
+    private CompletableFuture<?> processRequest(ReplicaRequest request, ReplicaPrimacy replicaPrimacy) {
         boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
 
         if (hasSchemaVersion) {
@@ -477,7 +479,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         HybridTimestamp opTs = tableAwareReplicaRequestPreProcessor.getOperationTimestamp(request);
         @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
 
-        return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo);
+        return processOperationRequestWithTxOperationManagementLogic(request, replicaPrimacy, opTsIfDirectRo);
     }
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
@@ -493,14 +495,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     /**
      * Process operation request.
      *
-     * @param senderId Sender id.
      * @param request Request.
      * @param replicaPrimacy Replica primacy information.
      * @param opStartTsIfDirectRo Start timestamp in case of direct RO tx.
      * @return Future.
      */
     private CompletableFuture<?> processOperationRequest(
-            UUID senderId,
             ReplicaRequest request,
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
@@ -3779,7 +3779,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<?> processOperationRequestWithTxOperationManagementLogic(
-            UUID senderId,
             ReplicaRequest request,
             ReplicaPrimacy replicaPrimacy,
             @Nullable HybridTimestamp opStartTsIfDirectRo
@@ -3789,7 +3788,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
         UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
 
         try {
-            return processOperationRequest(senderId, request, replicaPrimacy, opStartTsIfDirectRo)
+            return processOperationRequest(request, replicaPrimacy, opStartTsIfDirectRo)
                     .handle((res, ex) -> {
                         unlockLwmIfNeeded(txIdLockingLwm, request);
                         indexBuildingProcessor.decrementRwOperationCountIfNeeded(request);

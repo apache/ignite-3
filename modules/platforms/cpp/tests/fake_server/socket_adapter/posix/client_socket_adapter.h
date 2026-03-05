@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <sys/socket.h>
-#include <unistd.h>
+#include "ignite/network/detail/sockets.h"
+
 #include <vector>
 #include <cstddef>
 
@@ -55,7 +55,7 @@ public:
 
     [[nodiscard]] bool is_valid() const { return m_fd >= 0; }
 
-    void send_message(const std::vector<std::byte> &msg) const { ::send(m_fd, msg.data(), msg.size(), 0); }
+    void send_message(const std::vector<std::byte> &msg) const { network::detail::send(m_fd, msg.data(), msg.size()); }
 
     [[nodiscard]] ssize_t receive_next_packet(std::byte *buf, size_t buf_size) const {
         return ::recv(m_fd, buf, buf_size, 0);

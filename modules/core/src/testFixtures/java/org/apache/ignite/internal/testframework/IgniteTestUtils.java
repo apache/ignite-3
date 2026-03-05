@@ -274,12 +274,12 @@ public final class IgniteTestUtils {
      * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
      * @return Thrown throwable.
      */
-    public static Throwable assertThrows(
-            Class<? extends Throwable> cls,
+    public static <T extends Throwable> T assertThrows(
+            Class<T> cls,
             Executable run,
             @Nullable String errorMessageFragment
     ) {
-        Throwable throwable = Assertions.assertThrows(cls, run);
+        T throwable = Assertions.assertThrows(cls, run);
 
         if (errorMessageFragment != null) {
             assertThat(throwable.getMessage(), containsString(errorMessageFragment));
@@ -931,6 +931,15 @@ public final class IgniteTestUtils {
         } catch (InterruptedException e) {
             for (Thread thread : threads) {
                 thread.interrupt();
+            }
+
+            // Wait for all internal threads to complete before failing the execution.
+            for (Thread thread : threads) {
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
             }
 
             throw createAssertionError("Race operations took too long.", e, throwables);

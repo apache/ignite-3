@@ -100,6 +100,8 @@ import org.jetbrains.annotations.Nullable;
  * Query planer.
  */
 public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
+    private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
+
     private final SqlOperatorTable operatorTbl;
 
     private final List<Program> programs;
@@ -657,8 +659,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     private static class VolcanoPlannerExt extends VolcanoPlanner {
-        private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
-
         private final long startTs;
 
         protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx, long startTs) {

@@ -49,6 +49,7 @@ public abstract class GenericGenerator implements AbstractCodeGenerator {
         this.outFilePath = outFilePath;
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     void generateFile(List<ErrorCodeGroupDescriptor> descriptors) throws IOException, ErrorCodeGroupProcessorException {
         throw new ErrorCodeGroupProcessorException("generateFile not implemented!");
     }

@@ -187,8 +187,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                     TestTransactionIds.newTransactionId(),
                     randomUUID(),
                     true, // implicit
-                    10_000
-            );
+                    10_000,
+                    null);
         });
 
         lenient().when(replicaService.invoke(anyString(), any())).then(invocation -> {
@@ -253,8 +253,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService, txStateVolatileStorage),
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple("test"))
         );
     }
@@ -411,8 +409,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000
-        );
+                10_000,
+                null);
     }
 
     private InternalTransaction newReadOnlyTransaction() {

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -34,11 +35,13 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.hamcrest.Matchers;
@@ -68,6 +71,8 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
     private static final String TABLE_STRING_TYPE_MATCH = "test_string_type_match";
 
     private static final String TABLE_BYTE_TYPE_MATCH = "test_byte_type_match";
+
+    private static final String TABLE_NAME_FOR_TYPE_CAST = "test_type_cast";
 
     private Map<String, TestTableDefinition> schemaAwareTestTables;
 
@@ -123,6 +128,18 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
                                 new Column("VAL", NativeTypes.INT64, true),
                                 new Column("STR", NativeTypes.stringOf(3), true),
                                 new Column("BLOB", NativeTypes.blobOf(3), true)
+                        }
+                ),
+                new TestTableDefinition(
+                        TABLE_NAME_FOR_TYPE_CAST,
+                        DEFAULT_KEY,
+                        new Column[]{
+                                new Column("C_BYTE", NativeTypes.INT8, true),
+                                new Column("C_SHORT", NativeTypes.INT16, true),
+                                new Column("C_INT", NativeTypes.INT32, true),
+                                new Column("C_LONG", NativeTypes.INT64, true),
+                                new Column("C_FLOAT", NativeTypes.FLOAT, true),
+                                new Column("C_DOUBLE", NativeTypes.DOUBLE, true)
                         }
                 )
         );
@@ -328,7 +345,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         RecordView<Tuple> tbl = testCase.view();
 
-        Tuple keyTuple0 = Tuple.create().set("id", 0).set("id1", 0);
+        Tuple keyTuple0 = Tuple.create().set("id", Double.MAX_VALUE).set("id1", 0);
         Tuple keyTuple1 = Tuple.create().set("id1", 0);
         Tuple tuple0 = Tuple.create().set("id", 1L).set("str", "qweqweqwe").set("val", 11L);
         Tuple tuple1 = Tuple.create().set("id", 1L).set("blob", new byte[]{0, 1, 2, 3}).set("val", 22L);
@@ -791,6 +808,414 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("typeCastTestCases")
+    public void testWriteAsByte(BinTestCase testCase) {
+        RecordView<Tuple> recordView = testCase.view();
+        String keyName = DEFAULT_KEY[0].name();
+        String valName = "C_BYTE";
+        ColumnType targetType = ColumnType.INT8;
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+
+        // Put short value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, (short) Byte.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (short) (Byte.MAX_VALUE + 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT16, testCase.thin);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (short) Byte.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (short) (Byte.MIN_VALUE - 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT16, testCase.thin);
+        }
+
+        // Put int value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, (int) Byte.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Byte.MAX_VALUE + 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (int) Byte.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Byte.MIN_VALUE - 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
+        }
+
+        // Put long value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Byte.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MAX_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Byte.MAX_VALUE + 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Byte.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).byteValue(valName), is(Byte.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Byte.MIN_VALUE - 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        // Wrong (floating point) types
+        {
+            Tuple floatValue = Tuple.copy(key).set(valName, Float.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
+
+            Tuple doubleValue = Tuple.copy(key).set(valName, Double.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
+        }
+
+        // Wrong (decimal) type
+        {
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.copy(key).set(valName, decimal);
+            expectTypeMismatch(() -> recordView.upsert(null, decimalValue), valName, targetType, valueType, testCase.thin);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("typeCastTestCases")
+    public void testWriteAsShort(BinTestCase testCase) {
+        RecordView<Tuple> recordView = testCase.view();
+        String keyName = DEFAULT_KEY[0].name();
+        String valName = "C_SHORT";
+        ColumnType targetType = ColumnType.INT16;
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+
+        // Put byte value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Byte.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).shortValue(valName), is((short) Byte.MAX_VALUE));
+        }
+
+        // Put int value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, (int) Short.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).shortValue(valName), is(Short.MAX_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Short.MAX_VALUE + 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (int) Short.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Short.MIN_VALUE - 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT32, testCase.thin);
+        }
+
+        // Put long value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Short.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).shortValue(valName), is(Short.MAX_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Short.MAX_VALUE + 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Short.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).shortValue(valName), is(Short.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, (long) (Short.MIN_VALUE - 1));
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        // Wrong (floating point) types
+        {
+            Tuple floatValue = Tuple.copy(key).set(valName, Float.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
+
+            Tuple doubleValue = Tuple.copy(key).set(valName, Double.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
+        }
+
+        // Wrong (decimal) type
+        {
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.copy(key).set(valName, decimal);
+            expectTypeMismatch(() -> recordView.upsert(null, decimalValue), valName, targetType, valueType, testCase.thin);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("typeCastTestCases")
+    public void testWriteAsInt(BinTestCase testCase) {
+        RecordView<Tuple> recordView = testCase.view();
+        String keyName = DEFAULT_KEY[0].name();
+        String valName = "C_INT";
+        ColumnType targetType = ColumnType.INT32;
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+
+        // Put byte value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Byte.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).intValue(valName), is((int) Byte.MAX_VALUE));
+        }
+
+        // Put short value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Short.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).intValue(valName), is((int) Short.MAX_VALUE));
+        }
+
+        // Put long value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Integer.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).intValue(valName), is(Integer.MAX_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, ((long) Integer.MAX_VALUE) + 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (long) Integer.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).intValue(valName), is(Integer.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, ((long) Integer.MIN_VALUE) - 1);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        // Wrong (floating point) types
+        {
+            Tuple floatValue = Tuple.copy(key).set(valName, Float.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
+
+            Tuple doubleValue = Tuple.copy(key).set(valName, Double.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
+        }
+
+        // Wrong (decimal) type
+        {
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.copy(key).set(valName, decimal);
+            expectTypeMismatch(() -> recordView.upsert(null, decimalValue), valName, targetType, valueType, testCase.thin);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("typeCastTestCases")
+    public void testWriteAsLong(BinTestCase testCase) {
+        RecordView<Tuple> recordView = testCase.view();
+        String keyName = DEFAULT_KEY[0].name();
+        String valName = "C_LONG";
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+
+        // Put byte value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Byte.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).longValue(valName), is((long) Byte.MAX_VALUE));
+        }
+
+        // Put short value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Short.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).longValue(valName), is((long) Short.MAX_VALUE));
+        }
+
+        // Put int value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Integer.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).longValue(valName), is((long) Integer.MAX_VALUE));
+        }
+
+        ColumnType targetType = ColumnType.INT64;
+
+        // Wrong (floating point) types
+        {
+            Tuple floatValue = Tuple.copy(key).set(valName, Float.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, floatValue), valName, targetType, NativeTypes.FLOAT, testCase.thin);
+
+            Tuple doubleValue = Tuple.copy(key).set(valName, Double.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, doubleValue), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
+        }
+
+        // Wrong (decimal) type
+        {
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.copy(key).set(valName, decimal);
+            expectTypeMismatch(() -> recordView.upsert(null, decimalValue), valName, targetType, valueType, testCase.thin);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("typeCastTestCases")
+    public void testWriteAsFloat(BinTestCase testCase) {
+        RecordView<Tuple> recordView = testCase.view();
+        String keyName = DEFAULT_KEY[0].name();
+        String valName = "C_FLOAT";
+        ColumnType targetType = ColumnType.FLOAT;
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+
+        // Put double value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, (double) Float.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.MAX_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Double.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
+        }
+
+        {
+            Tuple val = Tuple.copy(key).set(valName, (double) Float.MIN_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.MIN_VALUE));
+
+            Tuple outOfRange = Tuple.copy(key).set(valName, Double.MIN_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, outOfRange), valName, targetType, NativeTypes.DOUBLE, testCase.thin);
+        }
+
+        // NaN value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Double.NaN);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.NaN));
+        }
+
+        // Positive infinity value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Double.POSITIVE_INFINITY);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.POSITIVE_INFINITY));
+        }
+
+        // Negative infinity value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Double.NEGATIVE_INFINITY);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).floatValue(valName), is(Float.NEGATIVE_INFINITY));
+        }
+
+        // Wrong (integer) types
+        {
+            Tuple byteValue = Tuple.copy(key).set(valName, Byte.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, byteValue), valName, targetType, NativeTypes.INT8, testCase.thin);
+
+            Tuple shortValue = Tuple.copy(key).set(valName, Short.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, shortValue), valName, targetType, NativeTypes.INT16, testCase.thin);
+
+            Tuple intValue = Tuple.copy(key).set(valName, Integer.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, intValue), valName, targetType, NativeTypes.INT32, testCase.thin);
+
+            Tuple longValue = Tuple.copy(key).set(valName, Long.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, longValue), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        // Wrong (decimal) type
+        {
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.copy(key).set(valName, decimal);
+            expectTypeMismatch(() -> recordView.upsert(null, decimalValue), valName, targetType, valueType, testCase.thin);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("typeCastTestCases")
+    public void testWriteAsDouble(BinTestCase testCase) {
+        RecordView<Tuple> recordView = testCase.view();
+        String keyName = DEFAULT_KEY[0].name();
+        String valName = "C_DOUBLE";
+        ColumnType targetType = ColumnType.DOUBLE;
+
+        Tuple key = Tuple.create().set(keyName, 1L);
+
+        // Put float value.
+        {
+            Tuple val = Tuple.copy(key).set(valName, Float.MAX_VALUE);
+
+            recordView.upsert(null, val);
+            assertThat(recordView.get(null, key).doubleValue(valName), is((double) Float.MAX_VALUE));
+        }
+
+        // Wrong (integer) types
+        {
+            Tuple byteValue = Tuple.copy(key).set(valName, Byte.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, byteValue), valName, targetType, NativeTypes.INT8, testCase.thin);
+
+            Tuple shortValue = Tuple.copy(key).set(valName, Short.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, shortValue), valName, targetType, NativeTypes.INT16, testCase.thin);
+
+            Tuple intValue = Tuple.copy(key).set(valName, Integer.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, intValue), valName, targetType, NativeTypes.INT32, testCase.thin);
+
+            Tuple longValue = Tuple.copy(key).set(valName, Long.MAX_VALUE);
+            expectTypeMismatch(() -> recordView.upsert(null, longValue), valName, targetType, NativeTypes.INT64, testCase.thin);
+        }
+
+        // Wrong (decimal) type
+        {
+            BigDecimal decimal = new BigDecimal(1);
+            NativeType valueType = NativeTypes.fromObject(decimal);
+            Tuple decimalValue = Tuple.copy(key).set(valName, decimal);
+            expectTypeMismatch(() -> recordView.upsert(null, decimalValue), valName, targetType, valueType, testCase.thin);
+        }
+    }
+
     /**
      * Check tuples equality.
      *
@@ -863,6 +1288,10 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         return generateRecordViewTestArguments(TABLE_BYTE_TYPE_MATCH, Tuple.class);
     }
 
+    private List<Arguments> typeCastTestCases() {
+        return generateRecordViewTestArguments(TABLE_NAME_FOR_TYPE_CAST, Tuple.class);
+    }
+
     @Override
     TestCaseFactory getFactory(String name) {
         return new TestCaseFactory(name) {
@@ -891,7 +1320,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
         }
 
         void checkValueTypeDoesNotMatchError(Executable run) {
-            String expectedMessage = "Value type does not match [column='ID', expected=INT64, actual=INT32]";
+            String expectedMessage = "Value type does not match [column='ID', expected=INT64, actual=DOUBLE]";
 
             if (thin) {
                 IgniteException ex = (IgniteException) IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);

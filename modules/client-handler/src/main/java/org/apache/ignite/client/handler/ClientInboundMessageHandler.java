@@ -120,6 +120,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.table.partition.ClientTablePartitionPrimaryReplicasNodesGetRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
+import org.apache.ignite.client.handler.requests.tx.ClientTransactionDiscardRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnitInfo;
@@ -137,10 +138,14 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerOp;
 import org.apache.ignite.internal.client.proto.ServerOpResponseFlags;
+import org.apache.ignite.internal.client.proto.tx.ErrorFlags;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -171,6 +176,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
 import org.apache.ignite.internal.tx.DelayedAckException;
+import org.apache.ignite.internal.tx.TransactionKilledException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -182,6 +188,7 @@ import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.tx.RetriableTransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -243,6 +250,9 @@ public class ClientInboundMessageHandler
 
     private final ClockService clockService;
 
+    /** Event log. */
+    private final EventLog eventLog;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -299,6 +309,7 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
+     * @param eventLog Event log.
      * @param queryTypeListener Tracks the number of sequential DDL queries executed and prints suggestion to use batching.
      */
     public ClientInboundMessageHandler(
@@ -321,6 +332,7 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> extensions,
             Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc,
             HandshakeEventLoopSwitcher handshakeEventLoopSwitcher,
+            EventLog eventLog,
             Consumer<SqlQueryType> queryTypeListener
     ) {
         assert igniteTables != null;
@@ -339,6 +351,7 @@ public class ClientInboundMessageHandler
         assert partitionOperationsExecutor != null;
         assert features != null;
         assert extensions != null;
+        assert eventLog != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
@@ -355,6 +368,7 @@ public class ClientInboundMessageHandler
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
         this.clockService = clockService;
+        this.eventLog = eventLog;
         this.primaryReplicaTracker = primaryReplicaTracker;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.handshakeEventLoopSwitcher = handshakeEventLoopSwitcher;
@@ -447,6 +461,8 @@ public class ClientInboundMessageHandler
         if (LOG.isDebugEnabled()) {
             LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
         }
+
+        logConnectionClosed(ctx);
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker) {
@@ -534,6 +550,8 @@ public class ClientInboundMessageHandler
         BitSet supportedFeatures = HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures);
         clientContext = new ClientContext(clientVer, clientCode, supportedFeatures, user, ctx.channel().remoteAddress());
 
+        logConnectionEstablished(ctx);
+
         sendHandshakeResponse(ctx, actualFeatures);
     }
 
@@ -561,6 +579,8 @@ public class ClientInboundMessageHandler
     }
 
     private void sendHandshakeResponse(ChannelHandlerContext ctx, BitSet mutuallySupportedFeatures) {
+        state = STATE_HANDSHAKE_RESPONSE_SENT;
+
         ClientMessagePacker packer = getPacker(ctx.alloc());
 
         try {
@@ -570,8 +590,6 @@ public class ClientInboundMessageHandler
             packer.close();
             throw t;
         }
-
-        state = STATE_HANDSHAKE_RESPONSE_SENT;
 
         metrics.sessionsAcceptedIncrement();
         metrics.sessionsActiveIncrement();
@@ -698,13 +716,28 @@ public class ClientInboundMessageHandler
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
+        int extCnt = 0;
+        boolean retriable = false;
+
         SchemaVersionMismatchException schemaVersionMismatchException = findException(err, SchemaVersionMismatchException.class);
         SqlBatchException sqlBatchException = findException(err, SqlBatchException.class);
         DelayedAckException delayedAckException = findException(err, DelayedAckException.class);
+        TransactionKilledException killedException = findException(err, TransactionKilledException.class);
+
+        if (schemaVersionMismatchException != null || sqlBatchException != null || delayedAckException != null || killedException != null) {
+            extCnt = 1;
+        } else {
+            retriable = findException(err, RetriableTransactionException.class) != null;
+            if (retriable) {
+                extCnt++;
+            }
+        }
 
         err = firstNotNull(
                 schemaVersionMismatchException,
                 sqlBatchException,
+                delayedAckException,
+                killedException,
                 ExceptionUtils.unwrapCause(err)
         );
 
@@ -734,18 +767,28 @@ public class ClientInboundMessageHandler
         }
 
         // Extensions.
-        if (schemaVersionMismatchException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
-            packer.packInt(schemaVersionMismatchException.expectedVersion());
-        } else if (sqlBatchException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
-            packer.packLongArray(sqlBatchException.updateCounters());
-        } else if (delayedAckException != null) {
-            packer.packInt(1); // 1 extension.
-            packer.packString(ErrorExtensions.DELAYED_ACK);
-            packer.packUuid(delayedAckException.txId());
+        if (extCnt > 0) {
+            packer.packInt(extCnt);
+
+            if (retriable) {
+                packer.packString(ErrorExtensions.FLAGS);
+                packer.packInt(ErrorFlags.RETRIABLE.mask());
+            }
+
+            if (schemaVersionMismatchException != null) {
+                packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
+                packer.packInt(schemaVersionMismatchException.expectedVersion());
+            } else if (sqlBatchException != null) {
+                // TODO IGNITE-28012 SQL_UPDATE_COUNTERS is an array and must come last
+                packer.packString(ErrorExtensions.SQL_UPDATE_COUNTERS);
+                packer.packLongArray(sqlBatchException.updateCounters());
+            } else if (delayedAckException != null) {
+                packer.packString(ErrorExtensions.DELAYED_ACK);
+                packer.packUuid(delayedAckException.txId());
+            } else if (killedException != null) {
+                packer.packString(ErrorExtensions.TX_KILL);
+                packer.packUuid(killedException.txId());
+            }
         } else {
             packer.packNil(); // No extensions.
         }
@@ -947,7 +990,7 @@ public class ClientInboundMessageHandler
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker);
+                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker, notificationSender(requestId));
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
@@ -965,7 +1008,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -975,7 +1017,6 @@ public class ClientInboundMessageHandler
                         in,
                         compute,
                         igniteTables,
-                        clusterService,
                         notificationSender(requestId),
                         clientContext
                 );
@@ -1047,7 +1088,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
+                        in, queryProcessor, resources, requestId, cancelHandles, tsTracker,
                         resolveCurrentUsername()
                 );
 
@@ -1075,6 +1116,9 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TABLE_GET_QUALIFIED:
                 return ClientTableGetQualifiedRequest.process(in, igniteTables);
+
+            case ClientOp.TX_DISCARD:
+                return ClientTransactionDiscardRequest.process(in, txManager, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
@@ -1417,6 +1461,38 @@ public class ClientInboundMessageHandler
                 throw sneakyThrow(e);
             }
         }
+    }
+
+    private void logConnectionEstablished(ChannelHandlerContext ctx) {
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_ESTABLISHED);
+    }
+
+    private void logConnectionClosed(ChannelHandlerContext ctx) {
+        if (clientContext == null) {
+            // Connection was closed before handshake completion, no event needed
+            return;
+        }
+
+        logIgniteEvent(ctx, IgniteEventType.CLIENT_CONNECTION_CLOSED);
+    }
+
+    private void logIgniteEvent(ChannelHandlerContext ctx, IgniteEventType igniteEventType) {
+        assert clientContext != null : "clientContext should not be null when logging connection events";
+
+        eventLog.log(
+                igniteEventType.name(),
+                () -> igniteEventType.builder()
+                        .user(EventUser.of(
+                                clientContext.userDetails().username(),
+                                clientContext.userDetails().providerName()
+                        ))
+                        .timestamp(System.currentTimeMillis())
+                        .fields(Map.of(
+                                "connectionId", connectionId,
+                                "remoteAddress", ctx.channel().remoteAddress().toString()
+                        ))
+                        .build()
+        );
     }
 
     private class ComputeConnection implements PlatformComputeConnection {

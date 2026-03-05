@@ -105,7 +105,7 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
@@ -120,7 +120,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
@@ -904,7 +903,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkRebalanceRetryDelay(1, REBALANCE_RETRY_DELAY_DEFAULT);
 
         SystemDistributedConfiguration configuration =
-                node.clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+                node.clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
 
         assertThat(updateRebalanceRetryDelay(configuration, REBALANCE_RETRY_DELAY_DEFAULT + 1), willCompleteSuccessfully());
 
@@ -1157,9 +1156,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final DistributionZoneManager distributionZoneManager;
 
-        private final ConfigurationManager nodeCfgMgr;
+        private final ConfigurationRegistry nodeConfigRegistry;
 
-        private final ConfigurationManager clusterCfgMgr;
+        private final ConfigurationRegistry clusterConfigRegistry;
 
         private final ClusterManagementGroupManager cmgManager;
 
@@ -1248,7 +1247,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             Path configPath = workDir.resolve(testInfo.getDisplayName());
             TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
-            nodeCfgMgr = new ConfigurationManager(
+            nodeConfigRegistry = new ConfigurationRegistry(
                     List.of(NodeConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                     nodeCfgGenerator,
@@ -1405,7 +1404,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of()
             );
 
-            clusterCfgMgr = new ConfigurationManager(
+            clusterConfigRegistry = new ConfigurationRegistry(
                     List.of(ClusterConfiguration.KEY),
                     cfgStorage,
                     clusterCfgGenerator,
@@ -1413,8 +1412,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             clusterCfgGenerator, Set.of(new NonNegativeIntegerNumberSystemPropertyValueValidator(REBALANCE_RETRY_DELAY_MS))
                     )
             );
-
-            ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
             var registry = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
@@ -1432,7 +1429,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     dataStorageModules.createStorageEngines(
                             name,
                             metricManager,
-                            nodeCfgMgr.configurationRegistry(),
+                            nodeConfigRegistry,
                             dir.resolve("storage"),
                             null,
                             failureManager,
@@ -1501,7 +1498,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clockService,
                     failureManager,
                     delayDurationMsSupplier,
-                    PartitionCountProvider.defaultPartitionCountProvider()
+                    CatalogTestUtils.defaultPartitionCountCalculator()
             );
 
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
@@ -1519,7 +1516,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     () -> clusterService.topologyService().localMember().id(),
-                    registry,
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,
@@ -1571,23 +1567,18 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     gcConfig,
-                    txConfiguration,
                     replicationConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),
-                    clusterService.serializationRegistry(),
-                    replicaManager,
                     mock(LockManager.class),
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
-                    sharedTxStateStorage,
                     metaStorageManager,
                     schemaManager,
                     new CatalogValidationSchemasSource(catalogManager, schemaManager),
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
-                    threadPoolsManager.commonScheduler(),
                     clockService,
                     outgoingSnapshotManager,
                     schemaSyncService,
@@ -1600,7 +1591,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     transactionInflights,
                     indexMetaStorage,
-                    partitionsLogSyncer,
                     partitionReplicaLifecycleManager,
                     minTimeCollectorService,
                     systemDistributedConfiguration,
@@ -1634,7 +1624,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     componentContext,
                     threadPoolsManager,
                     vaultManager,
-                    nodeCfgMgr,
+                    nodeConfigRegistry,
                     failureManager,
                     clusterService,
                     logStorageManager,
@@ -1648,7 +1638,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             ).thenApplyAsync(v -> startComponentsAsync(
                     componentContext,
                     metaStorageManager,
-                    clusterCfgMgr,
+                    clusterConfigRegistry,
                     clockWaiter,
                     catalogManager,
                     indexMetaStorage,

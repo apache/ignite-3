@@ -28,15 +28,19 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
+import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.oneOf;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -69,6 +73,9 @@ class ItComputeStandaloneTest extends ItComputeBaseTest {
 
     private final List<DeploymentUnit> units = List.of(unit);
 
+    // The file is renamed in compile time to verify the deployment of non-jar files.
+    private static final String JAR_FILE_NAME = "ignite-integration-test-jobs-1.0-SNAPSHOT.bin";
+
     @Override
     protected int[] cmgMetastoreNodes() {
         return new int[] { 0, 1 }; // Majority will be 0, 1
@@ -76,7 +83,7 @@ class ItComputeStandaloneTest extends ItComputeBaseTest {
 
     @BeforeEach
     void deploy() throws IOException {
-        deployJar(unit.name(), unit.version(), "ignite-integration-test-jobs-1.0-SNAPSHOT.jar");
+        deployJar(unit.name(), unit.version(), JAR_FILE_NAME);
     }
 
     @AfterEach
@@ -275,7 +282,7 @@ class ItComputeStandaloneTest extends ItComputeBaseTest {
         assertThat(jobRes, containsString("name='jobs'"));
         assertThat(jobRes, containsString("version=1.0.0"));
         assertThat(jobRes, containsString("path="));
-        assertThat(jobRes.split(";").length, equalTo(2));
+        assertThat(jobRes.split(";"), arrayWithSize(2));
     }
 
     @Test
@@ -285,17 +292,22 @@ class ItComputeStandaloneTest extends ItComputeBaseTest {
 
         String jobRes = compute().execute(JobTarget.node(clusterNode(0)), job, null);
 
-        assertEquals("ignite-integration-test-jobs-1.0-SNAPSHOT.jar", jobRes);
+        assertThat(jobRes.split(";"), arrayContainingInAnyOrder(JAR_FILE_NAME, "test"));
     }
 
     private static void deployJar(String unitId, Version unitVersion, String jarName) throws IOException {
         IgniteDeployment deployment = deployment(0);
 
         try (InputStream jarStream = ItComputeStandaloneTest.class.getClassLoader().getResourceAsStream("units/" + jarName)) {
+            assertThat("Resource \"units/" + jarName + "\" doesn't exist", jarStream, is(notNullValue()));
+
             CompletableFuture<Boolean> deployed = deployment.deployAsync(
                     unitId,
                     unitVersion,
-                    new StreamDeploymentUnit(Map.of(jarName, jarStream)),
+                    new StreamDeploymentUnit(Map.of(
+                            jarName, jarStream,
+                            "test", new ByteArrayInputStream("Hello World!".getBytes()) // Pollute unit with non-jar file
+                    )),
                     new NodesToDeploy(MAJORITY)
             );
 

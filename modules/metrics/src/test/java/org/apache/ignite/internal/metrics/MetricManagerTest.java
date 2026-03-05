@@ -29,8 +29,6 @@ import java.util.UUID;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
@@ -43,8 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class MetricManagerTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(MetricManagerTest.class);
-
     private static final String NODE_NAME = "test-node-name";
 
     private static final UUID NODE_ID = UUID.randomUUID();
@@ -97,9 +93,7 @@ public class MetricManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static MetricManager createAndStartManager(MetricConfiguration configuration) {
-        MetricManager metricManager = new MetricManagerImpl(LOG, null);
-
-        metricManager.configure(configuration, () -> NODE_ID, NODE_NAME);
+        MetricManager metricManager = new MetricManagerImpl(NODE_NAME, () -> NODE_ID, configuration);
 
         assertThat(metricManager.startAsync(new ComponentContext()), willSucceedFast());
 

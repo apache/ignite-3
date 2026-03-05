@@ -121,12 +121,14 @@ dependencies {
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation testFixtures(project(':ignite-jdbc'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation(libs.jsonpath.assert) {
         //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
     testImplementation libs.auto.service.annotations
+    testImplementation libs.awaitility
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
@@ -234,6 +236,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-catalog'))
     testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
+    testFixturesImplementation testFixtures(project(':ignite-distribution-zones'))
     testFixturesImplementation libs.typesafe.config
     testFixturesImplementation libs.awaitility
 }

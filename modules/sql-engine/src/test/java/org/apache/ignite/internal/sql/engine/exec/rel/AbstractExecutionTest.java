@@ -293,10 +293,6 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
             this.fieldCreators = fieldCreators;
         }
 
-        private static Object field(Integer rowNum) {
-            return "val_" + rowNum;
-        }
-
         private static Object stringField(Integer rowNum) {
             return "val_" + rowNum;
         }

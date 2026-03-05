@@ -36,7 +36,12 @@ registerJarTask(sourceSets.unit2, 'ignite-unit-test-job2')
 
 processIntegrationTestResources {
     into('units') {
-        from jobsJar
+        from(jobsJar) {
+            // Remove the jar extension from the jobs jar to verify the deployment of non-jar files.
+            rename {
+                'ignite-integration-test-jobs-1.0-SNAPSHOT.bin'
+            }
+        }
         from unit1Jar
         from unit2Jar
     }

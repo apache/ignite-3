@@ -21,10 +21,9 @@ import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.cluster.metric.ClusterMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.metric.MetricSourceMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -32,7 +31,7 @@ import picocli.CommandLine.Mixin;
 @Command(name = "disable", description = "Disables cluster metric source")
 public class ClusterMetricSourceDisableCommand extends BaseCommand implements Callable<Integer> {
     @Mixin
-    private ClusterUrlProfileMixin clusterUrl;
+    private ClusterUrlMixin clusterUrl;
 
     @Mixin
     private MetricSourceMixin metricSource;
@@ -44,7 +43,7 @@ public class ClusterMetricSourceDisableCommand extends BaseCommand implements Ca
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> metricSource.buildDisableCallInput(clusterUrl.getClusterUrl()))
-                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot disable metrics"))
+                .exceptionHandler(createHandler("Cannot disable metrics"))
         );
     }
 }

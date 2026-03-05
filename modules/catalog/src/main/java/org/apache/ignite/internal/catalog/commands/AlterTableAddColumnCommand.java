@@ -33,6 +33,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -123,8 +125,15 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
                 throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
 
+            DefaultValue defaultValue = column.defaultValueDefinition();
+
             ensureTypeCanBeStored(column.name(), column.type());
-            ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
+            ensureNonFunctionalDefault(column.name(), defaultValue);
+
+            if (!column.nullable() && (defaultValue == null
+                    || (defaultValue.type() == Type.CONSTANT && ((ConstantValue) defaultValue).value() == null))) {
+                throw new CatalogValidationException("Non-nullable column '{}' must have the default value.", column.name());
+            }
         }
     }
 

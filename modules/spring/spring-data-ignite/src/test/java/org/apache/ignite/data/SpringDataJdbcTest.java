@@ -21,6 +21,7 @@ import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
+import static org.springframework.data.domain.Sort.Direction.ASC;
 
 import java.nio.file.Path;
 import java.util.Collections;
@@ -677,13 +678,13 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> findAllByExamplePageableSource() {
         return Stream.of(
-                Arguments.of(PageRequest.of(0, 3), 3, 34, asList("3", "4", "100")),
-                Arguments.of(PageRequest.of(1, 10), 10, 10, asList("9", "20", "30")),
-                Arguments.of(PageRequest.of(2, 10), 10, 10, asList("1", "2", "3")),
-                Arguments.of(PageRequest.of(33, 3), 1, 34, Collections.emptyList()),
-                Arguments.of(PageRequest.of(36, 3), 0, 34, Collections.emptyList()),
-                Arguments.of(PageRequest.of(0, 10000), 100, 1, Collections.emptyList()),
-                Arguments.of(PageRequest.of(100, 10000), 0, 1, Collections.emptyList())
+                Arguments.of(PageRequest.of(0, 3, ASC, "id"), 3, 34, asList("3", "4", "100")),
+                Arguments.of(PageRequest.of(1, 10, ASC, "id"), 10, 10, asList("9", "20", "30")),
+                Arguments.of(PageRequest.of(2, 10, ASC, "id"), 10, 10, asList("1", "2", "3")),
+                Arguments.of(PageRequest.of(33, 3, ASC, "id"), 1, 34, Collections.emptyList()),
+                Arguments.of(PageRequest.of(36, 3, ASC, "id"), 0, 34, Collections.emptyList()),
+                Arguments.of(PageRequest.of(0, 10000, ASC, "id"), 100, 1, Collections.emptyList()),
+                Arguments.of(PageRequest.of(100, 10000, ASC, "id"), 0, 1, Collections.emptyList())
         );
     }
 

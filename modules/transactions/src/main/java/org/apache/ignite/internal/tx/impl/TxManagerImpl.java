@@ -494,7 +494,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txId,
                 localNodeId,
                 implicit,
-                timeout
+                timeout,
+                options.killClosure()
         );
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
@@ -1146,7 +1147,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> cleanup(
             @Nullable ZonePartitionId commitPartitionId,
-            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -1200,6 +1201,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
 
         return falseCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId) {
+        return txCleanupRequestHandler.discardLocalWriteIntents(groups, txId).handle((r, e) -> {
+            // We don't need tx state any more.
+            updateTxMeta(txId, old -> null);
+            return null;
+        });
     }
 
     @Override

@@ -21,13 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
-import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.TestExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.TestExporterChange;
 import org.apache.ignite.internal.metrics.exporters.configuration.TestExporterConfigurationSchema;
@@ -48,23 +46,17 @@ public class MetricConfigurationTest extends BaseIgniteAbstractTest {
     )
     private MetricConfiguration metricConfiguration;
 
-    private MetricManager metricManager;
+    private MetricManagerImpl metricManager;
 
     private TestExporter exporter;
 
     @BeforeEach
     public void setUp() {
-        metricManager = new MetricManagerImpl();
-
-        Map<String, MetricExporter> availableExporters = new HashMap<>();
+        metricManager = new MetricManagerImpl("test-node", UUID::randomUUID, metricConfiguration);
 
         exporter  = new TestExporter();
 
-        availableExporters.put("test", exporter);
-
-        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
-
-        metricManager.start(availableExporters);
+        metricManager.start(Map.of("test", exporter));
     }
 
     @Test
