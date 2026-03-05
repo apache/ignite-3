@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
