@@ -226,7 +226,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TestLowWatermark(),
                 commonExecutor,
                 new NoOpMetricManager(),
-                new ExponentialBackoffTimeoutStrategy(20)
+                new ExponentialBackoffTimeoutStrategy()
         ) {
             @Override
             public CompletableFuture<Void> finish(

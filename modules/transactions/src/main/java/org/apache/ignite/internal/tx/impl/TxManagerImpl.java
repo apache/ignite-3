@@ -409,18 +409,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
 
+        retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
+
         txCleanupRequestSender = new TxCleanupRequestSender(
                 txMessageSender,
                 placementDriverHelper,
                 txStateVolatileStorage,
                 writeIntentSwitchPool,
                 commonScheduler,
-                timeoutStrategy
+                retryContext
         );
 
         txMetrics = new TransactionMetricsSource(clockService);
-
-        retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
     }
 
     @Override
@@ -1369,5 +1369,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @TestOnly
     public void clearLocalRwTxCounter() {
         localRwTxCounter.clear();
+    }
+
+    @TestOnly
+    public KeyBasedRetryContext retryContext() {
+        return retryContext;
     }
 }

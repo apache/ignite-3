@@ -169,7 +169,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         lowWatermark,
                         commonExecutor,
                         new NoOpMetricManager(),
-                        new ExponentialBackoffTimeoutStrategy(20)
+                        new ExponentialBackoffTimeoutStrategy()
                 );
             }
         };

@@ -1467,7 +1467,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark,
                     commonScheduledExecutorService,
                     metricManager,
-                    new ExponentialBackoffTimeoutStrategy(20)
+                    new ExponentialBackoffTimeoutStrategy()
             );
 
             replicaManager = spy(new ReplicaManager(

@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.util.retry;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 import static org.apache.ignite.internal.util.retry.TimeoutState.attempt;
 import static org.apache.ignite.internal.util.retry.TimeoutState.timeout;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jetbrains.annotations.TestOnly;
 
 public class KeyBasedRetryContext {
     /**
@@ -79,5 +83,10 @@ public class KeyBasedRetryContext {
 
     public void resetState(String key) {
         registry.remove(key);
+    }
+
+    @TestOnly
+    public Map<String, TimeoutState> snapshot() {
+        return unmodifiableMap(new HashMap<>(registry));
     }
 }

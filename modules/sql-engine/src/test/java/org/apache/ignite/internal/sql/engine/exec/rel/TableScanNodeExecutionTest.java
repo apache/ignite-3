@@ -198,7 +198,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLowWatermark(),
                     commonExecutor,
                     new NoOpMetricManager(),
-                    new NoopTimeoutStrategy(20)
+                    new NoopTimeoutStrategy()
             );
 
             assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

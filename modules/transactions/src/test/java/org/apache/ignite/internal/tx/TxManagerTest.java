@@ -199,7 +199,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 lowWatermark,
                 commonScheduler,
                 new TestMetricManager(),
-                new NoopTimeoutStrategy(20)
+                new NoopTimeoutStrategy()
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

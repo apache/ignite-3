@@ -30,11 +30,11 @@ public class RetryUtil {
                 .whenComplete((res, e) -> {
                     if (e == null) {
                         future.complete(res);
+
+                        resetRetryContext.ifPresent(Runnable::run);
                     } else {
                         future.completeExceptionally(e);
                     }
-
-                    resetRetryContext.ifPresent(Runnable::run);
                 }), delay, unit);
 
         return future;

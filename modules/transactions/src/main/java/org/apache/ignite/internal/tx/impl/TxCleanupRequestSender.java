@@ -58,7 +58,6 @@ import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
-import org.apache.ignite.internal.util.retry.TimeoutStrategy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -104,7 +103,7 @@ public class TxCleanupRequestSender {
             VolatileTxStateMetaStorage txStateVolatileStorage,
             ExecutorService cleanupExecutor,
             ScheduledExecutorService commonScheduler,
-            TimeoutStrategy timeoutStrategy
+            KeyBasedRetryContext retryContext
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
@@ -112,7 +111,8 @@ public class TxCleanupRequestSender {
         this.cleanupExecutor = cleanupExecutor;
         this.retryExecutor = commonScheduler;
         this.throttledLog = toThrottledLogger(Loggers.forClass(TxCleanupRequestSender.class), commonScheduler);
-        this.retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
+//        this.retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
+        this.retryContext = retryContext;
     }
 
     /**
