@@ -19,6 +19,7 @@ package org.apache.ignite.internal.di;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.ApplicationContextBuilder;
+import io.micronaut.inject.qualifiers.Qualifiers;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -52,6 +53,8 @@ public final class IgniteDiContext {
     public static class Builder {
         private final List<Object> singletons = new ArrayList<>();
 
+        private final List<NamedSingletonEntry> namedSingletons = new ArrayList<>();
+
         private final List<String> packages = new ArrayList<>();
 
         /**
@@ -62,6 +65,19 @@ public final class IgniteDiContext {
          */
         public Builder withSingleton(Object singleton) {
             singletons.add(singleton);
+            return this;
+        }
+
+        /**
+         * Registers a named singleton that will be available for injection via {@code @Named} qualifier.
+         *
+         * @param name The qualifier name.
+         * @param type The bean type to register under.
+         * @param singleton The object to register.
+         * @return This builder for chaining.
+         */
+        public Builder withNamedSingleton(String name, Class<?> type, Object singleton) {
+            namedSingletons.add(new NamedSingletonEntry(name, type, singleton));
             return this;
         }
 
@@ -94,7 +110,34 @@ public final class IgniteDiContext {
                 contextBuilder.singletons(singletons.toArray());
             }
 
-            return contextBuilder.start();
+            ApplicationContext context = contextBuilder.start();
+
+            for (NamedSingletonEntry entry : namedSingletons) {
+                registerNamedSingleton(context, entry);
+            }
+
+            return context;
+        }
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        private static void registerNamedSingleton(ApplicationContext context, NamedSingletonEntry entry) {
+            context.registerSingleton(
+                    (Class) entry.type,
+                    entry.singleton,
+                    Qualifiers.byName(entry.name)
+            );
+        }
+    }
+
+    private static final class NamedSingletonEntry {
+        final String name;
+        final Class<?> type;
+        final Object singleton;
+
+        NamedSingletonEntry(String name, Class<?> type, Object singleton) {
+            this.name = name;
+            this.type = type;
+            this.singleton = singleton;
         }
     }
 }

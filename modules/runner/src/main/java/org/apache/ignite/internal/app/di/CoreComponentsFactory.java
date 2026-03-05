@@ -61,7 +61,7 @@ public class CoreComponentsFactory {
      * @param clusterIdSupplier Supplier of the cluster ID; resolved lazily after cluster initialization.
      */
     @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
     public MetricManagerImpl metricManager(
             NodeSeedParams seedParams,
             @Named("clusterIdSupplier") Supplier<UUID> clusterIdSupplier

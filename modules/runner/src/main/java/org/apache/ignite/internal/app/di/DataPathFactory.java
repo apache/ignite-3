@@ -266,7 +266,7 @@ public class DataPathFactory {
 
     /** Creates the low watermark. */
     @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @IgniteStartupPhase(StartupPhase.PHASE_1)
     public LowWatermarkImpl lowWatermark(
             NodeSeedParams seedParams,
             GcConfiguration gcConfiguration,
@@ -407,7 +407,8 @@ public class DataPathFactory {
             IndexMetaStorage indexMetaStorage,
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            MetricManager metricManager
+            MetricManager metricManager,
+            PartitionModificationCounterFactory partitionModificationCounterFactory
     ) {
         return new TableManager(
                 seedParams.nodeName(),
@@ -441,10 +442,17 @@ public class DataPathFactory {
                 new MinimumRequiredTimeCollectorServiceImpl(),
                 systemDistributedConfiguration,
                 metricManager,
-                new PartitionModificationCounterFactory(
-                        clockService::current, clusterService.messagingService()
-                )
+                partitionModificationCounterFactory
         );
+    }
+
+    /** Creates the partition modification counter factory. */
+    @Singleton
+    public PartitionModificationCounterFactory partitionModificationCounterFactory(
+            ClockServiceImpl clockService,
+            ClusterService clusterService
+    ) {
+        return new PartitionModificationCounterFactory(clockService::current, clusterService.messagingService());
     }
 
     /** Creates the index manager. */
