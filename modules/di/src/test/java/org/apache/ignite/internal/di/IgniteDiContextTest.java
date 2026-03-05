@@ -34,12 +34,8 @@ import org.junit.jupiter.api.Test;
 public class IgniteDiContextTest {
     @Test
     void buildsRunningContext() {
-        ApplicationContext ctx = IgniteDiContext.builder().build();
-
-        try {
+        try (ApplicationContext ctx = IgniteDiContext.builder().build()) {
             assertTrue(ctx.isRunning());
-        } finally {
-            ctx.close();
         }
     }
 
@@ -47,15 +43,11 @@ public class IgniteDiContextTest {
     void seedSingletonsAreInjectable() {
         String seedValue = "test-node";
 
-        ApplicationContext ctx = IgniteDiContext.builder()
+        try (ApplicationContext ctx = IgniteDiContext.builder()
                 .withSingleton(seedValue)
-                .build();
-
-        try {
+                .build()) {
             String retrieved = ctx.getBean(String.class);
             assertThat(retrieved, is(sameInstance(seedValue)));
-        } finally {
-            ctx.close();
         }
     }
 
@@ -64,16 +56,12 @@ public class IgniteDiContextTest {
         SeedA seedA = new SeedA("a");
         SeedB seedB = new SeedB(42);
 
-        ApplicationContext ctx = IgniteDiContext.builder()
+        try (ApplicationContext ctx = IgniteDiContext.builder()
                 .withSingleton(seedA)
                 .withSingleton(seedB)
-                .build();
-
-        try {
+                .build()) {
             assertThat(ctx.getBean(SeedA.class), is(sameInstance(seedA)));
             assertThat(ctx.getBean(SeedB.class), is(sameInstance(seedB)));
-        } finally {
-            ctx.close();
         }
     }
 
@@ -82,38 +70,28 @@ public class IgniteDiContextTest {
         SeedA seedForCtx1 = new SeedA("ctx1");
         SeedA seedForCtx2 = new SeedA("ctx2");
 
-        ApplicationContext ctx1 = IgniteDiContext.builder()
+        try (ApplicationContext ctx1 = IgniteDiContext.builder()
                 .withSingleton(seedForCtx1)
                 .build();
-
-        ApplicationContext ctx2 = IgniteDiContext.builder()
-                .withSingleton(seedForCtx2)
-                .build();
-
-        try {
+                ApplicationContext ctx2 = IgniteDiContext.builder()
+                        .withSingleton(seedForCtx2)
+                        .build()) {
             assertThat(ctx1.getBean(SeedA.class).value, is("ctx1"));
             assertThat(ctx2.getBean(SeedA.class).value, is("ctx2"));
 
             assertTrue(ctx1.isRunning());
             assertTrue(ctx2.isRunning());
-        } finally {
-            ctx1.close();
-            ctx2.close();
         }
     }
 
     @Test
     void contextDiscoversBeanDefinitions() {
-        ApplicationContext ctx = IgniteDiContext.builder().build();
-
-        try {
+        try (ApplicationContext ctx = IgniteDiContext.builder().build()) {
             // TestComponentFactory (from test classpath) should be discovered.
             assertThat(
                     ctx.getBean(TestComponentFactory.TestPhase1Component.class),
                     is(notNullValue())
             );
-        } finally {
-            ctx.close();
         }
     }
 

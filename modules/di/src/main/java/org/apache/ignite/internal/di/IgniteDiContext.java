@@ -22,7 +22,6 @@ import io.micronaut.context.ApplicationContextBuilder;
 import io.micronaut.context.ApplicationContextConfiguration;
 import io.micronaut.context.DefaultApplicationContext;
 import io.micronaut.inject.BeanDefinitionReference;
-import io.micronaut.inject.qualifiers.Qualifiers;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -56,8 +55,6 @@ public final class IgniteDiContext {
     public static class Builder {
         private final List<Object> singletons = new ArrayList<>();
 
-        private final List<NamedSingletonEntry> namedSingletons = new ArrayList<>();
-
         private final List<String> packages = new ArrayList<>();
 
         private final List<String> excludedPackages = new ArrayList<>();
@@ -70,19 +67,6 @@ public final class IgniteDiContext {
          */
         public Builder withSingleton(Object singleton) {
             singletons.add(singleton);
-            return this;
-        }
-
-        /**
-         * Registers a named singleton that will be available for injection via {@code @Named} qualifier.
-         *
-         * @param name The qualifier name.
-         * @param type The bean type to register under.
-         * @param singleton The object to register.
-         * @return This builder for chaining.
-         */
-        public Builder withNamedSingleton(String name, Class<?> type, Object singleton) {
-            namedSingletons.add(new NamedSingletonEntry(name, type, singleton));
             return this;
         }
 
@@ -130,71 +114,45 @@ public final class IgniteDiContext {
                 contextBuilder.singletons(singletons.toArray());
             }
 
-            ApplicationContext context;
-
             if (excludedPackages.isEmpty()) {
-                context = contextBuilder.start();
-            } else {
-                // Build the context manually so we can override bean discovery to exclude
-                // unwanted packages (e.g., REST module beans that conflict with core DI beans).
-                // We replicate the singleton registration that ApplicationContextBuilder.build() does,
-                // because DefaultApplicationContext(configuration) doesn't auto-register them.
-                List<String> excluded = List.copyOf(excludedPackages);
+                return contextBuilder.start();
+            }
 
-                context = new DefaultApplicationContext((ApplicationContextConfiguration) contextBuilder) {
-                    @Override
-                    protected List<BeanDefinitionReference> resolveBeanDefinitionReferences() {
-                        List<BeanDefinitionReference> refs = super.resolveBeanDefinitionReferences();
+            // Build the context manually so we can override bean discovery to exclude
+            // unwanted packages (e.g., REST module beans that conflict with core DI beans).
+            // We replicate the singleton registration that ApplicationContextBuilder.build() does,
+            // because DefaultApplicationContext(configuration) doesn't auto-register them.
+            List<String> excluded = List.copyOf(excludedPackages);
 
-                        refs.removeIf(ref -> {
-                            String name = ref.getBeanDefinitionName();
+            @SuppressWarnings("rawtypes")
+            ApplicationContext context = new DefaultApplicationContext((ApplicationContextConfiguration) contextBuilder) {
+                @Override
+                protected List<BeanDefinitionReference> resolveBeanDefinitionReferences() {
+                    List<BeanDefinitionReference> refs = super.resolveBeanDefinitionReferences();
 
-                            for (String pkg : excluded) {
-                                if (name.startsWith(pkg + ".")) {
-                                    return true;
-                                }
+                    refs.removeIf(ref -> {
+                        String name = ref.getBeanDefinitionName();
+
+                        for (String pkg : excluded) {
+                            if (name.startsWith(pkg + ".")) {
+                                return true;
                             }
+                        }
 
-                            return false;
-                        });
+                        return false;
+                    });
 
-                        return refs;
-                    }
-                };
-
-                for (Object singleton : singletons) {
-                    context.registerSingleton(singleton);
+                    return refs;
                 }
+            };
 
-                context.start();
+            for (Object singleton : singletons) {
+                context.registerSingleton(singleton);
             }
 
-            for (NamedSingletonEntry entry : namedSingletons) {
-                registerNamedSingleton(context, entry);
-            }
+            context.start();
 
             return context;
-        }
-
-        @SuppressWarnings({"rawtypes", "unchecked"})
-        private static void registerNamedSingleton(ApplicationContext context, NamedSingletonEntry entry) {
-            context.registerSingleton(
-                    (Class) entry.type,
-                    entry.singleton,
-                    Qualifiers.byName(entry.name)
-            );
-        }
-    }
-
-    private static final class NamedSingletonEntry {
-        final String name;
-        final Class<?> type;
-        final Object singleton;
-
-        NamedSingletonEntry(String name, Class<?> type, Object singleton) {
-            this.name = name;
-            this.type = type;
-            this.singleton = singleton;
         }
     }
 }
