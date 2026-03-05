@@ -73,6 +73,9 @@ struct handshake_response {
 
     /** Server idle timeout in ms. */
     std::int64_t idle_timeout_ms;
+
+    /** Node consistent id. */
+    std::string node_consistent_id;
 };
 
 /**
