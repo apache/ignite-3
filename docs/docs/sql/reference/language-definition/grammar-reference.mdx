@@ -406,7 +406,7 @@ OneOrMore(
 NonTerminal('with_item', {href:'#with_item'}), Terminal(',')), NonTerminal('query', {href:'#query'})),
 Sequence(
 Choice(1,
-Terminal('SELECT', {href:'../data-types-and-functions/operational-commands#select'}),
+Terminal('SELECT', {href:'../data-types-and-functions/operational-commands/#select'}),
 Terminal('select_without_from', {href:'#select_without_from'}),
 Sequence(NonTerminal('query', {href:'#query'}), Choice(0, Terminal('UNION'), Terminal('EXCEPT'),Terminal('MINUS'),  Terminal('INTERSECT')), Optional(Choice(0, Terminal('ALL'), Terminal('DISTINCT'))),NonTerminal('query', {href:'#query'}))
 ),
@@ -456,7 +456,7 @@ Referenced by:
 
 <RailroadDiagram>{`
 Diagram(
-Terminal('SELECT', {href:'../data-types-and-functions/operational-commands#select'}),
+Terminal('SELECT', {href:'../data-types-and-functions/operational-commands/#select'}),
 Optional(
 Choice(0,
 Terminal('ALL'),
