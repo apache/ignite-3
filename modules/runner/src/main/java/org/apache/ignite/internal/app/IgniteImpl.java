@@ -743,7 +743,8 @@ public class IgniteImpl implements Ignite {
         ExecutorService lifecycleExecutor = stopExecutor();
 
         try {
-            lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor)).get();
+            lifecycleManager.markAsStopping();
+            componentLifecycleManager.stopAll(new ComponentContext(lifecycleExecutor)).get();
         } catch (Throwable ex) {
             // We add ex as a suppressed subexception, but we don't know how the caller will handle it, so we also log it ourselves.
             LOG.error("Node stop failed after node start failure", ex);
