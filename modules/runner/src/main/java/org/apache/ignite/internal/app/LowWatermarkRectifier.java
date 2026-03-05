@@ -31,11 +31,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Component that rectifies the low watermark on node startup if it is lower than the earliest catalog timestamp.
  */
-class LowWatermarkRectifier implements IgniteComponent {
+public class LowWatermarkRectifier implements IgniteComponent {
     private final LowWatermark lowWatermark;
     private final CatalogService catalogService;
 
-    LowWatermarkRectifier(LowWatermark lowWatermark, CatalogService catalogService) {
+    public LowWatermarkRectifier(LowWatermark lowWatermark, CatalogService catalogService) {
         this.lowWatermark = lowWatermark;
         this.catalogService = catalogService;
     }

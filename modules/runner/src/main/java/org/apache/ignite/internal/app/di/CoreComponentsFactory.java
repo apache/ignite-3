@@ -22,6 +22,7 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.di.IgniteStartupPhase;
@@ -61,7 +62,7 @@ public class CoreComponentsFactory {
      */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
-    public MetricManager metricManager(
+    public MetricManagerImpl metricManager(
             NodeSeedParams seedParams,
             @Named("clusterIdSupplier") Supplier<UUID> clusterIdSupplier
     ) {
@@ -79,5 +80,12 @@ public class CoreComponentsFactory {
     @Singleton
     public HybridClock hybridClock(FailureProcessor failureProcessor) {
         return new HybridClockImpl(failureProcessor);
+    }
+
+    /** Creates the node properties component. */
+    @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_1)
+    public NodePropertiesImpl nodeProperties(VaultManager vaultManager) {
+        return new NodePropertiesImpl(vaultManager);
     }
 }

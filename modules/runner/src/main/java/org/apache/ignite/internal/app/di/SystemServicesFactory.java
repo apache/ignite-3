@@ -21,6 +21,8 @@ import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.app.LowWatermarkRectifier;
+import org.apache.ignite.internal.app.SystemPropertiesComponent;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
@@ -258,6 +260,25 @@ public class SystemServicesFactory {
                 failureManager,
                 metricManager
         );
+    }
+
+    /** Creates the system properties component. */
+    @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    public SystemPropertiesComponent systemPropertiesComponent(
+            SystemDistributedConfiguration systemDistributedConfiguration
+    ) {
+        return new SystemPropertiesComponent(systemDistributedConfiguration);
+    }
+
+    /** Creates the low watermark rectifier. */
+    @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    public LowWatermarkRectifier lowWatermarkRectifier(
+            LowWatermarkImpl lowWatermark,
+            CatalogManagerImpl catalogManager
+    ) {
+        return new LowWatermarkRectifier(lowWatermark, catalogManager);
     }
 
     /** Creates the disaster recovery manager. */
