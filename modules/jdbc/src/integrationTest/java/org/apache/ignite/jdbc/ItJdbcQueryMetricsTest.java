@@ -18,6 +18,7 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.metrics.QueryMetrics;
 import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
+import org.awaitility.core.ThrowingRunnable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -108,46 +111,54 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testScriptTimeout() {
-        QueryMetrics initialMetrics = currentMetrics();
+        ThrowingRunnable runScript = () -> {
+            QueryMetrics initialMetrics = currentMetrics();
 
-        SQLException err;
+            SQLException err;
 
-        try (var stmt = conn.createStatement()) {
-            JdbcStatement jdbc = stmt.unwrap(JdbcStatement.class);
-            jdbc.setQueryTimeout(1);
+            try (var stmt = conn.createStatement()) {
+                JdbcStatement jdbc = stmt.unwrap(JdbcStatement.class);
+                jdbc.setQueryTimeout(1);
 
-            // Start a script
-            err = assertThrows(SQLException.class, () -> {
-                boolean rs1 = stmt.execute("SELECT 1; SELECT * FROM system_range(1, 10000); SELECT * FROM system_range(1, 20000);");
-                assertTrue(rs1);
+                // Start a script
+                err = assertThrows(SQLException.class, () -> {
+                    boolean rs1 = stmt.execute("SELECT 1; SELECT * FROM system_range(1, 10000); SELECT * FROM system_range(1, 20000);");
+                    assertTrue(rs1);
 
-                // Let the first statement to complete successfully
-                try (var rs = stmt.getResultSet()) {
-                    rs.next();
-                }
-
-                // Get the second statement
-                assertTrue(stmt.getMoreResults());
-                try (var rs = stmt.getResultSet()) {
-                    // Introduce a delay to trigger a timeout.
-                    TimeUnit.SECONDS.sleep(2);
-
-                    // Triggers the timeout
-                    while (rs.next()) {
-                        assertTrue(rs.getInt(1) >= 0);
+                    // Let the first statement to complete successfully
+                    try (var rs = stmt.getResultSet()) {
+                        rs.next();
                     }
-                }
-            });
-        } catch (SQLException e) {
-            err = e;
-            log.info("Script error:", e);
-        }
 
-        assertThat(err.getMessage(), containsString("Query timeout"));
+                    // Get the second statement
+                    assertTrue(stmt.getMoreResults());
+                    try (var rs = stmt.getResultSet()) {
+                        // Introduce a delay to trigger a timeout.
+                        TimeUnit.SECONDS.sleep(2);
 
-        log.info("Script timed out");
+                        // Triggers the timeout
+                        while (rs.next()) {
+                            assertTrue(rs.getInt(1) >= 0);
+                        }
+                    }
+                });
+            } catch (SQLException e) {
+                err = e;
+                log.info("Script error:", e);
+            }
 
-        awaitMetrics(initialMetrics, 1, 2, 0, 2);
+            assertThat(err.getMessage(), containsString("Query timeout"));
+
+            log.info("Script timed out");
+
+            assertThat(currentMetrics(), initialMetrics.hasDeltas(1, 2, 0, 2));
+        };
+
+        // We need to guard against first statement possible timeout due to the timing issues, so let's retry the test until success.
+        await()
+                .pollDelay(Duration.ZERO)
+                .ignoreExceptions()
+                .untilAsserted(runScript);
     }
 
     private long metricValue(String name) {

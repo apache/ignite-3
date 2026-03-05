@@ -79,7 +79,7 @@ public class QueryMetrics {
      * @param canceledDelta Expected increase in canceled count.
      * @param timedOutDelta Expected increase in timed-out count.
      */
-    private Matcher<QueryMetrics> hasDeltas(long succeededDelta, long failedDelta, long canceledDelta, long timedOutDelta) {
+    public Matcher<QueryMetrics> hasDeltas(long succeededDelta, long failedDelta, long canceledDelta, long timedOutDelta) {
         long expectedSucceeded = succeeded + succeededDelta;
         long expectedFailed = failed + failedDelta;
         long expectedCanceled = canceled + canceledDelta;
