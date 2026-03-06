@@ -165,14 +165,9 @@ class IndexFileMetaArray {
     }
 
     IndexFileMetaArray onIndexCompacted(FileProperties oldProperties, IndexFileMeta newMeta) {
-        // Find index meta associated with the file being compacted.
-        int smallestOrdinal = array[0].indexFileProperties().ordinal();
+        int updateIndex = arrayIndexByFileOrdinal(oldProperties.ordinal());
 
-        assert oldProperties.ordinal() >= smallestOrdinal;
-
-        int updateIndex = oldProperties.ordinal() - smallestOrdinal;
-
-        if (updateIndex >= size) {
+        if (updateIndex == -1) {
             return this;
         }
 
@@ -206,6 +201,25 @@ class IndexFileMetaArray {
         newArray[updateIndex] = newMeta;
 
         return new IndexFileMetaArray(newArray, size);
+    }
+
+    @Nullable
+    IndexFileMeta findByFileOrdinal(int fileOrdinal) {
+        int arrayIndex = arrayIndexByFileOrdinal(fileOrdinal);
+
+        return arrayIndex == -1 ? null : array[arrayIndex];
+    }
+
+    private int arrayIndexByFileOrdinal(int fileOrdinal) {
+        int smallestOrdinal = array[0].indexFileProperties().ordinal();
+
+        if (fileOrdinal < smallestOrdinal) {
+            return -1;
+        }
+
+        int arrayIndex = fileOrdinal - smallestOrdinal;
+
+        return arrayIndex >= size ? -1 : arrayIndex;
     }
 
     @Override

@@ -204,6 +204,29 @@ abstract class AbstractMemTableTest<T extends WriteModeIndexMemTable & ReadModeI
     }
 
     @Test
+    void testTruncateSuffixBelowFirstLogIndexPreservesFirstIndexKept() {
+        // Append a single entry at index 15, so firstLogIndexInclusive = 15.
+        memTable.appendSegmentFileOffset(0, 15, 42);
+
+        // Truncate the prefix using an index that is not present in the memtable.
+        memTable.truncatePrefix(0, 10);
+
+        SegmentInfo afterPrefixTruncate = memTable.segmentInfo(0);
+        assertThat(afterPrefixTruncate, is(notNullValue()));
+        assertThat(afterPrefixTruncate.firstIndexKept(), is(10L));
+
+        // Truncate the suffix using an index that is also not present in the memtable.
+        memTable.truncateSuffix(0, 14);
+
+        SegmentInfo afterSuffixTruncate = memTable.segmentInfo(0);
+        assertThat(afterSuffixTruncate, is(notNullValue()));
+
+        // The entry at index 15 must no longer be visible.
+        assertThat(afterSuffixTruncate.getOffset(15), is(MISSING_SEGMENT_FILE_OFFSET));
+        assertThat(afterSuffixTruncate.firstIndexKept(), is(10L));
+    }
+
+    @Test
     void testTruncateSuffixIntoThePast() {
         memTable.appendSegmentFileOffset(0, 36, 42);
 

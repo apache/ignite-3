@@ -23,12 +23,12 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -37,7 +37,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -47,18 +46,15 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.raft.configuration.LogStorageConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.storage.segstore.GroupInfoProvider.GroupInfo;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryEncoder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -89,9 +85,6 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
     private RaftLogGarbageCollector garbageCollector;
 
-    @Mock
-    private GroupInfoProvider groupInfoProvider;
-
     @BeforeEach
     void setUp() throws IOException {
         fileManager = new SegmentFileManager(
@@ -99,7 +92,6 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                groupInfoProvider,
                 raftConfiguration,
                 storageConfiguration
         );
@@ -119,16 +111,17 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testCompactSegmentFileWithAllEntriesTruncated() throws Exception {
+    void testRunCompactionWithAllEntriesTruncated() throws Exception {
+        // Fill some segment files with entries.
         List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
         for (int i = 0; i < batches.size(); i++) {
             appendBytes(GROUP_ID_1, batches.get(i), i);
         }
 
-        await().until(this::indexFiles, hasSize(greaterThan(0)));
+        // Truncate most of the previously inserted entries.
+        fileManager.truncatePrefix(GROUP_ID_1, batches.size() - 1);
 
-        // This is equivalent to prefix truncation up to the latest index.
-        when(groupInfoProvider.groupInfo(GROUP_ID_1)).thenReturn(new GroupInfo(batches.size() - 1, batches.size() - 1));
+        triggerAndAwaitCheckpoint(batches.size() - 1);
 
         List<Path> segmentFiles = segmentFiles();
 
@@ -138,7 +131,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
         try {
-            garbageCollector.compactSegmentFile(segmentFile);
+            garbageCollector.runCompaction(segmentFile);
         } finally {
             segmentFile.close();
         }
@@ -155,7 +148,8 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testCompactSegmentFileWithSomeEntriesTruncated() throws Exception {
+    void testRunCompactionWithSomeEntriesTruncated() throws Exception {
+        // Fill some segment files with entries from two groups.
         List<byte[]> batches = createRandomData(FILE_SIZE / 8, 10);
 
         for (int i = 0; i < batches.size(); i++) {
@@ -163,15 +157,14 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
             appendBytes(GROUP_ID_2, batches.get(i), i);
         }
 
-        await().until(this::indexFiles, hasSize(greaterThan(0)));
+        // Truncate entries of only one group.
+        fileManager.truncatePrefix(GROUP_ID_1, batches.size() - 1);
+
+        triggerAndAwaitCheckpoint(batches.size() - 1);
 
         List<Path> segmentFiles = segmentFiles();
 
         long originalSize = Files.size(segmentFiles.get(0));
-
-        // Emulate truncation of one group
-        when(groupInfoProvider.groupInfo(GROUP_ID_1)).thenReturn(new GroupInfo(batches.size() - 1, batches.size() - 1));
-        when(groupInfoProvider.groupInfo(GROUP_ID_2)).thenReturn(new GroupInfo(1, batches.size() - 1));
 
         Path firstSegmentFile = segmentFiles.get(0);
 
@@ -179,11 +172,12 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         SegmentFile segmentFile = SegmentFile.openExisting(firstSegmentFile, false);
         try {
-            garbageCollector.compactSegmentFile(segmentFile);
+            garbageCollector.runCompaction(segmentFile);
         } finally {
             segmentFile.close();
         }
 
+        // Segment file should be replaced by a new one with increased generation.
         assertThat(Files.exists(firstSegmentFile), is(false));
 
         var newFileProperties = new FileProperties(originalFileProperties.ordinal(), originalFileProperties.generation() + 1);
@@ -199,50 +193,44 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testCompactSegmentFileWithTruncationRecords() throws Exception {
+    void testRunCompactionWithTruncationRecords() throws Exception {
         List<byte[]> batches = createRandomData(FILE_SIZE / 4, 5);
         for (int i = 0; i < batches.size(); i++) {
             appendBytes(GROUP_ID_1, batches.get(i), i);
         }
 
-        fileManager.truncatePrefix(GROUP_ID_1, 2);
-        fileManager.truncateSuffix(GROUP_ID_1, 3);
-
-        await().until(this::indexFiles, hasSize(greaterThan(0)));
+        // Truncate both prefix and suffix.
+        fileManager.truncatePrefix(GROUP_ID_1, batches.size() / 2);
+        fileManager.truncateSuffix(GROUP_ID_1, batches.size() / 2);
 
         List<Path> segmentFiles = segmentFiles();
-        assertThat(segmentFiles, hasSize(greaterThan(1)));
 
-        // This is equivalent to prefix truncation up to the latest index.
-        when(groupInfoProvider.groupInfo(GROUP_ID_1)).thenReturn(new GroupInfo(batches.size() - 1, batches.size() - 1));
+        triggerAndAwaitCheckpoint(batches.size() / 2);
 
-        Path firstSegmentFile = segmentFiles.get(0);
+        for (Path segmentFilePath : segmentFiles) {
+            SegmentFile segmentFile = SegmentFile.openExisting(segmentFilePath, false);
 
-        SegmentFile segmentFile = SegmentFile.openExisting(firstSegmentFile, false);
-        try {
-            garbageCollector.compactSegmentFile(segmentFile);
-        } finally {
-            segmentFile.close();
+            try {
+                garbageCollector.runCompaction(segmentFile);
+            } finally {
+                segmentFile.close();
+            }
+
+            assertThat(Files.exists(segmentFilePath), is(false));
         }
-
-        assertThat(Files.exists(firstSegmentFile), is(false));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27964")
     @RepeatedTest(10)
     void testConcurrentCompactionAndReads() throws Exception {
         List<byte[]> batches = createRandomData(FILE_SIZE / 10, 50);
+
         for (int i = 0; i < batches.size(); i++) {
             appendBytes(GROUP_ID_1, batches.get(i), i);
         }
 
         await().until(this::indexFiles, hasSize(equalTo(segmentFiles().size() - 1)));
 
-        var firstAliveIndex = new AtomicLong();
         var gcTaskDone = new AtomicBoolean(false);
-
-        when(groupInfoProvider.groupInfo(GROUP_ID_1))
-                .thenAnswer(invocationOnMock -> new GroupInfo(firstAliveIndex.get(), batches.size() - 1));
 
         RunnableX gcTask = () -> {
             try {
@@ -250,15 +238,15 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
                 Path lastSegmentFile = segmentFiles.get(segmentFiles.size() - 1);
 
+                long aliveIndex = 0;
+
                 // Don't compact the last segment file.
                 while (!segmentFiles.get(0).equals(lastSegmentFile)) {
-                    long index = firstAliveIndex.incrementAndGet();
-
-                    fileManager.truncatePrefix(GROUP_ID_1, index);
+                    fileManager.truncatePrefix(GROUP_ID_1, ++aliveIndex);
 
                     SegmentFile segmentFile = SegmentFile.openExisting(segmentFiles.get(0), false);
                     try {
-                        garbageCollector.compactSegmentFile(segmentFile);
+                        garbageCollector.runCompaction(segmentFile);
                     } finally {
                         segmentFile.close();
                     }
@@ -288,10 +276,10 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
         runRace(gcTask, readTask, readTask, readTask);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27964")
     @RepeatedTest(10)
     void testConcurrentCompactionAndReadsFromMultipleGroups() throws Exception {
         List<byte[]> batches = createRandomData(FILE_SIZE / 10, 50);
+
         for (int i = 0; i < batches.size(); i++) {
             appendBytes(GROUP_ID_1, batches.get(i), i);
             appendBytes(GROUP_ID_2, batches.get(i), i);
@@ -299,15 +287,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         await().until(this::indexFiles, hasSize(equalTo(segmentFiles().size() - 1)));
 
-        var firstAliveIndex = new AtomicLong();
         var gcTaskDone = new AtomicBoolean(false);
-
-        when(groupInfoProvider.groupInfo(GROUP_ID_1))
-                .thenAnswer(invocationOnMock -> new GroupInfo(firstAliveIndex.get(), batches.size() - 1));
-
-        // Group 2 is never compacted.
-        when(groupInfoProvider.groupInfo(GROUP_ID_2))
-                .thenAnswer(invocationOnMock -> new GroupInfo(0, batches.size() - 1));
 
         RunnableX gcTask = () -> {
             try {
@@ -319,10 +299,10 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 // Because of that we need to use more complex logic to iterate over the segment files.
                 int segmentFilesIndex = 0;
 
-                while (true) {
-                    long index = firstAliveIndex.incrementAndGet();
+                long aliveIndex = 0;
 
-                    fileManager.truncatePrefix(GROUP_ID_1, index);
+                while (true) {
+                    fileManager.truncatePrefix(GROUP_ID_1, ++aliveIndex);
 
                     FileProperties fileProperties = SegmentFile.fileProperties(curSegmentFilePath);
 
@@ -330,7 +310,7 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
                     SegmentFile segmentFile = SegmentFile.openExisting(curSegmentFilePath, false);
                     try {
-                        garbageCollector.compactSegmentFile(segmentFile);
+                        garbageCollector.runCompaction(segmentFile);
                     } finally {
                         segmentFile.close();
                     }
@@ -400,19 +380,16 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
             appendBytes(GROUP_ID_2, batches.get(i), i);
         }
 
+        // Truncate entries of only one group.
         fileManager.truncatePrefix(GROUP_ID_1, batches.size() - 1);
 
-        await().until(this::indexFiles, hasSize(greaterThan(0)));
+        triggerAndAwaitCheckpoint(batches.size() - 1);
 
         List<Path> segmentFiles = segmentFiles();
 
-        // Emulate truncation of one group
-        when(groupInfoProvider.groupInfo(GROUP_ID_1)).thenReturn(new GroupInfo(batches.size() - 1, batches.size() - 1));
-        when(groupInfoProvider.groupInfo(GROUP_ID_2)).thenReturn(new GroupInfo(1, batches.size() - 1));
-
         SegmentFile segmentFile = SegmentFile.openExisting(segmentFiles.get(0), false);
         try {
-            garbageCollector.compactSegmentFile(segmentFile);
+            garbageCollector.runCompaction(segmentFile);
         } finally {
             segmentFile.close();
         }
@@ -424,7 +401,6 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                groupInfoProvider,
                 raftConfiguration,
                 storageConfiguration
         );
@@ -480,7 +456,6 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 workDir,
                 STRIPES,
                 new NoOpFailureManager(),
-                groupInfoProvider,
                 raftConfiguration,
                 storageConfiguration
         );
@@ -499,6 +474,33 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
 
         // Verify orphaned index files are cleaned up
         assertFalse(Files.exists(orphanedIndexFile));
+    }
+
+    @Test
+    void testRunCompactionDoesNotRetainEntriesTruncatedBySuffix() throws Exception {
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 10);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), i);
+        }
+
+        fileManager.truncateSuffix(GROUP_ID_1, 1);
+
+        triggerAndAwaitCheckpoint(1);
+
+        // Since we truncated all entries after log index 1, we can expect that the second segment file will be fully compacted.
+        List<Path> segmentFiles = segmentFiles();
+
+        assertThat(segmentFiles, hasSize(greaterThan(2)));
+
+        SegmentFile segmentFile = SegmentFile.openExisting(segmentFiles.get(1), false);
+        try {
+            garbageCollector.runCompaction(segmentFile);
+        } finally {
+            segmentFile.close();
+        }
+
+        assertThat(Files.exists(segmentFiles.get(1)), is(false));
     }
 
     private List<Path> segmentFiles() throws IOException {
@@ -545,5 +547,23 @@ class RaftLogGarbageCollectorTest extends IgniteAbstractTest {
                 return serializedEntry.length;
             }
         });
+    }
+
+    private void triggerAndAwaitCheckpoint(long lastGroupIndex) throws IOException {
+        List<Path> segmentFilesBeforeCheckpoint = segmentFiles();
+
+        // Insert some entries to trigger a rollover (and a checkpoint).
+        List<byte[]> batches = createRandomData(FILE_SIZE / 4, 5);
+
+        for (int i = 0; i < batches.size(); i++) {
+            appendBytes(GROUP_ID_1, batches.get(i), lastGroupIndex + i + 1);
+        }
+
+        List<Path> segmentFilesAfterCheckpoint = segmentFiles();
+
+        assertThat(segmentFilesAfterCheckpoint, hasSize(greaterThan(segmentFilesBeforeCheckpoint.size())));
+
+        // Wait for the checkpoint process to complete.
+        await().until(this::indexFiles, hasSize(greaterThanOrEqualTo(segmentFilesAfterCheckpoint.size() - 1)));
     }
 }
