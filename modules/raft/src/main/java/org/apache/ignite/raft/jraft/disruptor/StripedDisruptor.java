@@ -38,10 +38,10 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.sources.RaftMetricSource.DisruptorMetrics;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.DisruptorMetricSource;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.raft.jraft.entity.NodeId;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Stripe Disruptor is a set of queues which process several independent groups in one queue (in the stripe). It makes fewer threads that
@@ -84,7 +84,9 @@ public class StripedDisruptor<T extends NodeIdAware> {
     /** The Striped disruptor name. */
     private final String name;
 
-    private final DisruptorMetrics metrics;
+    private final MetricManager metricManager;
+
+    private final DisruptorMetricSource metrics;
 
     /** If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one. */
     private final boolean sharedStripe;
@@ -99,7 +101,9 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
-     * @param metrics Metrics.
+     * @param metricManager Metric manager.
+     * @param sourceName Base source name for disruptor metrics.
+     *
      * @return A disruptor instance.
      * @param <U> Type of disruptor events.
      */
@@ -110,8 +114,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
             int bufferSize,
             EventFactory<U> eventFactory,
             boolean useYieldStrategy,
-            @Nullable DisruptorMetrics metrics
-
+            MetricManager metricManager,
+            String sourceName
     ) {
         return new StripedDisruptor<>(
                 nodeName,
@@ -122,7 +126,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
                 1,
                 true,
                 useYieldStrategy,
-                metrics
+                metricManager,
+                sourceName
         );
     }
 
@@ -135,7 +140,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param stripes Amount of stripes.
      * @param sharedStripe If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
-     * @param raftMetrics Metrics.
+     * @param metricManager Metric manager.
+     * @param sourceName Base source name for disruptor metrics.
      */
     public StripedDisruptor(
             String nodeName,
@@ -146,7 +152,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
             int stripes,
             boolean sharedStripe,
             boolean useYieldStrategy,
-            @Nullable DisruptorMetrics raftMetrics
+            MetricManager metricManager,
+            String sourceName
     ) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
@@ -155,7 +162,6 @@ public class StripedDisruptor<T extends NodeIdAware> {
         this.stripes = stripes;
         this.name = IgniteThread.threadPrefix(nodeName, poolName);
         this.sharedStripe = sharedStripe;
-        this.metrics = raftMetrics;
 
         for (int i = 0; i < stripes; i++) {
             String stripeName = format("{}_stripe_{}", poolName, i);
@@ -177,6 +183,12 @@ public class StripedDisruptor<T extends NodeIdAware> {
             queues[i] = disruptor.start();
             disruptors[i] = disruptor;
         }
+
+        this.metricManager = metricManager;
+
+        metrics = new DisruptorMetricSource(sourceName, queues);
+        metricManager.registerSource(metrics);
+        metricManager.enable(metrics);
     }
 
     /**
@@ -195,6 +207,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
         eventHandlers.clear();
         exceptionHandlers.clear();
+        metricManager.unregisterSource(metrics);
     }
 
     /**

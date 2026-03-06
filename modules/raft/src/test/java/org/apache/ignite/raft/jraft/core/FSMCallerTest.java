@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -84,13 +87,14 @@ public class FSMCallerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void setup() {
-        this.fsmCaller = new FSMCallerImpl();
         NodeOptions options = new NodeOptions();
+        RaftMetricSource raftMetrics = new RaftMetricSource(1, 1);
+        options.setRaftMetrics(raftMetrics);
+        this.fsmCaller = new FSMCallerImpl(new TestMetricManager(), "foo");
         executor = JRaftUtils.createExecutor("test-node", "test-executor-", Utils.cpus());
         options.setCommonExecutor(executor);
         this.closureQueue = new ClosureQueueImpl(options);
         opts = new FSMCallerOptions();
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(false));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         Mockito.when(this.node.getNodeId()).thenReturn(new NodeId("foo", new PeerId("bar")));
         opts.setNode(this.node);
@@ -106,7 +110,9 @@ public class FSMCallerTest extends BaseIgniteAbstractTest {
                 1,
                 false,
                 false,
-                null));
+                new TestMetricManager(),
+                FsmCallerMetricSource.SOURCE_NAME
+        ));
         assertTrue(this.fsmCaller.init(opts));
     }
 

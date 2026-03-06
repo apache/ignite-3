@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
@@ -55,6 +56,10 @@ public class StripeAwareLogManager extends LogManagerImpl {
      * It requires special treatment in order to better optimize writes.
      */
     private boolean sharedLogStorage;
+
+    public StripeAwareLogManager(MetricManager metricManager, String groupId) {
+        super(metricManager, groupId);
+    }
 
     @Override
     public boolean init(LogManagerOptions opts) {

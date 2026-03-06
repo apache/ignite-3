@@ -21,7 +21,6 @@ import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
@@ -37,7 +36,6 @@ public class LogManagerOptions {
     private ConfigurationManager configurationManager;
     private FSMCaller fsmCaller;
     private RaftOptions raftOptions;
-    private NodeMetrics nodeMetrics;
     private LogEntryCodecFactory logEntryCodecFactory = DefaultLogEntryCodecFactory.getInstance();
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
     private List<Stripe> logStripes;
@@ -64,14 +62,6 @@ public class LogManagerOptions {
 
     public void setLogEntryCodecFactory(final LogEntryCodecFactory logEntryCodecFactory) {
         this.logEntryCodecFactory = logEntryCodecFactory;
-    }
-
-    public NodeMetrics getNodeMetrics() {
-        return this.nodeMetrics;
-    }
-
-    public void setNodeMetrics(final NodeMetrics nodeMetrics) {
-        this.nodeMetrics = nodeMetrics;
     }
 
     public RaftOptions getRaftOptions() {

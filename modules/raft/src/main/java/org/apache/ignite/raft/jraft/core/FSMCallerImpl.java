@@ -28,6 +28,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -57,7 +59,6 @@ import org.apache.ignite.raft.jraft.option.FSMCallerOptions;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
-import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -68,6 +69,8 @@ import org.apache.ignite.raft.jraft.util.Utils;
 public class FSMCallerImpl implements FSMCaller {
 
     private static final IgniteLogger LOG = Loggers.forClass(FSMCallerImpl.class);
+
+    private final MetricManager metricManager;
 
     /**
      * Task type
@@ -87,11 +90,21 @@ public class FSMCallerImpl implements FSMCaller {
 
         private String metricName;
 
+        private final AtomicLong applyDuration = new AtomicLong();
+
         public String metricName() {
             if (this.metricName == null) {
-                this.metricName = "fsm-" + name().toLowerCase().replaceAll("_", "-");
+                this.metricName = name().toLowerCase() + ".Duration";
             }
             return this.metricName;
+        }
+
+        public void onApply(long duration) {
+            this.applyDuration.set(duration);
+        }
+
+        public long getApplyDuration(){
+            return applyDuration.get();
         }
     }
 
@@ -148,17 +161,22 @@ public class FSMCallerImpl implements FSMCaller {
     private StripedDisruptor<ApplyTask> disruptor;
     private RingBuffer<ApplyTask> taskQueue;
     private volatile CountDownLatch shutdownLatch;
-    private NodeMetrics nodeMetrics;
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
+    private final FsmCallerMetricSource metrics;
     private RaftMessagesFactory msgFactory;
 
     private volatile boolean shuttingDown;
 
-    public FSMCallerImpl() {
+    public FSMCallerImpl(MetricManager metricManager, String groupId) {
         super();
         this.currTask = TaskType.IDLE;
         this.lastAppliedIndex = new AtomicLong(0);
         this.applyingIndex = new AtomicLong(0);
+        this.metricManager = metricManager;
+
+        metrics = new FsmCallerMetricSource(groupId);
+        metricManager.registerSource(metrics);
+        metricManager.enable(metrics);
     }
 
     @Override
@@ -170,7 +188,6 @@ public class FSMCallerImpl implements FSMCaller {
         this.closureQueue = opts.getClosureQueue();
         this.afterShutdown = opts.getAfterShutdown();
         this.node = opts.getNode();
-        this.nodeMetrics = this.node.getNodeMetrics();
         this.lastAppliedIndex.set(opts.getBootstrapId().getIndex());
         notifyLastAppliedIndexUpdated(this.lastAppliedIndex.get());
         this.lastAppliedTerm = opts.getBootstrapId().getTerm();
@@ -179,10 +196,6 @@ public class FSMCallerImpl implements FSMCaller {
 
         taskQueue = disruptor.subscribe(this.nodeId, new ApplyTaskHandler());
 
-        if (this.nodeMetrics.getMetricRegistry() != null) {
-            this.nodeMetrics.getMetricRegistry().register("jraft-fsm-caller-disruptor",
-                new DisruptorMetricSet(this.taskQueue));
-        }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
         LOG.debug("Starts FSMCaller successfully [nodeId={}].", nodeId);
@@ -211,6 +224,8 @@ public class FSMCallerImpl implements FSMCaller {
                 task.shutdownLatch = latch;
             }));
         }
+
+        metricManager.unregisterSource(metrics);
     }
 
     @Override
@@ -453,7 +468,7 @@ public class FSMCallerImpl implements FSMCaller {
                 }
             }
             finally {
-                this.nodeMetrics.recordLatency(task.type.metricName(), Utils.monotonicMs() - startMs);
+                task.type.onApply(Utils.monotonicMs() - startMs);
                 task.reset();
             }
         }
@@ -564,7 +579,7 @@ public class FSMCallerImpl implements FSMCaller {
             notifyLastAppliedIndexUpdated(lastIndex);
         }
         finally {
-            this.nodeMetrics.recordLatency("fsm-commit", Utils.monotonicMs() - startMs);
+            metrics.onFsmCommit(Utils.monotonicMs() - startMs);
         }
     }
 
@@ -583,8 +598,7 @@ public class FSMCallerImpl implements FSMCaller {
             this.fsm.onApply(iter);
         }
         finally {
-            this.nodeMetrics.recordLatency("fsm-apply-tasks", Utils.monotonicMs() - startApplyMs);
-            this.nodeMetrics.recordSize("fsm-apply-tasks-count", iter.getIndex() - startIndex);
+            metrics.onApplyTasks(Utils.monotonicMs() - startApplyMs, iter.getIndex() - startIndex);
         }
         if (iter.hasNext()) {
             LOG.error("Iterator is still valid, did you return before iterator reached the end? [node={}].",

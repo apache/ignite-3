@@ -193,7 +193,8 @@ public class Loza implements RaftManager {
                 raftGroupEventsClientListener,
                 failureManager,
                 groupStoragesDestructionIntents,
-                groupStoragesContextResolver
+                groupStoragesContextResolver,
+                metricManager
         );
 
         this.executor = new ScheduledThreadPoolExecutor(
@@ -227,12 +228,12 @@ public class Loza implements RaftManager {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         RaftView raftConfig = raftConfiguration.value();
 
-        var stripeSource = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
+        var metrics = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
 
-        metricManager.registerSource(stripeSource);
-        metricManager.enable(stripeSource);
+        metricManager.registerSource(metrics);
+        metricManager.enable(metrics);
 
-        opts.setRaftMetrics(stripeSource);
+        opts.setRaftMetrics(metrics);
         opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeoutMillis());
         opts.setStripes(raftConfig.disruptor().stripes());
         opts.setLogStripesCount(raftConfig.disruptor().logManagerStripes());

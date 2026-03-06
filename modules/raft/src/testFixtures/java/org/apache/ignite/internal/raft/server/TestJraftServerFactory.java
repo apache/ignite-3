@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.Map;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -99,7 +100,8 @@ public class TestJraftServerFactory {
                 raftGroupEventsClientListener,
                 mock(FailureManager.class),
                 groupStoragesDestructionIntents,
-                groupStoragesContextResolver
+                groupStoragesContextResolver,
+                new TestMetricManager()
         );
     }
 }
