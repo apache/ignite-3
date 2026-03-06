@@ -26,8 +26,6 @@ import org.apache.ignite.internal.app.LowWatermarkRectifier;
 import org.apache.ignite.internal.app.SystemPropertiesComponent;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
-import org.apache.ignite.internal.catalog.PartitionCountCalculatorWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -111,21 +109,6 @@ public class SystemServicesFactory {
         return new JvmCpuInformationProvider();
     }
 
-    /** Creates the data-nodes-aware partition count calculator and wires it into the wrapper. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    public DataNodesAwarePartitionCountCalculator dataNodesAwarePartitionCountCalculator(
-            DistributionZoneManager distributionZoneManager,
-            CpuInformationProvider cpuInformationProvider,
-            PartitionCountCalculatorWrapper partitionCountCalculatorWrapper
-    ) {
-        DataNodesAwarePartitionCountCalculator calculator = new DataNodesAwarePartitionCountCalculator(
-                distributionZoneManager::estimatedDataNodesCount,
-                cpuInformationProvider
-        );
-        partitionCountCalculatorWrapper.setPartitionCountCalculator(calculator);
-        return calculator;
-    }
 
     /** Creates the system disaster recovery manager. */
     @Singleton

@@ -24,6 +24,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
+import org.apache.ignite.internal.catalog.PartitionCountCalculatorWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -35,6 +37,7 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
@@ -50,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
+import org.apache.ignite.internal.system.CpuInformationProvider;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
@@ -86,6 +90,9 @@ public class PostConstructionWiring {
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final SystemDistributedConfiguration systemDistributedConfiguration;
     private final ConfigurationRegistry clusterConfigRegistry;
+    private final DistributionZoneManager distributionZoneManager;
+    private final CpuInformationProvider cpuInformationProvider;
+    private final PartitionCountCalculatorWrapper partitionCountCalculatorWrapper;
 
     /** Constructor. */
     public PostConstructionWiring(
@@ -111,7 +118,10 @@ public class PostConstructionWiring {
             ClientHandlerModule clientHandlerModule,
             PartitionModificationCounterFactory partitionModificationCounterFactory,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            @Named("clusterConfig") ConfigurationRegistry clusterConfigRegistry
+            @Named("clusterConfig") ConfigurationRegistry clusterConfigRegistry,
+            DistributionZoneManager distributionZoneManager,
+            CpuInformationProvider cpuInformationProvider,
+            PartitionCountCalculatorWrapper partitionCountCalculatorWrapper
     ) {
         this.metricManager = metricManager;
         this.clockServiceMetricSource = clockServiceMetricSource;
@@ -136,6 +146,9 @@ public class PostConstructionWiring {
         this.partitionModificationCounterFactory = partitionModificationCounterFactory;
         this.systemDistributedConfiguration = systemDistributedConfiguration;
         this.clusterConfigRegistry = clusterConfigRegistry;
+        this.distributionZoneManager = distributionZoneManager;
+        this.cpuInformationProvider = cpuInformationProvider;
+        this.partitionCountCalculatorWrapper = partitionCountCalculatorWrapper;
     }
 
     /**
@@ -162,6 +175,14 @@ public class PostConstructionWiring {
      * This includes MetaStorage listeners, Raft interceptors, system view registrations, and kill handlers.
      */
     public void wirePhase2() {
+        // Wire the data-nodes-aware partition count calculator into the wrapper.
+        partitionCountCalculatorWrapper.setPartitionCountCalculator(
+                new DataNodesAwarePartitionCountCalculator(
+                        distributionZoneManager::estimatedDataNodesCount,
+                        cpuInformationProvider
+                )
+        );
+
         // MetaStorage configuration and listeners.
         metaStorageManager.configure(systemDistributedConfiguration);
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
