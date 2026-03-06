@@ -321,11 +321,19 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         mailboxes.clear();
 
-        executionServices.forEach(executer -> {
+        executionServices.forEach(executionService -> {
+            try {
+                executionService.stop();
+            } catch (Exception e) {
+                log.error("Unable to stop execution service", e);
+            }
+        });
+
+        executers.forEach(executer -> {
             try {
                 executer.stop();
             } catch (Exception e) {
-                log.error("Unable to stop executor", e);
+                log.error("Unable to stop thread pool", e);
             }
         });
 
@@ -1529,7 +1537,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
                         TestNode node = nodes.get(nodeName);
 
-                        return runAsync(() -> {}).thenCompose(none -> node.onReceive(TestNode.this.node, msg));
+                        return runAsync(() -> await(node.onReceive(TestNode.this.node, msg)));
                     }
 
                     /** {@inheritDoc} */
