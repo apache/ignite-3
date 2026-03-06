@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.security.authentication.SecurityConfigurationModule.DEFAULT_PROVIDER_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
@@ -592,7 +593,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     private void setupAuthentication(String username, String password) {
         securityConfiguration.change(change -> {
             change.changeEnabled(true);
-            change.changeAuthentication().changeProviders().create("basic", authenticationProviderChange -> {
+            change.changeAuthentication().changeProviders().update(DEFAULT_PROVIDER_NAME, authenticationProviderChange -> {
                 authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
                         .changeUsers(users -> users.create(username, user -> user.changePassword(password)));
             });

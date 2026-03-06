@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Configuration schema for {@link ConfigurationExtensionTest#notifications()}.
+ * Configuration schema whose {@code @Value(hasDefault = true)} field is not initialized.
+ * Used by {@link ConfigurationExtensionTest} to verify that schema defaults are subject to validation.
  */
-@ConfigurationRoot(rootName = "basic")
-public class BasicConfigurationSchema {
+@Config
+public class InvalidDefaultConfigurationSchema {
     @Value(hasDefault = true)
-    public int visible = 1;
+    public String defaultValue;
 }
