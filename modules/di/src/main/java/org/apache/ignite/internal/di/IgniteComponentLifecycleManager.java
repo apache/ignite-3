@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
@@ -48,7 +49,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 public class IgniteComponentLifecycleManager {
     private final Map<StartupPhase, List<IgniteComponent>> componentsByPhase;
 
-    private final List<IgniteComponent> startedComponents = new ArrayList<>();
+    private final List<IgniteComponent> startedComponents = new CopyOnWriteArrayList<>();
 
     /**
      * Creates the lifecycle manager by collecting all {@link IgniteComponent} beans from the given context

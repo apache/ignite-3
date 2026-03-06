@@ -598,24 +598,26 @@ public class IgniteImpl implements Ignite {
                 .thenComposeAsync(unused -> {
                     LOG.info("Join complete, starting MetaStorage");
 
+                    // Register with componentLifecycleManager BEFORE starting, so that stopAll()
+                    // will know about this component even if a concurrent stop races with the start.
+                    componentLifecycleManager.markAsStarted(metaStorageMgr);
                     try {
                         lifecycleManager.startComponentAsync(metaStorageMgr, componentContext);
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
-                    componentLifecycleManager.markAsStarted(metaStorageMgr);
 
                     return metaStorageMgr.recoveryFinishedFuture();
                 }, joinExecutor)
                 .thenComposeAsync(unused -> initializeClusterConfiguration(joinExecutor), joinExecutor)
                 .thenRunAsync(() -> {
                     // Start cluster config registry after MetaStorage recovery (it depends on DistributedConfigurationStorage).
+                    componentLifecycleManager.markAsStarted(clusterConfigRegistry);
                     try {
                         lifecycleManager.startComponentAsync(clusterConfigRegistry, componentContext);
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
-                    componentLifecycleManager.markAsStarted(clusterConfigRegistry);
                 }, joinExecutor)
                 .<CompletableFuture<Void>>thenApplyAsync(unused -> {
                     LOG.info("MetaStorage started, starting the remaining components");
@@ -630,12 +632,12 @@ public class IgniteImpl implements Ignite {
 
                     // The system view manager comes last because other components
                     // must register system views before it starts.
+                    componentLifecycleManager.markAsStarted(systemViewManager);
                     try {
                         lifecycleManager.startComponentAsync(systemViewManager, componentContext);
                     } catch (NodeStoppingException e) {
                         throw new CompletionException(e);
                     }
-                    componentLifecycleManager.markAsStarted(systemViewManager);
 
                     return phase2Future;
                 }, joinExecutor)
@@ -749,19 +751,13 @@ public class IgniteImpl implements Ignite {
             LOG.error(errMsg, igniteException);
         }
 
-        ExecutorService lifecycleExecutor = stopExecutor();
-
         try {
-            lifecycleManager.markAsStopping();
-            componentLifecycleManager.stopAll(new ComponentContext(lifecycleExecutor)).get();
+            stopAsync().get();
         } catch (Throwable ex) {
             // We add ex as a suppressed subexception, but we don't know how the caller will handle it, so we also log it ourselves.
             LOG.error("Node stop failed after node start failure", ex);
 
             igniteException.addSuppressed(ex);
-        } finally {
-            diContext.close();
-            lifecycleExecutor.shutdownNow();
         }
 
         return igniteException;
@@ -792,7 +788,7 @@ public class IgniteImpl implements Ignite {
         // Stop ALL components in reverse start order. The componentLifecycleManager tracks both
         // DI-managed and manually-started components (via markAsStarted) in the correct order.
         componentLifecycleManager.stopAll(componentContext)
-                .thenRunAsync(() -> diContext.close())
+                .thenRunAsync(diContext::close)
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow())
                 .whenCompleteAsync(copyStateTo(stopFuture));
