@@ -617,31 +617,41 @@ public class IgniteImpl implements Ignite {
                     }
                     componentLifecycleManager.markAsStarted(clusterConfigRegistry);
                 }, joinExecutor)
-                .thenComposeAsync(unused -> {
+                .<CompletableFuture<Void>>thenApplyAsync(unused -> {
                     LOG.info("MetaStorage started, starting the remaining components");
 
-                    // Start all PHASE_2 DI-managed components.
+                    // Fire-and-forget: start all PHASE_2 DI-managed components.
+                    // We don't wait for them here because some components' startAsync() may need
+                    // MetaStorage revision notifications (delivered by notifyRevisionUpdateListenerOnStart).
+                    // Waiting here would deadlock on restart.
                     CompletableFuture<Void> phase2Future = componentLifecycleManager.startPhase(
                             StartupPhase.PHASE_2, componentContext
                     );
 
                     // The system view manager comes last because other components
                     // must register system views before it starts.
-                    return phase2Future.thenRunAsync(() -> {
-                        try {
-                            lifecycleManager.startComponentAsync(systemViewManager, componentContext);
-                        } catch (NodeStoppingException e) {
-                            throw new CompletionException(e);
-                        }
-                        componentLifecycleManager.markAsStarted(systemViewManager);
-                    }, joinExecutor);
+                    try {
+                        lifecycleManager.startComponentAsync(systemViewManager, componentContext);
+                    } catch (NodeStoppingException e) {
+                        throw new CompletionException(e);
+                    }
+                    componentLifecycleManager.markAsStarted(systemViewManager);
+
+                    return phase2Future;
                 }, joinExecutor)
-                .thenComposeAsync(v -> {
+                .thenComposeAsync(phase2Future -> {
                     LOG.info("Components started, performing recovery");
 
                     LOG.info("Cluster configuration: {}", convertToHoconString(clusterConfigRegistry));
 
-                    return recoverComponentsStateOnStart(joinExecutor);
+                    // Wait for ALL component starts (both DI-managed PHASE_2 and manually-started)
+                    // plus revision update before deploying watches.
+                    CompletableFuture<Void> allStartsFuture = CompletableFuture.allOf(
+                            phase2Future,
+                            lifecycleManager.allComponentsStartFuture(joinExecutor)
+                    );
+
+                    return recoverComponentsStateOnStart(joinExecutor, allStartsFuture);
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterConfigRegistry.onDefaultsPersisted(), joinExecutor)
                 // Signal that local recovery is complete and the node is ready to join the cluster.
@@ -1003,8 +1013,10 @@ public class IgniteImpl implements Ignite {
                 .thenRunAsync(systemDisasterRecoveryManager::markInitConfigApplied, startupExecutor);
     }
 
-    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor) {
-        return metaStorageMgr.notifyRevisionUpdateListenerOnStart()
+    private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
+        CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
+
+        return CompletableFuture.allOf(startupRevisionUpdate, startFuture)
                 .thenComposeAsync(unused -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();
