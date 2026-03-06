@@ -20,17 +20,14 @@ package org.apache.ignite.internal.app.di;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
-import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
-import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
@@ -104,7 +101,7 @@ public class ClientHandlerFactory {
             IgniteComputeInternal compute,
             ClusterService clusterService,
             NettyBootstrapFactory nettyBootstrapFactory,
-            Provider<ClusterManagementGroupManager> cmgManagerProvider,
+            IgniteImpl igniteImpl,
             MetricManager metricManager,
             AuthenticationManager authenticationManager,
             ClockServiceImpl clockService,
@@ -124,11 +121,7 @@ public class ClientHandlerFactory {
                 compute,
                 clusterService,
                 nettyBootstrapFactory,
-                () -> {
-                    ClusterState clusterState = cmgManagerProvider.get().clusterState().join();
-
-                    return new ClusterInfo(clusterState.clusterTag(), clusterState.clusterIdHistory());
-                },
+                igniteImpl::clusterInfo,
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,

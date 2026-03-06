@@ -48,6 +48,7 @@ import org.apache.ignite.IgniteServer;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
+import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.app.di.NodeSeedParams;
 import org.apache.ignite.internal.app.di.PostConstructionWiring;
@@ -473,6 +474,12 @@ public class IgniteImpl implements Ignite {
         assert localClusterState != null : "Cluster has not been initialized yet.";
 
         return localClusterState;
+    }
+
+    /** Returns cluster info from the cached cluster state. Used by the client handler to avoid blocking RPC calls. */
+    public ClusterInfo clusterInfo() {
+        ClusterState state = clusterState();
+        return new ClusterInfo(state.clusterTag(), state.clusterIdHistory());
     }
 
     private RestComponent createRestComponent(String name) {
