@@ -65,6 +65,7 @@ import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -146,7 +147,15 @@ public class MockNode {
                 this.workDir.resolve("partitions/log")
         );
 
-        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, systemLocalConfiguration, new HybridClockImpl());
+        var eventsClientListener = new RaftGroupEventsClientListener();
+
+        var raftManager = TestLozaFactory.create(
+                clusterService,
+                raftConfiguration,
+                systemLocalConfiguration,
+                new HybridClockImpl(),
+                eventsClientListener
+        );
 
         var clusterStateStorage =
                 new RocksDbClusterStateStorage(this.workDir.resolve("cmg/data"), clusterService.nodeName());
@@ -180,6 +189,7 @@ public class MockNode {
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),
                 collector,
                 failureManager,
+                eventsClientListener,
                 clusterIdHolder,
                 cmgRaftConfigurer,
                 new NoOpMetricManager(),
