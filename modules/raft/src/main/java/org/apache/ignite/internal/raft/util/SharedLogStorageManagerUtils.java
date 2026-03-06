@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageManager;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.jetbrains.annotations.TestOnly;
@@ -48,9 +49,28 @@ public class SharedLogStorageManagerUtils {
      * Creates a LogStorageManager with {@link DefaultLogStorageManager} or {@link LogitLogStorageManager} implementation depending on
      * LOGIT_STORAGE_ENABLED_PROPERTY.
      */
-    public static LogStorageManager create(String factoryName, String nodeName, Path logStoragePath, boolean fsync) {
+    public static LogStorageManager create(
+            String factoryName,
+            String nodeName,
+            Path logStoragePath,
+            boolean fsync
+    ) {
+        return create(factoryName, nodeName, logStoragePath, fsync, RocksDbLogStorageOptions.defaults());
+    }
+
+    /**
+     * Creates a LogStorageManager with {@link DefaultLogStorageManager} or {@link LogitLogStorageManager} implementation depending on
+     * LOGIT_STORAGE_ENABLED_PROPERTY.
+     */
+    public static LogStorageManager create(
+            String factoryName,
+            String nodeName,
+            Path logStoragePath,
+            boolean fsync,
+            RocksDbLogStorageOptions specificOptions
+    ) {
         return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT)
                 ? new LogitLogStorageManager(nodeName, new StoreOptions(), logStoragePath)
-                : new DefaultLogStorageManager(factoryName, nodeName, logStoragePath, fsync);
+                : new DefaultLogStorageManager(factoryName, nodeName, logStoragePath, fsync, specificOptions);
     }
 }
