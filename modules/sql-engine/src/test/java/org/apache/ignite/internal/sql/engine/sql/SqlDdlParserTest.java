@@ -1170,6 +1170,94 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
+    public void alterTableAddMultipleColumns() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN (a INT, b VARCHAR, c DECIMAL(10, 2))");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+        assertThat(addColumn.ifColumnNotExists(), is(false));
+        assertThat(addColumn.columns().size(), is(3));
+
+        SqlColumnDeclaration col0 = (SqlColumnDeclaration) addColumn.columns().get(0);
+        SqlColumnDeclaration col1 = (SqlColumnDeclaration) addColumn.columns().get(1);
+        SqlColumnDeclaration col2 = (SqlColumnDeclaration) addColumn.columns().get(2);
+
+        expectColumnBasic(col0, "A", ColumnStrategy.NULLABLE, "INTEGER", true);
+        expectColumnBasic(col1, "B", ColumnStrategy.NULLABLE, "VARCHAR", true);
+        expectColumnBasic(col2, "C", ColumnStrategy.NULLABLE, "DECIMAL", true);
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"A\" INTEGER, \"B\" VARCHAR, \"C\" DECIMAL(10, 2)");
+    }
+
+    @Test
+    public void alterTableAddMultipleColumnsIfNotExists() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN IF NOT EXISTS (a INT, b VARCHAR NOT NULL)");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+        assertThat(addColumn.ifColumnNotExists(), is(true));
+        assertThat(addColumn.columns().size(), is(2));
+
+        SqlColumnDeclaration col0 = (SqlColumnDeclaration) addColumn.columns().get(0);
+        SqlColumnDeclaration col1 = (SqlColumnDeclaration) addColumn.columns().get(1);
+
+        expectColumnBasic(col0, "A", ColumnStrategy.NULLABLE, "INTEGER", true);
+        expectColumnBasic(col1, "B", ColumnStrategy.NOT_NULLABLE, "VARCHAR", false);
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN IF NOT EXISTS \"A\" INTEGER, \"B\" VARCHAR NOT NULL");
+    }
+
+    @Test
+    public void alterTableAddMultipleColumnsWithDefaults() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN (a INT DEFAULT 1, b VARCHAR DEFAULT 'hello')");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+
+        assertThat(addColumn.columns().size(), is(2));
+
+        SqlColumnDeclaration col0 = (SqlColumnDeclaration) addColumn.columns().get(0);
+        SqlColumnDeclaration col1 = (SqlColumnDeclaration) addColumn.columns().get(1);
+
+        assertNotNull(col0.expression);
+        assertNotNull(col1.expression);
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"A\" INTEGER DEFAULT (1), \"B\" VARCHAR DEFAULT ('hello')");
+    }
+
+    @Test
+    public void alterTableAddMultipleColumnsWithoutColumnKeyword() {
+        SqlNode sqlNode = parse("ALTER TABLE t ADD (a INT, b VARCHAR)");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+        assertThat(addColumn.columns().size(), is(2));
+
+        SqlColumnDeclaration col0 = (SqlColumnDeclaration) addColumn.columns().get(0);
+        SqlColumnDeclaration col1 = (SqlColumnDeclaration) addColumn.columns().get(1);
+
+        expectColumnBasic(col0, "A", ColumnStrategy.NULLABLE, "INTEGER", true);
+        expectColumnBasic(col1, "B", ColumnStrategy.NULLABLE, "VARCHAR", true);
+
+        expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"A\" INTEGER, \"B\" VARCHAR");
+    }
+
+    @Test
+    public void alterTableAddMultipleColumnsIfTableExists() {
+        SqlNode sqlNode = parse("ALTER TABLE IF EXISTS t ADD COLUMN (a INT, b VARCHAR)");
+
+        IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
+
+        assertThat(addColumn.name.names, is(List.of("T")));
+        assertThat(addColumn.ifExists(), is(true));
+        assertThat(addColumn.columns().size(), is(2));
+
+        expectUnparsed(addColumn, "ALTER TABLE IF EXISTS \"T\" ADD COLUMN \"A\" INTEGER, \"B\" VARCHAR");
+    }
+
+    @Test
     public void alterTableDropColumn() {
         SqlNode sqlNode = parse("ALTER TABLE t DROP COLUMN c");
 
