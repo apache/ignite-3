@@ -40,6 +40,8 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.metrics.sources.FsmCallerMetricSource;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -264,7 +266,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 1,
                 false,
                 false,
-                null
+                new TestMetricManager(),
+                FsmCallerMetricSource.SOURCE_NAME
         ) {
             @Override
             public RingBuffer<ApplyTask> subscribe(NodeId group, EventHandler<ApplyTask> handler,

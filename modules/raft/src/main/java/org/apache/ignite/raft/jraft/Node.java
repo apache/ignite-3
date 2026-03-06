@@ -17,9 +17,9 @@
 package org.apache.ignite.raft.jraft;
 
 import java.util.List;
+import org.apache.ignite.internal.metrics.sources.NodeMetricSource;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
-import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.State;
 import org.apache.ignite.raft.jraft.entity.LogId;import org.apache.ignite.raft.jraft.entity.NodeId;
@@ -47,9 +47,9 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     NodeId getNodeId();
 
     /**
-     * Get the node metrics, only valid when node option {@link NodeOptions#isEnableMetrics()} is true.
+     * Get raft node metrics.
      */
-    NodeMetrics getNodeMetrics();
+    NodeMetricSource getNodeMetrics();
 
     /**
      * Get the raft group id.

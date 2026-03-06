@@ -16,21 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
-import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricFilter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.MetricSet;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +33,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.ReplicatorMetricSource;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
@@ -119,7 +113,6 @@ public class Replicator implements ThreadId.OnError {
     private volatile SnapshotReader reader;
     private CatchUpClosure catchUpClosure;
     private final Scheduler timerManager;
-    private final NodeMetrics nodeMetrics;
     private volatile State state;
 
     // Request sequence
@@ -132,12 +125,12 @@ public class Replicator implements ThreadId.OnError {
     // Pending response queue;
     private final PriorityQueue<RpcResponse> pendingResponses = new PriorityQueue<>(50);
 
-    private final String metricName;
-
-    private final String inflightsCountMetricName;
-
     /** This set is used only for logging. */
     private final Set<PeerId> deadPeers = ConcurrentHashMap.newKeySet();
+
+    private final MetricManager metricManager;
+
+    private final ReplicatorMetricSource metrics;
 
     private int getAndIncrementReqSeq() {
         final int prev = this.reqSeq;
@@ -168,48 +161,18 @@ public class Replicator implements ThreadId.OnError {
         Destroyed // destroyed
     }
 
-    public Replicator(final ReplicatorOptions replicatorOptions, final RaftOptions raftOptions) {
+    public Replicator(final ReplicatorOptions replicatorOptions, final RaftOptions raftOptions, MetricManager metricManager) {
         super();
         this.options = replicatorOptions;
-        this.nodeMetrics = this.options.getNode().getNodeMetrics();
         this.nextIndex = this.options.getLogManager().getLastLogIndex() + 1;
         this.timerManager = replicatorOptions.getTimerManager();
         this.raftOptions = raftOptions;
         this.rpcService = replicatorOptions.getRaftRpcService();
-        this.metricName = getReplicatorMetricName(replicatorOptions);
-        this.inflightsCountMetricName = name(this.metricName, "replicate-inflights-count");
         this.throttledLogger = Loggers.toThrottledLogger(LOG, options.getCommonExecutor());
         setState(State.Created);
-    }
 
-    /**
-     * Replicator metric set.
-     */
-    private static final class ReplicatorMetricSet implements MetricSet {
-        private final ReplicatorOptions opts;
-        private final Replicator r;
-
-        private ReplicatorMetricSet(final ReplicatorOptions opts, final Replicator r) {
-            this.opts = opts;
-            this.r = r;
-        }
-
-        @Override
-        public Map<String, Metric> getMetrics() {
-            final Map<String, Metric> gauges = new HashMap<>();
-            gauges.put("log-lags",
-                (Gauge<Long>) () -> this.opts.getLogManager().getLastLogIndex() - (this.r.nextIndex - 1));
-            gauges.put("next-index", (Gauge<Long>) () -> this.r.nextIndex);
-            gauges.put("heartbeat-times", (Gauge<Long>) () -> this.r.heartbeatCounter);
-            gauges.put("install-snapshot-times", (Gauge<Long>) () -> this.r.installSnapshotCounter);
-            gauges.put("probe-times", (Gauge<Long>) () -> this.r.probeCounter);
-            gauges.put("append-entries-times", (Gauge<Long>) () -> this.r.appendEntriesCounter);
-            gauges.put("consecutive-error-times", (Gauge<Long>) () -> (long) this.r.consecutiveErrorTimes);
-            gauges.put("state", (Gauge<Long>) () -> (long) this.r.state.ordinal());
-            gauges.put("running-state", (Gauge<Long>) () -> (long) this.r.statInfo.runningState.ordinal());
-            gauges.put("locked", (Gauge<Long>) () ->  (null == this.r.id ? -1L : this.r.id.isLocked() ? 1L : 0L));
-            return gauges;
-        }
+        this.metricManager = metricManager;
+        metrics = new ReplicatorMetricSource(options.getGroupId(), this, options);
     }
 
     /**
@@ -373,7 +336,7 @@ public class Replicator implements ThreadId.OnError {
     /**
      * In-flight request.
      */
-    static class Inflight {
+    public static class Inflight {
         // In-flight request count
         final int count;
         // Start log index
@@ -444,6 +407,10 @@ public class Replicator implements ThreadId.OnError {
         public int compareTo(final RpcResponse o) {
             return Integer.compare(this.seq, o.seq);
         }
+    }
+
+    public int getInflightsSize() {
+        return inflights.size();
     }
 
     @OnlyForTest
@@ -567,7 +534,6 @@ public class Replicator implements ThreadId.OnError {
         final int seq, final Future<Message> rpcInfly) {
         this.rpcInFly = new Inflight(reqType, startIndex, count, size, seq, rpcInfly);
         this.inflights.add(this.rpcInFly);
-        this.nodeMetrics.recordSize(inflightsCountMetricName, this.inflights.size());
     }
 
     /**
@@ -905,28 +871,15 @@ public class Replicator implements ThreadId.OnError {
         emb.oldSequenceToken(entry.getOldSequenceToken());
     }
 
-    public static ThreadId start(final ReplicatorOptions opts, final RaftOptions raftOptions) {
+    public static ThreadId start(final ReplicatorOptions opts, final RaftOptions raftOptions, MetricManager metricManager) {
         if (opts.getLogManager() == null || opts.getBallotBox() == null || opts.getNode() == null) {
             throw new IllegalArgumentException("Invalid ReplicatorOptions.");
         }
-        final Replicator r = new Replicator(opts, raftOptions);
+        final Replicator r = new Replicator(opts, raftOptions, metricManager);
         if (!r.rpcService.connect(opts.getPeerId())) {
             LOG.error("Fail to init sending channel to {}.", opts.getNode().getNodeId());
             // Return and it will be retried later.
             return null;
-        }
-
-        // Register replicator metric set.
-        final MetricRegistry metricRegistry = opts.getNode().getNodeMetrics().getMetricRegistry();
-        if (metricRegistry != null) {
-            try {
-                if (!metricRegistry.getNames().contains(r.metricName)) {
-                    metricRegistry.register(r.metricName, new ReplicatorMetricSet(opts, r));
-                }
-            }
-            catch (final IllegalArgumentException e) {
-                // ignore
-            }
         }
 
         // Start replication
@@ -1183,11 +1136,6 @@ public class Replicator implements ThreadId.OnError {
         final ThreadId savedId = this.id;
         LOG.info("Replicator is going to quit [node={}, replicator={}].", this.options.getNode().getNodeId(), savedId);
         releaseReader();
-        // Unregister replicator metric set
-        if (this.nodeMetrics.isEnabled()) {
-            this.nodeMetrics.getMetricRegistry() //
-                .removeMatching(MetricFilter.startsWith(this.metricName));
-        }
         setState(State.Destroyed);
         notifyReplicatorStatusListener((Replicator) savedId.getData(), ReplicatorEvent.DESTROYED);
         savedId.unlockAndDestroy();
@@ -1474,9 +1422,11 @@ public class Replicator implements ThreadId.OnError {
         }
         // record metrics
         if (request.entriesList() != null) {
-            r.nodeMetrics.recordLatency("replicate-entries", Utils.monotonicMs() - rpcSendTime);
-            r.nodeMetrics.recordSize("replicate-entries-count", request.entriesList().size());
-            r.nodeMetrics.recordSize("replicate-entries-bytes", request.data() != null ? request.data().capacity() : 0);
+            metrics.onReplicateEntries(
+                    Utils.monotonicMs() - rpcSendTime,
+                    request.entriesList().size(),
+                    request.data() != null ? request.data().capacity() : 0
+            );
         }
 
         final boolean isLogDebugEnabled = LOG.isDebugEnabled();
@@ -1990,6 +1940,51 @@ public class Replicator implements ThreadId.OnError {
         // id unlock in sendTimeoutNow
         r.sendTimeoutNow(true, true, timeoutMs);
         return true;
+    }
+
+    /** Returns current value of next index. */
+    public long getNextIndex() {
+        return nextIndex;
+    }
+
+    /** Returns number of heartbeat messages sent. */
+    public long getHeartbeatCounter() {
+        return heartbeatCounter;
+    }
+
+    /** Returns number of install snapshot requests sent. */
+    public long getInstallSnapshotCounter() {
+        return installSnapshotCounter;
+    }
+
+    /** Returns number of probe requests sent. */
+    public long getProbeCounter() {
+        return probeCounter;
+    }
+
+    /** Returns number of append entries requests sent. */
+    public long getAppendEntriesCounter() {
+        return appendEntriesCounter;
+    }
+
+    /** Returns number of consecutive errors. */
+    public int getConsecutiveErrorTimes() {
+        return consecutiveErrorTimes;
+    }
+
+    /** Returns the ordinal of the current state. */
+    public int getStateOrdinal() {
+        return state.ordinal();
+    }
+
+    /** Returns the ordinal of the current running state. */
+    public int getRunningStateOrdinal() {
+        return statInfo.runningState != null ? statInfo.runningState.ordinal() : -1;
+    }
+
+    /** Returns the lock status: -1 if id is null, 1 if locked, 0 if unlocked. */
+    public int getLockedStatus() {
+        return id == null ? -1 : id.isLocked() ? 1 : 0;
     }
 
     public static long getNextIndex(final ThreadId id) {

@@ -16,6 +16,10 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.IOException;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -32,10 +36,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  *
  */
@@ -49,7 +49,6 @@ public class LocalRaftMetaStorageTest extends BaseStorageTest {
     @BeforeEach
     public void setup() throws Exception {
         this.raftMetaStorage = new LocalRaftMetaStorage(this.path.toString(), new RaftOptions());
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(null);
         assertTrue(this.raftMetaStorage.init(newOptions()));
     }
 
@@ -77,7 +76,6 @@ public class LocalRaftMetaStorageTest extends BaseStorageTest {
         assertEquals(new PeerId("localhost", 8083), this.raftMetaStorage.getVotedFor());
 
         this.raftMetaStorage = new LocalRaftMetaStorage(this.path.toString(), new RaftOptions());
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(null);
         this.raftMetaStorage.init(newOptions());
         assertEquals(100, this.raftMetaStorage.getTerm());
         assertEquals(new PeerId("localhost", 8083), this.raftMetaStorage.getVotedFor());

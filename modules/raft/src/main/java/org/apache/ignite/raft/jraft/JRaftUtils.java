@@ -25,7 +25,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.metrics.MetricManager;import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -57,8 +57,8 @@ public final class JRaftUtils {
      * @param opts options of bootstrap
      * @return true if bootstrap success
      */
-    public static boolean bootstrap(final BootstrapOptions opts) throws InterruptedException {
-        final NodeImpl node = new NodeImpl("bootstrap", new PeerId("127.0.0.1", 0));
+    public static boolean bootstrap(final BootstrapOptions opts, MetricManager metricManager) throws InterruptedException {
+        final NodeImpl node = new NodeImpl("bootstrap", new PeerId("127.0.0.1", 0), metricManager);
 
         NodeOptions nodeOpts = opts.getNodeOptions();
 

@@ -29,12 +29,12 @@ import static org.mockito.ArgumentMatchers.same;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
@@ -119,12 +119,11 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);
         Mockito.when(this.rpcService.connect(this.peerId)).thenReturn(true);
-        Mockito.when(this.node.getNodeMetrics()).thenReturn(new NodeMetrics(true));
         Mockito.when(this.node.getOptions()).thenReturn(options);
         // mock send empty entries
         mockSendEmptyEntries();
 
-        this.id = Replicator.start(this.opts, this.raftOptions);
+        this.id = Replicator.start(this.opts, this.raftOptions, new TestMetricManager());
     }
 
     private void mockSendEmptyEntries() {
@@ -176,19 +175,6 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         r.destroy();
         Replicator.join(this.id);
         assertTrue(r.id.isDestroyed());
-    }
-
-    @Test
-    public void testMetricRemoveOnDestroy() {
-        assertNotNull(this.id);
-        final Replicator r = getReplicator();
-        assertNotNull(r);
-        assertSame(r.getOpts(), this.opts);
-        Set<String> metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
-        assertEquals(11, metrics.size());
-        r.destroy();
-        metrics = this.opts.getNode().getNodeMetrics().getMetricRegistry().getNames();
-        assertEquals(0, metrics.size());
     }
 
     private Replicator getReplicator() {
