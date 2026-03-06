@@ -760,6 +760,7 @@ public class IgniteImpl implements Ignite {
 
             igniteException.addSuppressed(ex);
         } finally {
+            diContext.close();
             lifecycleExecutor.shutdownNow();
         }
 
@@ -791,6 +792,7 @@ public class IgniteImpl implements Ignite {
         // Stop ALL components in reverse start order. The componentLifecycleManager tracks both
         // DI-managed and manually-started components (via markAsStarted) in the correct order.
         componentLifecycleManager.stopAll(componentContext)
+                .thenRunAsync(() -> diContext.close())
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow())
                 .whenCompleteAsync(copyStateTo(stopFuture));
