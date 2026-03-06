@@ -331,6 +331,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         executers.forEach(executer -> {
             try {
+                Awaitility.await().until(() -> ((QueryTaskExecutorImpl) executer).queueSize(), is(0));
+
                 executer.stop();
             } catch (Exception e) {
                 log.error("Unable to stop thread pool", e);
