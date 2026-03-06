@@ -1409,4 +1409,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public void markAsStopping() {
         metaStorageSvcFut.thenAccept(MetaStorageServiceImpl::markAsStopping);
     }
+
+    public Executor watchExecutor() {
+        return storage.watchExecutor();
+    }
 }
