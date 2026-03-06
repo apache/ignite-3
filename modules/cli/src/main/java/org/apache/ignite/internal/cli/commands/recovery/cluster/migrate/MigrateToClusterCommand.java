@@ -38,7 +38,7 @@ public class MigrateToClusterCommand extends BaseCommand implements Callable<Int
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> MigrateToClusterCallInput.of(options))
+                .input(MigrateToClusterCallInput.of(options))
         );
     }
 }

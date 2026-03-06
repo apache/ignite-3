@@ -57,7 +57,7 @@ public class NodeUnitInspectCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() throws Exception {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> UnitInspectCallInput.builder()
+                .input(UnitInspectCallInput.builder()
                         .unitId(unitId)
                         .version(version)
                         .url(nodeUrl.getNodeUrl())

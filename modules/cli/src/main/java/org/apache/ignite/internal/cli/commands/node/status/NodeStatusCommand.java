@@ -39,11 +39,10 @@ public class NodeStatusCommand extends BaseCommand implements Callable<Integer> 
     @Inject
     private NodeStatusCall call;
 
-    /** {@inheritDoc} */
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .input(new UrlCallInput(nodeUrl.getNodeUrl()))
         );
     }
 }

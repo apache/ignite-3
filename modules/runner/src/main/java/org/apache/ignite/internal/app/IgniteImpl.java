@@ -65,7 +65,6 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
-import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
@@ -586,13 +585,11 @@ public class IgniteImpl implements Ignite {
         ConfigurationValidator localConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
 
-        nodeConfigRegistry = new ConfigurationRegistry(
-                modules.local().rootKeys(),
+        nodeConfigRegistry = ConfigurationRegistry.create(
+                modules.local(),
                 localFileConfigurationStorage,
                 localConfigurationGenerator,
-                localConfigurationValidator,
-                modules.local()::migrateDeprecatedConfigurations,
-                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+                localConfigurationValidator
         );
 
         // Start local configuration to be able to read all local properties.
@@ -811,13 +808,11 @@ public class IgniteImpl implements Ignite {
 
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
-        clusterConfigRegistry = new ConfigurationRegistry(
-                modules.distributed().rootKeys(),
+        clusterConfigRegistry = ConfigurationRegistry.create(
+                modules.distributed(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                distributedCfgValidator,
-                modules.distributed()::migrateDeprecatedConfigurations,
-                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+                distributedCfgValidator
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());

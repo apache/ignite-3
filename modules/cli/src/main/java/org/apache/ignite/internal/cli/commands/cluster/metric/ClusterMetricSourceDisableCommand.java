@@ -42,7 +42,7 @@ public class ClusterMetricSourceDisableCommand extends BaseCommand implements Ca
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> metricSource.buildDisableCallInput(clusterUrl.getClusterUrl()))
+                .input(metricSource.buildDisableCallInput(clusterUrl.getClusterUrl()))
                 .exceptionHandler(createHandler("Cannot disable metrics"))
         );
     }

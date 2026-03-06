@@ -48,7 +48,7 @@ public class NodeMetricSetListReplCommand extends BaseCommand implements Callabl
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .input(new UrlCallInput(nodeUrl.getNodeUrl()))
                 .exceptionHandler(createHandler("Cannot list metrics"))
                 .decorator(new MetricSetListDecorator(plain))
         );

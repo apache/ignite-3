@@ -42,7 +42,7 @@ public class NodeStatusReplCommand extends BaseCommand implements Callable<Integ
     @Override
     public Integer call() {
         return runPipeline(CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
+                .input(new UrlCallInput(nodeUrl.getNodeUrl()))
         );
     }
 }
