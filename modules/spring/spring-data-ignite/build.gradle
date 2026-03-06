@@ -77,7 +77,7 @@ dependencies {
     springData4Implementation project(":ignite-jdbc")
 
     // Spring Boot 4.0.2 with Spring Data 4.0.2
-    springData4Implementation platform("org.springframework.boot:spring-boot-dependencies:4.0.2")
+    springData4Implementation platform("org.springframework.boot:spring-boot-dependencies:4.0.3")
     springData4Implementation 'org.springframework.boot:spring-boot'
     springData4Implementation 'org.springframework.boot:spring-boot-autoconfigure'
     springData4Implementation('org.springframework.boot:spring-boot-starter-data-jdbc') {
