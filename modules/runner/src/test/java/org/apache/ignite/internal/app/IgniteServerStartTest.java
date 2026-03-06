@@ -41,6 +41,7 @@ import org.apache.ignite.lang.NodeStartException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -96,6 +97,7 @@ public class IgniteServerStartTest extends BaseIgniteAbstractTest {
         server.shutdown();
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28045")
     @Test
     void igniteServerStartTest() {
         Assertions.assertDoesNotThrow(() -> server.start());
