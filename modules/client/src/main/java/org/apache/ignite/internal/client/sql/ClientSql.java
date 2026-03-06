@@ -377,6 +377,18 @@ public class ClientSql implements IgniteSql {
                     tx.recordOperationFailure(err);
                 }
 
+                // We should reconcile this code with ClientTable. Should be the same.
+                if (ctx.firstReqFut != null) {
+                    // Create failed transaction.
+                    long id = -1;
+                    ClientTransaction failed = new ClientTransaction(ctx.channel, ch, id, ctx.readOnly, null,
+                            ctx.pm, null, ch.observableTimestamp(), 0);
+                    failed.fail();
+                    ctx.firstReqFut.complete(failed);
+                    // Txn was not started, rollback is not required.
+                    return failedFuture(err);
+                }
+
                 if (tx == null || !shouldTrackOperation) {
                     return failedFuture(err);
                 }
