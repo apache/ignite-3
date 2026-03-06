@@ -29,6 +29,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.validator.AuthenticationProvidersValidator;
@@ -44,7 +45,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration(polymorphicExtensions = CustomAuthenticationProviderConfigurationSchema.class)
+    @InjectConfiguration(polymorphicExtensions = {
+            BasicAuthenticationProviderConfigurationSchema.class,
+            CustomAuthenticationProviderConfigurationSchema.class
+    })
     private SecurityConfiguration securityConfiguration;
 
     @Test
@@ -133,7 +137,7 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
                 providers.create(
                         "basic",
                         providerChange -> providerChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers().create("user", userChange -> {})
+                                .changeUsers().create("user", userChange -> userChange.changePassword("foo"))
                 );
             });
         });
@@ -151,7 +155,7 @@ class AuthenticationProvidersValidatorImplTest extends BaseIgniteAbstractTest {
                 providers.create(
                         "basic",
                         providerChange -> providerChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsers().create("user", userChange -> {})
+                                .changeUsers().create("user", userChange -> userChange.changePassword("foo"))
                 ).create(
                         "custom",
                         providerChange -> providerChange.convert(CustomAuthenticationProviderConfigurationSchema.TYPE)
