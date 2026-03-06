@@ -96,4 +96,14 @@ public interface RaftGroupListener {
      * Invoked once after a raft node has been shut down.
      */
     void onShutdown();
+
+    /**
+     * Returns the last applied index persisted by the state machine.
+     * Called during {@code NodeImpl.init()} to prevent truncation of already-applied log entries.
+     *
+     * @return persisted applied index, or 0 if unknown.
+     */
+    default long getPersistedAppliedIndex() {
+        return 0;
+    }
 }

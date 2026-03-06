@@ -868,6 +868,11 @@ public class JraftServerImpl implements RaftServer {
         }
 
         @Override
+        public long getPersistedAppliedIndex() {
+            return listener.getPersistedAppliedIndex();
+        }
+
+        @Override
         public void onApply(Iterator iter) {
             var iterWrapper = new WriteCommandIterator(iter, marshaller);
 
