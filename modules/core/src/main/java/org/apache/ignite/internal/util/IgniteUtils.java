@@ -1341,35 +1341,6 @@ public class IgniteUtils {
         return list.toArray();
     }
 
-    /**
-     * Schedules the provided operation to be retried after the specified delay.
-     *
-     * @param operation Operation.
-     * @param delay Delay.
-     * @param unit Time unit of the delay.
-     * @param executor Executor to schedule the retry in.
-     * @return Future that is completed when the operation is successful or failed with an exception.
-     */
-    public static <T> CompletableFuture<T> scheduleRetry(
-            Callable<CompletableFuture<T>> operation,
-            long delay,
-            TimeUnit unit,
-            ScheduledExecutorService executor
-    ) {
-        CompletableFuture<T> future = new CompletableFuture<>();
-
-        executor.schedule(() -> operation.call()
-                .whenComplete((res, e) -> {
-                    if (e == null) {
-                        future.complete(res);
-                    } else {
-                        future.completeExceptionally(e);
-                    }
-                }), delay, unit);
-
-        return future;
-    }
-
     private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)

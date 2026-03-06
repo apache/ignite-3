@@ -40,12 +40,14 @@ import static org.apache.ignite.internal.tx.TxStateMeta.builder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.retry.RetryUtil.scheduleRetry;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -118,6 +120,8 @@ import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
+import org.apache.ignite.internal.util.retry.TimeoutStrategy;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -239,6 +243,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
+    private final KeyBasedRetryContext retryContext;
+
     /**
      * Test-only constructor.
      *
@@ -275,7 +281,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TimeoutStrategy timeoutStrategy
     ) {
         this(
                 clusterService.nodeName(),
@@ -297,7 +304,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 lowWatermark,
                 commonScheduler,
                 new FailureManager(new NoOpFailureHandler()),
-                metricManager
+                metricManager,
+                timeoutStrategy
         );
     }
 
@@ -321,6 +329,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * @param transactionInflights Transaction inflights.
      * @param lowWatermark Low watermark.
      * @param metricManager Metric manager.
+     * @param timeoutStrategy Timeout strategy.
      */
     public TxManagerImpl(
             String nodeName,
@@ -342,7 +351,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
             FailureProcessor failureProcessor,
-            MetricManager metricManager
+            MetricManager metricManager,
+            TimeoutStrategy timeoutStrategy
     ) {
         this.txConfig = txConfig;
         this.systemCfg = systemCfg;
@@ -399,12 +409,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         transactionExpirationRegistry = new TransactionExpirationRegistry(txStateVolatileStorage);
 
+        retryContext = new KeyBasedRetryContext(20, timeoutStrategy);
+
         txCleanupRequestSender = new TxCleanupRequestSender(
                 txMessageSender,
                 placementDriverHelper,
                 txStateVolatileStorage,
                 writeIntentSwitchPool,
-                commonScheduler
+                commonScheduler,
+                retryContext
         );
 
         txMetrics = new TransactionMetricsSource(clockService);
@@ -836,7 +849,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      */
     private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
-            ZonePartitionId commitPartition,
+            @Nullable ZonePartitionId commitPartition,
             boolean commit,
             Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
             UUID txId,
@@ -881,14 +894,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             LOG.debug("Failed to finish Tx. The operation will be retried {}.", ex,
                                     formatTxInfo(txId, txStateVolatileStorage));
 
-                            return supplyAsync(() -> durableFinish(
-                                    observableTimestampTracker,
-                                    commitPartition,
-                                    commit,
-                                    enlistedPartitions,
-                                    txId,
-                                    commitTimestamp,
-                                    txFinishFuture
+                            String timeoutKey = commitPartition == null ? txId.toString() : commitPartition.toString();
+
+                            return supplyAsync(() -> scheduleRetry(
+                                    () -> durableFinish(
+                                            observableTimestampTracker,
+                                            commitPartition,
+                                            commit,
+                                            enlistedPartitions,
+                                            txId,
+                                            commitTimestamp,
+                                            txFinishFuture
+                                    ),
+                                    retryContext.updateAndGetState(timeoutKey).getTimeout(),
+                                    MILLISECONDS,
+                                    commonScheduler,
+                                    Optional.of(() -> retryContext.resetState(timeoutKey))
                             ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx {}.", ex,
@@ -1348,5 +1369,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @TestOnly
     public void clearLocalRwTxCounter() {
         localRwTxCounter.clear();
+    }
+
+    @TestOnly
+    public KeyBasedRetryContext retryContext() {
+        return retryContext;
     }
 }
