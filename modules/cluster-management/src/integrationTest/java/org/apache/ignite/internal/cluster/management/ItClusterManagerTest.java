@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -639,7 +638,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         MockNode nonCmgNode = cluster.get(1);
         LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
 
-        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().size() == 2, 10_000));
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
     }
 
     @Test
@@ -656,7 +655,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
 
-        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().size() == 2, 10_000));
+        assertTrue(waitForCondition(() -> nonCmgTopology.getLogicalTopology().nodes().size() == 2, 10_000));
     }
 
     @Test
@@ -706,7 +705,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     private void waitForLogicalTopology() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Collection<LogicalNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
+            CompletableFuture<Set<LogicalNode>> logicalTopology = cluster.get(0).logicalTopologyNodes();
 
             assertThat(logicalTopology, willCompleteSuccessfully());
 
