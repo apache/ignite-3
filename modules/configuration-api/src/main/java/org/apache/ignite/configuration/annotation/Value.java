@@ -44,8 +44,11 @@ import java.util.UUID;
 @Documented
 public @interface Value {
     /**
-     * Indicates that the current configuration value has a default value. Value itself is derived from the instantiated object of a
-     * corresponding schema type. This means that the default is not necessarily a constant value.
+     * Indicates that the current configuration value has a default value. The value itself is derived from the instantiated object of the
+     * corresponding schema type, meaning the default is not necessarily a constant value. It can also be provided dynamically via
+     * {@link org.apache.ignite.configuration.ConfigurationModule#patchConfigurationWithDynamicDefaults}.
+     *
+     * <p>When set to {@code true}, the field initializer must not be an explicit {@code null} literal.
      *
      * @return {@code hasDefault} flag value.
      */

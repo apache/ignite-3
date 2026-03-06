@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.configuration;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
- * Default partition count provider.
+ * Test {@link ConfigurationModule} with a DISTRIBUTED deleted prefix.
  */
-@FunctionalInterface
-public interface PartitionCountProvider {
-    int calculate(PartitionCountCalculationParameters params);
+@AutoService(ConfigurationModule.class)
+public class TestDistributedDeletedPrefixConfigurationModule implements ConfigurationModule {
+    static final String DELETED_DISTRIBUTED_PREFIX = "ignite.testDeletedDistribProp";
 
-    static PartitionCountProvider defaultPartitionCountProvider() {
-        return params -> DEFAULT_PARTITION_COUNT;
+    @Override
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
+    }
+
+    @Override
+    public Collection<String> deletedPrefixes() {
+        return Set.of(DELETED_DISTRIBUTED_PREFIX);
     }
 }

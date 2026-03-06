@@ -491,22 +491,18 @@ public class DistributionZonesUtil {
      * Filters storage profiles.
      *
      * @param node Node with storage profile attributes.
-     * @param zoneStorageProfiles Zone's storage profiles.
+     * @param zoneStorageProfiles Zone's storage profile names.
      * @return True, if matches, false otherwise.
      */
     public static boolean filterStorageProfiles(
             NodeWithAttributes node,
-            List<CatalogStorageProfileDescriptor> zoneStorageProfiles
+            List<String> zoneStorageProfiles
     ) {
         if (node.storageProfiles() == null) {
             return false;
         }
 
-        List<String> zoneStorageProfilesNames = zoneStorageProfiles.stream()
-                .map(CatalogStorageProfileDescriptor::storageProfile)
-                .collect(toList());
-
-        return new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
+        return new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfiles);
     }
 
     /**
@@ -520,9 +516,33 @@ public class DistributionZonesUtil {
             Set<NodeWithAttributes> dataNodes,
             CatalogZoneDescriptor zoneDescriptor
     ) {
+        List<String> storageProfiles = zoneDescriptor
+                .storageProfiles()
+                .profiles()
+                .stream()
+                .map(CatalogStorageProfileDescriptor::storageProfile)
+                .collect(toList());
+
+        return filterDataNodes(dataNodes, zoneDescriptor.filter(), storageProfiles);
+    }
+
+    /**
+     * Filters {@code dataNodes} according to the provided filter and storage profiles from {@code zoneDescriptor}.
+     * Nodes' attributes and storage profiles are taken from {@code nodesAttributes} map.
+     *
+     * @param dataNodes Data nodes.
+     * @param filter Data nodes filter.
+     * @param storageProfiles Storage profiles.
+     * @return Filtered data nodes.
+     */
+    public static Set<NodeWithAttributes> filterDataNodes(
+            Set<NodeWithAttributes> dataNodes,
+            String filter,
+            List<String> storageProfiles
+    ) {
         return dataNodes.stream()
-                .filter(n -> filterNodeAttributes(n.userAttributes(), zoneDescriptor.filter()))
-                .filter(n -> filterStorageProfiles(n, zoneDescriptor.storageProfiles().profiles()))
+                .filter(n -> filterNodeAttributes(n.userAttributes(), filter))
+                .filter(n -> filterStorageProfiles(n, storageProfiles))
                 .collect(toSet());
     }
 

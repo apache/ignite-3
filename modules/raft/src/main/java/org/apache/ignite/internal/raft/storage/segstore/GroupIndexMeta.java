@@ -54,6 +54,10 @@ class GroupIndexMeta {
             return fileMetas.lastLogIndexExclusive();
         }
 
+        FileProperties lastFileProperties() {
+            return fileMetas.get(fileMetas.size() - 1).indexFileProperties();
+        }
+
         void addIndexMeta(IndexFileMeta indexFileMeta) {
             while (true) {
                 IndexFileMetaArray fileMetas = this.fileMetas;
@@ -129,6 +133,16 @@ class GroupIndexMeta {
                 String.format(
                         "Gaps between Index File Metas are not allowed. Last log index: %d, new log index: %d",
                         curLastLogIndex, newFirstLogIndex
+                );
+
+        int lastFileOrdinal = curFileMetas.lastFileProperties().ordinal();
+
+        int newFileOrdinal = indexFileMeta.indexFileProperties().ordinal();
+
+        assert newFileOrdinal == lastFileOrdinal + 1 :
+                String.format(
+                        "Expected consecutive index file ordinals. Last file ordinal: %d, new file ordinal: %d",
+                        lastFileOrdinal, newFileOrdinal
                 );
 
         // Merge consecutive index metas into a single meta block. If there's an overlap (e.g. due to log truncation), start a new block,

@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -267,7 +268,7 @@ public class MockNode {
         return workDir;
     }
 
-    CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
+    CompletableFuture<Collection<LogicalNode>> logicalTopologyNodes() {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
 

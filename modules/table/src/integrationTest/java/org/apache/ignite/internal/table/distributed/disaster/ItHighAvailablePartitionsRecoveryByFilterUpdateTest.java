@@ -196,6 +196,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-28013")
     void testSeveralHaResetsAndSomeNodeRestart() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -555,10 +556,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
     }
 
     private static LogicalNode getLogicalNode(IgniteImpl ignite) {
-
-        return ignite.logicalTopologyService().localLogicalTopology().nodes().stream()
-                .filter(n -> n.name().equals(ignite.name()))
-                .findFirst()
+        return ignite.logicalTopologyService().localLogicalTopology().node(ignite.name())
                 .orElseThrow(() -> new IllegalStateException("Node not found in logical topology: " + ignite.name()));
     }
 }

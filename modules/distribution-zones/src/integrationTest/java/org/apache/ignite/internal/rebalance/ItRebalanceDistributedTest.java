@@ -105,7 +105,7 @@ import org.apache.ignite.configuration.validation.ConfigurationValidationExcepti
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
@@ -385,7 +385,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
                     assertThat(logicalTopologyFuture, willCompleteSuccessfully());
 
-                    return logicalTopologyFuture.join().nodes().size() == NODE_COUNT;
+                    return logicalTopologyFuture.join().size() == NODE_COUNT;
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
@@ -1499,7 +1499,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clockService,
                     failureManager,
                     delayDurationMsSupplier,
-                    PartitionCountProvider.defaultPartitionCountProvider()
+                    CatalogTestUtils.defaultPartitionCountCalculator()
             );
 
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
@@ -1517,7 +1517,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     () -> clusterService.topologyService().localMember().id(),
-                    registry,
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,

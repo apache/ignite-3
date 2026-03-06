@@ -457,6 +457,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         // TODO: https://issues.apache.org/jira/browse/IGNITE-26465 enable cache
         // private final CompletableFuture<MappedFragments> mappedFragments;
 
+        @SuppressWarnings("PMD.UnusedFormalParameter") // TODO: IGNITE-26465 remove annotation
         MappingsCacheValue(long topologyVersion, IntSet zoneIds, CompletableFuture<MappedFragmentsWithNodes> mappedFragments) {
             this.topologyVersion = topologyVersion;
             this.zoneIds = zoneIds;
@@ -517,7 +518,7 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
         void update(LogicalTopologySnapshot topologySnapshot) {
             synchronized (this) {
                 if (topology.version() < topologySnapshot.version()) {
-                    topology = new TopologySnapshot(topologySnapshot.version(), deriveNodeNames(topologySnapshot));
+                    topology = new TopologySnapshot(topologySnapshot.version(), topologySnapshot.nodeNames());
                 }
 
                 if (initialTopologyFuture.isDone() || !topology.nodes().contains(localNodeName)) {
@@ -530,12 +531,6 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
 
         TopologySnapshot topology() {
             return topology;
-        }
-
-        private Set<String> deriveNodeNames(LogicalTopologySnapshot topology) {
-            return topology.nodes().stream()
-                    .map(LogicalNode::name)
-                    .collect(Collectors.toUnmodifiableSet());
         }
 
         class TopologySnapshot {

@@ -25,14 +25,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
-/** Unit tests for {@link PartitionCountProviderWrapper}. */
-public class PartitionCountProviderWrapperTest extends BaseIgniteAbstractTest {
+/** Unit tests for {@link PartitionCountCalculatorWrapper}. */
+public class PartitionCountCalculatorWrapperTest extends BaseIgniteAbstractTest {
     /**
-     * Tests that the default constructor uses the default partition count provider.
+     * Tests that the default constructor uses the default partition count calculator.
      */
     @Test
     void testDefaultConstructor() {
-        PartitionCountProviderWrapper wrapper = new PartitionCountProviderWrapper();
+        PartitionCountCalculatorWrapper wrapper = new PartitionCountCalculatorWrapper();
 
         PartitionCountCalculationParameters params = PartitionCountCalculationParameters.builder().build();
         int result = wrapper.calculate(params);
@@ -41,21 +41,21 @@ public class PartitionCountProviderWrapperTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests that the constructor with custom provider correctly wraps it.
+     * Tests that the constructor with custom partition calculator correctly wraps it.
      */
     @Test
-    void testConstructorWithCustomProvider() {
+    void testConstructorWithCustomPartitionCalculator() {
         int expectedPartitionCount = 42;
 
         AtomicInteger callCount = new AtomicInteger(0);
 
-        PartitionCountProvider customProvider = params -> {
+        PartitionCountCalculator customCalculator = params -> {
             callCount.incrementAndGet();
 
             return expectedPartitionCount;
         };
 
-        PartitionCountProviderWrapper wrapper = new PartitionCountProviderWrapper(customProvider);
+        PartitionCountCalculatorWrapper wrapper = new PartitionCountCalculatorWrapper(customCalculator);
 
         PartitionCountCalculationParameters calculationParameters = PartitionCountCalculationParameters.builder().build();
         int result = wrapper.calculate(calculationParameters);
@@ -67,38 +67,38 @@ public class PartitionCountProviderWrapperTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests that calculate uses new provider after it has been changed several times.
+     * Tests that calculate uses new partition calculator after it has been changed several times.
      */
     @Test
-    void testCalculateAfterProviderChange() {
+    void testCalculateAfterPartitionCalculatorChange() {
 
-        PartitionCountProviderWrapper wrapper = new PartitionCountProviderWrapper();
+        PartitionCountCalculatorWrapper wrapper = new PartitionCountCalculatorWrapper();
         PartitionCountCalculationParameters calculationParameters = PartitionCountCalculationParameters.builder().build();
 
         assertEquals(DEFAULT_PARTITION_COUNT, wrapper.calculate(calculationParameters));
 
         int expectedFirstlyChangedPartitionCount = 10;
-        PartitionCountProvider firstChangeProvider = params -> expectedFirstlyChangedPartitionCount;
-        wrapper.setPartitionCountProvider(firstChangeProvider);
+        PartitionCountCalculator firstChangeCalculator = params -> expectedFirstlyChangedPartitionCount;
+        wrapper.setPartitionCountCalculator(firstChangeCalculator);
         assertEquals(expectedFirstlyChangedPartitionCount, wrapper.calculate(calculationParameters));
         assertNotEquals(expectedFirstlyChangedPartitionCount, DEFAULT_PARTITION_COUNT);
 
         int expectedLastlyChangedPartitionCount = 20;
-        PartitionCountProvider lastChangeProvider = params -> expectedLastlyChangedPartitionCount;
-        wrapper.setPartitionCountProvider(lastChangeProvider);
+        PartitionCountCalculator lastChangeCalculator = params -> expectedLastlyChangedPartitionCount;
+        wrapper.setPartitionCountCalculator(lastChangeCalculator);
         assertEquals(expectedLastlyChangedPartitionCount, wrapper.calculate(calculationParameters));
         assertNotEquals(expectedFirstlyChangedPartitionCount, DEFAULT_PARTITION_COUNT);
         assertNotEquals(expectedFirstlyChangedPartitionCount, expectedLastlyChangedPartitionCount);
     }
 
     /**
-     * Tests that calculate works correctly with different parameter combinations.
+     * Tests that calculate function works correctly with different parameter combinations.
      */
     @Test
     void testCalculateWithDifferentParameters() {
-        PartitionCountProvider doubleProvider = params -> params.replicaFactor() * 2;
+        PartitionCountCalculator doubleCalculator = params -> params.replicaFactor() * 2;
 
-        PartitionCountProviderWrapper wrapper = new PartitionCountProviderWrapper(doubleProvider);
+        PartitionCountCalculatorWrapper wrapper = new PartitionCountCalculatorWrapper(doubleCalculator);
 
         PartitionCountCalculationParameters params1 = PartitionCountCalculationParameters.builder()
                 .replicaFactor(2)
