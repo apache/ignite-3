@@ -17,6 +17,10 @@
 
 package org.apache.ignite.example.table;
 
+import static java.sql.DriverManager.getConnection;
+
+import java.sql.Connection;
+import java.sql.Statement;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -38,46 +42,56 @@ public class MapperExample {
 
     public static void main(String[] args) throws Exception {
 
+        try (
+                Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
+        ) {
+
+            stmt.executeUpdate("DROP TABLE IF EXISTS Person");
+
+            stmt.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS Person ("
+                            + "id int primary key, "
+                            + "city varchar, "
+                            + "name varchar, "
+                            + "age int, "
+                            + "company varchar, "
+                            + "city_id int)"
+            );
+
+            stmt.executeUpdate(
+                    "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101)");
+            stmt.executeUpdate(
+                    " INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102)");
+        }
+        var mapper = Mapper.builder(Person.class)
+                .automap()
+                .map("cityId", "city_id", new CityIdConverter())
+                .build();
+
         try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
-            try {
-                client.sql().executeScript(
-                        "CREATE TABLE Person ("
-                                + "id int primary key, "
-                                + "city varchar, "
-                                + "name varchar, "
-                                + "age int, "
-                                + "company varchar, "
-                                + "city_id int)"
-                );
+            RecordView<Person> view = client.tables()
+                    .table("person")
+                    .recordView(mapper);
 
-                client.sql().executeScript(
-                        "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (1, 'London', 'John Doe', 42, 'Apache', 101)");
-                client.sql().executeScript(
-                        "INSERT INTO Person (id, city, name, age, company, city_id) VALUES (2, 'New York', 'Jane Doe', 36, 'Apache', 102)");
+            Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
 
-                var mapper = Mapper.builder(Person.class)
-                        .automap()
-                        .map("cityId", "city_id", new CityIdConverter())
-                        .build();
+            view.upsert(null, myPerson);
+        } finally {
 
-                RecordView<Person> view = client.tables()
-                        .table("person")
-                        .recordView(mapper);
+            System.out.println("Dropping the table...");
+        }
+        try (
+                Connection conn = getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
+                Statement stmt = conn.createStatement()
+        ) {
 
-                Person myPerson = new Person(2, "2", "John Doe", 40, "Apache");
-
-                view.upsert(null, myPerson);
-            } finally {
-
-                System.out.println("Dropping the table...");
-
-                client.sql().executeScript(
-                        "DROP TABLE Person;");
-
-            }
+            stmt.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS Person (id int primary key,  city varchar,  name varchar,  age int,  company varchar, city_id int);"
+            );
         }
     }
 }
