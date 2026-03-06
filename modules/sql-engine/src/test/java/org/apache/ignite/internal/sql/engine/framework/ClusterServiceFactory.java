@@ -148,7 +148,10 @@ public class ClusterServiceFactory {
         }
 
         private static @Nullable InternalClusterNode findNodeByName(LogicalTopology logicalTopology, String name) {
-            return logicalTopology.getLogicalTopology().node(name).orElse(null);
+            return logicalTopology.getLogicalTopology().nodes().stream()
+                    .filter(node -> node.name().equals(name))
+                    .findFirst()
+                    .orElse(null);
         }
 
         @Override
@@ -192,7 +195,10 @@ public class ClusterServiceFactory {
 
         @Override
         public @Nullable InternalClusterNode getById(UUID id) {
-            return logicalTopology.getLogicalTopology().node(id).orElse(null);
+            return logicalTopology.getLogicalTopology().nodes().stream()
+                    .filter(node -> node.id().equals(id))
+                    .findFirst()
+                    .orElse(null);
         }
 
         @Override

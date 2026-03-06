@@ -57,6 +57,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
@@ -485,7 +486,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     }
 
                     Set<String> requiredNodes = result.getSecond();
-                    List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot);
+                    List<String> missingNodes = missingNodes(requiredNodes, topologySnapshot.nodes());
 
                     if (!missingNodes.isEmpty()) {
                         LOG.info("Catalog compaction aborted due to missing cluster members [nodes={}].", missingNodes);
@@ -639,8 +640,13 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return executor;
     }
 
-    private static List<String> missingNodes(Set<String> requiredNodes, LogicalTopologySnapshot logicalTopologySnapshot) {
-        return requiredNodes.stream().filter(not(logicalTopologySnapshot::hasNode)).collect(Collectors.toList());
+    private static List<String> missingNodes(Set<String> requiredNodes, Collection<LogicalNode> logicalTopologyNodes) {
+        Set<String> logicalNodeIds = logicalTopologyNodes
+                .stream()
+                .map(InternalClusterNode::name)
+                .collect(Collectors.toSet());
+
+        return requiredNodes.stream().filter(not(logicalNodeIds::contains)).collect(Collectors.toList());
     }
 
     private CompletableFuture<Void> invokeOnLocalReplicas(long txBeginTime, UUID localNodeId, ObjectIterator<Entry> entryIterator) {

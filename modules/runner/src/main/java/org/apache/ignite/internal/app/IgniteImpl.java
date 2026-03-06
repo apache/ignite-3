@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -732,7 +733,7 @@ public class IgniteImpl implements Ignite {
             CompletableFuture<Void> awaitSelfInLogicalTopologyFuture,
             LogicalTopologyEventListener awaitSelfListener
     ) {
-        if (logicalTopologySnapshot.hasNode(id())) {
+        if (logicalTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
             awaitSelfInLogicalTopologyFuture.complete(null);
             logicalTopologyService.removeEventListener(awaitSelfListener);
         }
