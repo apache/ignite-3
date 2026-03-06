@@ -29,7 +29,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class IndexFileManagerTest extends IgniteAbstractTest {
@@ -559,7 +558,6 @@ class IndexFileManagerTest extends IgniteAbstractTest {
         assertThat(indexFileManager.lastLogIndexExclusive(0), is(3L));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-27980")
     @Test
     void testCompactionWithMissingGroups() throws IOException {
         var memtable = new SingleThreadMemTable();
@@ -600,14 +598,50 @@ class IndexFileManagerTest extends IgniteAbstractTest {
 
         indexFileManager.onIndexFileCompacted(compactedMemtable, new FileProperties(2, 0), new FileProperties(2, 1));
 
-        assertThat(
-                indexFileManager.getSegmentFilePointer(0, 3),
-                is(nullValue())
-        );
+        assertThat(indexFileManager.getSegmentFilePointer(0, 3), is(nullValue()));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 2), is(new SegmentFilePointer(new FileProperties(2, 1), 2)));
+    }
 
-        assertThat(
-                indexFileManager.getSegmentFilePointer(1, 2),
-                is(new SegmentFilePointer(new FileProperties(2, 1), 2))
-        );
+    @Test
+    void testRecoveryWithMissingGroups() throws IOException {
+        var memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 1, 10);
+        memtable.appendSegmentFileOffset(1, 1, 20);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+        // Group 1 is absent from this file — it will receive an empty placeholder meta.
+        memtable.appendSegmentFileOffset(0, 2, 30);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 3, 40);
+        memtable.appendSegmentFileOffset(1, 2, 50);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        // Restart — recoverIndexFileMetas must rebuild the ordinal chain for both groups, including empty placeholders.
+        indexFileManager = new IndexFileManager(workDir);
+        indexFileManager.start();
+
+        assertThat(indexFileManager.getSegmentFilePointer(0, 1), is(new SegmentFilePointer(new FileProperties(0), 10)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 2), is(new SegmentFilePointer(new FileProperties(1), 30)));
+        assertThat(indexFileManager.getSegmentFilePointer(0, 3), is(new SegmentFilePointer(new FileProperties(2), 40)));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 1), is(new SegmentFilePointer(new FileProperties(0), 20)));
+        assertThat(indexFileManager.getSegmentFilePointer(1, 2), is(new SegmentFilePointer(new FileProperties(2), 50)));
+    }
+
+    @Test
+    void testGetSegmentFilePointerReturnsNullForEmptyMetaRange() throws IOException {
+        var memtable = new SingleThreadMemTable();
+        memtable.appendSegmentFileOffset(0, 1, 10);
+        memtable.appendSegmentFileOffset(1, 1, 20);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        memtable = new SingleThreadMemTable();
+        // Group 1 absent — receives an empty placeholder meta covering [2, 2).
+        memtable.appendSegmentFileOffset(0, 2, 30);
+        indexFileManager.saveNewIndexMemtable(memtable);
+
+        assertThat(indexFileManager.getSegmentFilePointer(1, 2), is(nullValue()));
     }
 }

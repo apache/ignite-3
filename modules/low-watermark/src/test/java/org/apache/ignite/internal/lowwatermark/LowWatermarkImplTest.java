@@ -311,6 +311,63 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testUpdateLowWatermarkAsync() {
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        // Happy path: future completes successfully after update is persisted and listeners are notified.
+        HybridTimestamp newLwm0 = clockService.now();
+
+        assertThat(lowWatermark.updateLowWatermarkAsync(newLwm0), willCompleteSuccessfully());
+
+        assertEquals(newLwm0, lowWatermark.getLowWatermark());
+
+        // Higher value: future also completes successfully.
+        HybridTimestamp newLwm1 = clockService.now();
+
+        assertThat(lowWatermark.updateLowWatermarkAsync(newLwm1), willCompleteSuccessfully());
+
+        assertEquals(newLwm1, lowWatermark.getLowWatermark());
+
+        // No-op: candidate is not higher than the current watermark, future should complete immediately.
+        CompletableFuture<Void> noOpFuture = lowWatermark.updateLowWatermarkAsync(newLwm0);
+
+        assertTrue(noOpFuture.isDone(), "No-op update future should complete immediately");
+        assertThat(noOpFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testUpdateLowWatermarkAsyncCompletesAfterListeners() {
+        assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        var listenerFinishFuture = new CompletableFuture<Boolean>();
+
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, (ChangeLowWatermarkEventParameters parameters) -> listenerFinishFuture);
+
+        HybridTimestamp newLwm = clockService.now();
+
+        CompletableFuture<Void> asyncFuture = lowWatermark.updateLowWatermarkAsync(newLwm);
+
+        // The async future should not complete until the listener completes.
+        assertThat(asyncFuture, willTimeoutFast());
+
+        listenerFinishFuture.complete(false);
+
+        assertThat(asyncFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testUpdateLowWatermarkAsyncPropagatesListenerError() {
+        String errorMessage = "test error";
+
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, parameters -> failedFuture(new RuntimeException(errorMessage)));
+
+        assertThat(
+                lowWatermark.updateLowWatermarkAsync(clockService.now()),
+                willThrowWithCauseOrSuppressed(RuntimeException.class, errorMessage)
+        );
+    }
+
+    @Test
     void testGetLowWatermarkFromListener() {
         assertThat(lowWatermark.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
