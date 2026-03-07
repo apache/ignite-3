@@ -20,12 +20,18 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.IntImmutableList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexVisitor;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -62,6 +68,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -72,6 +79,9 @@ import org.jetbrains.annotations.Nullable;
  */
 class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
     private static final IgniteLogger LOG = Loggers.forClass(ModifyNodeVisitor.class);
+
+    /** A placeholder used to designed the absent of a value. */
+    static final RexNode NO_VALUE = new RexInputRef(0, Commons.typeFactory().createSqlType(SqlTypeName.NULL));
 
     private ModifyNodeVisitor() {
     }
@@ -86,7 +96,7 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
      * @return A list of expressions. It's guaranteed that returned collection represents complete set of partitions. Returns {@code null}
      *         otherwise.
      */
-    static @Nullable List<List<RexNode>> go(IgniteTableModify tableModify) {
+    static @Nullable List<List<@Nullable RexNode>> go(IgniteTableModify tableModify) {
         var modifyNodeShuttle = new ModifyNodeVisitor();
 
         return modifyNodeShuttle.visit((IgniteRel) tableModify.getInput());
@@ -218,8 +228,19 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
 
     @Override
     public @Nullable List<List<RexNode>> visit(IgniteTableScan rel) {
-        // processing of table scan is not supported at the moment
-        return null;
+        RexNode condition = rel.condition();
+        if (condition == null) {
+            return null;
+        }
+
+        RelOptTable optTable = rel.getTable();
+        assert optTable != null;
+
+        IgniteTable table = optTable.unwrap(IgniteTable.class);
+        assert table != null;
+
+        RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
+        return extractFromCondition(table, rexBuilder, condition);
     }
 
     @Override
@@ -331,5 +352,42 @@ class ModifyNodeVisitor implements IgniteRelVisitor<List<List<RexNode>>> {
         LOG.warn(messageTemplate, args);
 
         return null;
+    }
+
+    private static @Nullable List<List<RexNode>> extractFromCondition(
+            IgniteTable table,
+            RexBuilder rexBuilder,
+            RexNode condition
+    ) {
+
+        IntList keyList = IntImmutableList.toList(table.keyColumns()
+                .stream()
+                .mapToInt(Integer::intValue));
+
+        PartitionPruningColumns metadata = PartitionPruningMetadataExtractor.extractMetadata(keyList, condition, rexBuilder);
+        if (metadata == null) {
+            return null;
+        }
+
+        List<List<RexNode>> result = new ArrayList<>(metadata.columns().size());
+
+        for (Int2ObjectMap<RexNode> columns : metadata.columns()) {
+            int numColumns = table.descriptor().columnsCount();
+            List<RexNode> row = new ArrayList<>(numColumns);
+
+            // There are more non-columns then primary key columns.
+            // So init all columns with no-value placeholders first. 
+            for (int i = 0; i < numColumns; i++) {
+                row.add(NO_VALUE);
+            }
+            // Then set primary key columns. 
+            for (Int2ObjectMap.Entry<RexNode> entry : columns.int2ObjectEntrySet()) {
+                row.set(entry.getIntKey(), entry.getValue());
+            }
+
+            result.add(row);
+        }
+
+        return result;
     }
 }
