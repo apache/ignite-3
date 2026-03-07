@@ -19,8 +19,6 @@ package org.apache.ignite.internal.di;
 
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.BeanRegistration;
@@ -32,13 +30,13 @@ import java.util.EnumMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Manages the lifecycle of {@link IgniteComponent} beans obtained from a Micronaut {@link ApplicationContext}.
@@ -139,24 +137,7 @@ public class IgniteComponentLifecycleManager {
         List<IgniteComponent> components = new ArrayList<>(startedComponents);
         reverse(components);
 
-        try {
-            closeAll(components.stream().filter(Objects::nonNull).map(c -> c::beforeNodeStop));
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
-
-        CompletableFuture<?>[] stopFutures = components.stream()
-                .filter(Objects::nonNull)
-                .map(component -> {
-                    try {
-                        return component.stopAsync(componentContext);
-                    } catch (Throwable e) {
-                        return failedFuture(e);
-                    }
-                })
-                .toArray(CompletableFuture[]::new);
-
-        return allOf(stopFutures);
+        return IgniteUtils.stopAsync(componentContext, components);
     }
 
     /**
