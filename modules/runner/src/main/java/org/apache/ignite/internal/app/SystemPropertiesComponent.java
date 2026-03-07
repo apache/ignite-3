@@ -28,7 +28,7 @@ import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 /**
  * System properties initialization.
  */
-class SystemPropertiesComponent implements IgniteComponent {
+public class SystemPropertiesComponent implements IgniteComponent {
 
     /**
      * Sensitive data logging option. See {@link IgniteToStringBuilder#setSensitiveDataPolicy(SensitiveDataLoggingPolicy)}}. 
@@ -37,7 +37,8 @@ class SystemPropertiesComponent implements IgniteComponent {
 
     private final SystemDistributedConfigurationPropertyHolder<SensitiveDataLoggingPolicy> sensitiveDataLogging;
 
-    SystemPropertiesComponent(SystemDistributedConfiguration configuration) {
+    /** Constructor. */
+    public SystemPropertiesComponent(SystemDistributedConfiguration configuration) {
         this.sensitiveDataLogging = new SystemDistributedConfigurationPropertyHolder<>(
                 configuration,
                 (value, revision) -> IgniteToStringBuilder.setSensitiveDataPolicy(value),

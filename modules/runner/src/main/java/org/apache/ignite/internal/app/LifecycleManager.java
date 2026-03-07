@@ -145,6 +145,14 @@ class LifecycleManager implements StateProvider, Debuggable {
     }
 
     /**
+     * Marks the node as stopping without initiating component shutdown.
+     * This is used when component shutdown is handled by the DI lifecycle manager.
+     */
+    void markAsStopping() {
+        status.set(State.STOPPING);
+    }
+
+    /**
      * Stops all started components and transfers the node into the {@link State#STOPPING} state.
      *
      * @param componentContext Component context.
