@@ -391,6 +391,12 @@ public class DataPathFactory {
         );
     }
 
+    /** Creates the shared minimum required time collector service. */
+    @Singleton
+    public MinimumRequiredTimeCollectorServiceImpl minimumRequiredTimeCollectorService() {
+        return new MinimumRequiredTimeCollectorServiceImpl();
+    }
+
     /** Creates the table manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
@@ -423,6 +429,7 @@ public class DataPathFactory {
             TransactionInflights transactionInflights,
             IndexMetaStorage indexMetaStorage,
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             MetricManager metricManager,
             PartitionModificationCounterFactory partitionModificationCounterFactory
@@ -456,7 +463,7 @@ public class DataPathFactory {
                 transactionInflights,
                 indexMetaStorage,
                 partitionReplicaLifecycleManager,
-                new MinimumRequiredTimeCollectorServiceImpl(),
+                minTimeCollectorService,
                 systemDistributedConfiguration,
                 metricManager,
                 partitionModificationCounterFactory

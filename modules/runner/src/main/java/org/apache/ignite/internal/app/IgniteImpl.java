@@ -146,6 +146,7 @@ import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
@@ -330,6 +331,10 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionCountCalculatorWrapper partitionCountCalculatorWrapper;
 
+    /** Data storage manager, kept as a field for reflective access by compatibility tests (CheckpointJob). */
+    @SuppressWarnings("unused")
+    private final DataStorageManager dataStorageMgr;
+
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
 
@@ -436,6 +441,7 @@ public class IgniteImpl implements Ignite {
         partitionCountCalculatorWrapper = diContext.getBean(PartitionCountCalculatorWrapper.class);
         systemViewManager = diContext.getBean(SystemViewManagerImpl.class);
         observableTimestampTracker = diContext.getBean(HybridTimestampTracker.class);
+        dataStorageMgr = diContext.getBean(DataStorageManager.class);
 
         // Initialize the DI component lifecycle manager. Exclude components with special startup ordering:
         // nodeConfigRegistry — started early in constructor, before other beans are created
@@ -863,6 +869,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public TableManager distributedTableManager() {
         return distributedTblMgr;
+    }
+
+    @TestOnly
+    public DataStorageManager dataStorageManager() {
+        return dataStorageMgr;
     }
 
     /** {@inheritDoc} */

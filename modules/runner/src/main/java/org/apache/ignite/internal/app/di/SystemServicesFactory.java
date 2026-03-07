@@ -171,10 +171,9 @@ public class SystemServicesFactory {
             SchemaSyncServiceImpl schemaSyncService,
             LowWatermarkImpl lowWatermark,
             IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker,
+            MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService,
             MetaStorageManagerImpl metaStorageManager
     ) {
-        MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
-
         return new CatalogCompactionRunner(
                 seedParams.nodeName(),
                 catalogManager,
