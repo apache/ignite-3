@@ -53,9 +53,12 @@ dependencies {
     implementation libs.jctools.core
     implementation libs.auto.service.annotations
     implementation libs.jna
+    implementation libs.micronaut.inject
+    implementation project(':ignite-di')
 
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     testAnnotationProcessor project(':ignite-network-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor
@@ -82,6 +85,8 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
+    testFixturesImplementation project(':ignite-di')
+    testFixturesImplementation libs.micronaut.inject
 
     integrationTestAnnotationProcessor project(':ignite-network-annotation-processor')
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')

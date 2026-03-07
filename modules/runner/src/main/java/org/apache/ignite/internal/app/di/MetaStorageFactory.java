@@ -72,12 +72,6 @@ public class MetaStorageFactory {
         );
     }
 
-    /** Creates the read operation for compaction tracker. */
-    @Singleton
-    public ReadOperationForCompactionTracker readOperationForCompactionTracker() {
-        return new ReadOperationForCompactionTracker();
-    }
-
     /** Creates the RocksDB key-value storage for metastorage. */
     @Singleton
     public RocksDbKeyValueStorage metastorageKeyValueStorage(

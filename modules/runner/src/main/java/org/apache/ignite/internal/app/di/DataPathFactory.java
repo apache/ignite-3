@@ -110,12 +110,6 @@ public class DataPathFactory {
         );
     }
 
-    /** Creates the MetaStorage revision listener registry. */
-    @Singleton
-    public MetaStorageRevisionListenerRegistry revisionListenerRegistry(MetaStorageManagerImpl metaStorageManager) {
-        return new MetaStorageRevisionListenerRegistry(metaStorageManager);
-    }
-
     /** Creates the schema safe time tracker. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
@@ -132,26 +126,6 @@ public class DataPathFactory {
     ) {
         LongSupplier delayDurationMsSupplier = () -> schemaSyncConfig.delayDurationMillis().value();
         return new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
-    }
-
-    /** Creates the schema manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2000)
-    public SchemaManager schemaManager(
-            MetaStorageRevisionListenerRegistry revisionListenerRegistry,
-            CatalogManagerImpl catalogManager
-    ) {
-        return new SchemaManager(revisionListenerRegistry, catalogManager);
-    }
-
-    /** Creates the catalog validation schemas source. */
-    @Singleton
-    public CatalogValidationSchemasSource catalogValidationSchemasSource(
-            CatalogManagerImpl catalogManager,
-            SchemaManager schemaManager
-    ) {
-        return new CatalogValidationSchemasSource(catalogManager, schemaManager);
     }
 
     /** Creates the index node finished rw transactions checker. */
@@ -295,18 +269,6 @@ public class DataPathFactory {
                 failureManager,
                 clusterService.messagingService()
         );
-    }
-
-    /** Creates the index meta storage. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(400)
-    public IndexMetaStorage indexMetaStorage(
-            CatalogManagerImpl catalogManager,
-            LowWatermarkImpl lowWatermark,
-            MetaStorageManagerImpl metaStorageManager
-    ) {
-        return new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
     }
 
     /** Creates the distribution zone manager. */

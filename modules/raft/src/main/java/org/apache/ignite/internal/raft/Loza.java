@@ -20,6 +20,9 @@ package org.apache.ignite.internal.raft;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -31,6 +34,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyConfiguration;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -78,6 +83,9 @@ import org.jetbrains.annotations.TestOnly;
  */
 // TODO: Encapsulate RaftGroupOptions and move other methods to the RaftManager interface,
 //  see https://issues.apache.org/jira/browse/IGNITE-18273
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(1800)
 public class Loza implements RaftManager {
     /** Factory. */
     public static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
@@ -156,6 +164,7 @@ public class Loza implements RaftManager {
      * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
      * @param groupStoragesContextResolver Resolver to get {@link StoragesDestructionContext}s for storage destruction.
      */
+    @Inject
     public Loza(
             ClusterService clusterNetSvc,
             MetricManager metricManager,

@@ -27,7 +27,6 @@ import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
 import org.apache.ignite.internal.di.IgniteStartupPhase;
 import org.apache.ignite.internal.di.StartupPhase;
-import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 
@@ -129,11 +127,4 @@ public class NetworkComponentsFactory {
         return new ClockWaiter(seedParams.nodeName(), clock, threadPoolsManager.commonScheduler());
     }
 
-    /** Creates the cluster ID service. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(800)
-    public ClusterIdService clusterIdService(VaultManager vaultManager) {
-        return new ClusterIdService(vaultManager);
-    }
 }

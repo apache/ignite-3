@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.system;
 
+import jakarta.inject.Singleton;
+
 /**
  * Provides CPU information based on JVM {@link Runtime} instance.
  */
+@Singleton
 public class JvmCpuInformationProvider implements CpuInformationProvider {
     @Override
     public int availableProcessors() {

@@ -21,8 +21,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -32,6 +36,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * VaultManager is responsible for handling {@link VaultService} lifecycle and providing interface for managing local keys.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(200)
 public class VaultManager implements IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
     public static final ByteArray NODE_NAME = new ByteArray("node_name");

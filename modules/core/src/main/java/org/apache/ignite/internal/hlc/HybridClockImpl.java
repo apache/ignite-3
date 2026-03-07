@@ -21,6 +21,8 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
@@ -36,6 +38,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * A Hybrid Logical Clock implementation.
  */
+@Singleton
 public class HybridClockImpl implements HybridClock {
     private final IgniteLogger log = Loggers.forClass(HybridClockImpl.class);
 
@@ -56,6 +59,7 @@ public class HybridClockImpl implements HybridClock {
         this.failureProcessor = null;
     }
 
+    @Inject
     public HybridClockImpl(FailureProcessor failureProcessor) {
         this.failureProcessor = failureProcessor;
     }

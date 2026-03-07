@@ -53,12 +53,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
  */
 @Factory
 public class CatalogFactory {
-    /** Creates the clock service metric source. */
-    @Singleton
-    public ClockServiceMetricSource clockServiceMetricSource() {
-        return new ClockServiceMetricSource();
-    }
-
     /** Creates the clock service. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
@@ -100,12 +94,6 @@ public class CatalogFactory {
                 1,
                 TimeUnit.MINUTES
         );
-    }
-
-    /** Creates the partition count calculator wrapper. */
-    @Singleton
-    public PartitionCountCalculatorWrapper partitionCountCalculatorWrapper() {
-        return new PartitionCountCalculatorWrapper();
     }
 
     /** Creates the catalog manager. UpdateLogImpl is created inline because its lifecycle is managed by CatalogManagerImpl. */

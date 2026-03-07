@@ -34,23 +34,14 @@ import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.di.IgniteStartupPhase;
 import org.apache.ignite.internal.di.StartupPhase;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
-import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
-import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /**
  * Micronaut factory for Raft infrastructure components.
@@ -64,12 +55,6 @@ public class RaftFactory {
     @Singleton
     public RaftConfiguration raftConfiguration(@Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry) {
         return nodeConfigRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
-    }
-
-    /** Creates the Raft group events client listener. */
-    @Singleton
-    public RaftGroupEventsClientListener raftGroupEventsClientListener() {
-        return new RaftGroupEventsClientListener();
     }
 
     /** Creates the partitions working directory. */
@@ -205,37 +190,4 @@ public class RaftFactory {
         );
     }
 
-    /** Creates the group storages destruction intents backed by vault. */
-    @Singleton
-    public GroupStoragesDestructionIntents groupStoragesDestructionIntents(VaultManager vaultManager) {
-        return new VaultGroupStoragesDestructionIntents(vaultManager);
-    }
-
-    /** Creates the Raft manager (Loza). */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1800)
-    public Loza loza(
-            ClusterService clusterService,
-            MetricManager metricManager,
-            RaftConfiguration raftConfiguration,
-            SystemLocalConfiguration systemConfiguration,
-            HybridClock clock,
-            RaftGroupEventsClientListener raftGroupEventsClientListener,
-            FailureManager failureManager,
-            GroupStoragesDestructionIntents groupStoragesDestructionIntents,
-            GroupStoragesContextResolver groupStoragesContextResolver
-    ) {
-        return new Loza(
-                clusterService,
-                metricManager,
-                raftConfiguration,
-                systemConfiguration,
-                clock,
-                raftGroupEventsClientListener,
-                failureManager,
-                groupStoragesDestructionIntents,
-                groupStoragesContextResolver
-        );
-    }
 }

@@ -31,9 +31,12 @@ dependencies {
     implementation project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
+    implementation libs.micronaut.inject
+    implementation project(':ignite-di')
 
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-configuration')

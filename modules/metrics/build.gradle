@@ -31,6 +31,7 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
+    implementation libs.micronaut.inject
 
     annotationProcessor libs.auto.service
 
@@ -51,6 +52,7 @@ dependencies {
     integrationTestImplementation libs.auto.service.annotations
 
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation libs.micronaut.inject
 }
 
 description = 'ignite-metrics'

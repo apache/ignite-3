@@ -23,6 +23,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -77,6 +79,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Additionally limits the lock map size.
  */
+@Singleton
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
     /** Table size. */
     public static final int DEFAULT_SLOTS = 1_048_576;
@@ -124,6 +127,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     /** Constructor. */
+    @Inject
     public HeapLockManager(SystemLocalConfiguration systemProperties, VolatileTxStateMetaStorage txStateVolatileStorage) {
         this(intProperty(systemProperties, LOCK_MAP_SIZE_PROPERTY_NAME, DEFAULT_SLOTS), txStateVolatileStorage);
     }

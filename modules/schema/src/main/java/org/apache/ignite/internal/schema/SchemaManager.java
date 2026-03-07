@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +41,8 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -52,6 +56,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * This class services management of table schemas.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2000)
 public class SchemaManager implements IgniteComponent {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();

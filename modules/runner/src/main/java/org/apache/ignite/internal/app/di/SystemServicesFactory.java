@@ -22,8 +22,6 @@ import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.app.LowWatermarkRectifier;
-import org.apache.ignite.internal.app.SystemPropertiesComponent;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
@@ -58,8 +56,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.system.CpuInformationProvider;
-import org.apache.ignite.internal.system.JvmCpuInformationProvider;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -102,13 +98,6 @@ public class SystemServicesFactory {
     ) {
         return new SystemViewManagerImpl(seedParams.nodeName(), catalogManager, failureManager);
     }
-
-    /** Creates the CPU information provider. */
-    @Singleton
-    public CpuInformationProvider cpuInformationProvider() {
-        return new JvmCpuInformationProvider();
-    }
-
 
     /** Creates the system disaster recovery manager. */
     @Singleton
@@ -250,27 +239,6 @@ public class SystemServicesFactory {
                 failureManager,
                 metricManager
         );
-    }
-
-    /** Creates the system properties component. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(3200)
-    public SystemPropertiesComponent systemPropertiesComponent(
-            SystemDistributedConfiguration systemDistributedConfiguration
-    ) {
-        return new SystemPropertiesComponent(systemDistributedConfiguration);
-    }
-
-    /** Creates the low watermark rectifier. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(200)
-    public LowWatermarkRectifier lowWatermarkRectifier(
-            LowWatermarkImpl lowWatermark,
-            CatalogManagerImpl catalogManager
-    ) {
-        return new LowWatermarkRectifier(lowWatermark, catalogManager);
     }
 
     /** Creates the disaster recovery manager. */

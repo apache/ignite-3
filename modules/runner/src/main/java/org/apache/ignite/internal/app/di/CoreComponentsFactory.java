@@ -20,18 +20,12 @@ package org.apache.ignite.internal.app.di;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.di.IgniteStartupPhase;
 import org.apache.ignite.internal.di.StartupPhase;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.VaultService;
 
 /**
  * Micronaut factory for leaf Ignite components that have few or no dependencies on other components.
@@ -44,14 +38,6 @@ public class CoreComponentsFactory {
     @Order(100)
     public LongJvmPauseDetector longJvmPauseDetector(NodeSeedParams seedParams) {
         return new LongJvmPauseDetector(seedParams.nodeName());
-    }
-
-    /** Creates the vault manager backed by persistent storage. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(200)
-    public VaultManager vaultManager(VaultService vaultService) {
-        return new VaultManager(vaultService);
     }
 
     /**
@@ -74,17 +60,4 @@ public class CoreComponentsFactory {
         return new ThreadPoolsManager(seedParams.nodeName(), metricManager);
     }
 
-    /** Creates the hybrid logical clock. */
-    @Singleton
-    public HybridClock hybridClock(FailureProcessor failureProcessor) {
-        return new HybridClockImpl(failureProcessor);
-    }
-
-    /** Creates the node properties component. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(300)
-    public NodePropertiesImpl nodeProperties(VaultManager vaultManager) {
-        return new NodePropertiesImpl(vaultManager);
-    }
 }

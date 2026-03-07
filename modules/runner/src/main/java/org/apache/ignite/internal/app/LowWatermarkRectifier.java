@@ -20,8 +20,12 @@ package org.apache.ignite.internal.app;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -31,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Component that rectifies the low watermark on node startup if it is lower than the earliest catalog timestamp.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(200)
 public class LowWatermarkRectifier implements IgniteComponent {
     private final LowWatermark lowWatermark;
     private final CatalogService catalogService;

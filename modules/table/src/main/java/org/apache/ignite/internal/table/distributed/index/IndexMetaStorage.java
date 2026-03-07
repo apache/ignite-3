@@ -45,6 +45,8 @@ import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -69,6 +71,8 @@ import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -111,6 +115,9 @@ import org.jetbrains.annotations.Nullable;
  *     less than or equal to the active catalog version for the new watermark.</li>
  * </ul>
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(400)
 public class IndexMetaStorage implements IgniteComponent {
     private static final String INDEX_META_VERSION_KEY_PREFIX = "index.meta.version.";
 

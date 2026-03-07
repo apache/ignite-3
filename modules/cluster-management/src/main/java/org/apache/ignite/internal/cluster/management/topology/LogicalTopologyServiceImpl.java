@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
+import jakarta.inject.Singleton;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.network.InternalClusterNode;
 /**
  * {@link LogicalTopologyService} implementation.
  */
+@Singleton
 public class LogicalTopologyServiceImpl implements LogicalTopologyService {
     private final LogicalTopology logicalTopology;
 

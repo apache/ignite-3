@@ -23,12 +23,15 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 description = 'ignite-core'
 
 dependencies {
+    annotationProcessor libs.micronaut.inject.annotation.processor
+
     compileOnly libs.spotbugs.annotations
 
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
     implementation project(':ignite-api')
+    implementation libs.micronaut.inject
 
     testAnnotationProcessor libs.auto.service
     testAnnotationProcessor libs.jmh.annotation.processor
@@ -46,6 +49,7 @@ dependencies {
     testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.junit.testkit
     testFixturesImplementation libs.awaitility
+    testFixturesImplementation libs.micronaut.inject
 }
 
 test {

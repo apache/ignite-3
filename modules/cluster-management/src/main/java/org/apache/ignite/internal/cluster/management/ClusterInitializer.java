@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -55,6 +57,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class for performing cluster initialization.
  */
+@Singleton
 public class ClusterInitializer {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterInitializer.class);
 
@@ -72,7 +75,7 @@ public class ClusterInitializer {
     public ClusterInitializer(
             ClusterService clusterService,
             ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
-            ConfigurationValidator clusterConfigurationValidator
+            @Named("distributed") ConfigurationValidator clusterConfigurationValidator
     ) {
         this.clusterService = clusterService;
         this.configurationDynamicDefaultsPatcher = configurationDynamicDefaultsPatcher;

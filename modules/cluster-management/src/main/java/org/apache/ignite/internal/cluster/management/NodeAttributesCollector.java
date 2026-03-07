@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileView;
  * This class is responsible for retrieving local node attributes
  * from system components before the local node joins the cluster.
  */
+@Singleton
 public class NodeAttributesCollector implements NodeAttributes {
     private final List<NodeAttributesProvider> systemAttributesProviders = new ArrayList<>();
 

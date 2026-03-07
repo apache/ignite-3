@@ -42,7 +42,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -61,17 +60,6 @@ public class ClientHandlerFactory {
             @Named("clusterConfig") ConfigurationRegistry clusterConfigRegistry
     ) {
         return clusterConfigRegistry.getConfiguration(SecurityExtensionConfiguration.KEY).security();
-    }
-
-    /** Creates the authentication manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2850)
-    public AuthenticationManager authenticationManager(
-            SecurityConfiguration securityConfiguration,
-            EventLogImpl eventLog
-    ) {
-        return new AuthenticationManagerImpl(securityConfiguration, eventLog);
     }
 
     /** Creates the client connector configuration from the node config registry. */

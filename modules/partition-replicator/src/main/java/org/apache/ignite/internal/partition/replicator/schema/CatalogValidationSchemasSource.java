@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partition.replicator.schema;
 
 import static java.util.stream.Collectors.toList;
 
+import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 /**
  * An implementation over {@link CatalogService}.
  */
+@Singleton
 public class CatalogValidationSchemasSource implements ValidationSchemasSource {
     private final CatalogService catalogService;
 

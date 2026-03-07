@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.security.authentication.AuthenticationUtils.findBasicProviderName;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -30,6 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
@@ -55,6 +59,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link Authenticator}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2850)
 public class AuthenticationManagerImpl
         extends AbstractEventProducer<AuthenticationEvent, AuthenticationEventParameters>
         implements AuthenticationManager {

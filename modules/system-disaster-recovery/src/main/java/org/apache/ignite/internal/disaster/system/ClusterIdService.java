@@ -19,10 +19,14 @@ package org.apache.ignite.internal.disaster.system;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterIdStore;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -35,6 +39,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>This MUST be started after the Vault, but before networking.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(800)
 public class ClusterIdService implements ClusterIdSupplier, ClusterIdStore, IgniteComponent {
     private final SystemDisasterRecoveryStorage storage;
 

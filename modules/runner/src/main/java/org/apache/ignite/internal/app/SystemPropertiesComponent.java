@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.app;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
+import org.apache.ignite.internal.di.IgniteStartupPhase;
+import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
@@ -28,6 +32,9 @@ import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 /**
  * System properties initialization.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(3200)
 public class SystemPropertiesComponent implements IgniteComponent {
 
     /**

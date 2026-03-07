@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import jakarta.inject.Singleton;
 import org.apache.ignite.internal.causality.RevisionListener;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
 /** Implementation based on {@link MetaStorageManager}. */
+@Singleton
 public class MetaStorageRevisionListenerRegistry implements RevisionListenerRegistry {
     private final MetaStorageManager metaStorageManager;
 

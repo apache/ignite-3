@@ -46,6 +46,7 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
+    implementation libs.micronaut.inject
 
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
@@ -74,6 +75,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation testFixtures(project(':ignite-raft'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
+    testFixturesImplementation libs.micronaut.inject
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestImplementation project(':ignite-rest')

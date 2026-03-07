@@ -31,7 +31,6 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageMan
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -127,31 +126,6 @@ public class ClusterManagementFactory {
         return new RocksDbClusterStateStorage(cmgWorkDir.dbPath(), seedParams.nodeName());
     }
 
-    /** Creates the cluster state storage manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(710)
-    public ClusterStateStorageManager clusterStateStorageManager(RocksDbClusterStateStorage clusterStateStorage) {
-        return new ClusterStateStorageManager(clusterStateStorage);
-    }
-
-    /** Creates the logical topology implementation. */
-    @Singleton
-    public LogicalTopologyImpl logicalTopology(RocksDbClusterStateStorage clusterStateStorage, FailureManager failureManager) {
-        return new LogicalTopologyImpl(clusterStateStorage, failureManager);
-    }
-
-    /** Creates the validation manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(720)
-    public ValidationManager validationManager(
-            ClusterStateStorageManager clusterStateStorageManager,
-            LogicalTopologyImpl logicalTopology
-    ) {
-        return new ValidationManager(clusterStateStorageManager, logicalTopology);
-    }
-
     /** Creates the distributed configuration tree generator. */
     @Singleton
     @Named("distributed")
@@ -180,33 +154,6 @@ public class ClusterManagementFactory {
             @Named("distributed") ConfigurationTreeGenerator generator
     ) {
         return new ConfigurationDynamicDefaultsPatcherImpl(modules.distributed(), generator);
-    }
-
-    /** Creates the cluster initializer. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1310)
-    public ClusterInitializer clusterInitializer(
-            ClusterService clusterService,
-            ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
-            @Named("distributed") ConfigurationValidator distributedCfgValidator
-    ) {
-        return new ClusterInitializer(clusterService, configurationDynamicDefaultsPatcher, distributedCfgValidator);
-    }
-
-    /** Creates the node attributes collector. */
-    @Singleton
-    public NodeAttributesCollector nodeAttributesCollector(
-            NodeAttributesConfiguration nodeAttributesConfiguration,
-            StorageConfiguration storageConfiguration
-    ) {
-        return new NodeAttributesCollector(nodeAttributesConfiguration, storageConfiguration);
-    }
-
-    /** Creates the system disaster recovery storage. */
-    @Singleton
-    public SystemDisasterRecoveryStorage systemDisasterRecoveryStorage(VaultManager vaultManager) {
-        return new SystemDisasterRecoveryStorage(vaultManager);
     }
 
     /** Creates the cluster management group manager. */
@@ -245,14 +192,4 @@ public class ClusterManagementFactory {
         );
     }
 
-    /** Creates the logical topology service. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1910)
-    public LogicalTopologyServiceImpl logicalTopologyService(
-            LogicalTopologyImpl logicalTopology,
-            ClusterManagementGroupManager cmgManager
-    ) {
-        return new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-    }
 }

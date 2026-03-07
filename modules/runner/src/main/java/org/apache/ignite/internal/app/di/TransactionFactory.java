@@ -26,7 +26,6 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
-import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.di.IgniteStartupPhase;
 import org.apache.ignite.internal.di.StartupPhase;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -115,12 +113,6 @@ public class TransactionFactory {
         );
     }
 
-    /** Creates the volatile transaction state meta storage. */
-    @Singleton
-    public VolatileTxStateMetaStorage volatileTxStateMetaStorage() {
-        return new VolatileTxStateMetaStorage();
-    }
-
     /** Creates the transaction inflights tracker. */
     @Singleton
     public TransactionInflights transactionInflights(
@@ -135,27 +127,10 @@ public class TransactionFactory {
         );
     }
 
-    /** Creates the lock manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1650)
-    public LockManager lockManager(
-            SystemLocalConfiguration systemConfiguration,
-            VolatileTxStateMetaStorage txStateVolatileStorage
-    ) {
-        return new HeapLockManager(systemConfiguration, txStateVolatileStorage);
-    }
-
     /** Creates the transaction ID generator. */
     @Singleton
     public TransactionIdGenerator transactionIdGenerator(ClusterService clusterService) {
         return new TransactionIdGenerator(() -> clusterService.nodeName().hashCode());
-    }
-
-    /** Creates the remotely triggered resource registry. */
-    @Singleton
-    public RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry() {
-        return new RemotelyTriggeredResourceRegistry();
     }
 
     /** Creates the transaction manager. */
