@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Configuration schema for {@link ConfigurationExtensionTest#notifications()}.
+ * Configuration schema with validation annotations, used by {@link ConfigurationExtensionTest}.
  */
-@ConfigurationRoot(rootName = "basic")
-public class BasicConfigurationSchema {
+@Config
+public class ValidatedConfigurationSchema {
+    @Range(min = 1, max = 100)
     @Value(hasDefault = true)
-    public int visible = 1;
+    public int rangeValue = 50;
+
+    @Immutable
+    @Value(hasDefault = true)
+    public String constValue = "constant";
 }
