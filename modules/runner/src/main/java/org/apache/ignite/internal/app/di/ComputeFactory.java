@@ -71,15 +71,6 @@ public class ComputeFactory {
         return nodeConfigRegistry.getConfiguration(DeploymentExtensionConfiguration.KEY).deployment();
     }
 
-    /** Creates the in-memory compute state machine. */
-    @Singleton
-    public InMemoryComputeStateMachine inMemoryComputeStateMachine(
-            ComputeConfiguration computeConfiguration,
-            NodeSeedParams seedParams
-    ) {
-        return new InMemoryComputeStateMachine(computeConfiguration, seedParams.nodeName());
-    }
-
     /** Creates the compute executor. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
