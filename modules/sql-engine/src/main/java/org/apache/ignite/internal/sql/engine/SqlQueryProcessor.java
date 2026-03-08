@@ -27,6 +27,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +43,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -128,6 +134,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2800)
 public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private static final int PARSED_RESULT_CACHE_SIZE = 10_000;
@@ -210,6 +219,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     private final SqlExpressionFactory expressionFactory;
 
     /** Constructor. */
+    @Inject
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
             LogicalTopologyService logicalTopologyService,
@@ -228,7 +238,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             TransactionInflights transactionInflights,
             TxManager txManager,
             LowWatermark lowWaterMark,
-            ScheduledExecutorService commonScheduler,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             KillCommandHandler killCommandHandler,
             EventLog eventLog
     ) {

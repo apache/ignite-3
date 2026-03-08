@@ -18,35 +18,13 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
-import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import java.util.concurrent.ScheduledExecutorService;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.eventlog.api.EventLog;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
-import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 
 /**
  * Micronaut factory for SQL engine components.
@@ -67,56 +45,6 @@ public class SqlFactory {
             @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry
     ) {
         return nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql();
-    }
-
-    /** Creates the SQL query processor. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2800)
-    public SqlQueryProcessor sqlQueryProcessor(
-            ClusterService clusterService,
-            LogicalTopologyService logicalTopologyService,
-            TableManager tableManager,
-            SchemaManager schemaManager,
-            ReplicaService replicaService,
-            ClockService clockService,
-            SchemaSyncService schemaSyncService,
-            CatalogManager catalogManager,
-            MetricManager metricManager,
-            SystemViewManager systemViewManager,
-            FailureManager failureManager,
-            PlacementDriver placementDriver,
-            SqlDistributedConfiguration sqlDistributedConfiguration,
-            SqlLocalConfiguration sqlLocalConfiguration,
-            TransactionInflights transactionInflights,
-            TxManager txManager,
-            LowWatermark lowWatermark,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
-            KillCommandHandler killCommandHandler,
-            EventLog eventLog
-    ) {
-        return new SqlQueryProcessor(
-                clusterService,
-                logicalTopologyService,
-                tableManager,
-                schemaManager,
-                replicaService,
-                clockService,
-                schemaSyncService,
-                catalogManager,
-                metricManager,
-                systemViewManager,
-                failureManager,
-                placementDriver,
-                sqlDistributedConfiguration,
-                sqlLocalConfiguration,
-                transactionInflights,
-                txManager,
-                lowWatermark,
-                commonScheduler,
-                killCommandHandler,
-                eventLog
-        );
     }
 
 }

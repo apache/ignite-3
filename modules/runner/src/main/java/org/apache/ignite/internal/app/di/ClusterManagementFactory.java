@@ -22,15 +22,9 @@ import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
-import org.apache.ignite.internal.cluster.management.ClusterInitializer;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
-import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
-import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
@@ -42,7 +36,6 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
-import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
@@ -56,11 +49,8 @@ import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
-import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
-import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 
@@ -170,42 +160,6 @@ public class ClusterManagementFactory {
             @Named("distributed") ConfigurationTreeGenerator generator
     ) {
         return new ConfigurationDynamicDefaultsPatcherImpl(modules.distributed(), generator);
-    }
-
-    /** Creates the cluster management group manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1900)
-    public ClusterManagementGroupManager clusterManagementGroupManager(
-            VaultManager vaultManager,
-            SystemDisasterRecoveryStorage systemDisasterRecoveryStorage,
-            ClusterService clusterService,
-            ClusterInitializer clusterInitializer,
-            RaftManager raftManager,
-            ClusterStateStorageManager clusterStateStorageManager,
-            LogicalTopology logicalTopology,
-            ValidationManager validationManager,
-            NodeAttributes nodeAttributes,
-            FailureManager failureManager,
-            ClusterIdService clusterIdService,
-            @Named("cmg") RaftGroupOptionsConfigurer cmgRaftConfigurer,
-            MetricManager metricManager
-    ) {
-        return new ClusterManagementGroupManager(
-                vaultManager,
-                systemDisasterRecoveryStorage,
-                clusterService,
-                clusterInitializer,
-                raftManager,
-                clusterStateStorageManager,
-                logicalTopology,
-                validationManager,
-                nodeAttributes,
-                failureManager,
-                clusterIdService,
-                cmgRaftConfigurer,
-                metricManager
-        );
     }
 
 }

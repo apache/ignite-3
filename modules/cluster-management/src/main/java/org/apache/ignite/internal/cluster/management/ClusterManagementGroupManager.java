@@ -31,6 +31,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.failOrConsume;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Rest.CLUSTER_NOT_INIT_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -71,6 +75,8 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyComm
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -115,6 +121,9 @@ import org.jetbrains.annotations.TestOnly;
  * <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
  * for the description of the Cluster Management Group and its responsibilities.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(1900)
 public class ClusterManagementGroupManager extends AbstractEventProducer<ClusterManagerGroupEvent, EventParameters>
         implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterManagementGroupManager.class);
@@ -193,6 +202,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private final Consumer<RaftGroupConfiguration> onConfigurationCommittedListener;
 
     /** Constructor. */
+    @Inject
     public ClusterManagementGroupManager(
             VaultManager vault,
             ClusterResetStorage clusterResetStorage,
@@ -205,7 +215,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
-            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            @Named("cmg") RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             MetricManager metricManager
     ) {
         this(
