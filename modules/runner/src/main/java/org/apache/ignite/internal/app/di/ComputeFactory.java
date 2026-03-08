@@ -29,8 +29,6 @@ import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
-import org.apache.ignite.internal.compute.IgniteComputeImpl;
-import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.configuration.ComputeExtensionConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
@@ -44,14 +42,11 @@ import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.table.distributed.TableManager;
 
 /**
  * Micronaut factory for compute and deployment components.
@@ -153,27 +148,4 @@ public class ComputeFactory {
         );
     }
 
-    /** Creates the internal compute implementation. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1300)
-    public IgniteComputeInternal igniteCompute(
-            NodeIdentity nodeIdentity,
-            PlacementDriver placementDriver,
-            TopologyService topologyService,
-            TableManager tableManager,
-            ComputeComponentImpl computeComponent,
-            HybridClock clock,
-            HybridTimestampTracker observableTimestampTracker
-    ) {
-        return new IgniteComputeImpl(
-                nodeIdentity.nodeName(),
-                placementDriver,
-                topologyService,
-                tableManager,
-                computeComponent,
-                clock,
-                observableTimestampTracker
-        );
-    }
 }

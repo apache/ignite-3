@@ -27,6 +27,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -63,6 +66,9 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadata.Type;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
@@ -99,6 +105,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link IgniteCompute}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1300)
 public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceiverRunner {
     private final String nodeName;
 
@@ -113,6 +122,20 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     private final HybridClock clock;
 
     private final HybridTimestampTracker observableTimestampTracker;
+
+    /** Constructor for DI. */
+    @Inject
+    public IgniteComputeImpl(
+            NodeIdentity nodeIdentity,
+            PlacementDriver placementDriver,
+            TopologyService topologyService,
+            IgniteTablesInternal tables,
+            ComputeComponent computeComponent,
+            HybridClock clock,
+            HybridTimestampTracker observableTimestampTracker
+    ) {
+        this(nodeIdentity.nodeName(), placementDriver, topologyService, tables, computeComponent, clock, observableTimestampTracker);
+    }
 
     /**
      * Create new instance.
