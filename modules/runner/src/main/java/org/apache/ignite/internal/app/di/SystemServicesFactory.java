@@ -51,7 +51,7 @@ import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
@@ -145,7 +145,7 @@ public class SystemServicesFactory {
             @Named("clusterMessaging") MessagingService clusterMessagingService,
             TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             ReplicaService replicaService,
             ClockServiceImpl clockService,
             SchemaSyncServiceImpl schemaSyncService,
@@ -159,7 +159,7 @@ public class SystemServicesFactory {
                 catalogManager,
                 clusterMessagingService,
                 logicalTopologyService,
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 replicaService,
                 clockService,
                 schemaSyncService,

@@ -38,7 +38,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -119,12 +119,12 @@ public class TransactionFactory {
     /** Creates the transaction inflights tracker. */
     @Singleton
     public TransactionInflights transactionInflights(
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             ClockServiceImpl clockService,
             VolatileTxStateMetaStorage txStateVolatileStorage
     ) {
         return new TransactionInflights(
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 clockService,
                 txStateVolatileStorage
         );
@@ -151,7 +151,7 @@ public class TransactionFactory {
             VolatileTxStateMetaStorage txStateVolatileStorage,
             ClockServiceImpl clockService,
             TransactionIdGenerator transactionIdGenerator,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             ReplicationConfiguration replicationConfiguration,
             IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
@@ -173,7 +173,7 @@ public class TransactionFactory {
                 txStateVolatileStorage,
                 clockService,
                 transactionIdGenerator,
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 () -> replicationConfiguration.idleSafeTimePropagationDurationMillis().value(),
                 indexNodeFinishedRwTransactionsChecker,
                 partitionOperationsExecutor,

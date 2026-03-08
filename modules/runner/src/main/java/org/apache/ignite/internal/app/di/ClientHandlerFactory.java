@@ -40,7 +40,7 @@ import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
@@ -95,7 +95,7 @@ public class ClientHandlerFactory {
             ClockServiceImpl clockService,
             SchemaSyncServiceImpl schemaSyncService,
             CatalogManagerImpl catalogManager,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             EventLogImpl eventLog,
             LowWatermarkImpl lowWatermark,
@@ -116,7 +116,7 @@ public class ClientHandlerFactory {
                 clockService,
                 schemaSyncService,
                 catalogManager,
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 clientConnectorConfiguration,
                 eventLog,
                 lowWatermark,

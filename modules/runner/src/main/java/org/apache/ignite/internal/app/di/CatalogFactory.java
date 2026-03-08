@@ -43,6 +43,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.sources.ClockServiceMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -154,6 +155,12 @@ public class CatalogFactory {
                 metricManager,
                 zoneId -> distributionZoneManagerProvider.get().currentDataNodes(zoneId)
         );
+    }
+
+    /** Exposes the placement driver as a bean. */
+    @Singleton
+    public PlacementDriver placementDriver(PlacementDriverManager placementDriverManager) {
+        return placementDriverManager.placementDriver();
     }
 }
 

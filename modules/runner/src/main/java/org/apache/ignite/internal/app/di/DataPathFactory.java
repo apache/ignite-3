@@ -61,7 +61,7 @@ import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycle
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -158,7 +158,7 @@ public class DataPathFactory {
             ClusterManagementGroupManager cmgManager,
             MetaStorageManagerImpl metaStorageManager,
             ClockServiceImpl clockService,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             FailureManager failureManager,
@@ -182,7 +182,7 @@ public class DataPathFactory {
                         PartitionReplicationMessageGroup.class,
                         TxMessageGroup.class
                 ),
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 partitionOperationsExecutor,
                 () -> replicationConfiguration.idleSafeTimePropagationDurationMillis().value(),
                 failureManager,
@@ -321,7 +321,7 @@ public class DataPathFactory {
             @Named("rebalanceScheduler") ScheduledExecutorService rebalanceScheduler,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ClockServiceImpl clockService,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             SchemaSyncServiceImpl schemaSyncService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxStateRocksDbSharedStorage sharedTxStateStorage,
@@ -345,7 +345,7 @@ public class DataPathFactory {
                 rebalanceScheduler,
                 partitionOperationsExecutor,
                 clockService,
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 schemaSyncService,
                 systemDistributedConfiguration,
                 sharedTxStateStorage,
@@ -391,7 +391,7 @@ public class DataPathFactory {
             CatalogManagerImpl catalogManager,
             FailureManager failureManager,
             HybridTimestampTracker observableTimestampTracker,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             Provider<IgniteSql> sqlProvider,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             LowWatermarkImpl lowWatermark,
@@ -425,7 +425,7 @@ public class DataPathFactory {
                 catalogManager,
                 failureManager,
                 observableTimestampTracker,
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 sqlProvider::get,
                 resourcesRegistry,
                 lowWatermark,
@@ -481,7 +481,7 @@ public class DataPathFactory {
             MetaStorageManagerImpl metaStorageManager,
             IndexManager indexManager,
             IndexMetaStorage indexMetaStorage,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
             ClockServiceImpl clockService,
@@ -498,7 +498,7 @@ public class DataPathFactory {
                 metaStorageManager,
                 indexManager,
                 indexMetaStorage,
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 clusterService,
                 logicalTopologyService,
                 clockService,

@@ -49,7 +49,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.TableManager;
 
 /**
@@ -158,7 +158,7 @@ public class ComputeFactory {
     @Order(1300)
     public IgniteComputeInternal igniteCompute(
             NodeSeedParams seedParams,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             TopologyService topologyService,
             TableManager tableManager,
             ComputeComponentImpl computeComponent,
@@ -167,7 +167,7 @@ public class ComputeFactory {
     ) {
         return new IgniteComputeImpl(
                 seedParams.nodeName(),
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 topologyService,
                 tableManager,
                 computeComponent,

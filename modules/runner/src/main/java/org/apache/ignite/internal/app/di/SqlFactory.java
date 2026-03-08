@@ -35,7 +35,7 @@ import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -98,7 +98,7 @@ public class SqlFactory {
             MetricManager metricManager,
             SystemViewManagerImpl systemViewManager,
             FailureManager failureManager,
-            PlacementDriverManager placementDriverManager,
+            PlacementDriver placementDriver,
             SqlDistributedConfiguration sqlDistributedConfiguration,
             SqlLocalConfiguration sqlLocalConfiguration,
             TransactionInflights transactionInflights,
@@ -120,7 +120,7 @@ public class SqlFactory {
                 metricManager,
                 systemViewManager,
                 failureManager,
-                placementDriverManager.placementDriver(),
+                placementDriver,
                 sqlDistributedConfiguration,
                 sqlLocalConfiguration,
                 transactionInflights,
