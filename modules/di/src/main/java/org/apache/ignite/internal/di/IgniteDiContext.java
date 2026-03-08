@@ -59,6 +59,8 @@ public final class IgniteDiContext {
 
         private final List<String> excludedPackages = new ArrayList<>();
 
+        private final List<String> includedPackages = new ArrayList<>();
+
         /**
          * Registers a seed singleton that will be available for injection in the context.
          *
@@ -97,6 +99,18 @@ public final class IgniteDiContext {
         }
 
         /**
+         * Restricts bean discovery to only the specified packages. Bean definitions whose generated class name
+         * does not start with any of the given package prefixes will not be loaded into the context.
+         *
+         * @param packagePrefixes Package prefixes to include (e.g., {@code "org.apache.ignite.internal.di"}).
+         * @return This builder for chaining.
+         */
+        public Builder withIncludedPackages(String... packagePrefixes) {
+            Collections.addAll(includedPackages, packagePrefixes);
+            return this;
+        }
+
+        /**
          * Builds and starts the Micronaut {@link ApplicationContext}.
          *
          * @return The started application context.
@@ -114,15 +128,16 @@ public final class IgniteDiContext {
                 contextBuilder.singletons(singletons.toArray());
             }
 
-            if (excludedPackages.isEmpty()) {
+            if (excludedPackages.isEmpty() && includedPackages.isEmpty()) {
                 return contextBuilder.start();
             }
 
-            // Build the context manually so we can override bean discovery to exclude
+            // Build the context manually so we can override bean discovery to filter
             // unwanted packages (e.g., REST module beans that conflict with core DI beans).
             // We replicate the singleton registration that ApplicationContextBuilder.build() does,
             // because DefaultApplicationContext(configuration) doesn't auto-register them.
             List<String> excluded = List.copyOf(excludedPackages);
+            List<String> included = List.copyOf(includedPackages);
 
             @SuppressWarnings("rawtypes")
             ApplicationContext context = new DefaultApplicationContext((ApplicationContextConfiguration) contextBuilder) {
@@ -137,6 +152,15 @@ public final class IgniteDiContext {
                             if (name.startsWith(pkg + ".")) {
                                 return true;
                             }
+                        }
+
+                        if (!included.isEmpty() && name.startsWith("org.apache.ignite.")) {
+                            for (String pkg : included) {
+                                if (name.startsWith(pkg + ".")) {
+                                    return false;
+                                }
+                            }
+                            return true;
                         }
 
                         return false;

@@ -56,7 +56,9 @@ public class IgniteComponentLifecycleManagerTest {
 
     @Test
     void componentsGroupedByPhase() {
-        appContext = ApplicationContext.builder().start();
+        appContext = IgniteDiContext.builder()
+                .withIncludedPackages("org.apache.ignite.internal.di")
+                .build();
 
         IgniteComponentLifecycleManager manager = new IgniteComponentLifecycleManager(appContext);
 
@@ -67,7 +69,9 @@ public class IgniteComponentLifecycleManagerTest {
 
     @Test
     void startPhaseStartsComponentsAndTracksOrder() {
-        appContext = ApplicationContext.builder().start();
+        appContext = IgniteDiContext.builder()
+                .withIncludedPackages("org.apache.ignite.internal.di")
+                .build();
 
         IgniteComponentLifecycleManager manager = new IgniteComponentLifecycleManager(appContext);
 
@@ -87,9 +91,11 @@ public class IgniteComponentLifecycleManagerTest {
         TrackingComponentA compA = new TrackingComponentA();
         TrackingComponentB compB = new TrackingComponentB();
 
-        appContext = ApplicationContext.builder()
-                .singletons(compA, compB)
-                .start();
+        appContext = IgniteDiContext.builder()
+                .withSingleton(compA)
+                .withSingleton(compB)
+                .withIncludedPackages("org.apache.ignite.internal.di")
+                .build();
 
         IgniteComponentLifecycleManager manager = new IgniteComponentLifecycleManager(appContext);
 
@@ -146,7 +152,9 @@ public class IgniteComponentLifecycleManagerTest {
 
     @Test
     void multiPhaseStartAndStop() {
-        appContext = ApplicationContext.builder().start();
+        appContext = IgniteDiContext.builder()
+                .withIncludedPackages("org.apache.ignite.internal.di")
+                .build();
 
         IgniteComponentLifecycleManager manager = new IgniteComponentLifecycleManager(appContext);
 
