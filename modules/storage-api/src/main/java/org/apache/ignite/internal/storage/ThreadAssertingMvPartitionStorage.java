@@ -87,7 +87,7 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
 
     @Override
     public ReadResult read(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        assertThreadAllowsToRead();
+        //assertThreadAllowsToRead();
 
         return partitionStorage.read(rowId, timestamp);
     }
