@@ -116,20 +116,6 @@ public class TransactionFactory {
         );
     }
 
-    /** Creates the transaction inflights tracker. */
-    @Singleton
-    public TransactionInflights transactionInflights(
-            PlacementDriver placementDriver,
-            ClockServiceImpl clockService,
-            VolatileTxStateMetaStorage txStateVolatileStorage
-    ) {
-        return new TransactionInflights(
-                placementDriver,
-                clockService,
-                txStateVolatileStorage
-        );
-    }
-
     /** Creates the transaction ID generator. */
     @Singleton
     public TransactionIdGenerator transactionIdGenerator(ClusterService clusterService) {

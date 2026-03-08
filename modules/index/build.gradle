@@ -23,6 +23,7 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 dependencies {
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-api')
     implementation project(':ignite-catalog')
@@ -43,6 +44,7 @@ dependencies {
     implementation project(':ignite-partition-distribution')
     implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
+    implementation libs.micronaut.inject
 
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-core'))

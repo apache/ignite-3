@@ -31,7 +31,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessageGroup;
@@ -52,6 +58,8 @@ import org.jetbrains.annotations.Nullable;
  * Local node RW transaction completion checker for indexes. Main task is to handle the
  * {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
 public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, ActiveLocalTxMinimumRequiredTimeProvider,
         IgniteComponent {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
@@ -71,6 +79,16 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /** Constructor for dependency injection. */
+    @Inject
+    public IndexNodeFinishedRwTransactionsChecker(
+            CatalogManagerImpl catalogManager,
+            @Named("clusterMessaging") MessagingService messagingService,
+            HybridClock clock
+    ) {
+        this((CatalogService) catalogManager, messagingService, clock);
+    }
 
     /** Constructor. */
     public IndexNodeFinishedRwTransactionsChecker(

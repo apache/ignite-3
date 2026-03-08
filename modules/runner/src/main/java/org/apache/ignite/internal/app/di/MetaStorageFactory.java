@@ -25,7 +25,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
@@ -91,20 +89,6 @@ public class MetaStorageFactory {
         );
     }
 
-    /** Creates the metastorage repair implementation. */
-    @Singleton
-    public MetastorageRepairImpl metastorageRepair(
-            @Named("clusterMessaging") MessagingService clusterMessagingService,
-            LogicalTopologyImpl logicalTopology,
-            ClusterManagementGroupManager cmgManager
-    ) {
-        return new MetastorageRepairImpl(
-                clusterMessagingService,
-                logicalTopology,
-                cmgManager
-        );
-    }
-
     /** Creates the MetaStorage manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
@@ -141,15 +125,6 @@ public class MetaStorageFactory {
                 tableIoExecutor,
                 failureManager
         );
-    }
-
-    /** Creates the distributed configuration storage backed by MetaStorage. */
-    @Singleton
-    public DistributedConfigurationStorage distributedConfigurationStorage(
-            NodeSeedParams seedParams,
-            MetaStorageManagerImpl metaStorageManager
-    ) {
-        return new DistributedConfigurationStorage(seedParams.nodeName(), metaStorageManager);
     }
 
     /** Creates the cluster (distributed) configuration registry. */

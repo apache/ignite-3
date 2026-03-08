@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,6 +52,7 @@ import org.jetbrains.annotations.TestOnly;
  * Read-only transactions can't be included into {@link org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage} when
  * some requests are in-flight.
  */
+@Singleton
 public class TransactionInflights {
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
@@ -70,6 +73,7 @@ public class TransactionInflights {
      * @param clockService Clock service.
      * @param txStateVolatileStorage Volatile transaction meta storage.
      */
+    @Inject
     public TransactionInflights(
             PlacementDriver placementDriver,
             ClockService clockService,
