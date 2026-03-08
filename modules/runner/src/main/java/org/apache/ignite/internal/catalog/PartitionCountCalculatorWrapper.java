@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
@@ -37,6 +38,7 @@ public final class PartitionCountCalculatorWrapper implements PartitionCountCalc
      * Constructor that uses {@link PartitionCountCalculator#staticPartitionCountCalculator} with
      * {@link CatalogUtils#DEFAULT_PARTITION_COUNT} as static calculation result.
      * */
+    @Inject
     public PartitionCountCalculatorWrapper() {
         this(PartitionCountCalculator.staticPartitionCountCalculator(CatalogUtils.DEFAULT_PARTITION_COUNT));
     }
