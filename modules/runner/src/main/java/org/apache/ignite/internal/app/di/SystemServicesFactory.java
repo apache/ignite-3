@@ -30,9 +30,6 @@ import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.disaster.system.ClusterIdService;
-import org.apache.ignite.internal.disaster.system.ServerRestarter;
-import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
@@ -40,14 +37,12 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.vault.VaultManager;
 
 /**
  * Micronaut factory for system services and miscellaneous components.
@@ -67,32 +62,6 @@ public class SystemServicesFactory {
                 clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
                 () -> cmgManagerProvider.get().clusterState().join().clusterTag().clusterId(),
                 nodeIdentity.nodeName()
-        );
-    }
-
-    /** Creates the system disaster recovery manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(900)
-    public SystemDisasterRecoveryManagerImpl systemDisasterRecoveryManager(
-            NodeIdentity nodeIdentity,
-            ServerRestarter serverRestarter,
-            TopologyService topologyService,
-            @Named("clusterMessaging") MessagingService clusterMessagingService,
-            VaultManager vaultManager,
-            MetaStorageManagerImpl metaStorageManager,
-            ClusterManagementGroupManager cmgManager,
-            ClusterIdService clusterIdService
-    ) {
-        return new SystemDisasterRecoveryManagerImpl(
-                nodeIdentity.nodeName(),
-                topologyService,
-                clusterMessagingService,
-                vaultManager,
-                serverRestarter,
-                metaStorageManager,
-                cmgManager,
-                clusterIdService
         );
     }
 

@@ -28,6 +28,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +54,8 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
@@ -128,6 +134,9 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(200)
 public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
@@ -233,6 +242,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      * @param ioExecutor Executor to which I/O operations can be offloaded from network threads.
      * @param failureProcessor Failure processor to use when reporting failures.
      */
+    @Inject
     public MetaStorageManagerImpl(
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
@@ -244,9 +254,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             MetricManager metricManager,
             MetastorageRepairStorage metastorageRepairStorage,
             MetastorageRepair metastorageRepair,
-            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            @Named("metastorage") RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            Executor ioExecutor,
+            @Named("tableIoExecutor") Executor ioExecutor,
             FailureProcessor failureProcessor
     ) {
         this.clusterService = clusterService;

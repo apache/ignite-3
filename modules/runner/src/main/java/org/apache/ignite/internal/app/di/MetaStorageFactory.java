@@ -18,35 +18,24 @@
 package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
-import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
-import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
-import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
-import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
@@ -87,44 +76,6 @@ public class MetaStorageFactory {
                 failureManager,
                 readOperationForCompactionTracker,
                 commonScheduler
-        );
-    }
-
-    /** Creates the MetaStorage manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(200)
-    public MetaStorageManagerImpl metaStorageManager(
-            ClusterService clusterService,
-            ClusterManagementGroupManager cmgManager,
-            LogicalTopologyService logicalTopologyService,
-            RaftManager raftManager,
-            RocksDbKeyValueStorage storage,
-            HybridClock clock,
-            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            MetricManager metricManager,
-            SystemDisasterRecoveryStorage systemDisasterRecoveryStorage,
-            MetastorageRepair metastorageRepair,
-            @Named("metastorage") RaftGroupOptionsConfigurer msRaftConfigurer,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
-            FailureManager failureManager
-    ) {
-        return new MetaStorageManagerImpl(
-                clusterService,
-                cmgManager,
-                logicalTopologyService,
-                raftManager,
-                storage,
-                clock,
-                topologyAwareRaftGroupServiceFactory,
-                metricManager,
-                systemDisasterRecoveryStorage,
-                metastorageRepair,
-                msRaftConfigurer,
-                readOperationForCompactionTracker,
-                tableIoExecutor,
-                failureManager
         );
     }
 
