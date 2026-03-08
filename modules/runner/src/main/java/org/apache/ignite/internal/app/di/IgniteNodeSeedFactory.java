@@ -40,7 +40,7 @@ public class IgniteNodeSeedFactory {
     /** Creates the node identity POJO for injection into components across modules. */
     @Singleton
     public NodeIdentity nodeIdentity() {
-        return new NodeIdentity(seedParams.nodeName(), seedParams.workDir(), seedParams.clusterIdSupplier());
+        return new NodeIdentity(seedParams.nodeName(), seedParams.workDir(), seedParams.configPath(), seedParams.clusterIdSupplier());
     }
 
     /** Creates the persistent vault service backed by the node's work directory. */

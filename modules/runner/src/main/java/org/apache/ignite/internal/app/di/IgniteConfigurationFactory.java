@@ -39,14 +39,11 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 public class IgniteConfigurationFactory {
     private final NodeIdentity nodeIdentity;
 
-    private final NodeSeedParams seedParams;
-
     private final ConfigurationModules modules;
 
     /** Constructor. */
-    public IgniteConfigurationFactory(NodeIdentity nodeIdentity, NodeSeedParams seedParams, ConfigurationModules modules) {
+    public IgniteConfigurationFactory(NodeIdentity nodeIdentity, ConfigurationModules modules) {
         this.nodeIdentity = nodeIdentity;
-        this.seedParams = seedParams;
         this.modules = modules;
     }
 
@@ -68,7 +65,7 @@ public class IgniteConfigurationFactory {
     ) {
         return new LocalFileConfigurationStorage(
                 nodeIdentity.nodeName(),
-                seedParams.configPath(),
+                nodeIdentity.configPath(),
                 generator,
                 modules.local()
         );

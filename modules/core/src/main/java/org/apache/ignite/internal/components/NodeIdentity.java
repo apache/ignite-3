@@ -32,12 +32,15 @@ public class NodeIdentity {
 
     private final Path workDir;
 
+    private final Path configPath;
+
     private final Supplier<UUID> clusterIdSupplier;
 
     /** Constructor. */
-    public NodeIdentity(String nodeName, Path workDir, Supplier<UUID> clusterIdSupplier) {
+    public NodeIdentity(String nodeName, Path workDir, Path configPath, Supplier<UUID> clusterIdSupplier) {
         this.nodeName = nodeName;
         this.workDir = workDir;
+        this.configPath = configPath;
         this.clusterIdSupplier = clusterIdSupplier;
     }
 
@@ -49,6 +52,11 @@ public class NodeIdentity {
     /** Node working directory. */
     public Path workDir() {
         return workDir;
+    }
+
+    /** Path to the node configuration file. */
+    public Path configPath() {
+        return configPath;
     }
 
     /** Supplier of the cluster ID; resolved lazily after cluster initialization. */
