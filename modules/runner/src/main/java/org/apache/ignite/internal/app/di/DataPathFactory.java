@@ -29,8 +29,9 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -157,7 +158,7 @@ public class DataPathFactory {
             MetaStorageManagerImpl metaStorageManager,
             ClockServiceImpl clockService,
             PlacementDriverManager placementDriverManager,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             FailureManager failureManager,
             CatalogValidationSchemasSource validationSchemasSource,
@@ -166,7 +167,9 @@ public class DataPathFactory {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             RaftManager raftManager,
             @Named("partitions") RaftGroupOptionsConfigurer partitionRaftConfigurer,
-            VolatileLogStorageManagerCreator volatileLogStorageManagerCreator
+            VolatileLogStorageManagerCreator volatileLogStorageManagerCreator,
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
         return new ReplicaManager(
                 seedParams.nodeName(),
@@ -179,7 +182,7 @@ public class DataPathFactory {
                         TxMessageGroup.class
                 ),
                 placementDriverManager.placementDriver(),
-                threadPoolsManager.partitionOperationsExecutor(),
+                partitionOperationsExecutor,
                 () -> replicationConfiguration.idleSafeTimePropagationDurationMillis().value(),
                 failureManager,
                 new ThreadLocalPartitionCommandsMarshaller(
@@ -190,13 +193,13 @@ public class DataPathFactory {
                 raftManager,
                 partitionRaftConfigurer,
                 volatileLogStorageManagerCreator,
-                threadPoolsManager.tableIoExecutor(),
+                tableIoExecutor,
                 replicaGrpId -> metaStorageManager.get(
                         pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId)
                 ).thenApply(entry -> new VersionedAssignments(
                         entry.value(), entry.revision()
                 )),
-                threadPoolsManager.commonScheduler()
+                commonScheduler
         );
     }
 
@@ -213,7 +216,7 @@ public class DataPathFactory {
             FailureManager failureManager,
             @Named("partitions") LogStorageManager partitionsLogStorageManager,
             HybridClock clock,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             StorageConfiguration storageConfiguration
     ) {
         DataStorageModules dataStorageModules = new DataStorageModules(
@@ -231,7 +234,7 @@ public class DataPathFactory {
                 failureManager,
                 partitionsLogStorageManager.logSyncer(),
                 clock,
-                threadPoolsManager.commonScheduler()
+                commonScheduler
         );
 
         return new DataStorageManager(storageEngines, storageConfiguration);
@@ -313,7 +316,9 @@ public class DataPathFactory {
             ClusterService clusterService,
             LowWatermarkImpl lowWatermark,
             FailureManager failureManager,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
+            @Named("rebalanceScheduler") ScheduledExecutorService rebalanceScheduler,
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ClockServiceImpl clockService,
             PlacementDriverManager placementDriverManager,
             SchemaSyncServiceImpl schemaSyncService,
@@ -335,9 +340,9 @@ public class DataPathFactory {
                 clusterService.topologyService(),
                 lowWatermark,
                 failureManager,
-                threadPoolsManager.tableIoExecutor(),
-                threadPoolsManager.rebalanceScheduler(),
-                threadPoolsManager.partitionOperationsExecutor(),
+                tableIoExecutor,
+                rebalanceScheduler,
+                partitionOperationsExecutor,
                 clockService,
                 placementDriverManager.placementDriver(),
                 schemaSyncService,
@@ -377,7 +382,8 @@ public class DataPathFactory {
             MetaStorageManagerImpl metaStorageManager,
             SchemaManager schemaManager,
             CatalogValidationSchemasSource validationSchemasSource,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ClockServiceImpl clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             SchemaSyncServiceImpl schemaSyncService,
@@ -410,8 +416,8 @@ public class DataPathFactory {
                 metaStorageManager,
                 schemaManager,
                 validationSchemasSource,
-                threadPoolsManager.tableIoExecutor(),
-                threadPoolsManager.partitionOperationsExecutor(),
+                tableIoExecutor,
+                partitionOperationsExecutor,
                 clockService,
                 outgoingSnapshotsManager,
                 schemaSyncService,
@@ -449,7 +455,7 @@ public class DataPathFactory {
             SchemaManager schemaManager,
             TableManager tableManager,
             CatalogManagerImpl catalogManager,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
             MetaStorageRevisionListenerRegistry revisionListenerRegistry,
             LowWatermarkImpl lowWatermark
     ) {
@@ -457,7 +463,7 @@ public class DataPathFactory {
                 schemaManager,
                 tableManager,
                 catalogManager,
-                threadPoolsManager.tableIoExecutor(),
+                tableIoExecutor,
                 revisionListenerRegistry,
                 lowWatermark
         );

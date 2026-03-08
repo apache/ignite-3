@@ -21,12 +21,12 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
@@ -99,7 +99,7 @@ public class ClientHandlerFactory {
             ClientConnectorConfiguration clientConnectorConfiguration,
             EventLogImpl eventLog,
             LowWatermarkImpl lowWatermark,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             SuggestionsConfiguration suggestionsConfiguration
     ) {
         return new ClientHandlerModule(
@@ -120,7 +120,7 @@ public class ClientHandlerFactory {
                 clientConnectorConfiguration,
                 eventLog,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor(),
+                partitionOperationsExecutor,
                 () -> suggestionsConfiguration.sequentialDdlExecution().enabled().value()
         );
     }

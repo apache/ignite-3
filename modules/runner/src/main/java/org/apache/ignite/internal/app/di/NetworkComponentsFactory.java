@@ -21,7 +21,7 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -81,12 +81,12 @@ public class NetworkComponentsFactory {
     @Order(1000)
     public CriticalWorkerWatchdog criticalWorkerWatchdog(
             SystemLocalConfiguration systemConfiguration,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             FailureManager failureManager
     ) {
         return new CriticalWorkerWatchdog(
                 systemConfiguration.criticalWorkers(),
-                threadPoolsManager.commonScheduler(),
+                commonScheduler,
                 failureManager
         );
     }
@@ -105,14 +105,14 @@ public class NetworkComponentsFactory {
     @Order(1200)
     public NettyWorkersRegistrar nettyWorkersRegistrar(
             CriticalWorkerRegistry criticalWorkerRegistry,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             NettyBootstrapFactory nettyBootstrapFactory,
             SystemLocalConfiguration systemConfiguration,
             FailureManager failureManager
     ) {
         return new NettyWorkersRegistrar(
                 criticalWorkerRegistry,
-                threadPoolsManager.commonScheduler(),
+                commonScheduler,
                 nettyBootstrapFactory,
                 systemConfiguration.criticalWorkers(),
                 failureManager
@@ -123,8 +123,12 @@ public class NetworkComponentsFactory {
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(500)
-    public ClockWaiter clockWaiter(NodeSeedParams seedParams, HybridClock clock, ThreadPoolsManager threadPoolsManager) {
-        return new ClockWaiter(seedParams.nodeName(), clock, threadPoolsManager.commonScheduler());
+    public ClockWaiter clockWaiter(
+            NodeSeedParams seedParams,
+            HybridClock clock,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
+    ) {
+        return new ClockWaiter(seedParams.nodeName(), clock, commonScheduler);
     }
 
 }

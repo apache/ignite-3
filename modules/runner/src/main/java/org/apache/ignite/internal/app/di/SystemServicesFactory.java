@@ -22,7 +22,7 @@ import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -235,7 +235,7 @@ public class SystemServicesFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(2500)
     public DisasterRecoveryManager disasterRecoveryManager(
-            ThreadPoolsManager threadPoolsManager,
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
             @Named("storageOperations") MessagingService messagingService,
             MetaStorageManagerImpl metaStorageManager,
             CatalogManagerImpl catalogManager,
@@ -250,7 +250,7 @@ public class SystemServicesFactory {
             SystemViewManagerImpl systemViewManager
     ) {
         return new DisasterRecoveryManager(
-                threadPoolsManager.tableIoExecutor(),
+                tableIoExecutor,
                 messagingService,
                 metaStorageManager,
                 catalogManager,

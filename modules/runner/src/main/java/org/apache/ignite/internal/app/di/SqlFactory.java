@@ -21,7 +21,7 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
@@ -103,7 +103,7 @@ public class SqlFactory {
             TransactionInflights transactionInflights,
             TxManager txManager,
             LowWatermarkImpl lowWatermark,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             KillCommandHandler killCommandHandler,
             EventLogImpl eventLog
     ) {
@@ -125,7 +125,7 @@ public class SqlFactory {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                threadPoolsManager.commonScheduler(),
+                commonScheduler,
                 killCommandHandler,
                 eventLog
         );
@@ -138,8 +138,8 @@ public class SqlFactory {
     public IgniteSqlImpl igniteSql(
             SqlQueryProcessor sqlQueryProcessor,
             HybridTimestampTracker observableTimestampTracker,
-            ThreadPoolsManager threadPoolsManager
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
-        return new IgniteSqlImpl(sqlQueryProcessor, observableTimestampTracker, threadPoolsManager.commonScheduler());
+        return new IgniteSqlImpl(sqlQueryProcessor, observableTimestampTracker, commonScheduler);
     }
 }

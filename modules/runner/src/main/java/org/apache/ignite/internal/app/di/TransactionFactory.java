@@ -21,7 +21,8 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
@@ -85,12 +86,12 @@ public class TransactionFactory {
     public MessagingService storageOperationsMessagingService(
             ClusterService clusterService,
             NodeSeedParams seedParams,
-            ThreadPoolsManager threadPoolsManager
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor
     ) {
         return new JumpToExecutorByConsistentIdAfterSend(
                 clusterService.messagingService(),
                 seedParams.nodeName(),
-                message -> threadPoolsManager.partitionOperationsExecutor()
+                message -> partitionOperationsExecutor
         );
     }
 
@@ -101,15 +102,16 @@ public class TransactionFactory {
     public ReplicaService replicaService(
             @Named("storageOperations") MessagingService messagingService,
             ClockServiceImpl clockService,
-            ThreadPoolsManager threadPoolsManager,
-            ReplicationConfiguration replicationConfiguration
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
+            ReplicationConfiguration replicationConfiguration,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
         return new ReplicaService(
                 messagingService,
                 clockService,
-                threadPoolsManager.partitionOperationsExecutor(),
+                partitionOperationsExecutor,
                 replicationConfiguration,
-                threadPoolsManager.commonScheduler()
+                commonScheduler
         );
     }
 
@@ -151,12 +153,13 @@ public class TransactionFactory {
             PlacementDriverManager placementDriverManager,
             ReplicationConfiguration replicationConfiguration,
             IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
             FailureManager failureManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
         return new TxManagerImpl(
                 seedParams.nodeName(),
@@ -172,11 +175,11 @@ public class TransactionFactory {
                 placementDriverManager.placementDriver(),
                 () -> replicationConfiguration.idleSafeTimePropagationDurationMillis().value(),
                 indexNodeFinishedRwTransactionsChecker,
-                threadPoolsManager.partitionOperationsExecutor(),
+                partitionOperationsExecutor,
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                threadPoolsManager.commonScheduler(),
+                commonScheduler,
                 failureManager,
                 metricManager
         );
@@ -189,15 +192,16 @@ public class TransactionFactory {
     public TxStateRocksDbSharedStorage txStateRocksDbSharedStorage(
             NodeSeedParams seedParams,
             @Named("partitions") ComponentWorkingDir partitionsWorkDir,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
             @Named("partitions") LogStorageManager partitionsLogStorageManager,
             FailureManager failureManager
     ) {
         return new TxStateRocksDbSharedStorage(
                 seedParams.nodeName(),
                 partitionsWorkDir.dbPath().resolve("tx-state"),
-                threadPoolsManager.commonScheduler(),
-                threadPoolsManager.tableIoExecutor(),
+                commonScheduler,
+                tableIoExecutor,
                 partitionsLogStorageManager.logSyncer(),
                 failureManager
         );

@@ -21,7 +21,7 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -79,14 +79,14 @@ public class MetaStorageFactory {
             @Named("metastorage") ComponentWorkingDir metastorageWorkDir,
             FailureManager failureManager,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            ThreadPoolsManager threadPoolsManager
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
         return new RocksDbKeyValueStorage(
                 seedParams.nodeName(),
                 metastorageWorkDir.dbPath(),
                 failureManager,
                 readOperationForCompactionTracker,
-                threadPoolsManager.commonScheduler()
+                commonScheduler
         );
     }
 
@@ -121,7 +121,7 @@ public class MetaStorageFactory {
             MetastorageRepairImpl metastorageRepair,
             @Named("metastorage") RaftGroupOptionsConfigurer msRaftConfigurer,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
             FailureManager failureManager
     ) {
         return new MetaStorageManagerImpl(
@@ -137,7 +137,7 @@ public class MetaStorageFactory {
                 metastorageRepair,
                 msRaftConfigurer,
                 readOperationForCompactionTracker,
-                threadPoolsManager.tableIoExecutor(),
+                tableIoExecutor,
                 failureManager
         );
     }

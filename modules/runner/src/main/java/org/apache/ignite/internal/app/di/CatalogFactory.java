@@ -19,10 +19,11 @@ package org.apache.ignite.internal.app.di;
 
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
+import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.PartitionCountCalculatorWrapper;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
@@ -77,7 +78,7 @@ public class CatalogFactory {
     @Order(600)
     public IdempotentCacheVacuumizer idempotentCacheVacuumizer(
             NodeSeedParams seedParams,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             MetaStorageManagerImpl metaStorageManager,
             RaftConfiguration raftConfiguration,
             ClockServiceImpl clockService,
@@ -85,7 +86,7 @@ public class CatalogFactory {
     ) {
         return new IdempotentCacheVacuumizer(
                 seedParams.nodeName(),
-                threadPoolsManager.commonScheduler(),
+                commonScheduler,
                 metaStorageManager::evictIdempotentCommandsCache,
                 raftConfiguration.retryTimeoutMillis(),
                 clockService,
@@ -133,7 +134,7 @@ public class CatalogFactory {
             ClockServiceImpl clockService,
             FailureManager failureManager,
             ReplicationConfiguration replicationConfiguration,
-            ThreadPoolsManager threadPoolsManager,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             MetricManager metricManager,
             Provider<DistributionZoneManager> distributionZoneManagerProvider
     ) {
@@ -149,7 +150,7 @@ public class CatalogFactory {
                 clockService,
                 failureManager,
                 replicationConfiguration,
-                threadPoolsManager.commonScheduler(),
+                commonScheduler,
                 metricManager,
                 zoneId -> distributionZoneManagerProvider.get().currentDataNodes(zoneId)
         );
