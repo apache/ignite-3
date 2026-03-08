@@ -372,8 +372,8 @@ public class IgniteImpl implements Ignite {
         diContext = IgniteDiContext.builder()
                 .withSingleton(seedParams)
                 .withSingleton(this)
-                .withPackages("org.apache.ignite.internal.app.di")
-                .withExcludedPackages("org.apache.ignite.internal.rest")
+                .withPackages("org.apache.ignite.internal")
+                .withExcludedPackages("org.apache.ignite.internal.rest", "org.apache.ignite.internal.cli")
                 .build();
 
         // Start local configuration early — factory methods read config values during bean construction.
