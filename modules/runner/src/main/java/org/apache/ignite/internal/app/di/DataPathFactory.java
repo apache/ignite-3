@@ -71,6 +71,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
 import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -82,7 +83,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -122,7 +123,7 @@ public class DataPathFactory {
     /** Creates the schema sync service. */
     @Singleton
     public SchemaSyncServiceImpl schemaSyncService(
-            SchemaSafeTimeTrackerImpl schemaSafeTimeTracker,
+            SchemaSafeTimeTracker schemaSafeTimeTracker,
             SchemaSynchronizationConfiguration schemaSyncConfig
     ) {
         LongSupplier delayDurationMsSupplier = () -> schemaSyncConfig.delayDurationMillis().value();
@@ -367,7 +368,7 @@ public class DataPathFactory {
             TransactionInflights transactionInflights,
             IndexMetaStorage indexMetaStorage,
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
-            MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService,
+            MinimumRequiredTimeCollectorService minTimeCollectorService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             MetricManager metricManager,
             PartitionModificationCounterFactory partitionModificationCounterFactory

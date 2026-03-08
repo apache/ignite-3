@@ -34,8 +34,8 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
-import org.apache.ignite.internal.disaster.system.MetastorageRepairImpl;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
+import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -103,7 +103,7 @@ public class MetaStorageFactory {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             MetricManager metricManager,
             SystemDisasterRecoveryStorage systemDisasterRecoveryStorage,
-            MetastorageRepairImpl metastorageRepair,
+            MetastorageRepair metastorageRepair,
             @Named("metastorage") RaftGroupOptionsConfigurer msRaftConfigurer,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
             @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,

@@ -24,13 +24,13 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
+import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageManager;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
-import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
@@ -182,9 +182,9 @@ public class ClusterManagementFactory {
             ClusterInitializer clusterInitializer,
             RaftManager raftManager,
             ClusterStateStorageManager clusterStateStorageManager,
-            LogicalTopologyImpl logicalTopology,
+            LogicalTopology logicalTopology,
             ValidationManager validationManager,
-            NodeAttributesCollector nodeAttributesCollector,
+            NodeAttributes nodeAttributes,
             FailureManager failureManager,
             ClusterIdService clusterIdService,
             @Named("cmg") RaftGroupOptionsConfigurer cmgRaftConfigurer,
@@ -199,7 +199,7 @@ public class ClusterManagementFactory {
                 clusterStateStorageManager,
                 logicalTopology,
                 validationManager,
-                nodeAttributesCollector,
+                nodeAttributes,
                 failureManager,
                 clusterIdService,
                 cmgRaftConfigurer,
