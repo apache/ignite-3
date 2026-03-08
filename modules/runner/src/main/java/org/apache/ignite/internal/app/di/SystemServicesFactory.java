@@ -31,6 +31,7 @@ import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
+import org.apache.ignite.internal.disaster.system.ServerRestarter;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
@@ -75,7 +76,7 @@ public class SystemServicesFactory {
     @Order(900)
     public SystemDisasterRecoveryManagerImpl systemDisasterRecoveryManager(
             NodeIdentity nodeIdentity,
-            NodeSeedParams seedParams,
+            ServerRestarter serverRestarter,
             TopologyService topologyService,
             @Named("clusterMessaging") MessagingService clusterMessagingService,
             VaultManager vaultManager,
@@ -88,7 +89,7 @@ public class SystemServicesFactory {
                 topologyService,
                 clusterMessagingService,
                 vaultManager,
-                seedParams.restarter(),
+                serverRestarter,
                 metaStorageManager,
                 cmgManager,
                 clusterIdService

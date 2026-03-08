@@ -50,7 +50,6 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.app.di.NodeSeedParams;
 import org.apache.ignite.internal.app.di.PostConstructionWiring;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
@@ -364,13 +364,12 @@ public class IgniteImpl implements Ignite {
         // Build the Micronaut DI context with seed singletons.
         Supplier<UUID> clusterIdSupplier = () -> clusterState().clusterTag().clusterId();
 
-        NodeSeedParams seedParams = new NodeSeedParams(
-                node, restarter, configPath, workDir, serviceProviderClassLoader, asyncContinuationExecutor,
-                clusterIdSupplier
-        );
+        NodeIdentity nodeIdentity = new NodeIdentity(name, workDir, configPath, serviceProviderClassLoader, clusterIdSupplier);
 
         diContext = IgniteDiContext.builder()
-                .withSingleton(seedParams)
+                .withSingleton(nodeIdentity)
+                .withSingleton(node)
+                .withSingleton(restarter)
                 .withSingleton(this)
                 .withPackages("org.apache.ignite.internal")
                 .withExcludedPackages("org.apache.ignite.internal.rest", "org.apache.ignite.internal.cli")

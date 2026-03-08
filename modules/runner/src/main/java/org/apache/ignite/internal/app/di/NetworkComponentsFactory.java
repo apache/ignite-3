@@ -22,6 +22,7 @@ import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
@@ -69,10 +70,10 @@ public class NetworkComponentsFactory {
     @Order(600)
     public FailureManager failureManager(
             NodeIdentity nodeIdentity,
-            NodeSeedParams seedParams,
+            IgniteServer igniteServer,
             FailureProcessorConfiguration failureProcessorConfiguration
     ) {
-        return new FailureManager(nodeIdentity.nodeName(), seedParams.node()::shutdown, failureProcessorConfiguration);
+        return new FailureManager(nodeIdentity.nodeName(), igniteServer::shutdown, failureProcessorConfiguration);
     }
 
     /** Creates the critical worker watchdog. */

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.components;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Holds basic node identity and environment parameters that components across all modules commonly need.
@@ -34,13 +35,23 @@ public class NodeIdentity {
 
     private final Path configPath;
 
+    @Nullable
+    private final ClassLoader serviceProviderClassLoader;
+
     private final Supplier<UUID> clusterIdSupplier;
 
     /** Constructor. */
-    public NodeIdentity(String nodeName, Path workDir, Path configPath, Supplier<UUID> clusterIdSupplier) {
+    public NodeIdentity(
+            String nodeName,
+            Path workDir,
+            Path configPath,
+            @Nullable ClassLoader serviceProviderClassLoader,
+            Supplier<UUID> clusterIdSupplier
+    ) {
         this.nodeName = nodeName;
         this.workDir = workDir;
         this.configPath = configPath;
+        this.serviceProviderClassLoader = serviceProviderClassLoader;
         this.clusterIdSupplier = clusterIdSupplier;
     }
 
@@ -57,6 +68,12 @@ public class NodeIdentity {
     /** Path to the node configuration file. */
     public Path configPath() {
         return configPath;
+    }
+
+    /** Class loader used to discover service providers, or {@code null} for the system class loader. */
+    @Nullable
+    public ClassLoader serviceProviderClassLoader() {
+        return serviceProviderClassLoader;
     }
 
     /** Supplier of the cluster ID; resolved lazily after cluster initialization. */

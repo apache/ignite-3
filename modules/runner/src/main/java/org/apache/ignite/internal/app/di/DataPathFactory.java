@@ -96,7 +96,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.sql.IgniteSql;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Micronaut factory for data path components.
@@ -200,7 +199,6 @@ public class DataPathFactory {
     @Order(1800)
     public DataStorageManager dataStorageManager(
             NodeIdentity nodeIdentity,
-            @Named("serviceProviderClassLoader") @Nullable ClassLoader serviceProviderClassLoader,
             MetricManager metricManager,
             @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry,
             @Named("partitions") ComponentWorkingDir partitionsWorkDir,
@@ -212,7 +210,7 @@ public class DataPathFactory {
             StorageConfiguration storageConfiguration
     ) {
         DataStorageModules dataStorageModules = new DataStorageModules(
-                ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
+                ServiceLoader.load(DataStorageModule.class, nodeIdentity.serviceProviderClassLoader())
         );
 
         Path storagePath = partitionsWorkDir.dbPath();

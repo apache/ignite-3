@@ -20,50 +20,26 @@ package org.apache.ignite.internal.app.di;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 
 import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Micronaut factory that produces infrastructure beans derived from {@link NodeSeedParams}.
+ * Micronaut factory that produces infrastructure beans from seed singletons registered in the DI context.
  */
 @Factory
 public class IgniteNodeSeedFactory {
-    private final NodeSeedParams seedParams;
-
-    public IgniteNodeSeedFactory(NodeSeedParams seedParams) {
-        this.seedParams = seedParams;
-    }
-
-    /** Creates the node identity POJO for injection into components across modules. */
-    @Singleton
-    public NodeIdentity nodeIdentity() {
-        return new NodeIdentity(seedParams.nodeName(), seedParams.workDir(), seedParams.configPath(), seedParams.clusterIdSupplier());
-    }
-
     /** Creates the persistent vault service backed by the node's work directory. */
     @Singleton
     public VaultService vaultService(NodeIdentity nodeIdentity) {
         return new PersistentVaultService(vaultPath(nodeIdentity.workDir()));
     }
 
-    /** Exposes the service provider class loader for ServiceLoader discovery. */
-    @Singleton
-    @Named("serviceProviderClassLoader")
-    @Nullable
-    public ClassLoader serviceProviderClassLoader() {
-        return seedParams.serviceProviderClassLoader();
-    }
-
     /** Discovers configuration modules from the service provider class loader. */
     @Singleton
-    public ConfigurationModules configurationModules(
-            @Named("serviceProviderClassLoader") @Nullable ClassLoader serviceProviderClassLoader
-    ) {
-        return ConfigurationModules.create(serviceProviderClassLoader);
+    public ConfigurationModules configurationModules(NodeIdentity nodeIdentity) {
+        return ConfigurationModules.create(nodeIdentity.serviceProviderClassLoader());
     }
 }
