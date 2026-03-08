@@ -34,6 +34,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -76,9 +77,9 @@ public class SqlFactory {
     public KillCommandHandler killCommandHandler(
             NodeSeedParams seedParams,
             LogicalTopologyService logicalTopologyService,
-            ClusterService clusterService
+            @Named("clusterMessaging") MessagingService clusterMessagingService
     ) {
-        return new KillCommandHandler(seedParams.nodeName(), logicalTopologyService, clusterService.messagingService());
+        return new KillCommandHandler(seedParams.nodeName(), logicalTopologyService, clusterMessagingService);
     }
 
     /** Creates the SQL query processor. */

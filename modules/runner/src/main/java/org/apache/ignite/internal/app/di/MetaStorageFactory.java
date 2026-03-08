@@ -44,6 +44,7 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
@@ -93,12 +94,12 @@ public class MetaStorageFactory {
     /** Creates the metastorage repair implementation. */
     @Singleton
     public MetastorageRepairImpl metastorageRepair(
-            ClusterService clusterService,
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
             LogicalTopologyImpl logicalTopology,
             ClusterManagementGroupManager cmgManager
     ) {
         return new MetastorageRepairImpl(
-                clusterService.messagingService(),
+                clusterMessagingService,
                 logicalTopology,
                 cmgManager
         );

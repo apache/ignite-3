@@ -56,6 +56,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRe
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -135,10 +136,10 @@ public class DataPathFactory {
     @Order(1600)
     public IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker(
             CatalogManagerImpl catalogManager,
-            ClusterService clusterService,
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
             HybridClock clock
     ) {
-        return new IndexNodeFinishedRwTransactionsChecker(catalogManager, clusterService.messagingService(), clock);
+        return new IndexNodeFinishedRwTransactionsChecker(catalogManager, clusterMessagingService, clock);
     }
 
     /** Creates the observable hybrid timestamp tracker. */
@@ -246,10 +247,10 @@ public class DataPathFactory {
     @Order(2100)
     public OutgoingSnapshotsManager outgoingSnapshotsManager(
             NodeSeedParams seedParams,
-            ClusterService clusterService,
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
             FailureManager failureManager
     ) {
-        return new OutgoingSnapshotsManager(seedParams.nodeName(), clusterService.messagingService(), failureManager);
+        return new OutgoingSnapshotsManager(seedParams.nodeName(), clusterMessagingService, failureManager);
     }
 
     /** Creates the low watermark. */
@@ -262,7 +263,7 @@ public class DataPathFactory {
             ClockServiceImpl clockService,
             VaultManager vaultManager,
             FailureManager failureManager,
-            ClusterService clusterService
+            @Named("clusterMessaging") MessagingService clusterMessagingService
     ) {
         return new LowWatermarkImpl(
                 seedParams.nodeName(),
@@ -270,7 +271,7 @@ public class DataPathFactory {
                 clockService,
                 vaultManager,
                 failureManager,
-                clusterService.messagingService()
+                clusterMessagingService
         );
     }
 
@@ -280,7 +281,7 @@ public class DataPathFactory {
     @Order(1100)
     public DistributionZoneManager distributionZoneManager(
             NodeSeedParams seedParams,
-            ClusterService clusterService,
+            TopologyService topologyService,
             MetaStorageManagerImpl metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             FailureManager failureManager,
@@ -292,7 +293,7 @@ public class DataPathFactory {
     ) {
         return new DistributionZoneManager(
                 seedParams.nodeName(),
-                () -> clusterService.topologyService().localMember().id(),
+                () -> topologyService.localMember().id(),
                 metaStorageManager,
                 logicalTopologyService,
                 failureManager,
@@ -313,7 +314,7 @@ public class DataPathFactory {
             ReplicaManager replicaManager,
             DistributionZoneManager distributionZoneManager,
             MetaStorageManagerImpl metaStorageManager,
-            ClusterService clusterService,
+            TopologyService topologyService,
             LowWatermarkImpl lowWatermark,
             FailureManager failureManager,
             @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
@@ -337,7 +338,7 @@ public class DataPathFactory {
                 replicaManager,
                 distributionZoneManager,
                 metaStorageManager,
-                clusterService.topologyService(),
+                topologyService,
                 lowWatermark,
                 failureManager,
                 tableIoExecutor,
@@ -374,7 +375,7 @@ public class DataPathFactory {
             GcConfiguration gcConfiguration,
             ReplicationConfiguration replicationConfiguration,
             @Named("storageOperations") MessagingService messagingService,
-            ClusterService clusterService,
+            TopologyService topologyService,
             LockManager lockManager,
             ReplicaService replicaService,
             TxManager txManager,
@@ -408,7 +409,7 @@ public class DataPathFactory {
                 gcConfiguration,
                 replicationConfiguration,
                 messagingService,
-                clusterService.topologyService(),
+                topologyService,
                 lockManager,
                 replicaService,
                 txManager,
@@ -442,9 +443,9 @@ public class DataPathFactory {
     @Singleton
     public PartitionModificationCounterFactory partitionModificationCounterFactory(
             ClockServiceImpl clockService,
-            ClusterService clusterService
+            @Named("clusterMessaging") MessagingService clusterMessagingService
     ) {
-        return new PartitionModificationCounterFactory(clockService::current, clusterService.messagingService());
+        return new PartitionModificationCounterFactory(clockService::current, clusterMessagingService);
     }
 
     /** Creates the index manager. */

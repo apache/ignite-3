@@ -47,7 +47,9 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.ScaleCubeClusterService;
@@ -102,6 +104,19 @@ public class ClusterManagementFactory {
                 new DefaultIgniteProductVersionSource(),
                 metricManager
         );
+    }
+
+    /** Exposes the cluster messaging service as a named bean. */
+    @Singleton
+    @Named("clusterMessaging")
+    public MessagingService clusterMessagingService(ClusterService clusterService) {
+        return clusterService.messagingService();
+    }
+
+    /** Exposes the cluster topology service as a bean. */
+    @Singleton
+    public TopologyService clusterTopologyService(ClusterService clusterService) {
+        return clusterService.topologyService();
     }
 
     /** Creates the node attributes configuration from the node config registry. */

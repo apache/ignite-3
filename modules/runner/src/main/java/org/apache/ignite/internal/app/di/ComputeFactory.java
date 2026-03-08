@@ -47,6 +47,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 
@@ -79,7 +81,7 @@ public class ComputeFactory {
             Provider<Ignite> igniteProvider,
             InMemoryComputeStateMachine stateMachine,
             ComputeConfiguration computeConfiguration,
-            ClusterService clusterService,
+            TopologyService topologyService,
             ClockServiceImpl clockService,
             EventLogImpl eventLog
     ) {
@@ -87,7 +89,7 @@ public class ComputeFactory {
                 igniteProvider.get(),
                 stateMachine,
                 computeConfiguration,
-                clusterService.topologyService(),
+                topologyService,
                 clockService,
                 eventLog
         );
@@ -124,7 +126,8 @@ public class ComputeFactory {
     @Order(1200)
     public ComputeComponentImpl computeComponent(
             NodeSeedParams seedParams,
-            ClusterService clusterService,
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
+            TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
             DeploymentManagerImpl deploymentManager,
             ComputeExecutorImpl computeExecutor,
@@ -134,8 +137,8 @@ public class ComputeFactory {
     ) {
         return new ComputeComponentImpl(
                 seedParams.nodeName(),
-                clusterService.messagingService(),
-                clusterService.topologyService(),
+                clusterMessagingService,
+                topologyService,
                 logicalTopologyService,
                 new UnitsContextManager(
                         deploymentManager,
@@ -156,7 +159,7 @@ public class ComputeFactory {
     public IgniteComputeInternal igniteCompute(
             NodeSeedParams seedParams,
             PlacementDriverManager placementDriverManager,
-            ClusterService clusterService,
+            TopologyService topologyService,
             TableManager tableManager,
             ComputeComponentImpl computeComponent,
             HybridClock clock,
@@ -165,7 +168,7 @@ public class ComputeFactory {
         return new IgniteComputeImpl(
                 seedParams.nodeName(),
                 placementDriverManager.placementDriver(),
-                clusterService.topologyService(),
+                topologyService,
                 tableManager,
                 computeComponent,
                 clock,

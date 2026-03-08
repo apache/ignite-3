@@ -48,8 +48,8 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.logstorage.LogStorageMetrics;
 import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
@@ -94,7 +94,8 @@ public class SystemServicesFactory {
     @Order(900)
     public SystemDisasterRecoveryManagerImpl systemDisasterRecoveryManager(
             NodeSeedParams seedParams,
-            ClusterService clusterService,
+            TopologyService topologyService,
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
             VaultManager vaultManager,
             MetaStorageManagerImpl metaStorageManager,
             ClusterManagementGroupManager cmgManager,
@@ -102,8 +103,8 @@ public class SystemServicesFactory {
     ) {
         return new SystemDisasterRecoveryManagerImpl(
                 seedParams.nodeName(),
-                clusterService.topologyService(),
-                clusterService.messagingService(),
+                topologyService,
+                clusterMessagingService,
                 vaultManager,
                 seedParams.restarter(),
                 metaStorageManager,
@@ -141,7 +142,8 @@ public class SystemServicesFactory {
     public CatalogCompactionRunner catalogCompactionRunner(
             NodeSeedParams seedParams,
             CatalogManagerImpl catalogManager,
-            ClusterService clusterService,
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
+            TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
             PlacementDriverManager placementDriverManager,
             ReplicaService replicaService,
@@ -155,13 +157,13 @@ public class SystemServicesFactory {
         return new CatalogCompactionRunner(
                 seedParams.nodeName(),
                 catalogManager,
-                clusterService.messagingService(),
+                clusterMessagingService,
                 logicalTopologyService,
                 placementDriverManager.placementDriver(),
                 replicaService,
                 clockService,
                 schemaSyncService,
-                clusterService.topologyService(),
+                topologyService,
                 lowWatermark,
                 indexNodeFinishedRwTransactionsChecker,
                 minTimeCollectorService,
@@ -197,9 +199,10 @@ public class SystemServicesFactory {
     @Order(1000)
     public MetricMessaging metricMessaging(
             MetricManager metricManager,
-            ClusterService clusterService
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
+            TopologyService topologyService
     ) {
-        return new MetricMessaging(metricManager, clusterService.messagingService(), clusterService.topologyService());
+        return new MetricMessaging(metricManager, clusterMessagingService, topologyService);
     }
 
     /** Creates the resource vacuum manager. */
@@ -209,7 +212,7 @@ public class SystemServicesFactory {
     public ResourceVacuumManager resourceVacuumManager(
             NodeSeedParams seedParams,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ClusterService clusterService,
+            TopologyService topologyService,
             @Named("storageOperations") MessagingService messagingService,
             TransactionInflights transactionInflights,
             TxManager txManager,
@@ -220,7 +223,7 @@ public class SystemServicesFactory {
         return new ResourceVacuumManager(
                 seedParams.nodeName(),
                 resourcesRegistry,
-                clusterService.topologyService(),
+                topologyService,
                 messagingService,
                 transactionInflights,
                 txManager,
@@ -241,7 +244,7 @@ public class SystemServicesFactory {
             CatalogManagerImpl catalogManager,
             DistributionZoneManager distributionZoneManager,
             Loza raftManager,
-            ClusterService clusterService,
+            TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
             TableManager tableManager,
             MetricManager metricManager,
@@ -256,7 +259,7 @@ public class SystemServicesFactory {
                 catalogManager,
                 distributionZoneManager,
                 raftManager,
-                clusterService.topologyService(),
+                topologyService,
                 logicalTopologyService,
                 tableManager,
                 metricManager,

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
@@ -84,12 +85,12 @@ public class TransactionFactory {
     @Singleton
     @Named("storageOperations")
     public MessagingService storageOperationsMessagingService(
-            ClusterService clusterService,
+            @Named("clusterMessaging") MessagingService clusterMessagingService,
             NodeSeedParams seedParams,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor
     ) {
         return new JumpToExecutorByConsistentIdAfterSend(
-                clusterService.messagingService(),
+                clusterMessagingService,
                 seedParams.nodeName(),
                 message -> partitionOperationsExecutor
         );
@@ -144,7 +145,7 @@ public class TransactionFactory {
             TransactionConfiguration txConfig,
             SystemDistributedConfiguration systemDistributedConfiguration,
             @Named("storageOperations") MessagingService messagingService,
-            ClusterService clusterService,
+            TopologyService topologyService,
             ReplicaService replicaService,
             LockManager lockManager,
             VolatileTxStateMetaStorage txStateVolatileStorage,
@@ -166,7 +167,7 @@ public class TransactionFactory {
                 txConfig,
                 systemDistributedConfiguration,
                 messagingService,
-                clusterService.topologyService(),
+                topologyService,
                 replicaService,
                 lockManager,
                 txStateVolatileStorage,
