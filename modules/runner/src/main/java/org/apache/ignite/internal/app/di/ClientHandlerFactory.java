@@ -35,7 +35,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -92,7 +92,7 @@ public class ClientHandlerFactory {
             IgniteImpl igniteImpl,
             MetricManager metricManager,
             AuthenticationManager authenticationManager,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             SchemaSyncServiceImpl schemaSyncService,
             CatalogManagerImpl catalogManager,
             PlacementDriver placementDriver,

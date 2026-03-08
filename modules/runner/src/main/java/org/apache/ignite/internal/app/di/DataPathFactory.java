@@ -44,10 +44,10 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
@@ -72,6 +72,7 @@ import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -128,18 +129,6 @@ public class DataPathFactory {
         return new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
     }
 
-    /** Creates the index node finished rw transactions checker. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1600)
-    public IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker(
-            CatalogManagerImpl catalogManager,
-            @Named("clusterMessaging") MessagingService clusterMessagingService,
-            HybridClock clock
-    ) {
-        return new IndexNodeFinishedRwTransactionsChecker(catalogManager, clusterMessagingService, clock);
-    }
-
     /** Creates the observable hybrid timestamp tracker. */
     @Singleton
     public HybridTimestampTracker hybridTimestampTracker() {
@@ -155,14 +144,14 @@ public class DataPathFactory {
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,
             MetaStorageManagerImpl metaStorageManager,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             PlacementDriver placementDriver,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             FailureManager failureManager,
             CatalogValidationSchemasSource validationSchemasSource,
             CatalogManagerImpl catalogManager,
-            SchemaSyncServiceImpl schemaSyncService,
+            SchemaSyncService schemaSyncService,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             RaftManager raftManager,
             @Named("partitions") RaftGroupOptionsConfigurer partitionRaftConfigurer,
@@ -246,7 +235,7 @@ public class DataPathFactory {
     public LowWatermarkImpl lowWatermark(
             NodeSeedParams seedParams,
             GcConfiguration gcConfiguration,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             VaultManager vaultManager,
             FailureManager failureManager,
             @Named("clusterMessaging") MessagingService clusterMessagingService
@@ -273,9 +262,9 @@ public class DataPathFactory {
             FailureManager failureManager,
             CatalogManagerImpl catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             MetricManager metricManager,
-            LowWatermarkImpl lowWatermark
+            LowWatermark lowWatermark
     ) {
         return new DistributionZoneManager(
                 seedParams.nodeName(),
@@ -301,14 +290,14 @@ public class DataPathFactory {
             DistributionZoneManager distributionZoneManager,
             MetaStorageManagerImpl metaStorageManager,
             TopologyService topologyService,
-            LowWatermarkImpl lowWatermark,
+            LowWatermark lowWatermark,
             FailureManager failureManager,
             @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
             @Named("rebalanceScheduler") ScheduledExecutorService rebalanceScheduler,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             PlacementDriver placementDriver,
-            SchemaSyncServiceImpl schemaSyncService,
+            SchemaSyncService schemaSyncService,
             SystemDistributedConfiguration systemDistributedConfiguration,
             TxStateRocksDbSharedStorage sharedTxStateStorage,
             TxManager txManager,
@@ -345,12 +334,6 @@ public class DataPathFactory {
         );
     }
 
-    /** Creates the shared minimum required time collector service. */
-    @Singleton
-    public MinimumRequiredTimeCollectorServiceImpl minimumRequiredTimeCollectorService() {
-        return new MinimumRequiredTimeCollectorServiceImpl();
-    }
-
     /** Creates the table manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
@@ -371,16 +354,16 @@ public class DataPathFactory {
             CatalogValidationSchemasSource validationSchemasSource,
             @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
-            SchemaSyncServiceImpl schemaSyncService,
+            SchemaSyncService schemaSyncService,
             CatalogManagerImpl catalogManager,
             FailureManager failureManager,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Provider<IgniteSql> sqlProvider,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            LowWatermarkImpl lowWatermark,
+            LowWatermark lowWatermark,
             TransactionInflights transactionInflights,
             IndexMetaStorage indexMetaStorage,
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
@@ -428,11 +411,10 @@ public class DataPathFactory {
     /** Creates the partition modification counter factory. */
     @Singleton
     public PartitionModificationCounterFactory partitionModificationCounterFactory(
-            ClockServiceImpl clockService,
+            ClockService clockService,
             @Named("clusterMessaging") MessagingService clusterMessagingService
     ) {
         return new PartitionModificationCounterFactory(clockService::current, clusterMessagingService);
     }
 
 }
-

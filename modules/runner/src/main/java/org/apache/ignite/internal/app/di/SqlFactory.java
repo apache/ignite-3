@@ -29,7 +29,7 @@ import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -79,7 +79,7 @@ public class SqlFactory {
             TableManager tableManager,
             SchemaManager schemaManager,
             ReplicaService replicaService,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             SchemaSyncServiceImpl schemaSyncService,
             CatalogManagerImpl catalogManager,
             MetricManager metricManager,

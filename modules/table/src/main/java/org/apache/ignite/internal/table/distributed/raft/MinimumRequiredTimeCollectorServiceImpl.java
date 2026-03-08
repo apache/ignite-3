@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import jakarta.inject.Singleton;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Collects minimum required timestamp for each partition. */
+@Singleton
 public class MinimumRequiredTimeCollectorServiceImpl implements MinimumRequiredTimeCollectorService {
     private final ConcurrentHashMap<TablePartitionId, Long> partitions = new ConcurrentHashMap<>();
 

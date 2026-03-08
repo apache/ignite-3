@@ -42,7 +42,7 @@ import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderFactory;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -82,7 +82,7 @@ public class ComputeFactory {
             InMemoryComputeStateMachine stateMachine,
             ComputeConfiguration computeConfiguration,
             TopologyService topologyService,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             EventLogImpl eventLog
     ) {
         return new ComputeExecutorImpl(

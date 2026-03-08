@@ -34,6 +34,7 @@ import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -82,7 +83,7 @@ public class CatalogFactory {
             @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             MetaStorageManagerImpl metaStorageManager,
             RaftConfiguration raftConfiguration,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             FailureManager failureManager
     ) {
         return new IdempotentCacheVacuumizer(
@@ -104,7 +105,7 @@ public class CatalogFactory {
     @Order(100)
     public CatalogManagerImpl catalogManager(
             MetaStorageManagerImpl metaStorageManager,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             FailureManager failureManager,
             SchemaSynchronizationConfiguration schemaSyncConfig,
             PartitionCountCalculatorWrapper partitionCountCalculatorWrapper
@@ -132,7 +133,7 @@ public class CatalogFactory {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             FailureManager failureManager,
             ReplicationConfiguration replicationConfiguration,
             @Named("commonScheduler") ScheduledExecutorService commonScheduler,
@@ -163,4 +164,3 @@ public class CatalogFactory {
         return placementDriverManager.placementDriver();
     }
 }
-

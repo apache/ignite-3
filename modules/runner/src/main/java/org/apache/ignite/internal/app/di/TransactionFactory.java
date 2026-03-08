@@ -30,7 +30,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -115,7 +115,7 @@ public class TransactionFactory {
             ReplicaService replicaService,
             LockManager lockManager,
             VolatileTxStateMetaStorage txStateVolatileStorage,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
             ReplicationConfiguration replicationConfiguration,
@@ -174,4 +174,3 @@ public class TransactionFactory {
         );
     }
 }
-
