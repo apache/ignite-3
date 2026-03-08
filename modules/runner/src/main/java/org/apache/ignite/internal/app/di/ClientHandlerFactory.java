@@ -28,12 +28,12 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionCo
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;

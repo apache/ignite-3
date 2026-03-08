@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 

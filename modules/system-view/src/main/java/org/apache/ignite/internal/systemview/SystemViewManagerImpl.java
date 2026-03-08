@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -50,6 +52,9 @@ import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -70,6 +75,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * SQL system views manager implementation.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
 public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesProvider, LogicalTopologyEventListener {
     public static final String NODE_ATTRIBUTES_KEY = "sql-system-views";
 
@@ -101,6 +108,12 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     private volatile Map<String, ScannableView<?>> scannableViews = Map.of();
 
     private volatile Map<String, List<String>> owningNodesByViewName = Map.of();
+
+    /** Constructor for DI injection. */
+    @Inject
+    public SystemViewManagerImpl(NodeIdentity nodeIdentity, CatalogManager catalogManager, FailureProcessor failureProcessor) {
+        this(nodeIdentity.nodeName(), catalogManager, failureProcessor);
+    }
 
     /** Creates a system view manager. */
     public SystemViewManagerImpl(String localNodeName, CatalogManager catalogManager, FailureProcessor failureProcessor) {

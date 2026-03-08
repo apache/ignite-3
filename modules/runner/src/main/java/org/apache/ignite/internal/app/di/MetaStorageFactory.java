@@ -27,14 +27,14 @@ import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExt
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.disaster.system.MetastorageRepairImpl;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;

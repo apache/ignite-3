@@ -68,6 +68,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -82,7 +83,6 @@ import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.di.IgniteComponentLifecycleManager;
 import org.apache.ignite.internal.di.IgniteDiContext;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.ServerRestarter;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;

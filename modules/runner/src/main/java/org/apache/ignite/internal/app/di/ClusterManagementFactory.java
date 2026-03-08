@@ -31,6 +31,8 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorageMan
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -38,8 +40,6 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;

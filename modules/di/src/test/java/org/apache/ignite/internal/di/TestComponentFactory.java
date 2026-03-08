@@ -21,6 +21,8 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 

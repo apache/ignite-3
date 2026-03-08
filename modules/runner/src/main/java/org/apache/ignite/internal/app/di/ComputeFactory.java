@@ -25,6 +25,8 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -39,8 +41,6 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionCo
 import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderFactory;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
-import org.apache.ignite.internal.components.IgniteStartupPhase;
-import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClock;

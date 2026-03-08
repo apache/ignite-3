@@ -27,10 +27,10 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -86,17 +86,6 @@ public class SystemServicesFactory {
                 () -> cmgManagerProvider.get().clusterState().join().clusterTag().clusterId(),
                 seedParams.nodeName()
         );
-    }
-
-    /** Creates the system view manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    public SystemViewManagerImpl systemViewManager(
-            NodeSeedParams seedParams,
-            CatalogManagerImpl catalogManager,
-            FailureManager failureManager
-    ) {
-        return new SystemViewManagerImpl(seedParams.nodeName(), catalogManager, failureManager);
     }
 
     /** Creates the system disaster recovery manager. */
