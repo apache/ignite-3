@@ -25,7 +25,6 @@ dependencies {
     annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-metastorage-api')
-    implementation project(':ignite-metastorage')
     implementation libs.micronaut.inject
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration')

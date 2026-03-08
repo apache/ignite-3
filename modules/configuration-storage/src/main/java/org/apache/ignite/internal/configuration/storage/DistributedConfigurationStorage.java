@@ -47,7 +47,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
@@ -100,7 +99,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
     /** Constructor for DI injection. */
     @Inject
-    public DistributedConfigurationStorage(NodeIdentity nodeIdentity, MetaStorageManagerImpl metaStorageManager) {
+    public DistributedConfigurationStorage(NodeIdentity nodeIdentity, MetaStorageManager metaStorageManager) {
         this(nodeIdentity.nodeName(), metaStorageManager);
     }
 

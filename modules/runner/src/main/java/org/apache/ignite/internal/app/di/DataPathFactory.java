@@ -47,8 +47,6 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.index.IndexBuildingManager;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -436,66 +434,5 @@ public class DataPathFactory {
         return new PartitionModificationCounterFactory(clockService::current, clusterMessagingService);
     }
 
-    /** Creates the index manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2600)
-    public IndexManager indexManager(
-            SchemaManager schemaManager,
-            TableManager tableManager,
-            CatalogManagerImpl catalogManager,
-            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
-            MetaStorageRevisionListenerRegistry revisionListenerRegistry,
-            LowWatermarkImpl lowWatermark
-    ) {
-        return new IndexManager(
-                schemaManager,
-                tableManager,
-                catalogManager,
-                tableIoExecutor,
-                revisionListenerRegistry,
-                lowWatermark
-        );
-    }
-
-    /** Creates the index building manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2700)
-    public IndexBuildingManager indexBuildingManager(
-            NodeSeedParams seedParams,
-            ReplicaService replicaService,
-            CatalogManagerImpl catalogManager,
-            MetaStorageManagerImpl metaStorageManager,
-            IndexManager indexManager,
-            IndexMetaStorage indexMetaStorage,
-            PlacementDriver placementDriver,
-            ClusterService clusterService,
-            LogicalTopologyService logicalTopologyService,
-            ClockServiceImpl clockService,
-            FailureManager failureManager,
-            LowWatermarkImpl lowWatermark,
-            TxManager txManager,
-            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
-            MetricManager metricManager
-    ) {
-        return new IndexBuildingManager(
-                seedParams.nodeName(),
-                replicaService,
-                catalogManager,
-                metaStorageManager,
-                indexManager,
-                indexMetaStorage,
-                placementDriver,
-                clusterService,
-                logicalTopologyService,
-                clockService,
-                failureManager,
-                lowWatermark,
-                txManager,
-                partitionReplicaLifecycleManager,
-                metricManager
-        );
-    }
 }
 

@@ -22,7 +22,6 @@ import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
-import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -30,34 +29,19 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTrigger;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.logstorage.LogStorageMetrics;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.storage.LogStorageManager;
-import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
-import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -108,28 +92,6 @@ public class SystemServicesFactory {
         );
     }
 
-    /** Creates the MetaStorage compaction trigger. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(3400)
-    public MetaStorageCompactionTrigger metaStorageCompactionTrigger(
-            NodeSeedParams seedParams,
-            RocksDbKeyValueStorage storage,
-            MetaStorageManagerImpl metaStorageManager,
-            FailureManager failureManager,
-            ReadOperationForCompactionTracker readOperationForCompactionTracker,
-            SystemDistributedConfiguration systemDistributedConfiguration
-    ) {
-        return new MetaStorageCompactionTrigger(
-                seedParams.nodeName(),
-                storage,
-                metaStorageManager,
-                failureManager,
-                readOperationForCompactionTracker,
-                systemDistributedConfiguration
-        );
-    }
-
     /** Creates the catalog compaction runner. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
@@ -166,61 +128,4 @@ public class SystemServicesFactory {
         );
     }
 
-    /** Creates the log storage metrics. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1400)
-    public LogStorageMetrics logStorageMetrics(
-            NodeSeedParams seedParams,
-            MetricManager metricManager,
-            @Named("cmg") LogStorageManager cmgLogStorageManager,
-            @Named("metastorage") LogStorageManager msLogStorageManager,
-            @Named("partitions") LogStorageManager partitionsLogStorageManager,
-            VolatileLogStorageManagerCreator volatileLogStorageManagerCreator
-    ) {
-        return new LogStorageMetrics(
-                seedParams.nodeName(),
-                metricManager,
-                cmgLogStorageManager,
-                msLogStorageManager,
-                partitionsLogStorageManager,
-                volatileLogStorageManagerCreator
-        );
-    }
-
-    /** Creates the disaster recovery manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2500)
-    public DisasterRecoveryManager disasterRecoveryManager(
-            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
-            @Named("storageOperations") MessagingService messagingService,
-            MetaStorageManagerImpl metaStorageManager,
-            CatalogManagerImpl catalogManager,
-            DistributionZoneManager distributionZoneManager,
-            Loza raftManager,
-            TopologyService topologyService,
-            LogicalTopologyService logicalTopologyService,
-            TableManager tableManager,
-            MetricManager metricManager,
-            FailureManager failureManager,
-            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
-            SystemViewManagerImpl systemViewManager
-    ) {
-        return new DisasterRecoveryManager(
-                tableIoExecutor,
-                messagingService,
-                metaStorageManager,
-                catalogManager,
-                distributionZoneManager,
-                raftManager,
-                topologyService,
-                logicalTopologyService,
-                tableManager,
-                metricManager,
-                failureManager,
-                partitionReplicaLifecycleManager,
-                systemViewManager
-        );
-    }
 }

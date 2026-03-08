@@ -45,7 +45,6 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -99,7 +98,7 @@ public class ReplicaService {
     @Inject
     public ReplicaService(
             @Named("storageOperations") MessagingService messagingService,
-            ClockServiceImpl clockService,
+            ClockService clockService,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             @Named("commonScheduler") ScheduledExecutorService commonScheduler

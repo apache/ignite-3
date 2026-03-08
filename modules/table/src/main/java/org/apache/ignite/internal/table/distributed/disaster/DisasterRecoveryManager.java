@@ -47,6 +47,10 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -59,6 +63,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -72,6 +77,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -144,6 +151,9 @@ import org.jetbrains.annotations.TestOnly;
  * such as {@link #resetPartitions(String, Set)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2500)
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
     /** Logger. */
     static final IgniteLogger LOG = Loggers.forClass(DisasterRecoveryManager.class);
@@ -222,6 +232,40 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private final Map<Integer, PartitionStatesMetricSource> metricSourceByTableId = new ConcurrentHashMap<>();
 
     private final Map<UUID, MultiNodeOperations> operationsByNodeId = new ConcurrentHashMap<>();
+
+    /** Constructor for DI injection. */
+    @Inject
+    public DisasterRecoveryManager(
+            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
+            @Named("storageOperations") MessagingService messagingService,
+            MetaStorageManager metaStorageManager,
+            CatalogManager catalogManager,
+            DistributionZoneManager distributionZoneManager,
+            Loza raftManager,
+            TopologyService topologyService,
+            LogicalTopologyService logicalTopologyService,
+            TableManager tableManager,
+            MetricManager metricManager,
+            FailureManager failureManager,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            SystemViewManager systemViewManager
+    ) {
+        this(
+                (ExecutorService) tableIoExecutor,
+                messagingService,
+                metaStorageManager,
+                catalogManager,
+                distributionZoneManager,
+                raftManager,
+                topologyService,
+                logicalTopologyService,
+                tableManager,
+                metricManager,
+                failureManager,
+                partitionReplicaLifecycleManager,
+                systemViewManager
+        );
+    }
 
     /** Constructor. */
     public DisasterRecoveryManager(

@@ -30,6 +30,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -45,6 +49,8 @@ import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -70,6 +76,9 @@ import org.apache.ignite.internal.util.LongPriorityQueue;
  * <p>To avoid errors when using indexes while applying replication log during node recovery, the registration of indexes was moved to the
  * start of the tables.</p>
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2600)
 public class IndexManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
@@ -108,12 +117,15 @@ public class IndexManager implements IgniteComponent {
      * @param tableManager Table manager.
      * @param catalogService Catalog service.
      * @param ioExecutor Separate executor for IO operations like storage initialization.
+     * @param registry Revision listener registry.
+     * @param lowWatermark Low watermark.
      */
+    @Inject
     public IndexManager(
             SchemaManager schemaManager,
             TableManager tableManager,
             CatalogService catalogService,
-            ExecutorService ioExecutor,
+            @Named("tableIoExecutor") ExecutorService ioExecutor,
             RevisionListenerRegistry registry,
             LowWatermark lowWatermark
     ) {

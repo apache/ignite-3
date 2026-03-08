@@ -25,6 +25,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -34,6 +37,9 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -62,6 +68,9 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *
  * @see CatalogIndexDescriptor#status()
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2700)
 public class IndexBuildingManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingManager.class);
 
@@ -80,6 +89,43 @@ public class IndexBuildingManager implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /** Constructor for DI injection. */
+    @Inject
+    public IndexBuildingManager(
+            ClusterService clusterService,
+            ReplicaService replicaService,
+            CatalogManager catalogManager,
+            MetaStorageManager metaStorageManager,
+            IndexManager indexManager,
+            IndexMetaStorage indexMetaStorage,
+            PlacementDriver placementDriver,
+            LogicalTopologyService logicalTopologyService,
+            ClockService clockService,
+            FailureManager failureManager,
+            LowWatermark lowWatermark,
+            TxManager txManager,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            MetricManager metricManager
+    ) {
+        this(
+                clusterService.nodeName(),
+                replicaService,
+                catalogManager,
+                metaStorageManager,
+                indexManager,
+                indexMetaStorage,
+                placementDriver,
+                clusterService,
+                logicalTopologyService,
+                clockService,
+                failureManager,
+                lowWatermark,
+                txManager,
+                partitionReplicaLifecycleManager,
+                metricManager
+        );
+    }
 
     /** Constructor. */
     public IndexBuildingManager(
