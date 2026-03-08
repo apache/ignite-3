@@ -34,16 +34,17 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerI
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
-import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
-import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
+import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.vault.VaultManager;
 
 /**
@@ -104,12 +105,12 @@ public class SystemServicesFactory {
             LogicalTopologyService logicalTopologyService,
             PlacementDriver placementDriver,
             ReplicaService replicaService,
-            ClockServiceImpl clockService,
-            SchemaSyncServiceImpl schemaSyncService,
-            LowWatermarkImpl lowWatermark,
+            ClockService clockService,
+            SchemaSyncService schemaSyncService,
+            LowWatermark lowWatermark,
             IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker,
-            MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService,
-            MetaStorageManagerImpl metaStorageManager
+            MinimumRequiredTimeCollectorService minTimeCollectorService,
+            MetaStorageManager metaStorageManager
     ) {
         return new CatalogCompactionRunner(
                 seedParams.nodeName(),

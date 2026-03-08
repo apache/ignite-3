@@ -27,26 +27,26 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SuggestionsClusterExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SuggestionsConfiguration;
-import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.tx.TxManager;
 
 /**
@@ -93,12 +93,12 @@ public class ClientHandlerFactory {
             MetricManager metricManager,
             AuthenticationManager authenticationManager,
             ClockService clockService,
-            SchemaSyncServiceImpl schemaSyncService,
-            CatalogManagerImpl catalogManager,
+            SchemaSyncService schemaSyncService,
+            CatalogManager catalogManager,
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
-            EventLogImpl eventLog,
-            LowWatermarkImpl lowWatermark,
+            EventLog eventLog,
+            LowWatermark lowWatermark,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             SuggestionsConfiguration suggestionsConfiguration
     ) {

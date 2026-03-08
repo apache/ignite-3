@@ -22,29 +22,29 @@ import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.concurrent.ScheduledExecutorService;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
-import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 
@@ -80,20 +80,20 @@ public class SqlFactory {
             SchemaManager schemaManager,
             ReplicaService replicaService,
             ClockService clockService,
-            SchemaSyncServiceImpl schemaSyncService,
-            CatalogManagerImpl catalogManager,
+            SchemaSyncService schemaSyncService,
+            CatalogManager catalogManager,
             MetricManager metricManager,
-            SystemViewManagerImpl systemViewManager,
+            SystemViewManager systemViewManager,
             FailureManager failureManager,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration sqlDistributedConfiguration,
             SqlLocalConfiguration sqlLocalConfiguration,
             TransactionInflights transactionInflights,
             TxManager txManager,
-            LowWatermarkImpl lowWatermark,
+            LowWatermark lowWatermark,
             @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             KillCommandHandler killCommandHandler,
-            EventLogImpl eventLog
+            EventLog eventLog
     ) {
         return new SqlQueryProcessor(
                 clusterService,

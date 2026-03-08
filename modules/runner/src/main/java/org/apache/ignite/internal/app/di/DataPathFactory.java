@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -49,7 +49,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -115,7 +115,7 @@ public class DataPathFactory {
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1900)
-    public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker(MetaStorageManagerImpl metaStorageManager) {
+    public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker(MetaStorageManager metaStorageManager) {
         return new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
     }
 
@@ -143,14 +143,14 @@ public class DataPathFactory {
             NodeSeedParams seedParams,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,
-            MetaStorageManagerImpl metaStorageManager,
+            MetaStorageManager metaStorageManager,
             ClockService clockService,
             PlacementDriver placementDriver,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
             ReplicationConfiguration replicationConfiguration,
             FailureManager failureManager,
             CatalogValidationSchemasSource validationSchemasSource,
-            CatalogManagerImpl catalogManager,
+            CatalogManager catalogManager,
             SchemaSyncService schemaSyncService,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             RaftManager raftManager,
@@ -257,10 +257,10 @@ public class DataPathFactory {
     public DistributionZoneManager distributionZoneManager(
             NodeSeedParams seedParams,
             TopologyService topologyService,
-            MetaStorageManagerImpl metaStorageManager,
+            MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             FailureManager failureManager,
-            CatalogManagerImpl catalogManager,
+            CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService,
             MetricManager metricManager,
@@ -285,10 +285,10 @@ public class DataPathFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(2300)
     public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager(
-            CatalogManagerImpl catalogManager,
+            CatalogManager catalogManager,
             ReplicaManager replicaManager,
             DistributionZoneManager distributionZoneManager,
-            MetaStorageManagerImpl metaStorageManager,
+            MetaStorageManager metaStorageManager,
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureManager failureManager,
@@ -349,7 +349,7 @@ public class DataPathFactory {
             ReplicaService replicaService,
             TxManager txManager,
             DataStorageManager dataStorageManager,
-            MetaStorageManagerImpl metaStorageManager,
+            MetaStorageManager metaStorageManager,
             SchemaManager schemaManager,
             CatalogValidationSchemasSource validationSchemasSource,
             @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
@@ -357,7 +357,7 @@ public class DataPathFactory {
             ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             SchemaSyncService schemaSyncService,
-            CatalogManagerImpl catalogManager,
+            CatalogManager catalogManager,
             FailureManager failureManager,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,

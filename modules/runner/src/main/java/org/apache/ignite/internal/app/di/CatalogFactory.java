@@ -38,6 +38,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.cache.IdempotentCacheVacuumizer;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -104,7 +105,7 @@ public class CatalogFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(100)
     public CatalogManagerImpl catalogManager(
-            MetaStorageManagerImpl metaStorageManager,
+            MetaStorageManager metaStorageManager,
             ClockService clockService,
             FailureManager failureManager,
             SchemaSynchronizationConfiguration schemaSyncConfig,
@@ -127,7 +128,7 @@ public class CatalogFactory {
     @Order(800)
     public PlacementDriverManager placementDriverManager(
             NodeSeedParams seedParams,
-            MetaStorageManagerImpl metaStorageManager,
+            MetaStorageManager metaStorageManager,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,
             LogicalTopologyService logicalTopologyService,

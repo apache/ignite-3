@@ -41,11 +41,11 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionCo
 import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderFactory;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
-import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -83,7 +83,7 @@ public class ComputeFactory {
             ComputeConfiguration computeConfiguration,
             TopologyService topologyService,
             ClockService clockService,
-            EventLogImpl eventLog
+            EventLog eventLog
     ) {
         return new ComputeExecutorImpl(
                 igniteProvider.get(),
@@ -101,7 +101,7 @@ public class ComputeFactory {
     @Order(3000)
     public DeploymentManagerImpl deploymentManager(
             ClusterService clusterService,
-            MetaStorageManagerImpl metaStorageManager,
+            MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             NodeSeedParams seedParams,
             DeploymentConfiguration deploymentConfiguration,
@@ -132,7 +132,7 @@ public class ComputeFactory {
             DeploymentManagerImpl deploymentManager,
             ComputeExecutorImpl computeExecutor,
             ComputeConfiguration computeConfiguration,
-            EventLogImpl eventLog,
+            EventLog eventLog,
             HybridTimestampTracker observableTimestampTracker
     ) {
         return new ComputeComponentImpl(
