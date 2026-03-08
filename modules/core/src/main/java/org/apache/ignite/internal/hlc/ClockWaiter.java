@@ -21,6 +21,10 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -29,6 +33,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -41,6 +48,9 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
  * Allows to wait for the supplied clock to reach a required timestamp. It only uses the clock itself,
  * no SafeTime mechanisms are involved.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(500)
 public class ClockWaiter implements IgniteComponent {
     private final HybridClock clock;
 
@@ -59,6 +69,12 @@ public class ClockWaiter implements IgniteComponent {
 
     /** Executor that executes completion of futures returned to the user, so it might take arbitrarily heavy operations. */
     private final ExecutorService futureExecutor;
+
+    /** Constructor for DI injection. */
+    @Inject
+    public ClockWaiter(NodeIdentity identity, HybridClock clock, @Named("commonScheduler") ScheduledExecutorService scheduler) {
+        this(identity.nodeName(), clock, scheduler);
+    }
 
     /**
      * Creates a new {@link ClockWaiter}.

@@ -43,11 +43,13 @@ dependencies {
     implementation libs.jackson.core
     implementation libs.jackson.databind
     implementation libs.auto.service.annotations
+    implementation libs.micronaut.inject
     compileOnly libs.jsr305 // Fix unknown enum constant warning
 
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     testAnnotationProcessor project(':ignite-network-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor

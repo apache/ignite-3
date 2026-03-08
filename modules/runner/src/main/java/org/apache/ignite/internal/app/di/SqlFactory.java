@@ -30,15 +30,12 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
@@ -70,16 +67,6 @@ public class SqlFactory {
             @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry
     ) {
         return nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql();
-    }
-
-    /** Creates the kill command handler. */
-    @Singleton
-    public KillCommandHandler killCommandHandler(
-            NodeSeedParams seedParams,
-            LogicalTopologyService logicalTopologyService,
-            @Named("clusterMessaging") MessagingService clusterMessagingService
-    ) {
-        return new KillCommandHandler(seedParams.nodeName(), logicalTopologyService, clusterMessagingService);
     }
 
     /** Creates the SQL query processor. */
@@ -132,15 +119,4 @@ public class SqlFactory {
         );
     }
 
-    /** Creates the IgniteSql implementation. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(3100)
-    public IgniteSqlImpl igniteSql(
-            SqlQueryProcessor sqlQueryProcessor,
-            HybridTimestampTracker observableTimestampTracker,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler
-    ) {
-        return new IgniteSqlImpl(sqlQueryProcessor, observableTimestampTracker, commonScheduler);
-    }
 }

@@ -30,8 +30,6 @@ import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguratio
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
-import org.apache.ignite.internal.hlc.ClockWaiter;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -91,14 +89,6 @@ public class NetworkComponentsFactory {
         );
     }
 
-    /** Creates the netty bootstrap factory. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1100)
-    public NettyBootstrapFactory nettyBootstrapFactory(NodeSeedParams seedParams, NetworkConfiguration networkConfiguration) {
-        return new NettyBootstrapFactory(networkConfiguration, seedParams.nodeName());
-    }
-
     /** Creates the netty workers registrar. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
@@ -117,18 +107,6 @@ public class NetworkComponentsFactory {
                 systemConfiguration.criticalWorkers(),
                 failureManager
         );
-    }
-
-    /** Creates the clock waiter. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(500)
-    public ClockWaiter clockWaiter(
-            NodeSeedParams seedParams,
-            HybridClock clock,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler
-    ) {
-        return new ClockWaiter(seedParams.nodeName(), clock, commonScheduler);
     }
 
 }

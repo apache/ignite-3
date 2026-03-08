@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelOption;
@@ -29,9 +30,14 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.concurrent.EventExecutor;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.configuration.InboundView;
@@ -46,6 +52,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(1100)
 public class NettyBootstrapFactory implements IgniteComponent {
     /** Network configuration. */
     private final NetworkConfiguration networkConfiguration;
@@ -60,6 +69,12 @@ public class NettyBootstrapFactory implements IgniteComponent {
     private EventLoopGroup workerGroup;
 
     private volatile HandshakeEventLoopSwitcher handshakeEventLoopSwitcher;
+
+    /** Constructor for DI injection. */
+    @Inject
+    public NettyBootstrapFactory(NetworkConfiguration networkConfiguration, NodeIdentity nodeIdentity) {
+        this(networkConfiguration, nodeIdentity.nodeName());
+    }
 
     /**
      * Constructor.

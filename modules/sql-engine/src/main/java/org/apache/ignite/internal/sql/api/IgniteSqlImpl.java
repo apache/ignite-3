@@ -22,7 +22,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Order;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -34,6 +38,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,6 +46,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -83,6 +90,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Embedded implementation of the Ignite SQL query facade.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(3100)
 @SuppressWarnings("rawtypes")
 public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
@@ -102,6 +112,22 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent, Wrapper {
     private final HybridTimestampTracker observableTimestampTracker;
 
     private final Executor commonExecutor;
+
+    /**
+     * Constructor for dependency injection.
+     *
+     * @param queryProcessor Query processor.
+     * @param observableTimestampTracker Tracker of the latest time observed by client.
+     * @param commonScheduler Executor that is used to close cursors when executing a script.
+     */
+    @Inject
+    public IgniteSqlImpl(
+            QueryProcessor queryProcessor,
+            HybridTimestampTracker observableTimestampTracker,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
+    ) {
+        this(queryProcessor, observableTimestampTracker, (Executor) commonScheduler);
+    }
 
     /**
      * Constructor.
