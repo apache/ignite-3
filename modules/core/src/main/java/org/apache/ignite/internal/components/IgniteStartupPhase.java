@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.di;
+package org.apache.ignite.internal.components;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -26,9 +26,6 @@ import java.lang.annotation.Target;
 /**
  * Marks an {@link org.apache.ignite.internal.manager.IgniteComponent} bean with the startup phase
  * in which it should be started.
- *
- * <p>This annotation is used by {@link IgniteComponentLifecycleManager} to group components
- * and start them in the correct phase during node startup.
  *
  * <p>Components without this annotation default to {@link StartupPhase#PHASE_1}.
  */

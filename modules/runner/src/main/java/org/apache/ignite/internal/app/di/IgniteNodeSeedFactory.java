@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 
@@ -34,6 +35,12 @@ public class IgniteNodeSeedFactory {
 
     public IgniteNodeSeedFactory(NodeSeedParams seedParams) {
         this.seedParams = seedParams;
+    }
+
+    /** Creates the node identity POJO for injection into components across modules. */
+    @Singleton
+    public NodeIdentity nodeIdentity() {
+        return new NodeIdentity(seedParams.nodeName(), seedParams.workDir(), seedParams.clusterIdSupplier());
     }
 
     /** Creates the persistent vault service backed by the node's work directory. */

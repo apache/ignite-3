@@ -39,8 +39,8 @@ import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionCo
 import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderFactory;
 import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
-import org.apache.ignite.internal.di.IgniteStartupPhase;
-import org.apache.ignite.internal.di.StartupPhase;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.HybridClock;

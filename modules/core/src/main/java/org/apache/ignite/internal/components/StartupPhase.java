@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.di;
+package org.apache.ignite.internal.components;
 
 /**
  * Defines the startup phase in which an {@link org.apache.ignite.internal.manager.IgniteComponent} should be started.
