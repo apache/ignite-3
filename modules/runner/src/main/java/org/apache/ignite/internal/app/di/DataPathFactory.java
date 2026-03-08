@@ -241,18 +241,6 @@ public class DataPathFactory {
         return new DataStorageManager(storageEngines, storageConfiguration);
     }
 
-    /** Creates the outgoing snapshots manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2100)
-    public OutgoingSnapshotsManager outgoingSnapshotsManager(
-            NodeSeedParams seedParams,
-            @Named("clusterMessaging") MessagingService clusterMessagingService,
-            FailureManager failureManager
-    ) {
-        return new OutgoingSnapshotsManager(seedParams.nodeName(), clusterMessagingService, failureManager);
-    }
-
     /** Creates the low watermark. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)

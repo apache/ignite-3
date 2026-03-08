@@ -26,6 +26,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -55,6 +61,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Metrics messaging service.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1000)
 public class MetricMessaging implements IgniteComponent {
     private static final long NETWORK_TIMEOUT_MILLIS = Long.MAX_VALUE;
 
@@ -75,7 +84,12 @@ public class MetricMessaging implements IgniteComponent {
      * @param messagingService Messaging service.
      * @param topologyService Topology service.
      */
-    public MetricMessaging(MetricManager metricManager, MessagingService messagingService, TopologyService topologyService) {
+    @Inject
+    public MetricMessaging(
+            MetricManager metricManager,
+            @Named("clusterMessaging") MessagingService messagingService,
+            TopologyService topologyService
+    ) {
         this.metricManager = metricManager;
         this.messagingService = messagingService;
         this.topologyService = topologyService;

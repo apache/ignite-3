@@ -47,7 +47,6 @@ import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionT
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.logstorage.LogStorageMetrics;
-import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -61,10 +60,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.vault.VaultManager;
 
 /**
@@ -190,46 +185,6 @@ public class SystemServicesFactory {
                 msLogStorageManager,
                 partitionsLogStorageManager,
                 volatileLogStorageManagerCreator
-        );
-    }
-
-    /** Creates the metric messaging. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1000)
-    public MetricMessaging metricMessaging(
-            MetricManager metricManager,
-            @Named("clusterMessaging") MessagingService clusterMessagingService,
-            TopologyService topologyService
-    ) {
-        return new MetricMessaging(metricManager, clusterMessagingService, topologyService);
-    }
-
-    /** Creates the resource vacuum manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(3300)
-    public ResourceVacuumManager resourceVacuumManager(
-            NodeSeedParams seedParams,
-            RemotelyTriggeredResourceRegistry resourcesRegistry,
-            TopologyService topologyService,
-            @Named("storageOperations") MessagingService messagingService,
-            TransactionInflights transactionInflights,
-            TxManager txManager,
-            LowWatermarkImpl lowWatermark,
-            FailureManager failureManager,
-            MetricManager metricManager
-    ) {
-        return new ResourceVacuumManager(
-                seedParams.nodeName(),
-                resourcesRegistry,
-                topologyService,
-                messagingService,
-                transactionInflights,
-                txManager,
-                lowWatermark,
-                failureManager,
-                metricManager
         );
     }
 

@@ -96,26 +96,6 @@ public class TransactionFactory {
         );
     }
 
-    /** Creates the replica service. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1600)
-    public ReplicaService replicaService(
-            @Named("storageOperations") MessagingService messagingService,
-            ClockServiceImpl clockService,
-            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
-            ReplicationConfiguration replicationConfiguration,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler
-    ) {
-        return new ReplicaService(
-                messagingService,
-                clockService,
-                partitionOperationsExecutor,
-                replicationConfiguration,
-                commonScheduler
-        );
-    }
-
     /** Creates the transaction ID generator. */
     @Singleton
     public TransactionIdGenerator transactionIdGenerator(ClusterService clusterService) {
