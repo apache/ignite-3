@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.DefaultApplicationContext;
+import io.micronaut.inject.BeanDefinitionReference;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.DefaultConversionService;
 import io.micronaut.http.HttpMethod;
@@ -355,12 +356,29 @@ public class RestComponent implements IgniteComponent {
     private static class IgniteMicronaut extends Micronaut {
         private final ConversionService conversionService = new DefaultConversionService();
 
+        private static final String IGNITE_PACKAGE_PREFIX = "org.apache.ignite.internal.";
+        private static final String REST_PACKAGE_PREFIX = "org.apache.ignite.internal.rest.";
+
         @Override
         protected ApplicationContext newApplicationContext() {
             return new DefaultApplicationContext(this) {
                 @Override
                 protected ConversionService createConversionService() {
                     return conversionService;
+                }
+
+                @Override
+                protected List<BeanDefinitionReference> resolveBeanDefinitionReferences() {
+                    List<BeanDefinitionReference> refs = super.resolveBeanDefinitionReferences();
+
+                    // Exclude Ignite beans that are not in the REST package to prevent
+                    // duplicate bean registration (REST factories register them explicitly).
+                    refs.removeIf(ref -> {
+                        String name = ref.getBeanDefinitionName();
+                        return name.startsWith(IGNITE_PACKAGE_PREFIX) && !name.startsWith(REST_PACKAGE_PREFIX);
+                    });
+
+                    return refs;
                 }
             };
         }
