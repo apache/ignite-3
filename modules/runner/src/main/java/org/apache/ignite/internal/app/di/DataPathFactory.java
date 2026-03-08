@@ -49,7 +49,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -94,7 +93,6 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.sql.IgniteSql;
 
 /**
@@ -228,28 +226,6 @@ public class DataPathFactory {
         );
 
         return new DataStorageManager(storageEngines, storageConfiguration);
-    }
-
-    /** Creates the low watermark. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(2000)
-    public LowWatermarkImpl lowWatermark(
-            NodeIdentity nodeIdentity,
-            GcConfiguration gcConfiguration,
-            ClockService clockService,
-            VaultManager vaultManager,
-            FailureManager failureManager,
-            @Named("clusterMessaging") MessagingService clusterMessagingService
-    ) {
-        return new LowWatermarkImpl(
-                nodeIdentity.nodeName(),
-                gcConfiguration.lowWatermark(),
-                clockService,
-                vaultManager,
-                failureManager,
-                clusterMessagingService
-        );
     }
 
     /** Creates the distribution zone manager. */

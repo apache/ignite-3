@@ -21,8 +21,12 @@ import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MonitorInfo;
@@ -34,6 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -54,6 +60,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>The watchdog periodically performs a check; if it finds a worker that lags more than allowed and it is not in the
  * NOT_MONITORED state, then a logging is triggered.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(1000)
 public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(CriticalWorkerWatchdog.class);
 
@@ -77,9 +86,10 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
      * @param scheduler Scheduler.
      * @param failureManager Failure processor.
      */
+    @Inject
     public CriticalWorkerWatchdog(
             CriticalWorkersConfiguration configuration,
-            ScheduledExecutorService scheduler,
+            @Named("commonScheduler") ScheduledExecutorService scheduler,
             FailureManager failureManager
     ) {
         this.configuration = configuration;

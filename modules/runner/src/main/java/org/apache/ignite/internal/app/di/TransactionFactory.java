@@ -45,6 +45,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
@@ -80,6 +81,12 @@ public class TransactionFactory {
     @Singleton
     public GcConfiguration gcConfiguration(@Named("clusterConfig") ConfigurationRegistry clusterConfigRegistry) {
         return clusterConfigRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
+    }
+
+    /** Creates the low watermark configuration from the GC config. */
+    @Singleton
+    public LowWatermarkConfiguration lowWatermarkConfiguration(GcConfiguration gcConfiguration) {
+        return gcConfiguration.lowWatermark();
     }
 
     /** Creates the messaging service wrapper that jumps to the storage operations thread pool. */

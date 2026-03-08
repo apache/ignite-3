@@ -21,7 +21,6 @@ import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
-import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
@@ -32,12 +31,9 @@ import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguratio
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
-import org.apache.ignite.internal.network.NettyBootstrapFactory;
-import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
-import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
-import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 
 /**
  * Micronaut factory for network and infrastructure components.
@@ -64,6 +60,12 @@ public class NetworkComponentsFactory {
         return nodeConfigRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
     }
 
+    /** Creates the critical workers configuration from the system local config. */
+    @Singleton
+    public CriticalWorkersConfiguration criticalWorkersConfiguration(SystemLocalConfiguration systemConfiguration) {
+        return systemConfiguration.criticalWorkers();
+    }
+
     /** Creates the failure manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
@@ -74,42 +76,6 @@ public class NetworkComponentsFactory {
             FailureProcessorConfiguration failureProcessorConfiguration
     ) {
         return new FailureManager(nodeIdentity.nodeName(), igniteServer::shutdown, failureProcessorConfiguration);
-    }
-
-    /** Creates the critical worker watchdog. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1000)
-    public CriticalWorkerWatchdog criticalWorkerWatchdog(
-            SystemLocalConfiguration systemConfiguration,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
-            FailureManager failureManager
-    ) {
-        return new CriticalWorkerWatchdog(
-                systemConfiguration.criticalWorkers(),
-                commonScheduler,
-                failureManager
-        );
-    }
-
-    /** Creates the netty workers registrar. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_1)
-    @Order(1200)
-    public NettyWorkersRegistrar nettyWorkersRegistrar(
-            CriticalWorkerRegistry criticalWorkerRegistry,
-            @Named("commonScheduler") ScheduledExecutorService commonScheduler,
-            NettyBootstrapFactory nettyBootstrapFactory,
-            SystemLocalConfiguration systemConfiguration,
-            FailureManager failureManager
-    ) {
-        return new NettyWorkersRegistrar(
-                criticalWorkerRegistry,
-                commonScheduler,
-                nettyBootstrapFactory,
-                systemConfiguration.criticalWorkers(),
-                failureManager
-        );
     }
 
 }
