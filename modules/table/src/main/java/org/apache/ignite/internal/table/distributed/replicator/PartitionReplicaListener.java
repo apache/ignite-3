@@ -80,6 +80,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -296,7 +298,8 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private final Supplier<Map<Integer, IndexLocker>> indexesLockers;
 
     /** Used to handle race between concurrent rollback and enlist. */
-    private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
+    //private final ConcurrentMap<UUID, TxCleanupReadyState> txCleanupReadyFutures = new ConcurrentHashMap<>();
+    private final PartitionInflights txCleanupReadyFutures = new PartitionInflights();
 
     /** Cleanup futures. */
     private final ConcurrentHashMap<RowId, CompletableFuture<?>> rowCleanupMap = new ConcurrentHashMap<>();
@@ -1414,7 +1417,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
         TxStateMeta txStateMeta = txManager.stateMeta(request.txId());
 
-        // LOG.info("DBG: processTableWriteIntentSwitchAction " + request.txId() + " " + request.groupId().asReplicationGroupId().toString() + " " + txStateMeta);
+        LOG.info("DBG: processTableWriteIntentSwitchAction " + request.txId() + " " + request.groupId().asReplicationGroupId().toString() + " " + txStateMeta);
 
         if (txStateMeta != null && txStateMeta.txState() == ABORTED) {
             Throwable cause = txStateMeta.lastException();
@@ -1441,8 +1444,12 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ));
         }
 
+        LOG.info("DBG: awaitCleanupReadyFutures " + request.txId());
+
         return awaitCleanupReadyFutures(request.txId())
                 .thenApply(res -> {
+                    LOG.info("DBG: awaitCleanupReadyFutures done " + request.txId());
+
                     if (res.shouldApplyWriteIntent()) {
                         applyWriteIntentSwitchCommandLocally(request);
                     }
@@ -1452,35 +1459,39 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<FuturesCleanupResult> awaitCleanupReadyFutures(UUID txId) {
-        AtomicBoolean cleanupNeeded = new AtomicBoolean(true);
-        AtomicReference<CompletableFuture<Void>> cleanupReadyFutureRef = new AtomicReference<>(nullCompletedFuture());
+//        AtomicBoolean cleanupNeeded = new AtomicBoolean(true);
+//        AtomicReference<CompletableFuture<Void>> cleanupReadyFutureRef = new AtomicReference<>(nullCompletedFuture());
 
-        txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
-            // Cleanup operations (both read and update) aren't registered in two cases:
-            // - there were no actions in the transaction
-            // - write intent switch is being executed on the new primary (the primary has changed after write intent appeared)
-            // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
+        CompletableFuture<Void> fut = txCleanupReadyFutures.finishFuture(txId);
 
-            // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
-            // txCleanupState.hadWrites() returns false).
-            boolean forceCleanup = txCleanupState == null || !txCleanupState.hadAnyOperations();
+//        txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
+//            // Cleanup operations (both read and update) aren't registered in two cases:
+//            // - there were no actions in the transaction
+//            // - write intent switch is being executed on the new primary (the primary has changed after write intent appeared)
+//            // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
+//
+//            // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
+//            // txCleanupState.hadWrites() returns false).
+//            boolean forceCleanup = txCleanupState == null || !txCleanupState.hadAnyOperations();
+//
+//            if (txCleanupState == null) {
+//                return null;
+//            }
+//
+//            cleanupNeeded.set(txCleanupState.hadWrites() || forceCleanup);
+//
+//            CompletableFuture<Void> fut = txCleanupState.lockAndAwaitInflights();
+//            cleanupReadyFutureRef.set(fut);
+//
+//            return txCleanupState;
+//        });
 
-            if (txCleanupState == null) {
-                return null;
-            }
-
-            cleanupNeeded.set(txCleanupState.hadWrites() || forceCleanup);
-
-            CompletableFuture<Void> fut = txCleanupState.lockAndAwaitInflights();
-            cleanupReadyFutureRef.set(fut);
-
-            return txCleanupState;
-        });
-
-        return cleanupReadyFutureRef.get()
-                .thenApplyAsync(v -> new FuturesCleanupResult(cleanupNeeded.get()), txManager.writeIntentSwitchExecutor())
+        return fut
+                .thenApplyAsync(v -> new FuturesCleanupResult(true), txManager.writeIntentSwitchExecutor())
                 // TODO https://issues.apache.org/jira/browse/IGNITE-27904 proper cleanup.
-                .whenComplete((v, e) -> txCleanupReadyFutures.remove(txId));
+                .whenCompleteAsync((v, e) -> {
+                    // txCleanupReadyFutures.erase(txId);
+                });
     }
 
     private void applyWriteIntentSwitchCommandLocally(WriteIntentSwitchReplicaRequestBase request) {
@@ -1586,31 +1597,14 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             });
         }
 
-        AtomicBoolean inflightStarted = new AtomicBoolean(false);
 
-        TxCleanupReadyState txCleanupReadyState = txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
-            // First check whether the transaction has already been finished.
-            // And complete cleanupReadyFut with exception if it is the case.
-            TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
-            if (txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING) {
-                // Don't start inflight.
-                return txCleanupState;
-            }
+        //AtomicBoolean inflightStarted = new AtomicBoolean(false);
 
-            // Otherwise start new inflight in txCleanupState.
-            if (txCleanupState == null) {
-                txCleanupState = new TxCleanupReadyState();
-            }
-
-            boolean started = txCleanupState.startInflight(requestType);
-            inflightStarted.set(started);
-
-            return txCleanupState;
-        });
-
-        if (!inflightStarted.get()) {
-            TxStateMeta txStateMeta = txManager.stateMeta(txId);
+        TxStateMeta txStateMeta = txManager.stateMeta(txId);
+        boolean finishing = txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING;
+        if (finishing) {
+            //TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             TxState txState = txStateMeta == null ? null : txStateMeta.txState();
             boolean isFinishedDueToTimeout = txStateMeta != null && txStateMeta.isFinishedDueToTimeoutOrFalse();
@@ -1637,29 +1631,64 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
             ));
         }
 
+        boolean locked = !txCleanupReadyFutures.addInflight(txId);
+
+//        TxCleanupReadyState txCleanupReadyState = txCleanupReadyFutures.compute(txId, (id, txCleanupState) -> {
+//            // First check whether the transaction has already been finished.
+//            // And complete cleanupReadyFut with exception if it is the case.
+//            TxStateMeta txStateMeta = txManager.stateMeta(txId);
+//
+//            if (txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING) {
+//                // Don't start inflight.
+//                return txCleanupState;
+//            }
+//
+//            // Otherwise start new inflight in txCleanupState.
+//            if (txCleanupState == null) {
+//                txCleanupState = new TxCleanupReadyState();
+//            }
+//
+//            boolean started = txCleanupState.startInflight(requestType);
+//            inflightStarted.set(started);
+//
+//            return txCleanupState;
+//        });
+
+        if (locked) {
+            return failedFuture(new TransactionException(
+                    TX_ALREADY_FINISHED_ERR,
+                    format("Transaction is already finished [{}, txState={}].", formatTxInfo(txId, txManager), txStateMeta)
+            ));
+        }
+
         CompletableFuture<T> fut = op.get();
 
+        txCleanupReadyFutures.register(txId, fut);
+
         // If inflightStarted then txCleanupReadyState is not null.
-        requireNonNull(txCleanupReadyState, "txCleanupReadyState cannot be null here.");
+        //requireNonNull(txCleanupReadyState, "txCleanupReadyState cannot be null here.");
 
         fut.whenComplete((v, th) -> {
-            if (th != null) {
-                txCleanupReadyState.completeInflight(txId);
-            } else {
-                if (v instanceof ReplicaResult) {
-                    ReplicaResult res = (ReplicaResult) v;
+            //txCleanupReadyFutures.mark(txId);
+            txCleanupReadyFutures.removeInflight(txId);
 
-                    if (res.applyResult().replicationFuture() != null) {
-                        res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
-                            txCleanupReadyState.completeInflight(txId);
-                        });
-                    } else {
-                        txCleanupReadyState.completeInflight(txId);
-                    }
-                } else {
-                    txCleanupReadyState.completeInflight(txId);
-                }
-            }
+//            if (th != null) {
+//                txCleanupReadyFutures.removeInflight(txId);
+//            } else {
+//                if (v instanceof ReplicaResult) {
+//                    ReplicaResult res = (ReplicaResult) v;
+//
+//                    if (res.applyResult().replicationFuture() != null) {
+//                        res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
+//                            txCleanupReadyFutures.removeInflight(txId);
+//                        });
+//                    } else {
+//                        txCleanupReadyFutures.removeInflight(txId);
+//                    }
+//                } else {
+//                    txCleanupReadyFutures.removeInflight(txId);
+//                }
+//            }
         });
 
         return fut;
@@ -3171,8 +3200,11 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForUpdate(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
-                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X))
+//        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
+//                .thenCompose(ignored -> lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X))
+//                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
+//                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
+        return lockManager.acquire(txId, new LockKey(tableLockKey, rowId), LockMode.X)
                 .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
@@ -3185,8 +3217,10 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
      * @return Future completes with tuple {@link RowId} and collection of {@link Lock}.
      */
     private CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> takeLocksForInsert(BinaryRow binaryRow, RowId rowId, UUID txId) {
-        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
-                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
+//        return lockManager.acquire(txId, new LockKey(tableLockKey), LockMode.IX)
+//                .thenCompose(ignored -> takePutLockOnIndexes(binaryRow, rowId, txId))
+//                .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
+        return takePutLockOnIndexes(binaryRow, rowId, txId)
                 .thenApply(shortTermLocks -> new IgniteBiTuple<>(rowId, shortTermLocks));
     }
 
