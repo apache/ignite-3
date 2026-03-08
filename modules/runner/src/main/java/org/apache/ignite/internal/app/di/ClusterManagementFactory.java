@@ -63,6 +63,7 @@ import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigu
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Micronaut factory for cluster management components.
@@ -71,8 +72,10 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 public class ClusterManagementFactory {
     /** Creates the message serialization registry, loading all serializers from the classpath. */
     @Singleton
-    public MessageSerializationRegistry messageSerializationRegistry(NodeSeedParams seedParams) {
-        var serviceLoader = new SerializationRegistryServiceLoader(seedParams.serviceProviderClassLoader());
+    public MessageSerializationRegistry messageSerializationRegistry(
+            @Named("serviceProviderClassLoader") @Nullable ClassLoader serviceProviderClassLoader
+    ) {
+        var serviceLoader = new SerializationRegistryServiceLoader(serviceProviderClassLoader);
         var registry = new MessageSerializationRegistryImpl();
         serviceLoader.registerSerializationFactories(registry);
         return registry;
@@ -84,7 +87,7 @@ public class ClusterManagementFactory {
     @Order(1300)
     public ClusterService clusterService(
             NodeIdentity nodeIdentity,
-            NodeSeedParams seedParams,
+            @Named("serviceProviderClassLoader") @Nullable ClassLoader serviceProviderClassLoader,
             NetworkConfiguration networkConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory,
             MessageSerializationRegistry serializationRegistry,
@@ -102,7 +105,7 @@ public class ClusterManagementFactory {
                 clusterIdService,
                 criticalWorkerRegistry,
                 failureManager,
-                ChannelTypeRegistryProvider.loadByServiceLoader(seedParams.serviceProviderClassLoader()),
+                ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader),
                 new DefaultIgniteProductVersionSource(),
                 metricManager
         );
