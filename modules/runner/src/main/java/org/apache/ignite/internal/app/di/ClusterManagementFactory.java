@@ -32,6 +32,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.raft.ValidationManager;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
@@ -82,6 +83,7 @@ public class ClusterManagementFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(1300)
     public ClusterService clusterService(
+            NodeIdentity nodeIdentity,
             NodeSeedParams seedParams,
             NetworkConfiguration networkConfiguration,
             NettyBootstrapFactory nettyBootstrapFactory,
@@ -92,7 +94,7 @@ public class ClusterManagementFactory {
             MetricManager metricManager
     ) {
         return new ScaleCubeClusterService(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 networkConfiguration,
                 nettyBootstrapFactory,
                 serializationRegistry,
@@ -137,8 +139,8 @@ public class ClusterManagementFactory {
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(700)
-    public RocksDbClusterStateStorage clusterStateStorage(@Named("cmg") ComponentWorkingDir cmgWorkDir, NodeSeedParams seedParams) {
-        return new RocksDbClusterStateStorage(cmgWorkDir.dbPath(), seedParams.nodeName());
+    public RocksDbClusterStateStorage clusterStateStorage(@Named("cmg") ComponentWorkingDir cmgWorkDir, NodeIdentity nodeIdentity) {
+        return new RocksDbClusterStateStorage(cmgWorkDir.dbPath(), nodeIdentity.nodeName());
     }
 
     /** Creates the distributed configuration tree generator. */

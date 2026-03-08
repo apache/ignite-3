@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -60,22 +61,22 @@ public class RaftFactory {
     /** Creates the partitions working directory. */
     @Singleton
     @Named("partitions")
-    public ComponentWorkingDir partitionsWorkDir(SystemLocalConfiguration systemConfiguration, NodeSeedParams seedParams) {
-        return partitionsPath(systemConfiguration, seedParams.workDir());
+    public ComponentWorkingDir partitionsWorkDir(SystemLocalConfiguration systemConfiguration, NodeIdentity nodeIdentity) {
+        return partitionsPath(systemConfiguration, nodeIdentity.workDir());
     }
 
     /** Creates the metastorage working directory. */
     @Singleton
     @Named("metastorage")
-    public ComponentWorkingDir metastorageWorkDir(SystemLocalConfiguration systemConfiguration, NodeSeedParams seedParams) {
-        return metastoragePath(systemConfiguration, seedParams.workDir());
+    public ComponentWorkingDir metastorageWorkDir(SystemLocalConfiguration systemConfiguration, NodeIdentity nodeIdentity) {
+        return metastoragePath(systemConfiguration, nodeIdentity.workDir());
     }
 
     /** Creates the CMG working directory. */
     @Singleton
     @Named("cmg")
-    public ComponentWorkingDir cmgWorkDir(SystemLocalConfiguration systemConfiguration, NodeSeedParams seedParams) {
-        return cmgPath(systemConfiguration, seedParams.workDir());
+    public ComponentWorkingDir cmgWorkDir(SystemLocalConfiguration systemConfiguration, NodeIdentity nodeIdentity) {
+        return cmgPath(systemConfiguration, nodeIdentity.workDir());
     }
 
     /** Creates the partitions log storage manager. */
@@ -84,13 +85,13 @@ public class RaftFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(1500)
     public LogStorageManager partitionsLogStorageManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             RaftConfiguration raftConfiguration,
             @Named("partitions") ComponentWorkingDir partitionsWorkDir
     ) {
         return SharedLogStorageManagerUtils.create(
                 "table data log",
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 partitionsWorkDir.raftLogPath(),
                 raftConfiguration.fsync().value()
         );
@@ -102,12 +103,12 @@ public class RaftFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(1600)
     public LogStorageManager msLogStorageManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             @Named("metastorage") ComponentWorkingDir metastorageWorkDir
     ) {
         return SharedLogStorageManagerUtils.create(
                 "meta-storage log",
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 metastorageWorkDir.raftLogPath(),
                 true
         );
@@ -119,12 +120,12 @@ public class RaftFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(1700)
     public LogStorageManager cmgLogStorageManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             @Named("cmg") ComponentWorkingDir cmgWorkDir
     ) {
         return SharedLogStorageManagerUtils.create(
                 "cluster-management-group log",
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 cmgWorkDir.raftLogPath(),
                 true
         );

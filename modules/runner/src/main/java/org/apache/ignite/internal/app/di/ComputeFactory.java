@@ -26,6 +26,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
@@ -103,7 +104,7 @@ public class ComputeFactory {
             ClusterService clusterService,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             DeploymentConfiguration deploymentConfiguration,
             ClusterManagementGroupManager cmgManager,
             ComputeExecutorImpl computeExecutor
@@ -112,10 +113,10 @@ public class ComputeFactory {
                 clusterService,
                 new DeploymentUnitStoreImpl(metaStorageManager),
                 logicalTopologyService,
-                seedParams.workDir(),
+                nodeIdentity.workDir(),
                 deploymentConfiguration,
                 cmgManager,
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 computeExecutor::onUnitRemoving
         );
     }
@@ -125,7 +126,7 @@ public class ComputeFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1200)
     public ComputeComponentImpl computeComponent(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             @Named("clusterMessaging") MessagingService clusterMessagingService,
             TopologyService topologyService,
             LogicalTopologyService logicalTopologyService,
@@ -136,7 +137,7 @@ public class ComputeFactory {
             HybridTimestampTracker observableTimestampTracker
     ) {
         return new ComputeComponentImpl(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 clusterMessagingService,
                 topologyService,
                 logicalTopologyService,
@@ -157,7 +158,7 @@ public class ComputeFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1300)
     public IgniteComputeInternal igniteCompute(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             PlacementDriver placementDriver,
             TopologyService topologyService,
             TableManager tableManager,
@@ -166,7 +167,7 @@ public class ComputeFactory {
             HybridTimestampTracker observableTimestampTracker
     ) {
         return new IgniteComputeImpl(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 placementDriver,
                 topologyService,
                 tableManager,

@@ -38,6 +38,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -105,10 +106,10 @@ public class DataPathFactory {
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1300)
-    public VolatileLogStorageManagerCreator volatileLogStorageManagerCreator(NodeSeedParams seedParams) {
+    public VolatileLogStorageManagerCreator volatileLogStorageManagerCreator(NodeIdentity nodeIdentity) {
         return new VolatileLogStorageManagerCreator(
-                seedParams.nodeName(),
-                seedParams.workDir().resolve("volatile-log-spillout")
+                nodeIdentity.nodeName(),
+                nodeIdentity.workDir().resolve("volatile-log-spillout")
         );
     }
 
@@ -141,7 +142,7 @@ public class DataPathFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1500)
     public ReplicaManager replicaManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,
             MetaStorageManager metaStorageManager,
@@ -161,7 +162,7 @@ public class DataPathFactory {
             @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
         return new ReplicaManager(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 clusterService,
                 cmgManager,
                 groupId -> zonePartitionStableAssignments(metaStorageManager, groupId),
@@ -197,6 +198,7 @@ public class DataPathFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1800)
     public DataStorageManager dataStorageManager(
+            NodeIdentity nodeIdentity,
             NodeSeedParams seedParams,
             MetricManager metricManager,
             @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry,
@@ -215,7 +217,7 @@ public class DataPathFactory {
         Path storagePath = partitionsWorkDir.dbPath();
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 metricManager,
                 nodeConfigRegistry,
                 storagePath,
@@ -234,7 +236,7 @@ public class DataPathFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(2000)
     public LowWatermarkImpl lowWatermark(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             GcConfiguration gcConfiguration,
             ClockService clockService,
             VaultManager vaultManager,
@@ -242,7 +244,7 @@ public class DataPathFactory {
             @Named("clusterMessaging") MessagingService clusterMessagingService
     ) {
         return new LowWatermarkImpl(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 gcConfiguration.lowWatermark(),
                 clockService,
                 vaultManager,
@@ -256,7 +258,7 @@ public class DataPathFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1100)
     public DistributionZoneManager distributionZoneManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             TopologyService topologyService,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
@@ -268,7 +270,7 @@ public class DataPathFactory {
             LowWatermark lowWatermark
     ) {
         return new DistributionZoneManager(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 () -> topologyService.localMember().id(),
                 metaStorageManager,
                 logicalTopologyService,
@@ -340,7 +342,7 @@ public class DataPathFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(2400)
     public TableManager tableManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             MetaStorageRevisionListenerRegistry revisionListenerRegistry,
             GcConfiguration gcConfiguration,
             ReplicationConfiguration replicationConfiguration,
@@ -374,7 +376,7 @@ public class DataPathFactory {
             PartitionModificationCounterFactory partitionModificationCounterFactory
     ) {
         return new TableManager(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 revisionListenerRegistry,
                 gcConfiguration,
                 replicationConfiguration,

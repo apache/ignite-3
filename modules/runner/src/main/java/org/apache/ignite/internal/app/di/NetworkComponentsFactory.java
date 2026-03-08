@@ -23,6 +23,7 @@ import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -67,10 +68,11 @@ public class NetworkComponentsFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(600)
     public FailureManager failureManager(
+            NodeIdentity nodeIdentity,
             NodeSeedParams seedParams,
             FailureProcessorConfiguration failureProcessorConfiguration
     ) {
-        return new FailureManager(seedParams.nodeName(), seedParams.node()::shutdown, failureProcessorConfiguration);
+        return new FailureManager(nodeIdentity.nodeName(), seedParams.node()::shutdown, failureProcessorConfiguration);
     }
 
     /** Creates the critical worker watchdog. */

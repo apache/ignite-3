@@ -24,6 +24,7 @@ import jakarta.inject.Singleton;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -86,12 +87,12 @@ public class TransactionFactory {
     @Named("storageOperations")
     public MessagingService storageOperationsMessagingService(
             @Named("clusterMessaging") MessagingService clusterMessagingService,
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor
     ) {
         return new JumpToExecutorByConsistentIdAfterSend(
                 clusterMessagingService,
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 message -> partitionOperationsExecutor
         );
     }
@@ -107,7 +108,7 @@ public class TransactionFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1700)
     public TxManagerImpl txManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             TransactionConfiguration txConfig,
             SystemDistributedConfiguration systemDistributedConfiguration,
             @Named("storageOperations") MessagingService messagingService,
@@ -129,7 +130,7 @@ public class TransactionFactory {
             @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
         return new TxManagerImpl(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 txConfig,
                 systemDistributedConfiguration,
                 messagingService,
@@ -157,7 +158,7 @@ public class TransactionFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(1800)
     public TxStateRocksDbSharedStorage txStateRocksDbSharedStorage(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             @Named("partitions") ComponentWorkingDir partitionsWorkDir,
             @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
@@ -165,7 +166,7 @@ public class TransactionFactory {
             FailureManager failureManager
     ) {
         return new TxStateRocksDbSharedStorage(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 partitionsWorkDir.dbPath().resolve("tx-state"),
                 commonScheduler,
                 tableIoExecutor,

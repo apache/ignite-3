@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExt
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -74,14 +75,14 @@ public class MetaStorageFactory {
     /** Creates the RocksDB key-value storage for metastorage. */
     @Singleton
     public RocksDbKeyValueStorage metastorageKeyValueStorage(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             @Named("metastorage") ComponentWorkingDir metastorageWorkDir,
             FailureManager failureManager,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
             @Named("commonScheduler") ScheduledExecutorService commonScheduler
     ) {
         return new RocksDbKeyValueStorage(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 metastorageWorkDir.dbPath(),
                 failureManager,
                 readOperationForCompactionTracker,

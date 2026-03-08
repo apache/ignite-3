@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
@@ -59,12 +60,12 @@ public class SystemServicesFactory {
     public EventLogImpl eventLog(
             @Named("clusterConfig") ConfigurationRegistry clusterConfigRegistry,
             Provider<ClusterManagementGroupManager> cmgManagerProvider,
-            NodeSeedParams seedParams
+            NodeIdentity nodeIdentity
     ) {
         return new EventLogImpl(
                 clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
                 () -> cmgManagerProvider.get().clusterState().join().clusterTag().clusterId(),
-                seedParams.nodeName()
+                nodeIdentity.nodeName()
         );
     }
 
@@ -73,6 +74,7 @@ public class SystemServicesFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_1)
     @Order(900)
     public SystemDisasterRecoveryManagerImpl systemDisasterRecoveryManager(
+            NodeIdentity nodeIdentity,
             NodeSeedParams seedParams,
             TopologyService topologyService,
             @Named("clusterMessaging") MessagingService clusterMessagingService,
@@ -82,7 +84,7 @@ public class SystemServicesFactory {
             ClusterIdService clusterIdService
     ) {
         return new SystemDisasterRecoveryManagerImpl(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 topologyService,
                 clusterMessagingService,
                 vaultManager,
@@ -98,7 +100,7 @@ public class SystemServicesFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(300)
     public CatalogCompactionRunner catalogCompactionRunner(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             CatalogManagerImpl catalogManager,
             @Named("clusterMessaging") MessagingService clusterMessagingService,
             TopologyService topologyService,
@@ -113,7 +115,7 @@ public class SystemServicesFactory {
             MetaStorageManager metaStorageManager
     ) {
         return new CatalogCompactionRunner(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 catalogManager,
                 clusterMessagingService,
                 logicalTopologyService,

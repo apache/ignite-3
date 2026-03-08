@@ -20,6 +20,7 @@ package org.apache.ignite.internal.app.di;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Named;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -36,11 +37,15 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
  */
 @Factory
 public class IgniteConfigurationFactory {
+    private final NodeIdentity nodeIdentity;
+
     private final NodeSeedParams seedParams;
 
     private final ConfigurationModules modules;
 
-    public IgniteConfigurationFactory(NodeSeedParams seedParams, ConfigurationModules modules) {
+    /** Constructor. */
+    public IgniteConfigurationFactory(NodeIdentity nodeIdentity, NodeSeedParams seedParams, ConfigurationModules modules) {
+        this.nodeIdentity = nodeIdentity;
         this.seedParams = seedParams;
         this.modules = modules;
     }
@@ -62,7 +67,7 @@ public class IgniteConfigurationFactory {
             @Named("local") ConfigurationTreeGenerator generator
     ) {
         return new LocalFileConfigurationStorage(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 seedParams.configPath(),
                 generator,
                 modules.local()

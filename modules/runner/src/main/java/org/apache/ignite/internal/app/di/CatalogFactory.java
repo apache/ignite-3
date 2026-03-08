@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -80,7 +81,7 @@ public class CatalogFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(600)
     public IdempotentCacheVacuumizer idempotentCacheVacuumizer(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             @Named("commonScheduler") ScheduledExecutorService commonScheduler,
             MetaStorageManagerImpl metaStorageManager,
             RaftConfiguration raftConfiguration,
@@ -88,7 +89,7 @@ public class CatalogFactory {
             FailureManager failureManager
     ) {
         return new IdempotentCacheVacuumizer(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 commonScheduler,
                 metaStorageManager::evictIdempotentCommandsCache,
                 raftConfiguration.retryTimeoutMillis(),
@@ -127,7 +128,7 @@ public class CatalogFactory {
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(800)
     public PlacementDriverManager placementDriverManager(
-            NodeSeedParams seedParams,
+            NodeIdentity nodeIdentity,
             MetaStorageManager metaStorageManager,
             ClusterService clusterService,
             ClusterManagementGroupManager cmgManager,
@@ -142,7 +143,7 @@ public class CatalogFactory {
             Provider<DistributionZoneManager> distributionZoneManagerProvider
     ) {
         return new PlacementDriverManager(
-                seedParams.nodeName(),
+                nodeIdentity.nodeName(),
                 metaStorageManager,
                 MetastorageGroupId.INSTANCE,
                 clusterService,
