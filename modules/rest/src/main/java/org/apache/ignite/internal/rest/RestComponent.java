@@ -23,12 +23,12 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.DefaultApplicationContext;
-import io.micronaut.inject.BeanDefinitionReference;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.DefaultConversionService;
 import io.micronaut.http.HttpMethod;
 import io.micronaut.http.server.exceptions.ServerStartupException;
 import io.micronaut.http.ssl.ClientAuthentication;
+import io.micronaut.inject.BeanDefinitionReference;
 import io.micronaut.management.endpoint.health.HealthEndpoint;
 import io.micronaut.runtime.Micronaut;
 import io.micronaut.runtime.exceptions.ApplicationStartupException;
