@@ -23,6 +23,7 @@ import org.jline.reader.LineReader;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.UserInterruptException;
 import org.jline.reader.impl.SimpleMaskingCallback;
+import org.jline.terminal.Terminal;
 
 /**
  * Implementation of {@link QuestionWriterReader} based on {@link LineReader}.
@@ -38,7 +39,15 @@ public class JlineQuestionWriterReader implements QuestionWriterReader {
     @Override
     public String readAnswer(String question, boolean maskInput) {
         try {
-            MaskingCallback callback = maskInput ? new SimpleMaskingCallback('*') : null;
+            // On dumb terminals, JLine 4.x starts a background "mask thread" for any non-null MaskingCallback,
+            // which repeatedly rewrites the prompt to overwrite typed characters. This causes unwanted output
+            // in non-interactive environments (pipes, tests). Skip masking for dumb terminals.
+            String terminalType = reader.getTerminal().getType();
+
+            boolean isDumb = Terminal.TYPE_DUMB.equals(terminalType) || Terminal.TYPE_DUMB_COLOR.equals(terminalType);
+
+            MaskingCallback callback = (maskInput && !isDumb) ? new SimpleMaskingCallback('*') : null;
+
             return reader.readLine(question, null, callback, null);
         } catch (UserInterruptException /* Ctrl-C pressed */ | EndOfFileException /* Ctrl-D pressed */ ignored) {
             throw new FlowInterruptException();
