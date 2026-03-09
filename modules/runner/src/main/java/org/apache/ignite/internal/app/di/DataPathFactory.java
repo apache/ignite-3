@@ -50,14 +50,11 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -66,34 +63,22 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.VersionedAssignments;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
 import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
-import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
-import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
 import org.apache.ignite.internal.table.distributed.raft.PartitionSafeTimeValidator;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.sql.IgniteSql;
 
 /**
  * Micronaut factory for data path components.
@@ -255,134 +240,6 @@ public class DataPathFactory {
                 clockService,
                 metricManager,
                 lowWatermark
-        );
-    }
-
-    /** Creates the partition replica lifecycle manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2300)
-    public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager(
-            CatalogManager catalogManager,
-            ReplicaManager replicaManager,
-            DistributionZoneManager distributionZoneManager,
-            MetaStorageManager metaStorageManager,
-            TopologyService topologyService,
-            LowWatermark lowWatermark,
-            FailureManager failureManager,
-            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
-            @Named("rebalanceScheduler") ScheduledExecutorService rebalanceScheduler,
-            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
-            ClockService clockService,
-            PlacementDriver placementDriver,
-            SchemaSyncService schemaSyncService,
-            SystemDistributedConfiguration systemDistributedConfiguration,
-            TxStateRocksDbSharedStorage sharedTxStateStorage,
-            TxManager txManager,
-            SchemaManager schemaManager,
-            DataStorageManager dataStorageManager,
-            OutgoingSnapshotsManager outgoingSnapshotsManager,
-            MetricManager metricManager,
-            @Named("storageOperations") MessagingService messagingService,
-            ReplicaService replicaService
-    ) {
-        return new PartitionReplicaLifecycleManager(
-                catalogManager,
-                replicaManager,
-                distributionZoneManager,
-                metaStorageManager,
-                topologyService,
-                lowWatermark,
-                failureManager,
-                tableIoExecutor,
-                rebalanceScheduler,
-                partitionOperationsExecutor,
-                clockService,
-                placementDriver,
-                schemaSyncService,
-                systemDistributedConfiguration,
-                sharedTxStateStorage,
-                txManager,
-                schemaManager,
-                dataStorageManager,
-                outgoingSnapshotsManager,
-                metricManager,
-                messagingService,
-                replicaService
-        );
-    }
-
-    /** Creates the table manager. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(2400)
-    public TableManager tableManager(
-            NodeIdentity nodeIdentity,
-            MetaStorageRevisionListenerRegistry revisionListenerRegistry,
-            GcConfiguration gcConfiguration,
-            ReplicationConfiguration replicationConfiguration,
-            @Named("storageOperations") MessagingService messagingService,
-            TopologyService topologyService,
-            LockManager lockManager,
-            ReplicaService replicaService,
-            TxManager txManager,
-            DataStorageManager dataStorageManager,
-            MetaStorageManager metaStorageManager,
-            SchemaManager schemaManager,
-            CatalogValidationSchemasSource validationSchemasSource,
-            @Named("tableIoExecutor") ScheduledExecutorService tableIoExecutor,
-            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
-            ClockService clockService,
-            OutgoingSnapshotsManager outgoingSnapshotsManager,
-            SchemaSyncService schemaSyncService,
-            CatalogManager catalogManager,
-            FailureManager failureManager,
-            HybridTimestampTracker observableTimestampTracker,
-            PlacementDriver placementDriver,
-            Provider<IgniteSql> sqlProvider,
-            RemotelyTriggeredResourceRegistry resourcesRegistry,
-            LowWatermark lowWatermark,
-            TransactionInflights transactionInflights,
-            IndexMetaStorage indexMetaStorage,
-            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
-            MinimumRequiredTimeCollectorService minTimeCollectorService,
-            SystemDistributedConfiguration systemDistributedConfiguration,
-            MetricManager metricManager,
-            PartitionModificationCounterFactory partitionModificationCounterFactory
-    ) {
-        return new TableManager(
-                nodeIdentity.nodeName(),
-                revisionListenerRegistry,
-                gcConfiguration,
-                replicationConfiguration,
-                messagingService,
-                topologyService,
-                lockManager,
-                replicaService,
-                txManager,
-                dataStorageManager,
-                metaStorageManager,
-                schemaManager,
-                validationSchemasSource,
-                tableIoExecutor,
-                partitionOperationsExecutor,
-                clockService,
-                outgoingSnapshotsManager,
-                schemaSyncService,
-                catalogManager,
-                failureManager,
-                observableTimestampTracker,
-                placementDriver,
-                sqlProvider::get,
-                resourcesRegistry,
-                lowWatermark,
-                transactionInflights,
-                indexMetaStorage,
-                partitionReplicaLifecycleManager,
-                minTimeCollectorService,
-                systemDistributedConfiguration,
-                metricManager,
-                partitionModificationCounterFactory
         );
     }
 

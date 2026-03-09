@@ -51,7 +51,12 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Order;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Provider;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -87,6 +92,9 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
@@ -189,6 +197,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Table manager.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2400)
 public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
@@ -352,6 +363,51 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
     private final Map<TablePartitionId, PartitionTableStatsMetricSource> partModCounterMetricSources = new ConcurrentHashMap<>();
     private final Map<TablePartitionId, LongSupplier> pendingWriteIntentsSuppliers = new ConcurrentHashMap<>();
+
+    /** Constructor for DI. */
+    @Inject
+    public TableManager(
+            NodeIdentity nodeIdentity,
+            RevisionListenerRegistry registry,
+            GcConfiguration gcConfig,
+            ReplicationConfiguration replicationConfiguration,
+            @Named("storageOperations") MessagingService messagingService,
+            TopologyService topologyService,
+            LockManager lockMgr,
+            ReplicaService replicaSvc,
+            TxManager txManager,
+            DataStorageManager dataStorageMgr,
+            MetaStorageManager metaStorageMgr,
+            SchemaManager schemaManager,
+            ValidationSchemasSource validationSchemasSource,
+            @Named("tableIoExecutor") ExecutorService ioExecutor,
+            @Named("partitionOperationsExecutor") Executor partitionOperationsExecutor,
+            ClockService clockService,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService,
+            FailureProcessor failureProcessor,
+            HybridTimestampTracker observableTimestampTracker,
+            PlacementDriver placementDriver,
+            Provider<IgniteSql> sqlProvider,
+            RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
+            LowWatermark lowWatermark,
+            TransactionInflights transactionInflights,
+            IndexMetaStorage indexMetaStorage,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            MinimumRequiredTimeCollectorService minTimeCollectorService,
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            MetricManager metricManager,
+            PartitionModificationCounterFactory partitionModificationCounterFactory
+    ) {
+        this(nodeIdentity.nodeName(), registry, gcConfig, replicationConfiguration, messagingService, topologyService,
+                lockMgr, replicaSvc, txManager, dataStorageMgr, metaStorageMgr, schemaManager, validationSchemasSource,
+                ioExecutor, partitionOperationsExecutor, clockService, outgoingSnapshotsManager, schemaSyncService,
+                catalogService, failureProcessor, observableTimestampTracker, placementDriver, sqlProvider::get,
+                remotelyTriggeredResourceRegistry, lowWatermark, transactionInflights, indexMetaStorage,
+                partitionReplicaLifecycleManager, minTimeCollectorService, systemDistributedConfiguration,
+                metricManager, partitionModificationCounterFactory);
+    }
 
     /**
      * Creates a new table manager.
