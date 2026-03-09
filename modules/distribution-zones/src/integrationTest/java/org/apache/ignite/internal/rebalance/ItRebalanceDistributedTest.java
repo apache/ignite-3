@@ -1549,6 +1549,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.rebalanceScheduler(),
                     threadPoolsManager.partitionOperationsExecutor(),
+                    threadPoolsManager.commonScheduler(),
                     clockService,
                     placementDriver,
                     schemaSyncService,

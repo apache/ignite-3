@@ -742,6 +742,7 @@ public class Node {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.rebalanceScheduler(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                threadPoolsManager.commonScheduler(),
                 clockService,
                 placementDriverManager.placementDriver(),
                 schemaSyncService,
