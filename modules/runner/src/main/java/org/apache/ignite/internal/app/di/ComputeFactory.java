@@ -20,33 +20,22 @@ package org.apache.ignite.internal.app.di;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
-import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.components.IgniteStartupPhase;
 import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.components.StartupPhase;
-import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.configuration.ComputeExtensionConfiguration;
 import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
-import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
+import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
-import org.apache.ignite.internal.deployunit.loader.UnitsClassLoaderFactory;
-import org.apache.ignite.internal.deployunit.loader.UnitsContextManager;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
-import org.apache.ignite.internal.eventlog.api.EventLog;
-import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.TopologyService;
 
 /**
  * Micronaut factory for compute and deployment components.
@@ -69,35 +58,13 @@ public class ComputeFactory {
         return nodeConfigRegistry.getConfiguration(DeploymentExtensionConfiguration.KEY).deployment();
     }
 
-    /** Creates the compute executor. */
-    @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1100)
-    public ComputeExecutorImpl computeExecutor(
-            Provider<Ignite> igniteProvider,
-            InMemoryComputeStateMachine stateMachine,
-            ComputeConfiguration computeConfiguration,
-            TopologyService topologyService,
-            ClockService clockService,
-            EventLog eventLog
-    ) {
-        return new ComputeExecutorImpl(
-                igniteProvider.get(),
-                stateMachine,
-                computeConfiguration,
-                topologyService,
-                clockService,
-                eventLog
-        );
-    }
-
     /** Creates the deployment manager. */
     @Singleton
     @IgniteStartupPhase(StartupPhase.PHASE_2)
     @Order(3000)
     public DeploymentManagerImpl deploymentManager(
             ClusterService clusterService,
-            MetaStorageManager metaStorageManager,
+            DeploymentUnitStoreImpl deploymentUnitStore,
             LogicalTopologyService logicalTopologyService,
             NodeIdentity nodeIdentity,
             DeploymentConfiguration deploymentConfiguration,
@@ -106,7 +73,7 @@ public class ComputeFactory {
     ) {
         return new DeploymentManagerImpl(
                 clusterService,
-                new DeploymentUnitStoreImpl(metaStorageManager),
+                deploymentUnitStore,
                 logicalTopologyService,
                 nodeIdentity.workDir(),
                 deploymentConfiguration,
@@ -116,36 +83,10 @@ public class ComputeFactory {
         );
     }
 
-    /** Creates the compute component. */
+    /** Exposes the deployment unit accessor from the deployment manager. */
     @Singleton
-    @IgniteStartupPhase(StartupPhase.PHASE_2)
-    @Order(1200)
-    public ComputeComponentImpl computeComponent(
-            NodeIdentity nodeIdentity,
-            @Named("clusterMessaging") MessagingService clusterMessagingService,
-            TopologyService topologyService,
-            LogicalTopologyService logicalTopologyService,
-            DeploymentManagerImpl deploymentManager,
-            ComputeExecutorImpl computeExecutor,
-            ComputeConfiguration computeConfiguration,
-            EventLog eventLog,
-            HybridTimestampTracker observableTimestampTracker
-    ) {
-        return new ComputeComponentImpl(
-                nodeIdentity.nodeName(),
-                clusterMessagingService,
-                topologyService,
-                logicalTopologyService,
-                new UnitsContextManager(
-                        deploymentManager,
-                        deploymentManager.deploymentUnitAccessor(),
-                        new UnitsClassLoaderFactory()
-                ),
-                computeExecutor,
-                computeConfiguration,
-                eventLog,
-                observableTimestampTracker
-        );
+    public DeploymentUnitAccessor deploymentUnitAccessor(DeploymentManagerImpl deploymentManager) {
+        return deploymentManager.deploymentUnitAccessor();
     }
 
 }

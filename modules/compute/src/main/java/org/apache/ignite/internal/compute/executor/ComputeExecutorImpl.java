@@ -24,6 +24,10 @@ import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNu
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Provider;
+import jakarta.inject.Singleton;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +38,8 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -63,6 +69,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base implementation of {@link ComputeExecutor}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1100)
 public class ComputeExecutorImpl implements ComputeExecutor {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeExecutorImpl.class);
 
@@ -81,6 +90,19 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     private PriorityQueueExecutor executorService;
 
     private @Nullable DotNetComputeExecutor dotNetComputeExecutor;
+
+    /** Constructor for DI. */
+    @Inject
+    public ComputeExecutorImpl(
+            Provider<Ignite> igniteProvider,
+            ComputeStateMachine stateMachine,
+            ComputeConfiguration configuration,
+            TopologyService topologyService,
+            ClockService clockService,
+            EventLog eventLog
+    ) {
+        this(igniteProvider.get(), stateMachine, configuration, topologyService, clockService, eventLog);
+    }
 
     /**
      * Constructor.

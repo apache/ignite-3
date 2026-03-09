@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
+import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -52,6 +53,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link DeploymentUnitStore} based on {@link MetaStorageManager}.
  */
+@Singleton
 public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     private static final IgniteLogger LOG = Loggers.forClass(DeploymentUnitStoreImpl.class);
 

@@ -26,8 +26,10 @@ description = 'ignite-code-deployment'
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.auto.service
 
+    implementation libs.micronaut.inject
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
     implementation project(':ignite-core')

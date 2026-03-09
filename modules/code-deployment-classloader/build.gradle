@@ -23,6 +23,9 @@ apply from: 'jobs.gradle'
 description = 'ignite-code-deployment-classloader'
 
 dependencies {
+    annotationProcessor libs.micronaut.inject.annotation.processor
+
+    implementation libs.micronaut.inject
     implementation libs.jetbrains.annotations
 
     implementation project(':ignite-core')

@@ -22,6 +22,10 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +38,9 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.events.ComputeEventMetadataBuilder;
 import org.apache.ignite.internal.compute.executor.ComputeExecutor;
@@ -69,6 +76,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link ComputeComponent}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1200)
 public class ComputeComponentImpl implements ComputeComponent, SystemViewProvider {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeComponentImpl.class);
 
@@ -99,6 +109,23 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     private final ExecutorService failoverExecutor;
 
     private final ComputeViewProvider computeViewProvider = new ComputeViewProvider();
+
+    /** Constructor for DI. */
+    @Inject
+    public ComputeComponentImpl(
+            NodeIdentity nodeIdentity,
+            @Named("clusterMessaging") MessagingService messagingService,
+            TopologyService topologyService,
+            LogicalTopologyService logicalTopologyService,
+            UnitsContextManager jobContextManager,
+            ComputeExecutor executor,
+            ComputeConfiguration computeConfiguration,
+            EventLog eventLog,
+            HybridTimestampTracker observableTimestampTracker
+    ) {
+        this(nodeIdentity.nodeName(), messagingService, topologyService, logicalTopologyService,
+                jobContextManager, executor, computeConfiguration, eventLog, observableTimestampTracker);
+    }
 
     /**
      * Creates a new instance.
