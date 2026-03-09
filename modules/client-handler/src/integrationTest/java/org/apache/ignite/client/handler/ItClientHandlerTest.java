@@ -588,7 +588,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             // Magic: IGNI
             out.write(MAGIC);
 
-            // Send first handshake message to initiate handshake
+            // Send first handshake.
             try (var packer1 = MessagePack.newDefaultBufferPacker()) {
                 packer1.packInt(0);
                 packer1.packInt(0);
@@ -607,8 +607,8 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
                 out.write(packer1.toByteArray());
             }
 
-            // Immediately send a second message before handshake completes.
-            // This should trigger: "Unexpected message received before handshake completion"
+            // Second message before handshake completes.
+            // This should trigger "Unexpected message received before handshake completion"
             try (var packer2 = MessagePack.newDefaultBufferPacker()) {
                 packer2.packInt(0);
                 packer2.packInt(0);
