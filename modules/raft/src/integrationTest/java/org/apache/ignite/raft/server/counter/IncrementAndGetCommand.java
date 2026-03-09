@@ -17,8 +17,10 @@
 
 package org.apache.ignite.raft.server.counter;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Increment and get command.
@@ -30,7 +32,24 @@ public interface IncrementAndGetCommand extends WriteCommand {
      */
     long delta();
 
+    @Override
+    @Nullable HybridTimestamp initiatorTime();
+
     static IncrementAndGetCommand incrementAndGetCommand(long delta) {
         return new IngtegrationTestRaftMessagesFactory().incrementAndGetCommand().delta(delta).build();
+    }
+
+    /**
+     * Creates an increment and get command with specified delta and initiator time.
+     *
+     * @param delta The delta to increment by.
+     * @param initiatorTime The initiator timestamp.
+     * @return The increment and get command.
+     */
+    static IncrementAndGetCommand incrementAndGetCommand(long delta, HybridTimestamp initiatorTime) {
+        return new IngtegrationTestRaftMessagesFactory().incrementAndGetCommand()
+                .delta(delta)
+                .initiatorTime(initiatorTime)
+                .build();
     }
 }
