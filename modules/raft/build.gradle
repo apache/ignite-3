@@ -123,6 +123,7 @@ dependencies {
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.dropwizard.metrics
     integrationTestImplementation libs.disruptor
+    integrationTestImplementation libs.rocksdb.jni
 }
 
 tasks.named('integrationTest').configure {

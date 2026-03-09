@@ -30,12 +30,14 @@ import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 
@@ -61,13 +63,15 @@ public class RaftFactory {
     public LogStorageManager partitionsLogStorageManager(
             NodeIdentity nodeIdentity,
             RaftConfiguration raftConfiguration,
-            @Named("partitions") ComponentWorkingDir partitionsWorkDir
+            @Named("partitions") ComponentWorkingDir partitionsWorkDir,
+            SystemLocalConfiguration systemConfiguration
     ) {
         return SharedLogStorageManagerUtils.create(
                 "table data log",
                 nodeIdentity.nodeName(),
                 partitionsWorkDir.raftLogPath(),
-                raftConfiguration.fsync().value()
+                raftConfiguration.fsync().value(),
+                RocksDbLogStorageOptions.forPartitions(systemConfiguration.value())
         );
     }
 
