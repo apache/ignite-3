@@ -2638,6 +2638,9 @@ public class NodeImpl implements Node, RaftServerService {
                 done,
                 this.currTerm
             );
+            if (request.timestamp() != null) {
+                clock.update(request.timestamp());
+            }
             this.logManager.appendEntries(entries, closure);
             // update configuration after _log_manager updated its memory status
             checkAndSetConfiguration(true);
