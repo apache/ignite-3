@@ -50,8 +50,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
     private boolean inLoop;
 
-    protected AbstractSetOpNode(ExecutionContext<RowT> ctx, AggregateType type, boolean all,
-            RowFactory<RowT> rowFactory, Grouping<RowT> grouping) {
+    protected AbstractSetOpNode(ExecutionContext<RowT> ctx, AggregateType type, Grouping<RowT> grouping) {
         super(ctx);
 
         this.type = type;
@@ -64,6 +63,8 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         assert !nullOrEmpty(sources());
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
+
+        onRequestReceived();
 
         requested = rowsCnt;
 
@@ -132,6 +133,8 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         return new Downstream<>() {
             @Override
             public void push(RowT row) throws Exception {
+                onRowReceived();
+
                 AbstractSetOpNode.this.push(row, idx);
             }
 

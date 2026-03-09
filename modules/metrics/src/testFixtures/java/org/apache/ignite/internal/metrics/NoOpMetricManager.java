@@ -22,12 +22,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 
 /**
@@ -36,20 +32,8 @@ import org.apache.ignite.internal.metrics.exporters.MetricExporter;
  */
 public class NoOpMetricManager implements MetricManager {
     @Override
-    public void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName) {
-    }
-
-    @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
-    }
-
-    @Override
-    public void start(Map<String, MetricExporter> availableExporters) {
-    }
-
-    @Override
-    public void start(Iterable<MetricExporter> exporters) {
     }
 
     @Override

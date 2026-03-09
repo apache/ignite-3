@@ -44,7 +44,6 @@ import org.apache.ignite.internal.metrics.HitRateMetric;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.StringGauge;
@@ -165,14 +164,13 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
                     Map.of("IgnoredMetric", new IntGauge("IgnoredMetric", "", () -> 1))
             );
 
-    private MetricManager metricManager;
+    private MetricManagerImpl metricManager;
 
     private LogPushExporter exporter;
 
     @BeforeEach
     void setUp() {
-        metricManager = new MetricManagerImpl();
-        metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
+        metricManager = new MetricManagerImpl("nodeName", () -> CLUSTER_ID, metricConfiguration);
 
         // Register JVM and OS metric sources for system metrics (heap, CPU).
         metricManager.registerSource(new JvmMetricSource());

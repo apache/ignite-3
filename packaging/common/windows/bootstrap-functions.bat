@@ -18,7 +18,8 @@ set COMMON_JAVA_OPTS=@ADD_OPENS@ ^
 -Dio.netty.tryReflectionSetAccessible=true ^
 -Dfile.encoding=UTF-8 ^
 -XX:+HeapDumpOnOutOfMemoryError ^
--XX:+ExitOnOutOfMemoryError
+-XX:+ExitOnOutOfMemoryError ^
+-XX:+PerfDisableSharedMem
 
 set LOGGING_JAVA_OPTS=-Djava.util.logging.config.file="%CONF_DIR%\ignite.java.util.logging.properties" ^
 -XX:HeapDumpPath="%LOG_DIR%" ^

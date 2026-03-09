@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -154,9 +155,8 @@ public interface TxManager extends IgniteComponent {
      * Returns lock manager.
      *
      * @return Lock manager for the given transactions manager.
-     * @deprecated Use lockManager directly.
      */
-    @Deprecated
+    @TestOnly
     LockManager lockManager();
 
     /**
@@ -218,7 +218,7 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             @Nullable ZonePartitionId commitPartitionId,
-            Map<ZonePartitionId, PartitionEnlistment> enlistedPartitions,
+            Map<ZonePartitionId, ? extends PartitionEnlistment> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -269,6 +269,14 @@ public interface TxManager extends IgniteComponent {
      * @return Future will be completed with value true if the transaction was started locally and completed by this call.
      */
     CompletableFuture<Boolean> kill(UUID txId);
+
+    /**
+     * Discards local write intents. Used together with kill command.
+     *
+     * @param groups Groups.
+     * @param txId Transaction id.
+     */
+    CompletableFuture<Void> discardLocalWriteIntents(List<EnlistedPartitionGroup> groups, UUID txId);
 
     /**
      * Returns lock retry count.

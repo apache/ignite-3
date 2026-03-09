@@ -1150,6 +1150,35 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    public void rejectInvalidColumnNumberOnInsert() {
+        sql("CREATE TABLE test1(id INT PRIMARY KEY, val INT);");
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Number of INSERT target columns (2) does not equal number of source items (1)",
+                () -> sql("INSERT INTO test1 VALUES (1)")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Number of INSERT target columns (2) does not equal number of source items (3)",
+                () -> sql("INSERT INTO test1 VALUES (1, 2, 3)")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Number of INSERT target columns (1) does not equal number of source items (2)",
+                () -> sql("INSERT INTO test1(val) VALUES (1, 2)")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Number of INSERT target columns (2) does not equal number of source items (3)",
+                () -> sql("INSERT INTO test1(id, val) VALUES (1, 2, 3)")
+        );
+    }
+
     private static Stream<Arguments> decimalLimits() {
         return Stream.of(
                 arguments(SqlTypeName.BIGINT.getName(), Long.MAX_VALUE, Long.MIN_VALUE),

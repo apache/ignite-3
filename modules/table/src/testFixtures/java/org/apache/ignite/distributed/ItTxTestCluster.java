@@ -700,8 +700,6 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple(tableName))
         );
 
@@ -921,7 +919,6 @@ public class ItTxTestCluster {
                 mock(IndexMetaStorage.class),
                 clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                partitionOperationsExecutor,
                 placementDriver,
                 clockServices.get(assignment),
                 zonePartitionId

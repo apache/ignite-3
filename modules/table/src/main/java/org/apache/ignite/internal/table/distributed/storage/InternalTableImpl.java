@@ -196,12 +196,6 @@ public class InternalTableImpl implements InternalTable {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    /** Default read-write transaction timeout. */
-    private final Supplier<Long> defaultRwTxTimeout;
-
-    /** Default read-only transaction timeout. */
-    private final Supplier<Long> defaultReadTxTimeout;
-
     private final ReadWriteMetricSource metrics;
 
     /**
@@ -220,8 +214,6 @@ public class InternalTableImpl implements InternalTable {
      * @param transactionInflights Transaction inflights.
      * @param streamerFlushExecutor Streamer flush executor.
      * @param streamerReceiverRunner Streamer receiver runner.
-     * @param defaultRwTxTimeout Default read-write transaction timeout.
-     * @param defaultReadTxTimeout Default read-only transaction timeout.
      */
     public InternalTableImpl(
             QualifiedName tableName,
@@ -238,8 +230,6 @@ public class InternalTableImpl implements InternalTable {
             TransactionInflights transactionInflights,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner,
-            Supplier<Long> defaultRwTxTimeout,
-            Supplier<Long> defaultReadTxTimeout,
             ReadWriteMetricSource metrics
     ) {
         this.tableName = tableName;
@@ -256,8 +246,6 @@ public class InternalTableImpl implements InternalTable {
         this.transactionInflights = transactionInflights;
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
-        this.defaultRwTxTimeout = defaultRwTxTimeout;
-        this.defaultReadTxTimeout = defaultReadTxTimeout;
         this.metrics = metrics;
     }
 
@@ -1229,10 +1217,6 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
-    }
-
-    private long getDefaultTimeout(InternalTransaction tx) {
-        return tx.isReadOnly() ? defaultReadTxTimeout.get() : defaultRwTxTimeout.get();
     }
 
     /** {@inheritDoc} */

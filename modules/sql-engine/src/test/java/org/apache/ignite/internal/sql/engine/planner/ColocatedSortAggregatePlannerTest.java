@@ -745,17 +745,6 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-    private void checkGroupWi2thNoAggregateSingle(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
-                        .and(not(hasAggregate()))
-                        .and(hasGroups())
-                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
-                ),
-                disableRules
-        );
-    }
-
     private void checkGroupsWithOrderByGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
                 isInstanceOf(IgniteColocatedSortAggregate.class)

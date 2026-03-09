@@ -65,9 +65,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -170,7 +168,6 @@ import org.apache.ignite.internal.table.metrics.TableMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
@@ -277,9 +274,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final FailureProcessor failureProcessor;
 
-    /** Incoming RAFT snapshots executor. */
-    private final ThreadPoolExecutor incomingSnapshotsExecutor;
-
     private final MvGc mvGc;
 
     private final LowWatermark lowWatermark;
@@ -317,8 +311,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
     private final TransactionInflights transactionInflights;
-
-    private final TransactionConfiguration txCfg;
 
     private final String nodeName;
 
@@ -367,7 +359,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
-     * @param txCfg Transaction configuration.
      * @param replicationConfiguration Replication configuration.
      * @param lockMgr Lock manager.
      * @param replicaSvc Replica service.
@@ -393,7 +384,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             String nodeName,
             RevisionListenerRegistry registry,
             GcConfiguration gcConfig,
-            TransactionConfiguration txCfg,
             ReplicationConfiguration replicationConfiguration,
             MessagingService messagingService,
             TopologyService topologyService,
@@ -444,7 +434,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
-        this.txCfg = txCfg;
         this.nodeName = nodeName;
         this.indexMetaStorage = indexMetaStorage;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
@@ -465,18 +454,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
-
-        int cpus = Runtime.getRuntime().availableProcessors();
-
-        incomingSnapshotsExecutor = new ThreadPoolExecutor(
-                cpus,
-                cpus,
-                30,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
-        );
-        incomingSnapshotsExecutor.allowCoreThreadTimeOut(true);
 
         mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
 
@@ -921,7 +898,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 indexMetaStorage,
                 topologyService.localMember().id(),
                 minTimeCollectorService,
-                partitionOperationsExecutor,
                 executorInclinedPlacementDriver,
                 clockService,
                 zonePartitionId
@@ -1114,7 +1090,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     mvGc,
                     fullStateTransferIndexChooser,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> {
                         ScheduledExecutorService streamerFlushExecutor;
 
@@ -1197,8 +1172,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionInflights,
                 this::streamerFlushExecutor,
                 Objects.requireNonNull(streamerReceiverRunner),
-                () -> txCfg.value().readWriteTimeoutMillis(),
-                () -> txCfg.value().readOnlyTimeoutMillis(),
                 createAndRegisterMetricsSource(tableStorage, tableName)
         );
 
@@ -1684,8 +1657,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 new PartitionTableStatsMetricSource(table.tableId(), partitionId, counter);
 
         try {
+            // Only register this Metrics Source and do not enable it by default
+            // as it is intended for online troubleshooting purposes only.
             metricManager.registerSource(metricSource);
-            metricManager.enable(metricSource);
 
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionId);
 

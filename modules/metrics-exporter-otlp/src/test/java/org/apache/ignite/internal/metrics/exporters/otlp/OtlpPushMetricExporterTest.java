@@ -57,7 +57,6 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.configuration.MetricChange;
@@ -109,7 +108,7 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
                     )
             );
 
-    private MetricManager metricManager;
+    private MetricManagerImpl metricManager;
 
     private MetricExporter metricsExporter;
 
@@ -120,9 +119,8 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        metricManager = new MetricManagerImpl();
+        metricManager = new MetricManagerImpl("nodeName", () -> CLUSTER_ID, metricConfiguration);
 
-        metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
         metricManager.registerSource(new TestMetricSource(SRC_NAME, metricSet));
 
         exporter = new OtlpPushMetricExporter();

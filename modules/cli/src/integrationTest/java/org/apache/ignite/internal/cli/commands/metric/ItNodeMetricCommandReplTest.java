@@ -26,8 +26,4 @@ class ItNodeMetricCommandReplTest extends ItNodeMetricCommandTest {
         return TopLevelCliReplCommand.class;
     }
 
-    @Override
-    protected int errorExitCode() {
-        return 0;
-    }
 }

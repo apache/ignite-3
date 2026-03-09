@@ -147,6 +147,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
 
     @ParameterizedTest
     @MethodSource("quorumTable")
+    @SuppressWarnings("PMD.UnusedFormalParameter") // shared quorumTable() has extra params used by CreateZoneCommandValidationTest.
     void zoneQuorumSize(
             @Nullable Integer replicas,
             int defaultQuorumSize,
