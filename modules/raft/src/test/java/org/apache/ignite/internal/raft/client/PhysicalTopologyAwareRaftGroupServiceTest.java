@@ -20,8 +20,8 @@ package org.apache.ignite.internal.raft.client;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
-import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -58,8 +60,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -69,7 +71,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LeaderChangeNotification;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -84,9 +85,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
-    /** RAFT message factory. */
-    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
     /** Base node port. */
     private static final int PORT_BASE = 1234;
 
@@ -104,7 +102,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
     private final Map<NetworkAddress, JraftServerImpl> raftServers = new HashMap<>();
 
-    private final Map<NetworkAddress, LogStorageFactory> logStorageFactories = new HashMap<>();
+    private final Map<NetworkAddress, LogStorageManager> logStorageFactories = new HashMap<>();
 
     private final List<PhysicalTopologyAwareRaftGroupService> raftClients = new ArrayList<>();
 
@@ -113,9 +111,9 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
     @AfterEach
     public void afterTest() throws Exception {
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
         stopCluster();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     @Test
@@ -188,7 +186,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         assertNotNull(firstRaftClient);
 
-        assertThat(firstRaftClient.refreshLeader(), willCompleteSuccessfully());
+        assertThat(firstRaftClient.refreshLeader(Long.MAX_VALUE), willCompleteSuccessfully());
 
         // Start client service for the second client.
         int clientPort = PORT_BASE + nodes + 1;
@@ -255,18 +253,21 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
         InternalClusterNode leader = firstLeaderRef.get();
 
         // Forcing the leader change by stopping the actual leader.
-        var raftServerToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
+        var addressToStop = new NetworkAddress("localhost", leader.address().port());
+
+        var raftServerToStop = raftServers.remove(addressToStop);
+
         raftServerToStop.stopRaftNodes(GROUP_ID);
-        ComponentContext componentContext = new ComponentContext();
-        assertThat(raftServerToStop.stopAsync(componentContext), willCompleteSuccessfully());
 
-        var logStorageToStop = logStorageFactories.remove(new NetworkAddress("localhost", leader.address().port()));
-        assertThat(logStorageToStop.stopAsync(componentContext), willCompleteSuccessfully());
-
-        CompletableFuture<Void> stopFuture =
-                clusterServices.remove(new NetworkAddress("localhost", leader.address().port()))
-                        .stopAsync(componentContext);
-        assertThat(stopFuture, willCompleteSuccessfully());
+        assertThat(
+                stopAsync(
+                        new ComponentContext(),
+                        raftServerToStop,
+                        logStorageFactories.remove(addressToStop),
+                        clusterServices.remove(addressToStop)
+                ),
+                willCompleteSuccessfully()
+        );
 
         // Waiting for the notifications to check.
         if (leader.address().port() != PORT_BASE) {
@@ -279,7 +280,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         log.info("New Leader: " + secondLeaderRef.get());
 
-        secondRaftClient.refreshLeader().get();
+        secondRaftClient.refreshLeader(Long.MAX_VALUE).get();
 
         assertEquals(secondRaftClient.leader().consistentId(), secondLeaderRef.get().name());
     }
@@ -305,7 +306,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         log.info("Peer to transfer leader: " + newLeaderPeer);
 
-        raftClient.transferLeadership(newLeaderPeer).get();
+        raftClient.transferLeadership(newLeaderPeer, Long.MAX_VALUE).get();
 
         String leaderId = newLeaderPeer.consistentId();
 
@@ -315,36 +316,40 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
         log.info("New Leader: " + leaderRef.get());
 
-        raftClient.refreshLeader().get();
+        raftClient.refreshLeader(Long.MAX_VALUE).get();
 
         assertEquals(raftClient.leader().consistentId(), leaderRef.get().name());
     }
 
     /**
      * Stops cluster.
-     *
-     * @throws Exception If failed.
      */
-    private void stopCluster() throws Exception {
+    private void stopCluster() {
         if (!CollectionUtils.nullOrEmpty(raftClients)) {
             raftClients.forEach(PhysicalTopologyAwareRaftGroupService::shutdown);
 
             raftClients.clear();
         }
 
-        ComponentContext componentContext = new ComponentContext();
+        var componentsToStop = new ArrayList<IgniteComponent>();
 
-        for (NetworkAddress addr : clusterServices.keySet()) {
-            if (raftServers.containsKey(addr)) {
-                raftServers.get(addr).stopRaftNodes(GROUP_ID);
+        for (Entry<NetworkAddress, ClusterService> entry : clusterServices.entrySet()) {
+            NetworkAddress addr = entry.getKey();
 
-                assertThat(raftServers.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
+            JraftServerImpl raftServer = raftServers.get(addr);
+
+            if (raftServer != null) {
+                raftServer.stopRaftNodes(GROUP_ID);
+
+                componentsToStop.add(raftServer);
             }
-            if (logStorageFactories.containsKey(addr)) {
-                assertThat(logStorageFactories.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
-            }
-            assertThat(clusterServices.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
+
+            componentsToStop.add(logStorageFactories.get(addr));
+
+            componentsToStop.add(entry.getValue());
         }
+
+        assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
 
         raftServers.clear();
         logStorageFactories.clear();
@@ -413,14 +418,14 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
 
                 Path workingDir = dataPath.resolve("partitions");
 
-                LogStorageFactory partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                LogStorageManager partitionsLogStorageManager = SharedLogStorageManagerUtils.create(
                         cluster.nodeName(),
                         workingDir.resolve("log")
                 );
 
-                logStorageFactories.put(addr, partitionsLogStorageFactory);
+                logStorageFactories.put(addr, partitionsLogStorageManager);
 
-                assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(partitionsLogStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 var raftServer = TestJraftServerFactory.create(
                         cluster,
@@ -435,7 +440,7 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
                         new TestRaftGroupListener(),
                         RaftGroupOptions.defaults()
                                 .commandsMarshaller(commandsMarshaller)
-                                .setLogStorageFactory(partitionsLogStorageFactory)
+                                .setLogStorageManager(partitionsLogStorageManager)
                                 .serverDataPath(workingDir.resolve("meta"))
                 );
 
@@ -475,7 +480,6 @@ public class PhysicalTopologyAwareRaftGroupServiceTest extends IgniteAbstractTes
                 eventsClientListener,
                 commandsMarshaller,
                 StoppingExceptionFactories.indicateComponentStop(),
-                throttlingContextHolder(),
                 NOOP_FAILURE_PROCESSOR
         );
     }

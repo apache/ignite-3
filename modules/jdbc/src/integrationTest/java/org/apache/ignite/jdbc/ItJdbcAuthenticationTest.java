@@ -115,7 +115,7 @@ class ItJdbcAuthenticationTest {
          */
         @Test
         void jdbcCurrentUser() throws SQLException {
-            CLUSTER.aliveNode().sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
+            CLUSTER.aliveNode().sql().execute("CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
 
             String connString = "jdbc:ignite:thin://127.0.0.1:10800?username={}&password={}";
             String user1 = "usr";

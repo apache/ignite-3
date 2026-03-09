@@ -43,6 +43,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-compute')
     implementation project(':ignite-low-watermark')
+    implementation project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.netty.common
@@ -84,6 +85,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-client-handler'))
     integrationTestImplementation testFixtures(project(':ignite-low-watermark'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation libs.msgpack.core
     integrationTestImplementation libs.netty.handler

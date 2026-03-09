@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
 /**
  * Context contains two instances of the catalog: the base one and the updated one.
@@ -26,20 +27,31 @@ import java.util.function.Function;
  * the updated instance. The base catalog instance can be used by a command
  * to determine whether certain changes have been made to the catalog during
  * processing of the current batch of commands.
- *
- * @see BulkUpdateProducer
  */
 public class UpdateContext {
+    /** Static calculator to use in case if the calculation function wasn't specified on construction. */
+    private static final PartitionCountCalculator STATIC_PARTITION_CALCULATOR = PartitionCountCalculator.staticPartitionCountCalculator(
+            CatalogUtils.DEFAULT_PARTITION_COUNT
+    );
+
     /** The base catalog descriptor. */
     private final Catalog baseCatalog;
 
     /** The updatable catalog descriptor. */
     private Catalog updatableCatalog;
 
+    private final PartitionCountCalculator partitionCountCalculator;
+
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
+        this(catalog, STATIC_PARTITION_CALCULATOR);
+    }
+
+    /** Constructor. */
+    public UpdateContext(Catalog catalog, PartitionCountCalculator partitionCountCalculator) {
         this.baseCatalog = catalog;
         this.updatableCatalog = catalog;
+        this.partitionCountCalculator = partitionCountCalculator;
     }
 
     /**
@@ -62,5 +74,10 @@ public class UpdateContext {
     /** Applies specified action to the catalog. */
     public void updateCatalog(Function<Catalog, Catalog> updater) {
         updatableCatalog = updater.apply(updatableCatalog);
+    }
+
+    /** Returns partition count calculator. */
+    public PartitionCountCalculator partitionCountCalculator() {
+        return partitionCountCalculator;
     }
 }

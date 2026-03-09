@@ -857,4 +857,15 @@ public final class Commons {
                 offset
         );
     }
+
+    /**
+     * Packs two integers into a single long value.
+     *
+     * @param high The first integer to pack.
+     * @param low The second integer to pack.
+     * @return A long value containing both integers.
+     */
+    public static long packIntsToLong(int high, int low) {
+        return (((long) high) << 32) | (low & 0xffffffffL);
+    }
 }

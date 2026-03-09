@@ -40,14 +40,14 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.metrics.TestMetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -55,8 +55,6 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -69,7 +67,6 @@ import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.table.KeyValueView;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -81,6 +78,9 @@ class ItInterruptedRaftSnapshotStorageRecoveryTest extends ClusterPerTestIntegra
 
     @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = " + Constants.GiB + "}")
     private StorageConfiguration storageConfig;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemConfig;
 
     @InjectExecutorService
     private ExecutorService executor;
@@ -188,23 +188,14 @@ class ItInterruptedRaftSnapshotStorageRecoveryTest extends ClusterPerTestIntegra
         assertTrue(Files.exists(storagePath));
         assertTrue(Files.isDirectory(storagePath));
 
-        var metricManager = new TestMetricManager();
-
-        StorageEngine engine = createPersistentPageMemoryEngine(storagePath, metricManager);
+        StorageEngine engine = createPersistentPageMemoryEngine(storagePath);
 
         engine.start();
 
         try {
-            assertThat(metricManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
-
             StorageTableDescriptor tableDescriptor = storageTableDescriptor();
 
-            MvTableStorage tableStorage = engine.createMvTable(tableDescriptor, new StorageIndexDescriptorSupplier() {
-                @Override
-                public @Nullable StorageIndexDescriptor get(int indexId) {
-                    return null;
-                }
-            });
+            MvTableStorage tableStorage = engine.createMvTable(tableDescriptor, indexId -> null);
             assertThat(tableStorage.createMvPartition(0), willCompleteSuccessfully());
             assertThat(tableStorage.startRebalancePartition(0), willCompleteSuccessfully());
 
@@ -215,16 +206,16 @@ class ItInterruptedRaftSnapshotStorageRecoveryTest extends ClusterPerTestIntegra
         }
     }
 
-    private StorageEngine createPersistentPageMemoryEngine(Path storagePath, MetricManager metricManager) {
+    private StorageEngine createPersistentPageMemoryEngine(Path storagePath) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PersistentPageMemoryStorageEngine(
                 "test",
-                metricManager,
+                new NoOpMetricManager(),
                 storageConfig,
-                null,
+                systemConfig,
                 ioRegistry,
                 storagePath,
                 null,

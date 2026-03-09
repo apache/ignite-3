@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -105,7 +107,10 @@ public class TransactionStateResolverTest extends BaseIgniteAbstractTest {
                 clusterNodeResolver,
                 messagingService,
                 new PlacementDriverHelper(placementDriver, clockService),
-                txMessageSender
+                txMessageSender,
+                new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
+                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                Runnable::run
         );
 
         // Setup default mock for PlacementDriver to avoid timeouts.

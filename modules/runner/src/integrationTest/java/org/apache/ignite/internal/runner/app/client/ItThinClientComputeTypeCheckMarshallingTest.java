@@ -20,18 +20,17 @@ package org.apache.ignite.internal.runner.app.client;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.FAILED;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.hasMessage;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
@@ -44,17 +43,17 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for exceptions that are thrown when marshallers are defined in a wrong way or throw an exception.
  */
-@SuppressWarnings("resource")
 public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinClientTest {
     @Test
     void argumentMarshallerDefinedOnlyInJob() {
-        // When submit job with custom marshaller that is defined in job but
+        // When submit job with custom argument marshaller that is defined in job but
         // client JobDescriptor does not declare the argument marshaller.
         JobExecution<String> result = submit(
                 JobTarget.node(node(1)),
@@ -63,12 +62,15 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         await().until(result::stateAsync, willBe(jobStateWithStatus(FAILED)));
-        assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
+        assertResultFailsWithErr(
+                result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "ComputeJob.inputMarshaller is defined, but the JobDescriptor.argumentMarshaller is not defined."
+        );
     }
 
     @Test
     void resultMarshallerDefinedOnlyInJob() {
-        // When submit job with custom marshaller that is defined in job but
+        // When submit job with custom result marshaller that is defined in job but
         // client JobDescriptor does not declare the result marshaller.
         JobExecution<String> result = submit(
                 JobTarget.node(node(1)),
@@ -77,7 +79,47 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(result.resultAsync(), willThrow(ComputeException.class));
+        assertResultFailsWithErr(
+                result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "ComputeJob.resultMarshaller is defined, but the JobDescriptor.resultMarshaller is not defined."
+        );
+    }
+
+    @Test
+    void argumentMarshallerDefinedOnlyInDescriptor() {
+        // When submit job with custom argument marshaller that is defined in client JobDescriptor but
+        // job class does not declare the input marshaller.
+        JobExecution<String> result = submit(
+                JobTarget.node(node(1)),
+                JobDescriptor.builder(ResultMarshallingJob.class).argumentMarshaller(ByteArrayMarshaller.create()).build(),
+                "Input"
+        );
+
+        await().until(result::stateAsync, willBe(jobStateWithStatus(FAILED)));
+        assertResultFailsWithErr(
+                result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "JobDescriptor.argumentMarshaller is defined, but the ComputeJob.inputMarshaller is not defined."
+        );
+    }
+
+    @Test
+    void resultMarshallerDefinedOnlyInDescriptor() {
+        // When submit job with custom result marshaller that is defined in client JobDescriptor but
+        // job class does not declare the result marshaller.
+        JobExecution<String> result = submit(
+                JobTarget.node(node(1)),
+                JobDescriptor.builder(ArgMarshallingJob.class)
+                        .argumentMarshaller(ByteArrayMarshaller.create())
+                        .resultMarshaller(ByteArrayMarshaller.create())
+                        .build(),
+                "Input"
+        );
+
+        await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
+        assertResultFailsWithErr(
+                result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "JobDescriptor.resultMarshaller is defined, but the ComputeJob.resultMarshaller is not defined."
+        );
     }
 
     @Test
@@ -87,14 +129,18 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         JobExecution<Integer> result = submit(
                 JobTarget.node(node(1)),
                 // The descriptor does not match actual job arguments.
-                JobDescriptor.<Integer, Integer>builder(ArgumentTypeCheckingmarshallingJob.class.getName())
+                JobDescriptor.<Integer, Integer>builder(ArgumentTypeCheckingMarshallingJob.class.getName())
                         .argumentMarshaller(new IntegerMarshaller())
                         .build(),
                 1
         );
 
         await().until(result::stateAsync, willBe(jobStateWithStatus(FAILED)));
-        assertResultFailsWithErr(Compute.MARSHALLING_TYPE_MISMATCH_ERR, result);
+        assertResultFailsWithErr(
+                result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "Exception in user-defined marshaller",
+                hasMessage(containsString("java.lang.RuntimeException: User defined error."))
+        );
     }
 
     @Test
@@ -112,11 +158,15 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
 
         await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
 
-        // The job has completed successfully, but result was not unmarshaled
-        assertThrowsWithCause(() -> result.resultAsync().join(), ClassCastException.class);
+        // The job has completed successfully, but result was not unmarshalled correctly
+        assertResultFailsWithErr(
+                result, Compute.MARSHALLING_TYPE_MISMATCH_ERR,
+                "Exception in user-defined marshaller",
+                instanceOf(ClassCastException.class)
+        );
     }
 
-    static class ArgumentTypeCheckingmarshallingJob implements ComputeJob<String, String> {
+    static class ArgumentTypeCheckingMarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
             return completedFuture(arg);
@@ -136,7 +186,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
                         return (String) obj;
                     }
 
-                    throw new UnsupportedObjectTypeMarshallingException(obj.getClass());
+                    throw new RuntimeException("User defined error.");
                 }
             };
         }
@@ -155,9 +205,19 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         }
     }
 
-    private static void assertResultFailsWithErr(int errCode, JobExecution<?> result) {
-        var ex = assertThrows(CompletionException.class, () -> result.resultAsync().join());
-        assertThat(ex.getCause(), instanceOf(ComputeException.class));
-        assertThat(((ComputeException) ex.getCause()).code(), equalTo(errCode));
+    private static void assertResultFailsWithErr(JobExecution<?> result, int errCode, String expectedMessage) {
+        assertResultFailsWithErr(result, errCode, expectedMessage, null);
+    }
+
+    private static void assertResultFailsWithErr(
+            JobExecution<?> result,
+            int errCode,
+            String expectedMessage,
+            @Nullable Matcher<? extends Throwable> causeMatcher
+    ) {
+        assertThat(
+                result.resultAsync(),
+                willThrow(traceableException(ComputeException.class, errCode, expectedMessage).withCause(causeMatcher))
+        );
     }
 }

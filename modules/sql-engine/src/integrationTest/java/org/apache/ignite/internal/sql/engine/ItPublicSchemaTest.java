@@ -28,6 +28,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -86,7 +87,7 @@ public class ItPublicSchemaTest extends ClusterPerTestIntegrationTest {
                 .defaultSchema(defaultSchema)
                 .build();
 
-        try (ResultSet<?> rs = sql.execute(null, statement)) {
+        try (ResultSet<?> rs = sql.execute((Transaction) null, statement)) {
             assertTrue(rs.hasRowSet() || rs.wasApplied());
         }
     }

@@ -85,6 +85,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -206,6 +207,7 @@ import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
@@ -614,7 +616,10 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                         messagingService,
                         mock(ReplicaService.class),
                         clockService
-                )
+                ),
+                new TxRecoveryEngine(txManager, mock(ClusterNodeResolver.class)),
+                new Lazy<>(() -> mock(InternalClusterNode.class)),
+                Runnable::run
         );
 
         transactionStateResolver.start();
@@ -633,6 +638,11 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clockService
         );
 
+        var txRecoveryEngine = new TxRecoveryEngine(
+                txManager,
+                topologySrv
+        );
+
         zonePartitionReplicaListener = new ZonePartitionReplicaListener(
                 txStateStorage,
                 clockService,
@@ -648,7 +658,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode,
                 zonePartitionId,
                 transactionStateResolver,
-                txMessageSender
+                txMessageSender,
+                txRecoveryEngine
         );
 
         tableReplicaProcessor = new PartitionReplicaListener(
@@ -966,7 +977,9 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
             return null;
         }).when(txManager).updateTxMeta(any(), any());
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
+        Executor wise = Runnable::run;
+
+        doAnswer(invocation -> wise).when(txManager).writeIntentSwitchExecutor();
 
         doAnswer(invocation -> nullCompletedFuture())
                 .when(txManager).finish(any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any(), any());

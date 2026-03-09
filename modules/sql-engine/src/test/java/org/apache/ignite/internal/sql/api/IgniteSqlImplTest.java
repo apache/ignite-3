@@ -102,7 +102,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
 
-        AsyncResultSet<?> rs = await(igniteSql.executeAsync(null, "SELECT 1"));
+        AsyncResultSet<?> rs = await(igniteSql.executeAsync("SELECT 1"));
 
         assertThat(rs, notNullValue());
         assertThat(igniteSql.openedCursors(), hasSize(1));
@@ -125,7 +125,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
 
-        AsyncResultSet<?> rs = await(igniteSql.executeAsync(null, "SELECT 1"));
+        AsyncResultSet<?> rs = await(igniteSql.executeAsync("SELECT 1"));
 
         assertThat(rs, notNullValue());
         assertThat(igniteSql.openedCursors(), hasSize(1));
@@ -146,7 +146,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
                     return cursorFuture;
                 });
 
-        CompletableFuture<?> result = igniteSql.executeAsync(null, "SELECT 1");
+        CompletableFuture<?> result = igniteSql.executeAsync("SELECT 1");
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
@@ -236,7 +236,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         when(queryProcessor.queryAsync(any(), any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(completedFuture(result));
 
-        AsyncResultSet<?> rs = await(igniteSql.executeAsync(null, "SELECT 1"));
+        AsyncResultSet<?> rs = await(igniteSql.executeAsync("SELECT 1"));
 
         assertThat(rs, notNullValue());
         assertThat(igniteSql.openedCursors(), hasSize(1));

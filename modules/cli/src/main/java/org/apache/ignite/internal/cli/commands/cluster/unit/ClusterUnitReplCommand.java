@@ -24,7 +24,7 @@ import picocli.CommandLine.Command;
 @Command(name = "unit", subcommands = {
         ClusterUnitDeployReplCommand.class,
         ClusterUnitUndeployReplCommand.class,
-        ClusterUnitListReplCommand.class
+        ClusterUnitListCommand.class
 }, description = "Manages deployment units")
 public class ClusterUnitReplCommand extends BaseCommand {
 }

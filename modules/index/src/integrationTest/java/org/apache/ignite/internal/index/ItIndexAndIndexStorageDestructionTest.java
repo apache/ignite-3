@@ -71,10 +71,10 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
         node = cluster.aliveNode();
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name VARCHAR)");
-            session.execute(null, "CREATE INDEX " + INDEX_NAME + " ON " + TABLE_NAME + "(name)");
+            session.execute("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name VARCHAR)");
+            session.execute("CREATE INDEX " + INDEX_NAME + " ON " + TABLE_NAME + "(name)");
 
-            session.execute(null, "INSERT INTO " + TABLE_NAME + " (id, name) VALUES (" + PREEXISTING_KEY + ", 'John')");
+            session.execute("INSERT INTO " + TABLE_NAME + " (id, name) VALUES (" + PREEXISTING_KEY + ", 'John')");
         });
 
         TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));

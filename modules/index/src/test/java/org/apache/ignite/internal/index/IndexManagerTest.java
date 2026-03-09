@@ -67,6 +67,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -219,7 +220,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 mock(IgniteSql.class),
                 mock(FailureProcessor.class),
                 table.primaryKeyIndexId(),
-                mock(TableStatsStalenessConfiguration.class)
+                mock(TableStatsStalenessConfiguration.class),
+                mock(SchemaRegistry.class)
         ));
     }
 

@@ -19,10 +19,29 @@ cmake_minimum_required(VERSION 3.18)
 
 include(CMakePackageConfigHelpers)
 
-file(READ _version.txt IGNITE_VERSION)
-if(NOT DEFINED IGNITE_VERSION)
-  set(IGNITE_VERSION 3.0.0)
-  message(WARNING "Failed to read version from _version.txt file. Using default version \"${IGNITE_VERSION}\".")
+file(READ _version.txt IGNITE_VERSION_BASE)
+if(NOT DEFINED IGNITE_VERSION_BASE)
+    set(IGNITE_VERSION_BASE 3.0.0.0)
+    message(WARNING "Failed to read version from _version.txt file. Using default version \"${IGNITE_VERSION_BASE}\".")
+endif()
+
+string(STRIP "${IGNITE_VERSION_BASE}" IGNITE_VERSION_BASE)
+string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.?([0-9]+)?" VERSION_MATCH "${IGNITE_VERSION_BASE}")
+
+if(VERSION_MATCH)
+    set(VERSION_MAJOR "${CMAKE_MATCH_1}")
+    set(VERSION_MINOR "${CMAKE_MATCH_2}")
+    set(VERSION_PATCH "${CMAKE_MATCH_3}")
+    set(VERSION_PRERELEASE "${CMAKE_MATCH_4}")
+    set(IGNITE_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+    set(IGNITE_VERSION_FULL "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}.${VERSION_PRERELEASE}")
+    if(VERSION_PRERELEASE)
+        message(STATUS "Parsed version: ${IGNITE_VERSION_FULL}")
+    else()
+        message(STATUS "Parsed version: ${IGNITE_VERSION}")
+    endif ()
+else()
+    message(FATAL_ERROR "Failed to parse version from '${IGNITE_VERSION_BASE}'. Expected format: MAJOR.MINOR.PATCH.PRERELEASE")
 endif()
 
 project(ignite3 VERSION ${IGNITE_VERSION} LANGUAGES CXX)
@@ -30,7 +49,7 @@ project(ignite3 VERSION ${IGNITE_VERSION} LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
+set(CMAKE_PROJECT_VERSION ${IGNITE_VERSION_BASE})
 
 option(USE_LOCAL_DEPS "Use local dependencies." OFF)
 option(ENABLE_CLIENT "Build Ignite.C++ Client module" ON)
@@ -43,6 +62,8 @@ option(ENABLE_UB_SANITIZER "If undefined behavior sanitizer is enabled" OFF)
 option(WARNINGS_AS_ERRORS "Treat warning as errors" OFF)
 option(INSTALL_IGNITE_FILES "Install Ignite files" ON)
 option(ENABLE_IWYU "Enable include-what-you-use tool" OFF)
+option(ENABLE_CLANG_TIDY "Enable clang-tidy static analyzer" OFF)
+option(ENABLE_CPPCHECK "Enable cppcheck static analyzer" OFF)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
@@ -55,12 +76,51 @@ set(IGNITE_CMAKE_TOP_DIR ${CMAKE_CURRENT_LIST_DIR})
 include(dependencies)
 
 if(ENABLE_IWYU)
-    find_program(IWYU_PATH NAMES include-what-you-use iwyu)
-    if(NOT IWYU_PATH)
-        message(FATAL_ERROR "Could not find the program include-what-you-use")
-    endif()
+    find_program(IWYU_PATH NAMES include-what-you-use iwyu REQUIRED)
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
     set(CMAKE_C_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
+endif()
+
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY_BIN clang-tidy REQUIRED)
+    message(STATUS "clang-tidy: ${CLANG_TIDY_BIN}")
+    set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_BIN})
+    set(CMAKE_C_CLANG_TIDY ${CLANG_TIDY_BIN})
+    set(CMAKE_CXX_CLANG_TIDY_EXPORT_FIXES_DIR "clang-tidy-reports-dir")
+endif()
+
+if(ENABLE_CPPCHECK)
+    find_program(CPPCHECK_BIN cppcheck REQUIRED)
+    message(STATUS "cppcheck: ${CPPCHECK_BIN}")
+    message(STATUS "Please do not use parallel build with cppcheck enabled! Cppcheck writes results to the file and result might be corrupted in case of parallel build.")
+    set(CMAKE_CXX_CPPCHECK ${CPPCHECK_BIN} --enable=all --xml --output-file=cppcheck_report.xml)
+    add_custom_target(cppcheck_html_report ALL
+        COMMAND cppcheck-htmlreport
+            --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/tuple/cppcheck_report.xml
+            --file ${CMAKE_CURRENT_BINARY_DIR}/ignite/common/cppcheck_report.xml
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/protocol/cppcheck_report.xml>
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/network/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/client-test/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/fake_server/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/odbc-test/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_TESTS}>:--file ${CMAKE_CURRENT_BINARY_DIR}/tests/test-common/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_ODBC}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/odbc/cppcheck_report.xml>
+            $<$<BOOL:${ENABLE_CLIENT}>:--file ${CMAKE_CURRENT_BINARY_DIR}/ignite/client/cppcheck_report.xml>
+            --report-dir=${CMAKE_CURRENT_BINARY_DIR}/cppcheck_report
+        DEPENDS
+            ignite-tuple
+            ignite-common
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<OR:$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>>:ignite-protocol>
+            $<$<OR:$<BOOL:${ENABLE_CLIENT}>,$<OR:$<BOOL:${ENABLE_ODBC}>,$<BOOL:${ENABLE_PROTOCOL}>>>:ignite-network>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-client-test>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-fake-server>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-odbc-test>
+            $<$<BOOL:${ENABLE_TESTS}>:ignite-test-common>
+            $<$<BOOL:${ENABLE_ODBC}>:ignite3-odbc>
+            $<$<BOOL:${ENABLE_CLIENT}>:ignite3-client>
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        VERBATIM
+    )
 endif()
 
 # Configure build paths.
@@ -82,9 +142,15 @@ if (WIN32)
     add_definitions(-DNOMINMAX)
 else()
     include(GNUInstallDirs)
+    # Replace with the variables from GNUInstallDirs
+    set(IGNITE_INSTALL_ARCHIVE_DIR lib)
+    set(IGNITE_INSTALL_LIBRARY_DIR lib)
+    set(IGNITE_INSTALL_RUNTIME_DIR bin)
+    set(IGNITE_INSTALL_INCLUDE_DIR include)
+    set(IGNITE_INSTALL_DATAROOT_DIR share)
 endif()
 
-set(IGNITE_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR}/ignite)
+set(IGNITE_INCLUDEDIR ${IGNITE_INSTALL_INCLUDE_DIR}/ignite)
 
 include(cmake/packaging.cmake)
 include(CPack)
@@ -215,7 +281,7 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/cmake/ignite-config-version.cmake"
     COMPONENT client
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ignite"
+    DESTINATION "${IGNITE_INSTALL_LIBRARY_DIR}/cmake/ignite"
 )
 
 # Do not export the package by default

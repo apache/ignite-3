@@ -67,13 +67,6 @@ public interface TableViewInternal extends Table {
     SchemaRegistry schemaView();
 
     /**
-     * Sets a schema view for the table.
-     *
-     * @param schemaReg Schema view.
-     */
-    void schemaView(SchemaRegistry schemaReg);
-
-    /**
      * Returns a partition ID for a key tuple.
      *
      * @param key The tuple.

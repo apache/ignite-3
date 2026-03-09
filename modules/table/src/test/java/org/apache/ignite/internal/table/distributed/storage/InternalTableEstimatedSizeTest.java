@@ -225,8 +225,6 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 new TransactionInflights(placementDriver, clockService, txStateVolatileStorage()),
                 () -> null,
                 mock(StreamerReceiverRunner.class),
-                () -> 10_000L,
-                () -> 10_000L,
                 new TableMetricSource(QualifiedName.fromSimple(TABLE_NAME))
         );
 

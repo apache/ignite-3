@@ -53,7 +53,7 @@ public class TupleMarshallerStatisticsTest {
     @ValueSource(ints = {3, 1024, CatalogUtils.MAX_DECIMAL_SCALE - PRECISION})
     public void testDecimalSizeEstimation(int columnScale) {
         SchemaDescriptor schema = new SchemaDescriptor(1,
-                new Column[]{new Column("KEY", NativeTypes.decimalOf(PRECISION, columnScale), false)},
+                new Column[]{new Column("KEY", NativeTypes.decimalOf(PRECISION + columnScale, columnScale), false)},
                 new Column[]{new Column("UNUSED", NativeTypes.INT32, true)});
 
         TupleMarshallerImpl marshaller = KeyValueTestUtils.createMarshaller(schema);

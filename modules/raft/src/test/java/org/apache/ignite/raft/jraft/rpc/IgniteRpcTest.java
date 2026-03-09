@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.rpc;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -86,7 +87,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(stopAsync(new ComponentContext(), service), willCompleteSuccessfully());
             }
         };
 
@@ -109,7 +110,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                assertThat(stopAsync(new ComponentContext(), service), willCompleteSuccessfully());
             }
         };
 

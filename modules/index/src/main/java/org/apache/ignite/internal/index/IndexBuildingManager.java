@@ -55,7 +55,9 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.Lazy;
 
 /**
  * Component is responsible for building indexes and making them {@link CatalogIndexStatus#AVAILABLE available}. Both in a running cluster
@@ -121,7 +123,10 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService.topologyService(),
                 clusterService.messagingService(),
                 new PlacementDriverHelper(new ExecutorInclinedPlacementDriver(placementDriver, executor), clockService),
-                new TxMessageSender(clusterService.messagingService(), replicaService, clockService)
+                new TxMessageSender(clusterService.messagingService(), replicaService, clockService),
+                new TxRecoveryEngine(txManager, clusterService.topologyService()),
+                new Lazy<>(() -> clusterService.topologyService().localMember()),
+                executor
         );
 
         indexBuilder = new IndexBuilder(

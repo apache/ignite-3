@@ -134,6 +134,7 @@ class RelTreeToTextWriter {
         AGGREGATION("aggregation"),
         KEY_EXPRESSIONS("key"),
         CORRELATED_VARIABLES("correlates"),
+        CORRELATION_FIELD_NAMES("correlationFieldNames"),
         INVOCATION("invocation"),
         OFFSET("offset"),
         FETCH("fetch"),
@@ -287,6 +288,13 @@ class RelTreeToTextWriter {
         @Override
         public IgniteRelWriter addCorrelatedVariables(Set<CorrelationId> variablesSet) {
             attributes.put(AttributeName.CORRELATED_VARIABLES, variablesSet.toString());
+
+            return this;
+        }
+
+        @Override
+        public IgniteRelWriter addCorrelationFieldNames(ImmutableBitSet correlationColumns, RelDataType rowType) {
+            attributes.put(AttributeName.CORRELATION_FIELD_NAMES, beautifyBitSet(correlationColumns, rowType).toString());
 
             return this;
         }

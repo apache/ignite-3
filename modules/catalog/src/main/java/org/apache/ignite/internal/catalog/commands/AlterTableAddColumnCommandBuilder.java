@@ -29,4 +29,7 @@ import java.util.List;
 public interface AlterTableAddColumnCommandBuilder extends AbstractTableCommandBuilder<AlterTableAddColumnCommandBuilder> {
     /** List of columns to add to the table. There must be at least one column. */
     AlterTableAddColumnCommandBuilder columns(List<ColumnParams> columns);
+
+    /** The flag indicating that the command should not fail if a column with the same name already exists. */
+    AlterTableAddColumnCommandBuilder ifColumnNotExists(boolean notExists);
 }

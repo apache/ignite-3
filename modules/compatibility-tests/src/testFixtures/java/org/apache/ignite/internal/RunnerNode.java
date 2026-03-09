@@ -31,20 +31,29 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteRunner;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 
 /**
  * Represents the Ignite node running in the external process.
  */
 public class RunnerNode {
+    // The name of the log4j configuration file for the runner node. This needs to be different from the default log4j2.xml so that it
+    // doesn't conflict with the default log4j2-test.xml configuration from the core test fixtures.
+    private static final String RUNNER_LOG_CONFIG = "log4j2-runner.xml";
+
+    // Marker for logging formatted logs from the runner process.
+    private static final Marker RUNNER_MARKER = MarkerManager.getMarker("CompatRunner");
+
     private final Process process;
 
     private final String nodeName;
 
-    private final IgniteLogger processLogger;
+    private final Logger processLogger;
 
-    private RunnerNode(Process process, String nodeName, IgniteLogger processLogger) {
+    private RunnerNode(Process process, String nodeName, Logger processLogger) {
         this.process = process;
         this.nodeName = nodeName;
         this.processLogger = processLogger;
@@ -89,7 +98,8 @@ public class RunnerNode {
         }
 
         Process process = executeRunner(javaHome, argFile, configPath, workDir, nodeName);
-        IgniteLogger processLogger = Loggers.forName(nodeName);
+        Logger processLogger = LogManager.getLogger(RunnerNode.class);
+        processLogger.info("Process for node {} pid {} started", nodeName, process.pid());
         createStreamGrabber(process, processLogger, process::getInputStream, "input");
         createStreamGrabber(process, processLogger, process::getErrorStream, "error");
         return new RunnerNode(process, nodeName, processLogger);
@@ -97,12 +107,12 @@ public class RunnerNode {
 
     private static Thread createStreamGrabber(
             Process process,
-            IgniteLogger processLogger,
+            Logger processLogger,
             Supplier<InputStream> streamSupplier,
             String grabberType
     ) {
         Thread streamGrabber = new Thread(
-                new StreamGrabberTask(streamSupplier.get(), processLogger::info),
+                new StreamGrabberTask(streamSupplier.get(), msg -> processLogger.info(RUNNER_MARKER, msg)),
                 grabberThreadName(process.pid(), grabberType)
         );
         streamGrabber.setDaemon(true);
@@ -132,7 +142,7 @@ public class RunnerNode {
                 }
             }
 
-            processLogger.info("Process stopped: {}", nodeName);
+            processLogger.info("Process for node {} pid {} stopped", nodeName, process.pid());
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -166,6 +176,21 @@ public class RunnerNode {
                 "--work-dir", workDir.toString(),
                 "--config-path", configPath.toString()
         );
+
+        Path logConfig = copyLogConfigToWorkDir(workDir);
+        pb.environment().put("LOG4J_CONFIGURATION_FILE", logConfig.toString());
+
         return pb.start();
+    }
+
+    private static Path copyLogConfigToWorkDir(Path workDir) throws IOException {
+        try (InputStream is = RunnerNode.class.getClassLoader().getResourceAsStream(RUNNER_LOG_CONFIG)) {
+            if (is == null) {
+                throw new IllegalStateException(RUNNER_LOG_CONFIG + " is not found on classpath");
+            }
+            Path logConfig = workDir.resolve(RUNNER_LOG_CONFIG);
+            Files.copy(is, logConfig);
+            return logConfig;
+        }
     }
 }

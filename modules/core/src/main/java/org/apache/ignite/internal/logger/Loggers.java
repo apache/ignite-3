@@ -88,10 +88,27 @@ public final class Loggers {
     }
 
     /**
-     * Converts to {@link IgniteThrottledLogger}.
+     * Creates a new throttled logger based on the provided {@code logger}.
+     * Take into account that internal cleanup tasks will be performed in the same thread that calls log operations.
+     * When it is required to run such maintenance activities asynchronously (in the background),
+     * consider using {@link #toThrottledLogger(IgniteLogger, Executor)}.
+     *
+     * @param logger Logger.
+     * @see IgniteThrottledLogger
+     * @see #toThrottledLogger(IgniteLogger, Executor)
+     */
+    public static IgniteThrottledLogger toThrottledLogger(IgniteLogger logger) {
+        assert logger instanceof IgniteLoggerImpl : logger;
+
+        return new IgniteThrottledLoggerImpl(((IgniteLoggerImpl) logger).delegate);
+    }
+
+    /**
+     * Creates a new throttled logger based on the provided {@code logger}.
      *
      * @param logger Logger.
      * @param executor Executor for cleaning internal structures.
+     * @see IgniteThrottledLogger
      */
     public static IgniteThrottledLogger toThrottledLogger(IgniteLogger logger, Executor executor) {
         assert logger instanceof IgniteLoggerImpl : logger;

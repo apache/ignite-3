@@ -63,13 +63,13 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * The constructor.
      *
      * @param txManager The tx manager.
-     * @param id The id.
      * @param observableTsTracker Observation timestamp tracker.
+     * @param id The id.
      * @param coordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
      * @param timeout Transaction timeout in milliseconds.
      */
-    public IgniteAbstractTransactionImpl(
+    IgniteAbstractTransactionImpl(
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,

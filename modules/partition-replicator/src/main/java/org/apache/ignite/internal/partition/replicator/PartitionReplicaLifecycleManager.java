@@ -181,12 +181,14 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionStateResolver;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
+import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorageRebalanceException;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.LongPriorityQueue;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
@@ -290,6 +292,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final TxMessageSender txMessageSender;
 
+    private final TxRecoveryEngine txRecoveryEngine;
+
     private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
     private final EventListener<DropZoneEventParameters> onZoneDropListener = fromConsumer(this::onZoneDrop);
@@ -315,6 +319,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *         will be executed.
+     * @param commonExecutor Common executor.
      * @param clockService Clock service.
      * @param placementDriver Placement driver.
      * @param schemaSyncService Schema synchronization service.
@@ -339,6 +344,7 @@ public class PartitionReplicaLifecycleManager extends
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
+            Executor commonExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
@@ -363,6 +369,7 @@ public class PartitionReplicaLifecycleManager extends
                 ioExecutor,
                 rebalanceScheduler,
                 partitionOperationsExecutor,
+                commonExecutor,
                 clockService,
                 placementDriver,
                 schemaSyncService,
@@ -398,6 +405,7 @@ public class PartitionReplicaLifecycleManager extends
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
+            Executor commonExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
@@ -437,6 +445,8 @@ public class PartitionReplicaLifecycleManager extends
                 Integer::parseInt
         );
 
+        txRecoveryEngine = new TxRecoveryEngine(txManager, topologyService);
+
         txMessageSender = new TxMessageSender(
                 messagingService,
                 replicaService,
@@ -451,7 +461,10 @@ public class PartitionReplicaLifecycleManager extends
                 topologyService,
                 messagingService,
                 placementDriverHelper,
-                txMessageSender
+                txMessageSender,
+                txRecoveryEngine,
+                new Lazy<>(topologyService::localMember),
+                commonExecutor
         );
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
@@ -844,7 +857,8 @@ public class PartitionReplicaLifecycleManager extends
                                                 topologyService.localMember(),
                                                 zonePartitionId,
                                                 transactionStateResolver,
-                                                txMessageSender
+                                                txMessageSender,
+                                                txRecoveryEngine
                                         );
 
                                         zoneResources.replicaListenerFuture().complete(replicaListener);
@@ -1360,7 +1374,17 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.RESTART,
-                () -> stopPartitionInternal(zonePartitionId, BEFORE_REPLICA_STOPPED, AFTER_REPLICA_STOPPED, revision, replica -> {})
+                () -> stopPartitionInternal(
+                        zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
+                        AFTER_REPLICA_STOPPED,
+                        revision,
+                        replicaWasStopped -> {
+                            if (replicaWasStopped) {
+                                zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
+                            }
+                        }
+                )
         );
     }
 
@@ -1818,7 +1842,11 @@ public class PartitionReplicaLifecycleManager extends
                         BEFORE_REPLICA_STOPPED,
                         AFTER_REPLICA_STOPPED,
                         -1L,
-                        replicaWasStopped -> {}
+                        replicaWasStopped -> {
+                            if (replicaWasStopped) {
+                                zoneResourcesManager.removeZonePartitionResources(zonePartitionId);
+                            }
+                        }
                 ))
                 .toArray(CompletableFuture[]::new);
 

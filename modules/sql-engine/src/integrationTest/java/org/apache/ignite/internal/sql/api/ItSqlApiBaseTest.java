@@ -127,6 +127,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // ADD COLUMN
         checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN (VAL2 VARCHAR, VAL3 VARCHAR)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
@@ -140,6 +141,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS VAL1 INT");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN IF NOT EXISTS (VAL1 INT, VAL4 INT)");
 
         // CREATE INDEX
         checkDdl(true, sql, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
@@ -200,6 +203,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 sql,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
+        checkDdl(false, sql, "ALTER TABLE TEST DROP COLUMN IF EXISTS VAL1");
 
         // DROP TABLE
         checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
@@ -569,7 +573,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         IgniteSql sql = igniteSql();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            sql.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            sql.execute("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         Statement statement = sql.statementBuilder()
@@ -905,7 +909,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         long momentBefore = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-        ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
+        ResultSet<SqlRow> resultSet = igniteSql().execute((Transaction) null, builder.build());
         SqlRow row = resultSet.next();
 
         long momentAfter = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -1047,7 +1051,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                     .build();
 
             CancelHandle cancelHandle = CancelHandle.create();
-            CompletableFuture<?> fut = sql.executeAsync(null, cancelHandle.token(), statement);
+            CompletableFuture<?> fut = sql.executeAsync((Transaction) null, cancelHandle.token(), statement);
 
             // Wait until the query starts executing.
             waitUntilRunningQueriesCount(greaterThan(0));
@@ -1143,7 +1147,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             String killQuery = "KILL QUERY '" + existingQuery + '\'';
 
             // Kill existing query.
-            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+            try (ResultSet<SqlRow> killResultset = sql.execute(killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(true));
             }
@@ -1161,7 +1165,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             );
 
             // Kill non-existing query.
-            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+            try (ResultSet<SqlRow> killResultset = sql.execute(killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(false));
             }

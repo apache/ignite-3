@@ -28,6 +28,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.rest.constants.MediaType.APPLICATION_JSON;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
@@ -62,7 +63,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 class WebhookSinkTest extends BaseIgniteAbstractTest {
     private static final UUID CLUSTER_ID = UUID.randomUUID();
 
-    @InjectConfiguration("mock{sinks.webhookSink{type=webhook,endpoint=\"http://localhost\"}}")
+    @InjectConfiguration(
+            value = "mock{sinks.webhookSink{type=webhook,endpoint=\"http://localhost\"}}",
+            type = DISTRIBUTED
+    )
     private EventLogConfiguration cfg;
 
     private WebhookSink sink;

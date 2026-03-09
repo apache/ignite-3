@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that deletes columns from the table.
@@ -54,6 +56,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
     }
 
     private final Set<String> columns;
+
+    private final boolean ifColumnExists;
 
     /**
      * Constructs the object.
@@ -68,7 +72,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             String tableName,
             String schemaName,
             boolean ifTableExists,
-            Set<String> columns
+            Set<String> columns,
+            boolean ifColumnExists
     ) throws CatalogValidationException {
         super(schemaName, tableName, ifTableExists, true);
 
@@ -76,6 +81,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         validate(columns);
 
         this.columns = copyOrNull(columns);
+
+        this.ifColumnExists = ifColumnExists;
     }
 
     @Override
@@ -96,31 +103,52 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
                 .collect(IntOpenHashSet::new, IntSet::add, IntSet::addAll);
 
         // To validate always in the same order let's sort given columns
-        columns.stream().sorted().forEach(columnName -> {
-            CatalogTableColumnDescriptor column = table.column(columnName);
-            if (column == null) {
+        Set<String> columnsToDrop = columns.stream()
+                .sorted()
+                .map(columnName -> retrieveValidatedColumnName(columnName, catalog, table, indexedColumns))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (columnsToDrop.isEmpty()) {
+            return List.of();
+        } else {
+            return List.of(
+                    new DropColumnsEntry(table.id(), columnsToDrop)
+            );
+        }
+    }
+
+    private @Nullable String retrieveValidatedColumnName(
+            String columnName,
+            Catalog catalog,
+            CatalogTableDescriptor table,
+            IntSet indexedColumns
+    ) {
+        CatalogTableColumnDescriptor column = table.column(columnName);
+        if (column == null) {
+            if (ifColumnExists) {
+                return null;
+            } else {
                 throw new CatalogValidationException(
                         "Column with name '{}' not found in table '{}.{}'.", columnName, schemaName, tableName);
             }
+        }
 
-            if (table.isPrimaryKeyColumn(columnName)) {
-                throw new CatalogValidationException("Deleting column `{}` belonging to primary key is not allowed.", columnName);
-            }
+        if (table.isPrimaryKeyColumn(columnName)) {
+            throw new CatalogValidationException("Deleting column `{}` belonging to primary key is not allowed.", columnName);
+        }
 
-            if (indexedColumns.contains(column.id())) {
-                List<String> indexesNames = aliveIndexesForTable(catalog, table.id())
-                        .filter(index -> indexColumnIds(index).anyMatch(id -> id == column.id()))
-                        .map(CatalogIndexDescriptor::name)
-                        .collect(Collectors.toList());
+        if (indexedColumns.contains(column.id())) {
+            List<String> indexesNames = aliveIndexesForTable(catalog, table.id())
+                    .filter(index -> indexColumnIds(index).anyMatch(id -> id == column.id()))
+                    .map(CatalogIndexDescriptor::name)
+                    .collect(Collectors.toList());
 
-                throw new CatalogValidationException("Deleting column '{}' used by index(es) {}, it is not allowed.",
-                        columnName, indexesNames);
-            }
-        });
+            throw new CatalogValidationException("Deleting column '{}' used by index(es) {}, it is not allowed.",
+                    columnName, indexesNames);
+        }
 
-        return List.of(
-                new DropColumnsEntry(table.id(), columns)
-        );
+        return column.name();
     }
 
     private static Stream<CatalogIndexDescriptor> aliveIndexesForTable(Catalog catalog, int tableId) {
@@ -162,6 +190,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
         private boolean ifTableExists;
 
+        private boolean ifColumnExists;
+
         @Override
         public AlterTableDropColumnCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -191,12 +221,20 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         }
 
         @Override
+        public AlterTableDropColumnCommandBuilder ifColumnExists(boolean ifColumnExists) {
+            this.ifColumnExists = ifColumnExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new AlterTableDropColumnCommand(
                     tableName,
                     schemaName,
                     ifTableExists,
-                    columns
+                    columns,
+                    ifColumnExists
             );
         }
     }

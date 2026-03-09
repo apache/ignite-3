@@ -72,7 +72,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                     .query(query)
                     .build();
 
-            return sql.execute(null, token, statement);
+            return sql.execute((Transaction) null, token, statement);
         });
 
         // with transaction
@@ -96,9 +96,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         String query = "SELECT * FROM system_range(0, 10000000000)";
 
         // no transaction
-        executeAndCancel((token) -> {
-            return sql.execute(null, token, query);
-        });
+        executeAndCancel((token) -> sql.execute((Transaction) null, token, query));
 
         // with transaction
         executeAndCancel((token) -> {
@@ -146,7 +144,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                 .pageSize(1)
                 .build();
 
-        try (var ignored = sql.execute(null, stmt)) {
+        try (var ignored = sql.execute((Transaction) null, stmt)) {
             // No-op.
         }
     }

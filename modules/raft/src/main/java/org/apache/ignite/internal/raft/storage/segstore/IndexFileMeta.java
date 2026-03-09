@@ -25,15 +25,17 @@ import org.apache.ignite.internal.tostring.S;
  * @see IndexFileManager
  */
 class IndexFileMeta {
+    private static final int NO_PAYLOAD_OFFSET = -1;
+
     private final long firstLogIndexInclusive;
 
     private final long lastLogIndexExclusive;
 
     private final int indexFilePayloadOffset;
 
-    private final int indexFileOrdinal;
+    private final FileProperties indexFileProperties;
 
-    IndexFileMeta(long firstLogIndexInclusive, long lastLogIndexExclusive, int indexFilePayloadOffset, int indexFileOrdinal) {
+    IndexFileMeta(long firstLogIndexInclusive, long lastLogIndexExclusive, int indexFilePayloadOffset, FileProperties indexFileProperties) {
         assert firstLogIndexInclusive >= 0 : "Invalid first log index: " + firstLogIndexInclusive;
         assert lastLogIndexExclusive >= 0 : "Invalid first log index: " + firstLogIndexInclusive;
 
@@ -41,14 +43,14 @@ class IndexFileMeta {
             throw new IllegalArgumentException("Invalid log index range: [" + firstLogIndexInclusive + ", " + lastLogIndexExclusive + ").");
         }
 
-        if (indexFileOrdinal < 0) {
-            throw new IllegalArgumentException("Invalid index file ordinal: " + indexFileOrdinal);
-        }
-
         this.firstLogIndexInclusive = firstLogIndexInclusive;
         this.lastLogIndexExclusive = lastLogIndexExclusive;
         this.indexFilePayloadOffset = indexFilePayloadOffset;
-        this.indexFileOrdinal = indexFileOrdinal;
+        this.indexFileProperties = indexFileProperties;
+    }
+
+    static IndexFileMeta empty(long logIndex, FileProperties indexFileProperties) {
+        return new IndexFileMeta(logIndex, logIndex, NO_PAYLOAD_OFFSET, indexFileProperties);
     }
 
     /**
@@ -69,22 +71,13 @@ class IndexFileMeta {
      * Returns the offset of the payload for the Raft Group in the index file.
      */
     int indexFilePayloadOffset() {
+        assert indexFilePayloadOffset != NO_PAYLOAD_OFFSET : "Must not be called for empty metas.";
+
         return indexFilePayloadOffset;
     }
 
-    /**
-     * Returns the ordinal of the index file.
-     */
-    int indexFileOrdinal() {
-        return indexFileOrdinal;
-    }
-
-    /**
-     * Returns {@code true} if the index meta is empty. This happens if some data was inserted but then the log suffix got truncated,
-     * completely wiping it out.
-     */
-    boolean isEmpty() {
-        return firstLogIndexInclusive == lastLogIndexExclusive;
+    FileProperties indexFileProperties() {
+        return indexFileProperties;
     }
 
     @Override
@@ -95,8 +88,7 @@ class IndexFileMeta {
 
         IndexFileMeta that = (IndexFileMeta) o;
         return firstLogIndexInclusive == that.firstLogIndexInclusive && lastLogIndexExclusive == that.lastLogIndexExclusive
-                && indexFilePayloadOffset == that.indexFilePayloadOffset
-                && indexFileOrdinal == that.indexFileOrdinal;
+                && indexFilePayloadOffset == that.indexFilePayloadOffset && indexFileProperties.equals(that.indexFileProperties);
     }
 
     @Override
@@ -104,7 +96,7 @@ class IndexFileMeta {
         int result = Long.hashCode(firstLogIndexInclusive);
         result = 31 * result + Long.hashCode(lastLogIndexExclusive);
         result = 31 * result + indexFilePayloadOffset;
-        result = 31 * result + indexFileOrdinal;
+        result = 31 * result + indexFileProperties.hashCode();
         return result;
     }
 

@@ -230,6 +230,7 @@ public class TxMessageSender {
                                 .txId(p.txId())
                                 .senderCurrentConsistencyToken(p.senderCurrentConsistencyToken())
                                 .senderGroupId(toZonePartitionIdMessageNullable(REPLICA_MESSAGES_FACTORY, p.senderGroupId()))
+                                .commitPartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, p.commitGroupId()))
                                 .build(),
                         RPC_TIMEOUT_MILLIS)
                 .thenApply(resp -> {

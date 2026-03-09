@@ -26,7 +26,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the {@link KeyValueView} API.
+ * This example demonstrates the usage of the { @link KeyValueView} API.
  *
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
@@ -44,7 +44,7 @@ public class TableExample {
                 .build()
         ) {
             // Create a table to work with later
-            client.sql().execute(null, "CREATE TABLE IF NOT EXISTS Person (" +
+            client.sql().execute("CREATE TABLE IF NOT EXISTS Person (" +
                     "id int primary key," +
                     "city_id int," +
                     "name varchar," +

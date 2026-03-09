@@ -55,10 +55,10 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     @Test
     void testPendingAssignmentsRecovery() throws InterruptedException {
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1) STORAGE PROFILES ['"
+            session.execute("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1) STORAGE PROFILES ['"
                     + DEFAULT_STORAGE_PROFILE + "']");
-            session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
-            session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
+            session.execute("CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
+            session.execute("INSERT INTO TEST VALUES (0, 0)");
         });
 
         assertTrue(containsPartition(cluster.node(0)));
@@ -69,7 +69,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Change the number of replicas so that the table would get replicated on both nodes.
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE TEST_ZONE SET (REPLICAS 2)");
+            session.execute("ALTER ZONE TEST_ZONE SET (REPLICAS 2)");
         });
 
         cluster.restartNode(1);

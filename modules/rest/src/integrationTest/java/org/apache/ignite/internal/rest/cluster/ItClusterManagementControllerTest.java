@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
+import static org.apache.ignite.internal.rest.constants.MediaType.TEXT_PLAIN;
 import static org.apache.ignite.internal.rest.matcher.ProblemHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,9 +26,13 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.http.HttpStatus;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.rest.AbstractRestTestBase;
 import org.apache.ignite.internal.rest.api.cluster.ClusterState;
+import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -118,5 +123,35 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
                 .withTitle(HttpStatus.INTERNAL_SERVER_ERROR.getReason())
                 .withDetail(containsString("Init CMG request denied, reason: CMG node names do not match."))
         );
+    }
+
+    @Test
+    void testClusterRename() throws Exception {
+        String initRequestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [\n"
+                + "        \"" + cluster.nodeName(0) + "\"\n"
+                + "    ],\n"
+                + "    \"clusterName\": \"cluster\"\n"
+                + "}";
+        HttpResponse<String> initResponse = send(post("/management/v1/cluster/init", initRequestBody));
+        assertThat(initResponse.statusCode(), is(HttpStatus.OK.getCode()));
+        assertThat(cluster.server(0).waitForInitAsync(), willCompleteSuccessfully());
+
+        HttpResponse<String> stateResponse = send(get("/management/v1/cluster/state"));
+        ClusterState state = objectMapper.readValue(stateResponse.body(), ClusterState.class);
+
+        HttpRequest renameRequest = HttpRequest.newBuilder(URI.create(HTTP_HOST_PORT + "/management/v1/cluster/rename"))
+                .header("content-type", TEXT_PLAIN)
+                .POST(BodyPublishers.ofString("cluster2"))
+                .build();
+        HttpResponse<String> renameResponse = send(renameRequest);
+        assertThat(renameResponse.statusCode(), is(HttpStatus.OK.getCode()));
+
+        ClusterTag clusterTag2 = objectMapper.readValue(renameResponse.body(), ClusterTag.class);
+        assertThat(clusterTag2.clusterName(), is("cluster2"));
+        assertThat(clusterTag2.clusterId(), is(state.clusterTag().clusterId()));
     }
 }

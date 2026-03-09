@@ -42,6 +42,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -50,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +60,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1338,6 +1341,35 @@ public class IgniteUtils {
         return list.toArray();
     }
 
+    /**
+     * Schedules the provided operation to be retried after the specified delay.
+     *
+     * @param operation Operation.
+     * @param delay Delay.
+     * @param unit Time unit of the delay.
+     * @param executor Executor to schedule the retry in.
+     * @return Future that is completed when the operation is successful or failed with an exception.
+     */
+    public static <T> CompletableFuture<T> scheduleRetry(
+            Callable<CompletableFuture<T>> operation,
+            long delay,
+            TimeUnit unit,
+            ScheduledExecutorService executor
+    ) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+
+        executor.schedule(() -> operation.call()
+                .whenComplete((res, e) -> {
+                    if (e == null) {
+                        future.complete(res);
+                    } else {
+                        future.completeExceptionally(e);
+                    }
+                }), delay, unit);
+
+        return future;
+    }
+
     private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
@@ -1365,20 +1397,6 @@ public class IgniteUtils {
      */
     public static CompletableFuture<Void> startAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
         return startAsync(componentContext, components.stream());
-    }
-
-    private static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
-        return allOf(components
-                .filter(Objects::nonNull)
-                .map(igniteComponent -> {
-                    try {
-                        return igniteComponent.stopAsync(componentContext);
-                    } catch (Throwable e) {
-                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
-                        return failedFuture(e);
-                    }
-                })
-                .toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -1409,7 +1427,7 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
-        return stopAsync(componentContext, Stream.of(components));
+        return stopAsync(componentContext, Arrays.asList(components));
     }
 
     /**
@@ -1420,7 +1438,25 @@ public class IgniteUtils {
      * @return CompletableFuture that will be completed when all components are stopped.
      */
     public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
-        return stopAsync(componentContext, components.stream());
+        try {
+            closeAll(components.stream().filter(Objects::nonNull).map(c -> c::beforeNodeStop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        CompletableFuture<?>[] stopFutures = components.stream()
+                .filter(Objects::nonNull)
+                .map(igniteComponent -> {
+                    try {
+                        return igniteComponent.stopAsync(componentContext);
+                    } catch (Throwable e) {
+                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
+                        return failedFuture(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(stopFutures);
     }
 
     /**
@@ -1469,5 +1505,28 @@ public class IgniteUtils {
         if (tuple.hasNullValue(fieldIndex)) {
             throw new NullPointerException(IgniteStringFormatter.format(NULL_TO_PRIMITIVE_NAMED_ERROR_MESSAGE, fieldName));
         }
+    }
+
+    /**
+     * Creates a comparator of lists that compares them lexicographically using the provided comparator for list elements.
+     *
+     * @param comparator Comparator for list elements.
+     * @param <T> Type of list's elements.
+     * @return Comparator of lists.
+     */
+    public static <T> Comparator<List<T>> lexicographicListComparator(Comparator<? super T> comparator) {
+        return (l, r) -> {
+            int length = Math.min(l.size(), r.size());
+
+            for (int i = 0; i < length; i++) {
+                int cmp = comparator.compare(l.get(i), r.get(i));
+
+                if (cmp != 0) {
+                    return cmp;
+                }
+            }
+
+            return Integer.compare(l.size(), r.size());
+        };
     }
 }

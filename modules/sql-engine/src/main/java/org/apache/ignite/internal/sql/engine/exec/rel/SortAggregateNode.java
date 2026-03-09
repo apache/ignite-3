@@ -105,6 +105,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
+        onRequestReceived();
+
         requested = rowsCnt;
 
         if (waiting == 0) {
@@ -119,6 +121,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
+
+        onRowReceived();
 
         waiting--;
 
@@ -265,7 +269,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void add(RowT row) {
-            aggRow.update(accs, grpSet, context().rowAccessor(), row);
+            aggRow.update(accs, grpSet, row);
         }
 
         private RowT row() {

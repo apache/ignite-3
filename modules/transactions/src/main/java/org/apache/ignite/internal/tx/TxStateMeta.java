@@ -368,13 +368,31 @@ public class TxStateMeta implements TransactionMeta {
             return this;
         }
 
+        /**
+         * Changes transaction label, if non-{@code null} value is provided.
+         *
+         * @param txLabel Transaction label.
+         * @return This.
+         */
         public TxStateMetaBuilder txLabel(@Nullable String txLabel) {
-            this.txLabel = txLabel;
+            if (txLabel != null) {
+                this.txLabel = txLabel;
+            }
+
             return this;
         }
 
+        /**
+         * Changes internal transaction, if non-{@code null} value is provided.
+         *
+         * @param tx Internal transaction.
+         * @return This.
+         */
         public TxStateMetaBuilder tx(@Nullable InternalTransaction tx) {
-            this.tx = tx;
+            if (tx != null) {
+                this.tx = tx;
+            }
+
             return this;
         }
 

@@ -24,13 +24,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.assertValueOnSpecificNode;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.blockMessage;
-import static org.apache.ignite.internal.disaster.DisasterRecoveryTestUtil.stableKeySwitchMessage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil.blockMessages;
+import static org.apache.ignite.internal.distributionzones.RebalanceBlockingUtil.blockStableKeySwitch;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
@@ -195,9 +196,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
         executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
-                        + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
+                        + "auto scale down %d, auto scale up %d, consistency mode '%s', quorum size %d) storage profiles ['%s']",
                 zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1,
-                zoneParams.consistencyMode().name(), DEFAULT_STORAGE_PROFILE
+                zoneParams.consistencyMode().name(),
+                zoneParams.quorumSize() == -1 ? zoneParams.replicas() / 2 + 1 : zoneParams.quorumSize(),
+                DEFAULT_STORAGE_PROFILE
         ));
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
@@ -435,7 +438,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Blocking stable switch to the first phase or reset,
         // so that we'll have force pending assignments unexecuted.
-        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignment0));
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                partitionGroupId(partId),
+                assignment0
+        );
 
         // Init reset:
         // pending = [0, force]
@@ -512,7 +519,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Blocking stable switch to the first phase or reset,
         // so that we'll have force pending assignments unexecuted.
-        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignmentPending));
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                partitionGroupId(partId),
+                assignmentPending
+        );
 
         // Stop 3. Nodes 0 and 1 survived.
         stopNode(3);
@@ -797,29 +808,31 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 1, 3, 4);
 
-        stopNodesInParallel(3, 4);
+        stopNodesInParallel(2, 3, 4);
 
-        waitForScale(node0, 3);
+        waitForScale(node0, 2);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
 
         awaitPrimaryReplica(node0, partId);
 
-        assertRealAssignments(node0, partId, 1);
+        assertRealAssignments(node0, partId, 0, 1);
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
+        awaitStableContainsNodes(node0, partId, 0, 1);
         // Check that there is no ongoing or planned rebalance.
         assertNull(getPendingAssignments(node0, partId));
 
-        assertRealAssignments(node0, partId, 1);
+        assertRealAssignments(node0, partId, 0, 1);
 
         // No fromReset flag is set on stable.
         Assignments assignmentsStable = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name())
         ), timestamp);
 
@@ -848,7 +861,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNodesInParallel(1);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -921,7 +934,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockRebalanceStableSwitch(partId, assignmentToBlock);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<Void> resetFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<Void> resetFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         // force == true, fromReset == false.
@@ -1012,7 +1025,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(followerNodes.remove(node0IndexInFollowers == -1 ? 0 : node0IndexInFollowers));
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage(cluster, (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
+        blockMessages(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes)
+        );
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
@@ -1160,7 +1176,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(blockedNode);
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage(cluster, (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
+        blockMessages(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                (nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes)
+        );
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
@@ -1198,7 +1217,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockRebalanceStableSwitch(partId, assignmentsToBlock);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1);
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), false, 1000);
         assertThat(updateFuture, willCompleteSuccessfully());
 
         // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index
@@ -1347,9 +1366,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         AtomicBoolean blockedLink = new AtomicBoolean(true);
 
         // Block stable switch to check that we initially add reset phase 1 assignments to the chain.
-        blockMessage(
-                cluster,
-                (nodeName, msg) -> blockedLink.get() && stableKeySwitchMessage(msg, partitionGroupId(partId), resetAssignments)
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                partitionGroupId(partId),
+                resetAssignments,
+                (nodeName, msg) -> blockedLink.get()
         );
 
         stopNodesInParallel(1, 2);
@@ -1473,9 +1494,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         AtomicBoolean blockedLink2 = new AtomicBoolean(true);
 
         // Block stable switch to check that we initially add reset phase 1 assignments to the chain.
-        blockMessage(
-                cluster,
-                (nodeName, msg) -> blockedLink2.get() && stableKeySwitchMessage(msg, partitionGroupId(partId), link2Assignments)
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                partitionGroupId(partId),
+                link2Assignments,
+                (nodeName, msg) -> blockedLink2.get()
         );
 
         logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{3, 4, 5, 6}));
@@ -1674,6 +1697,53 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
+     * Tests that reset is not triggered when we still have quorum with custom quorum size.
+     * Verifies IGNITE-27835: quorum check uses zoneDescriptor.quorumSize() instead of replicas/2+1.
+     *
+     * <p>With 7 replicas and custom quorum size of 2:
+     * <ul>
+     * <li>Stop 4 nodes, leaving 3 alive</li>
+     * <li>With custom quorum of 2: 3 &gt;= 2, still have quorum, reset should NOT trigger</li>
+     * <li>With default quorum of 4: 2 &lt; 4, would have lost quorum, reset would trigger</li>
+     * </ul>
+     */
+    @Test
+    @ZoneParams(nodes = 7, replicas = 7, partitions = 1, quorumSize = 2)
+    void testCustomQuorumSizeRespectedInManualReset() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+        CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
+
+        assertThat(zone.quorumSize(), is(2));
+
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        stopNodesInParallel(3, 4, 5, 6);
+        awaitStableContainsNodes(node0, 0, 0, 1, 2);
+        Assignments assignmentsBeforeReset = getStableAssignments(node0, partId);
+
+        // Trigger reset - should return ASSIGNMENT_NOT_UPDATED because 2 >= 2 (still have quorum).
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                emptySet(),
+                true,
+                -1
+        );
+
+        assertThat(resetFuture, willCompleteSuccessfully());
+
+        // Verify stable assignments were NOT changed (reset was skipped).
+        Assignments finalStable = getStableAssignments(node0, partId);
+        assertThat(finalStable, is(assignmentsBeforeReset));
+    }
+
+    /**
      * Lease agreement message should be the first message sent after reset.
      */
     @Test
@@ -1764,7 +1834,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Block rebalance, so stable won't be switched to specified pending.
      */
     private void blockRebalanceStableSwitch(int partId, Assignments assignment) {
-        blockMessage(cluster, (nodeName, msg) -> stableKeySwitchMessage(msg, partitionGroupId(partId), assignment));
+        blockStableKeySwitch(
+                cluster.runningNodes().map(ignite -> unwrapIgniteImpl(ignite).clusterService().messagingService()),
+                partitionGroupId(partId),
+                assignment
+        );
     }
 
     private void waitForZonePartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState)
@@ -2033,6 +2107,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .until(() -> getStableAssignments(node0, partId).nodes().size() == 1);
     }
 
+    private void awaitStableContainsNodes(IgniteImpl node0, int partId, Integer ... expected) {
+        await().atMost(60, SECONDS)
+                .until(() -> requireNonNull(getStableAssignments(node0, partId)).nodes()
+                        .stream().map(Assignment::consistentId).collect(Collectors.toList()).equals(
+                                Arrays.stream(expected).map(idx -> cluster.nodeName(idx)).collect(Collectors.toList())
+                        ));
+    }
+
     /**
      * Return assignments based on states of partitions in the cluster. It is possible that returned value contains nodes
      * from stable and pending, for example, when rebalance is in progress.
@@ -2104,6 +2186,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int partitions();
 
         int nodes() default INITIAL_NODES;
+
+        int quorumSize() default -1;
 
         ConsistencyMode consistencyMode() default ConsistencyMode.STRONG_CONSISTENCY;
     }

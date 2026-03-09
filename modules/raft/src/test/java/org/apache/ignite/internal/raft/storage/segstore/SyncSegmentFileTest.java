@@ -39,7 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ExecutorServiceExtension.class)
 class SyncSegmentFileTest extends IgniteAbstractTest {
-    private static final String FILE_NAME = "test.bin";
+    private static final String FILE_NAME = SegmentFile.fileName(new FileProperties(0));
 
     private static final int size = 1024;
 

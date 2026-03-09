@@ -513,17 +513,19 @@ SqlNode SqlAlterTable() :
     SqlNode col;
     SqlNodeList cols;
     SqlNodeList propertyList;
+    final boolean ifColumnNotExists;
+    final boolean ifColumnExists;
 }
 {
     <ALTER> { s = span(); }
     <TABLE> ifExists = IfExistsOpt() id = CompoundIdentifier()
     (
-        <ADD> [<COLUMN>] cols = ColumnWithTypeOrList() {
-            return new IgniteSqlAlterTableAddColumn(s.end(this), ifExists, id, cols);
+        <ADD> [<COLUMN>] ifColumnNotExists = IfNotExistsOpt() cols = ColumnWithTypeOrList() {
+            return new IgniteSqlAlterTableAddColumn(s.end(this), ifExists, id, cols, ifColumnNotExists);
         }
     |
-        <DROP> [<COLUMN>] cols = SimpleIdentifierOrList() {
-            return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, cols);
+        <DROP> [<COLUMN>] ifColumnExists = IfExistsOpt() cols = SimpleIdentifierOrList() {
+            return new IgniteSqlAlterTableDropColumn(s.end(this), ifExists, id, cols, ifColumnExists);
         }
     |
         <ALTER> [<COLUMN>] {

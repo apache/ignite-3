@@ -42,13 +42,13 @@ First, you need to add Ignite to your project. The easiest way to do this is by 
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-api</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 
     <dependency>
         <groupId>org.apache.ignite</groupId>
         <artifactId>ignite-runner</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
     </dependency>
 </dependencies>
 ```
@@ -96,7 +96,6 @@ Use the code snippet below to initiate a cluster:
 InitParameters initParameters = InitParameters.builder()
     .metaStorageNodeNames("node")
     .clusterName("cluster")
-    .clusterConfiguration({config-with-license})
     .build();
 
 node.initCluster(initParameters);

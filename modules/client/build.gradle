@@ -66,6 +66,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-table'))
     testImplementation testFixtures(project(':ignite-client-handler'))
     testImplementation testFixtures(project(':ignite-low-watermark'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation testFixtures(project(':ignite-schema'))
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5

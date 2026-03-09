@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasMetric;
+import static org.apache.ignite.internal.metrics.MetricMatchers.hasValue;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.DIRTY_PAGES;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource.LOADED_PAGES;
@@ -36,7 +38,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestDataRegion;
@@ -69,6 +69,7 @@ import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
+import org.apache.ignite.internal.pagememory.metrics.CollectionMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -76,7 +77,6 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -158,7 +158,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 ioRegistry,
                 mock(LogSyncer.class),
                 executorService,
-                new CheckpointMetricSource("test"),
+                new CollectionMetricSource("test", "storage", null),
                 PAGE_SIZE
         );
 
@@ -182,7 +182,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
         filePageStoreManager.start();
         checkpointManager.start();
-        pageMemory.start();
         metricSet = metricSource.enable();
 
         createPartitionFilePageStoresIfMissing();
@@ -375,12 +374,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     }
 
     private void assertMetricValue(String metricName, Matcher<Long> valueMatcher) {
-        LongMetric metric = metricSet.get(metricName);
-        assertThat(metric, is(notNullValue()));
-        assertThat(
-                metric.value(),
-                valueMatcher
-        );
+        assertThat(metricSet, hasMetric(metricName, hasValue(valueMatcher)));
     }
 
     private void createAndFillTestSimpleValuePage(long pageId) throws Exception {

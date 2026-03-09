@@ -64,7 +64,19 @@ class ApiCompatibilityTest {
             ),
             "3.1.0", List.of(
                     // Erroneous error code remove between versions
-                    "org.apache.ignite.lang.ErrorGroups$DisasterRecovery#RESTART_WITH_CLEAN_UP_ERR"
+                    "org.apache.ignite.lang.ErrorGroups$DisasterRecovery#RESTART_WITH_CLEAN_UP_ERR",
+                    "org.apache.ignite.table.KeyValueView" // METHOD_ABSTRACT_NOW_DEFAULT
+                            + "#remove(org.apache.ignite.tx.Transaction, java.lang.Object, java.lang.Object)",
+                    "org.apache.ignite.table.KeyValueView" // METHOD_ABSTRACT_NOW_DEFAULT
+                            + "#removeAsync(org.apache.ignite.tx.Transaction, java.lang.Object, java.lang.Object)",
+                    "org.apache.ignite.table.KeyValueView" // METHOD_ABSTRACT_NOW_DEFAULT
+                            + "#replace(org.apache.ignite.tx.Transaction, java.lang.Object, java.lang.Object, java.lang.Object)",
+                    "org.apache.ignite.table.KeyValueView" // METHOD_ABSTRACT_NOW_DEFAULT
+                            + "#replaceAsync(org.apache.ignite.tx.Transaction, java.lang.Object, java.lang.Object, java.lang.Object)",
+                    "org.apache.ignite.table.RecordView" // METHOD_ABSTRACT_NOW_DEFAULT
+                            + "#replace(org.apache.ignite.tx.Transaction, java.lang.Object, java.lang.Object)",
+                    "org.apache.ignite.table.RecordView" // METHOD_ABSTRACT_NOW_DEFAULT
+                            + "#replaceAsync(org.apache.ignite.tx.Transaction, java.lang.Object, java.lang.Object)"
             )
     );
 
