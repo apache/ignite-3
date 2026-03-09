@@ -27,7 +27,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for read only service metrics
+ * Tests for read only service metrics.
  */
 public class ReadOnlyServiceMetricSourceTest {
     private static final String GROUP_ID = "test_group";

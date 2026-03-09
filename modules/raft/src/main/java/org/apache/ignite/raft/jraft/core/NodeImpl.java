@@ -1341,7 +1341,7 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new FSMCallerImpl.ApplyTask(),
                 false,
                 metricManager,
-                FsmCallerMetricSource.SOURCE_NAME
+                FsmCallerMetricSource.SOURCE_NAME + '.' + groupId
             ));
         } else {
             if (opts.getfSMCallerExecutorDisruptor() == null) {
@@ -1406,7 +1406,7 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new LogManagerImpl.StableClosureEvent(),
                 false,
                 metricManager,
-                LogManagerMetricSource.SOURCE_NAME
+                LogManagerMetricSource.SOURCE_NAME + '.' + groupId
             ));
 
             opts.setLogStripes(IntStream.range(0, 1).mapToObj(i -> new Stripe()).collect(toList()));

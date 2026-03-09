@@ -91,6 +91,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
     /** If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one. */
     private final boolean sharedStripe;
 
+    private boolean stopped;
+
     /**
      * Creates a disruptor for the specific RAFT group.
      * This type of disruption is intended for only one group.
@@ -194,7 +196,13 @@ public class StripedDisruptor<T extends NodeIdAware> {
     /**
      * Shutdowns all nested disruptors.
      */
-    public void shutdown() {
+    public synchronized void shutdown() {
+        // To avoid unregistering metrics several times.
+        if (this.stopped) {
+            return;
+        }
+        this.stopped = true;
+
         for (int i = 0; i < stripes; i++) {
             if (disruptors[i] != null) {
                 disruptors[i].shutdown();
@@ -207,6 +215,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
         eventHandlers.clear();
         exceptionHandlers.clear();
+
         metricManager.unregisterSource(metrics);
     }
 
