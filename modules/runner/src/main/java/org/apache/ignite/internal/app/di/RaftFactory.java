@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.app.di;
 
-import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
-import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
-
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.core.annotation.Order;
 import jakarta.inject.Named;
@@ -34,7 +30,6 @@ import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
-import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -56,27 +51,6 @@ public class RaftFactory {
     @Singleton
     public RaftConfiguration raftConfiguration(@Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry) {
         return nodeConfigRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
-    }
-
-    /** Creates the partitions working directory. */
-    @Singleton
-    @Named("partitions")
-    public ComponentWorkingDir partitionsWorkDir(SystemLocalConfiguration systemConfiguration, NodeIdentity nodeIdentity) {
-        return partitionsPath(systemConfiguration, nodeIdentity.workDir());
-    }
-
-    /** Creates the metastorage working directory. */
-    @Singleton
-    @Named("metastorage")
-    public ComponentWorkingDir metastorageWorkDir(SystemLocalConfiguration systemConfiguration, NodeIdentity nodeIdentity) {
-        return metastoragePath(systemConfiguration, nodeIdentity.workDir());
-    }
-
-    /** Creates the CMG working directory. */
-    @Singleton
-    @Named("cmg")
-    public ComponentWorkingDir cmgWorkDir(SystemLocalConfiguration systemConfiguration, NodeIdentity nodeIdentity) {
-        return cmgPath(systemConfiguration, nodeIdentity.workDir());
     }
 
     /** Creates the partitions log storage manager. */
