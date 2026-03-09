@@ -267,7 +267,12 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
-        when(clusterService.topologyService()).thenReturn(mock(TopologyService.class));
+
+        TopologyService topologyService = mock(TopologyService.class);
+        when(topologyService.localMember()).thenReturn(
+                new ClusterNodeImpl(UUID.randomUUID(), "test", new NetworkAddress("127.0.0.1", 1234))
+        );
+        when(clusterService.topologyService()).thenReturn(topologyService);
 
         when(tm.transactionMetricsSource()).thenReturn(mock(TransactionMetricsSource.class));
 

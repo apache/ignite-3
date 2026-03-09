@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.Objects.requireNonNull;
-
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -26,6 +25,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
@@ -84,6 +84,8 @@ class TablePartitionResourcesFactory {
     private final SchemaSyncService schemaSyncService;
     private final LeasePlacementDriver placementDriver;
     private final TopologyService topologyService;
+    private final InternalClusterNode localMember;
+    private final UUID localNodeId;
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
     private final FailureProcessor failureProcessor;
     private final SchemaManager schemaManager;
@@ -117,28 +119,29 @@ class TablePartitionResourcesFactory {
             MvGc mvGc,
             FullStateTransferIndexChooser fullStateTransferIndexChooser
     ) {
-        this.txManager = requireNonNull(txManager, "txManager");
-        this.lockManager = requireNonNull(lockManager, "lockManager");
-        this.scanRequestExecutor = requireNonNull(scanRequestExecutor, "scanRequestExecutor");
-        this.clockService = requireNonNull(clockService, "clockService");
-        this.catalogService = requireNonNull(catalogService, "catalogService");
-        this.partitionModificationCounterFactory =
-                requireNonNull(partitionModificationCounterFactory, "partitionModificationCounterFactory");
-        this.outgoingSnapshotsManager = requireNonNull(outgoingSnapshotsManager, "outgoingSnapshotsManager");
-        this.lowWatermark = requireNonNull(lowWatermark, "lowWatermark");
-        this.validationSchemasSource = requireNonNull(validationSchemasSource, "validationSchemasSource");
-        this.schemaSyncService = requireNonNull(schemaSyncService, "schemaSyncService");
-        this.placementDriver = requireNonNull(placementDriver, "placementDriver");
-        this.topologyService = requireNonNull(topologyService, "topologyService");
-        this.remotelyTriggeredResourceRegistry = requireNonNull(remotelyTriggeredResourceRegistry, "remotelyTriggeredResourceRegistry");
-        this.failureProcessor = requireNonNull(failureProcessor, "failureProcessor");
-        this.schemaManager = requireNonNull(schemaManager, "schemaManager");
-        this.replicationConfiguration = requireNonNull(replicationConfiguration, "replicationConfiguration");
-        this.partitionOperationsExecutor = requireNonNull(partitionOperationsExecutor, "partitionOperationsExecutor");
-        this.indexMetaStorage = requireNonNull(indexMetaStorage, "indexMetaStorage");
-        this.minTimeCollectorService = requireNonNull(minTimeCollectorService, "minTimeCollectorService");
-        this.mvGc = requireNonNull(mvGc, "mvGc");
-        this.fullStateTransferIndexChooser = requireNonNull(fullStateTransferIndexChooser, "fullStateTransferIndexChooser");
+        this.txManager = txManager;
+        this.lockManager = lockManager;
+        this.scanRequestExecutor = scanRequestExecutor;
+        this.clockService = clockService;
+        this.catalogService = catalogService;
+        this.partitionModificationCounterFactory = partitionModificationCounterFactory;
+        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
+        this.lowWatermark = lowWatermark;
+        this.validationSchemasSource = validationSchemasSource;
+        this.schemaSyncService = schemaSyncService;
+        this.placementDriver = placementDriver;
+        this.topologyService = topologyService;
+        this.localMember = topologyService.localMember();
+        this.localNodeId = localMember.id();
+        this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
+        this.failureProcessor = failureProcessor;
+        this.schemaManager = schemaManager;
+        this.replicationConfiguration = replicationConfiguration;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.indexMetaStorage = indexMetaStorage;
+        this.minTimeCollectorService = minTimeCollectorService;
+        this.mvGc = mvGc;
+        this.fullStateTransferIndexChooser = fullStateTransferIndexChooser;
     }
 
     /**
@@ -222,7 +225,7 @@ class TablePartitionResourcesFactory {
                 catalogService,
                 table.schemaView(),
                 indexMetaStorage,
-                topologyService.localMember().id(),
+                localNodeId,
                 minTimeCollectorService,
                 placementDriver,
                 clockService,
@@ -294,7 +297,7 @@ class TablePartitionResourcesFactory {
                 transactionStateResolver,
                 partitionResources.storageUpdateHandler,
                 validationSchemasSource,
-                topologyService.localMember(),
+                localMember,
                 schemaSyncService,
                 catalogService,
                 placementDriver,

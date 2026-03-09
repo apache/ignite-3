@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed;
 
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.tostring.S;
 
 /**
  * Partition resource container: handlers and modification counter created during partition setup.
@@ -43,10 +42,5 @@ class PartitionResources {
         this.indexUpdateHandler = indexUpdateHandler;
         this.gcUpdateHandler = gcUpdateHandler;
         this.modificationCounter = modificationCounter;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(this);
     }
 }
