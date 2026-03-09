@@ -17,6 +17,9 @@
 
 package org.apache.ignite.tx.distributed;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.METRIC_PENDING_WRITE_INTENTS;
 import static org.awaitility.Awaitility.await;
@@ -25,12 +28,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metrics.LongMetric;
@@ -40,6 +53,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.internal.util.retry.KeyBasedRetryContext;
+import org.apache.ignite.internal.util.retry.TimeoutState;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -213,52 +227,217 @@ public class ItTxCleanupFailureTest extends ClusterPerTestIntegrationTest {
     }
 
 //    @Test
-//    public void testCleanupBackoffGrowsBetweenRetries() {
+//    public void testRetryWithHavingDifferentTimeoutsForDifferentCommitPartitions() {
 //        IgniteImpl node = anyNode();
-//        Transaction tx = node.transactions().begin();
-//        node.sql().execute(tx, "insert into " + TABLE_NAME + " (key, val) values (1, 'val-1')");
 //
-//        List<Long> attemptTimestamps = new CopyOnWriteArrayList<>();
+//        Map<String, Integer> failedCleanupAttempts = new ConcurrentHashMap<>();
+//
+//        List<KeyBasedRetryContext> retryContexts = new ArrayList<>();
+//
+//        List<Integer> timeouts = new CopyOnWriteArrayList<>();
 //
 //        for (IgniteImpl n : runningNodesIter()) {
+//            TxManagerImpl txManager = (TxManagerImpl) n.txManager();
+//            retryContexts.add(txManager.retryContext());
+//            String threadPrefix = ((IgniteThreadFactory) ((ThreadPoolExecutor) txManager.writeIntentSwitchExecutor()).getThreadFactory()).prefix();
+//
 //            n.dropMessages((dest, msg) -> {
-//                if (msg instanceof WriteIntentSwitchReplicaRequest
-//                        && attemptTimestamps.size() < DROP_ATTEMPTS) {
-//                    attemptTimestamps.add(System.currentTimeMillis());
-//                    return true;
+//                if (msg instanceof WriteIntentSwitchReplicaRequest) {
+//                    if (Thread.currentThread().getName().contains(threadPrefix)) {
+//                        String tablesKey = ((WriteIntentSwitchReplicaRequest) msg).tableIds().stream()
+//                                .map(String::valueOf)
+//                                .collect(joining("_"));
+//
+//                        if (failedCleanupAttempts.computeIfAbsent(tablesKey, k -> 0) == 0) {
+//                            retryContexts.stream()
+//                                    .map(KeyBasedRetryContext::snapshot)
+//                                    .filter(retryContextSnapshot -> retryContextSnapshot.size() == 1)
+//                                    .flatMap(retryContextSnapshot -> retryContextSnapshot.values().stream())
+//                                    .forEach(timeoutState -> timeouts.add(timeoutState.getTimeout()));
+//
+//                            failedCleanupAttempts.compute(tablesKey, )
+//
+//                            return;
+//                        }
+//                    }
+//
+//                    return false;
 //                }
+//
 //                return false;
 //            });
 //        }
 //
-//        tx.commitAsync();
+//        Transaction tx1 = node.transactions().begin();
+//        node.sql().execute(tx1, "insert into " + TABLE_NAME_1 + " (key, val) values (1, 'val-1')");
 //
-//        // Wait for all drops to be recorded
-//        await().timeout(30, TimeUnit.SECONDS)
-//                .until(() -> attemptTimestamps.size() >= DROP_ATTEMPTS);
+//        tx1.commitAsync();
 //
-//        // Wait for cleanup to succeed
-//        await().timeout(10, TimeUnit.SECONDS)
-//                .until(() -> pendingWriteIntents(node) == 0);
+//        Transaction tx2 = node.transactions().begin();
+//        node.sql().execute(tx2, "insert into " + TABLE_NAME_2 + " (key, val) values (2, 'val-2')");
 //
-//        // Verify intervals between attempts are growing
-//        List<Long> intervals = new ArrayList<>();
-//        for (int i = 1; i < attemptTimestamps.size(); i++) {
-//            intervals.add(attemptTimestamps.get(i) - attemptTimestamps.get(i - 1));
+//        tx1.commitAsync();
+//
+//        await().timeout(5, TimeUnit.SECONDS).until(() -> failedCleanupAttempts.get() == 4);
+//
+//        // Checks that cleanup finally succeeded.
+//        await().timeout(5, TimeUnit.SECONDS).until(() -> pendingWriteIntents(node) == 0);
+//
+//        for (int i = 1; i < timeouts.size(); i++) {
+//            assertTrue(timeouts.get(i - 1) < timeouts.get(i), "timeout increasing is expected!");
 //        }
 //
-//        for (int i = 1; i < intervals.size(); i++) {
-//            long prev = intervals.get(i - 1);
-//            long curr = intervals.get(i);
-//
-//            assertTrue(
-//                    curr >= prev * MIN_GROWTH_FACTOR,
-//                    "Expected interval to grow by at least factor " + MIN_GROWTH_FACTOR
-//                            + " but interval[" + (i - 1) + "]=" + prev + "ms"
-//                            + ", interval[" + i + "]=" + curr + "ms"
-//            );
-//        }
+//        await().timeout(5, TimeUnit.SECONDS).until(() -> retryContexts.stream()
+//                .map(KeyBasedRetryContext::snapshot).allMatch(Map::isEmpty));
 //    }
+
+    @Test
+    public void testRetryManyConcurrentCleanUps() throws Exception {
+        IgniteImpl node = anyNode();
+
+        String zone1Sql = "create zone test_zone_1 (partitions 25, replicas " + REPLICAS
+                + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
+        String table1Sql = "create table test_table_1 (key bigint primary key, val varchar(20)) zone TEST_ZONE";
+
+        sql(zone1Sql);
+        sql(table1Sql);
+
+        Map<String, AtomicInteger> failedCleanupAttempts = new ConcurrentHashMap<>();
+
+        List<KeyBasedRetryContext> retryContexts = new ArrayList<>();
+
+        for (IgniteImpl n : runningNodesIter()) {
+            TxManagerImpl txManager = (TxManagerImpl) n.txManager();
+            retryContexts.add(txManager.retryContext());
+            String threadPrefix = ((IgniteThreadFactory) ((ThreadPoolExecutor) txManager.writeIntentSwitchExecutor()).getThreadFactory()).prefix();
+
+            n.dropMessages((dest, msg) -> {
+                if (msg instanceof WriteIntentSwitchReplicaRequest) {
+                    if (Thread.currentThread().getName().contains(threadPrefix)) {
+                        String txId = ((WriteIntentSwitchReplicaRequest) msg).txId().toString();
+
+                        if (failedCleanupAttempts.computeIfAbsent(txId, key -> new AtomicInteger(0)).getAndIncrement() == 0) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+
+                return false;
+            });
+        }
+
+        ExecutorService threadPool = Executors.newFixedThreadPool(10);
+
+        List<? extends Future<?>> futures = IntStream.range(0, 200).mapToObj(i -> threadPool.submit(() -> {
+            Transaction tx = node.transactions().begin();
+            node.sql().execute(tx, "insert into test_table_1 (key, val) values (?, ?)", i, "val-" + i);
+
+            tx.commitAsync();
+        })).collect(Collectors.toList());
+
+        try {
+            futures.forEach(fut -> {
+                try {
+                    fut.get();
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
+            });
+        } finally {
+            threadPool.shutdown();
+            threadPool.awaitTermination(5, SECONDS);
+        }
+
+        // Checks that cleanup finally succeeded.
+        await().timeout(5, SECONDS).until(() -> pendingWriteIntents(node) == 0);
+
+        await().timeout(5, SECONDS).until(() -> retryContexts.stream()
+                .map(KeyBasedRetryContext::snapshot).allMatch(Map::isEmpty));
+    }
+
+    @Test
+    public void testRetryCleanUpsForDifferentZones() throws Exception {
+        IgniteImpl node = anyNode();
+
+        String zone1Sql = "create zone test_zone_1 (partitions 1, replicas " + REPLICAS
+                + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
+        String table1Sql = "create table test_table_1 (key bigint primary key, val varchar(20)) zone TEST_ZONE_1";
+
+        sql(zone1Sql);
+        sql(table1Sql);
+
+        String zone2Sql = "create zone test_zone_2 (partitions 1, replicas " + REPLICAS
+                + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
+        String table2Sql = "create table test_table_2 (key bigint primary key, val varchar(20)) zone TEST_ZONE_2";
+
+        sql(zone2Sql);
+        sql(table2Sql);
+
+        Map<String, AtomicInteger> failedCleanupAttempts = new ConcurrentHashMap<>();
+
+        List<KeyBasedRetryContext> retryContexts = new ArrayList<>();
+
+//        CountDownLatch latch = new CountDownLatch(2);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+
+        for (IgniteImpl n : runningNodesIter()) {
+            TxManagerImpl txManager = (TxManagerImpl) n.txManager();
+            retryContexts.add(txManager.retryContext());
+            String threadPrefix = ((IgniteThreadFactory) ((ThreadPoolExecutor) txManager.writeIntentSwitchExecutor()).getThreadFactory()).prefix();
+
+            n.dropMessages((dest, msg) -> {
+                if (msg instanceof WriteIntentSwitchReplicaRequest) {
+                    if (Thread.currentThread().getName().contains(threadPrefix)) {
+                        String txId = ((WriteIntentSwitchReplicaRequest) msg).txId().toString();
+
+                        if (failedCleanupAttempts.computeIfAbsent(txId, key -> new AtomicInteger(0)).getAndIncrement() == 0) {
+                            return true;
+                        }
+
+                        try {
+                            barrier.await(5, SECONDS);
+                        } catch (Exception ex) {
+                            throw new RuntimeException(ex);
+                        }
+                        Map<String, TimeoutState> globalRetryContextSnapshot = retryContexts.stream()
+                                .map(KeyBasedRetryContext::snapshot)
+                                .filter(snapshot -> !snapshot.isEmpty())
+                                .flatMap(snapshot -> snapshot.entrySet().stream())
+                                .collect(toMap(
+                                        Entry::getKey,
+                                        Entry::getValue
+                                ));
+                        assertEquals(2, globalRetryContextSnapshot.size());
+
+                        Iterator<TimeoutState> it = globalRetryContextSnapshot.values().iterator();
+                        assertEquals(it.next().getTimeout(), it.next().getTimeout());
+                    }
+
+                    return false;
+                }
+
+                return false;
+            });
+        }
+
+        Transaction tx1 = node.transactions().begin();
+        node.sql().execute(tx1, "insert into test_table_1 (key, val) values (1, 'val-1')");
+
+        tx1.commitAsync();
+
+        Transaction tx2 = node.transactions().begin();
+        node.sql().execute(tx2, "insert into TEST_TABLE_2 (key, val) values (1, 'val-1')");
+
+        tx2.commitAsync();
+
+        // Checks that cleanup finally succeeded.
+        await().timeout(5, SECONDS).until(() -> pendingWriteIntents(node) == 0);
+
+        await().timeout(5, SECONDS).until(() -> retryContexts.stream()
+                .map(KeyBasedRetryContext::snapshot).allMatch(Map::isEmpty));
+    }
 
     private static long pendingWriteIntents(IgniteImpl node) {
         Iterable<Metric> metrics = node.metricManager()

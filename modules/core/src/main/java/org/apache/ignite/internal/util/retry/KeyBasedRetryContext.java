@@ -27,9 +27,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.TestOnly;
 
 public class KeyBasedRetryContext {
+    private static final IgniteLogger LOG = Loggers.forClass(KeyBasedRetryContext.class);
+
     /**
      * It can be slightly overflown.
      */
@@ -57,6 +61,8 @@ public class KeyBasedRetryContext {
     }
 
     public Optional<TimeoutState> getState(String key) {
+        LOG.info("getState for key: " + key);
+
         if (!registry.containsKey(key) && registry.size() >= REGISTRY_SIZE_LIMIT) {
             return of(fallbackTimeoutState);
         }
@@ -65,6 +71,8 @@ public class KeyBasedRetryContext {
     }
 
     public TimeoutState updateAndGetState(String key) {
+        LOG.info("updateState for key: " + key);
+
         if (!registry.containsKey(key) && registry.size() >= REGISTRY_SIZE_LIMIT) {
             return fallbackTimeoutState;
         }
@@ -82,6 +90,7 @@ public class KeyBasedRetryContext {
     }
 
     public void resetState(String key) {
+        LOG.info("resetState for key: " + key);
         registry.remove(key);
     }
 

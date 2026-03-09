@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
@@ -64,6 +65,8 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
+    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
+
     private static final int ATTEMPTS_LOG_THRESHOLD = 100;
 
     private final IgniteThrottledLogger throttledLog;
@@ -372,13 +375,16 @@ public class TxCleanupRequestSender {
                     if (throwable != null) {
                         String timeoutKey = commitPartitionId == null ? txId.toString() : commitPartitionId.toString();
 
+                        LOG.info("timeoutKey: " + timeoutKey + ", txId: " + txId.toString());
+
                         if (ReplicatorRecoverableExceptions.isRecoverable(throwable)) {
                             retryContext.getState(timeoutKey).ifPresent(timeoutState -> {
                                 if (timeoutState.getAttempt() > ATTEMPTS_LOG_THRESHOLD) {
                                     throttledLog.warn(
-                                            "Unsuccessful transaction cleanup after {} attempts, keep retrying [txId={}]",
+                                            "Unsuccessful transaction cleanup after {} attempts for key {}, keep retrying [txId={}]",
                                             throwable,
                                             ATTEMPTS_LOG_THRESHOLD,
+                                            timeoutKey,
                                             txId
                                     );
                                 }
