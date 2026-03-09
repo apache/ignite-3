@@ -34,9 +34,17 @@ dependencies {
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-core')
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation libs.junit.testkit
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.typesafe.config
+}
+
+// Exclude tests from inner static classes that use JUnit Platform Test Kit.
+test {
+    filter {
+        excludeTestsMatching "*ConfigurationExtensionTest\$*"
+    }
 }
