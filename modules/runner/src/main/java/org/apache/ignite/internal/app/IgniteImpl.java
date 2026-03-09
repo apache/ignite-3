@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
@@ -1734,7 +1735,7 @@ public class IgniteImpl implements Ignite {
             CompletableFuture<Void> awaitSelfInLogicalTopologyFuture,
             LogicalTopologyEventListener awaitSelfListener
     ) {
-        if (logicalTopologySnapshot.hasNode(id())) {
+        if (logicalTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet()).contains(id())) {
             awaitSelfInLogicalTopologyFuture.complete(null);
             logicalTopologyService.removeEventListener(awaitSelfListener);
         }
