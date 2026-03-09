@@ -45,7 +45,7 @@ class SchemaSafeTimeTrackerImplTest extends BaseIgniteAbstractTest {
     @Mock
     private ClusterTime clusterTime;
 
-    @InjectExecutorService
+    @InjectExecutorService(threadCount = 1)
     private ExecutorService executor;
 
     private SchemaSafeTimeTrackerImpl tracker;
