@@ -27,12 +27,13 @@ import com.lmax.disruptor.RingBuffer;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests metric source name and disruptor metric names.
  */
-public class DisruptorMetricSourceTest {
+public class DisruptorMetricSourceTest extends BaseIgniteAbstractTest {
     private static final String SOURCE_NAME = "test_disruptor";
 
     @Test

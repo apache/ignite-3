@@ -74,6 +74,7 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("clock.service", true),
             new MetricSource("index.builder", true),
             new MetricSource("raft.snapshots", true),
+            new MetricSource("raft.fsmcaller.cmg_group", true),
             new MetricSource("messaging", true),
             new MetricSource("log.storage", true),
             new MetricSource(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default", true),

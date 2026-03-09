@@ -86,6 +86,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("clock.service").enabled(true),
             new MetricSource().name("index.builder").enabled(true),
             new MetricSource().name("raft.snapshots").enabled(true),
+            new MetricSource().name("raft.fsmcaller.cmg_group").enabled(true),
             new MetricSource().name("messaging").enabled(true),
             new MetricSource().name("log.storage").enabled(true),
             new MetricSource().name(THREAD_POOLS_METRICS_SOURCE_NAME + "striped.messaging.inbound.default").enabled(true),

@@ -24,12 +24,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for log manager metrics.
  */
-public class LogManagerMetricSourceTest {
+public class LogManagerMetricSourceTest extends BaseIgniteAbstractTest {
     private static final String GROUP_ID = "test_group";
 
     @Test
