@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,7 +65,7 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Test that contains injected parameter. */
     @Test
-    public void injectConfiguration(@InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg) {
+    void injectConfiguration(@InjectConfiguration("mock.joinTimeout=100") DiscoveryConfiguration paramCfg) {
         assertEquals(5000, fieldCfg.joinTimeout().value());
 
         assertEquals(100, paramCfg.joinTimeout().value());
@@ -80,7 +81,7 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Tests that notifications work on injected configuration instance. */
     @Test
-    public void notifications() {
+    void notifications() {
         List<String> log = new ArrayList<>();
 
         fieldCfg.listen(ctx -> {
@@ -114,7 +115,7 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Tests that internal configuration extensions work properly on injected configuration instance. */
     @Test
-    public void internalConfiguration(@InjectConfiguration(extensions = ExtendedConfigurationSchema.class) BasicConfiguration cfg) {
+    void internalConfiguration(@InjectConfiguration(extensions = ExtendedConfigurationSchema.class) BasicConfiguration cfg) {
         assertThat(cfg, is(instanceOf(ExtendedConfiguration.class)));
 
         assertEquals(1, cfg.visible().value());
@@ -136,7 +137,7 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Test UUID generation in mocks. */
     @Test
-    public void testInjectInternalId(
+    void testInjectInternalId(
             @InjectConfiguration(
                     extensions = ExtendedDiscoveryConfigurationSchema.class,
                     name = "test"
@@ -147,7 +148,7 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Tests that changing a value to one within the valid range succeeds. */
     @Test
-    public void rangeValidationAcceptsValidChange(@InjectConfiguration ValidatedConfiguration cfg) {
+    void rangeValidationAcceptsValidChange(@InjectConfiguration ValidatedConfiguration cfg) {
         assertThat(cfg.change(c -> c.changeRangeValue(80)), willCompleteSuccessfully());
 
         assertEquals(80, cfg.rangeValue().value());
@@ -155,19 +156,19 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Tests that changing a value to one outside the valid range throws {@link ConfigurationValidationException}. */
     @Test
-    public void rangeValidationRejectsInvalidChange(@InjectConfiguration ValidatedConfiguration cfg) {
+    void rangeValidationRejectsInvalidChange(@InjectConfiguration ValidatedConfiguration cfg) {
         assertThat(cfg.change(c -> c.changeRangeValue(0)), willThrowFast(ConfigurationValidationException.class));
     }
 
     /** Tests that changing an {@code @Immutable} field throws {@link ConfigurationValidationException}. */
     @Test
-    public void immutableValidationRejectsChange(@InjectConfiguration ValidatedConfiguration cfg) {
+    void immutableValidationRejectsChange(@InjectConfiguration ValidatedConfiguration cfg) {
         assertThat(cfg.change(c -> c.changeConstValue("changed")), willThrowFast(ConfigurationValidationException.class));
     }
 
     /** Tests that a failed validation does not mutate the configuration value. */
     @Test
-    public void failedValidationLeavesValueUnchanged(@InjectConfiguration ValidatedConfiguration cfg) {
+    void failedValidationLeavesValueUnchanged(@InjectConfiguration ValidatedConfiguration cfg) {
         assertThat(cfg.change(c -> c.changeRangeValue(0)), willThrowFast(ConfigurationValidationException.class));
 
         assertEquals(50, cfg.rangeValue().value());
@@ -175,13 +176,24 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
 
     /** Tests that all violated constraints are collected and reported together. */
     @Test
-    public void multipleValidationIssuesAreReported(@InjectConfiguration ValidatedConfiguration cfg) {
+    void multipleValidationIssuesAreReported(@InjectConfiguration ValidatedConfiguration cfg) {
         CompletableFuture<Void> future = cfg.change(c -> c.changeRangeValue(0).changeConstValue("changed"));
 
         assertThat(future, willThrowFast(ConfigurationValidationException.class));
 
         ExecutionException ex = assertThrows(ExecutionException.class, future::get);
-        assertEquals(2, ((ConfigurationValidationException) ex.getCause()).getIssues().size());
+
+        assertThat(((ConfigurationValidationException) ex.getCause()).getIssues(), hasSize(2));
+    }
+
+    /**
+     * Tests that {@code @Value(hasDefault = true)} schema defaults are applied when no explicit HOCON values
+     * are provided.
+     */
+    @Test
+    void defaultValuesAreApplied(@InjectConfiguration ValidatedConfiguration cfg) {
+        assertEquals(50, cfg.rangeValue().value());
+        assertEquals("constant", cfg.constValue().value());
     }
 
     /**
@@ -189,33 +201,23 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
      * violating a constraint causes {@link ConfigurationValidationException} to be thrown.
      */
     @Test
-    public void initialValidationRejectsInvalidValue() {
-        assertExecutesWithFailure(
-                InvalidInitialValueTest.class,
-                new Condition<>(
-                        t -> ExceptionUtils.hasCause(t, ConfigurationValidationException.class),
-                        "ConfigurationValidationException"
-                )
-        );
+    void initialValidationRejectsInvalidValue() {
+        assertInjectionFails(InvalidInitialValueTest.class);
     }
 
-    /**
-     * Tests that {@code @Value(hasDefault = true)} schema defaults are applied when no explicit HOCON values
-     * are provided, and that those defaults satisfy their own constraints.
-     */
     @Test
-    public void defaultValuesAreApplied(@InjectConfiguration ValidatedConfiguration cfg) {
-        assertEquals(50, cfg.rangeValue().value());
-        assertEquals("constant", cfg.constValue().value());
+    void missingDefaultValueIsRejectedByValidation() {
+        assertInjectionFails(MissingDefaultValueTest.class);
     }
 
-    /**
-     * Tests that {@code @Value(hasDefault = true)} defaults are subject to validation.
-     */
     @Test
-    public void invalidDefaultValueIsRejectedByValidation() {
+    void invalidDefaultValueIsRejectedByValidation() {
+        assertInjectionFails(InvalidDefaultValueTest.class);
+    }
+
+    private static void assertInjectionFails(Class<?> testClass) {
         assertExecutesWithFailure(
-                InvalidDefaultValueTest.class,
+                testClass,
                 new Condition<>(
                         t -> ExceptionUtils.hasCause(t, ConfigurationValidationException.class),
                         "ConfigurationValidationException"
@@ -228,7 +230,8 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
      * It is not a normal test and is only executed programmatically via {@link JunitExtensionTestUtils}.
      */
     @ExtendWith(ConfigurationExtension.class)
-    static class InvalidDefaultValueTest extends BaseIgniteAbstractTest {
+    static class MissingDefaultValueTest extends BaseIgniteAbstractTest {
+        @SuppressWarnings("unused")
         @InjectConfiguration
         InvalidDefaultConfiguration cfg;
 
@@ -242,8 +245,23 @@ class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
      */
     @ExtendWith(ConfigurationExtension.class)
     static class InvalidInitialValueTest extends BaseIgniteAbstractTest {
+        @SuppressWarnings("unused")
         @InjectConfiguration("mock.rangeValue=0")
         ValidatedConfiguration cfg;
+
+        @Test
+        void test() {}
+    }
+
+    /**
+     * A test class whose {@code @Value(hasDefault = true)} is inialized with an invalid value.
+     * It is not a normal test and is only executed programmatically via {@link JunitExtensionTestUtils}.
+     */
+    @ExtendWith(ConfigurationExtension.class)
+    static class InvalidDefaultValueTest extends BaseIgniteAbstractTest {
+        @SuppressWarnings("unused")
+        @InjectConfiguration
+        InvalidDefaultConfiguration cfg;
 
         @Test
         void test() {}

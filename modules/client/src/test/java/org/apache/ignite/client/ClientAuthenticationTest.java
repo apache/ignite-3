@@ -20,7 +20,9 @@ package org.apache.ignite.client;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.security.authentication.SecurityConfigurationModule.DEFAULT_PASSWORD;
 import static org.apache.ignite.internal.security.authentication.SecurityConfigurationModule.DEFAULT_USERNAME;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -112,7 +114,7 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
                 null);
 
         if (basicAuthn) {
-            securityConfiguration.change(securityChange -> securityChange.changeEnabled(true)).join();
+            assertThat(securityConfiguration.change(securityChange -> securityChange.changeEnabled(true)), willCompleteSuccessfully());
         }
 
         return server;

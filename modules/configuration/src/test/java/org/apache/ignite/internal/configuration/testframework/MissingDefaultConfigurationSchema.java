@@ -19,14 +19,13 @@ package org.apache.ignite.internal.configuration.testframework;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
 
 /**
- * Configuration schema whose {@code @Value(hasDefault = true)} field is initialized with an invalid value.
+ * Configuration schema whose {@code @Value(hasDefault = true)} field is not initialized.
+ * Used by {@link ConfigurationExtensionTest} to verify that schema defaults are subject to validation.
  */
 @Config
-public class InvalidDefaultConfigurationSchema {
+public class MissingDefaultConfigurationSchema {
     @Value(hasDefault = true)
-    @Range(min = 1, max = 100)
-    public int invalidDefaultValue = -1;
+    public String defaultValue;
 }
