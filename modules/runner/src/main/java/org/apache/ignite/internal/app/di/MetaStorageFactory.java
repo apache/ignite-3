@@ -39,10 +39,14 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
+import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /**
- * Micronaut factory for MetaStorage and cluster configuration components.
+ * Micronaut factory for MetaStorage, cluster configuration, and SQL configuration components.
  */
 @Factory
 public class MetaStorageFactory {
@@ -107,6 +111,22 @@ public class MetaStorageFactory {
     ) {
         return clusterConfigRegistry
                 .getConfiguration(ReplicationExtensionConfiguration.KEY).replication();
+    }
+
+    /** Creates the SQL distributed configuration from the cluster config registry. */
+    @Singleton
+    public SqlDistributedConfiguration sqlDistributedConfiguration(
+            @Named("clusterConfig") ConfigurationRegistry clusterConfigRegistry
+    ) {
+        return clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql();
+    }
+
+    /** Creates the SQL local configuration from the node config registry. */
+    @Singleton
+    public SqlLocalConfiguration sqlLocalConfiguration(
+            @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry
+    ) {
+        return nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql();
     }
 }
 

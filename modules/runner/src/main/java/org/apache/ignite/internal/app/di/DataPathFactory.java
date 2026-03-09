@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -252,4 +254,12 @@ public class DataPathFactory {
         return new PartitionModificationCounterFactory(clockService::current, clusterMessagingService);
     }
 
+    /** Creates the rebalance minimum required time provider. */
+    @Singleton
+    public RebalanceMinimumRequiredTimeProviderImpl rebalanceMinimumRequiredTimeProvider(
+            MetaStorageManager metaStorageManager,
+            CatalogManagerImpl catalogManager
+    ) {
+        return new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager);
+    }
 }
