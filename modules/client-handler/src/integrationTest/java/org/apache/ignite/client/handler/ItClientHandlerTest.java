@@ -580,6 +580,60 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    void testInvalidHandshakeStateDropsConnection() throws Exception {
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Send first handshake message to initiate handshake
+            try (var packer1 = MessagePack.newDefaultBufferPacker()) {
+                packer1.packInt(0);
+                packer1.packInt(0);
+                packer1.packInt(0);
+                packer1.packInt(7); // Size.
+
+                packer1.packInt(3); // Major
+                packer1.packInt(0); // Minor
+                packer1.packInt(0); // Patch
+
+                packer1.packInt(2); // Client type: general purpose.
+
+                packer1.packBinaryHeader(0); // Features.
+                packer1.packInt(0); // Extensions.
+
+                out.write(packer1.toByteArray());
+            }
+
+            // Immediately send a second message before handshake completes.
+            // This should trigger: "Unexpected message received before handshake completion"
+            try (var packer2 = MessagePack.newDefaultBufferPacker()) {
+                packer2.packInt(0);
+                packer2.packInt(0);
+                packer2.packInt(0);
+                packer2.packInt(7); // Size.
+
+                packer2.packInt(3); // Major
+                packer2.packInt(0); // Minor
+                packer2.packInt(0); // Patch
+
+                packer2.packInt(2); // Client type: general purpose.
+
+                packer2.packBinaryHeader(0); // Features.
+                packer2.packInt(0); // Extensions.
+
+                out.write(packer2.toByteArray());
+            }
+
+            out.flush();
+
+            // Server drops the connection due to invalid message.
+            assertThrows(IOException.class, () -> writeAndFlushLoop(sock));
+        }
+    }
+
     private static void writeAndFlushLoop(Socket socket) throws Exception {
         var stop = System.currentTimeMillis() + 5000;
         var out = socket.getOutputStream();
