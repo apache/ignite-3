@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
@@ -38,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -49,6 +52,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -379,6 +383,30 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
+        try {
+            return rollbackAsyncInternal().handle((res, e) -> {
+                if (e != null) {
+                    if (hasCause(e, IgniteClientConnectionException.class)) {
+                        // Connection exception: tx rolled back on server.
+                        return null;
+                    }
+
+                    throw sneakyThrow(ViewUtils.ensurePublicException(e));
+                }
+
+                return null;
+            });
+        } catch (Throwable t) {
+            if (hasCause(t, IgniteClientConnectionException.class)) {
+                // Connection exception: tx rolled back on server.
+                return nullCompletedFuture();
+            }
+
+            throw sneakyThrow(ViewUtils.ensurePublicException(t));
+        }
+    }
+
+    private CompletableFuture<Void> rollbackAsyncInternal() {
         enlistPartitionLock.writeLock().lock();
 
         try {
@@ -502,13 +530,12 @@ public class ClientTransaction implements Transaction {
      * Enlists a write operation in direct mapping.
      *
      * @param ch Channel facade.
-     * @param opChannel Operation channel.
      * @param pm Partition mapping.
      * @param trackOperation Denotes if upcoming operation should be tracked. This affects finalization behavior as acknowledge must
      *         be received for every tracked operation prior to transaction finalization.
      * @return The future.
      */
-    public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, ClientChannel opChannel, PartitionMapping pm,
+    public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, PartitionMapping pm,
             boolean trackOperation) {
         enlistPartitionLock.readLock().lock();
 

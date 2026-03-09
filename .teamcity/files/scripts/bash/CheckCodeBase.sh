@@ -8,7 +8,7 @@ else
 fi
 echo $SOURCE
 
-if grep -IER --exclude-dir={.git,.idea} '.' -e ".*${SOURCE}.*"; then
+if grep -iIER --exclude-dir={.git,.idea} '.' -e ".*${SOURCE}.*"; then
     echo
     echo "Ticket $SOURCE is still mentioned in one or more TODOs in the code"
     echo

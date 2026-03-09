@@ -72,7 +72,6 @@ import org.rocksdb.Slice;
 import org.rocksdb.SstFileManager;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
-import org.rocksdb.util.SizeUnit;
 
 /** Implementation of the {@link LogStorageManager} that creates {@link RocksDbSharedLogStorage}s. */
 public class DefaultLogStorageManager implements LogStorageManager {
@@ -90,6 +89,8 @@ public class DefaultLogStorageManager implements LogStorageManager {
 
     /** Path to the log storage. */
     private final Path logPath;
+
+    private final RocksDbLogStorageOptions specificOptions;
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
@@ -139,7 +140,7 @@ public class DefaultLogStorageManager implements LogStorageManager {
      */
     @TestOnly
     public DefaultLogStorageManager(Path path) {
-        this("test", "test", path, true);
+        this("test", "test", path, true, RocksDbLogStorageOptions.defaults());
     }
 
     /**
@@ -147,14 +148,22 @@ public class DefaultLogStorageManager implements LogStorageManager {
      *
      * @param factoryName Name of the log factory, will be used in logs.
      * @param nodeName Node name.
-     * @param logPath Function to get path to the log storage.
+     * @param logPath Path to the log storage.
      * @param fsync If should fsync after each write to database.
+     * @param specificOptions Options specific for this implementation.
      */
-    public DefaultLogStorageManager(String factoryName, String nodeName, Path logPath, boolean fsync) {
+    public DefaultLogStorageManager(
+            String factoryName,
+            String nodeName,
+            Path logPath,
+            boolean fsync,
+            RocksDbLogStorageOptions specificOptions
+    ) {
         this.factoryName = factoryName;
         this.logPath = logPath;
         this.fsync = fsync;
         this.nodeName = nodeName;
+        this.specificOptions = specificOptions;
 
         executorService = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -374,25 +383,30 @@ public class DefaultLogStorageManager implements LogStorageManager {
      *
      * @return Default column family options.
      */
-    private static ColumnFamilyOptions createColumnFamilyOptions() {
+    private ColumnFamilyOptions createColumnFamilyOptions() {
         var opts = new ColumnFamilyOptions();
-
-        opts.setWriteBufferSize(64 * SizeUnit.MB);
-        opts.setMaxWriteBufferNumber(5);
-        opts.setMinWriteBufferNumberToMerge(1);
-        opts.setLevel0FileNumCompactionTrigger(50);
-        opts.setLevel0SlowdownWritesTrigger(100);
-        opts.setLevel0StopWritesTrigger(200);
-        // Size of level 0 which is (in stable state) equal to
-        // WriteBufferSize * MinWriteBufferNumberToMerge * Level0FileNumCompactionTrigger
-        opts.setMaxBytesForLevelBase(3200 * SizeUnit.MB);
-        opts.setTargetFileSizeBase(320 * SizeUnit.MB);
 
         if (!Platform.isWindows()) {
             opts.setCompressionType(CompressionType.LZ4_COMPRESSION)
                     .setCompactionStyle(CompactionStyle.LEVEL)
                     .optimizeLevelStyleCompaction();
         }
+
+        long writeBufferSize = specificOptions.writeBufferSize();
+        int minWriteBufferNumberToMerge = 1;
+        int level0FileNumCompactionTrigger = 50;
+
+        opts.setWriteBufferSize(writeBufferSize);
+        opts.setMaxWriteBufferNumber(5);
+
+        opts.setMinWriteBufferNumberToMerge(minWriteBufferNumberToMerge);
+        opts.setLevel0FileNumCompactionTrigger(level0FileNumCompactionTrigger);
+        opts.setLevel0SlowdownWritesTrigger(100);
+        opts.setLevel0StopWritesTrigger(200);
+        // Size of level 0 which is (in stable state) equal to
+        // WriteBufferSize * MinWriteBufferNumberToMerge * Level0FileNumCompactionTrigger
+        opts.setMaxBytesForLevelBase(writeBufferSize * minWriteBufferNumberToMerge * level0FileNumCompactionTrigger);
+        opts.setTargetFileSizeBase(writeBufferSize * 5);
 
         return opts;
     }
@@ -458,7 +472,7 @@ public class DefaultLogStorageManager implements LogStorageManager {
     }
 
     @TestOnly
-    ColumnFamilyHandle dataColumnFamilyHandle() {
+    public ColumnFamilyHandle dataColumnFamilyHandle() {
         return dataHandle;
     }
 }

@@ -65,10 +65,11 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
-import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.PartitionCountProviderWrapper;
+import org.apache.ignite.internal.catalog.DataNodesAwarePartitionCountCalculator;
+import org.apache.ignite.internal.catalog.PartitionCountCalculator;
+import org.apache.ignite.internal.catalog.PartitionCountCalculatorWrapper;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationExtensionConfiguration;
@@ -209,6 +210,7 @@ import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageManager;
+import org.apache.ignite.internal.raft.storage.impl.RocksDbLogStorageOptions;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageManagerCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageManagerUtils;
@@ -262,6 +264,8 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
+import org.apache.ignite.internal.system.CpuInformationProvider;
+import org.apache.ignite.internal.system.JvmCpuInformationProvider;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.PartitionModificationCounterFactory;
@@ -523,7 +527,7 @@ public class IgniteImpl implements Ignite {
 
     private final PartitionModificationCounterFactory partitionModificationCounterFactory;
 
-    private final PartitionCountProviderWrapper partitionCountProviderWrapper;
+    private final PartitionCountCalculatorWrapper partitionCountCalculatorWrapper;
 
     /** Future that completes when the node has joined the cluster. */
     private final CompletableFuture<Ignite> joinFuture = new CompletableFuture<>();
@@ -561,6 +565,8 @@ public class IgniteImpl implements Ignite {
 
         nodeProperties = new NodePropertiesImpl(vaultMgr);
 
+        CpuInformationProvider cpuInformationProvider = new JvmCpuInformationProvider();
+
         ConfigurationModules modules = ConfigurationModules.create(serviceProviderClassLoader);
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
@@ -579,13 +585,11 @@ public class IgniteImpl implements Ignite {
         ConfigurationValidator localConfigurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
 
-        nodeConfigRegistry = new ConfigurationRegistry(
-                modules.local().rootKeys(),
+        nodeConfigRegistry = ConfigurationRegistry.create(
+                modules.local(),
                 localFileConfigurationStorage,
                 localConfigurationGenerator,
-                localConfigurationValidator,
-                modules.local()::migrateDeprecatedConfigurations,
-                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+                localConfigurationValidator
         );
 
         // Start local configuration to be able to read all local properties.
@@ -660,7 +664,8 @@ public class IgniteImpl implements Ignite {
                 "table data log",
                 clusterSvc.nodeName(),
                 partitionsWorkDir.raftLogPath(),
-                raftConfiguration.fsync().value()
+                raftConfiguration.fsync().value(),
+                RocksDbLogStorageOptions.forPartitions(systemConfiguration.value())
         );
 
         LogSyncer partitionsLogSyncer = partitionsLogStorageManager.logSyncer();
@@ -804,13 +809,11 @@ public class IgniteImpl implements Ignite {
 
         cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
 
-        clusterConfigRegistry = new ConfigurationRegistry(
-                modules.distributed().rootKeys(),
+        clusterConfigRegistry = ConfigurationRegistry.create(
+                modules.distributed(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                distributedCfgValidator,
-                modules.distributed()::migrateDeprecatedConfigurations,
-                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
+                distributedCfgValidator
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
@@ -876,14 +879,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
-        partitionCountProviderWrapper = new PartitionCountProviderWrapper();
+        partitionCountCalculatorWrapper = new PartitionCountCalculatorWrapper();
 
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
                 delayDurationMsSupplier,
-                partitionCountProviderWrapper
+                partitionCountCalculatorWrapper
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry
@@ -1015,7 +1018,6 @@ public class IgniteImpl implements Ignite {
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 () -> clusterSvc.topologyService().localMember().id(),
-                registry,
                 metaStorageMgr,
                 logicalTopologyService,
                 failureManager,
@@ -1025,6 +1027,13 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 lowWatermark
         );
+
+        var dataNodesAwarePartitionCountCalculator = new DataNodesAwarePartitionCountCalculator(
+                distributionZoneManager::estimatedDataNodesCount,
+                cpuInformationProvider
+        );
+
+        partitionCountCalculatorWrapper.setPartitionCountCalculator(dataNodesAwarePartitionCountCalculator);
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
                 catalogManager,
@@ -1222,7 +1231,6 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 distributedTblMgr,
                 schemaManager,
-                dataStorageMgr,
                 replicaSvc,
                 clockService,
                 schemaSyncService,
@@ -2231,6 +2239,16 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker() {
         return schemaSafeTimeTracker;
+    }
+
+    @TestOnly
+    public PartitionCountCalculator partitionCountCalculator() {
+        return partitionCountCalculatorWrapper;
+    }
+
+    @TestOnly
+    public void useStaticPartitionCountCalculator(int partitions) {
+        partitionCountCalculatorWrapper.setPartitionCountCalculator(PartitionCountCalculator.staticPartitionCountCalculator(partitions));
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

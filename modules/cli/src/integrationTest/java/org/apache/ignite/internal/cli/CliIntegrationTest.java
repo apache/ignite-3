@@ -83,6 +83,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("transactions").enabled(true),
             new MetricSource().name("placement-driver").enabled(true),
             new MetricSource().name("resource.vacuum").enabled(true),
+            new MetricSource().name("zones.Default").enabled(true),
             new MetricSource().name("clock.service").enabled(true),
             new MetricSource().name("index.builder").enabled(true),
             new MetricSource().name("raft.snapshots").enabled(true),
@@ -199,12 +200,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected void assertExitCodeIsError() {
-        assertExitCodeIs(errorExitCode());
-    }
-
-    // REPL mode has no exit code for error, override this method in tests for repl commands.
-    protected int errorExitCode() {
-        return 1;
+        assertExitCodeIs(1);
     }
 
     protected void assertOutputIsNotEmpty() {

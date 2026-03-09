@@ -41,7 +41,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.PartitionCountCalculationParameters;
-import org.apache.ignite.internal.catalog.PartitionCountProvider;
+import org.apache.ignite.internal.catalog.PartitionCountCalculator;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -591,14 +591,14 @@ public final class CatalogUtils {
      */
     public static CatalogZoneDescriptor createDefaultZoneDescriptor(
             Catalog catalog,
-            PartitionCountProvider partitionCountProvider,
+            PartitionCountCalculator partitionCountCalculator,
             int newDefaultZoneId,
             Collection<UpdateEntry> updateEntries
     ) throws CatalogValidationException {
         // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-26798
         checkDuplicateDefaultZoneName(catalog);
 
-        CatalogZoneDescriptor defaultZone = createDefaultZoneDescriptor(partitionCountProvider, newDefaultZoneId);
+        CatalogZoneDescriptor defaultZone = createDefaultZoneDescriptor(partitionCountCalculator, newDefaultZoneId);
 
         updateEntries.add(new NewZoneEntry(defaultZone));
         updateEntries.add(new SetDefaultZoneEntry(defaultZone.id()));
@@ -606,14 +606,17 @@ public final class CatalogUtils {
         return defaultZone;
     }
 
-    private static CatalogZoneDescriptor createDefaultZoneDescriptor(PartitionCountProvider partitionCountProvider, int newDefaultZoneId) {
+    private static CatalogZoneDescriptor createDefaultZoneDescriptor(
+            PartitionCountCalculator partitionCountCalculator,
+            int newDefaultZoneId
+    ) {
         PartitionCountCalculationParameters partitionCountCalculationParameters = PartitionCountCalculationParameters.builder()
                 .replicaFactor(DEFAULT_REPLICA_COUNT)
                 .dataNodesFilter(DEFAULT_FILTER)
                 .storageProfiles(List.of(DEFAULT_STORAGE_PROFILE))
                 .build();
 
-        int partitionCount = partitionCountProvider.calculate(partitionCountCalculationParameters);
+        int partitionCount = partitionCountCalculator.calculate(partitionCountCalculationParameters);
 
         return new CatalogZoneDescriptor(
                 newDefaultZoneId,

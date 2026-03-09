@@ -854,8 +854,6 @@ public class JraftServerImpl implements RaftServer {
 
         private final FailureManager failureManager;
 
-        private final RaftNodeId nodeId;
-
         private final RaftMetricSource raftMetrics;
 
         /**
@@ -873,7 +871,6 @@ public class JraftServerImpl implements RaftServer {
                 FailureManager failureManager
         ) {
             super(nodeId.groupId().toString());
-            this.nodeId = nodeId;
             this.listener = listener;
             this.raftMetrics = opts.getRaftMetrics();
             this.marshaller = opts.getCommandsMarshaller();
@@ -993,7 +990,7 @@ public class JraftServerImpl implements RaftServer {
             super.onLeaderStart(term);
 
             if (raftMetrics != null) {
-                raftMetrics.onLeaderStart(nodeId);
+                raftMetrics.onLeaderStart();
             }
         }
 
@@ -1002,7 +999,7 @@ public class JraftServerImpl implements RaftServer {
             super.onLeaderStop(status);
 
             if (raftMetrics != null) {
-                raftMetrics.onLeaderStop(nodeId);
+                raftMetrics.onLeaderStop();
             }
         }
     }

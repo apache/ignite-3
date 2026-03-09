@@ -84,9 +84,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         CompletableFuture<Void> rollbackFut = tx.rollbackAsync();
 
         assertNotSame(firstCommitFut, secondCommitFut);
-        assertSame(secondCommitFut, rollbackFut);
         assertSame(secondCommitFut, tx.commitAsync());
-        assertSame(rollbackFut, tx.rollbackAsync());
 
         assertFalse(firstCommitFut.isDone());
         assertFalse(secondCommitFut.isDone());
@@ -130,9 +128,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         CompletableFuture<Void> secondRollbackFut = tx.rollbackAsync();
 
         assertNotSame(firstRollbackFut, secondRollbackFut);
-        assertSame(secondRollbackFut, commitFut);
         assertSame(commitFut, tx.commitAsync());
-        assertSame(secondRollbackFut, tx.rollbackAsync());
 
         assertFalse(firstRollbackFut.isDone());
         assertFalse(secondRollbackFut.isDone());
@@ -231,7 +227,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, true);
+            tx.enlistFuture(ch, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {
@@ -271,7 +267,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, true);
+            tx.enlistFuture(ch, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {

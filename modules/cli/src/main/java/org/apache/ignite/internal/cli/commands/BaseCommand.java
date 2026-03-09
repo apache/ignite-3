@@ -38,7 +38,9 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.VERBOSE_
 
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipelineBuilder;
 import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -95,5 +97,26 @@ public abstract class BaseCommand {
      */
     protected <I, O> void runFlow(FlowBuilder<I, O> flowBuilder) {
         flowBuilder.verbose(verbose).start();
+    }
+
+    /**
+     * Creates a {@link ClusterNotInitializedExceptionHandler} that suggests the appropriate init command based on whether this command is
+     * running in REPL mode.
+     *
+     * @param message command-specific error text (e.g. "Cannot list units")
+     */
+    protected ClusterNotInitializedExceptionHandler createHandler(String message) {
+        return new ClusterNotInitializedExceptionHandler(message, isReplMode() ? "cluster init" : "ignite cluster init");
+    }
+
+    /**
+     * Detects whether this command is running in REPL mode by walking up to the root command and checking its class.
+     */
+    private boolean isReplMode() {
+        CommandLine root = spec.commandLine();
+        while (root.getParent() != null) {
+            root = root.getParent();
+        }
+        return root.getCommand() instanceof TopLevelCliReplCommand;
     }
 }
