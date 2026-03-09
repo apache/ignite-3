@@ -22,12 +22,16 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import io.micronaut.core.annotation.Order;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -60,6 +64,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -114,6 +121,9 @@ import org.jetbrains.annotations.TestOnly;
  *     (at least, all partition owners are present in the logical topology), then the catalog is compacted.</li>
  * </ol>
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(300)
 public class CatalogCompactionRunner implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(CatalogCompactionRunner.class);
 
@@ -169,6 +179,29 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private volatile HybridTimestamp lowWatermarkValue;
 
     private volatile UUID localNodeId;
+
+    /** Constructor for DI. */
+    @Inject
+    public CatalogCompactionRunner(
+            NodeIdentity nodeIdentity,
+            CatalogManagerImpl catalogManager,
+            @Named("clusterMessaging") MessagingService messagingService,
+            LogicalTopologyService logicalTopologyService,
+            PlacementDriver placementDriver,
+            ReplicaService replicaService,
+            ClockService clockService,
+            SchemaSyncService schemaSyncService,
+            TopologyService topologyService,
+            LowWatermark lowWatermark,
+            ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
+            MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
+            RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
+    ) {
+        this(nodeIdentity.nodeName(), catalogManager, messagingService, logicalTopologyService, placementDriver,
+                replicaService, clockService, schemaSyncService, topologyService, lowWatermark,
+                activeLocalTxMinimumRequiredTimeProvider, minimumRequiredTimeCollectorService,
+                rebalanceMinimumRequiredTimeProvider);
+    }
 
     /**
      * Constructs catalog compaction runner.

@@ -29,14 +29,21 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.InternalClusterNode;
@@ -58,6 +65,9 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1600)
 public class ReplicaService {
     private static final List<Integer> RETRIABLE_ERRORS = List.of(
             ACQUIRE_LOCK_ERR,
@@ -83,6 +93,24 @@ public class ReplicaService {
 
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    /** Constructor for DI injection. */
+    @Inject
+    public ReplicaService(
+            @Named("storageOperations") MessagingService messagingService,
+            ClockService clockService,
+            @Named("partitionOperationsExecutor") ExecutorService partitionOperationsExecutor,
+            ReplicationConfiguration replicationConfiguration,
+            @Named("commonScheduler") ScheduledExecutorService commonScheduler
+    ) {
+        this(
+                messagingService,
+                clockService,
+                (Executor) partitionOperationsExecutor,
+                replicationConfiguration,
+                commonScheduler
+        );
+    }
 
     /**
      * The constructor of replica client.

@@ -26,6 +26,7 @@ dependencies {
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     api project(':ignite-configuration-system')
     api project(':ignite-storage-api')
@@ -49,6 +50,7 @@ dependencies {
     implementation libs.auto.service.annotations
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.micronaut.inject
 
     testImplementation project(':ignite-core')
     testImplementation testFixtures(project(':ignite-core'))
@@ -108,6 +110,7 @@ dependencies {
     testFixturesImplementation project(':ignite-distribution-zones')
     testFixturesImplementation project(':ignite-table')
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation libs.micronaut.inject
 }
 
 description = 'ignite-transactions'

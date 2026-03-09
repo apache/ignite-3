@@ -21,6 +21,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +32,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
@@ -48,6 +55,9 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 /**
  * Manager responsible from cleaning up the transaction resources.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(3300)
 public class ResourceVacuumManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ResourceVacuumManager.class);
@@ -85,6 +95,44 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     private volatile ScheduledFuture<?> vacuumOperationFuture;
     private volatile ScheduledFuture<?> broadcastClosedTransactionsFuture;
+
+    /**
+     * Constructor for dependency injection.
+     *
+     * @param nodeIdentity Node identity.
+     * @param resourceRegistry Resources registry.
+     * @param topologyService Topology service.
+     * @param messagingService Messaging service.
+     * @param transactionInflights Transaction inflights.
+     * @param txManager Transactional manager.
+     * @param lowWatermark Low watermark.
+     * @param failureProcessor Failure processor.
+     * @param metricManager Metric manager.
+     */
+    @Inject
+    public ResourceVacuumManager(
+            NodeIdentity nodeIdentity,
+            RemotelyTriggeredResourceRegistry resourceRegistry,
+            TopologyService topologyService,
+            @Named("storageOperations") MessagingService messagingService,
+            TransactionInflights transactionInflights,
+            TxManager txManager,
+            LowWatermark lowWatermark,
+            FailureProcessor failureProcessor,
+            MetricManager metricManager
+    ) {
+        this(
+                nodeIdentity.nodeName(),
+                resourceRegistry,
+                topologyService,
+                messagingService,
+                transactionInflights,
+                txManager,
+                lowWatermark,
+                failureProcessor,
+                metricManager
+        );
+    }
 
     /**
      * Constructor.

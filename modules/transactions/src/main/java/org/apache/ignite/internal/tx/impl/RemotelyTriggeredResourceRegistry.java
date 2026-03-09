@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 
+import jakarta.inject.Singleton;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -37,6 +38,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * This registry keeps track of the resources that were created by remote nodes.
  */
+@Singleton
 public class RemotelyTriggeredResourceRegistry {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RemotelyTriggeredResourceRegistry.class);

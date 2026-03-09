@@ -75,7 +75,11 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.micronaut.core.annotation.Order;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -104,6 +108,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -205,6 +211,9 @@ import org.jetbrains.annotations.VisibleForTesting;
  *     <li>Supporting the rebalance mechanism and starting the new replication nodes when the rebalance triggers occurred.</li>
  * </ul>
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2300)
 public class PartitionReplicaLifecycleManager extends
         AbstractEventProducer<LocalPartitionReplicaEvent, LocalPartitionReplicaEventParameters> implements IgniteComponent {
     private final CatalogService catalogService;
@@ -325,6 +334,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param messagingService Messaging service.
      * @param replicaService Replica service.
      */
+    @Inject
     public PartitionReplicaLifecycleManager(
             CatalogService catalogService,
             ReplicaManager replicaMgr,
@@ -333,9 +343,9 @@ public class PartitionReplicaLifecycleManager extends
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
-            ExecutorService ioExecutor,
-            ScheduledExecutorService rebalanceScheduler,
-            Executor partitionOperationsExecutor,
+            @Named("tableIoExecutor") ExecutorService ioExecutor,
+            @Named("rebalanceScheduler") ScheduledExecutorService rebalanceScheduler,
+            @Named("partitionOperationsExecutor") Executor partitionOperationsExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
@@ -346,7 +356,7 @@ public class PartitionReplicaLifecycleManager extends
             DataStorageManager dataStorageManager,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             MetricManager metricManager,
-            MessagingService messagingService,
+            @Named("storageOperations") MessagingService messagingService,
             ReplicaService replicaService
     ) {
         this(

@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.exec.kill;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.EnumMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.InternalClusterNode;
 import org.apache.ignite.internal.network.MessagingService;
@@ -40,6 +44,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Handler of SQL KILL command.
  */
+@Singleton
 public class KillCommandHandler implements KillHandlerRegistry {
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
@@ -52,6 +57,16 @@ public class KillCommandHandler implements KillHandlerRegistry {
     private final LogicalTopologyService logicalTopologyService;
 
     private final MessagingService messageService;
+
+    /** Constructor for DI injection. */
+    @Inject
+    public KillCommandHandler(
+            NodeIdentity nodeIdentity,
+            LogicalTopologyService logicalTopologyService,
+            @Named("clusterMessaging") MessagingService messageService
+    ) {
+        this(nodeIdentity.nodeName(), logicalTopologyService, messageService);
+    }
 
     /**
      * Constructor.

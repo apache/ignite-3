@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.deployunit.loader.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -44,6 +45,7 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 /**
  * Manages job context.
  */
+@Singleton
 public class UnitsContextManager {
     private static final IgniteLogger LOG = Loggers.forClass(UnitsContextManager.class);
 

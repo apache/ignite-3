@@ -24,6 +24,10 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +38,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -58,6 +65,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Outgoing snapshots manager. Manages a collection of all outgoing snapshots, currently present on the Ignite node.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(2100)
 public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComponent {
     /**
      * Logger.
@@ -80,6 +90,16 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     private final Map<PartitionKey, PartitionSnapshotsImpl> snapshotsByPartition = new ConcurrentHashMap<>();
 
     private volatile ExecutorService executor;
+
+    /** Constructor for DI injection. */
+    @Inject
+    public OutgoingSnapshotsManager(
+            NodeIdentity identity,
+            @Named("clusterMessaging") MessagingService messagingService,
+            FailureProcessor failureProcessor
+    ) {
+        this(identity.nodeName(), messagingService, failureProcessor);
+    }
 
     /**
      * Constructor.

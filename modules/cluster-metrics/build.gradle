@@ -22,9 +22,11 @@ description = 'ignite-cluster-metrics'
 
 dependencies {
     annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-core')
     implementation project(':ignite-metrics')
     implementation project(':ignite-network')
     implementation libs.jetbrains.annotations
+    implementation libs.micronaut.inject
 }

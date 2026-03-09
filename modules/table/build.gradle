@@ -25,6 +25,7 @@ dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
@@ -54,6 +55,8 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
+    implementation libs.micronaut.inject
+    implementation project(':ignite-di')
 
     testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-configuration')
@@ -124,6 +127,8 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-marshaller-common'))
     testFixturesImplementation testFixtures(project(':ignite-schema'))
     testFixturesImplementation libs.fastutil.core
+    testFixturesImplementation project(':ignite-di')
+    testFixturesImplementation libs.micronaut.inject
 
 
     integrationTestImplementation project(':ignite-raft-api')

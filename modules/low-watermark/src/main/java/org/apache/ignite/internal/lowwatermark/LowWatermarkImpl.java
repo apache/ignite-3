@@ -27,6 +27,10 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +46,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -91,6 +98,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see LowWatermarkEvent
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(2000)
 public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, LowWatermarkEventParameters> implements LowWatermark,
         IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkImpl.class);
@@ -132,6 +142,19 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     private @Nullable ScheduledUpdateLowWatermarkTask lastScheduledUpdateLowWatermarkTask;
 
     private final Lock scheduleUpdateLowWatermarkTaskLock = new ReentrantLock();
+
+    /** Constructor for DI. */
+    @Inject
+    public LowWatermarkImpl(
+            NodeIdentity nodeIdentity,
+            LowWatermarkConfiguration lowWatermarkConfig,
+            ClockService clockService,
+            VaultManager vaultManager,
+            FailureManager failureManager,
+            @Named("clusterMessaging") MessagingService messagingService
+    ) {
+        this(nodeIdentity.nodeName(), lowWatermarkConfig, clockService, vaultManager, failureManager, messagingService);
+    }
 
     /**
      * Constructor.

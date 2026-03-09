@@ -21,6 +21,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -32,6 +35,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessageGroup;
@@ -52,6 +57,8 @@ import org.jetbrains.annotations.Nullable;
  * Local node RW transaction completion checker for indexes. Main task is to handle the
  * {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
 public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, ActiveLocalTxMinimumRequiredTimeProvider,
         IgniteComponent {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
@@ -73,9 +80,10 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Constructor. */
+    @Inject
     public IndexNodeFinishedRwTransactionsChecker(
             CatalogService catalogService,
-            MessagingService messagingService,
+            @Named("clusterMessaging") MessagingService messagingService,
             HybridClock clock
     ) {
         this.catalogService = catalogService;

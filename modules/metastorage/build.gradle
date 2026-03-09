@@ -43,6 +43,8 @@ dependencies {
     implementation libs.auto.service.annotations
 
     annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor libs.micronaut.inject.annotation.processor
+    implementation libs.micronaut.inject
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-vault'))
@@ -93,6 +95,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
+    testFixturesImplementation libs.micronaut.inject
 }
 
 description = 'ignite-metastorage'

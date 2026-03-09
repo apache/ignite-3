@@ -1,0 +1,92 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.app.di;
+
+import io.micronaut.context.annotation.Factory;
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
+import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.configuration.ComputeExtensionConfiguration;
+import org.apache.ignite.internal.compute.executor.ComputeExecutorImpl;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
+import org.apache.ignite.internal.deployunit.DeploymentUnitAccessor;
+import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
+import org.apache.ignite.internal.deployunit.configuration.DeploymentExtensionConfiguration;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
+import org.apache.ignite.internal.network.ClusterService;
+
+/**
+ * Micronaut factory for compute and deployment components.
+ */
+@Factory
+public class ComputeFactory {
+    /** Creates the compute configuration from the node config registry. */
+    @Singleton
+    public ComputeConfiguration computeConfiguration(
+            @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry
+    ) {
+        return nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
+    }
+
+    /** Creates the deployment configuration from the node config registry. */
+    @Singleton
+    public DeploymentConfiguration deploymentConfiguration(
+            @Named("nodeConfig") ConfigurationRegistry nodeConfigRegistry
+    ) {
+        return nodeConfigRegistry.getConfiguration(DeploymentExtensionConfiguration.KEY).deployment();
+    }
+
+    /** Creates the deployment manager. */
+    @Singleton
+    @IgniteStartupPhase(StartupPhase.PHASE_2)
+    @Order(3000)
+    public DeploymentManagerImpl deploymentManager(
+            ClusterService clusterService,
+            DeploymentUnitStoreImpl deploymentUnitStore,
+            LogicalTopologyService logicalTopologyService,
+            NodeIdentity nodeIdentity,
+            DeploymentConfiguration deploymentConfiguration,
+            ClusterManagementGroupManager cmgManager,
+            ComputeExecutorImpl computeExecutor
+    ) {
+        return new DeploymentManagerImpl(
+                clusterService,
+                deploymentUnitStore,
+                logicalTopologyService,
+                nodeIdentity.workDir(),
+                deploymentConfiguration,
+                cmgManager,
+                nodeIdentity.nodeName(),
+                computeExecutor::onUnitRemoving
+        );
+    }
+
+    /** Exposes the deployment unit accessor from the deployment manager. */
+    @Singleton
+    public DeploymentUnitAccessor deploymentUnitAccessor(DeploymentManagerImpl deploymentManager) {
+        return deploymentManager.deploymentUnitAccessor();
+    }
+
+}

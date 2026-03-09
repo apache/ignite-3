@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.app;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -28,7 +32,10 @@ import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 /**
  * System properties initialization.
  */
-class SystemPropertiesComponent implements IgniteComponent {
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(3200)
+public class SystemPropertiesComponent implements IgniteComponent {
 
     /**
      * Sensitive data logging option. See {@link IgniteToStringBuilder#setSensitiveDataPolicy(SensitiveDataLoggingPolicy)}}. 
@@ -37,7 +44,8 @@ class SystemPropertiesComponent implements IgniteComponent {
 
     private final SystemDistributedConfigurationPropertyHolder<SensitiveDataLoggingPolicy> sensitiveDataLogging;
 
-    SystemPropertiesComponent(SystemDistributedConfiguration configuration) {
+    /** Constructor. */
+    public SystemPropertiesComponent(SystemDistributedConfiguration configuration) {
         this.sensitiveDataLogging = new SystemDistributedConfigurationPropertyHolder<>(
                 configuration,
                 (value, revision) -> IgniteToStringBuilder.setSensitiveDataPolicy(value),

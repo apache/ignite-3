@@ -27,6 +27,10 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,6 +46,9 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.SuccessResponseMessage;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.disaster.system.exception.ClusterResetException;
 import org.apache.ignite.internal.disaster.system.exception.MigrateException;
 import org.apache.ignite.internal.disaster.system.message.BecomeMetastorageLeaderMessage;
@@ -69,6 +76,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link SystemDisasterRecoveryManager}.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(900)
 public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecoveryManager, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(SystemDisasterRecoveryManagerImpl.class);
 
@@ -88,6 +98,22 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     private final Executor restartExecutor;
 
     private final ClusterManagementGroupManager cmgManager;
+
+    /** Constructor for DI. */
+    @Inject
+    public SystemDisasterRecoveryManagerImpl(
+            NodeIdentity nodeIdentity,
+            TopologyService topologyService,
+            @Named("clusterMessaging") MessagingService messagingService,
+            VaultManager vaultManager,
+            ServerRestarter restarter,
+            MetastorageGroupMaintenance metastorageGroupMaintenance,
+            ClusterManagementGroupManager cmgManager,
+            ClusterIdSupplier clusterIdSupplier
+    ) {
+        this(nodeIdentity.nodeName(), topologyService, messagingService, vaultManager,
+                restarter, metastorageGroupMaintenance, cmgManager, clusterIdSupplier);
+    }
 
     /** Constructor. */
     public SystemDisasterRecoveryManagerImpl(

@@ -20,9 +20,13 @@ package org.apache.ignite.internal.network;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import io.micronaut.core.annotation.Order;
 import io.netty.channel.EventLoopGroup;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.SingleThreadEventExecutor;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -30,6 +34,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
@@ -45,6 +51,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * This component is responsible for registering Netty workers with the {@link CriticalWorkerRegistry} and for updating their heartbeats.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_1)
+@Order(1200)
 public class NettyWorkersRegistrar implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(NettyWorkersRegistrar.class);
 
@@ -78,9 +87,10 @@ public class NettyWorkersRegistrar implements IgniteComponent {
      * @param bootstrapFactory Used to obtain Netty workers.
      * @param failureManager Used to process failures.
      */
+    @Inject
     public NettyWorkersRegistrar(
             CriticalWorkerRegistry criticalWorkerRegistry,
-            ScheduledExecutorService scheduler,
+            @Named("commonScheduler") ScheduledExecutorService scheduler,
             NettyBootstrapFactory bootstrapFactory,
             CriticalWorkersConfiguration criticalWorkersConfiguration,
             FailureManager failureManager

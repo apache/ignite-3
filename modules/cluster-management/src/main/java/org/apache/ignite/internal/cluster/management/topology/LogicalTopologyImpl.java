@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
+import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link LogicalTopology}.
  */
+@Singleton
 public class LogicalTopologyImpl implements LogicalTopology {
     private static final IgniteLogger LOG = Loggers.forClass(LogicalTopologyImpl.class);
 

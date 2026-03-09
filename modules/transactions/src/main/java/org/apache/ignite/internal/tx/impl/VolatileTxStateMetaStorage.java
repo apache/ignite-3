@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +46,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
+@Singleton
 public class VolatileTxStateMetaStorage {
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;

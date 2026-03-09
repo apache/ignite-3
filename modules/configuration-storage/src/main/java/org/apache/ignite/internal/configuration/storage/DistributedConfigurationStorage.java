@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +38,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -55,6 +58,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Distributed configuration storage.
  */
+@Singleton
 public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributedConfigurationStorage.class);
@@ -92,6 +96,12 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     private final ExecutorService threadPool;
 
     private final InFlightFutures futureTracker = new InFlightFutures();
+
+    /** Constructor for DI injection. */
+    @Inject
+    public DistributedConfigurationStorage(NodeIdentity nodeIdentity, MetaStorageManager metaStorageManager) {
+        this(nodeIdentity.nodeName(), metaStorageManager);
+    }
 
     /**
      * Constructor.

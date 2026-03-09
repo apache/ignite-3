@@ -21,7 +21,11 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    annotationProcessor libs.micronaut.inject.annotation.processor
+
     implementation project(':ignite-core')
+    implementation project(':ignite-di')
+    implementation libs.micronaut.inject
     implementation project(':ignite-rocksdb-common')
     implementation libs.jetbrains.annotations
     implementation libs.rocksdb.jni
@@ -30,6 +34,8 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
 
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-di')
+    testFixturesImplementation libs.micronaut.inject
 }
 
 description = 'ignite-vault'

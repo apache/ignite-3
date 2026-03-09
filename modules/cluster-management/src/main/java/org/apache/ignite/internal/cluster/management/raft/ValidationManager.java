@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 
+import jakarta.inject.Singleton;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Set;
@@ -41,6 +42,7 @@ import org.jetbrains.annotations.Nullable;
  * After the node finishes local recovery procedures, it sends a {@link JoinReadyCommand} containing the validation token. If the local
  * token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
+@Singleton
 public class ValidationManager {
     protected final ClusterStateStorageManager storageManager;
 

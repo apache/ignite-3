@@ -25,6 +25,7 @@ description = 'ignite-schema'
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.auto.service
+    annotationProcessor libs.micronaut.inject.annotation.processor
 
     api project(':ignite-binary-tuple')
     api project(':ignite-marshaller-common')
@@ -38,6 +39,8 @@ dependencies {
     implementation project(':ignite-configuration-root')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
+    implementation libs.micronaut.inject
+    implementation project(':ignite-di')
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor
@@ -61,4 +64,6 @@ dependencies {
     testFixturesImplementation project(':ignite-configuration-api')
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation project(':ignite-di')
+    testFixturesImplementation libs.micronaut.inject
 }

@@ -26,6 +26,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -36,6 +39,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -80,6 +86,9 @@ import org.jetbrains.annotations.Nullable;
  *     in the {@link MetaStorageManager#deployWatches}.</li>
  * </ul>
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(3400)
 public class MetaStorageCompactionTrigger implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageCompactionTrigger.class);
 
@@ -116,6 +125,35 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    /**
+     * Constructor for dependency injection.
+     *
+     * @param nodeIdentity Node identity.
+     * @param storage Storage.
+     * @param metaStorageManager Metastorage manager.
+     * @param failureProcessor Failure processor.
+     * @param readOperationForCompactionTracker Tracker of read operations, both local and from the leader.
+     * @param systemDistributedConfig Distributed system configuration.
+     */
+    @Inject
+    public MetaStorageCompactionTrigger(
+            NodeIdentity nodeIdentity,
+            KeyValueStorage storage,
+            MetaStorageManager metaStorageManager,
+            FailureProcessor failureProcessor,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker,
+            SystemDistributedConfiguration systemDistributedConfig
+    ) {
+        this(
+                nodeIdentity.nodeName(),
+                storage,
+                (MetaStorageManagerImpl) metaStorageManager,
+                failureProcessor,
+                readOperationForCompactionTracker,
+                systemDistributedConfig
+        );
+    }
 
     /**
      * Constructor.

@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.deployunit.loader;
 
+import jakarta.inject.Singleton;
 import java.util.List;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 
 /**
  * Deployment units classloader factory.
  */
+@Singleton
 public class UnitsClassLoaderFactory {
     /**
      * Create a class loader for the specified units.

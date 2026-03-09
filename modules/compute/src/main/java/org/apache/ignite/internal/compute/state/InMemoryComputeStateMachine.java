@@ -24,6 +24,8 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -31,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.compute.Cleaner;
 import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
@@ -40,6 +43,7 @@ import org.apache.ignite.internal.logger.Loggers;
 /**
  * In memory implementation of {@link ComputeStateMachine}.
  */
+@Singleton
 public class InMemoryComputeStateMachine implements ComputeStateMachine {
     private static final IgniteLogger LOG = Loggers.forClass(InMemoryComputeStateMachine.class);
 
@@ -50,6 +54,12 @@ public class InMemoryComputeStateMachine implements ComputeStateMachine {
     private final Cleaner<JobState> cleaner = new Cleaner<>();
 
     private final Map<UUID, JobState> states = new ConcurrentHashMap<>();
+
+    /** Constructor for DI injection. */
+    @Inject
+    public InMemoryComputeStateMachine(ComputeConfiguration configuration, NodeIdentity nodeIdentity) {
+        this(configuration, nodeIdentity.nodeName());
+    }
 
     public InMemoryComputeStateMachine(ComputeConfiguration configuration, String nodeName) {
         this.configuration = configuration;

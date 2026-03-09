@@ -22,6 +22,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
@@ -31,6 +34,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -46,6 +52,9 @@ import org.jetbrains.annotations.VisibleForTesting;
 /**
  * Metric manager.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(900)
 public class MetricManagerImpl extends AbstractMetricManager {
     // This field cannot be static, because its used by the Thin Client.
     // However, it is expected that MetricManagerImpl will be used only on the server side.
@@ -61,6 +70,12 @@ public class MetricManagerImpl extends AbstractMetricManager {
     public MetricManagerImpl(String nodeName, Supplier<UUID> clusterIdSupplier) {
         this.nodeName = nodeName;
         this.clusterIdSupplier = clusterIdSupplier;
+    }
+
+    /** Constructor for DI injection. */
+    @Inject
+    public MetricManagerImpl(NodeIdentity nodeIdentity) {
+        this(nodeIdentity.nodeName(), nodeIdentity.clusterIdSupplier());
     }
 
     /** Constructor for smoother testing. */

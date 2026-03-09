@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
+import jakarta.inject.Singleton;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.util.CompletableFutures;
  *     ({@link KeyValueStorage#setCompactionRevision}) for a new compaction revision.</li>
  * </ul>
  */
+@Singleton
 public class ReadOperationForCompactionTracker {
     private final Map<ReadOperationKey, CompletableFuture<Void>> readOperationFutureByKey = new ConcurrentHashMap<>();
 

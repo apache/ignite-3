@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.NodeIdentity;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccess;
@@ -47,6 +48,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     private static final int ZONE_ID = 1;
     private static final int TABLE_ID = 2;
+
+    @Mock
+    private NodeIdentity nodeIdentity;
 
     @InjectMocks
     private OutgoingSnapshotsManager manager;

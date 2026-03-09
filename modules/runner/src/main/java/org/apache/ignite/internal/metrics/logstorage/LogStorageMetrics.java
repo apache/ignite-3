@@ -22,10 +22,17 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
+import io.micronaut.core.annotation.Order;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.ignite.internal.components.IgniteStartupPhase;
+import org.apache.ignite.internal.components.NodeIdentity;
+import org.apache.ignite.internal.components.StartupPhase;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -39,6 +46,9 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 /**
  * Component that collects metrics about log storages.
  */
+@Singleton
+@IgniteStartupPhase(StartupPhase.PHASE_2)
+@Order(1400)
 public class LogStorageMetrics implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LogStorageMetrics.class);
 
@@ -59,6 +69,20 @@ public class LogStorageMetrics implements IgniteComponent {
 
     private volatile ScheduledExecutorService executorService;
     private volatile ScheduledFuture<?> taskFuture;
+
+    /** Constructor for DI injection. */
+    @Inject
+    public LogStorageMetrics(
+            NodeIdentity nodeIdentity,
+            MetricManager metricManager,
+            @Named("cmg") LogStorageManager cmgLogStorageManager,
+            @Named("metastorage") LogStorageManager metastorageLogStorageManager,
+            @Named("partitions") LogStorageManager partitionsLogStorageManager,
+            VolatileLogStorageManagerCreator volatileLogStorageManagerCreator
+    ) {
+        this(nodeIdentity.nodeName(), metricManager, cmgLogStorageManager, metastorageLogStorageManager,
+                partitionsLogStorageManager, volatileLogStorageManagerCreator);
+    }
 
     /** Constructor. */
     public LogStorageMetrics(
