@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -104,6 +106,22 @@ public class TxStateMetaFinishing extends TxStateMeta {
     @Override
     public TxStateMetaBuilder mutate() {
         return new TxStateMetaFinishingBuilder(this);
+    }
+
+    /**
+     * Casts given meta to {@link TxStateMetaFinishing} if it's instance of it, throws {@link AssertionError} otherwise.
+     *
+     * @param txId Transaction id.
+     * @param txMeta Meta to cast.
+     * @return Given meta cast to {@link TxStateMetaFinishing}.
+     */
+    public static TxStateMetaFinishing castToFinishing(UUID txId, TransactionMeta txMeta) {
+        if (txMeta instanceof TxStateMetaFinishing) {
+            return (TxStateMetaFinishing) txMeta;
+        } else {
+            throw new AssertionError(format("Unexpected tx meta type for FINISHING state [txId={}, type={}, txMeta={}] ",
+                    txId, txMeta.getClass().getName(), txMeta));
+        }
     }
 
     /**

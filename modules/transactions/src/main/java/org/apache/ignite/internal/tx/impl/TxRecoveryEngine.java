@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -40,7 +41,6 @@ import org.apache.ignite.internal.tx.TransactionInternalException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -106,7 +106,7 @@ public class TxRecoveryEngine {
                         if (isFinalState(txStateMeta.txState())) {
                             res = completedFuture(txStateMeta);
                         } else if (txStateMeta.txState() == FINISHING) {
-                            res = ((TxStateMetaFinishing) txStateMeta).txFinishFuture();
+                            res = castToFinishing(txId, txStateMeta).txFinishFuture();
                         } else {
                             res = failedFuture(new TransactionInternalException(TX_ROLLBACK_ERR, format("Unexpected transaction "
                                     + "state after recovery [txId={}, txMeta={}].", txId, txStateMeta)));

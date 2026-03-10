@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.builder;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.tx.TxStateMetaUnknown.txStateMetaUnknown;
 import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -2210,9 +2211,21 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
     }
 
     private CompletableFuture<TransactionMeta> processTxStatePrimaryReplicaRequest(TxStatePrimaryReplicaRequest request) {
+        UUID txId = request.txId();
+
+        TxStateMeta txMeta = txManager.stateMeta(txId);
+
+        if (txMeta != null) {
+            if (isFinalState(txMeta.txState())) {
+                return completedFuture(txMeta);
+            } else if (txMeta.txState() == FINISHING) {
+                return castToFinishing(txId, txMeta).txFinishFuture();
+            }
+        }
+
         return completedFuture(txMetaFromStorage(
                 request.rowId().asRowId(),
-                request.txId(),
+                txId,
                 request.newestCommitTimestamp(),
                 request.readTimestamp()
         ));
@@ -3506,7 +3519,7 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
 
                     if (isFinalState(transactionMeta.txState())) {
                         scheduleAsyncWriteIntentSwitch(txId, writeIntent.rowId(), transactionMeta);
-                    } else if (timestamp == null) {
+                    } else if (timestamp == null && transactionMeta.txState() == PENDING) {
                         // If it's resolution by RW txn.
                         LOG.info(
                                 "Received non-final transaction state after tx state resolution [txId={}, groupId={}, txMeta={}, "
@@ -3540,7 +3553,6 @@ public class PartitionReplicaListener implements ReplicaTableProcessor {
                 : format("Unexpected state defined by write intent resolution [{}, txMeta={}].",
                 formatTxInfo(txId, txManager, false), txMeta);
 
-        // TODO IGNITE-27494 double check UNKNOWN state works correctly here.
         if (txMeta.txState() == COMMITTED) {
             boolean readLatest = timestamp == null;
 

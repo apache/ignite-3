@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.UNKNOWN;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -212,9 +212,7 @@ public class TransactionStateResolver {
         } else if (localMeta.txState() == PENDING) {
             resolveTxStateFromTxCoordinator(p, localMeta.txCoordinatorId(), txMetaFuture);
         } else if (localMeta.txState() == FINISHING) {
-            assert localMeta instanceof TxStateMetaFinishing;
-
-            ((TxStateMetaFinishing) localMeta).txFinishFuture().whenComplete((v, e) -> {
+            castToFinishing(p.txId(), localMeta).txFinishFuture().whenComplete((v, e) -> {
                 if (e == null) {
                     txMetaFuture.complete(v);
                 } else {
@@ -342,11 +340,7 @@ public class TransactionStateResolver {
             if (isFinalState(txStateMeta.txState())) {
                 return completedFuture(txStateMeta);
             } else if (txStateMeta.txState() == FINISHING) {
-                assert txStateMeta instanceof TxStateMetaFinishing;
-
-                TxStateMetaFinishing txStateMetaFinishing = (TxStateMetaFinishing) txStateMeta;
-
-                return txStateMetaFinishing.txFinishFuture();
+                return castToFinishing(request.txId(), txStateMeta).txFinishFuture();
             } else if (request.readTimestamp() == null || request.readTimestamp().equals(HybridTimestamp.MIN_VALUE)) {
                 // If txn is in non-final state and resolution is requested by RW txn.
                 Long currentConsistencyToken = request.senderCurrentConsistencyToken();

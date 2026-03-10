@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.tx.TxStateMeta.finalizeState;
+import static org.apache.ignite.internal.tx.TxStateMetaFinishing.castToFinishing;
 import static org.apache.ignite.internal.tx.impl.PlacementDriverHelper.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.tx.impl.TxStateResolutionParameters.txStateResolutionParameters;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.TxRecoveryEngine;
@@ -101,9 +101,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
         TxStateMeta txMeta = txManager.stateMeta(txId);
 
         if (txMeta != null && txMeta.txState() == FINISHING) {
-            assert txMeta instanceof TxStateMetaFinishing : txMeta;
-
-            return ((TxStateMetaFinishing) txMeta).txFinishFuture();
+            return castToFinishing(txId, txMeta).txFinishFuture();
         } else if (txMeta == null || !isFinalState(txMeta.txState())) {
             // Try to trigger recovery, if needed. If the transaction will be aborted, the proper ABORTED state will be sent
             // in response.
@@ -266,6 +264,10 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                                     // Sender node is current primary, it has the most recent state of the row, and there is WI
                                     // so it was not cleaned up on group majority - this means the txn was never finished
                                     // and can be aborted.
+                                    // The fact that it was not cleaned up on group majority follows from the absence of persistent
+                                    // state on the commit partition primary, which is possible only if
+                                    // - tx was never finished
+                                    // - or tx was previously aborted due to recovery (so one more abort won't break the data).
                                     return txRecoveryEngine.triggerTxRecovery(
                                                     txId,
                                                     commitGroupId,

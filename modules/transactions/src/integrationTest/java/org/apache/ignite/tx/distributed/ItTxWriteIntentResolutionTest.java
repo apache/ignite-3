@@ -85,6 +85,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments.ArgumentSet;
+import org.junitpioneer.jupiter.cartesian.ArgumentSets;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 
 /**
  * Test for write intent resolution in distributed transactions.
@@ -150,6 +154,16 @@ public class ItTxWriteIntentResolutionTest extends ClusterPerClassIntegrationTes
     @AfterEach
     public void tearDown() {
         shutdownAndAwaitTermination(storageExecutor, 10, TimeUnit.SECONDS);
+    }
+
+    @CartesianTest
+    @CartesianTest.MethodFactory("testArgFactory")
+    public void writeIntentResolutionTest() throws InterruptedException {
+        test();
+    }
+
+    private static ArgumentSets testArgFactory() {
+        return ArgumentSets.argumentsForFirstParameter(true, false);
     }
 
     @Test
